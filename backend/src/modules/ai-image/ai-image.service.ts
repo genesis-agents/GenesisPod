@@ -981,7 +981,7 @@ Keep the same subjects, composition, and overall structure. Only apply the speci
               },
             ],
             generationConfig: {
-              responseModalities: ["IMAGE"],
+              responseModalities: ["TEXT", "IMAGE"],
             },
           },
           {
@@ -1041,9 +1041,10 @@ Keep the same subjects, composition, and overall structure. Only apply the speci
         mimeType,
       );
     } catch (error: any) {
-      this.logger.error(
-        `[Image-to-Image] Primary model error: ${error.message}`,
-      );
+      const errorDetail = error.response?.data
+        ? JSON.stringify(error.response.data).slice(0, 500)
+        : error.message;
+      this.logger.error(`[Image-to-Image] Primary model error: ${errorDetail}`);
       // 尝试备用方案
       return this.generateImageToImageFallback(
         apiKey,
@@ -1083,63 +1084,73 @@ CRITICAL REQUIREMENTS:
 
 Generate the edited version of this image now.`;
 
-    const response = await firstValueFrom(
-      this.httpService.post(
-        url,
-        {
-          contents: [
-            {
-              parts: [
-                {
-                  inlineData: {
-                    mimeType: mimeType,
-                    data: cleanBase64,
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(
+          url,
+          {
+            contents: [
+              {
+                parts: [
+                  {
+                    inlineData: {
+                      mimeType: mimeType,
+                      data: cleanBase64,
+                    },
                   },
-                },
-                {
-                  text: editPrompt,
-                },
-              ],
+                  {
+                    text: editPrompt,
+                  },
+                ],
+              },
+            ],
+            generationConfig: {
+              responseModalities: ["TEXT", "IMAGE"],
             },
-          ],
-          generationConfig: {
-            responseModalities: ["IMAGE"],
           },
-        },
-        {
-          headers: { "Content-Type": "application/json" },
-          timeout: 120000,
-        },
-      ),
-    );
+          {
+            headers: { "Content-Type": "application/json" },
+            timeout: 120000,
+          },
+        ),
+      );
 
-    const candidates = response.data.candidates;
-    if (!candidates || candidates.length === 0) {
-      throw new Error("No candidates in Gemini fallback response");
-    }
-
-    const parts = candidates[0].content?.parts;
-    if (!parts || parts.length === 0) {
-      throw new Error("No parts in Gemini fallback response");
-    }
-
-    // 查找图片数据
-    for (const part of parts) {
-      if (part.inlineData && part.inlineData.data) {
-        const responseMimeType = part.inlineData.mimeType || "image/png";
-        this.logger.log(
-          `[Image-to-Image] Fallback model generated edited image`,
-        );
-        return `data:${responseMimeType};base64,${part.inlineData.data}`;
+      const candidates = response.data.candidates;
+      if (!candidates || candidates.length === 0) {
+        throw new Error("No candidates in Gemini fallback response");
       }
-    }
 
-    // 如果仍然没有图片，抛出详细错误
-    const textPart = parts.find((p: any) => p.text);
-    const errorDetail = textPart
-      ? `Model returned text: ${textPart.text.slice(0, 300)}`
-      : "No image data in response";
-    throw new Error(`Image editing failed. ${errorDetail}`);
+      const parts = candidates[0].content?.parts;
+      if (!parts || parts.length === 0) {
+        throw new Error("No parts in Gemini fallback response");
+      }
+
+      // 查找图片数据
+      for (const part of parts) {
+        if (part.inlineData && part.inlineData.data) {
+          const responseMimeType = part.inlineData.mimeType || "image/png";
+          this.logger.log(
+            `[Image-to-Image] Fallback model generated edited image`,
+          );
+          return `data:${responseMimeType};base64,${part.inlineData.data}`;
+        }
+      }
+
+      // 如果仍然没有图片，抛出详细错误
+      const textPart = parts.find((p: any) => p.text);
+      const errorDetail = textPart
+        ? `Model returned text: ${textPart.text.slice(0, 300)}`
+        : "No image data in response";
+      throw new Error(`Image editing failed. ${errorDetail}`);
+    } catch (error: any) {
+      const errorDetail = error.response?.data
+        ? JSON.stringify(error.response.data).slice(0, 500)
+        : error.message;
+      this.logger.error(
+        `[Image-to-Image] Fallback model error: ${errorDetail}`,
+      );
+      throw new Error(`Image editing failed: ${errorDetail}`);
+    }
   }
 
   /**
