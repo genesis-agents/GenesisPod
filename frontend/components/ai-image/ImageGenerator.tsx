@@ -82,6 +82,9 @@ export default function ImageGenerator() {
   const [selectedImageModelId, setSelectedImageModelId] = useState<string>('');
   const [isLoadingModels, setIsLoadingModels] = useState(true);
   const [skipEnhancement, setSkipEnhancement] = useState(false);
+  const [aspectRatio, setAspectRatio] = useState<
+    '1:1' | '16:9' | '9:16' | '4:3'
+  >('1:1');
 
   // 思考过程展示
   const [showProcessing, setShowProcessing] = useState(true);
@@ -260,6 +263,7 @@ export default function ImageGenerator() {
         if (selectedImageModelId)
           formData.append('imageModelId', selectedImageModelId);
         formData.append('skipEnhancement', String(skipEnhancement));
+        formData.append('aspectRatio', aspectRatio);
 
         const response = await fetch(
           `${config.apiBaseUrl}/api/v1/ai-image/generate-with-files`,
@@ -285,6 +289,7 @@ export default function ImageGenerator() {
       const requestBody: Record<string, unknown> = {
         imageModelId: selectedImageModelId,
         skipEnhancement,
+        aspectRatio,
       };
 
       switch (inputMode) {
@@ -465,6 +470,36 @@ export default function ImageGenerator() {
           ) : (
             <span className="text-xs text-yellow-400">No image models</span>
           )}
+        </div>
+
+        {/* Aspect Ratio Selector */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500">Ratio:</span>
+          <div className="flex gap-1">
+            {(['1:1', '16:9', '9:16', '4:3'] as const).map((ratio) => (
+              <button
+                key={ratio}
+                onClick={() => setAspectRatio(ratio)}
+                disabled={isGenerating}
+                className={`rounded px-2 py-1 text-xs transition ${
+                  aspectRatio === ratio
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white'
+                } disabled:opacity-50`}
+                title={
+                  ratio === '1:1'
+                    ? '正方形'
+                    : ratio === '16:9'
+                      ? '横向'
+                      : ratio === '9:16'
+                        ? '竖向'
+                        : '4:3'
+                }
+              >
+                {ratio}
+              </button>
+            ))}
+          </div>
         </div>
 
         <label className="flex cursor-pointer items-center gap-2">
