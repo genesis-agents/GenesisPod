@@ -483,8 +483,16 @@ export class AiImageService {
       }
 
       return this.addStyleToPrompt(enhancedPrompt, style);
-    } catch (error) {
-      this.logger.error("Prompt enhancement failed:", error);
+    } catch (error: any) {
+      this.logger.error("Prompt enhancement failed:");
+      if (error.response) {
+        this.logger.error(
+          `Status: ${error.response.status}, Data: ${JSON.stringify(error.response.data)}`,
+        );
+      } else {
+        this.logger.error(error.message || error);
+      }
+      // 失败时返回原始内容
       return this.addStyleToPrompt(content, style);
     }
   }
@@ -541,14 +549,25 @@ export class AiImageService {
     modelId: string,
     content: string,
   ): Promise<string> {
-    const baseUrl = apiEndpoint || "https://api.openai.com/v1";
-    const url = `${baseUrl}/chat/completions`;
+    // 清理 endpoint URL - 确保格式正确
+    let baseUrl = apiEndpoint || "https://api.openai.com/v1";
+    // 移除末尾斜杠
+    baseUrl = baseUrl.replace(/\/+$/, "");
+    // 如果endpoint已经包含/chat/completions，不要重复添加
+    const url = baseUrl.includes("/chat/completions")
+      ? baseUrl
+      : `${baseUrl}/chat/completions`;
+
+    const effectiveModel = modelId || "gpt-4o-mini";
+    this.logger.log(
+      `Calling OpenAI text API: ${url} with model: ${effectiveModel}`,
+    );
 
     const response = await firstValueFrom(
       this.httpService.post(
         url,
         {
-          model: modelId || "gpt-4o-mini",
+          model: effectiveModel,
           messages: [
             { role: "system", content: PROMPT_ENHANCEMENT_SYSTEM },
             { role: "user", content: `Content to analyze:\n${content}` },
@@ -764,6 +783,9 @@ export class AiImageService {
 
   /**
    * 使用 Gemini Image Generation API
+   * 支持的图片生成模型:
+   * - gemini-2.0-flash-exp (支持 responseModalities: IMAGE)
+   * - imagen-3.0-generate-001 (Imagen 3)
    */
   private async generateWithGemini(
     apiKey: string,
@@ -771,13 +793,27 @@ export class AiImageService {
     prompt: string,
     _dimensions: { width: number; height: number },
   ): Promise<string> {
-    const model = modelId.includes("gemini")
-      ? modelId
-      : "gemini-2.0-flash-exp-image-generation";
+    // 只有特定模型支持图片生成，其他Gemini模型不支持
+    const imageCapableModels = [
+      "gemini-2.0-flash-exp",
+      "gemini-2.0-flash-exp-image-generation",
+      "imagen-3.0-generate-001",
+      "imagen-3.0-generate-002",
+    ];
+
+    // 检查是否是支持图片生成的模型
+    const isImageCapable = imageCapableModels.some((m) =>
+      modelId.toLowerCase().includes(m.toLowerCase()),
+    );
+
+    // 如果不是支持的模型，使用默认的图片生成模型
+    const model = isImageCapable ? modelId : "gemini-2.0-flash-exp";
+
+    this.logger.log(
+      `Using Gemini model for image generation: ${model} (original: ${modelId})`,
+    );
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-    this.logger.log(`Calling Gemini image API with model: ${model}`);
 
     const response = await firstValueFrom(
       this.httpService.post(
