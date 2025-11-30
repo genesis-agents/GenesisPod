@@ -1106,14 +1106,28 @@ export default function LibraryPage() {
                   {/* Bookmarked AI Images Section (shown even without regular bookmarks) */}
                   {bookmarkedImages.length > 0 && (
                     <div className="py-4">
-                      <h3 className="mb-4 text-lg font-semibold text-gray-900">
-                        Bookmarked AI Images ({bookmarkedImages.length})
+                      <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+                        <svg
+                          className="h-5 w-5 text-purple-600"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          />
+                        </svg>
+                        AI Images ({bookmarkedImages.length})
                       </h3>
                       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                         {bookmarkedImages.map((img) => (
                           <div
                             key={img.id}
-                            className="group relative overflow-hidden rounded-lg bg-gray-100"
+                            onClick={() => setActiveTab('images')}
+                            className="group relative cursor-pointer overflow-hidden rounded-lg bg-gray-100"
                           >
                             <div className="aspect-square">
                               <img
@@ -1129,11 +1143,7 @@ export default function LibraryPage() {
                                 </p>
                               </div>
                             </div>
-                            <button
-                              onClick={() => setActiveTab('images')}
-                              className="absolute right-2 top-2 rounded-full bg-white/80 p-1.5 opacity-0 transition-opacity hover:bg-white group-hover:opacity-100"
-                              title="View in Images tab"
-                            >
+                            <div className="absolute right-2 top-2 rounded-full bg-white/80 p-1.5 opacity-0 transition-opacity group-hover:opacity-100">
                               <svg
                                 className="h-4 w-4 text-gray-700"
                                 fill="none"
@@ -1144,16 +1154,10 @@ export default function LibraryPage() {
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
                                   strokeWidth={2}
-                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                />
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
                                 />
                               </svg>
-                            </button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1180,12 +1184,176 @@ export default function LibraryPage() {
                     </div>
                   )}
 
-                  {/* Resource grid */}
-                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {paginatedItems.items.map((item) => (
-                      <ResourceCard key={item.id} item={item} />
-                    ))}
-                  </div>
+                  {/* Categorized Bookmarks */}
+                  {(() => {
+                    // Categorize items by type
+                    const videoTypes = ['YOUTUBE', 'YOUTUBE_VIDEO'];
+                    const documentTypes = ['PAPER', 'BLOG', 'NEWS', 'REPORT'];
+
+                    const videoItems = paginatedItems.items.filter((item) =>
+                      videoTypes.includes(item.resource.type)
+                    );
+                    const documentItems = paginatedItems.items.filter((item) =>
+                      documentTypes.includes(item.resource.type)
+                    );
+                    const otherItems = paginatedItems.items.filter(
+                      (item) =>
+                        !videoTypes.includes(item.resource.type) &&
+                        !documentTypes.includes(item.resource.type)
+                    );
+
+                    return (
+                      <div className="space-y-8">
+                        {/* Videos Section */}
+                        {videoItems.length > 0 && (
+                          <div>
+                            <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+                              <svg
+                                className="h-5 w-5 text-red-600"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                                />
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
+                              </svg>
+                              Videos ({videoItems.length})
+                            </h3>
+                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                              {videoItems.map((item) => (
+                                <ResourceCard key={item.id} item={item} />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Documents Section */}
+                        {documentItems.length > 0 && (
+                          <div>
+                            <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+                              <svg
+                                className="h-5 w-5 text-blue-600"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                />
+                              </svg>
+                              Documents ({documentItems.length})
+                            </h3>
+                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                              {documentItems.map((item) => (
+                                <ResourceCard key={item.id} item={item} />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Other Items Section */}
+                        {otherItems.length > 0 && (
+                          <div>
+                            <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+                              <svg
+                                className="h-5 w-5 text-gray-600"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                                />
+                              </svg>
+                              Other ({otherItems.length})
+                            </h3>
+                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                              {otherItems.map((item) => (
+                                <ResourceCard key={item.id} item={item} />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Bookmarked AI Images Section */}
+                        {bookmarkedImages.length > 0 && (
+                          <div>
+                            <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+                              <svg
+                                className="h-5 w-5 text-purple-600"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                />
+                              </svg>
+                              AI Images ({bookmarkedImages.length})
+                            </h3>
+                            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                              {bookmarkedImages.map((img) => (
+                                <div
+                                  key={img.id}
+                                  onClick={() => setActiveTab('images')}
+                                  className="group relative cursor-pointer overflow-hidden rounded-lg bg-gray-100"
+                                >
+                                  <div className="aspect-square">
+                                    <img
+                                      src={img.imageUrl}
+                                      alt={img.prompt}
+                                      className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                                    />
+                                  </div>
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100">
+                                    <div className="absolute bottom-0 left-0 right-0 p-2">
+                                      <p className="line-clamp-2 text-xs text-white">
+                                        {img.enhancedPrompt || img.prompt}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="absolute right-2 top-2 rounded-full bg-white/80 p-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+                                    <svg
+                                      className="h-4 w-4 text-gray-700"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                      />
+                                    </svg>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Load more indicator */}
                   <div ref={loadMoreRef} className="py-8 text-center">
@@ -1203,63 +1371,6 @@ export default function LibraryPage() {
                       </span>
                     )}
                   </div>
-
-                  {/* Bookmarked AI Images Section */}
-                  {bookmarkedImages.length > 0 && (
-                    <div className="mt-8 border-t border-gray-200 pt-8">
-                      <h3 className="mb-4 text-lg font-semibold text-gray-900">
-                        Bookmarked AI Images ({bookmarkedImages.length})
-                      </h3>
-                      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                        {bookmarkedImages.map((img) => (
-                          <div
-                            key={img.id}
-                            className="group relative overflow-hidden rounded-lg bg-gray-100"
-                          >
-                            <div className="aspect-square">
-                              <img
-                                src={img.imageUrl}
-                                alt={img.prompt}
-                                className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                              />
-                            </div>
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100">
-                              <div className="absolute bottom-0 left-0 right-0 p-2">
-                                <p className="line-clamp-2 text-xs text-white">
-                                  {img.enhancedPrompt || img.prompt}
-                                </p>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => setActiveTab('images')}
-                              className="absolute right-2 top-2 rounded-full bg-white/80 p-1.5 opacity-0 transition-opacity hover:bg-white group-hover:opacity-100"
-                              title="View in Images tab"
-                            >
-                              <svg
-                                className="h-4 w-4 text-gray-700"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                />
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                                />
-                              </svg>
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               ))}
 
