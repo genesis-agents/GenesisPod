@@ -757,34 +757,55 @@ export class AiImageService {
       ? { max_completion_tokens: 300 }
       : { max_tokens: 300 };
 
-    const response = await firstValueFrom(
-      this.httpService.post(
-        url,
-        {
-          model: effectiveModel,
-          messages: [
-            { role: "system", content: PROMPT_ENHANCEMENT_SYSTEM },
-            { role: "user", content: `Content to analyze:\n${content}` },
-          ],
-          ...tokenParam,
-          temperature: 0.7,
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(
+          url,
+          {
+            model: effectiveModel,
+            messages: [
+              { role: "system", content: PROMPT_ENHANCEMENT_SYSTEM },
+              { role: "user", content: `Content to analyze:\n${content}` },
+            ],
+            ...tokenParam,
+            temperature: 0.7,
           },
-          timeout: 30000,
-        },
-      ),
-    );
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            timeout: 30000,
+          },
+        ),
+      );
 
-    const message = response.data.choices?.[0]?.message?.content;
-    if (message) {
-      return message.trim();
+      this.logger.log(
+        `OpenAI response status: ${response.status}, has data: ${!!response.data}`,
+      );
+
+      const message = response.data.choices?.[0]?.message?.content;
+      if (message) {
+        return message.trim();
+      }
+
+      // Log full response for debugging
+      this.logger.error(
+        `OpenAI response has no text. Response: ${JSON.stringify(response.data).slice(0, 500)}`,
+      );
+      throw new Error("No text in OpenAI response");
+    } catch (error: any) {
+      // Handle axios errors with more details
+      if (error.response) {
+        this.logger.error(
+          `OpenAI API error: ${error.response.status} - ${JSON.stringify(error.response.data).slice(0, 500)}`,
+        );
+        throw new Error(
+          `OpenAI API error: ${error.response.data?.error?.message || error.response.status}`,
+        );
+      }
+      throw error;
     }
-
-    throw new Error("No text in OpenAI response");
   }
 
   /**
@@ -1473,6 +1494,7 @@ export class AiImageService {
       enhancedPrompt: img.enhancedPrompt || undefined,
       width: img.width,
       height: img.height,
+      isBookmarked: img.isBookmarked || false,
       createdAt: img.createdAt.toISOString(),
     }));
   }
@@ -1496,5 +1518,99 @@ export class AiImageService {
       height: image.height,
       createdAt: image.createdAt.toISOString(),
     };
+  }
+
+  /**
+   * 删除图片
+   */
+  async deleteImage(
+    id: string,
+    userId?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      // 验证图片存在且属于该用户
+      const image = await this.prisma.generatedImage.findUnique({
+        where: { id },
+      });
+
+      if (!image) {
+        return { success: false, message: "Image not found" };
+      }
+
+      if (userId && image.userId && image.userId !== userId) {
+        return {
+          success: false,
+          message: "Not authorized to delete this image",
+        };
+      }
+
+      await this.prisma.generatedImage.delete({
+        where: { id },
+      });
+
+      this.logger.log(`Deleted image: ${id}`);
+      return { success: true, message: "Image deleted successfully" };
+    } catch (error) {
+      this.logger.error(`Failed to delete image ${id}:`, error);
+      return { success: false, message: "Failed to delete image" };
+    }
+  }
+
+  /**
+   * 添加书签
+   */
+  async addBookmark(
+    id: string,
+    _userId?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const image = await this.prisma.generatedImage.findUnique({
+        where: { id },
+      });
+
+      if (!image) {
+        return { success: false, message: "Image not found" };
+      }
+
+      await this.prisma.generatedImage.update({
+        where: { id },
+        data: { isBookmarked: true },
+      });
+
+      this.logger.log(`Bookmarked image: ${id}`);
+      return { success: true, message: "Image bookmarked" };
+    } catch (error) {
+      this.logger.error(`Failed to bookmark image ${id}:`, error);
+      return { success: false, message: "Failed to bookmark image" };
+    }
+  }
+
+  /**
+   * 移除书签
+   */
+  async removeBookmark(
+    id: string,
+    _userId?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const image = await this.prisma.generatedImage.findUnique({
+        where: { id },
+      });
+
+      if (!image) {
+        return { success: false, message: "Image not found" };
+      }
+
+      await this.prisma.generatedImage.update({
+        where: { id },
+        data: { isBookmarked: false },
+      });
+
+      this.logger.log(`Removed bookmark from image: ${id}`);
+      return { success: true, message: "Bookmark removed" };
+    } catch (error) {
+      this.logger.error(`Failed to remove bookmark from image ${id}:`, error);
+      return { success: false, message: "Failed to remove bookmark" };
+    }
   }
 }

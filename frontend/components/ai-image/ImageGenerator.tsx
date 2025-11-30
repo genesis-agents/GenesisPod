@@ -28,6 +28,7 @@ interface GeneratedImage {
   createdAt: string;
   width: number;
   height: number;
+  isBookmarked?: boolean;
   processingSteps?: ProcessingStep[];
   extractedContent?: string;
   textModelUsed?: string;
@@ -84,7 +85,16 @@ export default function ImageGenerator() {
   const [skipEnhancement, setSkipEnhancement] = useState(false);
   const [aspectRatio, setAspectRatio] = useState<
     '1:1' | '16:9' | '9:16' | '4:3'
-  >('1:1');
+  >(() => {
+    // 从 localStorage 读取上次的选择
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('ai-image-aspect-ratio');
+      if (saved && ['1:1', '16:9', '9:16', '4:3'].includes(saved)) {
+        return saved as '1:1' | '16:9' | '9:16' | '4:3';
+      }
+    }
+    return '1:1';
+  });
 
   // 思考过程展示
   const [showProcessing, setShowProcessing] = useState(true);
@@ -146,6 +156,14 @@ export default function ImageGenerator() {
           setGeneratedImages(data);
           // 默认选中最新的图片
           setSelectedImage(data[0]);
+          // 初始化已收藏的图片
+          const bookmarked = new Set<string>();
+          data.forEach((img) => {
+            if (img.isBookmarked) {
+              bookmarked.add(img.id);
+            }
+          });
+          setBookmarkedImages(bookmarked);
         }
       }
     } catch (err) {
@@ -157,6 +175,11 @@ export default function ImageGenerator() {
     fetchModels();
     fetchHistory();
   }, [fetchModels, fetchHistory]);
+
+  // 保存比例选择到 localStorage
+  useEffect(() => {
+    localStorage.setItem('ai-image-aspect-ratio', aspectRatio);
+  }, [aspectRatio]);
 
   // ESC 键关闭 Lightbox 和 Context Menu
   useEffect(() => {
@@ -407,23 +430,68 @@ export default function ImageGenerator() {
   const handleBookmark = async (image: GeneratedImage) => {
     try {
       const isBookmarked = bookmarkedImages.has(image.id);
-      // TODO: 实际调用后端 API 保存/取消收藏
-      // await fetch(`${config.apiBaseUrl}/api/v1/ai-image/${image.id}/bookmark`, {
-      //   method: isBookmarked ? 'DELETE' : 'POST',
-      //   headers: { ...getAuthHeader() },
-      // });
-
-      setBookmarkedImages((prev) => {
-        const newSet = new Set(prev);
-        if (isBookmarked) {
-          newSet.delete(image.id);
-        } else {
-          newSet.add(image.id);
+      const response = await fetch(
+        `${config.apiBaseUrl}/api/v1/ai-image/${image.id}/bookmark`,
+        {
+          method: isBookmarked ? 'DELETE' : 'POST',
+          headers: { ...getAuthHeader() },
         }
-        return newSet;
-      });
+      );
+
+      if (response.ok) {
+        setBookmarkedImages((prev) => {
+          const newSet = new Set(prev);
+          if (isBookmarked) {
+            newSet.delete(image.id);
+          } else {
+            newSet.add(image.id);
+          }
+          return newSet;
+        });
+        // 更新图片列表中的状态
+        setGeneratedImages((prev) =>
+          prev.map((img) =>
+            img.id === image.id ? { ...img, isBookmarked: !isBookmarked } : img
+          )
+        );
+      }
     } catch (err) {
       console.error('Bookmark failed:', err);
+    }
+    setContextMenu(null);
+  };
+
+  const handleDelete = async (image: GeneratedImage) => {
+    if (!confirm('Are you sure you want to delete this image?')) {
+      setContextMenu(null);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${config.apiBaseUrl}/api/v1/ai-image/${image.id}`,
+        {
+          method: 'DELETE',
+          headers: { ...getAuthHeader() },
+        }
+      );
+
+      if (response.ok) {
+        // 从列表中移除
+        setGeneratedImages((prev) => prev.filter((img) => img.id !== image.id));
+        // 如果删除的是当前选中的图片，清除选中状态
+        if (selectedImage?.id === image.id) {
+          setSelectedImage(null);
+        }
+        // 从收藏中移除
+        setBookmarkedImages((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(image.id);
+          return newSet;
+        });
+      }
+    } catch (err) {
+      console.error('Delete failed:', err);
     }
     setContextMenu(null);
   };
@@ -1510,6 +1578,29 @@ export default function ImageGenerator() {
               View Fullscreen
             </button>
           )}
+
+          <div className="my-1 border-t border-white/10" />
+
+          {/* Delete */}
+          <button
+            onClick={() => handleDelete(contextMenu.image)}
+            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-red-400 transition hover:bg-red-500/10"
+          >
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
+            </svg>
+            Delete
+          </button>
         </div>
       )}
     </div>

@@ -4,6 +4,7 @@ import {
   Body,
   Get,
   Param,
+  Delete,
   UseGuards,
   Request,
   Logger,
@@ -128,5 +129,30 @@ export class AiImageController {
   @UseGuards(JwtAuthGuard)
   async getImage(@Param("id") id: string) {
     return this.aiImageService.getImage(id);
+  }
+
+  @Delete(":id")
+  @UseGuards(JwtAuthGuard)
+  async deleteImage(@Param("id") id: string, @Request() req: any) {
+    this.logger.log(`Deleting image ${id} for user ${req.user?.userId}`);
+    return this.aiImageService.deleteImage(id, req.user?.userId);
+  }
+
+  @Post(":id/bookmark")
+  @UseGuards(JwtAuthGuard)
+  async addBookmark(@Param("id") id: string, @Request() req: any) {
+    this.logger.log(
+      `Adding bookmark for image ${id} by user ${req.user?.userId}`,
+    );
+    return this.aiImageService.addBookmark(id, req.user?.userId);
+  }
+
+  @Delete(":id/bookmark")
+  @UseGuards(JwtAuthGuard)
+  async removeBookmark(@Param("id") id: string, @Request() req: any) {
+    this.logger.log(
+      `Removing bookmark for image ${id} by user ${req.user?.userId}`,
+    );
+    return this.aiImageService.removeBookmark(id, req.user?.userId);
   }
 }

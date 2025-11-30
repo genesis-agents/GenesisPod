@@ -2024,10 +2024,14 @@ model GeneratedImage {
   // Provider info
   provider String @default("stability") @db.VarChar(50)
 
+  // Bookmark status
+  isBookmarked Boolean @default(false) @map("is_bookmarked")
+
   // Metadata
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([userId])
   @@index([createdAt])
+  @@index([isBookmarked])
   @@map("generated_images")
 }
