@@ -114,6 +114,11 @@ export default function LibraryPage() {
   );
   const [bookmarkedImagesLoading, setBookmarkedImagesLoading] = useState(false);
 
+  // Selected image ID for navigation from bookmarks to Images tab
+  const [selectedImageId, setSelectedImageId] = useState<string | undefined>(
+    undefined
+  );
+
   // API hooks
   const collectionsApi = useCollections();
 
@@ -498,6 +503,34 @@ export default function LibraryPage() {
     if (!thumbnailUrl) return null;
     if (thumbnailUrl.startsWith('http')) return thumbnailUrl;
     return `${config.apiBaseUrl}${thumbnailUrl}`;
+  };
+
+  // Handle clicking on bookmarked AI image - navigate to Images tab and select the image
+  const handleBookmarkedImageClick = (imageId: string) => {
+    setSelectedImageId(imageId);
+    setActiveTab('images');
+  };
+
+  // Handle removing bookmark from AI image
+  const handleRemoveImageBookmark = async (
+    imageId: string,
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation();
+    try {
+      const response = await fetch(
+        `${config.apiBaseUrl}/api/v1/ai-image/${imageId}/bookmark`,
+        {
+          method: 'DELETE',
+          headers: { ...getAuthHeader() },
+        }
+      );
+      if (response.ok) {
+        setBookmarkedImages((prev) => prev.filter((img) => img.id !== imageId));
+      }
+    } catch (err) {
+      console.error('Failed to remove bookmark:', err);
+    }
   };
 
   // Type badge config
@@ -1126,7 +1159,7 @@ export default function LibraryPage() {
                         {bookmarkedImages.map((img) => (
                           <div
                             key={img.id}
-                            onClick={() => setActiveTab('images')}
+                            onClick={() => handleBookmarkedImageClick(img.id)}
                             className="group relative cursor-pointer overflow-hidden rounded-lg bg-gray-100"
                           >
                             <div className="aspect-square">
@@ -1143,20 +1176,44 @@ export default function LibraryPage() {
                                 </p>
                               </div>
                             </div>
-                            <div className="absolute right-2 top-2 rounded-full bg-white/80 p-1.5 opacity-0 transition-opacity group-hover:opacity-100">
-                              <svg
-                                className="h-4 w-4 text-gray-700"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
+                            {/* Action buttons */}
+                            <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                              <button
+                                onClick={(e) =>
+                                  handleRemoveImageBookmark(img.id, e)
+                                }
+                                className="rounded-full bg-white/80 p-1.5 text-red-600 hover:bg-white hover:text-red-700"
+                                title="Remove bookmark"
                               >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                                />
-                              </svg>
+                                <svg
+                                  className="h-4 w-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M6 18L18 6M6 6l12 12"
+                                  />
+                                </svg>
+                              </button>
+                              <div className="rounded-full bg-white/80 p-1.5">
+                                <svg
+                                  className="h-4 w-4 text-gray-700"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                  />
+                                </svg>
+                              </div>
                             </div>
                           </div>
                         ))}
@@ -1314,7 +1371,9 @@ export default function LibraryPage() {
                               {bookmarkedImages.map((img) => (
                                 <div
                                   key={img.id}
-                                  onClick={() => setActiveTab('images')}
+                                  onClick={() =>
+                                    handleBookmarkedImageClick(img.id)
+                                  }
                                   className="group relative cursor-pointer overflow-hidden rounded-lg bg-gray-100"
                                 >
                                   <div className="aspect-square">
@@ -1331,20 +1390,44 @@ export default function LibraryPage() {
                                       </p>
                                     </div>
                                   </div>
-                                  <div className="absolute right-2 top-2 rounded-full bg-white/80 p-1.5 opacity-0 transition-opacity group-hover:opacity-100">
-                                    <svg
-                                      className="h-4 w-4 text-gray-700"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
+                                  {/* Action buttons */}
+                                  <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                                    <button
+                                      onClick={(e) =>
+                                        handleRemoveImageBookmark(img.id, e)
+                                      }
+                                      className="rounded-full bg-white/80 p-1.5 text-red-600 hover:bg-white hover:text-red-700"
+                                      title="Remove bookmark"
                                     >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                                      />
-                                    </svg>
+                                      <svg
+                                        className="h-4 w-4"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M6 18L18 6M6 6l12 12"
+                                        />
+                                      </svg>
+                                    </button>
+                                    <div className="rounded-full bg-white/80 p-1.5">
+                                      <svg
+                                        className="h-4 w-4 text-gray-700"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                        />
+                                      </svg>
+                                    </div>
                                   </div>
                                 </div>
                               ))}
@@ -1382,7 +1465,7 @@ export default function LibraryPage() {
             {/* Images Tab - AI Image Generator */}
             {activeTab === 'images' && (
               <div className="h-[calc(100vh-220px)]">
-                <ImageGenerator />
+                <ImageGenerator initialImageId={selectedImageId} />
               </div>
             )}
           </div>

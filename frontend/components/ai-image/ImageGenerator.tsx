@@ -57,7 +57,13 @@ interface UploadedFile {
 
 type InputMode = 'prompt' | 'youtube' | 'url' | 'files';
 
-export default function ImageGenerator() {
+interface ImageGeneratorProps {
+  initialImageId?: string; // ID of image to select when component mounts
+}
+
+export default function ImageGenerator({
+  initialImageId,
+}: ImageGeneratorProps) {
   // 输入状态
   const [inputMode, setInputMode] = useState<InputMode>('prompt');
   const [prompt, setPrompt] = useState('');
@@ -155,8 +161,13 @@ export default function ImageGenerator() {
         const data: GeneratedImage[] = await response.json();
         if (data && data.length > 0) {
           setGeneratedImages(data);
-          // 默认选中最新的图片
-          setSelectedImage(data[0]);
+          // 如果提供了 initialImageId，选中对应的图片，否则选中最新的图片
+          if (initialImageId) {
+            const targetImage = data.find((img) => img.id === initialImageId);
+            setSelectedImage(targetImage || data[0]);
+          } else {
+            setSelectedImage(data[0]);
+          }
           // 初始化已收藏的图片
           const bookmarked = new Set<string>();
           data.forEach((img) => {
@@ -170,7 +181,7 @@ export default function ImageGenerator() {
     } catch (err) {
       console.error('Failed to fetch history:', err);
     }
-  }, []);
+  }, [initialImageId]);
 
   useEffect(() => {
     fetchModels();
