@@ -566,11 +566,11 @@ export default function ImageGenerator() {
         {selectedImage?.processingSteps &&
           selectedImage.processingSteps.length > 0 && (
             <div
-              className={`border-l border-white/10 bg-[#12121f] transition-all duration-300 ${showProcessing ? 'w-80' : 'w-10'}`}
+              className={`flex flex-col border-l border-white/10 bg-[#12121f] transition-all duration-300 ${showProcessing ? 'w-80' : 'w-10'}`}
             >
               <button
                 onClick={() => setShowProcessing(!showProcessing)}
-                className="flex w-full items-center justify-between border-b border-white/10 px-3 py-2 text-xs text-gray-400 hover:text-white"
+                className="flex w-full flex-shrink-0 items-center justify-between border-b border-white/10 px-3 py-2 text-xs text-gray-400 hover:text-white"
               >
                 {showProcessing && <span>Processing Details</span>}
                 <svg
@@ -588,7 +588,7 @@ export default function ImageGenerator() {
                 </svg>
               </button>
               {showProcessing && (
-                <div className="max-h-[calc(100vh-200px)] overflow-y-auto p-4">
+                <div className="flex-1 overflow-y-auto p-4">
                   {/* Models Used */}
                   {(selectedImage.textModelUsed ||
                     selectedImage.imageModelUsed) && (
