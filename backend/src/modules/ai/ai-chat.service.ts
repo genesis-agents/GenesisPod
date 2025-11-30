@@ -828,37 +828,61 @@ Format the summary in a clear, structured manner using markdown.`;
           const isImagenModel = modelId?.toLowerCase().includes("imagen");
 
           if (isImagenModel) {
-            // Imagen models use the predict endpoint
-            // Test with a simple image generation request
-            const imagenEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:predict?key=${apiKey}`;
+            // Imagen 4 使用 generateImages 端点
+            const imagenEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateImages?key=${apiKey}`;
 
             this.logger.log(`Testing Imagen API: ${imagenEndpoint}`);
 
-            response = await firstValueFrom(
-              this.httpService.post(
-                imagenEndpoint,
-                {
-                  instances: [
-                    { prompt: "A simple test image of a blue circle" },
-                  ],
-                  parameters: {
-                    sampleCount: 1,
-                    aspectRatio: "1:1",
+            try {
+              response = await firstValueFrom(
+                this.httpService.post(
+                  imagenEndpoint,
+                  {
+                    prompt: "A simple blue circle on white background",
+                    config: {
+                      numberOfImages: 1,
+                      aspectRatio: "1:1",
+                      outputOptions: {
+                        mimeType: "image/png",
+                      },
+                    },
                   },
-                },
-                {
-                  headers: { "Content-Type": "application/json" },
-                  timeout: 60000, // Longer timeout for image generation
-                },
-              ),
-            );
+                  {
+                    headers: { "Content-Type": "application/json" },
+                    timeout: 60000,
+                  },
+                ),
+              );
 
-            // Imagen returns predictions array
-            if (response.data?.predictions?.[0]?.bytesBase64Encoded) {
+              // Imagen 4 返回格式
+              if (response.data?.generatedImages?.[0]?.image?.imageBytes) {
+                const latency = Date.now() - startTime;
+                return {
+                  success: true,
+                  message: `Imagen connection successful! Image generated.`,
+                  latency,
+                };
+              }
+
+              // 检查旧格式
+              if (response.data?.predictions?.[0]?.bytesBase64Encoded) {
+                const latency = Date.now() - startTime;
+                return {
+                  success: true,
+                  message: `Imagen connection successful! Image generated.`,
+                  latency,
+                };
+              }
+            } catch (testError: any) {
+              // 返回详细错误信息
               const latency = Date.now() - startTime;
+              const errorMsg =
+                testError.response?.data?.error?.message ||
+                testError.message ||
+                "Unknown error";
               return {
-                success: true,
-                message: `Imagen connection successful! Image generated.`,
+                success: false,
+                message: `Imagen test failed: ${errorMsg}`,
                 latency,
               };
             }

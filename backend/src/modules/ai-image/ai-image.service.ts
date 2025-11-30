@@ -563,6 +563,17 @@ export class AiImageService {
       `Calling OpenAI text API: ${url} with model: ${effectiveModel}`,
     );
 
+    // 新版 OpenAI 模型 (gpt-4o, gpt-5, o1, o3) 需要使用 max_completion_tokens
+    const isNewerModel =
+      effectiveModel.includes("gpt-4o") ||
+      effectiveModel.includes("gpt-5") ||
+      effectiveModel.startsWith("o1") ||
+      effectiveModel.startsWith("o3");
+
+    const tokenParam = isNewerModel
+      ? { max_completion_tokens: 300 }
+      : { max_tokens: 300 };
+
     const response = await firstValueFrom(
       this.httpService.post(
         url,
@@ -572,7 +583,7 @@ export class AiImageService {
             { role: "system", content: PROMPT_ENHANCEMENT_SYSTEM },
             { role: "user", content: `Content to analyze:\n${content}` },
           ],
-          max_tokens: 300,
+          ...tokenParam,
           temperature: 0.7,
         },
         {
@@ -861,7 +872,8 @@ export class AiImageService {
 
   /**
    * 使用 Imagen API 生成图片
-   * Imagen 3/4 使用 predict 端点而不是 generateContent
+   * Imagen 4 使用 generateImages 端点
+   * 参考: https://ai.google.dev/gemini-api/docs/imagen
    */
   private async generateWithImagen(
     apiKey: string,
@@ -871,9 +883,6 @@ export class AiImageService {
   ): Promise<string> {
     this.logger.log(`Using Imagen model for image generation: ${modelId}`);
 
-    // Imagen 使用 predict 端点
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:predict?key=${apiKey}`;
-
     // 计算宽高比
     const aspectRatio =
       dimensions.width === dimensions.height
@@ -881,6 +890,83 @@ export class AiImageService {
         : dimensions.width > dimensions.height
           ? "16:9"
           : "9:16";
+
+    // 尝试使用 generateImages 端点 (Imagen 4 新 API)
+    const generateImagesUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateImages?key=${apiKey}`;
+
+    this.logger.log(`Calling Imagen API: ${generateImagesUrl}`);
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(
+          generateImagesUrl,
+          {
+            prompt: prompt,
+            config: {
+              numberOfImages: 1,
+              aspectRatio: aspectRatio,
+              outputOptions: {
+                mimeType: "image/png",
+              },
+            },
+          },
+          {
+            headers: { "Content-Type": "application/json" },
+            timeout: 120000,
+          },
+        ),
+      );
+
+      // Imagen 4 返回格式: { generatedImages: [{ image: { imageBytes: "base64..." } }] }
+      const generatedImages = response.data.generatedImages;
+      if (generatedImages && generatedImages.length > 0) {
+        const imageData = generatedImages[0].image?.imageBytes;
+        if (imageData) {
+          return `data:image/png;base64,${imageData}`;
+        }
+      }
+
+      // 备用: 检查旧格式
+      const predictions = response.data.predictions;
+      if (predictions && predictions.length > 0) {
+        const prediction = predictions[0];
+        if (prediction.bytesBase64Encoded) {
+          const mimeType = prediction.mimeType || "image/png";
+          return `data:${mimeType};base64,${prediction.bytesBase64Encoded}`;
+        }
+      }
+
+      this.logger.error(
+        `Unexpected Imagen response format: ${JSON.stringify(response.data).slice(0, 500)}`,
+      );
+      throw new Error("No image data in Imagen response");
+    } catch (error: any) {
+      // 如果 generateImages 失败，尝试使用 predict 端点 (旧 API)
+      if (error.response?.status === 404 || error.response?.status === 400) {
+        this.logger.log(`generateImages failed, trying predict endpoint...`);
+        return this.generateWithImagenPredict(
+          apiKey,
+          modelId,
+          prompt,
+          aspectRatio,
+        );
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * 使用 Imagen predict 端点 (备用方案)
+   */
+  private async generateWithImagenPredict(
+    apiKey: string,
+    modelId: string,
+    prompt: string,
+    aspectRatio: string,
+  ): Promise<string> {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:predict?key=${apiKey}`;
+
+    this.logger.log(`Calling Imagen predict API: ${url}`);
 
     const response = await firstValueFrom(
       this.httpService.post(
@@ -890,9 +976,6 @@ export class AiImageService {
           parameters: {
             sampleCount: 1,
             aspectRatio: aspectRatio,
-            // Imagen 4 specific parameters
-            personGeneration: "ALLOW_ADULT",
-            safetySetting: "BLOCK_MEDIUM_AND_ABOVE",
           },
         },
         {
@@ -907,14 +990,13 @@ export class AiImageService {
       throw new Error("No predictions in Imagen response");
     }
 
-    // Imagen 返回 base64 编码的图片
     const prediction = predictions[0];
     if (prediction.bytesBase64Encoded) {
       const mimeType = prediction.mimeType || "image/png";
       return `data:${mimeType};base64,${prediction.bytesBase64Encoded}`;
     }
 
-    throw new Error("No image data in Imagen response");
+    throw new Error("No image data in Imagen predict response");
   }
 
   /**
