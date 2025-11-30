@@ -1264,7 +1264,9 @@ export default function LibraryPage() {
               ))}
 
             {/* Notes Tab */}
-            {activeTab === 'notes' && <NotesList searchQuery={searchQuery} />}
+            {activeTab === 'notes' && (
+              <NotesList searchQuery={searchQuery} showActions />
+            )}
 
             {/* Images Tab - AI Image Generator */}
             {activeTab === 'images' && (

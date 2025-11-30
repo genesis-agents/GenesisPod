@@ -28,6 +28,7 @@ interface NotesListProps {
   onNoteClick?: (note: Note) => void;
   onEditNote?: (note: Note) => void;
   onDeleteNote?: (noteId: string) => void;
+  showActions?: boolean; // Always show edit/delete buttons
 }
 
 export default function NotesList({
@@ -36,12 +37,15 @@ export default function NotesList({
   onNoteClick,
   onEditNote,
   onDeleteNote,
+  showActions = false,
 }: NotesListProps) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
+  const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const [editContent, setEditContent] = useState('');
 
   useEffect(() => {
     loadNotes();
@@ -96,6 +100,53 @@ export default function NotesList({
       alert('Error deleting note');
       console.error(err);
     }
+  };
+
+  const handleStartEdit = (note: Note) => {
+    setEditingNote(note);
+    setEditContent(note.content);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingNote) return;
+
+    try {
+      const response = await fetch(
+        `${config.apiBaseUrl}/api/v1/notes/${editingNote.id}`,
+        {
+          method: 'PUT',
+          headers: {
+            ...getAuthHeader(),
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            content: editContent,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const updatedNote = await response.json();
+        setNotes(
+          notes.map((n) =>
+            n.id === editingNote.id ? { ...n, content: editContent } : n
+          )
+        );
+        setEditingNote(null);
+        setEditContent('');
+        onEditNote?.({ ...editingNote, content: editContent });
+      } else {
+        alert('Failed to save note');
+      }
+    } catch (err) {
+      alert('Error saving note');
+      console.error(err);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingNote(null);
+    setEditContent('');
   };
 
   // Get all unique tags
@@ -263,18 +314,22 @@ export default function NotesList({
 
                 {/* Actions + Expand indicator */}
                 <div className="flex items-center gap-2">
-                  {onEditNote && (
+                  {(showActions || onEditNote) && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onEditNote(note);
+                        if (onEditNote) {
+                          onEditNote(note);
+                        } else {
+                          handleStartEdit(note);
+                        }
                       }}
                       className="text-blue-600 hover:text-blue-800"
                     >
                       编辑
                     </button>
                   )}
-                  {onDeleteNote && (
+                  {(showActions || onDeleteNote) && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -304,6 +359,45 @@ export default function NotesList({
           );
         })}
       </div>
+
+      {/* Edit Modal */}
+      {editingNote && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="mb-4 text-lg font-semibold text-gray-900">
+              编辑笔记
+            </h3>
+            {editingNote.resource && (
+              <div className="mb-3 text-sm text-gray-500">
+                <span className="font-medium">
+                  {editingNote.resource.type}:
+                </span>{' '}
+                {editingNote.resource.title}
+              </div>
+            )}
+            <textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              className="mb-4 h-64 w-full rounded-lg border border-gray-300 p-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="输入笔记内容..."
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={handleCancelEdit}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
