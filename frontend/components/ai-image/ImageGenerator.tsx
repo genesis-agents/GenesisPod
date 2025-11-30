@@ -426,6 +426,8 @@ export default function ImageGenerator({
             const imageBase64 = await imageUrlToBase64(refineImage.imageUrl);
             requestBody.imageBase64 = imageBase64;
             requestBody.prompt = refinePrompt.trim();
+            // 图片编辑模式必须跳过AI增强，直接使用用户的编辑指令
+            requestBody.skipEnhancement = true;
           }
           break;
       }

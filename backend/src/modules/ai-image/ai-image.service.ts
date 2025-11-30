@@ -919,15 +919,21 @@ export class AiImageService {
   }
 
   /**
-   * 使用 Gemini 进行 Image-to-Image 生成
-   * Gemini 2.0 Flash 支持多模态输入，可以接收图片和文本一起生成新图片
+   * 使用 Gemini 进行 Image-to-Image 编辑
+   * 使用 gemini-2.0-flash-exp-image-generation 模型，专门用于图片编辑
+   *
+   * 关键要点：
+   * 1. 使用专门的图片编辑提示词格式
+   * 2. 明确指示"编辑此图片"而不是"创建新图片"
+   * 3. 指定要保留的元素和要修改的元素
    */
   private async generateImageToImageWithGemini(
     apiKey: string,
     prompt: string,
     referenceImageBase64: string,
   ): Promise<string> {
-    const model = "gemini-2.0-flash-exp";
+    // 使用支持图片编辑的模型
+    const model = "gemini-2.0-flash-exp-image-generation";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     this.logger.log(`[Image-to-Image] Using Gemini ${model} for image editing`);
@@ -938,14 +944,144 @@ export class AiImageService {
       "",
     );
 
-    // 构建多模态请求：图片 + 编辑指令
-    const editPrompt = `You are an expert image editor. Based on this reference image, create a NEW image that follows these instructions: ${prompt}
+    // 检测 MIME 类型
+    let mimeType = "image/jpeg";
+    if (referenceImageBase64.startsWith("data:image/png")) {
+      mimeType = "image/png";
+    } else if (referenceImageBase64.startsWith("data:image/webp")) {
+      mimeType = "image/webp";
+    }
 
-Important guidelines:
-- Preserve the overall composition and subject matter from the reference image
-- Apply the requested modifications while maintaining visual coherence
-- The output should be a complete, finished image (not text description)
-- Generate a high-quality image that reflects the changes requested`;
+    // 构建专门的图片编辑提示词
+    // 关键是使用"Edit this image"格式，而不是"Create a new image"
+    const editPrompt = `Edit this image: ${prompt}
+
+Keep the same subjects, composition, and overall structure. Only apply the specific changes requested above.`;
+
+    this.logger.log(`[Image-to-Image] Edit prompt: ${editPrompt}`);
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(
+          url,
+          {
+            contents: [
+              {
+                parts: [
+                  {
+                    inlineData: {
+                      mimeType: mimeType,
+                      data: cleanBase64,
+                    },
+                  },
+                  {
+                    text: editPrompt,
+                  },
+                ],
+              },
+            ],
+            generationConfig: {
+              responseModalities: ["IMAGE"],
+            },
+          },
+          {
+            headers: { "Content-Type": "application/json" },
+            timeout: 120000,
+          },
+        ),
+      );
+
+      const candidates = response.data.candidates;
+      if (!candidates || candidates.length === 0) {
+        this.logger.warn(
+          `[Image-to-Image] No candidates, trying fallback model`,
+        );
+        return this.generateImageToImageFallback(
+          apiKey,
+          prompt,
+          cleanBase64,
+          mimeType,
+        );
+      }
+
+      const parts = candidates[0].content?.parts;
+      if (!parts || parts.length === 0) {
+        this.logger.warn(`[Image-to-Image] No parts, trying fallback model`);
+        return this.generateImageToImageFallback(
+          apiKey,
+          prompt,
+          cleanBase64,
+          mimeType,
+        );
+      }
+
+      // 查找图片数据
+      for (const part of parts) {
+        if (part.inlineData && part.inlineData.data) {
+          const responseMimeType = part.inlineData.mimeType || "image/png";
+          this.logger.log(
+            `[Image-to-Image] Successfully generated edited image`,
+          );
+          return `data:${responseMimeType};base64,${part.inlineData.data}`;
+        }
+      }
+
+      // 如果没有图片数据，尝试备用方案
+      const textPart = parts.find((p: any) => p.text);
+      if (textPart) {
+        this.logger.warn(
+          `[Image-to-Image] Model returned text instead of image: ${textPart.text.slice(0, 200)}`,
+        );
+      }
+
+      return this.generateImageToImageFallback(
+        apiKey,
+        prompt,
+        cleanBase64,
+        mimeType,
+      );
+    } catch (error: any) {
+      this.logger.error(
+        `[Image-to-Image] Primary model error: ${error.message}`,
+      );
+      // 尝试备用方案
+      return this.generateImageToImageFallback(
+        apiKey,
+        prompt,
+        cleanBase64,
+        mimeType,
+      );
+    }
+  }
+
+  /**
+   * 备用的图片编辑方案
+   * 使用 gemini-2.0-flash-exp 模型
+   */
+  private async generateImageToImageFallback(
+    apiKey: string,
+    prompt: string,
+    cleanBase64: string,
+    mimeType: string,
+  ): Promise<string> {
+    const model = "gemini-2.0-flash-exp";
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    this.logger.log(`[Image-to-Image] Trying fallback model: ${model}`);
+
+    // 更强调保留原图的提示词
+    const editPrompt = `I want you to EDIT this exact image, not create a new one.
+
+Instructions: ${prompt}
+
+CRITICAL REQUIREMENTS:
+1. KEEP the same person/subject from the original image
+2. KEEP the same pose, angle, and composition
+3. KEEP the same background elements
+4. Only change what is specifically requested
+5. The result must be recognizably the same scene, just modified
+
+Generate the edited version of this image now.`;
 
     const response = await firstValueFrom(
       this.httpService.post(
@@ -956,7 +1092,7 @@ Important guidelines:
               parts: [
                 {
                   inlineData: {
-                    mimeType: "image/jpeg",
+                    mimeType: mimeType,
                     data: cleanBase64,
                   },
                 },
@@ -967,7 +1103,7 @@ Important guidelines:
             },
           ],
           generationConfig: {
-            responseModalities: ["TEXT", "IMAGE"],
+            responseModalities: ["IMAGE"],
           },
         },
         {
@@ -979,34 +1115,31 @@ Important guidelines:
 
     const candidates = response.data.candidates;
     if (!candidates || candidates.length === 0) {
-      throw new Error("No candidates in Gemini image-to-image response");
+      throw new Error("No candidates in Gemini fallback response");
     }
 
     const parts = candidates[0].content?.parts;
     if (!parts || parts.length === 0) {
-      throw new Error("No parts in Gemini image-to-image response");
+      throw new Error("No parts in Gemini fallback response");
     }
 
     // 查找图片数据
     for (const part of parts) {
       if (part.inlineData && part.inlineData.data) {
-        const mimeType = part.inlineData.mimeType || "image/png";
-        this.logger.log(`[Image-to-Image] Successfully generated edited image`);
-        return `data:${mimeType};base64,${part.inlineData.data}`;
+        const responseMimeType = part.inlineData.mimeType || "image/png";
+        this.logger.log(
+          `[Image-to-Image] Fallback model generated edited image`,
+        );
+        return `data:${responseMimeType};base64,${part.inlineData.data}`;
       }
     }
 
-    // 如果没有图片数据，记录返回的文本内容用于调试
+    // 如果仍然没有图片，抛出详细错误
     const textPart = parts.find((p: any) => p.text);
-    if (textPart) {
-      this.logger.warn(
-        `[Image-to-Image] Gemini returned text instead of image: ${textPart.text.slice(0, 200)}`,
-      );
-    }
-
-    throw new Error(
-      "No image data in Gemini image-to-image response. The model may have returned text instead.",
-    );
+    const errorDetail = textPart
+      ? `Model returned text: ${textPart.text.slice(0, 300)}`
+      : "No image data in response";
+    throw new Error(`Image editing failed. ${errorDetail}`);
   }
 
   /**
