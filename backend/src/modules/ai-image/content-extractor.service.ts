@@ -167,6 +167,7 @@ export class ContentExtractorService {
 
   /**
    * 提取 YouTube 视频字幕
+   * 使用多种方法尝试获取字幕
    */
   private async extractYouTubeSubtitles(url: string): Promise<string> {
     try {
@@ -176,44 +177,157 @@ export class ContentExtractorService {
         return `[YouTube video: ${url}]`;
       }
 
-      // 尝试获取字幕（使用公开的字幕 API）
-      const captionUrl = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=en&fmt=srv3`;
+      this.logger.log(`Extracting YouTube subtitles for video: ${videoId}`);
 
+      // 首先获取视频基本信息
+      let videoInfo = { title: "", author: "" };
       try {
-        const response = await firstValueFrom(
-          this.httpService.get(captionUrl, {
-            timeout: 10000,
-            headers: {
-              "User-Agent": "Mozilla/5.0 (compatible; DeepDive/1.0)",
-            },
-          }),
+        const infoUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
+        const infoResponse = await firstValueFrom(
+          this.httpService.get(infoUrl, { timeout: 10000 }),
         );
-
-        if (response.data) {
-          // 解析字幕 XML
-          const subtitles = this.parseYouTubeSubtitles(response.data);
-          if (subtitles) {
-            return `[YouTube Video Subtitles]\n${subtitles}`;
-          }
+        if (infoResponse.data) {
+          videoInfo = {
+            title: infoResponse.data.title || "",
+            author: infoResponse.data.author_name || "",
+          };
         }
       } catch {
-        // 字幕获取失败，尝试获取视频信息
+        this.logger.warn(`Failed to get video info for ${videoId}`);
       }
 
-      // 获取视频基本信息
-      const infoUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
-      const infoResponse = await firstValueFrom(
-        this.httpService.get(infoUrl, { timeout: 10000 }),
+      // 方法1: 尝试从视频页面获取字幕 URL
+      const subtitles = await this.fetchYouTubeSubtitlesFromPage(videoId);
+      if (subtitles && subtitles.length > 100) {
+        this.logger.log(
+          `Successfully extracted ${subtitles.length} chars of subtitles`,
+        );
+        return `[YouTube Video]\nTitle: ${videoInfo.title}\nAuthor: ${videoInfo.author}\n\n[Subtitles]\n${subtitles}`;
+      }
+
+      // 方法2: 尝试多种语言的字幕 API
+      const languages = [
+        "en",
+        "en-US",
+        "en-GB",
+        "zh",
+        "zh-CN",
+        "zh-TW",
+        "auto",
+      ];
+      for (const lang of languages) {
+        try {
+          const captionUrl = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=srv3`;
+          const response = await firstValueFrom(
+            this.httpService.get(captionUrl, {
+              timeout: 5000,
+              headers: {
+                "User-Agent":
+                  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+              },
+            }),
+          );
+
+          if (response.data && typeof response.data === "string") {
+            const parsed = this.parseYouTubeSubtitles(response.data);
+            if (parsed && parsed.length > 100) {
+              this.logger.log(
+                `Got subtitles with lang=${lang}, length=${parsed.length}`,
+              );
+              return `[YouTube Video]\nTitle: ${videoInfo.title}\nAuthor: ${videoInfo.author}\n\n[Subtitles (${lang})]\n${parsed}`;
+            }
+          }
+        } catch {
+          // 继续尝试下一种语言
+        }
+      }
+
+      // 如果都失败，返回视频信息（但加入更多上下文）
+      this.logger.warn(
+        `Could not extract subtitles for ${videoId}, using title only`,
       );
-
-      if (infoResponse.data) {
-        return `[YouTube Video]\nTitle: ${infoResponse.data.title}\nAuthor: ${infoResponse.data.author_name}\nURL: ${url}`;
-      }
-
-      return `[YouTube video: ${url}]`;
+      return `[YouTube Video]\nTitle: ${videoInfo.title}\nAuthor: ${videoInfo.author}\nURL: ${url}\n\nNote: Could not extract subtitles. Please generate an image based on the video title and context.`;
     } catch (error) {
       this.logger.warn(`Failed to extract YouTube content: ${url}`, error);
       return `[YouTube video: ${url}]`;
+    }
+  }
+
+  /**
+   * 从 YouTube 页面获取字幕 URL 并提取字幕
+   */
+  private async fetchYouTubeSubtitlesFromPage(
+    videoId: string,
+  ): Promise<string | null> {
+    try {
+      // 获取视频页面
+      const pageUrl = `https://www.youtube.com/watch?v=${videoId}`;
+      const pageResponse = await firstValueFrom(
+        this.httpService.get(pageUrl, {
+          timeout: 15000,
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+          },
+        }),
+      );
+
+      const html = pageResponse.data;
+
+      // 尝试从页面中提取字幕 URL
+      const captionMatch = html.match(/"captionTracks":\s*\[([^\]]+)\]/);
+      if (captionMatch) {
+        // 解析字幕轨道信息
+        const tracksStr = captionMatch[1];
+        const urlMatch = tracksStr.match(/"baseUrl":\s*"([^"]+)"/);
+        if (urlMatch) {
+          const captionUrl = urlMatch[1]
+            .replace(/\\u0026/g, "&")
+            .replace(/\\\//g, "/");
+
+          // 获取字幕内容
+          const captionResponse = await firstValueFrom(
+            this.httpService.get(captionUrl, { timeout: 10000 }),
+          );
+
+          if (captionResponse.data) {
+            return this.parseYouTubeSubtitles(captionResponse.data);
+          }
+        }
+      }
+
+      // 尝试从 ytInitialPlayerResponse 获取
+      const playerMatch = html.match(/ytInitialPlayerResponse\s*=\s*({.+?});/);
+      if (playerMatch) {
+        try {
+          const playerData = JSON.parse(playerMatch[1]);
+          const captions =
+            playerData?.captions?.playerCaptionsTracklistRenderer
+              ?.captionTracks;
+          if (captions && captions.length > 0) {
+            // 优先选择英文或第一个可用的字幕
+            const track =
+              captions.find((t: any) => t.languageCode?.startsWith("en")) ||
+              captions[0];
+            if (track?.baseUrl) {
+              const captionResponse = await firstValueFrom(
+                this.httpService.get(track.baseUrl, { timeout: 10000 }),
+              );
+              if (captionResponse.data) {
+                return this.parseYouTubeSubtitles(captionResponse.data);
+              }
+            }
+          }
+        } catch {
+          // JSON 解析失败
+        }
+      }
+
+      return null;
+    } catch (error) {
+      this.logger.warn(`Failed to fetch subtitles from page: ${error}`);
+      return null;
     }
   }
 
