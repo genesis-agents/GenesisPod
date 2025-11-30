@@ -932,8 +932,8 @@ export class AiImageService {
     prompt: string,
     referenceImageBase64: string,
   ): Promise<string> {
-    // 使用支持图片编辑的模型
-    const model = "gemini-2.0-flash-exp-image-generation";
+    // 使用支持图片编辑的模型 - gemini-2.0-flash-exp 支持多模态输入输出
+    const model = "gemini-2.0-flash-exp";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     this.logger.log(`[Image-to-Image] Using Gemini ${model} for image editing`);
