@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { config } from '@/lib/config';
 import NotesList from '@/components/features/NotesList';
 import Sidebar from '@/components/layout/Sidebar';
@@ -57,9 +58,29 @@ interface BookmarkedImage {
 }
 
 export default function LibraryPage() {
+  const searchParams = useSearchParams();
+  const tabParam = searchParams?.get('tab');
+
   const [activeTab, setActiveTab] = useState<'bookmarks' | 'notes' | 'images'>(
-    'bookmarks'
+    () => {
+      // Initialize from URL parameter if present
+      if (tabParam === 'images' || tabParam === 'notes') {
+        return tabParam;
+      }
+      return 'bookmarks';
+    }
   );
+
+  // Update activeTab when URL parameter changes
+  useEffect(() => {
+    if (
+      tabParam === 'images' ||
+      tabParam === 'notes' ||
+      tabParam === 'bookmarks'
+    ) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [paginatedItems, setPaginatedItems] =
     useState<PaginatedResult<CollectionItem> | null>(null);

@@ -1685,7 +1685,7 @@ function HomeContent() {
         {/* Sticky Search Bar Container - Only show in list view */}
         {viewMode === 'list' && (
           <div className="sticky top-0 z-10 bg-gray-50 pb-4 pt-6">
-            <div className="mx-auto max-w-5xl px-8">
+            <div className="mx-auto max-w-6xl px-8">
               {/* Large Search Bar */}
               <div className="mb-4">
                 <div className="relative rounded-lg border border-gray-300 bg-white shadow-sm">
@@ -1902,7 +1902,7 @@ function HomeContent() {
 
         {/* Content Area */}
         <div
-          className={`${viewMode === 'detail' ? 'flex w-full flex-1 flex-col overflow-hidden px-2 pt-2' : 'mx-auto max-w-5xl px-8 pb-6'}`}
+          className={`${viewMode === 'detail' ? 'flex w-full flex-1 flex-col overflow-hidden px-2 pt-2' : 'mx-auto max-w-6xl px-8 pb-6'}`}
         >
           {/* List View */}
           {viewMode === 'list' && (

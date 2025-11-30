@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { config } from '@/lib/config';
 import Sidebar from '@/components/layout/Sidebar';
+import NotesList from '@/components/features/NotesList';
 import {
   AIContextBuilder,
   type Resource as AIResource,
@@ -110,29 +111,13 @@ function YouTubeTLDWContent() {
   // Key moments states
   const [keyMoments, setKeyMoments] = useState<KeyMoment[]>([]);
 
-  // Context menu states
+  // Context menu states - Papers style (text selection based)
   const [contextMenu, setContextMenu] = useState<{
-    visible: boolean;
     x: number;
     y: number;
-    message: AIMessage | null;
-  }>({ visible: false, x: 0, y: 0, message: null });
-  const [showNotesModal, setShowNotesModal] = useState(false);
-  const [noteTitle, setNoteTitle] = useState('');
+    text: string;
+  } | null>(null);
   const [savingNote, setSavingNote] = useState(false);
-
-  // Notes tab states
-  interface SavedNote {
-    id: string;
-    title: string;
-    content: string;
-    createdAt: string;
-  }
-  const [savedNotes, setSavedNotes] = useState<SavedNote[]>([]);
-  const [loadingNotes, setLoadingNotes] = useState(false);
-  const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editingContent, setEditingContent] = useState('');
 
   const playerRef = useRef<YTPlayer | null>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
@@ -388,179 +373,60 @@ function YouTubeTLDWContent() {
     }
   }, [aiMessages]);
 
-  // Context menu ref
-  const contextMenuRef = useRef<HTMLDivElement>(null);
-
-  // Load notes when switching to notes tab
-  const loadNotes = useCallback(async () => {
-    if (!accessToken || !videoId) return;
-
-    setLoadingNotes(true);
-    try {
-      // Filter by source that includes the videoId to show only notes for this video
-      const response = await fetch(
-        `${config.apiUrl}/notes?source=youtube:${videoId}&limit=50`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-      if (response.ok) {
-        const data = await response.json();
-        // Ensure savedNotes is always an array
-        // Backend returns { notes, total, skip, take }
-        const notes = Array.isArray(data)
-          ? data
-          : Array.isArray(data?.notes)
-            ? data.notes
-            : Array.isArray(data?.items)
-              ? data.items
-              : [];
-        setSavedNotes(notes);
-      }
-    } catch (error) {
-      console.error('Failed to load notes:', error);
-    } finally {
-      setLoadingNotes(false);
-    }
-  }, [accessToken, videoId]);
-
-  // Load notes when switching to notes tab
-  useEffect(() => {
-    if (activeTab === 'notes' && accessToken) {
-      loadNotes();
-    }
-  }, [activeTab, accessToken, loadNotes]);
-
-  // Delete a saved note
-  const deleteNote = useCallback(
-    async (noteId: string) => {
-      if (!accessToken) return;
-      if (!confirm('确定要删除这条笔记吗？')) return;
-
-      try {
-        const response = await fetch(`${config.apiUrl}/notes/${noteId}`, {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-
-        if (response.ok) {
-          setSavedNotes((prev) => prev.filter((n) => n.id !== noteId));
-        } else {
-          alert('删除笔记失败');
-        }
-      } catch (error) {
-        console.error('Failed to delete note:', error);
-        alert('删除笔记失败');
-      }
-    },
-    [accessToken]
-  );
-
-  // Update a saved note
-  const updateNote = useCallback(
-    async (noteId: string, content: string) => {
-      if (!accessToken) return;
-
-      try {
-        const response = await fetch(`${config.apiUrl}/notes/${noteId}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({ content }),
-        });
-
-        if (response.ok) {
-          setSavedNotes((prev) =>
-            prev.map((n) => (n.id === noteId ? { ...n, content } : n))
-          );
-          setEditingNoteId(null);
-          setEditingContent('');
-        } else {
-          alert('更新笔记失败');
-        }
-      } catch (error) {
-        console.error('Failed to update note:', error);
-        alert('更新笔记失败');
-      }
-    },
-    [accessToken]
-  );
-
-  // Close context menu on click outside (left click only)
-  useEffect(() => {
-    const handleMouseDown = (e: MouseEvent) => {
-      // Only close on left click (button 0), not right click (button 2)
-      if (e.button === 0) {
-        // Don't close if clicking inside the context menu
-        if (contextMenuRef.current?.contains(e.target as Node)) {
-          return;
-        }
-        setContextMenu({ visible: false, x: 0, y: 0, message: null });
-      }
-    };
-    document.addEventListener('mousedown', handleMouseDown);
-    return () => document.removeEventListener('mousedown', handleMouseDown);
-  }, []);
-
-  // Handle right-click on message
-  const handleMessageContextMenu = (
-    e: React.MouseEvent,
-    message: AIMessage
-  ) => {
+  // Handle context menu for adding to notes (Papers style - text selection based)
+  const handleContextMenu = (e: React.MouseEvent, text: string) => {
     e.preventDefault();
-    e.stopPropagation();
-    setContextMenu({
-      visible: true,
-      x: e.clientX,
-      y: e.clientY,
-      message,
-    });
+    const selection = window.getSelection();
+    const selectedText = selection?.toString().trim();
+
+    if (selectedText) {
+      setContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        text: selectedText,
+      });
+    }
   };
 
-  // Save message to notes
+  // Save selected text to notes (Papers style)
   const saveToNotes = async () => {
-    if (!contextMenu.message || !noteTitle.trim()) return;
+    if (!contextMenu || !videoId) return;
 
     if (!accessToken) {
       alert('Please sign in to save notes');
       return;
     }
 
-    setSavingNote(true);
     try {
-      const response = await fetch(`${config.apiUrl}/notes`, {
+      setSavingNote(true);
+      console.log(
+        'Saving note to video:',
+        videoId,
+        'content:',
+        contextMenu.text.substring(0, 50) + '...'
+      );
+
+      const response = await fetch(`${config.apiBaseUrl}/api/v1/notes`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          title: noteTitle,
-          content: contextMenu.message.content,
-          source: `youtube:${videoId}`,
-          tags: ['ai-chat', 'youtube', videoId],
+          resourceId: videoId, // Use videoId as resourceId for YouTube videos
+          content: contextMenu.text,
+          tags: ['AI-Generated', 'YouTube'],
+          isPublic: false,
         }),
       });
 
       if (response.ok) {
-        setShowNotesModal(false);
-        setNoteTitle('');
-        setContextMenu({ visible: false, x: 0, y: 0, message: null });
-        // Refresh notes list
-        loadNotes();
-        alert('Note saved successfully!');
+        console.log('Note saved successfully');
+        setContextMenu(null);
       } else {
         const errorData = await response.json().catch(() => ({}));
-        console.error('Failed to save note:', errorData);
-        alert(
-          `Failed to save note: ${errorData.message || response.statusText}`
-        );
+        console.error('Failed to save note:', response.status, errorData);
+        alert(`Failed to save note: ${errorData.message || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Failed to save note:', error);
@@ -570,15 +436,27 @@ function YouTubeTLDWContent() {
     }
   };
 
-  // Copy message to clipboard
-  const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setContextMenu({ visible: false, x: 0, y: 0, message: null });
-    } catch (error) {
-      console.error('Failed to copy:', error);
+  // Close context menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('.context-menu')) {
+        return;
+      }
+      setContextMenu(null);
+    };
+    if (contextMenu) {
+      // Use mousedown to detect clicks outside, but delay adding the listener
+      // to avoid catching the same click that opened the menu
+      const timer = setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+      }, 0);
+      return () => {
+        clearTimeout(timer);
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
     }
-  };
+  }, [contextMenu]);
 
   // Send AI message with video context
   const sendAIMessage = async () => {
@@ -1195,8 +1073,10 @@ function YouTubeTLDWContent() {
                                   ? 'bg-gradient-to-br from-red-500 to-red-600 text-white'
                                   : 'bg-gray-100 text-gray-800'
                               }`}
-                              onContextMenu={(e) =>
-                                handleMessageContextMenu(e, msg)
+                              onContextMenu={
+                                msg.role === 'assistant'
+                                  ? (e) => handleContextMenu(e, msg.content)
+                                  : undefined
                               }
                             >
                               <div className="prose-sm prose max-w-none text-sm leading-relaxed [&>*]:my-0.5 [&>ol]:my-0.5 [&>p]:my-0.5 [&>ul]:my-0.5">
@@ -1333,176 +1213,8 @@ function YouTubeTLDWContent() {
               )}
 
               {activeTab === 'notes' && (
-                <div className="flex h-full flex-col p-4">
-                  {!accessToken ? (
-                    <div className="flex flex-1 items-center justify-center">
-                      <div className="text-center text-sm text-gray-400">
-                        Please sign in to view saved notes
-                      </div>
-                    </div>
-                  ) : loadingNotes ? (
-                    <div className="flex flex-1 items-center justify-center">
-                      <div className="text-sm text-gray-400">
-                        Loading notes...
-                      </div>
-                    </div>
-                  ) : savedNotes.length === 0 ? (
-                    <div className="flex flex-1 items-center justify-center">
-                      <div className="text-center text-sm text-gray-400">
-                        <p>No saved notes yet</p>
-                        <p className="mt-1 text-xs">
-                          Right-click on AI responses to save them
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-3 overflow-y-auto">
-                      {savedNotes.map((note) => {
-                        const isExpanded = expandedNoteId === note.id;
-                        const isEditing = editingNoteId === note.id;
-                        return (
-                          <div
-                            key={note.id}
-                            className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition-all hover:border-red-300 hover:shadow-md"
-                          >
-                            <div className="mb-1 flex items-center justify-between">
-                              <h4
-                                className="flex-1 cursor-pointer text-sm font-medium text-gray-900"
-                                onClick={() =>
-                                  setExpandedNoteId(isExpanded ? null : note.id)
-                                }
-                              >
-                                {note.title}
-                              </h4>
-                              <div className="flex items-center gap-2">
-                                {/* Edit button */}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (isEditing) {
-                                      setEditingNoteId(null);
-                                      setEditingContent('');
-                                    } else {
-                                      setEditingNoteId(note.id);
-                                      setEditingContent(note.content);
-                                      setExpandedNoteId(note.id);
-                                    }
-                                  }}
-                                  className="text-blue-600 hover:text-blue-800"
-                                  title={isEditing ? '取消编辑' : '编辑'}
-                                >
-                                  <svg
-                                    className="h-4 w-4"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                                    />
-                                  </svg>
-                                </button>
-                                {/* Delete button */}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    deleteNote(note.id);
-                                  }}
-                                  className="text-red-500 hover:text-red-700"
-                                  title="删除"
-                                >
-                                  <svg
-                                    className="h-4 w-4"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                    />
-                                  </svg>
-                                </button>
-                                {/* Expand/collapse icon */}
-                                <svg
-                                  className={`h-4 w-4 cursor-pointer text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                  onClick={() =>
-                                    setExpandedNoteId(
-                                      isExpanded ? null : note.id
-                                    )
-                                  }
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M19 9l-7 7-7-7"
-                                  />
-                                </svg>
-                              </div>
-                            </div>
-
-                            {/* Content - Edit mode or View mode */}
-                            {isEditing ? (
-                              <div className="mt-2">
-                                <textarea
-                                  value={editingContent}
-                                  onChange={(e) =>
-                                    setEditingContent(e.target.value)
-                                  }
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="h-40 w-full rounded-lg border border-gray-300 p-2 text-sm focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
-                                  placeholder="输入笔记内容..."
-                                />
-                                <div className="mt-2 flex justify-end gap-2">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setEditingNoteId(null);
-                                      setEditingContent('');
-                                    }}
-                                    className="rounded-lg border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                                  >
-                                    取消
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      updateNote(note.id, editingContent);
-                                    }}
-                                    className="rounded-lg bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700"
-                                  >
-                                    保存
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div
-                                className={`prose-sm prose max-w-none cursor-pointer text-xs text-gray-600 ${isExpanded ? '' : 'line-clamp-3'}`}
-                                onClick={() =>
-                                  setExpandedNoteId(isExpanded ? null : note.id)
-                                }
-                              >
-                                <ReactMarkdown>{note.content}</ReactMarkdown>
-                              </div>
-                            )}
-
-                            <div className="mt-2 text-[10px] text-gray-400">
-                              {new Date(note.createdAt).toLocaleString()}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                <div className="h-full overflow-y-auto">
+                  <NotesList resourceId={videoId} />
                 </div>
               )}
             </div>
@@ -1533,23 +1245,21 @@ function YouTubeTLDWContent() {
         </button>
       </main>
 
-      {/* Context Menu */}
-      {contextMenu.visible && contextMenu.message && (
+      {/* Context Menu for Adding to Notes (Papers style) */}
+      {contextMenu && (
         <div
-          ref={contextMenuRef}
-          className="fixed z-50 min-w-[180px] rounded-lg border border-gray-200 bg-white py-1 shadow-xl"
+          className="context-menu fixed z-50 rounded-lg border-2 border-blue-500 bg-white py-2 shadow-xl"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
         >
           <button
-            onClick={() => {
-              setShowNotesModal(true);
-              setNoteTitle(
-                `AI Response - ${new Date(contextMenu.message!.timestamp).toLocaleDateString()}`
-              );
+            onClick={(e) => {
+              e.stopPropagation();
+              console.log('Button clicked!');
+              saveToNotes();
             }}
-            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+            disabled={savingNote}
+            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm font-medium hover:bg-blue-100 disabled:opacity-50"
           >
             <svg
               className="h-4 w-4"
@@ -1561,109 +1271,11 @@ function YouTubeTLDWContent() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                d="M12 4v16m8-8H4"
               />
             </svg>
-            Add to Notes
+            {savingNote ? 'Saving...' : 'Add to Notes'}
           </button>
-          <button
-            onClick={() => copyToClipboard(contextMenu.message!.content)}
-            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-              />
-            </svg>
-            Copy to Clipboard
-          </button>
-        </div>
-      )}
-
-      {/* Save to Notes Modal */}
-      {showNotesModal && contextMenu.message && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onClick={(e) => {
-            // Only close if clicking on the backdrop itself
-            if (e.target === e.currentTarget) {
-              setShowNotesModal(false);
-              setNoteTitle('');
-            }
-          }}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          <div
-            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <h3 className="mb-4 text-lg font-semibold text-gray-900">
-              Save to Notes
-            </h3>
-
-            <div className="mb-4">
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Title
-              </label>
-              <input
-                type="text"
-                value={noteTitle}
-                onChange={(e) => setNoteTitle(e.target.value)}
-                onClick={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
-                placeholder="Enter note title..."
-                autoFocus
-              />
-            </div>
-
-            <div className="mb-4">
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Content Preview
-              </label>
-              <div
-                className="max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-3"
-                onClick={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-              >
-                <div className="prose-sm prose max-w-none select-text text-sm text-gray-700">
-                  <ReactMarkdown>{contextMenu.message.content}</ReactMarkdown>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowNotesModal(false);
-                  setNoteTitle('');
-                }}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  saveToNotes();
-                }}
-                disabled={savingNote || !noteTitle.trim()}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-              >
-                {savingNote ? 'Saving...' : 'Save Note'}
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>
