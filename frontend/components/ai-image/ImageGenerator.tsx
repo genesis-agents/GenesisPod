@@ -116,6 +116,7 @@ export default function ImageGenerator() {
 
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLDivElement>(null);
 
   // 获取可用模型
   const fetchModels = useCallback(async () => {
@@ -523,6 +524,36 @@ export default function ImageGenerator() {
     setContextMenu(null);
   };
 
+  // Handle wheel scroll in gallery to navigate between images
+  const handleGalleryWheel = useCallback(
+    (e: React.WheelEvent<HTMLDivElement>) => {
+      if (generatedImages.length <= 1) return;
+
+      // Prevent default vertical scroll, scroll horizontally
+      if (galleryRef.current) {
+        galleryRef.current.scrollLeft += e.deltaY;
+      }
+
+      // Also change selected image on scroll
+      const currentIndex = generatedImages.findIndex(
+        (img) => img.id === selectedImage?.id
+      );
+      if (currentIndex === -1) return;
+
+      // Scroll down (positive deltaY) = next image, scroll up = previous image
+      const direction = e.deltaY > 0 ? 1 : -1;
+      const newIndex = Math.max(
+        0,
+        Math.min(generatedImages.length - 1, currentIndex + direction)
+      );
+
+      if (newIndex !== currentIndex) {
+        setSelectedImage(generatedImages[newIndex]);
+      }
+    },
+    [generatedImages, selectedImage]
+  );
+
   // 渲染处理步骤
   const renderProcessingSteps = (steps: ProcessingStep[]) => (
     <div className="space-y-2">
@@ -868,7 +899,11 @@ export default function ImageGenerator() {
       {/* Generated Images Gallery - Compact */}
       {generatedImages.length > 0 && (
         <div className="flex-shrink-0 border-t border-white/10 px-4 py-2">
-          <div className="flex gap-2 overflow-x-auto">
+          <div
+            ref={galleryRef}
+            onWheel={handleGalleryWheel}
+            className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/20 hover:scrollbar-thumb-white/40 flex gap-2 overflow-x-auto"
+          >
             {generatedImages.map((img) => (
               <button
                 key={img.id}
