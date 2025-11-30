@@ -877,6 +877,8 @@ export class AiImageService {
   /**
    * 调用 Image-to-Image API（图片引用完善）
    * 将参考图片和修改提示词一起发送，生成基于原图的新图片
+   *
+   * 重要：使用用户配置的模型，不要硬编码！
    */
   private async callImageToImageAPI(
     modelConfig: any,
@@ -888,17 +890,19 @@ export class AiImageService {
     const modelId = modelConfig.modelId.toLowerCase();
 
     this.logger.log(
-      `[Image-to-Image] Using provider: ${provider}, model: ${modelId}`,
+      `[Image-to-Image] Using user configured model: ${modelConfig.name} (provider: ${provider}, modelId: ${modelConfig.modelId})`,
     );
 
-    // Gemini 模型支持多模态 image-to-image
+    // Google/Gemini/Imagen 模型 - 使用用户配置的模型
     if (
       provider.includes("google") ||
       provider.includes("gemini") ||
-      modelId.includes("gemini")
+      modelId.includes("gemini") ||
+      modelId.includes("imagen")
     ) {
-      return this.generateImageToImageWithGemini(
+      return this.generateImageToImageWithGoogleModel(
         modelConfig.apiKey,
+        modelConfig.modelId, // 使用用户配置的模型ID！
         prompt,
         referenceImageBase64,
       );
@@ -919,25 +923,25 @@ export class AiImageService {
   }
 
   /**
-   * 使用 Gemini 进行 Image-to-Image 编辑
-   * 使用 gemini-2.0-flash-exp-image-generation 模型，专门用于图片编辑
+   * 使用 Google 模型（Gemini/Imagen）进行 Image-to-Image 编辑
+   * 使用用户配置的模型，不要硬编码！
    *
    * 关键要点：
-   * 1. 使用专门的图片编辑提示词格式
-   * 2. 明确指示"编辑此图片"而不是"创建新图片"
-   * 3. 指定要保留的元素和要修改的元素
+   * 1. 使用用户配置的模型ID
+   * 2. Imagen 模型使用 editImage API
+   * 3. Gemini 模型使用 generateContent API with multimodal
    */
-  private async generateImageToImageWithGemini(
+  private async generateImageToImageWithGoogleModel(
     apiKey: string,
+    userModelId: string,
     prompt: string,
     referenceImageBase64: string,
   ): Promise<string> {
-    // 使用支持图片编辑的模型 - gemini-2.0-flash-exp 或 gemini-2.0-flash-preview-image-generation
-    // 根据 Google AI 文档，推荐使用 gemini-2.0-flash-exp 进行图片编辑
-    const model = "gemini-2.0-flash-exp";
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const modelIdLower = userModelId.toLowerCase();
 
-    this.logger.log(`[Image-to-Image] Using Gemini ${model} for image editing`);
+    this.logger.log(
+      `[Image-to-Image] Using user's Google model: ${userModelId}`,
+    );
 
     // 清理 Base64 数据（移除可能的 data URI 前缀）
     const cleanBase64 = referenceImageBase64.replace(
@@ -953,8 +957,67 @@ export class AiImageService {
       mimeType = "image/webp";
     }
 
-    // 构建专门的图片编辑提示词
-    // 关键是使用"Edit this image"格式，而不是"Create a new image"
+    // 重要：Imagen 4 不支持图片编辑，只有 Imagen 3 (imagen-3.0-capability-001) 支持
+    // 对于 Imagen 4 模型，我们需要回退到 Gemini 进行图片编辑
+    if (
+      modelIdLower.includes("imagen-4") ||
+      modelIdLower.includes("imagen-4.0")
+    ) {
+      this.logger.warn(
+        `[Image-to-Image] Imagen 4 does not support image editing. Falling back to Gemini 2.0 Flash for editing.`,
+      );
+      // Imagen 4 不支持编辑，使用 Gemini 作为编辑模型
+      const geminiModel = "gemini-2.0-flash-exp";
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`;
+      return this.executeGeminiImageEdit(
+        geminiUrl,
+        prompt,
+        cleanBase64,
+        mimeType,
+        apiKey,
+      );
+    }
+
+    // Imagen 3 支持图片编辑
+    if (
+      modelIdLower.includes("imagen-3") ||
+      modelIdLower.includes("imagen-3.0")
+    ) {
+      return this.generateImageToImageWithImagen3(
+        apiKey,
+        userModelId,
+        prompt,
+        cleanBase64,
+        mimeType,
+      );
+    }
+
+    // 其他 Gemini 模型使用 generateContent API with multimodal
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${userModelId}:generateContent?key=${apiKey}`;
+
+    this.logger.log(
+      `[Image-to-Image] Using Gemini ${userModelId} for image editing`,
+    );
+
+    return this.executeGeminiImageEdit(
+      url,
+      prompt,
+      cleanBase64,
+      mimeType,
+      apiKey,
+    );
+  }
+
+  /**
+   * 使用 Gemini 执行图片编辑
+   */
+  private async executeGeminiImageEdit(
+    url: string,
+    prompt: string,
+    cleanBase64: string,
+    mimeType: string,
+    apiKey: string,
+  ): Promise<string> {
     const editPrompt = `Edit this image: ${prompt}
 
 Keep the same subjects, composition, and overall structure. Only apply the specific changes requested above.`;
@@ -962,8 +1025,6 @@ Keep the same subjects, composition, and overall structure. Only apply the speci
     this.logger.log(`[Image-to-Image] Edit prompt: ${editPrompt}`);
 
     try {
-      // 根据 Google AI 文档，使用 snake_case 格式 (inline_data, mime_type)
-      // 并且 text 应该在 image 之前
       const response = await firstValueFrom(
         this.httpService.post(
           url,
@@ -971,9 +1032,7 @@ Keep the same subjects, composition, and overall structure. Only apply the speci
             contents: [
               {
                 parts: [
-                  {
-                    text: editPrompt,
-                  },
+                  { text: editPrompt },
                   {
                     inline_data: {
                       mime_type: mimeType,
@@ -996,26 +1055,12 @@ Keep the same subjects, composition, and overall structure. Only apply the speci
 
       const candidates = response.data.candidates;
       if (!candidates || candidates.length === 0) {
-        this.logger.warn(
-          `[Image-to-Image] No candidates, trying fallback model`,
-        );
-        return this.generateImageToImageFallback(
-          apiKey,
-          prompt,
-          cleanBase64,
-          mimeType,
-        );
+        throw new Error("No candidates in response");
       }
 
       const parts = candidates[0].content?.parts;
       if (!parts || parts.length === 0) {
-        this.logger.warn(`[Image-to-Image] No parts, trying fallback model`);
-        return this.generateImageToImageFallback(
-          apiKey,
-          prompt,
-          cleanBase64,
-          mimeType,
-        );
+        throw new Error("No parts in response");
       }
 
       // 查找图片数据
@@ -1029,31 +1074,88 @@ Keep the same subjects, composition, and overall structure. Only apply the speci
         }
       }
 
-      // 如果没有图片数据，尝试备用方案
+      // 如果没有图片数据
       const textPart = parts.find((p: any) => p.text);
-      if (textPart) {
-        this.logger.warn(
-          `[Image-to-Image] Model returned text instead of image: ${textPart.text.slice(0, 200)}`,
-        );
-      }
-
-      return this.generateImageToImageFallback(
-        apiKey,
-        prompt,
-        cleanBase64,
-        mimeType,
-      );
+      const errorDetail = textPart
+        ? `Model returned text: ${textPart.text.slice(0, 300)}`
+        : "No image data in response";
+      throw new Error(`Image editing failed. ${errorDetail}`);
     } catch (error: any) {
       const errorDetail = error.response?.data
         ? JSON.stringify(error.response.data).slice(0, 500)
         : error.message;
-      this.logger.error(`[Image-to-Image] Primary model error: ${errorDetail}`);
+      this.logger.error(`[Image-to-Image] Gemini edit error: ${errorDetail}`);
       // 尝试备用方案
       return this.generateImageToImageFallback(
         apiKey,
         prompt,
         cleanBase64,
         mimeType,
+      );
+    }
+  }
+
+  /**
+   * 使用 Imagen 3 进行图片编辑（需要 Vertex AI）
+   * 注意：这需要 Vertex AI 权限，普通 API key 可能不支持
+   */
+  private async generateImageToImageWithImagen3(
+    apiKey: string,
+    modelId: string,
+    prompt: string,
+    cleanBase64: string,
+    mimeType: string,
+  ): Promise<string> {
+    this.logger.log(
+      `[Image-to-Image] Trying Imagen 3 editImage API with model: ${modelId}`,
+    );
+
+    // Imagen 3 编辑 API 需要 Vertex AI，这里尝试使用 editImage endpoint
+    // 如果失败，回退到 Gemini
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-capability-001:editImage?key=${apiKey}`;
+
+      const response = await firstValueFrom(
+        this.httpService.post(
+          url,
+          {
+            prompt: prompt,
+            image: {
+              bytesBase64Encoded: cleanBase64,
+            },
+            config: {
+              editMode: "EDIT_MODE_INPAINT_INSERTION",
+            },
+          },
+          {
+            headers: { "Content-Type": "application/json" },
+            timeout: 120000,
+          },
+        ),
+      );
+
+      const images = response.data.generatedImages;
+      if (images && images.length > 0 && images[0].image?.imageBytes) {
+        this.logger.log(
+          `[Image-to-Image] Successfully edited image with Imagen 3`,
+        );
+        return `data:image/png;base64,${images[0].image.imageBytes}`;
+      }
+
+      throw new Error("No image data in Imagen 3 response");
+    } catch (error: any) {
+      this.logger.warn(
+        `[Image-to-Image] Imagen 3 editImage failed, falling back to Gemini: ${error.message}`,
+      );
+      // Imagen 3 API 可能不可用，回退到 Gemini
+      const geminiModel = "gemini-2.0-flash-exp";
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`;
+      return this.executeGeminiImageEdit(
+        geminiUrl,
+        prompt,
+        cleanBase64,
+        mimeType,
+        apiKey,
       );
     }
   }
@@ -1197,24 +1299,79 @@ Generate the edited version of this image now.`;
 
   /**
    * 获取默认图片模型
+   * 优先使用 isDefault=true 的模型，支持更多图片生成provider
    */
   private async getDefaultImageModel() {
-    return this.prisma.aIModel.findFirst({
+    // 首先尝试找到标记为默认的图片模型
+    const defaultModel = await this.prisma.aIModel.findFirst({
       where: {
         isEnabled: true,
+        isDefault: true,
         OR: [
+          // Replicate models (包括 flux, banana 等)
+          { provider: { contains: "replicate", mode: "insensitive" } },
+          { modelId: { contains: "flux", mode: "insensitive" } },
+          { modelId: { contains: "banana", mode: "insensitive" } },
+          // Google/Gemini models
           { modelId: { contains: "gemini", mode: "insensitive" } },
           { provider: { contains: "gemini", mode: "insensitive" } },
           { provider: { contains: "google", mode: "insensitive" } },
           { modelId: { contains: "imagen", mode: "insensitive" } },
+          // OpenAI models
           { provider: { contains: "openai", mode: "insensitive" } },
           { modelId: { contains: "dall", mode: "insensitive" } },
+          // Stability models
           { provider: { contains: "stability", mode: "insensitive" } },
+          // Together models
           { provider: { contains: "together", mode: "insensitive" } },
+          // Fal models
+          { provider: { contains: "fal", mode: "insensitive" } },
         ],
       },
-      orderBy: { isDefault: "desc" },
     });
+
+    if (defaultModel) {
+      this.logger.log(
+        `[getDefaultImageModel] Found default model: ${defaultModel.name} (${defaultModel.provider})`,
+      );
+      return defaultModel;
+    }
+
+    // 如果没有默认模型，按优先级查找任意可用的图片模型
+    const anyModel = await this.prisma.aIModel.findFirst({
+      where: {
+        isEnabled: true,
+        OR: [
+          // Replicate models (包括 flux, banana 等)
+          { provider: { contains: "replicate", mode: "insensitive" } },
+          { modelId: { contains: "flux", mode: "insensitive" } },
+          { modelId: { contains: "banana", mode: "insensitive" } },
+          // Google/Gemini models
+          { modelId: { contains: "gemini", mode: "insensitive" } },
+          { provider: { contains: "gemini", mode: "insensitive" } },
+          { provider: { contains: "google", mode: "insensitive" } },
+          { modelId: { contains: "imagen", mode: "insensitive" } },
+          // OpenAI models
+          { provider: { contains: "openai", mode: "insensitive" } },
+          { modelId: { contains: "dall", mode: "insensitive" } },
+          // Stability models
+          { provider: { contains: "stability", mode: "insensitive" } },
+          // Together models
+          { provider: { contains: "together", mode: "insensitive" } },
+          // Fal models
+          { provider: { contains: "fal", mode: "insensitive" } },
+        ],
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (anyModel) {
+      this.logger.log(
+        `[getDefaultImageModel] Found fallback model: ${anyModel.name} (${anyModel.provider})`,
+      );
+    }
+
+    return anyModel;
   }
 
   /**
