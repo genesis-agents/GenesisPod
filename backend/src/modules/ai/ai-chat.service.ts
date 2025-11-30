@@ -824,63 +824,98 @@ Format the summary in a clear, structured manner using markdown.`;
 
         case "google":
         case "gemini":
-          // Check if this is an image generation model
-          const isImageModel =
-            modelId?.includes("image") || modelId?.includes("imagen");
+          // Check if this is an Imagen model (uses different API)
+          const isImagenModel = modelId?.toLowerCase().includes("imagen");
 
-          // For image models, use a simple text test without image generation
-          // This avoids the cost of generating images just for connection testing
-          const geminiTestPrompt = isImageModel
-            ? "Hello" // Simple prompt for image models
-            : testMessages[0].content;
+          if (isImagenModel) {
+            // Imagen models use the predict endpoint
+            // Test with a simple image generation request
+            const imagenEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:predict?key=${apiKey}`;
 
-          const geminiConfig: Record<string, unknown> = isImageModel
-            ? {} // Don't request image generation for connection test
-            : {
-                maxOutputTokens: 50,
-                temperature: 0,
-              };
+            this.logger.log(`Testing Imagen API: ${imagenEndpoint}`);
 
-          // Build full Gemini endpoint URL
-          // Database stores base URL like: https://generativelanguage.googleapis.com/v1beta/models
-          // We need: https://generativelanguage.googleapis.com/v1beta/models/{modelId}:generateContent
-          const effectiveGeminiModel = modelId || "gemini-pro";
-          let geminiEndpoint: string;
-          if (apiEndpoint && apiEndpoint.includes(":generateContent")) {
-            // Already a full URL
-            geminiEndpoint = apiEndpoint;
-          } else {
-            // Construct full URL from base
-            const baseUrl =
-              apiEndpoint?.replace(/\/$/, "") ||
-              "https://generativelanguage.googleapis.com/v1beta/models";
-            geminiEndpoint = `${baseUrl}/${effectiveGeminiModel}:generateContent`;
-          }
-
-          this.logger.log(`Testing Gemini API: ${geminiEndpoint}`);
-
-          response = await firstValueFrom(
-            this.httpService.post(
-              geminiEndpoint,
-              {
-                contents: [
-                  {
-                    parts: [{ text: geminiTestPrompt }],
+            response = await firstValueFrom(
+              this.httpService.post(
+                imagenEndpoint,
+                {
+                  instances: [
+                    { prompt: "A simple test image of a blue circle" },
+                  ],
+                  parameters: {
+                    sampleCount: 1,
+                    aspectRatio: "1:1",
                   },
-                ],
-                ...(Object.keys(geminiConfig).length > 0
-                  ? { generationConfig: geminiConfig }
-                  : {}),
-              },
-              {
-                headers: {
-                  "Content-Type": "application/json",
-                  "x-goog-api-key": apiKey,
                 },
-                timeout: 30000,
-              },
-            ),
-          );
+                {
+                  headers: { "Content-Type": "application/json" },
+                  timeout: 60000, // Longer timeout for image generation
+                },
+              ),
+            );
+
+            // Imagen returns predictions array
+            if (response.data?.predictions?.[0]?.bytesBase64Encoded) {
+              const latency = Date.now() - startTime;
+              return {
+                success: true,
+                message: `Imagen connection successful! Image generated.`,
+                latency,
+              };
+            }
+          } else {
+            // Regular Gemini models use generateContent
+            const isImageCapableModel =
+              modelId?.includes("gemini-2.0-flash-exp") ||
+              modelId?.includes("image");
+
+            const geminiTestPrompt = isImageCapableModel
+              ? "Hello" // Simple prompt for image-capable models
+              : testMessages[0].content;
+
+            const geminiConfig: Record<string, unknown> = isImageCapableModel
+              ? {} // Don't request image generation for connection test
+              : {
+                  maxOutputTokens: 50,
+                  temperature: 0,
+                };
+
+            // Build full Gemini endpoint URL
+            const effectiveGeminiModel = modelId || "gemini-pro";
+            let geminiEndpoint: string;
+            if (apiEndpoint && apiEndpoint.includes(":generateContent")) {
+              geminiEndpoint = apiEndpoint;
+            } else {
+              const baseUrl =
+                apiEndpoint?.replace(/\/$/, "") ||
+                "https://generativelanguage.googleapis.com/v1beta/models";
+              geminiEndpoint = `${baseUrl}/${effectiveGeminiModel}:generateContent`;
+            }
+
+            this.logger.log(`Testing Gemini API: ${geminiEndpoint}`);
+
+            response = await firstValueFrom(
+              this.httpService.post(
+                geminiEndpoint,
+                {
+                  contents: [
+                    {
+                      parts: [{ text: geminiTestPrompt }],
+                    },
+                  ],
+                  ...(Object.keys(geminiConfig).length > 0
+                    ? { generationConfig: geminiConfig }
+                    : {}),
+                },
+                {
+                  headers: {
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": apiKey,
+                  },
+                  timeout: 30000,
+                },
+              ),
+            );
+          }
           break;
 
         default:
