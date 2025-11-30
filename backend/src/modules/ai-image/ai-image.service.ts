@@ -447,7 +447,10 @@ export class AiImageService {
     const inputContent = contentParts.join("\n\n---\n\n");
     this.logger.log(`[STEP 1] Total content: ${inputContent.length} chars`);
 
-    if (inputContent.length < 50) {
+    // 如果用户提供了直接 prompt，跳过最小内容检查
+    // 50 字符限制只针对从 URL/文件提取的内容
+    const hasDirectPrompt = !!prompt && prompt.trim().length > 0;
+    if (inputContent.length < 50 && !hasDirectPrompt) {
       updateStep(
         "content_check",
         "Content Check Failed",
@@ -455,6 +458,17 @@ export class AiImageService {
         "Insufficient content extracted",
       );
       return returnError("No valid content could be extracted from the input");
+    }
+
+    // 如果只有很短的 prompt 且没有其他内容，也检查一下
+    if (inputContent.length < 10) {
+      updateStep(
+        "content_check",
+        "Content Check Failed",
+        "error",
+        "Prompt is too short",
+      );
+      return returnError("Please provide a more detailed prompt");
     }
 
     updateStep(
