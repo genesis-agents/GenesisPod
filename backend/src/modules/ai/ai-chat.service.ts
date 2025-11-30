@@ -2286,6 +2286,7 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
 
   /**
    * Fetch models from Google Gemini API
+   * Includes both Gemini text/multimodal models and Imagen image generation models
    */
   private async fetchGeminiModels(apiKey: string) {
     const response = await firstValueFrom(
@@ -2298,20 +2299,57 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
     );
 
     const models = response.data?.models || [];
-    // Filter to relevant models
-    const relevantModels = models.filter(
-      (m: any) =>
-        m.name.includes("gemini") &&
-        m.supportedGenerationMethods?.includes("generateContent"),
-    );
+    // Filter to relevant models - include both gemini and imagen models
+    const relevantModels = models.filter((m: any) => {
+      const modelName = m.name.toLowerCase();
+      const supportsGenerate =
+        m.supportedGenerationMethods?.includes("generateContent");
+
+      // Include Gemini models that support generateContent
+      if (modelName.includes("gemini") && supportsGenerate) {
+        return true;
+      }
+
+      // Include Imagen models for image generation
+      if (modelName.includes("imagen")) {
+        return true;
+      }
+
+      return false;
+    });
+
+    // Sort models: gemini-2.0-flash-exp first (supports image gen), then others
+    const sortedModels = relevantModels.sort((a: any, b: any) => {
+      const aName = a.name.toLowerCase();
+      const bName = b.name.toLowerCase();
+
+      // Prioritize image-capable models
+      const aIsImageCapable =
+        aName.includes("gemini-2.0-flash-exp") || aName.includes("imagen");
+      const bIsImageCapable =
+        bName.includes("gemini-2.0-flash-exp") || bName.includes("imagen");
+
+      if (aIsImageCapable && !bIsImageCapable) return -1;
+      if (!aIsImageCapable && bIsImageCapable) return 1;
+
+      return aName.localeCompare(bName);
+    });
 
     return {
       success: true,
-      models: relevantModels.map((m: any) => ({
-        id: m.name.replace("models/", ""),
-        name: m.displayName || m.name.replace("models/", ""),
-        description: m.description || `Google ${m.displayName}`,
-      })),
+      models: sortedModels.map((m: any) => {
+        const modelId = m.name.replace("models/", "");
+        const isImageModel =
+          modelId.includes("imagen") ||
+          modelId.includes("gemini-2.0-flash-exp");
+        return {
+          id: modelId,
+          name: m.displayName || modelId,
+          description:
+            m.description ||
+            `Google ${m.displayName}${isImageModel ? " (supports image generation)" : ""}`,
+        };
+      }),
     };
   }
 }
