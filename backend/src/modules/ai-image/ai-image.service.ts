@@ -917,11 +917,16 @@ export class AiImageService {
         ),
       );
 
+      this.logger.log(
+        `Imagen generateImages response: ${JSON.stringify(response.data).slice(0, 300)}`,
+      );
+
       // Imagen 4 返回格式: { generatedImages: [{ image: { imageBytes: "base64..." } }] }
       const generatedImages = response.data.generatedImages;
       if (generatedImages && generatedImages.length > 0) {
         const imageData = generatedImages[0].image?.imageBytes;
         if (imageData) {
+          this.logger.log(`Imagen image generated successfully`);
           return `data:image/png;base64,${imageData}`;
         }
       }
@@ -941,9 +946,17 @@ export class AiImageService {
       );
       throw new Error("No image data in Imagen response");
     } catch (error: any) {
+      const errorStatus = error.response?.status;
+      const errorData = error.response?.data;
+      this.logger.error(
+        `Imagen generateImages error: status=${errorStatus}, data=${JSON.stringify(errorData).slice(0, 500)}`,
+      );
+
       // 如果 generateImages 失败，尝试使用 predict 端点 (旧 API)
-      if (error.response?.status === 404 || error.response?.status === 400) {
-        this.logger.log(`generateImages failed, trying predict endpoint...`);
+      if (errorStatus === 404 || errorStatus === 400) {
+        this.logger.log(
+          `generateImages failed with ${errorStatus}, trying predict endpoint...`,
+        );
         return this.generateWithImagenPredict(
           apiKey,
           modelId,
@@ -957,6 +970,7 @@ export class AiImageService {
 
   /**
    * 使用 Imagen predict 端点 (备用方案)
+   * 如果 predict 也失败，回退到 Gemini 2.0 Flash 图片生成
    */
   private async generateWithImagenPredict(
     apiKey: string,
@@ -968,14 +982,73 @@ export class AiImageService {
 
     this.logger.log(`Calling Imagen predict API: ${url}`);
 
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(
+          url,
+          {
+            instances: [{ prompt }],
+            parameters: {
+              sampleCount: 1,
+              aspectRatio: aspectRatio,
+            },
+          },
+          {
+            headers: { "Content-Type": "application/json" },
+            timeout: 120000,
+          },
+        ),
+      );
+
+      this.logger.log(
+        `Imagen predict response: ${JSON.stringify(response.data).slice(0, 300)}`,
+      );
+
+      const predictions = response.data.predictions;
+      if (predictions && predictions.length > 0) {
+        const prediction = predictions[0];
+        if (prediction.bytesBase64Encoded) {
+          const mimeType = prediction.mimeType || "image/png";
+          return `data:${mimeType};base64,${prediction.bytesBase64Encoded}`;
+        }
+      }
+
+      // 如果 Imagen 不返回结果，回退到 Gemini 2.0 Flash
+      this.logger.warn(
+        `Imagen predict returned no data, falling back to Gemini 2.0 Flash`,
+      );
+      return this.generateWithGeminiFlash(apiKey, prompt);
+    } catch (error: any) {
+      this.logger.error(
+        `Imagen predict error: ${error.response?.status} - ${JSON.stringify(error.response?.data).slice(0, 300)}`,
+      );
+      // 回退到 Gemini 2.0 Flash
+      this.logger.warn(
+        `Imagen predict failed, falling back to Gemini 2.0 Flash`,
+      );
+      return this.generateWithGeminiFlash(apiKey, prompt);
+    }
+  }
+
+  /**
+   * 使用 Gemini 2.0 Flash 生成图片 (最后备用方案)
+   */
+  private async generateWithGeminiFlash(
+    apiKey: string,
+    prompt: string,
+  ): Promise<string> {
+    const model = "gemini-2.0-flash-exp";
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    this.logger.log(`Falling back to Gemini 2.0 Flash for image generation`);
+
     const response = await firstValueFrom(
       this.httpService.post(
         url,
         {
-          instances: [{ prompt }],
-          parameters: {
-            sampleCount: 1,
-            aspectRatio: aspectRatio,
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseModalities: ["TEXT", "IMAGE"],
           },
         },
         {
@@ -985,18 +1058,23 @@ export class AiImageService {
       ),
     );
 
-    const predictions = response.data.predictions;
-    if (!predictions || predictions.length === 0) {
-      throw new Error("No predictions in Imagen response");
+    const candidates = response.data.candidates;
+    if (!candidates || candidates.length === 0) {
+      throw new Error("No candidates in Gemini response");
     }
 
-    const prediction = predictions[0];
-    if (prediction.bytesBase64Encoded) {
-      const mimeType = prediction.mimeType || "image/png";
-      return `data:${mimeType};base64,${prediction.bytesBase64Encoded}`;
+    const parts = candidates[0].content?.parts;
+    if (parts) {
+      for (const part of parts) {
+        if (part.inlineData && part.inlineData.data) {
+          const mimeType = part.inlineData.mimeType || "image/png";
+          this.logger.log(`Gemini 2.0 Flash image generated successfully`);
+          return `data:${mimeType};base64,${part.inlineData.data}`;
+        }
+      }
     }
 
-    throw new Error("No image data in Imagen predict response");
+    throw new Error("No image data in Gemini 2.0 Flash response");
   }
 
   /**
