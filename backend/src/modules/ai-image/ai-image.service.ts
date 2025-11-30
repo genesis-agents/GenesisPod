@@ -782,32 +782,40 @@ export class AiImageService {
   // ============ 图片生成 API 实现 ============
 
   /**
-   * 使用 Gemini Image Generation API
+   * 使用 Google AI Image Generation API
    * 支持的图片生成模型:
    * - gemini-2.0-flash-exp (支持 responseModalities: IMAGE)
+   * - gemini-2.0-flash-exp-image-generation
    * - imagen-3.0-generate-001 (Imagen 3)
+   * - imagen-4.0-generate-preview-* (Imagen 4)
+   * - imagen-4.0-ultra-generate-preview-* (Imagen 4 Ultra)
    */
   private async generateWithGemini(
     apiKey: string,
     modelId: string,
     prompt: string,
-    _dimensions: { width: number; height: number },
+    dimensions: { width: number; height: number },
   ): Promise<string> {
-    // 只有特定模型支持图片生成，其他Gemini模型不支持
-    const imageCapableModels = [
+    const modelLower = modelId.toLowerCase();
+
+    // 检查是否是 Imagen 模型 (使用不同的 API)
+    if (modelLower.includes("imagen")) {
+      return this.generateWithImagen(apiKey, modelId, prompt, dimensions);
+    }
+
+    // Gemini 模型支持列表
+    const geminiImageModels = [
       "gemini-2.0-flash-exp",
       "gemini-2.0-flash-exp-image-generation",
-      "imagen-3.0-generate-001",
-      "imagen-3.0-generate-002",
     ];
 
-    // 检查是否是支持图片生成的模型
-    const isImageCapable = imageCapableModels.some((m) =>
-      modelId.toLowerCase().includes(m.toLowerCase()),
+    // 检查是否是支持图片生成的 Gemini 模型
+    const isGeminiImageCapable = geminiImageModels.some((m) =>
+      modelLower.includes(m.toLowerCase()),
     );
 
     // 如果不是支持的模型，使用默认的图片生成模型
-    const model = isImageCapable ? modelId : "gemini-2.0-flash-exp";
+    const model = isGeminiImageCapable ? modelId : "gemini-2.0-flash-exp";
 
     this.logger.log(
       `Using Gemini model for image generation: ${model} (original: ${modelId})`,
@@ -849,6 +857,64 @@ export class AiImageService {
     }
 
     throw new Error("No image data in Gemini response");
+  }
+
+  /**
+   * 使用 Imagen API 生成图片
+   * Imagen 3/4 使用 predict 端点而不是 generateContent
+   */
+  private async generateWithImagen(
+    apiKey: string,
+    modelId: string,
+    prompt: string,
+    dimensions: { width: number; height: number },
+  ): Promise<string> {
+    this.logger.log(`Using Imagen model for image generation: ${modelId}`);
+
+    // Imagen 使用 predict 端点
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:predict?key=${apiKey}`;
+
+    // 计算宽高比
+    const aspectRatio =
+      dimensions.width === dimensions.height
+        ? "1:1"
+        : dimensions.width > dimensions.height
+          ? "16:9"
+          : "9:16";
+
+    const response = await firstValueFrom(
+      this.httpService.post(
+        url,
+        {
+          instances: [{ prompt }],
+          parameters: {
+            sampleCount: 1,
+            aspectRatio: aspectRatio,
+            // Imagen 4 specific parameters
+            personGeneration: "ALLOW_ADULT",
+            safetySetting: "BLOCK_MEDIUM_AND_ABOVE",
+          },
+        },
+        {
+          headers: { "Content-Type": "application/json" },
+          timeout: 120000,
+        },
+      ),
+    );
+
+    const predictions = response.data.predictions;
+    if (!predictions || predictions.length === 0) {
+      throw new Error("No predictions in Imagen response");
+    }
+
+    // Imagen 返回 base64 编码的图片
+    const prediction = predictions[0];
+    if (prediction.bytesBase64Encoded) {
+      const mimeType = prediction.mimeType || "image/png";
+      return `data:${mimeType};base64,${prediction.bytesBase64Encoded}`;
+    }
+
+    throw new Error("No image data in Imagen response");
   }
 
   /**
