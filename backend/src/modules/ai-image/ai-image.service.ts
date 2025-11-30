@@ -72,20 +72,14 @@ export class AiImageService {
 
   /**
    * 获取所有可用模型（文本模型 + 图片模型）
+   * 使用 modelType 字段进行筛选，确保返回正确类型的模型
    */
   async getAvailableModels() {
-    // 获取文本模型
+    // 获取文本模型 - 使用 modelType = CHAT
     const textModels = await this.prisma.aIModel.findMany({
       where: {
         isEnabled: true,
-        OR: [
-          { modelId: { contains: "gpt", mode: "insensitive" } },
-          { modelId: { contains: "claude", mode: "insensitive" } },
-          { modelId: { contains: "gemini", mode: "insensitive" } },
-          { provider: { contains: "openai", mode: "insensitive" } },
-          { provider: { contains: "anthropic", mode: "insensitive" } },
-          { provider: { contains: "google", mode: "insensitive" } },
-        ],
+        modelType: AIModelType.CHAT,
       },
       select: {
         id: true,
@@ -99,24 +93,11 @@ export class AiImageService {
       orderBy: [{ isDefault: "desc" }, { name: "asc" }],
     });
 
-    // 获取图片模型
+    // 获取图片生成模型 - 使用 modelType = IMAGE_GENERATION
     const imageModels = await this.prisma.aIModel.findMany({
       where: {
         isEnabled: true,
-        OR: [
-          { provider: { contains: "gemini", mode: "insensitive" } },
-          { provider: { contains: "google", mode: "insensitive" } },
-          { modelId: { contains: "gemini", mode: "insensitive" } },
-          { modelId: { contains: "imagen", mode: "insensitive" } },
-          { provider: { contains: "openai", mode: "insensitive" } },
-          { modelId: { contains: "dall", mode: "insensitive" } },
-          { provider: { contains: "stability", mode: "insensitive" } },
-          { modelId: { contains: "stable", mode: "insensitive" } },
-          { provider: { contains: "flux", mode: "insensitive" } },
-          { modelId: { contains: "flux", mode: "insensitive" } },
-          { provider: { contains: "replicate", mode: "insensitive" } },
-          { provider: { contains: "together", mode: "insensitive" } },
-        ],
+        modelType: AIModelType.IMAGE_GENERATION,
       },
       select: {
         id: true,
@@ -129,6 +110,10 @@ export class AiImageService {
       },
       orderBy: [{ isDefault: "desc" }, { name: "asc" }],
     });
+
+    this.logger.log(
+      `[getAvailableModels] Found ${textModels.length} CHAT models, ${imageModels.length} IMAGE_GENERATION models`,
+    );
 
     return {
       textModels: textModels.map((m) => ({

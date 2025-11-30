@@ -131,6 +131,8 @@ function YouTubeTLDWContent() {
   const [savedNotes, setSavedNotes] = useState<SavedNote[]>([]);
   const [loadingNotes, setLoadingNotes] = useState(false);
   const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState('');
 
   const playerRef = useRef<YTPlayer | null>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
@@ -391,12 +393,13 @@ function YouTubeTLDWContent() {
 
   // Load notes when switching to notes tab
   const loadNotes = useCallback(async () => {
-    if (!accessToken) return;
+    if (!accessToken || !videoId) return;
 
     setLoadingNotes(true);
     try {
+      // Filter by source that includes the videoId to show only notes for this video
       const response = await fetch(
-        `${config.apiUrl}/notes?source=youtube-ai-chat&limit=20`,
+        `${config.apiUrl}/notes?source=youtube:${videoId}&limit=50`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -421,7 +424,7 @@ function YouTubeTLDWContent() {
     } finally {
       setLoadingNotes(false);
     }
-  }, [accessToken]);
+  }, [accessToken, videoId]);
 
   // Load notes when switching to notes tab
   useEffect(() => {
@@ -429,6 +432,65 @@ function YouTubeTLDWContent() {
       loadNotes();
     }
   }, [activeTab, accessToken, loadNotes]);
+
+  // Delete a saved note
+  const deleteNote = useCallback(
+    async (noteId: string) => {
+      if (!accessToken) return;
+      if (!confirm('确定要删除这条笔记吗？')) return;
+
+      try {
+        const response = await fetch(`${config.apiUrl}/notes/${noteId}`, {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+
+        if (response.ok) {
+          setSavedNotes((prev) => prev.filter((n) => n.id !== noteId));
+        } else {
+          alert('删除笔记失败');
+        }
+      } catch (error) {
+        console.error('Failed to delete note:', error);
+        alert('删除笔记失败');
+      }
+    },
+    [accessToken]
+  );
+
+  // Update a saved note
+  const updateNote = useCallback(
+    async (noteId: string, content: string) => {
+      if (!accessToken) return;
+
+      try {
+        const response = await fetch(`${config.apiUrl}/notes/${noteId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ content }),
+        });
+
+        if (response.ok) {
+          setSavedNotes((prev) =>
+            prev.map((n) => (n.id === noteId ? { ...n, content } : n))
+          );
+          setEditingNoteId(null);
+          setEditingContent('');
+        } else {
+          alert('更新笔记失败');
+        }
+      } catch (error) {
+        console.error('Failed to update note:', error);
+        alert('更新笔记失败');
+      }
+    },
+    [accessToken]
+  );
 
   // Close context menu on click outside (left click only)
   useEffect(() => {
@@ -481,8 +543,8 @@ function YouTubeTLDWContent() {
         body: JSON.stringify({
           title: noteTitle,
           content: contextMenu.message.content,
-          source: 'youtube-ai-chat',
-          tags: ['ai-chat', 'youtube'],
+          source: `youtube:${videoId}`,
+          tags: ['ai-chat', 'youtube', videoId],
         }),
       });
 
@@ -1297,37 +1359,142 @@ function YouTubeTLDWContent() {
                     <div className="space-y-3 overflow-y-auto">
                       {savedNotes.map((note) => {
                         const isExpanded = expandedNoteId === note.id;
+                        const isEditing = editingNoteId === note.id;
                         return (
                           <div
                             key={note.id}
-                            className="cursor-pointer rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition-all hover:border-red-300 hover:shadow-md"
-                            onClick={() =>
-                              setExpandedNoteId(isExpanded ? null : note.id)
-                            }
+                            className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition-all hover:border-red-300 hover:shadow-md"
                           >
                             <div className="mb-1 flex items-center justify-between">
-                              <h4 className="text-sm font-medium text-gray-900">
+                              <h4
+                                className="flex-1 cursor-pointer text-sm font-medium text-gray-900"
+                                onClick={() =>
+                                  setExpandedNoteId(isExpanded ? null : note.id)
+                                }
+                              >
                                 {note.title}
                               </h4>
-                              <svg
-                                className={`h-4 w-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 9l-7 7-7-7"
+                              <div className="flex items-center gap-2">
+                                {/* Edit button */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (isEditing) {
+                                      setEditingNoteId(null);
+                                      setEditingContent('');
+                                    } else {
+                                      setEditingNoteId(note.id);
+                                      setEditingContent(note.content);
+                                      setExpandedNoteId(note.id);
+                                    }
+                                  }}
+                                  className="text-blue-600 hover:text-blue-800"
+                                  title={isEditing ? '取消编辑' : '编辑'}
+                                >
+                                  <svg
+                                    className="h-4 w-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                    />
+                                  </svg>
+                                </button>
+                                {/* Delete button */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteNote(note.id);
+                                  }}
+                                  className="text-red-500 hover:text-red-700"
+                                  title="删除"
+                                >
+                                  <svg
+                                    className="h-4 w-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                    />
+                                  </svg>
+                                </button>
+                                {/* Expand/collapse icon */}
+                                <svg
+                                  className={`h-4 w-4 cursor-pointer text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                  onClick={() =>
+                                    setExpandedNoteId(
+                                      isExpanded ? null : note.id
+                                    )
+                                  }
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M19 9l-7 7-7-7"
+                                  />
+                                </svg>
+                              </div>
+                            </div>
+
+                            {/* Content - Edit mode or View mode */}
+                            {isEditing ? (
+                              <div className="mt-2">
+                                <textarea
+                                  value={editingContent}
+                                  onChange={(e) =>
+                                    setEditingContent(e.target.value)
+                                  }
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="h-40 w-full rounded-lg border border-gray-300 p-2 text-sm focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+                                  placeholder="输入笔记内容..."
                                 />
-                              </svg>
-                            </div>
-                            <div
-                              className={`prose-sm prose max-w-none text-xs text-gray-600 ${isExpanded ? '' : 'line-clamp-3'}`}
-                            >
-                              <ReactMarkdown>{note.content}</ReactMarkdown>
-                            </div>
+                                <div className="mt-2 flex justify-end gap-2">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingNoteId(null);
+                                      setEditingContent('');
+                                    }}
+                                    className="rounded-lg border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                                  >
+                                    取消
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      updateNote(note.id, editingContent);
+                                    }}
+                                    className="rounded-lg bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700"
+                                  >
+                                    保存
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div
+                                className={`prose-sm prose max-w-none cursor-pointer text-xs text-gray-600 ${isExpanded ? '' : 'line-clamp-3'}`}
+                                onClick={() =>
+                                  setExpandedNoteId(isExpanded ? null : note.id)
+                                }
+                              >
+                                <ReactMarkdown>{note.content}</ReactMarkdown>
+                              </div>
+                            )}
+
                             <div className="mt-2 text-[10px] text-gray-400">
                               {new Date(note.createdAt).toLocaleString()}
                             </div>
@@ -1423,8 +1590,22 @@ function YouTubeTLDWContent() {
 
       {/* Save to Notes Modal */}
       {showNotesModal && contextMenu.message && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={(e) => {
+            // Only close if clicking on the backdrop itself
+            if (e.target === e.currentTarget) {
+              setShowNotesModal(false);
+              setNoteTitle('');
+            }
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
             <h3 className="mb-4 text-lg font-semibold text-gray-900">
               Save to Notes
             </h3>
@@ -1437,8 +1618,11 @@ function YouTubeTLDWContent() {
                 type="text"
                 value={noteTitle}
                 onChange={(e) => setNoteTitle(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
                 placeholder="Enter note title..."
+                autoFocus
               />
             </div>
 
@@ -1446,8 +1630,12 @@ function YouTubeTLDWContent() {
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Content Preview
               </label>
-              <div className="max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-3">
-                <div className="prose-sm prose max-w-none text-sm text-gray-700">
+              <div
+                className="max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-3"
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <div className="prose-sm prose max-w-none select-text text-sm text-gray-700">
                   <ReactMarkdown>{contextMenu.message.content}</ReactMarkdown>
                 </div>
               </div>
@@ -1455,7 +1643,8 @@ function YouTubeTLDWContent() {
 
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   setShowNotesModal(false);
                   setNoteTitle('');
                 }}
@@ -1464,7 +1653,10 @@ function YouTubeTLDWContent() {
                 Cancel
               </button>
               <button
-                onClick={saveToNotes}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  saveToNotes();
+                }}
                 disabled={savingNote || !noteTitle.trim()}
                 className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
               >
