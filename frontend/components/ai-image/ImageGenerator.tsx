@@ -86,6 +86,11 @@ export default function ImageGenerator() {
   // 思考过程展示
   const [showProcessing, setShowProcessing] = useState(true);
 
+  // Lightbox 状态
+  const [lightboxImage, setLightboxImage] = useState<GeneratedImage | null>(
+    null
+  );
+
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -118,6 +123,17 @@ export default function ImageGenerator() {
   useEffect(() => {
     fetchModels();
   }, [fetchModels]);
+
+  // ESC 键关闭 Lightbox
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && lightboxImage) {
+        setLightboxImage(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [lightboxImage]);
 
   // URL 相关函数
   const addUrlInput = () => setUrls([...urls, '']);
@@ -495,9 +511,31 @@ export default function ImageGenerator() {
               <img
                 src={selectedImage.imageUrl}
                 alt={selectedImage.prompt}
-                className="max-h-[70vh] rounded-2xl object-contain shadow-2xl"
+                className="max-h-[70vh] cursor-pointer rounded-2xl object-contain shadow-2xl transition hover:opacity-90"
+                onClick={() => setLightboxImage(selectedImage)}
+                title="点击放大查看"
               />
               <div className="absolute bottom-4 right-4 flex gap-2">
+                <button
+                  onClick={() => setLightboxImage(selectedImage)}
+                  className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm text-white backdrop-blur-md transition hover:bg-white/20"
+                  title="全屏查看"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                    />
+                  </svg>
+                  Expand
+                </button>
                 <button
                   onClick={() => handleDownload(selectedImage)}
                   className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm text-white backdrop-blur-md transition hover:bg-white/20"
@@ -1117,6 +1155,89 @@ export default function ImageGenerator() {
           </p>
         </div>
       </div>
+
+      {/* Lightbox Modal */}
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
+          onClick={() => setLightboxImage(null)}
+        >
+          {/* Close button */}
+          <button
+            onClick={() => setLightboxImage(null)}
+            className="absolute right-4 top-4 z-10 rounded-full bg-white/10 p-3 text-white transition hover:bg-white/20"
+            title="关闭 (ESC)"
+          >
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+
+          {/* Download button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDownload(lightboxImage);
+            }}
+            className="absolute right-20 top-4 z-10 rounded-full bg-white/10 p-3 text-white transition hover:bg-white/20"
+            title="下载图片"
+          >
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
+            </svg>
+          </button>
+
+          {/* Image container */}
+          <div
+            className="relative max-h-[95vh] max-w-[95vw]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={lightboxImage.imageUrl}
+              alt={lightboxImage.prompt}
+              className="max-h-[95vh] max-w-[95vw] rounded-lg object-contain shadow-2xl"
+            />
+
+            {/* Image info at bottom */}
+            <div className="absolute bottom-0 left-0 right-0 rounded-b-lg bg-gradient-to-t from-black/80 to-transparent p-4">
+              {lightboxImage.enhancedPrompt && (
+                <p className="line-clamp-2 text-sm text-gray-300">
+                  {lightboxImage.enhancedPrompt}
+                </p>
+              )}
+              <p className="mt-1 text-xs text-gray-500">
+                {lightboxImage.width} × {lightboxImage.height} •{' '}
+                {new Date(lightboxImage.createdAt).toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+          {/* Navigation hint */}
+          <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-gray-500">
+            点击图片外区域或按 ESC 关闭
+          </p>
+        </div>
+      )}
     </div>
   );
 }
