@@ -406,51 +406,30 @@ export class AiImageService {
       }
     }
 
-    // 1.5 处理参考图片
+    // 1.5 处理参考图片 (Image-to-Image 模式)
+    // 不需要分析图片内容，而是直接将原图作为参考发送给图像生成模型
     if (imageBase64) {
-      updateStep("image_analyze", "Analyzing Reference Image", "processing");
-      this.logger.log(`[STEP 1.5] Analyzing reference image...`);
-
-      try {
-        const textModel = await this.getDefaultTextModel();
-        if (!textModel?.apiKey) {
-          updateStep(
-            "image_analyze",
-            "Image Analysis Skipped",
-            "error",
-            "No text model available",
-          );
-          return returnError("Cannot analyze image: no text model configured");
-        }
-
-        const imageDescription = await this.contentExtractor.extractFromImage(
-          imageBase64,
-          textModel.apiKey,
-        );
-        contentParts.push(`Image description:\n${imageDescription}`);
-        updateStep(
-          "image_analyze",
-          "Image Analysis Complete",
-          "completed",
-          imageDescription,
-        );
-        this.logger.log(`[STEP 1.5] ✓ Image analysis complete`);
-      } catch (error) {
-        const errorMsg =
-          error instanceof Error ? error.message : "Unknown error";
-        updateStep("image_analyze", "Image Analysis Failed", "error", errorMsg);
-        return returnError(`Failed to analyze image: ${errorMsg}`);
-      }
+      updateStep(
+        "image_reference",
+        "Reference Image Prepared",
+        "completed",
+        "Image will be used as reference for generation",
+      );
+      this.logger.log(
+        `[STEP 1.5] ✓ Reference image prepared for image-to-image generation`,
+      );
+      // 注意：不添加到 contentParts，原图会直接发送给图像生成模型
     }
 
     // 检查是否有足够的内容
     const inputContent = contentParts.join("\n\n---\n\n");
     this.logger.log(`[STEP 1] Total content: ${inputContent.length} chars`);
 
-    // 如果用户提供了直接 prompt，跳过最小内容检查
+    // 如果用户提供了直接 prompt 或参考图片，跳过最小内容检查
     // 50 字符限制只针对从 URL/文件提取的内容
     const hasDirectPrompt = !!prompt && prompt.trim().length > 0;
-    if (inputContent.length < 50 && !hasDirectPrompt) {
+    const hasReferenceImage = !!imageBase64;
+    if (inputContent.length < 50 && !hasDirectPrompt && !hasReferenceImage) {
       updateStep(
         "content_check",
         "Content Check Failed",
@@ -460,8 +439,8 @@ export class AiImageService {
       return returnError("No valid content could be extracted from the input");
     }
 
-    // 如果只有很短的 prompt 且没有其他内容，也检查一下
-    if (inputContent.length < 10) {
+    // 如果只有很短的 prompt 且没有其他内容且没有参考图片，也检查一下
+    if (inputContent.length < 10 && !hasReferenceImage) {
       updateStep(
         "content_check",
         "Content Check Failed",
@@ -617,12 +596,20 @@ export class AiImageService {
     this.logger.log(`[STEP 3] Using image model: ${imageModelUsed}`);
 
     try {
-      const generatedImageUrl = await this.callImageGenerationAPI(
-        imageModelConfig,
-        enhancedPrompt,
-        dimensions,
-        negativePrompt,
-      );
+      // 如果有参考图片，使用 image-to-image 生成
+      const generatedImageUrl = imageBase64
+        ? await this.callImageToImageAPI(
+            imageModelConfig,
+            enhancedPrompt,
+            imageBase64,
+            dimensions,
+          )
+        : await this.callImageGenerationAPI(
+            imageModelConfig,
+            enhancedPrompt,
+            dimensions,
+            negativePrompt,
+          );
 
       // 验证生成的图片
       if (!generatedImageUrl || !generatedImageUrl.startsWith("data:image")) {
@@ -885,6 +872,141 @@ export class AiImageService {
         dimensions,
       );
     }
+  }
+
+  /**
+   * 调用 Image-to-Image API（图片引用完善）
+   * 将参考图片和修改提示词一起发送，生成基于原图的新图片
+   */
+  private async callImageToImageAPI(
+    modelConfig: any,
+    prompt: string,
+    referenceImageBase64: string,
+    dimensions: { width: number; height: number },
+  ): Promise<string> {
+    const provider = modelConfig.provider.toLowerCase();
+    const modelId = modelConfig.modelId.toLowerCase();
+
+    this.logger.log(
+      `[Image-to-Image] Using provider: ${provider}, model: ${modelId}`,
+    );
+
+    // Gemini 模型支持多模态 image-to-image
+    if (
+      provider.includes("google") ||
+      provider.includes("gemini") ||
+      modelId.includes("gemini")
+    ) {
+      return this.generateImageToImageWithGemini(
+        modelConfig.apiKey,
+        prompt,
+        referenceImageBase64,
+      );
+    }
+
+    // 对于不支持 image-to-image 的模型，回退到普通生成
+    // 但在提示词中明确要求参考原图风格
+    this.logger.warn(
+      `[Image-to-Image] Model ${modelId} may not support image-to-image, falling back to text-to-image with enhanced prompt`,
+    );
+    const enhancedPrompt = `Based on the reference image style and composition: ${prompt}. Maintain similar visual elements, color palette, and artistic style.`;
+    return this.callImageGenerationAPI(
+      modelConfig,
+      enhancedPrompt,
+      dimensions,
+      undefined,
+    );
+  }
+
+  /**
+   * 使用 Gemini 进行 Image-to-Image 生成
+   * Gemini 2.0 Flash 支持多模态输入，可以接收图片和文本一起生成新图片
+   */
+  private async generateImageToImageWithGemini(
+    apiKey: string,
+    prompt: string,
+    referenceImageBase64: string,
+  ): Promise<string> {
+    const model = "gemini-2.0-flash-exp";
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    this.logger.log(`[Image-to-Image] Using Gemini ${model} for image editing`);
+
+    // 清理 Base64 数据（移除可能的 data URI 前缀）
+    const cleanBase64 = referenceImageBase64.replace(
+      /^data:image\/\w+;base64,/,
+      "",
+    );
+
+    // 构建多模态请求：图片 + 编辑指令
+    const editPrompt = `You are an expert image editor. Based on this reference image, create a NEW image that follows these instructions: ${prompt}
+
+Important guidelines:
+- Preserve the overall composition and subject matter from the reference image
+- Apply the requested modifications while maintaining visual coherence
+- The output should be a complete, finished image (not text description)
+- Generate a high-quality image that reflects the changes requested`;
+
+    const response = await firstValueFrom(
+      this.httpService.post(
+        url,
+        {
+          contents: [
+            {
+              parts: [
+                {
+                  inlineData: {
+                    mimeType: "image/jpeg",
+                    data: cleanBase64,
+                  },
+                },
+                {
+                  text: editPrompt,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            responseModalities: ["TEXT", "IMAGE"],
+          },
+        },
+        {
+          headers: { "Content-Type": "application/json" },
+          timeout: 120000,
+        },
+      ),
+    );
+
+    const candidates = response.data.candidates;
+    if (!candidates || candidates.length === 0) {
+      throw new Error("No candidates in Gemini image-to-image response");
+    }
+
+    const parts = candidates[0].content?.parts;
+    if (!parts || parts.length === 0) {
+      throw new Error("No parts in Gemini image-to-image response");
+    }
+
+    // 查找图片数据
+    for (const part of parts) {
+      if (part.inlineData && part.inlineData.data) {
+        const mimeType = part.inlineData.mimeType || "image/png";
+        this.logger.log(`[Image-to-Image] Successfully generated edited image`);
+        return `data:${mimeType};base64,${part.inlineData.data}`;
+      }
+    }
+
+    // 如果没有图片数据，记录返回的文本内容用于调试
+    const textPart = parts.find((p: any) => p.text);
+    if (textPart) {
+      this.logger.warn(
+        `[Image-to-Image] Gemini returned text instead of image: ${textPart.text.slice(0, 200)}`,
+      );
+    }
+
+    throw new Error(
+      "No image data in Gemini image-to-image response. The model may have returned text instead.",
+    );
   }
 
   /**
