@@ -63,6 +63,7 @@ export default function ImageGenerator() {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [urls, setUrls] = useState<string[]>(['']);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [filesPrompt, setFilesPrompt] = useState('');
   const [isDragging, setIsDragging] = useState(false);
 
   // 生成状态
@@ -93,6 +94,16 @@ export default function ImageGenerator() {
     null
   );
 
+  // Context Menu 状态
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    image: GeneratedImage;
+  } | null>(null);
+  const [bookmarkedImages, setBookmarkedImages] = useState<Set<string>>(
+    new Set()
+  );
+
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -121,20 +132,50 @@ export default function ImageGenerator() {
     }
   }, []);
 
+  // 获取历史记录
+  const fetchHistory = useCallback(async () => {
+    try {
+      const response = await fetch(
+        `${config.apiBaseUrl}/api/v1/ai-image/history`,
+        { headers: { ...getAuthHeader() } }
+      );
+
+      if (response.ok) {
+        const data: GeneratedImage[] = await response.json();
+        if (data && data.length > 0) {
+          setGeneratedImages(data);
+          // 默认选中最新的图片
+          setSelectedImage(data[0]);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch history:', err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchModels();
-  }, [fetchModels]);
+    fetchHistory();
+  }, [fetchModels, fetchHistory]);
 
-  // ESC 键关闭 Lightbox
+  // ESC 键关闭 Lightbox 和 Context Menu
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && lightboxImage) {
-        setLightboxImage(null);
+      if (e.key === 'Escape') {
+        if (contextMenu) setContextMenu(null);
+        else if (lightboxImage) setLightboxImage(null);
       }
     };
+    const handleClick = () => {
+      if (contextMenu) setContextMenu(null);
+    };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [lightboxImage]);
+    window.addEventListener('click', handleClick);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('click', handleClick);
+    };
+  }, [lightboxImage, contextMenu]);
 
   // URL 相关函数
   const addUrlInput = () => setUrls([...urls, '']);
@@ -260,6 +301,9 @@ export default function ImageGenerator() {
           formData.append('imageModelId', selectedImageModelId);
         formData.append('skipEnhancement', String(skipEnhancement));
         formData.append('aspectRatio', aspectRatio);
+        if (filesPrompt.trim()) {
+          formData.append('prompt', filesPrompt.trim());
+        }
 
         const response = await fetch(
           `${config.apiBaseUrl}/api/v1/ai-image/generate-with-files`,
@@ -351,6 +395,64 @@ export default function ImageGenerator() {
     } catch (err) {
       console.error('Download failed:', err);
     }
+  };
+
+  // Context Menu 处理
+  const handleContextMenu = (e: React.MouseEvent, image: GeneratedImage) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, image });
+  };
+
+  const handleBookmark = async (image: GeneratedImage) => {
+    try {
+      const isBookmarked = bookmarkedImages.has(image.id);
+      // TODO: 实际调用后端 API 保存/取消收藏
+      // await fetch(`${config.apiBaseUrl}/api/v1/ai-image/${image.id}/bookmark`, {
+      //   method: isBookmarked ? 'DELETE' : 'POST',
+      //   headers: { ...getAuthHeader() },
+      // });
+
+      setBookmarkedImages((prev) => {
+        const newSet = new Set(prev);
+        if (isBookmarked) {
+          newSet.delete(image.id);
+        } else {
+          newSet.add(image.id);
+        }
+        return newSet;
+      });
+    } catch (err) {
+      console.error('Bookmark failed:', err);
+    }
+    setContextMenu(null);
+  };
+
+  const handleCopyLink = async (image: GeneratedImage) => {
+    try {
+      await navigator.clipboard.writeText(image.imageUrl);
+    } catch (err) {
+      console.error('Copy link failed:', err);
+    }
+    setContextMenu(null);
+  };
+
+  const handleCopyImage = async (image: GeneratedImage) => {
+    try {
+      const response = await fetch(image.imageUrl);
+      const blob = await response.blob();
+      await navigator.clipboard.write([
+        new ClipboardItem({ [blob.type]: blob }),
+      ]);
+    } catch (err) {
+      console.error('Copy image failed:', err);
+    }
+    setContextMenu(null);
+  };
+
+  const handleOpenInNewTab = (image: GeneratedImage) => {
+    window.open(image.imageUrl, '_blank');
+    setContextMenu(null);
   };
 
   // 渲染处理步骤
@@ -541,7 +643,8 @@ export default function ImageGenerator() {
                 alt={selectedImage.prompt}
                 className="max-h-[75vh] cursor-pointer rounded-2xl object-contain shadow-2xl transition hover:opacity-90"
                 onClick={() => setLightboxImage(selectedImage)}
-                title="点击放大查看"
+                onContextMenu={(e) => handleContextMenu(e, selectedImage)}
+                title="点击放大查看 | 右键打开菜单"
               />
               <div className="absolute bottom-4 right-4 flex gap-2">
                 <button
@@ -654,7 +757,7 @@ export default function ImageGenerator() {
                 </svg>
               </button>
               {showProcessing && (
-                <div className="flex-1 overflow-y-auto p-4">
+                <div className="scrollbar-dark flex-1 overflow-y-auto p-4">
                   {/* Models Used */}
                   {(selectedImage.textModelUsed ||
                     selectedImage.imageModelUsed) && (
@@ -702,12 +805,24 @@ export default function ImageGenerator() {
               <button
                 key={img.id}
                 onClick={() => setSelectedImage(img)}
+                onContextMenu={(e) => handleContextMenu(e, img)}
                 className={`relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg transition ${
                   selectedImage?.id === img.id
                     ? 'ring-2 ring-purple-500 ring-offset-1 ring-offset-[#1a1a2e]'
                     : 'opacity-60 hover:opacity-100'
                 }`}
               >
+                {bookmarkedImages.has(img.id) && (
+                  <div className="absolute right-0.5 top-0.5 z-10">
+                    <svg
+                      className="h-3 w-3 text-yellow-400"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                    </svg>
+                  </div>
+                )}
                 <img
                   src={img.imageUrl}
                   alt={img.prompt}
@@ -1033,6 +1148,31 @@ export default function ImageGenerator() {
                 </p>
               </div>
 
+              {/* Prompt input for files */}
+              <div className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/10 focus-within:ring-purple-500/50">
+                <svg
+                  className="h-4 w-4 flex-shrink-0 text-gray-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  />
+                </svg>
+                <input
+                  type="text"
+                  value={filesPrompt}
+                  onChange={(e) => setFilesPrompt(e.target.value)}
+                  placeholder="Describe what image to generate from these files..."
+                  className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none"
+                  disabled={isGenerating}
+                />
+              </div>
+
               {uploadedFiles.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {uploadedFiles.map((uf) => (
@@ -1193,6 +1333,7 @@ export default function ImageGenerator() {
               src={lightboxImage.imageUrl}
               alt={lightboxImage.prompt}
               className="max-h-[95vh] max-w-[95vw] rounded-lg object-contain shadow-2xl"
+              onContextMenu={(e) => handleContextMenu(e, lightboxImage)}
             />
 
             {/* Image info at bottom */}
@@ -1213,6 +1354,162 @@ export default function ImageGenerator() {
           <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-gray-500">
             点击图片外区域或按 ESC 关闭
           </p>
+        </div>
+      )}
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          className="fixed z-[60] min-w-[180px] overflow-hidden rounded-lg border border-white/10 bg-[#1a1a2e] py-1 shadow-xl"
+          style={{
+            left: Math.min(contextMenu.x, window.innerWidth - 200),
+            top: Math.min(contextMenu.y, window.innerHeight - 280),
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Bookmark */}
+          <button
+            onClick={() => handleBookmark(contextMenu.image)}
+            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-300 transition hover:bg-white/10"
+          >
+            <svg
+              className={`h-4 w-4 ${bookmarkedImages.has(contextMenu.image.id) ? 'text-yellow-400' : 'text-gray-400'}`}
+              fill={
+                bookmarkedImages.has(contextMenu.image.id)
+                  ? 'currentColor'
+                  : 'none'
+              }
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+              />
+            </svg>
+            {bookmarkedImages.has(contextMenu.image.id)
+              ? 'Remove Bookmark'
+              : 'Add Bookmark'}
+          </button>
+
+          <div className="my-1 border-t border-white/10" />
+
+          {/* Download */}
+          <button
+            onClick={() => {
+              handleDownload(contextMenu.image);
+              setContextMenu(null);
+            }}
+            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-300 transition hover:bg-white/10"
+          >
+            <svg
+              className="h-4 w-4 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
+            </svg>
+            Download
+          </button>
+
+          {/* Copy Image */}
+          <button
+            onClick={() => handleCopyImage(contextMenu.image)}
+            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-300 transition hover:bg-white/10"
+          >
+            <svg
+              className="h-4 w-4 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+              />
+            </svg>
+            Copy Image
+          </button>
+
+          {/* Copy Link */}
+          <button
+            onClick={() => handleCopyLink(contextMenu.image)}
+            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-300 transition hover:bg-white/10"
+          >
+            <svg
+              className="h-4 w-4 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+              />
+            </svg>
+            Copy Link
+          </button>
+
+          <div className="my-1 border-t border-white/10" />
+
+          {/* Open in New Tab */}
+          <button
+            onClick={() => handleOpenInNewTab(contextMenu.image)}
+            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-300 transition hover:bg-white/10"
+          >
+            <svg
+              className="h-4 w-4 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+              />
+            </svg>
+            Open in New Tab
+          </button>
+
+          {/* View in Lightbox (if not already in lightbox) */}
+          {!lightboxImage && (
+            <button
+              onClick={() => {
+                setLightboxImage(contextMenu.image);
+                setContextMenu(null);
+              }}
+              className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-300 transition hover:bg-white/10"
+            >
+              <svg
+                className="h-4 w-4 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                />
+              </svg>
+              View Fullscreen
+            </button>
+          )}
         </div>
       )}
     </div>
