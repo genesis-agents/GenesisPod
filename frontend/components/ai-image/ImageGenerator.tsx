@@ -54,7 +54,7 @@ interface UploadedFile {
   preview?: string;
 }
 
-type InputMode = 'prompt' | 'youtube' | 'url' | 'content' | 'files';
+type InputMode = 'prompt' | 'youtube' | 'url' | 'files';
 
 export default function ImageGenerator() {
   // 输入状态
@@ -62,7 +62,6 @@ export default function ImageGenerator() {
   const [prompt, setPrompt] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [urls, setUrls] = useState<string[]>(['']);
-  const [content, setContent] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -95,7 +94,6 @@ export default function ImageGenerator() {
   );
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 获取可用模型
@@ -239,8 +237,6 @@ export default function ImageGenerator() {
         return youtubeUrl.trim().length > 0;
       case 'url':
         return urls.some((u) => u.trim().length > 0);
-      case 'content':
-        return content.trim().length > 0;
       case 'files':
         return uploadedFiles.length > 0;
       default:
@@ -301,9 +297,6 @@ export default function ImageGenerator() {
           break;
         case 'url':
           requestBody.urls = urls.filter((u) => u.trim());
-          break;
-        case 'content':
-          requestBody.content = content.trim();
           break;
       }
 
@@ -746,11 +739,6 @@ export default function ImageGenerator() {
               icon: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1',
             },
             {
-              mode: 'content' as InputMode,
-              label: 'Content',
-              icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
-            },
-            {
               mode: 'files' as InputMode,
               label: 'Files',
               icon: 'M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12',
@@ -1000,52 +988,6 @@ export default function ImageGenerator() {
             </div>
           )}
 
-          {/* Content Input */}
-          {inputMode === 'content' && (
-            <div className="space-y-2">
-              <div className="rounded-xl bg-white/5 p-3 ring-1 ring-white/10 focus-within:ring-purple-500/50">
-                <textarea
-                  ref={textareaRef}
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  placeholder="Paste article content, paper abstract, video subtitles, or any text..."
-                  className="h-32 w-full resize-none bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none"
-                  disabled={isGenerating}
-                />
-              </div>
-              <div className="flex justify-end">
-                <button
-                  onClick={handleGenerate}
-                  disabled={
-                    !hasValidInput() ||
-                    isGenerating ||
-                    models.imageModels.length === 0
-                  }
-                  className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 px-4 py-2 text-sm text-white transition hover:from-purple-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isGenerating ? (
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  ) : (
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-                      />
-                    </svg>
-                  )}
-                  Generate Image
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Files Input */}
           {inputMode === 'files' && (
             <div className="space-y-3">
@@ -1186,7 +1128,6 @@ export default function ImageGenerator() {
               'Enter to generate • AI enhances prompts'}
             {inputMode === 'youtube' && 'Extract subtitles to generate images'}
             {inputMode === 'url' && 'Add URLs to generate images'}
-            {inputMode === 'content' && 'Paste text for AI analysis'}
             {inputMode === 'files' && 'Upload files for AI analysis'}
           </p>
         </div>
