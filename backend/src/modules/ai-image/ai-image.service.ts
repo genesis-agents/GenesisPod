@@ -246,11 +246,32 @@ export class AiImageService {
     }
 
     // 1.2 处理 URLs（YouTube、Bilibili、网页）- 必须等待完成
+    // 支持 "URL 描述" 格式，例如 "https://example.com 请生成信息图"
     if (hasUrls) {
-      for (const url of urls!) {
-        if (!url.trim()) continue;
+      for (const urlInput of urls!) {
+        if (!urlInput.trim()) continue;
 
-        const trimmedUrl = url.trim();
+        const trimmedInput = urlInput.trim();
+
+        // 解析 URL 和描述
+        // URL 通常以 http:// 或 https:// 开头，找到第一个空格后的内容作为描述
+        const urlMatch = trimmedInput.match(/^(https?:\/\/\S+)(?:\s+(.*))?$/i);
+        let trimmedUrl: string;
+        let userDescription: string | null = null;
+
+        if (urlMatch) {
+          trimmedUrl = urlMatch[1];
+          userDescription = urlMatch[2]?.trim() || null;
+          if (userDescription) {
+            this.logger.log(
+              `[STEP 1.2] URL with description: "${trimmedUrl}" + "${userDescription}"`,
+            );
+          }
+        } else {
+          // 没有匹配到标准 URL 格式，使用原始输入
+          trimmedUrl = trimmedInput;
+        }
+
         const isYouTube =
           trimmedUrl.includes("youtube.com") || trimmedUrl.includes("youtu.be");
         const isBilibili = trimmedUrl.includes("bilibili.com");
@@ -290,6 +311,23 @@ export class AiImageService {
 
           // 内容提取成功
           contentParts.push(`Content from ${trimmedUrl}:\n${urlContent}`);
+
+          // 如果用户提供了描述，添加到内容中以影响 AI 生成
+          if (userDescription) {
+            contentParts.push(
+              `User instruction for this content: ${userDescription}`,
+            );
+            this.logger.log(
+              `[STEP 1.2] Added user description to content: "${userDescription}"`,
+            );
+          }
+          // 构建步骤显示内容
+          let stepContent =
+            urlContent.slice(0, 500) + (urlContent.length > 500 ? "..." : "");
+          if (userDescription) {
+            stepContent += `\n\n📝 User instruction: ${userDescription}`;
+          }
+
           updateStep(
             stepId,
             isYouTube
@@ -298,7 +336,7 @@ export class AiImageService {
                 ? "Bilibili Content Extracted"
                 : "Web Content Extracted",
             "completed",
-            urlContent.slice(0, 500) + (urlContent.length > 500 ? "..." : ""),
+            stepContent,
           );
           this.logger.log(
             `[STEP 1.2] ✓ Successfully extracted content from ${trimmedUrl}`,

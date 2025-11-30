@@ -865,7 +865,7 @@ export default function ImageGenerator() {
                 <div key={index} className="flex items-center gap-2">
                   <div className="flex flex-1 items-center rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/10 focus-within:ring-purple-500/50">
                     <svg
-                      className="mr-2 h-4 w-4 text-gray-500"
+                      className="mr-2 h-4 w-4 flex-shrink-0 text-gray-500"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -878,10 +878,10 @@ export default function ImageGenerator() {
                       />
                     </svg>
                     <input
-                      type="url"
+                      type="text"
                       value={url}
                       onChange={(e) => updateUrl(index, e.target.value)}
-                      placeholder="https://example.com/article..."
+                      placeholder="https://example.com/article  输入描述来指导AI生成..."
                       className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none"
                       disabled={isGenerating}
                     />
@@ -908,6 +908,10 @@ export default function ImageGenerator() {
                   )}
                 </div>
               ))}
+              <p className="text-xs text-gray-500">
+                支持在URL后添加描述来指导AI生成，例如：https://example.com/article
+                请生成信息图
+              </p>
               <div className="flex items-center gap-2">
                 <button
                   onClick={addUrlInput}
