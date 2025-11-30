@@ -55,7 +55,7 @@ interface UploadedFile {
   preview?: string;
 }
 
-type InputMode = 'prompt' | 'youtube' | 'url' | 'files';
+type InputMode = 'prompt' | 'youtube' | 'url' | 'files' | 'refine';
 
 interface ImageGeneratorProps {
   initialImageId?: string; // ID of image to select when component mounts
@@ -72,6 +72,10 @@ export default function ImageGenerator({
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [filesPrompt, setFilesPrompt] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+
+  // 图片引用完善模式
+  const [refineImage, setRefineImage] = useState<GeneratedImage | null>(null);
+  const [refinePrompt, setRefinePrompt] = useState('');
 
   // 生成状态
   const [isGenerating, setIsGenerating] = useState(false);
@@ -315,9 +319,48 @@ export default function ImageGenerator({
         return urls.some((u) => u.trim().length > 0);
       case 'files':
         return uploadedFiles.length > 0;
+      case 'refine':
+        return refineImage !== null && refinePrompt.trim().length > 0;
       default:
         return false;
     }
+  };
+
+  // 将图片URL转换为Base64
+  const imageUrlToBase64 = async (imageUrl: string): Promise<string> => {
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result as string;
+          // 返回不含 data:image/xxx;base64, 前缀的纯 Base64 字符串
+          const base64Data = base64.split(',')[1] || base64;
+          resolve(base64Data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (err) {
+      console.error('Failed to convert image to base64:', err);
+      throw err;
+    }
+  };
+
+  // 处理"引用此图片进行完善"
+  const handleRefineImage = (image: GeneratedImage) => {
+    setRefineImage(image);
+    setRefinePrompt('');
+    setInputMode('refine');
+    setContextMenu(null);
+  };
+
+  // 取消图片完善模式
+  const handleCancelRefine = () => {
+    setRefineImage(null);
+    setRefinePrompt('');
+    setInputMode('prompt');
   };
 
   // 生成图片
@@ -377,6 +420,14 @@ export default function ImageGenerator({
         case 'url':
           requestBody.urls = urls.filter((u) => u.trim());
           break;
+        case 'refine':
+          if (refineImage) {
+            // 将参考图片转换为Base64
+            const imageBase64 = await imageUrlToBase64(refineImage.imageUrl);
+            requestBody.imageBase64 = imageBase64;
+            requestBody.prompt = refinePrompt.trim();
+          }
+          break;
       }
 
       const response = await fetch(
@@ -400,6 +451,13 @@ export default function ImageGenerator({
       };
       setGeneratedImages((prev) => [newImage, ...prev]);
       setSelectedImage(newImage);
+
+      // 如果是refine模式，成功后清理状态
+      if (inputMode === 'refine') {
+        setRefineImage(null);
+        setRefinePrompt('');
+        setInputMode('prompt');
+      }
     } catch (err) {
       console.error('Image generation failed:', err);
       setError(err instanceof Error ? err.message : 'Failed to generate image');
@@ -950,55 +1008,80 @@ export default function ImageGenerator({
 
       {/* Input Mode Tabs */}
       <div className="flex-shrink-0 border-t border-white/10 px-4 pt-2">
-        <div className="flex gap-1">
-          {[
-            {
-              mode: 'prompt' as InputMode,
-              label: 'Prompt',
-              icon: 'M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
-            },
-            {
-              mode: 'youtube' as InputMode,
-              label: 'YouTube',
-              icon: 'M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-            },
-            {
-              mode: 'url' as InputMode,
-              label: 'URLs',
-              icon: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1',
-            },
-            {
-              mode: 'files' as InputMode,
-              label: 'Files',
-              icon: 'M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12',
-            },
-          ].map(({ mode, label, icon }) => (
-            <button
-              key={mode}
-              onClick={() => setInputMode(mode)}
-              className={`flex items-center gap-1.5 rounded-t-lg px-3 py-2 text-xs font-medium transition ${
-                inputMode === mode
-                  ? 'bg-white/10 text-white'
-                  : 'text-gray-500 hover:text-gray-300'
-              }`}
+        {inputMode === 'refine' ? (
+          /* Refine 模式显示特殊头部 */
+          <div className="flex items-center gap-2 rounded-t-lg bg-purple-500/10 px-3 py-2">
+            <svg
+              className="h-4 w-4 text-purple-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              <svg
-                className="h-3.5 w-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            <span className="text-xs font-medium text-purple-300">
+              Refine Image
+            </span>
+            <span className="text-xs text-gray-500">
+              - Describe how you want to improve this image
+            </span>
+          </div>
+        ) : (
+          <div className="flex gap-1">
+            {[
+              {
+                mode: 'prompt' as InputMode,
+                label: 'Prompt',
+                icon: 'M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+              },
+              {
+                mode: 'youtube' as InputMode,
+                label: 'YouTube',
+                icon: 'M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+              },
+              {
+                mode: 'url' as InputMode,
+                label: 'URLs',
+                icon: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1',
+              },
+              {
+                mode: 'files' as InputMode,
+                label: 'Files',
+                icon: 'M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12',
+              },
+            ].map(({ mode, label, icon }) => (
+              <button
+                key={mode}
+                onClick={() => setInputMode(mode)}
+                className={`flex items-center gap-1.5 rounded-t-lg px-3 py-2 text-xs font-medium transition ${
+                  inputMode === mode
+                    ? 'bg-white/10 text-white'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d={icon}
-                />
-              </svg>
-              {label}
-            </button>
-          ))}
-        </div>
+                <svg
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d={icon}
+                  />
+                </svg>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Input Area */}
@@ -1377,6 +1460,116 @@ export default function ImageGenerator({
             </div>
           )}
 
+          {/* Refine Input - 图片引用完善模式 */}
+          {inputMode === 'refine' && refineImage && (
+            <div className="space-y-3">
+              {/* 参考图片预览 */}
+              <div className="flex items-start gap-4 rounded-xl bg-purple-500/10 p-4 ring-1 ring-purple-500/30">
+                <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg">
+                  <img
+                    src={refineImage.imageUrl}
+                    alt="Reference image"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 flex items-center gap-2">
+                    <svg
+                      className="h-4 w-4 text-purple-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
+                    </svg>
+                    <span className="text-sm font-medium text-purple-300">
+                      Refine Image Mode
+                    </span>
+                  </div>
+                  <p className="line-clamp-2 text-xs text-gray-400">
+                    {refineImage.enhancedPrompt || refineImage.prompt}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {refineImage.width} × {refineImage.height}
+                  </p>
+                </div>
+                <button
+                  onClick={handleCancelRefine}
+                  className="flex-shrink-0 rounded-lg p-1.5 text-gray-400 transition hover:bg-white/10 hover:text-white"
+                  title="Cancel refine"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {/* 提示词输入 */}
+              <div className="flex items-center gap-3 rounded-xl bg-white/5 p-2 ring-1 ring-white/10 focus-within:ring-purple-500/50">
+                <input
+                  type="text"
+                  value={refinePrompt}
+                  onChange={(e) => setRefinePrompt(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleGenerate();
+                    }
+                  }}
+                  placeholder="Describe how to refine this image... (e.g., 'make it more vibrant', 'add snow', 'change style to watercolor')"
+                  className="flex-1 bg-transparent px-3 py-2 text-white placeholder-gray-500 focus:outline-none"
+                  disabled={isGenerating}
+                  autoFocus
+                />
+                <button
+                  onClick={handleGenerate}
+                  disabled={
+                    !hasValidInput() ||
+                    isGenerating ||
+                    models.imageModels.length === 0
+                  }
+                  className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white transition hover:from-purple-700 hover:to-pink-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isGenerating ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  ) : (
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
+                    </svg>
+                  )}
+                </button>
+              </div>
+              <p className="text-xs text-gray-500">
+                Enter to generate • AI will use this image as reference
+              </p>
+            </div>
+          )}
+
           <p className="mt-1 pb-1 text-center text-xs text-gray-500">
             {inputMode === 'prompt' &&
               'Enter to generate • AI enhances prompts'}
@@ -1506,6 +1699,27 @@ export default function ImageGenerator({
             {bookmarkedImages.has(contextMenu.image.id)
               ? 'Remove Bookmark'
               : 'Add Bookmark'}
+          </button>
+
+          {/* Refine Image - 引用此图片进行完善 */}
+          <button
+            onClick={() => handleRefineImage(contextMenu.image)}
+            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-300 transition hover:bg-white/10"
+          >
+            <svg
+              className="h-4 w-4 text-purple-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            Refine Image
           </button>
 
           <div className="my-1 border-t border-white/10" />
