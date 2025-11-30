@@ -46,11 +46,10 @@ interface Resource {
 }
 
 export default function LibraryPage() {
-  const [activeTab, setActiveTab] = useState<
-    'all' | 'bookmarks' | 'notes' | 'videos' | 'images'
-  >('all');
+  const [activeTab, setActiveTab] = useState<'bookmarks' | 'notes' | 'images'>(
+    'bookmarks'
+  );
   const [collections, setCollections] = useState<Collection[]>([]);
-  const [videos, setVideos] = useState<YouTubeVideo[]>([]);
   const [paginatedItems, setPaginatedItems] =
     useState<PaginatedResult<CollectionItem> | null>(null);
   const [currentCollectionId, setCurrentCollectionId] = useState<string>('');
@@ -185,17 +184,10 @@ export default function LibraryPage() {
 
   // Load items when filters change
   useEffect(() => {
-    if (activeTab === 'all' || activeTab === 'bookmarks') {
+    if (activeTab === 'bookmarks') {
       loadItems(1, false);
     }
   }, [activeCollectionId, searchQuery, sortBy, sortOrder, activeTab]);
-
-  // Load videos when tab changes
-  useEffect(() => {
-    if (activeTab === 'videos' || activeTab === 'all') {
-      loadVideos();
-    }
-  }, [activeTab]);
 
   // Infinite scroll observer
   useEffect(() => {
@@ -397,20 +389,6 @@ export default function LibraryPage() {
     }
   };
 
-  const loadVideos = async () => {
-    try {
-      const response = await fetch(
-        `${config.apiBaseUrl}/api/v1/youtube-videos`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setVideos(data);
-      }
-    } catch (err) {
-      console.error('Failed to load videos:', err);
-    }
-  };
-
   // Handle view resource
   const handleView = (item: CollectionItem) => {
     setSelectedItem(item);
@@ -477,11 +455,6 @@ export default function LibraryPage() {
     if (thumbnailUrl.startsWith('http')) return thumbnailUrl;
     return `${config.apiBaseUrl}${thumbnailUrl}`;
   };
-
-  // Filter videos by search query
-  const filteredVideos = videos.filter((video) =>
-    video.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   // Type badge config
   const typeConfig: Record<
@@ -957,7 +930,7 @@ export default function LibraryPage() {
                       </button>
                     )}
                     {/* Sort dropdown */}
-                    {(activeTab === 'all' || activeTab === 'bookmarks') && (
+                    {activeTab === 'bookmarks' && (
                       <select
                         value={`${sortBy}-${sortOrder}`}
                         onChange={(e) => {
@@ -981,7 +954,7 @@ export default function LibraryPage() {
                       </select>
                     )}
                     {/* Selection mode toggle */}
-                    {(activeTab === 'all' || activeTab === 'bookmarks') &&
+                    {activeTab === 'bookmarks' &&
                       paginatedItems &&
                       paginatedItems.items.length > 0 && (
                         <button
@@ -1010,16 +983,6 @@ export default function LibraryPage() {
             {/* Navigation Tabs */}
             <div className="flex gap-8 border-b border-gray-200">
               <button
-                onClick={() => setActiveTab('all')}
-                className={`border-b-2 px-0 py-3 text-sm font-semibold transition-all ${
-                  activeTab === 'all'
-                    ? 'border-blue-600 text-gray-900'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                All Content
-              </button>
-              <button
                 onClick={() => setActiveTab('bookmarks')}
                 className={`relative border-b-2 px-0 py-3 text-sm font-semibold transition-all ${
                   activeTab === 'bookmarks'
@@ -1040,16 +1003,6 @@ export default function LibraryPage() {
                 Notes
               </button>
               <button
-                onClick={() => setActiveTab('videos')}
-                className={`border-b-2 px-0 py-3 text-sm font-semibold transition-all ${
-                  activeTab === 'videos'
-                    ? 'border-blue-600 text-gray-900'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Videos
-              </button>
-              <button
                 onClick={() => setActiveTab('images')}
                 className={`border-b-2 px-0 py-3 text-sm font-semibold transition-all ${
                   activeTab === 'images'
@@ -1067,7 +1020,7 @@ export default function LibraryPage() {
         <div className="px-8 py-6">
           <div className="mx-auto max-w-7xl">
             {/* Bookmarks and All Content View */}
-            {(activeTab === 'all' || activeTab === 'bookmarks') &&
+            {activeTab === 'bookmarks' &&
               (loading ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
@@ -1149,104 +1102,6 @@ export default function LibraryPage() {
 
             {/* Notes Tab */}
             {activeTab === 'notes' && <NotesList searchQuery={searchQuery} />}
-
-            {/* Videos Tab */}
-            {activeTab === 'videos' &&
-              (() => {
-                const youtubeBookmarks =
-                  paginatedItems?.items.filter(
-                    (item) =>
-                      item.resource.type === 'YOUTUBE' ||
-                      item.resource.type === 'YOUTUBE_VIDEO'
-                  ) || [];
-                const hasVideos =
-                  videos.length > 0 || youtubeBookmarks.length > 0;
-
-                if (loading) {
-                  return (
-                    <div className="flex items-center justify-center py-12">
-                      <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
-                    </div>
-                  );
-                }
-
-                if (!hasVideos) {
-                  return (
-                    <div className="py-12 text-center">
-                      <h3 className="mt-2 text-sm font-medium text-gray-900">
-                        No saved videos
-                      </h3>
-                      <p className="mt-1 text-sm text-gray-500">
-                        Bookmark YouTube videos from the Explore page
-                      </p>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div className="space-y-6">
-                    {/* Bookmarked YouTube Resources */}
-                    {youtubeBookmarks.length > 0 && (
-                      <div>
-                        <h3 className="mb-4 text-sm font-semibold text-gray-700">
-                          Bookmarked Videos ({youtubeBookmarks.length})
-                        </h3>
-                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                          {youtubeBookmarks.map((item) => (
-                            <ResourceCard key={item.id} item={item} />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Saved YouTube Videos */}
-                    {filteredVideos.length > 0 && (
-                      <div>
-                        <h3 className="mb-4 text-sm font-semibold text-gray-700">
-                          Parsed Videos ({filteredVideos.length})
-                        </h3>
-                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                          {filteredVideos.map((video) => (
-                            <Link
-                              key={video.id}
-                              href={`/youtube?saved=${video.id}`}
-                              className="block overflow-hidden rounded-lg border border-gray-200 transition-shadow hover:shadow-md"
-                            >
-                              <div className="relative aspect-video bg-gray-900">
-                                <img
-                                  src={`https://img.youtube.com/vi/${video.videoId}/hqdefault.jpg`}
-                                  alt={video.title}
-                                  className="h-full w-full object-cover"
-                                />
-                                <div className="absolute bottom-2 right-2 rounded bg-black bg-opacity-80 px-2 py-1 text-xs text-white">
-                                  YouTube
-                                </div>
-                              </div>
-                              <div className="p-4">
-                                <h4 className="mb-2 line-clamp-2 font-medium text-gray-900">
-                                  {video.title}
-                                </h4>
-                                <div className="flex items-center justify-between text-xs text-gray-500">
-                                  <span>
-                                    {new Date(
-                                      video.createdAt
-                                    ).toLocaleDateString('en-US')}
-                                  </span>
-                                  {video.aiReport ? (
-                                    <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800">
-                                      Report Generated
-                                    </span>
-                                  ) : null}
-                                </div>
-                              </div>
-                            </Link>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
 
             {/* Images Tab - AI Image Generator */}
             {activeTab === 'images' && (
