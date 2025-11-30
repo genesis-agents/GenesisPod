@@ -440,7 +440,7 @@ export default function ImageGenerator() {
   return (
     <div className="flex h-full flex-col bg-[#1a1a2e]">
       {/* Top Bar - Only Image Model Selector */}
-      <div className="flex flex-wrap items-center gap-4 border-b border-white/10 px-6 py-3">
+      <div className="flex flex-shrink-0 flex-wrap items-center gap-3 border-b border-white/10 px-4 py-2">
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-500">Image Model:</span>
           {isLoadingModels ? (
@@ -511,7 +511,7 @@ export default function ImageGenerator() {
               <img
                 src={selectedImage.imageUrl}
                 alt={selectedImage.prompt}
-                className="max-h-[70vh] cursor-pointer rounded-2xl object-contain shadow-2xl transition hover:opacity-90"
+                className="max-h-[75vh] cursor-pointer rounded-2xl object-contain shadow-2xl transition hover:opacity-90"
                 onClick={() => setLightboxImage(selectedImage)}
                 title="点击放大查看"
               />
@@ -666,17 +666,17 @@ export default function ImageGenerator() {
           )}
       </div>
 
-      {/* Generated Images Gallery */}
+      {/* Generated Images Gallery - Compact */}
       {generatedImages.length > 0 && (
-        <div className="border-t border-white/10 px-6 py-3">
-          <div className="flex gap-3 overflow-x-auto pb-2">
+        <div className="flex-shrink-0 border-t border-white/10 px-4 py-2">
+          <div className="flex gap-2 overflow-x-auto">
             {generatedImages.map((img) => (
               <button
                 key={img.id}
                 onClick={() => setSelectedImage(img)}
-                className={`relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg transition ${
+                className={`relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg transition ${
                   selectedImage?.id === img.id
-                    ? 'ring-2 ring-purple-500 ring-offset-2 ring-offset-[#1a1a2e]'
+                    ? 'ring-2 ring-purple-500 ring-offset-1 ring-offset-[#1a1a2e]'
                     : 'opacity-60 hover:opacity-100'
                 }`}
               >
@@ -692,7 +692,7 @@ export default function ImageGenerator() {
       )}
 
       {/* Input Mode Tabs */}
-      <div className="border-t border-white/10 px-6 pt-3">
+      <div className="flex-shrink-0 border-t border-white/10 px-4 pt-2">
         <div className="flex gap-1">
           {[
             {
@@ -1142,16 +1142,13 @@ export default function ImageGenerator() {
             </div>
           )}
 
-          <p className="mt-2 text-center text-xs text-gray-500">
+          <p className="mt-1 pb-1 text-center text-xs text-gray-500">
             {inputMode === 'prompt' &&
-              'Press Enter to generate • AI will enhance your prompt automatically'}
-            {inputMode === 'youtube' &&
-              'Extract subtitles from YouTube videos to generate relevant images'}
-            {inputMode === 'url' &&
-              'Add article URLs to generate relevant images'}
-            {inputMode === 'content' && 'Paste text content for AI analysis'}
-            {inputMode === 'files' &&
-              'Upload documents or images for AI analysis'}
+              'Enter to generate • AI enhances prompts'}
+            {inputMode === 'youtube' && 'Extract subtitles to generate images'}
+            {inputMode === 'url' && 'Add URLs to generate images'}
+            {inputMode === 'content' && 'Paste text for AI analysis'}
+            {inputMode === 'files' && 'Upload files for AI analysis'}
           </p>
         </div>
       </div>
