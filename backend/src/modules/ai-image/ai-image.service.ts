@@ -932,7 +932,8 @@ export class AiImageService {
     prompt: string,
     referenceImageBase64: string,
   ): Promise<string> {
-    // 使用支持图片编辑的模型 - gemini-2.0-flash-exp 支持多模态输入输出
+    // 使用支持图片编辑的模型 - gemini-2.0-flash-exp 或 gemini-2.0-flash-preview-image-generation
+    // 根据 Google AI 文档，推荐使用 gemini-2.0-flash-exp 进行图片编辑
     const model = "gemini-2.0-flash-exp";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
@@ -961,6 +962,8 @@ Keep the same subjects, composition, and overall structure. Only apply the speci
     this.logger.log(`[Image-to-Image] Edit prompt: ${editPrompt}`);
 
     try {
+      // 根据 Google AI 文档，使用 snake_case 格式 (inline_data, mime_type)
+      // 并且 text 应该在 image 之前
       const response = await firstValueFrom(
         this.httpService.post(
           url,
@@ -969,13 +972,13 @@ Keep the same subjects, composition, and overall structure. Only apply the speci
               {
                 parts: [
                   {
-                    inlineData: {
-                      mimeType: mimeType,
-                      data: cleanBase64,
-                    },
+                    text: editPrompt,
                   },
                   {
-                    text: editPrompt,
+                    inline_data: {
+                      mime_type: mimeType,
+                      data: cleanBase64,
+                    },
                   },
                 ],
               },
@@ -1085,6 +1088,7 @@ CRITICAL REQUIREMENTS:
 Generate the edited version of this image now.`;
 
     try {
+      // 使用 snake_case 格式，text 在 image 之前
       const response = await firstValueFrom(
         this.httpService.post(
           url,
@@ -1093,13 +1097,13 @@ Generate the edited version of this image now.`;
               {
                 parts: [
                   {
-                    inlineData: {
-                      mimeType: mimeType,
-                      data: cleanBase64,
-                    },
+                    text: editPrompt,
                   },
                   {
-                    text: editPrompt,
+                    inline_data: {
+                      mime_type: mimeType,
+                      data: cleanBase64,
+                    },
                   },
                 ],
               },
