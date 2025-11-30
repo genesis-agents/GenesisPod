@@ -373,22 +373,26 @@ function YouTubeTLDWContent() {
     }
   }, [aiMessages]);
 
-  // Handle context menu for adding to notes (Papers style - text selection based)
-  const handleContextMenu = (e: React.MouseEvent, text: string) => {
+  // Handle context menu for adding to notes
+  // Supports both: selected text OR full message content
+  const handleContextMenu = (e: React.MouseEvent, fullText: string) => {
     e.preventDefault();
     const selection = window.getSelection();
     const selectedText = selection?.toString().trim();
 
-    if (selectedText) {
+    // Use selected text if available, otherwise use full message content
+    const textToSave = selectedText || fullText;
+
+    if (textToSave) {
       setContextMenu({
         x: e.clientX,
         y: e.clientY,
-        text: selectedText,
+        text: textToSave,
       });
     }
   };
 
-  // Save selected text to notes (Papers style)
+  // Save text to notes
   const saveToNotes = async () => {
     if (!contextMenu || !videoId) return;
 
@@ -400,12 +404,14 @@ function YouTubeTLDWContent() {
     try {
       setSavingNote(true);
       console.log(
-        'Saving note to video:',
+        'Saving note for video:',
         videoId,
         'content:',
         contextMenu.text.substring(0, 50) + '...'
       );
 
+      // Note: Don't use resourceId for YouTube videos since videoId is not a UUID
+      // Use source field to associate the note with the video instead
       const response = await fetch(`${config.apiBaseUrl}/api/v1/notes`, {
         method: 'POST',
         headers: {
@@ -413,9 +419,9 @@ function YouTubeTLDWContent() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          resourceId: videoId, // Use videoId as resourceId for YouTube videos
           content: contextMenu.text,
-          tags: ['AI-Generated', 'YouTube'],
+          source: `youtube:${videoId}`,
+          tags: ['AI-Generated', 'YouTube', videoId],
           isPublic: false,
         }),
       });
