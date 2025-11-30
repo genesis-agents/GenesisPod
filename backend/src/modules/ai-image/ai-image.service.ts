@@ -889,8 +889,25 @@ export class AiImageService {
 
   /**
    * 获取默认文本模型
+   * 优先使用用户设置的默认模型（isDefault: true），否则退回到可用的文本模型
    */
   private async getDefaultTextModel() {
+    // 首先尝试获取用户设置的默认模型
+    const defaultModel = await this.prisma.aIModel.findFirst({
+      where: {
+        isEnabled: true,
+        isDefault: true,
+      },
+    });
+
+    if (defaultModel) {
+      this.logger.log(
+        `Using user-configured default model: ${defaultModel.displayName || defaultModel.name} (${defaultModel.modelId})`,
+      );
+      return defaultModel;
+    }
+
+    // 如果没有明确设置默认模型，退回到可用的文本模型（优先Gemini）
     return this.prisma.aIModel.findFirst({
       where: {
         isEnabled: true,
@@ -901,7 +918,10 @@ export class AiImageService {
           { provider: { contains: "openai", mode: "insensitive" } },
         ],
       },
-      orderBy: { isDefault: "desc" },
+      orderBy: [
+        { provider: "asc" }, // Google/Gemini 会排在 OpenAI 前面
+        { name: "asc" },
+      ],
     });
   }
 
