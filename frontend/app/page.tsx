@@ -1427,38 +1427,50 @@ function HomeContent() {
       if (action === 'summary') {
         setAiSummary(data.content);
       } else if (action === 'insights') {
-        // Try to parse JSON response for insights
-        try {
-          const insights = JSON.parse(data.content);
-          if (Array.isArray(insights)) {
-            setAiInsights(insights);
-          } else {
-            setAiInsights([]);
+        // Handle insights response - content may be array (pre-parsed) or string
+        if (Array.isArray(data.content)) {
+          setAiInsights(data.content);
+        } else if (typeof data.content === 'string') {
+          try {
+            const insights = JSON.parse(data.content);
+            if (Array.isArray(insights)) {
+              setAiInsights(insights);
+            } else {
+              setAiInsights([]);
+            }
+          } catch {
+            // If not valid JSON, try to parse markdown format
+            console.log(
+              'JSON parsing failed, trying markdown parsing for insights'
+            );
+            const parsedInsights = parseMarkdownToInsights(data.content);
+            setAiInsights(parsedInsights);
           }
-        } catch {
-          // If not valid JSON, try to parse markdown format
-          console.log(
-            'JSON parsing failed, trying markdown parsing for insights'
-          );
-          const parsedInsights = parseMarkdownToInsights(data.content);
-          setAiInsights(parsedInsights);
+        } else {
+          setAiInsights([]);
         }
       } else if (action === 'methodology') {
-        // Try to parse JSON response for methodology
-        try {
-          const methodology = JSON.parse(data.content);
-          if (Array.isArray(methodology)) {
-            setAiMethodology(methodology);
-          } else {
-            setAiMethodology([]);
+        // Handle methodology response - content may be array (pre-parsed) or string
+        if (Array.isArray(data.content)) {
+          setAiMethodology(data.content);
+        } else if (typeof data.content === 'string') {
+          try {
+            const methodology = JSON.parse(data.content);
+            if (Array.isArray(methodology)) {
+              setAiMethodology(methodology);
+            } else {
+              setAiMethodology([]);
+            }
+          } catch {
+            // If not valid JSON, try to parse markdown format
+            console.log(
+              'JSON parsing failed, trying markdown parsing for methodology'
+            );
+            const parsedMethodology = parseMarkdownToInsights(data.content);
+            setAiMethodology(parsedMethodology);
           }
-        } catch {
-          // If not valid JSON, try to parse markdown format
-          console.log(
-            'JSON parsing failed, trying markdown parsing for methodology'
-          );
-          const parsedMethodology = parseMarkdownToInsights(data.content);
-          setAiMethodology(parsedMethodology);
+        } else {
+          setAiMethodology([]);
         }
       }
 
