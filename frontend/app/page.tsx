@@ -1733,46 +1733,6 @@ function HomeContent() {
                         onChange={handleFileChange}
                         className="hidden"
                       />
-                      <button
-                        onClick={handleFileUpload}
-                        disabled={uploadingFile}
-                        className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
-                        title={`上传${FILE_RESTRICTIONS[activeTab]?.label || '文件'}`}
-                      >
-                        <svg
-                          className="h-5 w-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-                          />
-                        </svg>
-                      </button>
-                      {/* Advanced Search / Filter Button */}
-                      <button
-                        onClick={() => setShowFilterPanel(!showFilterPanel)}
-                        className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-                        title="高级搜索和过滤"
-                      >
-                        <svg
-                          className="h-5 w-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-                          />
-                        </svg>
-                      </button>
                     </div>
                   </div>
 
