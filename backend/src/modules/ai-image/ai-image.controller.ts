@@ -125,6 +125,12 @@ export class AiImageController {
     return this.aiImageService.getHistory(req.user?.userId);
   }
 
+  @Get("bookmarks")
+  @UseGuards(JwtAuthGuard)
+  async getBookmarkedImages(@Request() req: any) {
+    return this.aiImageService.getBookmarkedImages(req.user?.userId);
+  }
+
   @Get(":id")
   @UseGuards(JwtAuthGuard)
   async getImage(@Param("id") id: string) {

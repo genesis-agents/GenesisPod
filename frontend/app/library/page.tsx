@@ -45,6 +45,17 @@ interface Resource {
   upvoteCount?: number;
 }
 
+interface BookmarkedImage {
+  id: string;
+  prompt: string;
+  enhancedPrompt?: string;
+  imageUrl: string;
+  width: number;
+  height: number;
+  createdAt: string;
+  isBookmarked: boolean;
+}
+
 export default function LibraryPage() {
   const [activeTab, setActiveTab] = useState<'bookmarks' | 'notes' | 'images'>(
     'bookmarks'
@@ -96,6 +107,12 @@ export default function LibraryPage() {
 
   // Infinite scroll ref
   const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  // Bookmarked images state
+  const [bookmarkedImages, setBookmarkedImages] = useState<BookmarkedImage[]>(
+    []
+  );
+  const [bookmarkedImagesLoading, setBookmarkedImagesLoading] = useState(false);
 
   // API hooks
   const collectionsApi = useCollections();
@@ -176,41 +193,6 @@ export default function LibraryPage() {
     ]
   );
 
-  // Initial load
-  useEffect(() => {
-    loadCollections();
-    loadTagsAndStats();
-  }, []);
-
-  // Load items when filters change
-  useEffect(() => {
-    if (activeTab === 'bookmarks') {
-      loadItems(1, false);
-    }
-  }, [activeCollectionId, searchQuery, sortBy, sortOrder, activeTab]);
-
-  // Infinite scroll observer
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (
-          entries[0].isIntersecting &&
-          paginatedItems?.pagination.hasMore &&
-          !loadingMore
-        ) {
-          loadItems(paginatedItems.pagination.page + 1, true);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current);
-    }
-
-    return () => observer.disconnect();
-  }, [paginatedItems, loadingMore]);
-
   const loadCollections = useCallback(async () => {
     try {
       const authHeaders = getAuthHeader();
@@ -240,6 +222,68 @@ export default function LibraryPage() {
       return [];
     }
   }, []);
+
+  // Load bookmarked images
+  const loadBookmarkedImages = useCallback(async () => {
+    setBookmarkedImagesLoading(true);
+    try {
+      const response = await fetch(
+        `${config.apiBaseUrl}/api/v1/ai-image/bookmarks`,
+        { headers: { ...getAuthHeader() } }
+      );
+      if (response.ok) {
+        const data: BookmarkedImage[] = await response.json();
+        setBookmarkedImages(data);
+      }
+    } catch (err) {
+      console.error('Failed to load bookmarked images:', err);
+    } finally {
+      setBookmarkedImagesLoading(false);
+    }
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    loadCollections();
+    loadTagsAndStats();
+  }, []);
+
+  // Load items when filters change
+  useEffect(() => {
+    if (activeTab === 'bookmarks') {
+      loadItems(1, false);
+      loadBookmarkedImages();
+    }
+  }, [
+    activeCollectionId,
+    searchQuery,
+    sortBy,
+    sortOrder,
+    activeTab,
+    loadBookmarkedImages,
+  ]);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (
+          entries[0].isIntersecting &&
+          paginatedItems?.pagination.hasMore &&
+          !loadingMore
+        ) {
+          loadItems(paginatedItems.pagination.page + 1, true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [paginatedItems, loadingMore]);
 
   // Collection management handlers
   const handleCreateCollection = () => {
@@ -1026,33 +1070,95 @@ export default function LibraryPage() {
                   <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
                 </div>
               ) : !paginatedItems || paginatedItems.items.length === 0 ? (
-                <div className="py-12 text-center">
-                  <svg
-                    className="mx-auto h-12 w-12 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                    />
-                  </svg>
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">
-                    No bookmarks yet
-                  </h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Browse resources and click the bookmark button to save your
-                    favorites
-                  </p>
-                  <Link
-                    href="/"
-                    className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                  >
-                    <span>Browse Resources</span>
-                  </Link>
+                <div>
+                  {/* Empty state for regular bookmarks */}
+                  {bookmarkedImages.length === 0 && (
+                    <div className="py-12 text-center">
+                      <svg
+                        className="mx-auto h-12 w-12 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                        />
+                      </svg>
+                      <h3 className="mt-2 text-sm font-medium text-gray-900">
+                        No bookmarks yet
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Browse resources and click the bookmark button to save
+                        your favorites
+                      </p>
+                      <Link
+                        href="/"
+                        className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                      >
+                        <span>Browse Resources</span>
+                      </Link>
+                    </div>
+                  )}
+
+                  {/* Bookmarked AI Images Section (shown even without regular bookmarks) */}
+                  {bookmarkedImages.length > 0 && (
+                    <div className="py-4">
+                      <h3 className="mb-4 text-lg font-semibold text-gray-900">
+                        Bookmarked AI Images ({bookmarkedImages.length})
+                      </h3>
+                      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                        {bookmarkedImages.map((img) => (
+                          <div
+                            key={img.id}
+                            className="group relative overflow-hidden rounded-lg bg-gray-100"
+                          >
+                            <div className="aspect-square">
+                              <img
+                                src={img.imageUrl}
+                                alt={img.prompt}
+                                className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                              />
+                            </div>
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100">
+                              <div className="absolute bottom-0 left-0 right-0 p-2">
+                                <p className="line-clamp-2 text-xs text-white">
+                                  {img.enhancedPrompt || img.prompt}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => setActiveTab('images')}
+                              className="absolute right-2 top-2 rounded-full bg-white/80 p-1.5 opacity-0 transition-opacity hover:bg-white group-hover:opacity-100"
+                              title="View in Images tab"
+                            >
+                              <svg
+                                className="h-4 w-4 text-gray-700"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                />
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div>
@@ -1097,6 +1203,63 @@ export default function LibraryPage() {
                       </span>
                     )}
                   </div>
+
+                  {/* Bookmarked AI Images Section */}
+                  {bookmarkedImages.length > 0 && (
+                    <div className="mt-8 border-t border-gray-200 pt-8">
+                      <h3 className="mb-4 text-lg font-semibold text-gray-900">
+                        Bookmarked AI Images ({bookmarkedImages.length})
+                      </h3>
+                      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                        {bookmarkedImages.map((img) => (
+                          <div
+                            key={img.id}
+                            className="group relative overflow-hidden rounded-lg bg-gray-100"
+                          >
+                            <div className="aspect-square">
+                              <img
+                                src={img.imageUrl}
+                                alt={img.prompt}
+                                className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                              />
+                            </div>
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100">
+                              <div className="absolute bottom-0 left-0 right-0 p-2">
+                                <p className="line-clamp-2 text-xs text-white">
+                                  {img.enhancedPrompt || img.prompt}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => setActiveTab('images')}
+                              className="absolute right-2 top-2 rounded-full bg-white/80 p-1.5 opacity-0 transition-opacity hover:bg-white group-hover:opacity-100"
+                              title="View in Images tab"
+                            >
+                              <svg
+                                className="h-4 w-4 text-gray-700"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                />
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
 

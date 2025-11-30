@@ -1577,6 +1577,35 @@ export class AiImageService {
   }
 
   /**
+   * 获取用户收藏的图片
+   */
+  async getBookmarkedImages(userId?: string) {
+    try {
+      const images = await this.prisma.generatedImage.findMany({
+        where: {
+          userId,
+          isBookmarked: true,
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      return images.map((img) => ({
+        id: img.id,
+        prompt: img.prompt,
+        enhancedPrompt: img.enhancedPrompt,
+        imageUrl: img.imageUrl,
+        width: img.width,
+        height: img.height,
+        createdAt: img.createdAt,
+        isBookmarked: img.isBookmarked,
+      }));
+    } catch (error) {
+      this.logger.error("Failed to get bookmarked images:", error);
+      return [];
+    }
+  }
+
+  /**
    * 添加书签
    */
   async addBookmark(
