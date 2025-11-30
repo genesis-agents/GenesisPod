@@ -26,6 +26,8 @@ export interface GeneratedImageResult {
   extractedContent?: string;
   textModelUsed?: string;
   imageModelUsed?: string;
+  // 新增：错误信息（如果处理失败）
+  error?: string;
 }
 
 export interface GenerateImageOptions {
@@ -149,10 +151,12 @@ export class AiImageService {
 
   /**
    * 主方法：生成图片
-   * 1. 收集输入内容 (prompt/urls/content/files/imageBase64)
-   * 2. 用文本模型分析并生成专业提示词
-   * 3. 用图片模型生成图片
-   * 返回完整的处理步骤以供前端展示
+   * 严格按顺序执行：
+   * 1. 内容提取 (必须成功才继续)
+   * 2. AI Prompt 生成 (必须成功才继续)
+   * 3. 图片生成 (必须成功才返回)
+   *
+   * 任何一步失败都会中断并返回错误，不会继续执行后续步骤
    */
   async generateImage(
     options: GenerateImageOptions,
@@ -173,68 +177,121 @@ export class AiImageService {
 
     // 处理步骤记录
     const processingSteps: ProcessingStep[] = [];
-    const addStep = (
-      step: string,
+
+    // 更新或添加步骤
+    const updateStep = (
+      stepId: string,
       title: string,
       status: ProcessingStep["status"],
-      content?: string,
+      stepContent?: string,
     ) => {
-      processingSteps.push({
-        step,
-        title,
-        status,
-        content,
-        timestamp: new Date().toISOString(),
-      });
+      const existing = processingSteps.find((s) => s.step === stepId);
+      if (existing) {
+        existing.title = title;
+        existing.status = status;
+        existing.content = stepContent;
+        existing.timestamp = new Date().toISOString();
+      } else {
+        processingSteps.push({
+          step: stepId,
+          title,
+          status,
+          content: stepContent,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    };
+
+    // 返回错误结果
+    const returnError = (errorMsg: string): GeneratedImageResult => {
+      this.logger.error(`Image generation stopped: ${errorMsg}`);
+      return {
+        id: `error-${Date.now()}`,
+        imageUrl: "",
+        prompt: "",
+        width: 512,
+        height: 512,
+        createdAt: new Date().toISOString(),
+        processingSteps,
+        error: errorMsg,
+      };
     };
 
     // 验证输入
     const hasUrls = urls && urls.length > 0 && urls.some((u) => u.trim());
     const hasFiles = files && files.length > 0;
     if (!prompt && !hasUrls && !content && !imageBase64 && !hasFiles) {
+      updateStep(
+        "validation",
+        "Input Validation Failed",
+        "error",
+        "No input provided",
+      );
       throw new BadRequestException(
         "At least one input is required: prompt, urls, content, files, or imageBase64",
       );
     }
 
-    // 步骤1: 收集和处理输入内容
-    addStep("input", "Analyzing Input", "processing");
+    // ============================================================
+    // 步骤1: 内容提取 (Content Extraction)
+    // ============================================================
+    this.logger.log("========== STEP 1: Content Extraction ==========");
     const contentParts: string[] = [];
 
-    // 1.1 直接输入的提示词
+    // 1.1 处理直接输入的提示词
     if (prompt) {
       contentParts.push(`User prompt: ${prompt}`);
-      addStep("prompt", "User Prompt", "completed", prompt);
+      updateStep("prompt_input", "User Prompt Received", "completed", prompt);
+      this.logger.log(`User prompt: ${prompt.slice(0, 100)}...`);
     }
 
-    // 1.2 处理 URLs（支持网页、YouTube、Bilibili 等）
+    // 1.2 处理 URLs（YouTube、Bilibili、网页）- 必须等待完成
     if (hasUrls) {
-      this.logger.log(`Extracting content from ${urls!.length} URLs...`);
       for (const url of urls!) {
-        if (url.trim()) {
-          const trimmedUrl = url.trim();
-          const isYouTube =
-            trimmedUrl.includes("youtube.com") ||
-            trimmedUrl.includes("youtu.be");
-          const isBilibili = trimmedUrl.includes("bilibili.com");
+        if (!url.trim()) continue;
 
-          addStep(
-            "url_extract",
-            isYouTube
-              ? "Extracting YouTube Subtitles"
-              : isBilibili
-                ? "Extracting Bilibili Content"
-                : "Extracting Web Content",
-            "processing",
-            trimmedUrl,
-          );
+        const trimmedUrl = url.trim();
+        const isYouTube =
+          trimmedUrl.includes("youtube.com") || trimmedUrl.includes("youtu.be");
+        const isBilibili = trimmedUrl.includes("bilibili.com");
+        const stepId = `url_${Date.now()}`;
+        const stepTitle = isYouTube
+          ? "Extracting YouTube Subtitles"
+          : isBilibili
+            ? "Extracting Bilibili Content"
+            : "Extracting Web Content";
 
+        updateStep(stepId, stepTitle, "processing", trimmedUrl);
+        this.logger.log(`[STEP 1.2] Extracting content from: ${trimmedUrl}`);
+
+        try {
+          // 等待内容提取完成
           const urlContent =
             await this.contentExtractor.extractFromUrl(trimmedUrl);
-          contentParts.push(`Content from ${trimmedUrl}:\n${urlContent}`);
 
-          addStep(
-            "url_content",
+          // 检查提取的内容是否有效
+          const cleanContent = urlContent.replace(/\[.*?\]/g, "").trim();
+          this.logger.log(
+            `[STEP 1.2] Extracted ${cleanContent.length} chars from ${trimmedUrl}`,
+          );
+
+          if (cleanContent.length < 50) {
+            // 内容太少，标记为失败并中断
+            updateStep(
+              stepId,
+              `${stepTitle} - Failed`,
+              "error",
+              `Insufficient content extracted (${cleanContent.length} chars). The URL may not be accessible or has no subtitles.`,
+            );
+            return returnError(
+              `Failed to extract sufficient content from ${trimmedUrl}. Only ${cleanContent.length} characters were extracted.`,
+            );
+          }
+
+          // 内容提取成功
+          contentParts.push(`Content from ${trimmedUrl}:\n${urlContent}`);
+          updateStep(
+            stepId,
             isYouTube
               ? "YouTube Content Extracted"
               : isBilibili
@@ -243,132 +300,269 @@ export class AiImageService {
             "completed",
             urlContent.slice(0, 500) + (urlContent.length > 500 ? "..." : ""),
           );
+          this.logger.log(
+            `[STEP 1.2] ✓ Successfully extracted content from ${trimmedUrl}`,
+          );
+        } catch (error) {
+          // 提取失败，标记错误并中断
+          const errorMsg =
+            error instanceof Error ? error.message : "Unknown error";
+          updateStep(stepId, `${stepTitle} - Failed`, "error", errorMsg);
+          return returnError(
+            `Failed to extract content from ${trimmedUrl}: ${errorMsg}`,
+          );
         }
       }
     }
 
-    // 1.3 直接粘贴的文本内容
+    // 1.3 处理直接粘贴的文本内容
     if (content) {
       contentParts.push(`Text content:\n${content}`);
-      addStep(
+      updateStep(
         "text_content",
-        "Text Content",
+        "Text Content Received",
         "completed",
         content.slice(0, 300) + (content.length > 300 ? "..." : ""),
+      );
+      this.logger.log(
+        `[STEP 1.3] ✓ Text content received: ${content.length} chars`,
       );
     }
 
     // 1.4 处理上传的文件
     if (hasFiles) {
-      this.logger.log(`Processing ${files!.length} uploaded files...`);
       for (const file of files!) {
-        addStep("file_extract", `Processing ${file.filename}`, "processing");
-        const fileContent = await this.contentExtractor.extractFromFile(
-          file.buffer,
-          file.mimeType,
-          file.filename,
-        );
-        contentParts.push(
-          `Content from file "${file.filename}":\n${fileContent}`,
-        );
-        addStep(
-          "file_content",
-          `Extracted from ${file.filename}`,
-          "completed",
-          fileContent.slice(0, 300) + (fileContent.length > 300 ? "..." : ""),
-        );
+        const stepId = `file_${file.filename}`;
+        updateStep(stepId, `Processing ${file.filename}`, "processing");
+        this.logger.log(`[STEP 1.4] Processing file: ${file.filename}`);
+
+        try {
+          const fileContent = await this.contentExtractor.extractFromFile(
+            file.buffer,
+            file.mimeType,
+            file.filename,
+          );
+          contentParts.push(
+            `Content from file "${file.filename}":\n${fileContent}`,
+          );
+          updateStep(
+            stepId,
+            `Extracted from ${file.filename}`,
+            "completed",
+            fileContent.slice(0, 300) + (fileContent.length > 300 ? "..." : ""),
+          );
+          this.logger.log(`[STEP 1.4] ✓ Extracted from ${file.filename}`);
+        } catch (error) {
+          const errorMsg =
+            error instanceof Error ? error.message : "Unknown error";
+          updateStep(
+            stepId,
+            `Failed to process ${file.filename}`,
+            "error",
+            errorMsg,
+          );
+          return returnError(
+            `Failed to process file ${file.filename}: ${errorMsg}`,
+          );
+        }
       }
     }
 
-    // 1.5 处理图片（使用 AI 进行图片理解）
+    // 1.5 处理参考图片
     if (imageBase64) {
-      addStep("image_analyze", "Analyzing Reference Image", "processing");
-      const textModel = await this.getDefaultTextModel();
+      updateStep("image_analyze", "Analyzing Reference Image", "processing");
+      this.logger.log(`[STEP 1.5] Analyzing reference image...`);
 
-      if (textModel?.apiKey) {
+      try {
+        const textModel = await this.getDefaultTextModel();
+        if (!textModel?.apiKey) {
+          updateStep(
+            "image_analyze",
+            "Image Analysis Skipped",
+            "error",
+            "No text model available",
+          );
+          return returnError("Cannot analyze image: no text model configured");
+        }
+
         const imageDescription = await this.contentExtractor.extractFromImage(
           imageBase64,
           textModel.apiKey,
         );
         contentParts.push(`Image description:\n${imageDescription}`);
-        addStep(
-          "image_description",
+        updateStep(
+          "image_analyze",
           "Image Analysis Complete",
           "completed",
           imageDescription,
         );
+        this.logger.log(`[STEP 1.5] ✓ Image analysis complete`);
+      } catch (error) {
+        const errorMsg =
+          error instanceof Error ? error.message : "Unknown error";
+        updateStep("image_analyze", "Image Analysis Failed", "error", errorMsg);
+        return returnError(`Failed to analyze image: ${errorMsg}`);
       }
     }
 
+    // 检查是否有足够的内容
     const inputContent = contentParts.join("\n\n---\n\n");
-    this.logger.log(`Total input content length: ${inputContent.length} chars`);
-    addStep("input", "Input Analysis Complete", "completed");
+    this.logger.log(`[STEP 1] Total content: ${inputContent.length} chars`);
 
-    // 步骤2: 使用系统默认文本模型生成专业提示词
+    if (inputContent.length < 50) {
+      updateStep(
+        "content_check",
+        "Content Check Failed",
+        "error",
+        "Insufficient content extracted",
+      );
+      return returnError("No valid content could be extracted from the input");
+    }
+
+    updateStep(
+      "content_check",
+      "Content Extraction Complete",
+      "completed",
+      `${inputContent.length} characters`,
+    );
+    this.logger.log(
+      `========== STEP 1 COMPLETE: ${inputContent.length} chars ==========`,
+    );
+
+    // ============================================================
+    // 步骤2: AI Prompt 生成
+    // ============================================================
+    this.logger.log("========== STEP 2: AI Prompt Generation ==========");
     let enhancedPrompt: string;
     let textModelUsed: string | undefined;
 
     if (skipEnhancement) {
-      // 跳过优化，直接使用原始输入
       enhancedPrompt = this.addStyleToPrompt(inputContent, style);
-      addStep(
-        "prompt_direct",
-        "Using Direct Input (No Enhancement)",
+      updateStep(
+        "prompt_generate",
+        "Using Direct Input",
         "completed",
-        enhancedPrompt,
+        enhancedPrompt.slice(0, 300),
       );
+      this.logger.log(`[STEP 2] Using direct input as prompt`);
     } else {
-      // 使用系统默认文本模型优化提示词
-      addStep(
-        "prompt_enhance",
+      updateStep(
+        "prompt_generate",
         "Generating Image Prompt with AI",
         "processing",
       );
-      const textModel = await this.getDefaultTextModel();
-      textModelUsed = textModel?.displayName || textModel?.name;
 
-      enhancedPrompt = await this.enhancePromptWithTextModel(
-        inputContent,
-        undefined, // 使用默认模型
-        style,
-      );
-      addStep(
-        "prompt_enhanced",
-        `AI Prompt Generated (${textModelUsed || "Default Model"})`,
-        "completed",
-        enhancedPrompt,
-      );
+      try {
+        const textModel = await this.getDefaultTextModel();
+        if (!textModel || !textModel.apiKey) {
+          updateStep(
+            "prompt_generate",
+            "No Text Model Available",
+            "error",
+            "Please configure a text model",
+          );
+          return returnError("No text model configured for prompt enhancement");
+        }
+
+        textModelUsed = textModel.displayName || textModel.name;
+        this.logger.log(`[STEP 2] Using text model: ${textModelUsed}`);
+
+        // 调用文本模型生成 prompt
+        const provider = textModel.provider.toLowerCase();
+        const modelId = textModel.modelId.toLowerCase();
+
+        if (
+          provider.includes("google") ||
+          provider.includes("gemini") ||
+          modelId.includes("gemini")
+        ) {
+          enhancedPrompt = await this.callGeminiTextAPI(
+            textModel.apiKey,
+            textModel.modelId,
+            inputContent,
+          );
+        } else if (provider.includes("openai") || modelId.includes("gpt")) {
+          enhancedPrompt = await this.callOpenAITextAPI(
+            textModel.apiKey,
+            textModel.apiEndpoint,
+            textModel.modelId,
+            inputContent,
+          );
+        } else {
+          enhancedPrompt = await this.callOpenAITextAPI(
+            textModel.apiKey,
+            textModel.apiEndpoint,
+            textModel.modelId,
+            inputContent,
+          );
+        }
+
+        enhancedPrompt = this.addStyleToPrompt(enhancedPrompt, style);
+
+        // 验证生成的 prompt
+        if (!enhancedPrompt || enhancedPrompt.length < 20) {
+          updateStep(
+            "prompt_generate",
+            "Prompt Generation Failed",
+            "error",
+            "Generated prompt is empty or too short",
+          );
+          return returnError("AI failed to generate a valid image prompt");
+        }
+
+        updateStep(
+          "prompt_generate",
+          `AI Prompt Generated (${textModelUsed})`,
+          "completed",
+          enhancedPrompt,
+        );
+        this.logger.log(
+          `[STEP 2] ✓ Generated prompt: ${enhancedPrompt.slice(0, 100)}...`,
+        );
+      } catch (error) {
+        const errorMsg =
+          error instanceof Error ? error.message : "Unknown error";
+        updateStep(
+          "prompt_generate",
+          "Prompt Generation Failed",
+          "error",
+          errorMsg,
+        );
+        return returnError(`Failed to generate image prompt: ${errorMsg}`);
+      }
     }
 
-    this.logger.log(`Enhanced prompt: ${enhancedPrompt.slice(0, 100)}...`);
+    this.logger.log(`========== STEP 2 COMPLETE ==========`);
 
-    // 步骤3: 使用图片模型生成图片
+    // ============================================================
+    // 步骤3: 图片生成
+    // ============================================================
+    this.logger.log("========== STEP 3: Image Generation ==========");
     const dimensions = this.getDimensions(aspectRatio || "1:1");
+
+    // 获取图片模型
     const imageModelConfig = imageModelId
       ? await this.getModelById(imageModelId)
       : await this.getDefaultImageModel();
 
-    const imageModelUsed =
-      imageModelConfig?.displayName || imageModelConfig?.name;
-
     if (!imageModelConfig || !imageModelConfig.apiKey) {
-      this.logger.warn(
-        "No image generation model configured, using placeholder",
+      updateStep(
+        "image_generate",
+        "No Image Model Available",
+        "error",
+        "Please configure an image model",
       );
-      addStep("image_generate", "No Image Model Available", "error");
-      return this.generatePlaceholder(
-        inputContent,
-        enhancedPrompt,
-        aspectRatio,
-        processingSteps,
-      );
+      return returnError("No image generation model configured");
     }
 
-    addStep(
+    const imageModelUsed =
+      imageModelConfig.displayName || imageModelConfig.name;
+    updateStep(
       "image_generate",
       `Generating Image with ${imageModelUsed}`,
       "processing",
     );
+    this.logger.log(`[STEP 3] Using image model: ${imageModelUsed}`);
 
     try {
       const generatedImageUrl = await this.callImageGenerationAPI(
@@ -378,12 +572,24 @@ export class AiImageService {
         negativePrompt,
       );
 
-      addStep("image_complete", "Image Generated Successfully", "completed");
+      // 验证生成的图片
+      if (!generatedImageUrl || !generatedImageUrl.startsWith("data:image")) {
+        updateStep(
+          "image_generate",
+          "Image Generation Failed",
+          "error",
+          "Invalid image data returned",
+        );
+        return returnError("Image generation returned invalid data");
+      }
+
+      updateStep("image_generate", "Image Generated Successfully", "completed");
+      this.logger.log(`[STEP 3] ✓ Image generated successfully`);
 
       // 保存到数据库
       const image = await this.prisma.generatedImage.create({
         data: {
-          prompt: inputContent.slice(0, 1000), // 截断原始输入
+          prompt: inputContent.slice(0, 1000),
           enhancedPrompt,
           style: style || "realistic",
           aspectRatio: aspectRatio || "1:1",
@@ -395,7 +601,7 @@ export class AiImageService {
         },
       });
 
-      this.logger.log(`Image generated successfully: ${image.id}`);
+      this.logger.log(`========== ALL STEPS COMPLETE: ${image.id} ==========`);
 
       return {
         id: image.id,
@@ -411,89 +617,14 @@ export class AiImageService {
         imageModelUsed,
       };
     } catch (error) {
-      this.logger.error("Image generation failed:", error);
-      addStep(
-        "image_error",
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      updateStep(
+        "image_generate",
         "Image Generation Failed",
         "error",
-        error instanceof Error ? error.message : "Unknown error",
+        errorMsg,
       );
-      return this.generatePlaceholder(
-        inputContent,
-        enhancedPrompt,
-        aspectRatio,
-        processingSteps,
-      );
-    }
-  }
-
-  /**
-   * 使用文本模型优化提示词
-   */
-  private async enhancePromptWithTextModel(
-    content: string,
-    textModelId?: string,
-    style?: string,
-  ): Promise<string> {
-    const textModel = textModelId
-      ? await this.getModelById(textModelId)
-      : await this.getDefaultTextModel();
-
-    if (!textModel || !textModel.apiKey) {
-      this.logger.warn("No text model available, using basic enhancement");
-      return this.addStyleToPrompt(content, style);
-    }
-
-    try {
-      const provider = textModel.provider.toLowerCase();
-      const endpoint = textModel.apiEndpoint?.toLowerCase() || "";
-      const modelId = textModel.modelId.toLowerCase();
-
-      let enhancedPrompt: string;
-
-      if (
-        provider.includes("google") ||
-        provider.includes("gemini") ||
-        modelId.includes("gemini")
-      ) {
-        enhancedPrompt = await this.callGeminiTextAPI(
-          textModel.apiKey,
-          textModel.modelId,
-          content,
-        );
-      } else if (
-        provider.includes("openai") ||
-        endpoint.includes("openai") ||
-        modelId.includes("gpt")
-      ) {
-        enhancedPrompt = await this.callOpenAITextAPI(
-          textModel.apiKey,
-          textModel.apiEndpoint,
-          textModel.modelId,
-          content,
-        );
-      } else {
-        // 默认使用 OpenAI 兼容 API
-        enhancedPrompt = await this.callOpenAITextAPI(
-          textModel.apiKey,
-          textModel.apiEndpoint,
-          textModel.modelId,
-          content,
-        );
-      }
-
-      return this.addStyleToPrompt(enhancedPrompt, style);
-    } catch (error: any) {
-      this.logger.error("Prompt enhancement failed:");
-      if (error.response) {
-        this.logger.error(
-          `Status: ${error.response.status}, Data: ${JSON.stringify(error.response.data)}`,
-        );
-      } else {
-        this.logger.error(error.message || error);
-      }
-      // 失败时返回原始内容
-      return this.addStyleToPrompt(content, style);
+      return returnError(`Image generation failed: ${errorMsg}`);
     }
   }
 
@@ -764,32 +895,6 @@ export class AiImageService {
     };
     return dimensions[aspectRatio] || dimensions["1:1"];
   }
-
-  /**
-   * 生成占位图
-   */
-  private generatePlaceholder(
-    originalPrompt: string,
-    enhancedPrompt: string,
-    aspectRatio?: string,
-    processingSteps?: ProcessingStep[],
-  ): GeneratedImageResult {
-    const dimensions = this.getDimensions(aspectRatio || "1:1");
-    const seed = encodeURIComponent(enhancedPrompt.slice(0, 50));
-
-    return {
-      id: `placeholder-${Date.now()}`,
-      imageUrl: `https://picsum.photos/seed/${seed}/${dimensions.width}/${dimensions.height}`,
-      prompt: originalPrompt.slice(0, 500),
-      enhancedPrompt,
-      width: dimensions.width,
-      height: dimensions.height,
-      createdAt: new Date().toISOString(),
-      processingSteps,
-      extractedContent: originalPrompt.slice(0, 2000),
-    };
-  }
-
   // ============ 图片生成 API 实现 ============
 
   /**
