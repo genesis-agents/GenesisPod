@@ -114,7 +114,7 @@ export default function NotesList({
       const response = await fetch(
         `${config.apiBaseUrl}/api/v1/notes/${editingNote.id}`,
         {
-          method: 'PUT',
+          method: 'PATCH',
           headers: {
             ...getAuthHeader(),
             'Content-Type': 'application/json',
@@ -362,8 +362,14 @@ export default function NotesList({
 
       {/* Edit Modal */}
       {editingNote && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="mx-4 w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={handleCancelEdit}
+        >
+          <div
+            className="mx-4 w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="mb-4 text-lg font-semibold text-gray-900">
               编辑笔记
             </h3>

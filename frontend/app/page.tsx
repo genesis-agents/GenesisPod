@@ -13,6 +13,7 @@ import HTMLViewer from '@/components/ui/HTMLViewer';
 import ReaderView from '@/components/ui/ReaderView';
 import NotesList from '@/components/features/NotesList';
 import CommentsList from '@/components/features/CommentsList';
+import SimilarResourcesList from '@/components/features/SimilarResourcesList';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import ReportWorkspace from '@/components/features/ReportWorkspace';
@@ -251,7 +252,7 @@ function HomeContent() {
   const [aiInsights, setAiInsights] = useState<AIInsight[]>([]);
   const [aiMethodology, setAiMethodology] = useState<AIInsight[]>([]);
   const [aiRightTab, setAiRightTab] = useState<
-    'assistant' | 'notes' | 'comments' | 'similar' | 'image'
+    'assistant' | 'notes' | 'comments' | 'similar'
   >('assistant');
   const [isAiPanelCollapsed, setIsAiPanelCollapsed] = useState(false);
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(true);
@@ -2583,7 +2584,7 @@ function HomeContent() {
 
           {/* Top Tab Navigation - Icon + Text Style */}
           <div className="border-b border-gray-100 bg-gray-50 px-2 py-2">
-            <div className="grid grid-cols-5 gap-1">
+            <div className="grid grid-cols-4 gap-1">
               <button
                 onClick={() => setAiRightTab('assistant')}
                 className={`group relative flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium transition-all duration-200 ${
@@ -2675,29 +2676,6 @@ function HomeContent() {
                   />
                 </svg>
                 <span className="leading-tight">Similar</span>
-              </button>
-              <button
-                onClick={() => setAiRightTab('image')}
-                className={`group relative flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium transition-all duration-200 ${
-                  aiRightTab === 'image'
-                    ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md shadow-red-500/20'
-                    : 'bg-white text-gray-600 shadow-sm hover:bg-gray-50 hover:shadow'
-                }`}
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-                <span className="leading-tight">Image</span>
               </button>
             </div>
           </div>
@@ -3120,10 +3098,7 @@ function HomeContent() {
                   <NotesList
                     key={notesRefreshKey}
                     resourceId={selectedResource.id}
-                    onEditNote={(note) => {
-                      // TODO: Implement note editing modal
-                      alert('编辑功能即将推出');
-                    }}
+                    showActions={true}
                     onDeleteNote={(noteId) => {
                       // Refresh notes list after deletion
                       setNotesRefreshKey(Date.now());
@@ -3135,8 +3110,22 @@ function HomeContent() {
                   <CommentsList resourceId={selectedResource.id} />
                 </div>
               ) : aiRightTab === 'similar' ? (
-                <div className="py-8 text-center text-gray-500">
-                  <p className="text-sm">相似内容推荐功能开发中...</p>
+                <div className="p-6">
+                  <SimilarResourcesList
+                    resourceId={selectedResource.id}
+                    onResourceClick={(resource) => {
+                      // Navigate to the similar resource
+                      const newResource = resources.find(
+                        (r) => r.id === resource.id
+                      );
+                      if (newResource) {
+                        setSelectedResource(newResource);
+                      } else {
+                        // If not in current list, open in new tab
+                        window.open(resource.sourceUrl, '_blank');
+                      }
+                    }}
+                  />
                 </div>
               ) : (
                 <div className="space-y-4">

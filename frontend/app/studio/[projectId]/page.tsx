@@ -1329,14 +1329,46 @@ function ChatPanel({
                   )}
                   {msg.citations && msg.citations.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1">
-                      {msg.citations.map((c, i) => (
-                        <span
-                          key={i}
-                          className="cursor-pointer rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700 hover:bg-blue-200"
-                        >
-                          [{c}]
-                        </span>
-                      ))}
+                      {msg.citations.map((c, i) => {
+                        // Try to find matching source by title or index
+                        const sourceIndex = parseInt(c) - 1;
+                        const matchedSource =
+                          !isNaN(sourceIndex) &&
+                          sourceIndex >= 0 &&
+                          sourceIndex < sources.length
+                            ? sources[sourceIndex]
+                            : sources.find(
+                                (s) =>
+                                  s.title
+                                    .toLowerCase()
+                                    .includes(c.toLowerCase()) ||
+                                  c
+                                    .toLowerCase()
+                                    .includes(s.title.toLowerCase())
+                              );
+                        const sourceUrl = matchedSource?.sourceUrl;
+
+                        return sourceUrl ? (
+                          <a
+                            key={i}
+                            href={sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700 hover:bg-blue-200 hover:underline"
+                            title={matchedSource?.title || c}
+                          >
+                            [{c}]
+                            <ExternalLink className="h-2.5 w-2.5" />
+                          </a>
+                        ) : (
+                          <span
+                            key={i}
+                            className="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700"
+                          >
+                            [{c}]
+                          </span>
+                        );
+                      })}
                     </div>
                   )}
                   {msg.role === 'assistant' && (

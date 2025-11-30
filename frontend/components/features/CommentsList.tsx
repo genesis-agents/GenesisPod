@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { config } from '@/lib/config';
+import { getAuthHeader } from '@/lib/auth';
 import CommentItem from './CommentItem';
 import CommentInput from './CommentInput';
 
@@ -40,7 +41,8 @@ export default function CommentsList({
       setError(null);
 
       const response = await fetch(
-        `${config.apiBaseUrl}/api/v1/comments/resource/${resourceId}`
+        `${config.apiBaseUrl}/api/v1/comments/resource/${resourceId}`,
+        { headers: getAuthHeader() }
       );
 
       if (response.ok) {
@@ -60,7 +62,8 @@ export default function CommentsList({
   const loadStats = async () => {
     try {
       const response = await fetch(
-        `${config.apiBaseUrl}/api/v1/comments/resource/${resourceId}/stats`
+        `${config.apiBaseUrl}/api/v1/comments/resource/${resourceId}/stats`,
+        { headers: getAuthHeader() }
       );
 
       if (response.ok) {

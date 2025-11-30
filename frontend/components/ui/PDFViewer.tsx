@@ -224,9 +224,10 @@ export default function PDFViewer({
         )}
 
         {/* PDF via object tag with Blob URL - 避免跨域问题 */}
+        {/* 使用 #view=FitH 参数让PDF默认适应宽度显示 */}
         {blobUrl && !loading && !error && (
           <object
-            data={blobUrl}
+            data={`${blobUrl}#view=FitH`}
             type="application/pdf"
             className="h-full w-full"
             title={title}

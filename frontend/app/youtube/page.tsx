@@ -69,15 +69,18 @@ function YouTubeTLDWContent() {
   // Auth context for API calls
   const { accessToken } = useAuth();
 
-  // 动态获取 AI 模型列表
-  const { models: aiModels } = useAIModels();
+  // 动态获取 AI 模型列表，只显示 CHAT/MULTIMODAL 类型的模型
+  const { models: allAiModels } = useAIModels();
+  const aiModels = allAiModels.filter(
+    (m) => m.modelType === 'CHAT' || m.modelType === 'MULTIMODAL'
+  );
 
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<
-    'transcript' | 'chat' | 'notes' | 'image'
-  >('transcript');
+  const [activeTab, setActiveTab] = useState<'transcript' | 'chat' | 'notes'>(
+    'transcript'
+  );
   const [autoScroll, setAutoScroll] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [activeSegmentIndex, setActiveSegmentIndex] = useState(-1);
@@ -906,7 +909,7 @@ function YouTubeTLDWContent() {
             {/* Tabs Header */}
             <div className="border-b border-gray-100 bg-gray-50 px-2 py-2">
               <div className="flex items-center justify-between">
-                <div className="grid grid-cols-4 gap-1">
+                <div className="grid grid-cols-3 gap-1">
                   <button
                     onClick={() => setActiveTab('transcript')}
                     className={`group relative flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium transition-all duration-200 ${
@@ -975,29 +978,6 @@ function YouTubeTLDWContent() {
                       />
                     </svg>
                     <span className="leading-tight">Notes</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('image')}
-                    className={`group relative flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium transition-all duration-200 ${
-                      activeTab === 'image'
-                        ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md shadow-red-500/20'
-                        : 'bg-white text-gray-600 shadow-sm hover:bg-gray-50 hover:shadow'
-                    }`}
-                  >
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                      />
-                    </svg>
-                    <span className="leading-tight">Image</span>
                   </button>
                 </div>
 
@@ -1356,28 +1336,6 @@ function YouTubeTLDWContent() {
                       })}
                     </div>
                   )}
-                </div>
-              )}
-
-              {activeTab === 'image' && (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <svg
-                    className="mb-4 h-16 w-16 text-gray-300"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
-                  <div className="mb-1 text-sm font-medium text-gray-500">
-                    Video to Image
-                  </div>
-                  <div className="text-xs text-gray-400">Coming Soon</div>
                 </div>
               )}
             </div>

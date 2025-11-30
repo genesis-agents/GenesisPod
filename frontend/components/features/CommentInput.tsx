@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { config } from '@/lib/config';
+import { getAuthHeader } from '@/lib/auth';
 
 interface CommentInputProps {
   resourceId: string;
@@ -46,7 +47,10 @@ export default function CommentInput({
 
       const response = await fetch(`${config.apiBaseUrl}/api/v1/comments`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          ...getAuthHeader(),
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           resourceId,
           content: content.trim(),
