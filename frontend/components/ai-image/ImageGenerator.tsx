@@ -495,7 +495,7 @@ export default function ImageGenerator() {
               <img
                 src={selectedImage.imageUrl}
                 alt={selectedImage.prompt}
-                className="max-h-[50vh] rounded-2xl object-contain shadow-2xl"
+                className="max-h-[70vh] rounded-2xl object-contain shadow-2xl"
               />
               <div className="absolute bottom-4 right-4 flex gap-2">
                 <button
