@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma/prisma.service";
+import { AIModelType } from "@prisma/client";
 
 @Injectable()
 export class AdminService {
@@ -311,6 +312,7 @@ export class AdminService {
     displayName: string;
     provider: string;
     modelId: string;
+    modelType?: AIModelType;
     icon: string;
     color: string;
     apiEndpoint: string;
@@ -342,6 +344,7 @@ export class AdminService {
         name: data.name,
         displayName: data.displayName,
         provider: data.provider,
+        modelType: data.modelType ?? existingByModelId.modelType,
         icon: data.icon,
         color: data.color,
         apiEndpoint: data.apiEndpoint,
@@ -386,6 +389,7 @@ export class AdminService {
         displayName: data.displayName,
         provider: data.provider,
         modelId: data.modelId,
+        modelType: data.modelType ?? "CHAT",
         icon: data.icon,
         color: data.color,
         apiEndpoint: data.apiEndpoint,
@@ -419,6 +423,7 @@ export class AdminService {
       displayName?: string;
       provider?: string;
       modelId?: string;
+      modelType?: AIModelType;
       icon?: string;
       color?: string;
       apiEndpoint?: string;
@@ -466,6 +471,7 @@ export class AdminService {
         displayName: data.displayName,
         provider: data.provider,
         modelId: data.modelId,
+        modelType: data.modelType,
         icon: data.icon,
         color: data.color,
         apiEndpoint: data.apiEndpoint,
@@ -798,6 +804,7 @@ export class AdminService {
       displayName: model.displayName,
       provider: model.provider,
       modelId: model.modelId,
+      modelType: model.modelType,
       apiEndpoint: model.apiEndpoint,
       isEnabled: model.isEnabled,
       isDefault: model.isDefault,
@@ -808,5 +815,165 @@ export class AdminService {
       temperature: model.temperature,
       updatedAt: model.updatedAt,
     }));
+  }
+
+  // ============ AI Model Type-based Selection ============
+
+  /**
+   * 获取指定类型的所有启用模型
+   */
+  async getAIModelsByType(modelType: AIModelType) {
+    const models = await this.prisma.aIModel.findMany({
+      where: {
+        modelType,
+        isEnabled: true,
+      },
+      orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+    });
+
+    return models.map((model) => ({
+      ...model,
+      apiKey: model.apiKey ? this.maskApiKey(model.apiKey) : null,
+      hasApiKey: !!model.apiKey,
+    }));
+  }
+
+  /**
+   * 获取指定类型的默认模型
+   * 如果没有设置默认，则返回该类型中的第一个启用模型
+   */
+  async getDefaultModelByType(modelType: AIModelType) {
+    // 先找该类型的默认模型
+    let model = await this.prisma.aIModel.findFirst({
+      where: {
+        modelType,
+        isEnabled: true,
+        isDefault: true,
+      },
+    });
+
+    // 如果没有默认模型，返回该类型中的第一个启用模型
+    if (!model) {
+      model = await this.prisma.aIModel.findFirst({
+        where: {
+          modelType,
+          isEnabled: true,
+        },
+        orderBy: { createdAt: "asc" },
+      });
+    }
+
+    if (!model) {
+      return null;
+    }
+
+    return {
+      ...model,
+      apiKey: model.apiKey ? this.maskApiKey(model.apiKey) : null,
+      hasApiKey: !!model.apiKey,
+    };
+  }
+
+  /**
+   * 获取指定类型的默认模型（返回完整配置，包括 API Key）
+   * 供内部服务使用
+   */
+  async getDefaultModelByTypeInternal(modelType: AIModelType) {
+    // 先找该类型的默认模型
+    let model = await this.prisma.aIModel.findFirst({
+      where: {
+        modelType,
+        isEnabled: true,
+        isDefault: true,
+      },
+    });
+
+    // 如果没有默认模型，返回该类型中的第一个启用模型
+    if (!model) {
+      model = await this.prisma.aIModel.findFirst({
+        where: {
+          modelType,
+          isEnabled: true,
+        },
+        orderBy: { createdAt: "asc" },
+      });
+    }
+
+    return model;
+  }
+
+  /**
+   * 设置某个模型为其类型的默认模型
+   * 只影响同类型的模型
+   */
+  async setDefaultAIModelForType(id: string) {
+    const model = await this.prisma.aIModel.findUnique({
+      where: { id },
+    });
+
+    if (!model) {
+      throw new NotFoundException(`AI Model ${id} not found`);
+    }
+
+    // 先将同类型的所有模型设为非默认
+    await this.prisma.aIModel.updateMany({
+      where: { modelType: model.modelType },
+      data: { isDefault: false },
+    });
+
+    // 设置当前模型为默认
+    const updated = await this.prisma.aIModel.update({
+      where: { id },
+      data: { isDefault: true },
+    });
+
+    this.logger.log(
+      `AI Model ${updated.name} set as default for type ${updated.modelType}`,
+    );
+
+    return {
+      ...updated,
+      apiKey: updated.apiKey ? this.maskApiKey(updated.apiKey) : null,
+      hasApiKey: !!updated.apiKey,
+    };
+  }
+
+  /**
+   * 获取所有类型及其默认模型
+   */
+  async getAllModelTypeDefaults() {
+    const types: AIModelType[] = [
+      "CHAT",
+      "IMAGE_GENERATION",
+      "IMAGE_EDITING",
+      "MULTIMODAL",
+    ];
+
+    const result: Record<
+      string,
+      { defaultModel: any; availableModels: number }
+    > = {};
+
+    for (const type of types) {
+      const defaultModel = await this.getDefaultModelByType(type);
+      const count = await this.prisma.aIModel.count({
+        where: { modelType: type, isEnabled: true },
+      });
+
+      result[type] = {
+        defaultModel: defaultModel
+          ? {
+              id: defaultModel.id,
+              name: defaultModel.name,
+              displayName: defaultModel.displayName,
+              modelId: defaultModel.modelId,
+              provider: defaultModel.provider,
+            }
+          : null,
+        availableModels: count,
+      };
+    }
+
+    return result;
   }
 }

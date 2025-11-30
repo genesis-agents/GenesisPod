@@ -4,11 +4,39 @@ import { useState, useEffect } from 'react';
 import { config } from '@/lib/config';
 import { getAuthHeader } from '@/lib/auth';
 
+// AI模型类型枚举
+type AIModelType = 'CHAT' | 'IMAGE_GENERATION' | 'IMAGE_EDITING' | 'MULTIMODAL';
+
+// 模型类型选项
+const MODEL_TYPE_OPTIONS = [
+  {
+    value: 'CHAT',
+    label: '文本聊天',
+    description: 'GPT-4, Claude, Gemini Pro 等',
+  },
+  {
+    value: 'IMAGE_GENERATION',
+    label: '图片生成',
+    description: 'DALL-E 3, Imagen 4, Midjourney 等',
+  },
+  {
+    value: 'IMAGE_EDITING',
+    label: '图片编辑',
+    description: 'Imagen 3, DALL-E 2 edit 等',
+  },
+  {
+    value: 'MULTIMODAL',
+    label: '多模态',
+    description: 'Gemini 2.0 Flash - 同时支持文本和图片',
+  },
+];
+
 interface AIModel {
   id: string;
   name: string;
   provider: string;
   modelId: string;
+  modelType: AIModelType;
   displayName: string;
   icon: string;
   color: string;
@@ -355,6 +383,7 @@ export default function AIModelSettings() {
         displayName: model.displayName,
         provider: model.provider,
         modelId: model.modelId,
+        modelType: model.modelType,
         icon: model.icon,
         color: model.color,
         apiEndpoint: model.apiEndpoint,
@@ -691,6 +720,23 @@ export default function AIModelSettings() {
               <div className="flex justify-between">
                 <span className="text-gray-500">Model ID:</span>
                 <span className="font-mono text-gray-700">{model.modelId}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Type:</span>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                    model.modelType === 'CHAT'
+                      ? 'bg-blue-100 text-blue-700'
+                      : model.modelType === 'IMAGE_GENERATION'
+                        ? 'bg-green-100 text-green-700'
+                        : model.modelType === 'IMAGE_EDITING'
+                          ? 'bg-orange-100 text-orange-700'
+                          : 'bg-purple-100 text-purple-700'
+                  }`}
+                >
+                  {MODEL_TYPE_OPTIONS.find((o) => o.value === model.modelType)
+                    ?.label || model.modelType}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">API Key:</span>
@@ -1099,10 +1145,10 @@ function EditModelModal({
         </h3>
 
         <div className="space-y-4">
-          {/* Model Type - Read Only */}
+          {/* Model Name - Read Only */}
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">
-              Model Type
+              模型标识
             </label>
             <input
               type="text"
@@ -1110,6 +1156,29 @@ function EditModelModal({
               readOnly
               className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600"
             />
+          </div>
+
+          {/* Model Type (功能类型) - Editable */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              功能类型
+            </label>
+            <select
+              value={formData.modelType}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  modelType: e.target.value as AIModelType,
+                })
+              }
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              {MODEL_TYPE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label} - {option.description}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -1350,6 +1419,7 @@ function AddModelModal({
     name: '',
     provider: '',
     modelId: '',
+    modelType: 'CHAT' as AIModelType,
     displayName: '',
     icon: '',
     color: 'from-gray-500 to-gray-600',
@@ -1415,6 +1485,32 @@ function AddModelModal({
             </select>
             <p className="mt-1 text-xs text-gray-500">
               选择后会自动填充默认配置
+            </p>
+          </div>
+
+          {/* Model Type (功能类型) */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              功能类型 <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={formData.modelType}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  modelType: e.target.value as AIModelType,
+                })
+              }
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              {MODEL_TYPE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label} - {option.description}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              决定模型用于文本聊天、图片生成还是图片编辑
             </p>
           </div>
 

@@ -13,6 +13,7 @@ import { Response } from "express";
 import { AiService } from "./ai.service";
 import { AiChatService } from "./ai-chat.service";
 import { PrismaService } from "../../common/prisma/prisma.service";
+import { AIModelType } from "@prisma/client";
 
 interface TranslateSingleRequest {
   text: string;
@@ -779,19 +780,37 @@ JSON output:`;
   }
 
   /**
-   * Helper: Get default model config
+   * Helper: Get default CHAT model config
+   * 使用 modelType = CHAT 进行筛选
    */
   private async getDefaultModelConfig() {
-    const modelConfig = await this.prisma.aIModel.findFirst({
-      where: { isEnabled: true },
-      orderBy: { isDefault: "desc" },
+    // 首先尝试获取设置为默认的聊天模型
+    const defaultModel = await this.prisma.aIModel.findFirst({
+      where: {
+        isEnabled: true,
+        isDefault: true,
+        modelType: AIModelType.CHAT,
+      },
     });
 
-    if (!modelConfig) {
-      throw new BadRequestException("No AI model is available");
+    if (defaultModel) {
+      return defaultModel;
     }
 
-    return modelConfig;
+    // 如果没有默认的聊天模型，查找任意可用的聊天模型
+    const anyModel = await this.prisma.aIModel.findFirst({
+      where: {
+        isEnabled: true,
+        modelType: AIModelType.CHAT,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!anyModel) {
+      throw new BadRequestException("No CHAT AI model is available");
+    }
+
+    return anyModel;
   }
 
   /**

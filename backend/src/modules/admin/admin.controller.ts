@@ -14,6 +14,7 @@ import { AdminService } from "./admin.service";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../common/guards/admin.guard";
 import { AiChatService } from "../ai/ai-chat.service";
+import { AIModelType } from "@prisma/client";
 
 /**
  * 管理员控制器
@@ -165,6 +166,7 @@ export class AdminController {
       displayName: string;
       provider: string;
       modelId: string;
+      modelType?: AIModelType;
       icon: string;
       color: string;
       apiEndpoint: string;
@@ -174,7 +176,9 @@ export class AdminController {
       description?: string;
     },
   ) {
-    this.logger.log(`Admin: Creating AI model ${body.name}`);
+    this.logger.log(
+      `Admin: Creating AI model ${body.name}, type=${body.modelType || "CHAT"}`,
+    );
     return this.adminService.createAIModel(body);
   }
 
@@ -212,6 +216,7 @@ export class AdminController {
       displayName?: string;
       provider?: string;
       modelId?: string;
+      modelType?: AIModelType;
       icon?: string;
       color?: string;
       apiEndpoint?: string;
@@ -222,7 +227,7 @@ export class AdminController {
       isEnabled?: boolean;
     },
   ) {
-    this.logger.log(`Admin: Updating AI model ${id}`);
+    this.logger.log(`Admin: Updating AI model ${id}, type=${body.modelType}`);
     return this.adminService.updateAIModel(id, body);
   }
 
@@ -432,5 +437,48 @@ export class AdminController {
         message: error.response?.data?.message || error.message,
       };
     }
+  }
+
+  // ============ AI Model Type-based Selection ============
+
+  /**
+   * 获取所有模型类型及其默认模型
+   * GET /api/v1/admin/ai-models/type-defaults
+   * NOTE: This route MUST come before :id routes
+   */
+  @Get("ai-models/type-defaults")
+  async getAllModelTypeDefaults() {
+    this.logger.log("Admin: Fetching all model type defaults");
+    return this.adminService.getAllModelTypeDefaults();
+  }
+
+  /**
+   * 获取指定类型的所有模型
+   * GET /api/v1/admin/ai-models/type/:type
+   */
+  @Get("ai-models/type/:type")
+  async getAIModelsByType(@Param("type") type: AIModelType) {
+    this.logger.log(`Admin: Fetching AI models of type ${type}`);
+    return this.adminService.getAIModelsByType(type);
+  }
+
+  /**
+   * 获取指定类型的默认模型
+   * GET /api/v1/admin/ai-models/type/:type/default
+   */
+  @Get("ai-models/type/:type/default")
+  async getDefaultModelByType(@Param("type") type: AIModelType) {
+    this.logger.log(`Admin: Fetching default model for type ${type}`);
+    return this.adminService.getDefaultModelByType(type);
+  }
+
+  /**
+   * 设置模型为其类型的默认模型
+   * POST /api/v1/admin/ai-models/:id/set-type-default
+   */
+  @Post("ai-models/:id/set-type-default")
+  async setDefaultAIModelForType(@Param("id") id: string) {
+    this.logger.log(`Admin: Setting model ${id} as default for its type`);
+    return this.adminService.setDefaultAIModelForType(id);
   }
 }

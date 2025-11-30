@@ -3,6 +3,7 @@ import { PrismaService } from "../../common/prisma/prisma.service";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { ContentExtractorService } from "./content-extractor.service";
+import { AIModelType } from "@prisma/client";
 
 // 处理步骤类型
 export interface ProcessingStep {
@@ -1261,118 +1262,104 @@ Generate the edited version of this image now.`;
 
   /**
    * 获取默认文本模型
-   * 优先使用用户设置的默认模型（isDefault: true），否则退回到可用的文本模型
+   * 使用 modelType = CHAT 进行筛选
+   * 优先使用 isDefault=true 的模型
    */
   private async getDefaultTextModel() {
-    // 首先尝试获取用户设置的默认模型
+    // 首先尝试获取设置为默认的聊天模型
     const defaultModel = await this.prisma.aIModel.findFirst({
       where: {
         isEnabled: true,
         isDefault: true,
+        modelType: AIModelType.CHAT,
       },
     });
 
     if (defaultModel) {
       this.logger.log(
-        `Using user-configured default model: ${defaultModel.displayName || defaultModel.name} (${defaultModel.modelId})`,
+        `[getDefaultTextModel] Found default CHAT model: ${defaultModel.displayName || defaultModel.name} (${defaultModel.modelId})`,
       );
       return defaultModel;
     }
 
-    // 如果没有明确设置默认模型，退回到可用的文本模型（优先Gemini）
-    return this.prisma.aIModel.findFirst({
-      where: {
-        isEnabled: true,
-        OR: [
-          { modelId: { contains: "gemini", mode: "insensitive" } },
-          { modelId: { contains: "gpt", mode: "insensitive" } },
-          { provider: { contains: "google", mode: "insensitive" } },
-          { provider: { contains: "openai", mode: "insensitive" } },
-        ],
-      },
-      orderBy: [
-        { provider: "asc" }, // Google/Gemini 会排在 OpenAI 前面
-        { name: "asc" },
-      ],
-    });
-  }
-
-  /**
-   * 获取默认图片模型
-   * 优先使用 isDefault=true 的模型，支持更多图片生成provider
-   */
-  private async getDefaultImageModel() {
-    // 首先尝试找到标记为默认的图片模型
-    const defaultModel = await this.prisma.aIModel.findFirst({
-      where: {
-        isEnabled: true,
-        isDefault: true,
-        OR: [
-          // Replicate models (包括 flux, banana 等)
-          { provider: { contains: "replicate", mode: "insensitive" } },
-          { modelId: { contains: "flux", mode: "insensitive" } },
-          { modelId: { contains: "banana", mode: "insensitive" } },
-          // Google/Gemini models
-          { modelId: { contains: "gemini", mode: "insensitive" } },
-          { provider: { contains: "gemini", mode: "insensitive" } },
-          { provider: { contains: "google", mode: "insensitive" } },
-          { modelId: { contains: "imagen", mode: "insensitive" } },
-          // OpenAI models
-          { provider: { contains: "openai", mode: "insensitive" } },
-          { modelId: { contains: "dall", mode: "insensitive" } },
-          // Stability models
-          { provider: { contains: "stability", mode: "insensitive" } },
-          // Together models
-          { provider: { contains: "together", mode: "insensitive" } },
-          // Fal models
-          { provider: { contains: "fal", mode: "insensitive" } },
-        ],
-      },
-    });
-
-    if (defaultModel) {
-      this.logger.log(
-        `[getDefaultImageModel] Found default model: ${defaultModel.name} (${defaultModel.provider})`,
-      );
-      return defaultModel;
-    }
-
-    // 如果没有默认模型，按优先级查找任意可用的图片模型
+    // 如果没有默认的聊天模型，查找任意可用的聊天模型
     const anyModel = await this.prisma.aIModel.findFirst({
       where: {
         isEnabled: true,
-        OR: [
-          // Replicate models (包括 flux, banana 等)
-          { provider: { contains: "replicate", mode: "insensitive" } },
-          { modelId: { contains: "flux", mode: "insensitive" } },
-          { modelId: { contains: "banana", mode: "insensitive" } },
-          // Google/Gemini models
-          { modelId: { contains: "gemini", mode: "insensitive" } },
-          { provider: { contains: "gemini", mode: "insensitive" } },
-          { provider: { contains: "google", mode: "insensitive" } },
-          { modelId: { contains: "imagen", mode: "insensitive" } },
-          // OpenAI models
-          { provider: { contains: "openai", mode: "insensitive" } },
-          { modelId: { contains: "dall", mode: "insensitive" } },
-          // Stability models
-          { provider: { contains: "stability", mode: "insensitive" } },
-          // Together models
-          { provider: { contains: "together", mode: "insensitive" } },
-          // Fal models
-          { provider: { contains: "fal", mode: "insensitive" } },
-        ],
+        modelType: AIModelType.CHAT,
       },
       orderBy: { createdAt: "desc" },
     });
 
     if (anyModel) {
       this.logger.log(
-        `[getDefaultImageModel] Found fallback model: ${anyModel.name} (${anyModel.provider})`,
+        `[getDefaultTextModel] Found fallback CHAT model: ${anyModel.displayName || anyModel.name} (${anyModel.modelId})`,
       );
     }
 
     return anyModel;
   }
+
+  /**
+   * 获取默认图片生成模型
+   * 使用 modelType = IMAGE_GENERATION 进行筛选
+   * 优先使用 isDefault=true 的模型
+   */
+  private async getDefaultImageModel() {
+    // 首先尝试找到标记为默认的图片生成模型
+    const defaultModel = await this.prisma.aIModel.findFirst({
+      where: {
+        isEnabled: true,
+        isDefault: true,
+        modelType: AIModelType.IMAGE_GENERATION,
+      },
+    });
+
+    if (defaultModel) {
+      this.logger.log(
+        `[getDefaultImageModel] Found default IMAGE_GENERATION model: ${defaultModel.name} (${defaultModel.provider})`,
+      );
+      return defaultModel;
+    }
+
+    // 如果没有默认的图片生成模型，查找任意可用的图片生成模型
+    const anyImageModel = await this.prisma.aIModel.findFirst({
+      where: {
+        isEnabled: true,
+        modelType: AIModelType.IMAGE_GENERATION,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (anyImageModel) {
+      this.logger.log(
+        `[getDefaultImageModel] Found fallback IMAGE_GENERATION model: ${anyImageModel.name} (${anyImageModel.provider})`,
+      );
+      return anyImageModel;
+    }
+
+    // 如果没有图片生成模型，尝试找多模态模型作为后备
+    const multimodalModel = await this.prisma.aIModel.findFirst({
+      where: {
+        isEnabled: true,
+        modelType: AIModelType.MULTIMODAL,
+      },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+    });
+
+    if (multimodalModel) {
+      this.logger.log(
+        `[getDefaultImageModel] Found MULTIMODAL fallback model: ${multimodalModel.name} (${multimodalModel.provider})`,
+      );
+    }
+
+    return multimodalModel;
+  }
+
+  // NOTE: getDefaultImageEditingModel 和 getDefaultChatModel 方法已准备好
+  // 当需要时可以实现：
+  // - IMAGE_EDITING: 用于图片编辑任务
+  // - MULTIMODAL: 用于同时支持文本和图片的任务
 
   /**
    * 根据ID获取模型
