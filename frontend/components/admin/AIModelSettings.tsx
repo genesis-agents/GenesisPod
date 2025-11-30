@@ -354,8 +354,9 @@ export default function AIModelSettings() {
 
   const handleSetDefault = async (model: AIModel) => {
     try {
+      // 使用类型化的 API 端点，只在同类型模型中设置默认
       const response = await fetch(
-        `${config.apiUrl}/admin/ai-models/${model.id}/set-default`,
+        `${config.apiUrl}/admin/ai-models/${model.id}/set-type-default`,
         {
           method: 'POST',
           headers: { ...getAuthHeader() },
@@ -366,7 +367,10 @@ export default function AIModelSettings() {
       if (response.ok) {
         // Refresh models to get updated default status
         await fetchModels();
-        setSuccess(`${model.displayName} set as default`);
+        const typeLabel =
+          MODEL_TYPE_OPTIONS.find((o) => o.value === model.modelType)?.label ||
+          model.modelType;
+        setSuccess(`${model.displayName} 已设为 ${typeLabel} 类型的默认模型`);
         setTimeout(() => setSuccess(null), 3000);
       }
     } catch (err) {
