@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { config } from '@/lib/config';
@@ -57,7 +57,7 @@ interface BookmarkedImage {
   isBookmarked: boolean;
 }
 
-export default function LibraryPage() {
+function LibraryPageContent() {
   const searchParams = useSearchParams();
   const tabParam = searchParams?.get('tab');
 
@@ -1827,5 +1827,22 @@ export default function LibraryPage() {
         mode={collectionModalMode}
       />
     </div>
+  );
+}
+
+export default function LibraryPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-screen items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+            <p className="text-gray-500">Loading...</p>
+          </div>
+        </div>
+      }
+    >
+      <LibraryPageContent />
+    </Suspense>
   );
 }
