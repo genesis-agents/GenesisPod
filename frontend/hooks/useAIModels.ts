@@ -3,6 +3,13 @@
 import { useState, useEffect } from 'react';
 import { config } from '@/lib/config';
 
+// AI模型类型
+export type AIModelType =
+  | 'CHAT'
+  | 'IMAGE_GENERATION'
+  | 'IMAGE_EDITING'
+  | 'MULTIMODAL';
+
 export interface AIModel {
   id: string; // 数据库唯一 ID（用于前端选中状态）
   dbId: string; // 数据库 ID（保持兼容）
@@ -10,6 +17,7 @@ export interface AIModel {
   modelName: string; // 模型标识名（如 gemini, gemini-image，用于 AI member 的 aiModel 字段）
   provider: string; // 提供商
   modelId: string; // 实际模型 ID
+  modelType: AIModelType; // 模型类型
   icon: string; // emoji 或图标路径
   iconUrl: string; // 图标 URL
   color: string; // Tailwind 颜色类
@@ -88,6 +96,7 @@ function getDefaultModels(): AIModel[] {
       modelName: 'grok',
       provider: 'xAI',
       modelId: 'grok-3-latest',
+      modelType: 'CHAT',
       icon: '🤖',
       iconUrl: '/icons/ai/grok.svg',
       color: 'from-blue-500 to-blue-600',
@@ -101,6 +110,7 @@ function getDefaultModels(): AIModel[] {
       modelName: 'gpt-4',
       provider: 'OpenAI',
       modelId: 'gpt-4-turbo',
+      modelType: 'CHAT',
       icon: '🧠',
       iconUrl: '/icons/ai/openai.svg',
       color: 'from-green-500 to-green-600',
@@ -114,6 +124,7 @@ function getDefaultModels(): AIModel[] {
       modelName: 'claude',
       provider: 'Anthropic',
       modelId: 'claude-sonnet-4-20250514',
+      modelType: 'CHAT',
       icon: '🎭',
       iconUrl: '/icons/ai/claude.svg',
       color: 'from-orange-500 to-orange-600',
@@ -127,6 +138,7 @@ function getDefaultModels(): AIModel[] {
       modelName: 'gemini',
       provider: 'Google',
       modelId: 'gemini-2.0-flash',
+      modelType: 'CHAT',
       icon: '💎',
       iconUrl: '/icons/ai/gemini.svg',
       color: 'from-purple-500 to-purple-600',

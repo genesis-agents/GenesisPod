@@ -27,6 +27,7 @@ export class AiService {
         displayName: true,
         provider: true,
         modelId: true,
+        modelType: true,
         icon: true,
         color: true,
         description: true,
@@ -41,6 +42,7 @@ export class AiService {
       modelName: model.name, // 模型标识名（如 gemini, gemini-image）
       provider: model.provider,
       modelId: model.modelId,
+      modelType: model.modelType, // 模型类型：CHAT, IMAGE_GENERATION, IMAGE_EDITING, MULTIMODAL
       icon: model.icon,
       iconUrl: this.getIconUrl(model.name),
       color: model.color,

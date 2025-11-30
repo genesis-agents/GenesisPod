@@ -264,11 +264,15 @@ function HomeContent() {
   } | null>(null);
   const [savingNote, setSavingNote] = useState(false);
   const [notesRefreshKey, setNotesRefreshKey] = useState(0);
-  const { models: aiModels } = useAIModels();
+  const { models: allAiModels } = useAIModels();
+  // 只显示 CHAT 类型的模型（或 MULTIMODAL，因为它们也支持文本聊天）
+  const aiModels = allAiModels.filter(
+    (m) => m.modelType === 'CHAT' || m.modelType === 'MULTIMODAL'
+  );
   const [aiModel, setAiModel] = useState(''); // 将在 aiModels 加载后设置默认值
   const [isStreaming, setIsStreaming] = useState(false);
 
-  // 设置默认 AI 模型（使用管理员配置的默认模型）
+  // 设置默认 AI 模型（使用管理员配置的 CHAT 类型默认模型）
   useEffect(() => {
     if (aiModels.length > 0 && !aiModel) {
       const defaultModel = aiModels.find((m) => m.isDefault) || aiModels[0];
