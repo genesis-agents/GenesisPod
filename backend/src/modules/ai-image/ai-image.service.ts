@@ -102,19 +102,21 @@ export interface GenerateImageOptions {
   userId?: string;
 }
 
-// 提示词优化系统提示
-// 提示词优化系统提示 —— 要求返回结构化 reasoning + prompt 的 JSON
-// 提示词优化系统提示 —— 要求返回结构化 reasoning + prompt 的 JSON
-// Image prompt enhancement system (structured reasoning JSON)
-const PROMPT_ENHANCEMENT_SYSTEM = `You are an expert visual prompt engineer assisting professional Imagen 4 (Nano Banana Pro) workflows. Analyze the provided material and respond with a single JSON object capturing both your reasoning process and the final production instructions.
+// Prompt enhancement system for consulting-style infographics
+// Optimized for Imagen 4 (Nano Banana Pro) to produce McKinsey/BCG quality visuals
+const PROMPT_ENHANCEMENT_SYSTEM = `You are an expert infographic designer creating McKinsey/BCG consulting-style visual summaries. Analyze the provided material and respond with a single JSON object.
 
-The JSON must be STRICTLY valid (no markdown fences) and follow:
+TARGET OUTPUT: Professional consulting infographic with:
+- Clean 2D flat design (NO 3D, NO photorealistic elements)
+- Multi-column grid layout (typically 3-4 columns)
+- Clear visual hierarchy with icons and numbered sections
+- Chinese or English text based on input language
+- Color scheme: Navy blue (#1a365d) + Gold accents (#c9a227) + Light gray backgrounds
+
+The JSON must be STRICTLY valid (no markdown fences):
 {
   "design_journal": [
-    {
-      "title": "string",
-      "narrative": "string"
-    }
+    {"title": "string", "narrative": "string"}
   ],
   "information_architecture": {
     "title": "string",
@@ -125,17 +127,8 @@ The JSON must be STRICTLY valid (no markdown fences) and follow:
         "title": "string",
         "summary": "string",
         "bullets": ["string"],
-        "metrics": [
-          {
-            "label": "string",
-            "value": "string",
-            "comparison": "string"
-          }
-        ],
-        "visual": {
-          "type": "string",
-          "description": "string"
-        }
+        "metrics": [{"label": "string", "value": "string", "comparison": "string"}],
+        "visual": {"type": "icon|chart|timeline|process", "description": "string"}
       }
     ],
     "call_to_action": "string"
@@ -155,17 +148,37 @@ The JSON must be STRICTLY valid (no markdown fences) and follow:
   "fallback_prompt": "string"
 }
 
-Guidelines:
-1. Use English.
-2. The design journal must contain 3-5 chronologically ordered entries (e.g. style shift, layout planning, data validation, quality checks) written in natural language.
-3. Populate the information architecture with concrete copy: titles, hero statement, bullet points, numeric metrics (with comparisons or context), and recommended visuals for each section.
-4. Layout plan should describe spatial arrangement (columns, grids, hero, KPI bands, chart placement) and user flow.
-5. Visual language must specify palette (e.g. navy #002B5B, forest green #1B8770, neutral greys), typography pairings, iconography style, chart treatments, background, and grid rules.
-6. Quality checks must emphasise clarity, print-ready typography, accessibility, unmistakable labelling, and freedom from "AI art" effects.
-7. Negative keywords should explicitly ban neon glows, 3D renders, graffiti, painterly strokes, distorted text, illegible microtype, and other undesirable traits.
-8. Final prompt must be a polished instruction set for Imagen that integrates the content structure, layout, visual language, and quality requirements.
-9. Fallback prompt should be a concise backup instruction if final prompt cannot be honoured.
-10. Respond ONLY with the JSON object; do not include prose outside the JSON.`;
+CRITICAL GUIDELINES:
+1. LANGUAGE: Match the input language. If input is Chinese, use Chinese for ALL text content.
+2. DESIGN JOURNAL: 3-5 entries documenting your design reasoning process.
+3. INFORMATION ARCHITECTURE: Extract 4-6 key sections from the content. Each section needs:
+   - Clear title (short, impactful)
+   - 2-4 bullet points with specific data/facts
+   - Relevant metrics with numbers
+   - Icon type suggestion (briefcase, target, chart, shield, lightbulb, gear, etc.)
+4. LAYOUT: Always use multi-column grid. Specify exact positions:
+   - Header band with main title
+   - Left column: Mission/Overview
+   - Center: Core diagram or process flow
+   - Right column: Key metrics or challenge areas
+   - Bottom: Timeline or implementation roadmap
+5. VISUAL LANGUAGE:
+   - Primary: Navy blue (#1a365d, #2d4a6f)
+   - Accent: Gold/Bronze (#c9a227, #d4af37)
+   - Background: Light gray (#f7f9fc) or white
+   - Typography: Sans-serif, bold headers, clean body text
+   - Icons: 2D flat line icons, consistent stroke width
+6. FINAL PROMPT MUST include these exact phrases:
+   - "professional consulting infographic"
+   - "2D flat design illustration"
+   - "multi-column grid layout"
+   - "clean sans-serif typography"
+   - "navy blue and gold color scheme"
+   - "numbered sections with icons"
+   - "McKinsey BCG style visual summary"
+   - "NO 3D rendering, NO photorealistic, NO AI art style"
+7. NEGATIVE KEYWORDS must include: 3D render, photorealistic, neon glow, gradient mesh, painterly, artistic, abstract, futuristic sci-fi, dark moody, cinematic lighting, depth of field, bokeh
+8. Respond ONLY with the JSON object.`;
 
 interface PromptDesignJournalEntry {
   title: string;
@@ -459,115 +472,105 @@ export class AiImageService {
     const info = insights.informationArchitecture;
     const visual = insights.visualLanguage;
 
-    const infoLines: string[] = [];
+    // Build structured content description
+    const contentParts: string[] = [];
+
+    // Main title
     if (info.title) {
-      infoLines.push(`Title text: "${info.title}"`);
+      contentParts.push(`Main headline: "${info.title}"`);
     }
     if (info.subtitle) {
-      infoLines.push(`Subtitle: "${info.subtitle}"`);
+      contentParts.push(`Subheadline: "${info.subtitle}"`);
     }
-    if (info.heroStatement) {
-      infoLines.push(`Hero statement: ${info.heroStatement}`);
-    }
+
+    // Build section descriptions with icons
+    const sectionDescriptions: string[] = [];
     info.sections.forEach((section, index) => {
-      const sectionLines: string[] = [];
-      if (section.summary) {
-        sectionLines.push(section.summary);
+      const parts: string[] = [];
+      if (section.title) {
+        parts.push(`"${section.title}"`);
       }
       if (section.bullets.length > 0) {
-        sectionLines.push(
-          `Bullets: ${section.bullets.map((bullet) => `"${bullet}"`).join(", ")}`,
-        );
+        parts.push(`with ${section.bullets.length} bullet points`);
       }
       if (section.metrics.length > 0) {
-        const metrics = section.metrics
-          .map((metric) => {
-            const valuePart = metric.value ? `${metric.value}` : "";
-            const comparisonPart = metric.comparison
-              ? ` (${metric.comparison})`
-              : "";
-            return `${metric.label || "Metric"}: ${valuePart}${comparisonPart}`;
-          })
-          .join("; ");
-        sectionLines.push(`Metrics: ${metrics}`);
+        const metricStr = section.metrics
+          .slice(0, 2)
+          .map((m) => m.value || m.label)
+          .join(", ");
+        parts.push(`showing metrics: ${metricStr}`);
       }
-      if (section.visual?.type || section.visual?.description) {
-        sectionLines.push(
-          `Visual: ${section.visual?.type || "chart"} – ${section.visual?.description || ""}`,
-        );
+      if (section.visual?.type) {
+        parts.push(`with ${section.visual.type} icon`);
       }
-
-      const sectionTitle = section.title
-        ? `${index + 1}. ${section.title}`
-        : `Section ${index + 1}`;
-      infoLines.push(`${sectionTitle}: ${sectionLines.join(" | ")}`);
+      if (parts.length > 0) {
+        sectionDescriptions.push(`Section ${index + 1}: ${parts.join(" ")}`);
+      }
     });
-    if (info.callToAction) {
-      infoLines.push(`Call to action: ${info.callToAction}`);
+
+    if (sectionDescriptions.length > 0) {
+      contentParts.push(`Content sections:\n${sectionDescriptions.join("\n")}`);
     }
 
-    const visualLines: string[] = [];
+    // Build visual style description
+    const styleDescriptions: string[] = [];
     if (visual.colorPalette.length > 0) {
-      visualLines.push(`Color palette: ${visual.colorPalette.join(", ")}`);
-    }
-    if (visual.typography) {
-      visualLines.push(`Typography: ${visual.typography}`);
-    }
-    if (visual.iconography) {
-      visualLines.push(`Iconography: ${visual.iconography}`);
-    }
-    if (visual.chartStyle) {
-      visualLines.push(`Chart style: ${visual.chartStyle}`);
-    }
-    if (visual.background) {
-      visualLines.push(`Background: ${visual.background}`);
-    }
-    if (visual.gridSystem) {
-      visualLines.push(`Grid system: ${visual.gridSystem}`);
-    }
-    if (insights.inspiration.length > 0) {
-      visualLines.push(`Design references: ${insights.inspiration.join(", ")}`);
-    }
-
-    const narrativeLines: string[] = [];
-    if (insights.styleShiftReasoning.length > 0) {
-      narrativeLines.push(
-        `Style transformation goals: ${insights.styleShiftReasoning.join("; ")}`,
+      styleDescriptions.push(
+        `Colors: ${visual.colorPalette.slice(0, 4).join(", ")}`,
       );
     }
+    if (visual.background) {
+      styleDescriptions.push(`Background: ${visual.background}`);
+    }
     if (insights.layoutPlan.length > 0) {
-      narrativeLines.push(`Layout plan: ${insights.layoutPlan.join("; ")}`);
+      styleDescriptions.push(
+        `Layout: ${insights.layoutPlan.slice(0, 2).join("; ")}`,
+      );
     }
 
-    const qualityLine =
-      insights.qualityChecks.length > 0
-        ? `Quality checklist: ${insights.qualityChecks.join("; ")}`
-        : undefined;
+    // Compose the final prompt with mandatory infographic keywords
+    const mandatoryPrefix = `Professional consulting infographic, McKinsey BCG style visual summary, 2D flat design illustration, multi-column grid layout with numbered sections and icons, clean sans-serif typography, navy blue and gold color scheme on light gray background.`;
 
-    const promptSegments = [
+    const mandatorySuffix = `Style: Corporate presentation quality, executive briefing format, clean geometric shapes, flat color fills, consistent icon set, clear visual hierarchy, print-ready resolution. NO 3D rendering, NO photorealistic elements, NO AI art style, NO neon glow, NO dark moody lighting, NO cinematic effects.`;
+
+    const promptParts = [
+      mandatoryPrefix,
       insights.imagePrompt.trim(),
-      infoLines.length > 0
-        ? `Content structure:\n${infoLines.join("\n")}`
-        : undefined,
-      narrativeLines.length > 0
-        ? `Design narrative:\n${narrativeLines.join("\n")}`
-        : undefined,
-      visualLines.length > 0
-        ? `Visual language:\n${visualLines.join("\n")}`
-        : undefined,
-      qualityLine,
-      "Output requirements: print-ready, ultra high resolution, crisp sans-serif typography, no AI-art artifacts, no glow, no 3D, no gradients, perfectly legible text.",
-    ].filter((segment): segment is string => Boolean(segment));
+      contentParts.length > 0 ? contentParts.join("\n") : undefined,
+      styleDescriptions.length > 0 ? styleDescriptions.join(". ") : undefined,
+      mandatorySuffix,
+    ].filter((part): part is string => Boolean(part));
 
-    const combined = promptSegments.join("\n\n");
-    const finalPrompt = this.addStyleToPrompt(
-      combined.length > 0 ? combined : insights.imagePrompt,
-      style,
-    );
+    const combined = promptParts.join("\n\n");
+    const finalPrompt = this.addStyleToPrompt(combined, style);
+
+    // Enhanced negative keywords for infographic quality
+    const enhancedNegatives = [
+      ...insights.negativeKeywords,
+      "3D render",
+      "photorealistic",
+      "neon glow",
+      "gradient mesh",
+      "painterly",
+      "artistic",
+      "abstract",
+      "futuristic sci-fi",
+      "dark moody",
+      "cinematic lighting",
+      "depth of field",
+      "bokeh",
+      "lens flare",
+      "motion blur",
+      "hyperrealistic",
+      "oil painting",
+      "watercolor",
+      "sketch",
+      "graffiti",
+    ];
 
     return {
       prompt: finalPrompt.trim(),
-      negativeCandidates: insights.negativeKeywords,
+      negativeCandidates: enhancedNegatives,
     };
   }
 
@@ -596,6 +599,7 @@ export class AiImageService {
 
     extras.forEach(addToken);
 
+    // Enhanced negative prompts for consulting-style infographics
     const enforcedNegatives = [
       "ai art style",
       "neon glow",
@@ -605,6 +609,22 @@ export class AiImageService {
       "painterly brushstroke",
       "blurry text",
       "illegible typography",
+      "photorealistic",
+      "cinematic lighting",
+      "depth of field",
+      "bokeh",
+      "motion blur",
+      "dark moody",
+      "futuristic sci-fi",
+      "abstract art",
+      "oil painting",
+      "watercolor",
+      "sketch style",
+      "gradient mesh",
+      "hyperrealistic",
+      "dramatic shadows",
+      "vignette",
+      "film grain",
     ];
     enforcedNegatives.forEach(addToken);
 
