@@ -317,7 +317,7 @@ export class AiImageService {
       imagePrompt: (basePrompt || "").trim(),
       fallbackPrompt: undefined,
       backgroundPrompt: undefined,
-      renderingMode: "ai_image", // 默认使用 AI 图片模式
+      renderingMode: "html_render", // 默认使用 HTML 渲染模式以确保文字精确
       contentAnalysis: undefined,
       designJournal: [],
       informationArchitecture: {
