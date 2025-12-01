@@ -4,10 +4,6 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
-import {
-  setLevel as setYoutubeLogLevel,
-  Level as YoutubeLogLevel,
-} from "youtubei.js/dist/src/utils/Log.js";
 
 type YoutubeModule = typeof import("youtubei.js");
 type YoutubeClient = Awaited<ReturnType<YoutubeModule["Innertube"]["create"]>>;
@@ -28,11 +24,7 @@ export interface TranscriptResponse {
 export class YoutubeService {
   private readonly logger = new Logger(YoutubeService.name);
   private youtube: YoutubeClient | null = null;
-
-  constructor() {
-    // Reduce youtubei.js logging noise from parser warnings
-    setYoutubeLogLevel(YoutubeLogLevel.ERROR);
-  }
+  private youtubeLogConfigured = false;
 
   async onModuleInit() {
     try {
@@ -204,9 +196,26 @@ export class YoutubeService {
         "modulePath",
         "return import(modulePath)",
       );
-      const { Innertube } = (await importDynamic(
+      const youtubeModule = (await importDynamic(
         "youtubei.js",
-      )) as YoutubeModule;
+      )) as YoutubeModule & {
+        Log?: {
+          Level?: Record<string, number>;
+          setLevel?: (...args: number[]) => void;
+        };
+      };
+      const { Innertube, Log } = youtubeModule;
+      if (!this.youtubeLogConfigured && Log?.Level && Log?.setLevel) {
+        try {
+          // Reduce youtubei.js logging noise from parser warnings
+          Log.setLevel(Log.Level.ERROR ?? Log.Level.WARNING ?? 1);
+          this.youtubeLogConfigured = true;
+        } catch (error) {
+          this.logger.debug(
+            `Failed to adjust youtubei.js log level: ${String(error)}`,
+          );
+        }
+      }
       this.youtube = await Innertube.create();
     }
   }
