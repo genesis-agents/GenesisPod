@@ -36,6 +36,7 @@ interface PromptSection {
   bullets: string[];
   metrics: PromptMetric[];
   visual?: PromptVisualCue;
+  iconType?: string;
 }
 
 interface PromptInformationArchitecture {
@@ -48,6 +49,10 @@ interface PromptInformationArchitecture {
 
 interface PromptVisualLanguage {
   colorPalette: string[];
+  primaryColor?: string;
+  accentColor?: string;
+  backgroundColor?: string;
+  textColor?: string;
   typography?: string;
   iconography?: string;
   chartStyle?: string;
@@ -55,9 +60,23 @@ interface PromptVisualLanguage {
   gridSystem?: string;
 }
 
+// 渲染模式类型
+type RenderingMode = "html_render" | "hybrid" | "ai_image";
+
+// 内容分析结果
+interface ContentAnalysis {
+  type: "data_heavy" | "balanced" | "visual_concept";
+  language: "zh" | "en" | "mixed";
+  complexity: "high" | "medium" | "low";
+  reasoning: string;
+}
+
 interface PromptEngineeringInsights {
   imagePrompt: string;
   fallbackPrompt?: string;
+  backgroundPrompt?: string; // 用于 hybrid 模式的背景生成
+  renderingMode: RenderingMode;
+  contentAnalysis?: ContentAnalysis;
   designJournal: PromptDesignJournalEntry[];
   informationArchitecture: PromptInformationArchitecture;
   visualLanguage: PromptVisualLanguage;
@@ -103,18 +122,45 @@ export interface GenerateImageOptions {
 }
 
 // Prompt enhancement system for consulting-style infographics
-// Optimized for Imagen 4 (Nano Banana Pro) to produce McKinsey/BCG quality visuals
-const PROMPT_ENHANCEMENT_SYSTEM = `You are an expert infographic designer creating McKinsey/BCG consulting-style visual summaries. Analyze the provided material and respond with a single JSON object.
+// Optimized for Imagen 4 (Nano Banana Pro) with smart layout detection
+// Supports 3 rendering modes: html_render, hybrid, ai_image
+const PROMPT_ENHANCEMENT_SYSTEM = `You are an expert infographic designer. Analyze the provided material and respond with a single JSON object.
 
-TARGET OUTPUT: Professional consulting infographic with:
-- Clean 2D flat design (NO 3D, NO photorealistic elements)
-- Multi-column grid layout (typically 3-4 columns)
-- Clear visual hierarchy with icons and numbered sections
-- Chinese or English text based on input language
-- Color scheme: Navy blue (#1a365d) + Gold accents (#c9a227) + Light gray backgrounds
+## STEP 1: CONTENT ANALYSIS & RENDERING MODE SELECTION
+
+First, analyze the content type and select the optimal rendering mode:
+
+**rendering_mode: "html_render"** - Use when:
+- Content has many structured data points, statistics, or metrics
+- Accuracy of text/numbers is critical
+- Content is a report, analysis, comparison, or data summary
+- Chinese text with complex characters needs precise rendering
+- Examples: Financial reports, research papers, product specs, tutorials
+
+**rendering_mode: "hybrid"** - Use when:
+- Content needs both accurate text AND visual appeal
+- Conceptual topics that benefit from illustrative backgrounds
+- Marketing/presentation materials with key data
+- Examples: Strategy presentations, market overviews, tech summaries
+
+**rendering_mode: "ai_image"** - Use when:
+- Content is conceptual, abstract, or artistic
+- Visual metaphors are more important than text accuracy
+- Simple posters, mood boards, or creative visuals
+- Few text elements needed (< 10 words visible)
+- Examples: Concept art, mood boards, simple tagline posters
+
+## STEP 2: OUTPUT FORMAT
 
 The JSON must be STRICTLY valid (no markdown fences):
 {
+  "rendering_mode": "html_render|hybrid|ai_image",
+  "content_analysis": {
+    "type": "data_heavy|balanced|visual_concept",
+    "language": "zh|en|mixed",
+    "complexity": "high|medium|low",
+    "reasoning": "string explaining why this rendering mode was chosen"
+  },
   "design_journal": [
     {"title": "string", "narrative": "string"}
   ],
@@ -128,14 +174,19 @@ The JSON must be STRICTLY valid (no markdown fences):
         "summary": "string",
         "bullets": ["string"],
         "metrics": [{"label": "string", "value": "string", "comparison": "string"}],
-        "visual": {"type": "icon|chart|timeline|process", "description": "string"}
+        "visual": {"type": "icon|chart|timeline|process", "description": "string"},
+        "icon_type": "target|chart|briefcase|shield|lightbulb|gear|users|globe|clock|trending|star|check"
       }
     ],
     "call_to_action": "string"
   },
   "layout_plan": ["string"],
   "visual_language": {
-    "color_palette": ["string"],
+    "color_palette": ["#1a365d", "#c9a227", "#f7f9fc", "#1a202c"],
+    "primary_color": "#1a365d",
+    "accent_color": "#c9a227",
+    "background_color": "#f7f9fc",
+    "text_color": "#1a202c",
     "typography": "string",
     "iconography": "string",
     "chart_style": "string",
@@ -145,40 +196,50 @@ The JSON must be STRICTLY valid (no markdown fences):
   "quality_checks": ["string"],
   "negative_keywords": ["string"],
   "final_prompt": "string",
-  "fallback_prompt": "string"
+  "fallback_prompt": "string",
+  "background_prompt": "string (only for hybrid mode - describes decorative background)"
 }
 
-CRITICAL GUIDELINES:
-1. LANGUAGE: Match the input language. If input is Chinese, use Chinese for ALL text content.
-2. DESIGN JOURNAL: 3-5 entries documenting your design reasoning process.
-3. INFORMATION ARCHITECTURE: Extract 4-6 key sections from the content. Each section needs:
+## CRITICAL GUIDELINES:
+
+1. **RENDERING MODE IS MANDATORY**: Always include rendering_mode with content_analysis.reasoning.
+
+2. **LANGUAGE**: Match the input language. If input is Chinese, use Chinese for ALL text content.
+
+3. **DESIGN JOURNAL**: 3-5 entries documenting your design reasoning process.
+
+4. **INFORMATION ARCHITECTURE**: Extract 4-6 key sections from the content. Each section needs:
    - Clear title (short, impactful)
    - 2-4 bullet points with specific data/facts
    - Relevant metrics with numbers
-   - Icon type suggestion (briefcase, target, chart, shield, lightbulb, gear, etc.)
-4. LAYOUT: Always use multi-column grid. Specify exact positions:
+   - icon_type: one of [target, chart, briefcase, shield, lightbulb, gear, users, globe, clock, trending, star, check]
+
+5. **LAYOUT**: Multi-column grid with clear positions:
    - Header band with main title
-   - Left column: Mission/Overview
-   - Center: Core diagram or process flow
-   - Right column: Key metrics or challenge areas
-   - Bottom: Timeline or implementation roadmap
-5. VISUAL LANGUAGE:
-   - Primary: Navy blue (#1a365d, #2d4a6f)
-   - Accent: Gold/Bronze (#c9a227, #d4af37)
-   - Background: Light gray (#f7f9fc) or white
-   - Typography: Sans-serif, bold headers, clean body text
-   - Icons: 2D flat line icons, consistent stroke width
-6. FINAL PROMPT MUST include these exact phrases:
+   - 3-column layout for sections
+   - Bottom: Call to action or timeline
+
+6. **VISUAL LANGUAGE**:
+   - Primary: Navy blue (#1a365d)
+   - Accent: Gold (#c9a227)
+   - Background: Light gray (#f7f9fc)
+   - Icons: 2D flat line icons
+
+7. **FINAL PROMPT**: For ai_image/hybrid modes, must include:
    - "professional consulting infographic"
    - "2D flat design illustration"
-   - "multi-column grid layout"
-   - "clean sans-serif typography"
-   - "navy blue and gold color scheme"
-   - "numbered sections with icons"
-   - "McKinsey BCG style visual summary"
-   - "NO 3D rendering, NO photorealistic, NO AI art style"
-7. NEGATIVE KEYWORDS must include: 3D render, photorealistic, neon glow, gradient mesh, painterly, artistic, abstract, futuristic sci-fi, dark moody, cinematic lighting, depth of field, bokeh
-8. Respond ONLY with the JSON object.`;
+   - "clean geometric shapes"
+   - "NO 3D rendering, NO photorealistic"
+
+8. **BACKGROUND PROMPT**: For hybrid mode only - describe a decorative background that complements but doesn't overpower the text:
+   - Abstract geometric patterns
+   - Subtle gradients
+   - Professional textures
+   - NO text or detailed elements
+
+9. **NEGATIVE KEYWORDS**: Always include: 3D render, photorealistic, neon glow, gradient mesh, painterly, artistic, abstract, futuristic sci-fi, dark moody, cinematic lighting, depth of field, bokeh, text, typography, letters, words, numbers
+
+10. Respond ONLY with the JSON object.`;
 
 interface PromptDesignJournalEntry {
   title: string;
@@ -233,6 +294,13 @@ interface PromptEngineeringInsights {
   styleShiftReasoning: string[];
   inspiration: string[];
 }
+
+import {
+  InfographicTemplateService,
+  InfographicContent,
+  InfographicSection,
+} from "./infographic-template.service";
+
 @Injectable()
 export class AiImageService {
   private readonly logger = new Logger(AiImageService.name);
@@ -241,12 +309,16 @@ export class AiImageService {
     private readonly prisma: PrismaService,
     private readonly httpService: HttpService,
     private readonly contentExtractor: ContentExtractorService,
+    private readonly infographicTemplate: InfographicTemplateService,
   ) {}
 
   private createDefaultInsights(basePrompt: string): PromptEngineeringInsights {
     return {
       imagePrompt: (basePrompt || "").trim(),
       fallbackPrompt: undefined,
+      backgroundPrompt: undefined,
+      renderingMode: "ai_image", // 默认使用 AI 图片模式
+      contentAnalysis: undefined,
       designJournal: [],
       informationArchitecture: {
         title: undefined,
@@ -257,6 +329,10 @@ export class AiImageService {
       },
       visualLanguage: {
         colorPalette: [],
+        primaryColor: "#1a365d",
+        accentColor: "#c9a227",
+        backgroundColor: "#f7f9fc",
+        textColor: "#1a202c",
         typography: undefined,
         iconography: undefined,
         chartStyle: undefined,
@@ -341,6 +417,38 @@ export class AiImageService {
           parsed.backup_prompt ??
           parsed.alternate_prompt,
       );
+      insights.backgroundPrompt = this.normalizeString(
+        parsed.background_prompt ?? parsed.backgroundPrompt,
+      );
+
+      // 解析渲染模式
+      const renderingModeRaw = this.normalizeString(
+        parsed.rendering_mode ?? parsed.renderingMode,
+      );
+      if (
+        renderingModeRaw === "html_render" ||
+        renderingModeRaw === "hybrid" ||
+        renderingModeRaw === "ai_image"
+      ) {
+        insights.renderingMode = renderingModeRaw;
+      } else {
+        // 默认根据内容类型推断
+        insights.renderingMode = "html_render";
+      }
+
+      // 解析内容分析
+      const contentAnalysisRaw =
+        parsed.content_analysis ?? parsed.contentAnalysis;
+      if (contentAnalysisRaw && typeof contentAnalysisRaw === "object") {
+        insights.contentAnalysis = {
+          type: contentAnalysisRaw.type || "balanced",
+          language: contentAnalysisRaw.language || "zh",
+          complexity: contentAnalysisRaw.complexity || "medium",
+          reasoning:
+            this.normalizeString(contentAnalysisRaw.reasoning) ||
+            "Auto-detected content type",
+        };
+      }
 
       const designJournalRaw = parsed.design_journal ?? parsed.designJournal;
       if (Array.isArray(designJournalRaw)) {
@@ -399,6 +507,9 @@ export class AiImageService {
                 ),
               }
             : undefined,
+        iconType: this.normalizeString(
+          section.icon_type ?? section.iconType ?? section.icon,
+        ),
       }));
 
       insights.informationArchitecture = {
@@ -418,6 +529,21 @@ export class AiImageService {
         colorPalette: toArray(
           visualRaw.color_palette ?? visualRaw.colorPalette,
         ),
+        primaryColor:
+          this.normalizeString(
+            visualRaw.primary_color ?? visualRaw.primaryColor,
+          ) || "#1a365d",
+        accentColor:
+          this.normalizeString(
+            visualRaw.accent_color ?? visualRaw.accentColor,
+          ) || "#c9a227",
+        backgroundColor:
+          this.normalizeString(
+            visualRaw.background_color ?? visualRaw.backgroundColor,
+          ) || "#f7f9fc",
+        textColor:
+          this.normalizeString(visualRaw.text_color ?? visualRaw.textColor) ||
+          "#1a202c",
         typography: this.normalizeString(visualRaw.typography),
         iconography: this.normalizeString(visualRaw.iconography),
         chartStyle: this.normalizeString(
@@ -1295,107 +1421,247 @@ export class AiImageService {
     this.logger.log("========== STEP 2 COMPLETE ==========");
 
     // ============================================================
-    // 步骤3: 图片生成
+    // 步骤3: 图片生成 (根据 renderingMode 选择方式)
     // ============================================================
     this.logger.log("========== STEP 3: Image Generation ==========");
+    this.logger.log(`[STEP 3] Rendering mode: ${promptInsights.renderingMode}`);
+
     const dimensions = this.getDimensions(aspectRatio || "1:1");
+    let generatedImageUrl: string;
+    let imageModelUsed: string = "HTML Renderer";
 
-    // 获取图片模型
-    const imageModelConfig = imageModelId
-      ? await this.getModelById(imageModelId)
-      : await this.getDefaultImageModel();
+    // 根据渲染模式选择生成方式
+    const renderingMode = promptInsights.renderingMode;
 
-    if (!imageModelConfig || !imageModelConfig.apiKey) {
+    if (renderingMode === "html_render" || renderingMode === "hybrid") {
+      // HTML 渲染模式或混合模式
+      updateStep(
+        "html_render",
+        renderingMode === "hybrid"
+          ? "Generating HTML Infographic with AI Background"
+          : "Generating HTML Infographic",
+        "processing",
+      );
+
+      try {
+        // 转换信息架构为模板内容
+        const infographicContent =
+          this.convertToInfographicContent(promptInsights);
+
+        let backgroundImageBase64: string | undefined;
+
+        // 混合模式：先生成 AI 背景
+        if (renderingMode === "hybrid") {
+          const imageModelConfig = imageModelId
+            ? await this.getModelById(imageModelId)
+            : await this.getDefaultImageModel();
+
+          if (imageModelConfig && imageModelConfig.apiKey) {
+            imageModelUsed = `HTML + ${imageModelConfig.displayName || imageModelConfig.name}`;
+            updateStep(
+              "background_generate",
+              `Generating Background with ${imageModelConfig.displayName || imageModelConfig.name}`,
+              "processing",
+            );
+
+            try {
+              // 使用 backgroundPrompt 或默认的装饰性背景提示
+              const bgPrompt =
+                promptInsights.backgroundPrompt ||
+                "Abstract geometric pattern, subtle navy blue and gold gradient, professional corporate background, clean minimal design, no text, no icons, soft lighting, 2D flat illustration";
+
+              backgroundImageBase64 = await this.callImageGenerationAPI(
+                imageModelConfig,
+                bgPrompt,
+                dimensions,
+                "text, typography, letters, words, numbers, 3D, photorealistic, faces, people",
+              );
+              updateStep(
+                "background_generate",
+                "Background Generated",
+                "completed",
+              );
+            } catch (bgError) {
+              this.logger.warn(
+                `[STEP 3] Background generation failed, continuing without background: ${bgError}`,
+              );
+              updateStep(
+                "background_generate",
+                "Background Generation Skipped",
+                "completed",
+                "Continuing without AI background",
+              );
+            }
+          }
+        }
+
+        // 生成 HTML 信息图
+        generatedImageUrl = await this.infographicTemplate.generateInfographic(
+          infographicContent,
+          {
+            width: dimensions.width,
+            height: dimensions.height,
+            backgroundImageBase64,
+          },
+        );
+
+        updateStep(
+          "html_render",
+          "HTML Infographic Generated Successfully",
+          "completed",
+        );
+        this.logger.log(`[STEP 3] ✓ HTML infographic generated successfully`);
+      } catch (htmlError) {
+        const errorMsg =
+          htmlError instanceof Error ? htmlError.message : "Unknown error";
+        updateStep("html_render", "HTML Rendering Failed", "error", errorMsg);
+        return returnError(`HTML rendering failed: ${errorMsg}`);
+      }
+    } else {
+      // AI 图片模式 (ai_image)
+      const imageModelConfig = imageModelId
+        ? await this.getModelById(imageModelId)
+        : await this.getDefaultImageModel();
+
+      if (!imageModelConfig || !imageModelConfig.apiKey) {
+        updateStep(
+          "image_generate",
+          "No Image Model Available",
+          "error",
+          "Please configure an image model",
+        );
+        return returnError("No image generation model configured");
+      }
+
+      imageModelUsed = imageModelConfig.displayName || imageModelConfig.name;
       updateStep(
         "image_generate",
-        "No Image Model Available",
-        "error",
-        "Please configure an image model",
+        `Generating Image with ${imageModelUsed}`,
+        "processing",
       );
-      return returnError("No image generation model configured");
-    }
+      this.logger.log(`[STEP 3] Using image model: ${imageModelUsed}`);
 
-    const imageModelUsed =
-      imageModelConfig.displayName || imageModelConfig.name;
-    updateStep(
-      "image_generate",
-      `Generating Image with ${imageModelUsed}`,
-      "processing",
-    );
-    this.logger.log(`[STEP 3] Using image model: ${imageModelUsed}`);
+      try {
+        // 如果有参考图片，使用 image-to-image 生成
+        generatedImageUrl = imageBase64
+          ? await this.callImageToImageAPI(
+              imageModelConfig,
+              enhancedPrompt,
+              imageBase64,
+              dimensions,
+            )
+          : await this.callImageGenerationAPI(
+              imageModelConfig,
+              enhancedPrompt,
+              dimensions,
+              mergedNegativePrompt,
+            );
 
-    try {
-      // 如果有参考图片，使用 image-to-image 生成
-      const generatedImageUrl = imageBase64
-        ? await this.callImageToImageAPI(
-            imageModelConfig,
-            enhancedPrompt,
-            imageBase64,
-            dimensions,
-          )
-        : await this.callImageGenerationAPI(
-            imageModelConfig,
-            enhancedPrompt,
-            dimensions,
-            mergedNegativePrompt,
+        // 验证生成的图片
+        if (!generatedImageUrl || !generatedImageUrl.startsWith("data:image")) {
+          updateStep(
+            "image_generate",
+            "Image Generation Failed",
+            "error",
+            "Invalid image data returned",
           );
+          return returnError("Image generation returned invalid data");
+        }
 
-      // 验证生成的图片
-      if (!generatedImageUrl || !generatedImageUrl.startsWith("data:image")) {
+        updateStep(
+          "image_generate",
+          "Image Generated Successfully",
+          "completed",
+        );
+        this.logger.log(`[STEP 3] ✓ Image generated successfully`);
+      } catch (aiError) {
+        const errorMsg =
+          aiError instanceof Error ? aiError.message : "Unknown error";
         updateStep(
           "image_generate",
           "Image Generation Failed",
           "error",
-          "Invalid image data returned",
+          errorMsg,
         );
-        return returnError("Image generation returned invalid data");
+        return returnError(`Image generation failed: ${errorMsg}`);
       }
-
-      updateStep("image_generate", "Image Generated Successfully", "completed");
-      this.logger.log(`[STEP 3] ✓ Image generated successfully`);
-
-      // 保存到数据库
-      const image = await this.prisma.generatedImage.create({
-        data: {
-          prompt: inputContent.slice(0, 1000),
-          enhancedPrompt,
-          style: style || "realistic",
-          aspectRatio: aspectRatio || "1:1",
-          imageUrl: generatedImageUrl,
-          width: dimensions.width,
-          height: dimensions.height,
-          provider: imageModelConfig.provider,
-          userId,
-        },
-      });
-
-      this.logger.log(`========== ALL STEPS COMPLETE: ${image.id} ==========`);
-
-      return {
-        id: image.id,
-        imageUrl: image.imageUrl,
-        prompt: image.prompt,
-        enhancedPrompt: image.enhancedPrompt || undefined,
-        promptInsights,
-        negativePrompt: mergedNegativePrompt || undefined,
-        width: image.width,
-        height: image.height,
-        createdAt: image.createdAt.toISOString(),
-        processingSteps,
-        extractedContent: inputContent.slice(0, 2000),
-        textModelUsed,
-        imageModelUsed,
-      };
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "Unknown error";
-      updateStep(
-        "image_generate",
-        "Image Generation Failed",
-        "error",
-        errorMsg,
-      );
-      return returnError(`Image generation failed: ${errorMsg}`);
     }
+
+    // 保存到数据库并返回结果
+    const providerName =
+      renderingMode === "html_render"
+        ? "HTML_RENDER"
+        : renderingMode === "hybrid"
+          ? "HYBRID"
+          : "AI_IMAGE";
+
+    const image = await this.prisma.generatedImage.create({
+      data: {
+        prompt: inputContent.slice(0, 1000),
+        enhancedPrompt,
+        style: style || "realistic",
+        aspectRatio: aspectRatio || "1:1",
+        imageUrl: generatedImageUrl,
+        width: dimensions.width,
+        height: dimensions.height,
+        provider: providerName,
+        userId,
+      },
+    });
+
+    this.logger.log(`========== ALL STEPS COMPLETE: ${image.id} ==========`);
+
+    return {
+      id: image.id,
+      imageUrl: image.imageUrl,
+      prompt: image.prompt,
+      enhancedPrompt: image.enhancedPrompt || undefined,
+      promptInsights,
+      negativePrompt: mergedNegativePrompt || undefined,
+      width: image.width,
+      height: image.height,
+      createdAt: image.createdAt.toISOString(),
+      processingSteps,
+      extractedContent: inputContent.slice(0, 2000),
+      textModelUsed,
+      imageModelUsed,
+    };
+  }
+
+  /**
+   * 将 PromptEngineeringInsights 转换为 InfographicContent
+   */
+  private convertToInfographicContent(
+    insights: PromptEngineeringInsights,
+  ): InfographicContent {
+    const info = insights.informationArchitecture;
+    const visual = insights.visualLanguage;
+
+    const sections: InfographicSection[] = info.sections.map((section) => ({
+      title: section.title || "Section",
+      summary: section.summary,
+      bullets: section.bullets,
+      metrics: section.metrics.map((m) => ({
+        label: m.label || "",
+        value: m.value || "",
+        comparison: m.comparison,
+      })),
+      iconType: section.iconType || section.visual?.type,
+    }));
+
+    return {
+      title: info.title || "Infographic",
+      subtitle: info.subtitle,
+      heroStatement: info.heroStatement,
+      sections,
+      callToAction: info.callToAction,
+      colorScheme: {
+        primary: visual.primaryColor || "#1a365d",
+        accent: visual.accentColor || "#c9a227",
+        background: visual.backgroundColor || "#f7f9fc",
+        text: visual.textColor || "#1a202c",
+      },
+    };
   }
 
   /**

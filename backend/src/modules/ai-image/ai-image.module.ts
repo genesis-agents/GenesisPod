@@ -4,6 +4,7 @@ import { MulterModule } from "@nestjs/platform-express";
 import { AiImageController } from "./ai-image.controller";
 import { AiImageService } from "./ai-image.service";
 import { ContentExtractorService } from "./content-extractor.service";
+import { InfographicTemplateService } from "./infographic-template.service";
 import { PrismaModule } from "../../common/prisma/prisma.module";
 import { YoutubeModule } from "../youtube/youtube.module";
 
@@ -17,7 +18,15 @@ import { YoutubeModule } from "../youtube/youtube.module";
     }),
   ],
   controllers: [AiImageController],
-  providers: [AiImageService, ContentExtractorService],
-  exports: [AiImageService, ContentExtractorService],
+  providers: [
+    AiImageService,
+    ContentExtractorService,
+    InfographicTemplateService,
+  ],
+  exports: [
+    AiImageService,
+    ContentExtractorService,
+    InfographicTemplateService,
+  ],
 })
 export class AiImageModule {}
