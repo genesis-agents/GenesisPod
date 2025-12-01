@@ -4,6 +4,10 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
+import {
+  setLevel as setYoutubeLogLevel,
+  Level as YoutubeLogLevel,
+} from "youtubei.js/dist/src/utils/Log.js";
 
 type YoutubeModule = typeof import("youtubei.js");
 type YoutubeClient = Awaited<ReturnType<YoutubeModule["Innertube"]["create"]>>;
@@ -24,6 +28,11 @@ export interface TranscriptResponse {
 export class YoutubeService {
   private readonly logger = new Logger(YoutubeService.name);
   private youtube: YoutubeClient | null = null;
+
+  constructor() {
+    // Reduce youtubei.js logging noise from parser warnings
+    setYoutubeLogLevel(YoutubeLogLevel.ERROR);
+  }
 
   async onModuleInit() {
     try {
@@ -96,10 +105,17 @@ export class YoutubeService {
         `Successfully fetched ${transcript.length} transcript segments for "${title ?? videoId}"`,
       );
     } catch (error: unknown) {
-      this.logger.error(
-        `Failed to fetch transcript for ${videoId} (lang: ${lang}):`,
-        error,
-      );
+      const parserMismatch = this.isYoutubeParserMismatch(error);
+      if (parserMismatch) {
+        this.logger.warn(
+          `youtubei parser mismatch while fetching ${videoId}; falling back to alternate transcript providers`,
+        );
+      } else {
+        this.logger.error(
+          `Failed to fetch transcript for ${videoId} (lang: ${lang}):`,
+          error,
+        );
+      }
 
       // Try youtube-transcript library first
       const npmTranscript = await this.fetchTranscriptNpm(videoId, lang);
@@ -502,5 +518,31 @@ export class YoutubeService {
     }
 
     return segments;
+  }
+
+  private isYoutubeParserMismatch(error: unknown): boolean {
+    if (error instanceof Error) {
+      if (error.name === "ParsingError") {
+        return true;
+      }
+      if (error.message.includes("Type mismatch, got")) {
+        return true;
+      }
+    }
+    if (typeof error === "object" && error !== null) {
+      const maybeError = error as Record<string, unknown>;
+      const name = maybeError.name;
+      const message = maybeError.message;
+      if (typeof name === "string" && name === "ParsingError") {
+        return true;
+      }
+      if (
+        typeof message === "string" &&
+        message.includes("Type mismatch, got")
+      ) {
+        return true;
+      }
+    }
+    return false;
   }
 }

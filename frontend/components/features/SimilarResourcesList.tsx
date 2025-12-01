@@ -146,27 +146,13 @@ export default function SimilarResourcesList({
             onClick={() => onResourceClick?.(resource)}
           >
             <div className="flex gap-3">
-              {/* Thumbnail */}
-              {resource.thumbnailUrl ? (
-                <div className="h-16 w-20 flex-shrink-0 overflow-hidden rounded bg-gray-100">
-                  <img
-                    src={resource.thumbnailUrl}
-                    alt={resource.title}
-                    className="h-full w-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                </div>
-              ) : (
-                <div className="flex h-16 w-20 flex-shrink-0 items-center justify-center rounded bg-gradient-to-br from-gray-100 to-gray-200">
-                  <img
-                    src={typeIcons[resource.type] || '/icons/types/default.svg'}
-                    alt={resource.type}
-                    className="h-6 w-6 opacity-50"
-                  />
-                </div>
-              )}
+              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-blue-50">
+                <img
+                  src={typeIcons[resource.type] || '/icons/types/default.svg'}
+                  alt={resource.type}
+                  className="h-5 w-5 opacity-70"
+                />
+              </div>
 
               {/* Content */}
               <div className="min-w-0 flex-1">
