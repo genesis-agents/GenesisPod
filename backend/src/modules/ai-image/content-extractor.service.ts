@@ -330,15 +330,25 @@ export class ContentExtractorService {
             "User-Agent":
               "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             Accept:
-              "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+              "text/html,application/xhtml+xml,application/xml;q=0.9,application/pdf;q=0.8,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.5",
           },
           timeout: 15000,
           maxRedirects: 5,
+          responseType: 'arraybuffer',
         }),
       );
 
-      const html = typeof response.data === "string" ? response.data : JSON.stringify(response.data);
+      const contentType = response.headers['content-type'] || '';
+
+      // Handle PDF content
+      if (contentType.toLowerCase().includes('application/pdf')) {
+        this.logger.log(`Detected PDF content from URL: ${url}`);
+        return this.extractPdfText(Buffer.from(response.data));
+      }
+
+      // Handle HTML content
+      const html = Buffer.from(response.data).toString('utf-8');
       return this.extractHtmlContent(html, url);
     } catch (error) {
       this.logger.warn(`Failed to fetch URL content: ${url}`, error);

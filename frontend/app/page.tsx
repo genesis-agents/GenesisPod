@@ -267,6 +267,16 @@ function HomeContent() {
   } | null>(null);
   const [savingNote, setSavingNote] = useState(false);
   const [notesRefreshKey, setNotesRefreshKey] = useState(0);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Auto-hide toast after 3 seconds
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   const { models: allAiModels } = useAIModels();
   // 只显示 CHAT 类型的模型（或 MULTIMODAL，因为它们也支持文本聊天）
   const aiModels = allAiModels.filter(
@@ -1170,7 +1180,7 @@ function HomeContent() {
       if (response.ok) {
         const savedNote = await response.json();
         console.log('Note saved successfully:', savedNote);
-        alert('Note saved successfully!');
+        setToast({ message: 'Note saved successfully!', type: 'success' });
 
         // Close context menu first
         setContextMenu(null);
@@ -1186,7 +1196,7 @@ function HomeContent() {
       } else {
         const errorData = await response.json();
         console.error('Failed to save note:', response.status, errorData);
-        alert(`Failed to save note: ${errorData.message || 'Unknown error'}`);
+        setToast({ message: `Failed to save note: ${errorData.message || 'Unknown error'}`, type: 'error' });
       }
     } catch (error) {
       console.error('Failed to save note:', error);
@@ -2128,8 +2138,7 @@ function HomeContent() {
                                   thumbnailUrl: resource.thumbnailUrl,
                                   addedAt: new Date(),
                                 });
-                                alert(`Added "${resource.title}" to Image Source Pool.\n\nPlease type "@" in the prompt input to select and use this resource.`);
-                                router.push('/library?tab=images');
+                                setToast({ message: `Added "${resource.title}" to Image Source Pool`, type: 'success' });
                               }}
                               className="flex items-center gap-2 text-sm text-gray-600 transition-colors hover:text-purple-600"
                               title="Generate Image"

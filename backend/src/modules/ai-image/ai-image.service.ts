@@ -68,7 +68,7 @@ export class AiImageService {
     private readonly prisma: PrismaService,
     private readonly httpService: HttpService,
     private readonly contentExtractor: ContentExtractorService,
-  ) {}
+  ) { }
 
   /**
    * 获取所有可用模型（文本模型 + 图片模型）
@@ -445,6 +445,7 @@ export class AiImageService {
     this.logger.log(
       `========== STEP 1 COMPLETE: ${inputContent.length} chars ==========`,
     );
+    this.logger.debug(`[STEP 1] Input Content Preview: ${inputContent.slice(0, 500)}...`);
 
     // ============================================================
     // 步骤2: AI Prompt 生成
@@ -536,6 +537,7 @@ export class AiImageService {
         this.logger.log(
           `[STEP 2] ✓ Generated prompt: ${enhancedPrompt.slice(0, 100)}...`,
         );
+        this.logger.debug(`[STEP 2] Full Enhanced Prompt: ${enhancedPrompt}`);
       } catch (error) {
         const errorMsg =
           error instanceof Error ? error.message : "Unknown error";
@@ -585,17 +587,17 @@ export class AiImageService {
       // 如果有参考图片，使用 image-to-image 生成
       const generatedImageUrl = imageBase64
         ? await this.callImageToImageAPI(
-            imageModelConfig,
-            enhancedPrompt,
-            imageBase64,
-            dimensions,
-          )
+          imageModelConfig,
+          enhancedPrompt,
+          imageBase64,
+          dimensions,
+        )
         : await this.callImageGenerationAPI(
-            imageModelConfig,
-            enhancedPrompt,
-            dimensions,
-            negativePrompt,
-          );
+          imageModelConfig,
+          enhancedPrompt,
+          dimensions,
+          negativePrompt,
+        );
 
       // 验证生成的图片
       if (!generatedImageUrl || !generatedImageUrl.startsWith("data:image")) {
