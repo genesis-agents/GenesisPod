@@ -14,20 +14,76 @@ export interface ProcessingStep {
   timestamp?: string;
 }
 
+interface PromptDesignJournalEntry {
+  title: string;
+  narrative: string;
+}
+
+interface PromptMetric {
+  label: string;
+  value: string;
+  comparison?: string;
+}
+
+interface PromptVisualCue {
+  type?: string;
+  description?: string;
+}
+
+interface PromptSection {
+  title?: string;
+  summary?: string;
+  bullets: string[];
+  metrics: PromptMetric[];
+  visual?: PromptVisualCue;
+}
+
+interface PromptInformationArchitecture {
+  title?: string;
+  subtitle?: string;
+  heroStatement?: string;
+  sections: PromptSection[];
+  callToAction?: string;
+}
+
+interface PromptVisualLanguage {
+  colorPalette: string[];
+  typography?: string;
+  iconography?: string;
+  chartStyle?: string;
+  background?: string;
+  gridSystem?: string;
+}
+
+interface PromptEngineeringInsights {
+  imagePrompt: string;
+  fallbackPrompt?: string;
+  designJournal: PromptDesignJournalEntry[];
+  informationArchitecture: PromptInformationArchitecture;
+  visualLanguage: PromptVisualLanguage;
+  layoutPlan: string[];
+  qualityChecks: string[];
+  negativeKeywords: string[];
+  styleShiftReasoning: string[];
+  inspiration: string[];
+}
+
 export interface GeneratedImageResult {
   id: string;
   imageUrl: string;
   prompt: string;
   enhancedPrompt?: string;
+  promptInsights?: PromptEngineeringInsights;
+  negativePrompt?: string;
   width: number;
   height: number;
   createdAt: string;
-  // 新增：处理步骤详情
+  // 处理步骤详情
   processingSteps?: ProcessingStep[];
   extractedContent?: string;
   textModelUsed?: string;
   imageModelUsed?: string;
-  // 新增：错误信息（如果处理失败）
+  // 错误信息
   error?: string;
 }
 
@@ -258,6 +314,9 @@ export class AiImageService {
 
     try {
       const parsed = JSON.parse(payload);
+      this.logger.debug(
+        `[PromptEnhancement] Successfully parsed JSON. Keys: ${Object.keys(parsed).join(", ")}`,
+      );
       const insights = this.createDefaultInsights(fallbackPrompt);
 
       insights.imagePrompt =
@@ -1061,6 +1120,18 @@ export class AiImageService {
           rawEnhancedPrompt,
           inputContent,
         );
+
+        // Debug: Log parsed insights summary
+        this.logger.debug(
+          `[STEP 2] Parsed promptInsights summary: ` +
+            `designJournal=${promptInsights.designJournal.length}, ` +
+            `sections=${promptInsights.informationArchitecture.sections.length}, ` +
+            `layoutPlan=${promptInsights.layoutPlan.length}, ` +
+            `colorPalette=${promptInsights.visualLanguage.colorPalette.length}, ` +
+            `qualityChecks=${promptInsights.qualityChecks.length}, ` +
+            `negativeKeywords=${promptInsights.negativeKeywords.length}, ` +
+            `imagePrompt=${promptInsights.imagePrompt?.slice(0, 100)}...`,
+        );
       } catch (error) {
         const errorMsg =
           error instanceof Error ? error.message : "Unknown error";
@@ -1285,6 +1356,8 @@ export class AiImageService {
         imageUrl: image.imageUrl,
         prompt: image.prompt,
         enhancedPrompt: image.enhancedPrompt || undefined,
+        promptInsights,
+        negativePrompt: mergedNegativePrompt || undefined,
         width: image.width,
         height: image.height,
         createdAt: image.createdAt.toISOString(),
