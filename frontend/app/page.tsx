@@ -125,6 +125,7 @@ import { useResourceStore } from '@/stores/aiOfficeStore';
 import type { Resource as AIOfficeResource } from '@/types/ai-office';
 import { ThumbsUp, TrendingUp, Clock, Star, ChevronDown } from 'lucide-react';
 import { useAIModels } from '@/hooks/useAIModels';
+import { useImageSourceStore } from '@/stores/imageSourceStore';
 
 interface Resource {
   id: string;
@@ -228,6 +229,7 @@ function parseMarkdownToInsights(markdown: string): AIInsight[] {
 function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const addSource = useImageSourceStore((state) => state.addSource);
   const { user, isAdmin, accessToken } = useAuth();
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
@@ -708,13 +710,13 @@ function HomeContent() {
       params.append(
         'type',
         typeMap[
-          activeTab as
-            | 'papers'
-            | 'blogs'
-            | 'reports'
-            | 'youtube'
-            | 'news'
-            | 'policy'
+        activeTab as
+        | 'papers'
+        | 'blogs'
+        | 'reports'
+        | 'youtube'
+        | 'news'
+        | 'policy'
         ]
       );
 
@@ -1588,9 +1590,9 @@ function HomeContent() {
         setSelectedResource((prev) =>
           prev
             ? {
-                ...prev,
-                upvoteCount: Math.max(0, (prev.upvoteCount || 0) - 1),
-              }
+              ...prev,
+              upvoteCount: Math.max(0, (prev.upvoteCount || 0) - 1),
+            }
             : null
         );
       }
@@ -1608,9 +1610,9 @@ function HomeContent() {
         setSelectedResource((prev) =>
           prev
             ? {
-                ...prev,
-                upvoteCount: (prev.upvoteCount || 0) + 1,
-              }
+              ...prev,
+              upvoteCount: (prev.upvoteCount || 0) + 1,
+            }
             : null
         );
       }
@@ -1746,11 +1748,10 @@ function HomeContent() {
                         <div
                           key={suggestion.id}
                           onClick={() => handleSuggestionClick(suggestion)}
-                          className={`cursor-pointer border-b border-gray-100 px-4 py-3 transition-colors last:border-b-0 ${
-                            index === selectedSuggestionIndex
-                              ? 'border-l-4 border-l-red-500 bg-red-50'
-                              : 'hover:bg-gray-50'
-                          }`}
+                          className={`cursor-pointer border-b border-gray-100 px-4 py-3 transition-colors last:border-b-0 ${index === selectedSuggestionIndex
+                            ? 'border-l-4 border-l-red-500 bg-red-50'
+                            : 'hover:bg-gray-50'
+                            }`}
                         >
                           <div className="flex items-start gap-3">
                             {/* Type Icon */}
@@ -1928,14 +1929,14 @@ function HomeContent() {
                           )}
                           {(resource.type === 'YOUTUBE' ||
                             resource.type === 'YOUTUBE_VIDEO') && (
-                            <svg
-                              className="h-6 w-6 text-red-600"
-                              fill="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                            </svg>
-                          )}
+                              <svg
+                                className="h-6 w-6 text-red-600"
+                                fill="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                              </svg>
+                            )}
                         </div>
 
                         {/* Content */}
@@ -1994,11 +1995,10 @@ function HomeContent() {
                             {/* Bookmark Button - Simple version */}
                             <button
                               onClick={(e) => toggleBookmark(resource.id, e)}
-                              className={`flex items-center gap-2 text-sm transition-colors ${
-                                isBookmarked(resource.id)
-                                  ? 'text-blue-600 hover:text-blue-700'
-                                  : 'text-gray-600 hover:text-blue-600'
-                              }`}
+                              className={`flex items-center gap-2 text-sm transition-colors ${isBookmarked(resource.id)
+                                ? 'text-blue-600 hover:text-blue-700'
+                                : 'text-gray-600 hover:text-blue-600'
+                                }`}
                             >
                               <svg
                                 className="h-4 w-4"
@@ -2024,20 +2024,18 @@ function HomeContent() {
                             {/* Upvote Button */}
                             {resource.upvoteCount !== undefined && (
                               <button
-                                className={`flex items-center gap-2 text-sm transition-colors ${
-                                  hasUpvoted(resource.id)
-                                    ? 'font-medium text-blue-600'
-                                    : 'text-gray-600 hover:text-blue-600'
-                                }`}
+                                className={`flex items-center gap-2 text-sm transition-colors ${hasUpvoted(resource.id)
+                                  ? 'font-medium text-blue-600'
+                                  : 'text-gray-600 hover:text-blue-600'
+                                  }`}
                                 onClick={(e) => toggleUpvote(resource.id, e)}
                                 title="点赞"
                               >
                                 <ThumbsUp
-                                  className={`h-4 w-4 ${
-                                    hasUpvoted(resource.id)
-                                      ? 'fill-current'
-                                      : ''
-                                  }`}
+                                  className={`h-4 w-4 ${hasUpvoted(resource.id)
+                                    ? 'fill-current'
+                                    : ''
+                                    }`}
                                 />
                                 {resource.upvoteCount}
                               </button>
@@ -2081,13 +2079,12 @@ function HomeContent() {
                                   aiOfficeStore.addResource(aiResource as any);
                                 }
                               }}
-                              className={`flex items-center gap-2 text-sm transition-colors ${
-                                aiOfficeStore.resources.some(
-                                  (r) => r._id === resource.id
-                                )
-                                  ? 'cursor-pointer text-green-600 hover:text-red-600'
-                                  : 'text-gray-600 hover:text-blue-600'
-                              }`}
+                              className={`flex items-center gap-2 text-sm transition-colors ${aiOfficeStore.resources.some(
+                                (r) => r._id === resource.id
+                              )
+                                ? 'cursor-pointer text-green-600 hover:text-red-600'
+                                : 'text-gray-600 hover:text-blue-600'
+                                }`}
                               title={
                                 aiOfficeStore.resources.some(
                                   (r) => r._id === resource.id
@@ -2115,6 +2112,46 @@ function HomeContent() {
                                 ? 'Added'
                                 : 'AI Office'}
                             </button>
+
+                            {/* To Image Button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addSource({
+                                  id: resource.id,
+                                  type: (resource.type.toLowerCase() as any),
+                                  title: resource.title,
+                                  url: resource.sourceUrl || resource.pdfUrl || '',
+                                  thumbnailUrl: resource.thumbnailUrl,
+                                  addedAt: new Date(),
+                                });
+                                router.push('/library?tab=images');
+                              }}
+                              className="flex items-center gap-2 text-sm text-gray-600 transition-colors hover:text-purple-600"
+                              title="Generate Image"
+                            >
+                              <svg
+                                className="h-4 w-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                                />
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                                />
+                              </svg>
+                              Image
+                            </button>
+
                             {/* Admin Delete Button */}
                             {isAdmin && (
                               <button
@@ -2205,11 +2242,10 @@ function HomeContent() {
                         <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-0.5">
                           <button
                             onClick={() => setHtmlViewMode('reader')}
-                            className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
-                              htmlViewMode === 'reader'
-                                ? 'bg-white text-gray-900 shadow-sm'
-                                : 'text-gray-600 hover:text-gray-900'
-                            }`}
+                            className={`rounded px-2 py-1 text-xs font-medium transition-colors ${htmlViewMode === 'reader'
+                              ? 'bg-white text-gray-900 shadow-sm'
+                              : 'text-gray-600 hover:text-gray-900'
+                              }`}
                             title="阅读模式 - 清洁、易读的内容展示"
                           >
                             <svg
@@ -2223,11 +2259,10 @@ function HomeContent() {
                           </button>
                           <button
                             onClick={() => setHtmlViewMode('original')}
-                            className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
-                              htmlViewMode === 'original'
-                                ? 'bg-white text-gray-900 shadow-sm'
-                                : 'text-gray-600 hover:text-gray-900'
-                            }`}
+                            className={`rounded px-2 py-1 text-xs font-medium transition-colors ${htmlViewMode === 'original'
+                              ? 'bg-white text-gray-900 shadow-sm'
+                              : 'text-gray-600 hover:text-gray-900'
+                              }`}
                             title="原始模式 - 完整的网页显示"
                           >
                             <svg
@@ -2255,9 +2290,8 @@ function HomeContent() {
                       title={isHeaderCollapsed ? '展开详情' : '收起详情'}
                     >
                       <svg
-                        className={`h-5 w-5 transition-transform duration-200 ${
-                          isHeaderCollapsed ? 'rotate-0' : 'rotate-180'
-                        }`}
+                        className={`h-5 w-5 transition-transform duration-200 ${isHeaderCollapsed ? 'rotate-0' : 'rotate-180'
+                          }`}
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -2321,11 +2355,10 @@ function HomeContent() {
                     <div className="flex items-center gap-3 border-t border-gray-200 pt-4">
                       <button
                         onClick={() => toggleBookmark(selectedResource.id)}
-                        className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                          isBookmarked(selectedResource.id)
-                            ? 'bg-red-600 text-white hover:bg-red-700'
-                            : 'border border-red-600 text-red-600 hover:bg-red-50'
-                        }`}
+                        className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors ${isBookmarked(selectedResource.id)
+                          ? 'bg-red-600 text-white hover:bg-red-700'
+                          : 'border border-red-600 text-red-600 hover:bg-red-50'
+                          }`}
                       >
                         <svg
                           className="h-4 w-4"
@@ -2358,13 +2391,12 @@ function HomeContent() {
                         disabled={aiOfficeStore.resources.some(
                           (r) => r._id === selectedResource.id
                         )}
-                        className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                          aiOfficeStore.resources.some(
-                            (r) => r._id === selectedResource.id
-                          )
-                            ? 'cursor-not-allowed border border-green-600 bg-green-50 text-green-600'
-                            : 'border border-blue-600 text-blue-600 hover:bg-blue-50'
-                        }`}
+                        className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors ${aiOfficeStore.resources.some(
+                          (r) => r._id === selectedResource.id
+                        )
+                          ? 'cursor-not-allowed border border-green-600 bg-green-50 text-green-600'
+                          : 'border border-blue-600 text-blue-600 hover:bg-blue-50'
+                          }`}
                         title={
                           aiOfficeStore.resources.some(
                             (r) => r._id === selectedResource.id
@@ -2419,19 +2451,17 @@ function HomeContent() {
                             onClick={(e) =>
                               toggleUpvote(selectedResource.id, e)
                             }
-                            className={`flex items-center gap-1 rounded-lg px-2 py-1 transition-colors ${
-                              hasUpvoted(selectedResource.id)
-                                ? 'bg-blue-50 font-medium text-blue-600'
-                                : 'hover:bg-gray-100'
-                            }`}
+                            className={`flex items-center gap-1 rounded-lg px-2 py-1 transition-colors ${hasUpvoted(selectedResource.id)
+                              ? 'bg-blue-50 font-medium text-blue-600'
+                              : 'hover:bg-gray-100'
+                              }`}
                             title="点赞"
                           >
                             <ThumbsUp
-                              className={`h-4 w-4 ${
-                                hasUpvoted(selectedResource.id)
-                                  ? 'fill-current'
-                                  : ''
-                              }`}
+                              className={`h-4 w-4 ${hasUpvoted(selectedResource.id)
+                                ? 'fill-current'
+                                : ''
+                                }`}
                             />
                             {selectedResource.upvoteCount}
                           </button>
@@ -2464,7 +2494,7 @@ function HomeContent() {
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white">
                 {/* Display preview - 使用客户端渲染避免浏览器阻止iframe */}
                 {selectedResource.type === 'PAPER' &&
-                selectedResource.pdfUrl ? (
+                  selectedResource.pdfUrl ? (
                   <PDFViewer
                     url={selectedResource.pdfUrl}
                     title={selectedResource.title}
@@ -2547,11 +2577,10 @@ function HomeContent() {
             <div className="grid grid-cols-4 gap-1">
               <button
                 onClick={() => setAiRightTab('assistant')}
-                className={`group relative flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium transition-all duration-200 ${
-                  aiRightTab === 'assistant'
-                    ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md shadow-red-500/20'
-                    : 'bg-white text-gray-600 shadow-sm hover:bg-gray-50 hover:shadow'
-                }`}
+                className={`group relative flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium transition-all duration-200 ${aiRightTab === 'assistant'
+                  ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md shadow-red-500/20'
+                  : 'bg-white text-gray-600 shadow-sm hover:bg-gray-50 hover:shadow'
+                  }`}
               >
                 <svg
                   className="h-4 w-4"
@@ -2570,11 +2599,10 @@ function HomeContent() {
               </button>
               <button
                 onClick={() => setAiRightTab('notes')}
-                className={`group relative flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium transition-all duration-200 ${
-                  aiRightTab === 'notes'
-                    ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md shadow-red-500/20'
-                    : 'bg-white text-gray-600 shadow-sm hover:bg-gray-50 hover:shadow'
-                }`}
+                className={`group relative flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium transition-all duration-200 ${aiRightTab === 'notes'
+                  ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md shadow-red-500/20'
+                  : 'bg-white text-gray-600 shadow-sm hover:bg-gray-50 hover:shadow'
+                  }`}
               >
                 <svg
                   className="h-4 w-4"
@@ -2593,11 +2621,10 @@ function HomeContent() {
               </button>
               <button
                 onClick={() => setAiRightTab('comments')}
-                className={`group relative flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium transition-all duration-200 ${
-                  aiRightTab === 'comments'
-                    ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md shadow-red-500/20'
-                    : 'bg-white text-gray-600 shadow-sm hover:bg-gray-50 hover:shadow'
-                }`}
+                className={`group relative flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium transition-all duration-200 ${aiRightTab === 'comments'
+                  ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md shadow-red-500/20'
+                  : 'bg-white text-gray-600 shadow-sm hover:bg-gray-50 hover:shadow'
+                  }`}
               >
                 <svg
                   className="h-4 w-4"
@@ -2616,11 +2643,10 @@ function HomeContent() {
               </button>
               <button
                 onClick={() => setAiRightTab('similar')}
-                className={`group relative flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium transition-all duration-200 ${
-                  aiRightTab === 'similar'
-                    ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md shadow-red-500/20'
-                    : 'bg-white text-gray-600 shadow-sm hover:bg-gray-50 hover:shadow'
-                }`}
+                className={`group relative flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium transition-all duration-200 ${aiRightTab === 'similar'
+                  ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md shadow-red-500/20'
+                  : 'bg-white text-gray-600 shadow-sm hover:bg-gray-50 hover:shadow'
+                  }`}
               >
                 <svg
                   className="h-4 w-4"
@@ -2850,13 +2876,12 @@ function HomeContent() {
                         {aiInsights.map((insight, i) => (
                           <div
                             key={i}
-                            className={`group cursor-pointer rounded-lg border-2 p-2.5 transition-all ${
-                              insight.importance === 'high'
-                                ? 'border-red-200 bg-red-50 hover:border-red-300 hover:bg-red-100'
-                                : insight.importance === 'medium'
-                                  ? 'border-orange-200 bg-orange-50 hover:border-orange-300 hover:bg-orange-100'
-                                  : 'border-gray-200 bg-gray-50 hover:border-gray-300 hover:bg-gray-100'
-                            }`}
+                            className={`group cursor-pointer rounded-lg border-2 p-2.5 transition-all ${insight.importance === 'high'
+                              ? 'border-red-200 bg-red-50 hover:border-red-300 hover:bg-red-100'
+                              : insight.importance === 'medium'
+                                ? 'border-orange-200 bg-orange-50 hover:border-orange-300 hover:bg-orange-100'
+                                : 'border-gray-200 bg-gray-50 hover:border-gray-300 hover:bg-gray-100'
+                              }`}
                             onContextMenu={(e) =>
                               handleContextMenu(
                                 e,
@@ -2914,13 +2939,12 @@ function HomeContent() {
                         {aiMethodology.map((method, i) => (
                           <div
                             key={i}
-                            className={`group cursor-pointer rounded-lg border-2 p-2.5 transition-all ${
-                              method.importance === 'high'
-                                ? 'border-blue-200 bg-blue-50 hover:border-blue-300 hover:bg-blue-100'
-                                : method.importance === 'medium'
-                                  ? 'border-cyan-200 bg-cyan-50 hover:border-cyan-300 hover:bg-cyan-100'
-                                  : 'border-teal-200 bg-teal-50 hover:border-teal-300 hover:bg-teal-100'
-                            }`}
+                            className={`group cursor-pointer rounded-lg border-2 p-2.5 transition-all ${method.importance === 'high'
+                              ? 'border-blue-200 bg-blue-50 hover:border-blue-300 hover:bg-blue-100'
+                              : method.importance === 'medium'
+                                ? 'border-cyan-200 bg-cyan-50 hover:border-cyan-300 hover:bg-cyan-100'
+                                : 'border-teal-200 bg-teal-50 hover:border-teal-300 hover:bg-teal-100'
+                              }`}
                             onContextMenu={(e) =>
                               handleContextMenu(
                                 e,
@@ -2954,11 +2978,10 @@ function HomeContent() {
                           className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                         >
                           <div
-                            className={`max-w-[80%] rounded-lg px-3 py-2 ${
-                              msg.role === 'user'
-                                ? 'bg-gradient-to-br from-red-500 to-red-600 text-white'
-                                : 'bg-gray-100 text-gray-800'
-                            }`}
+                            className={`max-w-[80%] rounded-lg px-3 py-2 ${msg.role === 'user'
+                              ? 'bg-gradient-to-br from-red-500 to-red-600 text-white'
+                              : 'bg-gray-100 text-gray-800'
+                              }`}
                             onContextMenu={
                               msg.role === 'assistant'
                                 ? (e) => handleContextMenu(e, msg.content)
@@ -2986,11 +3009,10 @@ function HomeContent() {
                               })()}
                             </div>
                             <div
-                              className={`mt-1 text-[10px] ${
-                                msg.role === 'user'
-                                  ? 'text-red-100'
-                                  : 'text-gray-500'
-                              }`}
+                              className={`mt-1 text-[10px] ${msg.role === 'user'
+                                ? 'text-red-100'
+                                : 'text-gray-500'
+                                }`}
                             >
                               {new Date(msg.timestamp).toLocaleTimeString()}
                             </div>
