@@ -10,6 +10,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { config } from '@/lib/config';
 import { getAuthHeader } from '@/lib/auth';
+import { useImageSourceStore } from '@/stores/imageSourceStore';
+import SourcePool from './SourcePool';
 
 // 处理步骤类型
 interface ProcessingStep {
@@ -123,6 +125,12 @@ export default function ImageGenerator({
   const [bookmarkedImages, setBookmarkedImages] = useState<Set<string>>(
     new Set()
   );
+
+  // Source Pool & Mentions
+  const { sources } = useImageSourceStore();
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [cursorPosition, setCursorPosition] = useState(0);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -413,6 +421,19 @@ export default function ImageGenerator({
       switch (inputMode) {
         case 'prompt':
           requestBody.prompt = prompt.trim();
+          // Extract mentions and add to URLs
+          const mentions = prompt.match(/@\[(.*?)\]/g);
+          if (mentions) {
+            const extractedUrls: string[] = [];
+            mentions.forEach((mention) => {
+              const title = mention.slice(2, -1);
+              const source = sources.find((s) => s.title === title);
+              if (source) extractedUrls.push(source.url);
+            });
+            if (extractedUrls.length > 0) {
+              requestBody.urls = extractedUrls;
+            }
+          }
           break;
         case 'youtube':
           requestBody.urls = [youtubeUrl.trim()];
@@ -631,15 +652,14 @@ export default function ImageGenerator({
       {steps.map((step, index) => (
         <div key={index} className="flex items-start gap-2 text-xs">
           <div
-            className={`mt-0.5 h-4 w-4 flex-shrink-0 ${
-              step.status === 'completed'
+            className={`mt-0.5 h-4 w-4 flex-shrink-0 ${step.status === 'completed'
                 ? 'text-green-500'
                 : step.status === 'processing'
                   ? 'animate-pulse text-blue-500'
                   : step.status === 'error'
                     ? 'text-red-500'
                     : 'text-gray-400'
-            }`}
+              }`}
           >
             {step.status === 'completed' && (
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -746,11 +766,10 @@ export default function ImageGenerator({
                 key={ratio}
                 onClick={() => setAspectRatio(ratio)}
                 disabled={isGenerating}
-                className={`rounded px-2 py-1 text-xs transition ${
-                  aspectRatio === ratio
+                className={`rounded px-2 py-1 text-xs transition ${aspectRatio === ratio
                     ? 'bg-purple-600 text-white'
                     : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white'
-                } disabled:opacity-50`}
+                  } disabled:opacity-50`}
                 title={
                   ratio === '1:1'
                     ? '正方形'
@@ -931,21 +950,21 @@ export default function ImageGenerator({
                   {/* Models Used */}
                   {(selectedImage.textModelUsed ||
                     selectedImage.imageModelUsed) && (
-                    <div className="mb-4 space-y-1 border-b border-white/10 pb-3">
-                      {selectedImage.textModelUsed && (
-                        <p className="text-xs text-gray-500">
-                          <span className="text-gray-400">Text Model:</span>{' '}
-                          {selectedImage.textModelUsed}
-                        </p>
-                      )}
-                      {selectedImage.imageModelUsed && (
-                        <p className="text-xs text-gray-500">
-                          <span className="text-gray-400">Image Model:</span>{' '}
-                          {selectedImage.imageModelUsed}
-                        </p>
-                      )}
-                    </div>
-                  )}
+                      <div className="mb-4 space-y-1 border-b border-white/10 pb-3">
+                        {selectedImage.textModelUsed && (
+                          <p className="text-xs text-gray-500">
+                            <span className="text-gray-400">Text Model:</span>{' '}
+                            {selectedImage.textModelUsed}
+                          </p>
+                        )}
+                        {selectedImage.imageModelUsed && (
+                          <p className="text-xs text-gray-500">
+                            <span className="text-gray-400">Image Model:</span>{' '}
+                            {selectedImage.imageModelUsed}
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                   {/* Steps */}
                   {renderProcessingSteps(selectedImage.processingSteps)}
@@ -980,11 +999,10 @@ export default function ImageGenerator({
                 key={img.id}
                 onClick={() => setSelectedImage(img)}
                 onContextMenu={(e) => handleContextMenu(e, img)}
-                className={`relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg transition ${
-                  selectedImage?.id === img.id
+                className={`relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg transition ${selectedImage?.id === img.id
                     ? 'ring-2 ring-purple-500 ring-offset-1 ring-offset-[#1a1a2e]'
                     : 'opacity-60 hover:opacity-100'
-                }`}
+                  }`}
               >
                 {bookmarkedImages.has(img.id) && (
                   <div className="absolute right-0.5 top-0.5 z-10">
@@ -1060,11 +1078,10 @@ export default function ImageGenerator({
               <button
                 key={mode}
                 onClick={() => setInputMode(mode)}
-                className={`flex items-center gap-1.5 rounded-t-lg px-3 py-2 text-xs font-medium transition ${
-                  inputMode === mode
+                className={`flex items-center gap-1.5 rounded-t-lg px-3 py-2 text-xs font-medium transition ${inputMode === mode
                     ? 'bg-white/10 text-white'
                     : 'text-gray-500 hover:text-gray-300'
-                }`}
+                  }`}
               >
                 <svg
                   className="h-3.5 w-3.5"
@@ -1089,6 +1106,7 @@ export default function ImageGenerator({
       {/* Input Area */}
       <div className="border-t border-white/10 p-4">
         <div className="mx-auto max-w-3xl">
+          <SourcePool />
           {error && (
             <div className="mb-3 rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">
               {error}
@@ -1098,16 +1116,91 @@ export default function ImageGenerator({
           {/* Prompt Input */}
           {inputMode === 'prompt' && (
             <div className="flex items-center gap-3 rounded-xl bg-white/5 p-2 ring-1 ring-white/10 focus-within:ring-purple-500/50">
-              <input
-                ref={inputRef}
-                type="text"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Describe what you want to create..."
-                className="flex-1 bg-transparent px-3 py-2 text-white placeholder-gray-500 focus:outline-none"
-                disabled={isGenerating}
-              />
+              <div className="relative flex-1">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={prompt}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setPrompt(value);
+                    const cursor = e.target.selectionStart || 0;
+                    setCursorPosition(cursor);
+
+                    // Check for @
+                    const lastAt = value.lastIndexOf('@', cursor);
+                    if (lastAt !== -1 && lastAt < cursor) {
+                      const query = value.slice(lastAt + 1, cursor);
+                      // Only show if no spaces in query (simple implementation)
+                      if (!query.includes(' ')) {
+                        setShowMentions(true);
+                        setMentionQuery(query);
+                        return;
+                      }
+                    }
+                    setShowMentions(false);
+                  }}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Describe what you want to create... (Type @ to mention sources)"
+                  className="w-full bg-transparent px-3 py-2 text-white placeholder-gray-500 focus:outline-none"
+                  disabled={isGenerating}
+                />
+                {/* Mentions Dropdown */}
+                {showMentions && sources.length > 0 && (
+                  <div className="absolute bottom-full left-0 mb-2 w-64 overflow-hidden rounded-lg border border-white/10 bg-[#1a1a2e] shadow-xl">
+                    <div className="border-b border-white/10 bg-white/5 px-3 py-2 text-xs text-gray-400">
+                      Mention source...
+                    </div>
+                    <div className="max-h-48 overflow-y-auto">
+                      {sources
+                        .filter((s) =>
+                          s.title
+                            .toLowerCase()
+                            .includes(mentionQuery.toLowerCase())
+                        )
+                        .map((source) => (
+                          <button
+                            key={source.id}
+                            onClick={() => {
+                              const lastAt = prompt.lastIndexOf(
+                                '@',
+                                cursorPosition
+                              );
+                              if (lastAt !== -1) {
+                                const newPrompt =
+                                  prompt.slice(0, lastAt) +
+                                  `@[${source.title}]` +
+                                  prompt.slice(cursorPosition);
+                                setPrompt(newPrompt);
+                                setShowMentions(false);
+                                inputRef.current?.focus();
+                                // Update cursor position (approximate)
+                                setTimeout(() => {
+                                  const newCursor =
+                                    lastAt + source.title.length + 3;
+                                  inputRef.current?.setSelectionRange(
+                                    newCursor,
+                                    newCursor
+                                  );
+                                }, 0);
+                              }
+                            }}
+                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-300 hover:bg-white/10 hover:text-white"
+                          >
+                            <span className="flex-shrink-0">
+                              {source.type === 'paper'
+                                ? '📄'
+                                : source.type === 'youtube'
+                                  ? '🎬'
+                                  : '🔗'}
+                            </span>
+                            <span className="truncate">{source.title}</span>
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={handleGenerate}
                 disabled={
@@ -1318,11 +1411,10 @@ export default function ImageGenerator({
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition ${
-                  isDragging
+                className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition ${isDragging
                     ? 'border-purple-500 bg-purple-500/10'
                     : 'border-white/20 bg-white/5 hover:border-purple-500/50 hover:bg-white/10'
-                }`}
+                  }`}
               >
                 <svg
                   className={`mb-2 h-8 w-8 ${isDragging ? 'text-purple-400' : 'text-gray-500'}`}
