@@ -230,6 +230,7 @@ function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const addSource = useImageSourceStore((state) => state.addSource);
+  const imageSources = useImageSourceStore((state) => state.sources);
   const { user, isAdmin, accessToken } = useAuth();
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2130,22 +2131,29 @@ function HomeContent() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                addSource({
-                                  id: resource.id,
-                                  type: (resource.type.toLowerCase() as any),
-                                  title: resource.title,
-                                  url: resource.sourceUrl || resource.pdfUrl || '',
-                                  thumbnailUrl: resource.thumbnailUrl,
-                                  addedAt: new Date(),
-                                });
-                                setToast({ message: `Added "${resource.title}" to Image Source Pool`, type: 'success' });
+                                const isAlreadyAdded = imageSources.some((s) => s.id === resource.id);
+                                if (!isAlreadyAdded) {
+                                  addSource({
+                                    id: resource.id,
+                                    type: (resource.type.toLowerCase() as any),
+                                    title: resource.title,
+                                    url: resource.sourceUrl || resource.pdfUrl || '',
+                                    thumbnailUrl: resource.thumbnailUrl,
+                                    addedAt: new Date(),
+                                  });
+                                  setToast({ message: `Added "${resource.title}" to Image Source Pool`, type: 'success' });
+                                }
                               }}
-                              className="flex items-center gap-2 text-sm text-gray-600 transition-colors hover:text-purple-600"
-                              title="Generate Image"
+                              className={`flex items-center gap-2 text-sm transition-colors ${imageSources.some((s) => s.id === resource.id)
+                                ? 'cursor-default text-purple-600 font-medium'
+                                : 'text-gray-600 hover:text-purple-600'
+                                }`}
+                              title={imageSources.some((s) => s.id === resource.id) ? 'Already in Image Source Pool' : 'Add to Image Source Pool'}
+                              disabled={imageSources.some((s) => s.id === resource.id)}
                             >
                               <svg
                                 className="h-4 w-4"
-                                fill="none"
+                                fill={imageSources.some((s) => s.id === resource.id) ? 'currentColor' : 'none'}
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
                               >
@@ -2162,7 +2170,7 @@ function HomeContent() {
                                   d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
                                 />
                               </svg>
-                              Image
+                              {imageSources.some((s) => s.id === resource.id) ? 'Added' : 'Image'}
                             </button>
 
                             {/* Admin Delete Button */}
@@ -3091,8 +3099,8 @@ function HomeContent() {
               ) : aiRightTab === 'notes' ? (
                 <div className="p-6">
                   <NotesList
-                    key={notesRefreshKey}
                     resourceId={selectedResource.id}
+                    refreshKey={notesRefreshKey}
                     showActions={true}
                     onDeleteNote={(noteId) => {
                       // Refresh notes list after deletion

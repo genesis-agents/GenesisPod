@@ -25,6 +25,7 @@ interface Note {
 interface NotesListProps {
   resourceId?: string;
   searchQuery?: string;
+  refreshKey?: number; // Trigger reload when changed
   onNoteClick?: (note: Note) => void;
   onEditNote?: (note: Note) => void;
   onDeleteNote?: (noteId: string) => void;
@@ -34,6 +35,7 @@ interface NotesListProps {
 export default function NotesList({
   resourceId,
   searchQuery = '',
+  refreshKey,
   onNoteClick,
   onEditNote,
   onDeleteNote,
@@ -49,7 +51,7 @@ export default function NotesList({
 
   useEffect(() => {
     loadNotes();
-  }, [resourceId]);
+  }, [resourceId, refreshKey]);
 
   const loadNotes = async () => {
     try {
