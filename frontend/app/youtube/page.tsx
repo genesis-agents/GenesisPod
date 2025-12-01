@@ -108,6 +108,8 @@ function YouTubeTLDWContent() {
     total: 0,
   });
 
+  const [notesRefreshKey, setNotesRefreshKey] = useState(0);
+
   // Key moments states
   const [keyMoments, setKeyMoments] = useState<KeyMoment[]>([]);
 
@@ -429,6 +431,7 @@ function YouTubeTLDWContent() {
       if (response.ok) {
         console.log('Note saved successfully');
         setContextMenu(null);
+        setNotesRefreshKey((prev) => prev + 1);
       } else {
         const errorData = await response.json().catch(() => ({}));
         console.error('Failed to save note:', response.status, errorData);
@@ -681,8 +684,9 @@ function YouTubeTLDWContent() {
       <main className="flex flex-1 overflow-hidden overflow-x-hidden">
         {/* Left Column - Video & Topics */}
         <div
-          className={`flex flex-col border-r border-gray-200 p-6 transition-all duration-300 ${rightPanelCollapsed ? 'w-full' : 'w-1/2'
-            }`}
+          className={`flex flex-col border-r border-gray-200 p-6 transition-all duration-300 ${
+            rightPanelCollapsed ? 'w-full' : 'w-1/2'
+          }`}
         >
           {/* Back Button */}
           <button
@@ -790,19 +794,21 @@ function YouTubeTLDWContent() {
                             playerRef.current.seekTo(moment.timestamp, true);
                           }
                         }}
-                        className={`group cursor-pointer rounded-lg border-2 p-3 transition-all ${isActive
+                        className={`group cursor-pointer rounded-lg border-2 p-3 transition-all ${
+                          isActive
                             ? 'border-blue-500 bg-blue-50 shadow-md'
                             : `${config.color} ${config.hoverColor}`
-                          }`}
+                        }`}
                       >
                         <div className="flex items-start gap-3">
                           <div className="flex flex-col items-center gap-1">
                             <span className="text-xl">{config.icon}</span>
                             <span
-                              className={`rounded px-2 py-0.5 text-xs font-bold ${isActive
+                              className={`rounded px-2 py-0.5 text-xs font-bold ${
+                                isActive
                                   ? 'bg-blue-600 text-white'
                                   : config.badgeColor
-                                }`}
+                              }`}
                             >
                               {formatTime(moment.timestamp)}
                             </span>
@@ -810,8 +816,9 @@ function YouTubeTLDWContent() {
 
                           <div className="min-w-0 flex-1">
                             <h4
-                              className={`text-sm font-semibold leading-snug ${isActive ? 'text-blue-900' : 'text-gray-900'
-                                }`}
+                              className={`text-sm font-semibold leading-snug ${
+                                isActive ? 'text-blue-900' : 'text-gray-900'
+                              }`}
                             >
                               {moment.title}
                             </h4>
@@ -854,10 +861,11 @@ function YouTubeTLDWContent() {
                 <div className="grid grid-cols-3 gap-1">
                   <button
                     onClick={() => setActiveTab('transcript')}
-                    className={`group relative flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium transition-all duration-200 ${activeTab === 'transcript'
+                    className={`group relative flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium transition-all duration-200 ${
+                      activeTab === 'transcript'
                         ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md shadow-red-500/20'
                         : 'bg-white text-gray-600 shadow-sm hover:bg-gray-50 hover:shadow'
-                      }`}
+                    }`}
                   >
                     <svg
                       className="h-4 w-4"
@@ -876,10 +884,11 @@ function YouTubeTLDWContent() {
                   </button>
                   <button
                     onClick={() => setActiveTab('chat')}
-                    className={`group relative flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium transition-all duration-200 ${activeTab === 'chat'
+                    className={`group relative flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium transition-all duration-200 ${
+                      activeTab === 'chat'
                         ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md shadow-red-500/20'
                         : 'bg-white text-gray-600 shadow-sm hover:bg-gray-50 hover:shadow'
-                      }`}
+                    }`}
                   >
                     <svg
                       className="h-4 w-4"
@@ -898,10 +907,11 @@ function YouTubeTLDWContent() {
                   </button>
                   <button
                     onClick={() => setActiveTab('notes')}
-                    className={`group relative flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium transition-all duration-200 ${activeTab === 'notes'
+                    className={`group relative flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium transition-all duration-200 ${
+                      activeTab === 'notes'
                         ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md shadow-red-500/20'
                         : 'bg-white text-gray-600 shadow-sm hover:bg-gray-50 hover:shadow'
-                      }`}
+                    }`}
                   >
                     <svg
                       className="h-4 w-4"
@@ -932,10 +942,11 @@ function YouTubeTLDWContent() {
                         setTranslations(new Map());
                       }
                     }}
-                    className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${showTranslation
+                    className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                      showTranslation
                         ? 'bg-purple-100 text-purple-700'
                         : 'bg-gray-100 text-gray-600'
-                      }`}
+                    }`}
                   >
                     <svg
                       className="h-3 w-3"
@@ -952,12 +963,14 @@ function YouTubeTLDWContent() {
                     </svg>
                     <span>翻译</span>
                     <div
-                      className={`h-4 w-8 rounded-full transition-colors ${showTranslation ? 'bg-purple-500' : 'bg-gray-300'
-                        }`}
+                      className={`h-4 w-8 rounded-full transition-colors ${
+                        showTranslation ? 'bg-purple-500' : 'bg-gray-300'
+                      }`}
                     >
                       <div
-                        className={`h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${showTranslation ? 'translate-x-4' : 'translate-x-0'
-                          }`}
+                        className={`h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                          showTranslation ? 'translate-x-4' : 'translate-x-0'
+                        }`}
                       />
                     </div>
                   </button>
@@ -965,19 +978,22 @@ function YouTubeTLDWContent() {
                   {/* Auto Scroll Toggle */}
                   <button
                     onClick={() => setAutoScroll(!autoScroll)}
-                    className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${autoScroll
+                    className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                      autoScroll
                         ? 'bg-blue-100 text-blue-700'
                         : 'bg-gray-100 text-gray-600'
-                      }`}
+                    }`}
                   >
                     <span>Auto</span>
                     <div
-                      className={`h-4 w-8 rounded-full transition-colors ${autoScroll ? 'bg-blue-500' : 'bg-gray-300'
-                        }`}
+                      className={`h-4 w-8 rounded-full transition-colors ${
+                        autoScroll ? 'bg-blue-500' : 'bg-gray-300'
+                      }`}
                     >
                       <div
-                        className={`h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${autoScroll ? 'translate-x-4' : 'translate-x-0'
-                          }`}
+                        className={`h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                          autoScroll ? 'translate-x-4' : 'translate-x-0'
+                        }`}
                       />
                     </div>
                   </button>
@@ -1008,24 +1024,27 @@ function YouTubeTLDWContent() {
                           key={`${segment.start}-${index}`}
                           ref={isActive ? activeSegmentRef : null}
                           onClick={() => handleSeekToSegment(segment.start)}
-                          className={`group cursor-pointer rounded-lg px-3 py-2.5 text-sm transition-all duration-200 ${isActive
+                          className={`group cursor-pointer rounded-lg px-3 py-2.5 text-sm transition-all duration-200 ${
+                            isActive
                               ? 'border-l-4 border-red-500 bg-gradient-to-r from-red-50 to-orange-50 shadow-sm'
                               : 'border-l-4 border-transparent hover:bg-gray-50'
-                            }`}
+                          }`}
                         >
                           <div className="flex items-start gap-3">
                             <span
-                              className={`flex-shrink-0 text-xs font-medium ${isActive ? 'text-red-600' : 'text-gray-400'
-                                }`}
+                              className={`flex-shrink-0 text-xs font-medium ${
+                                isActive ? 'text-red-600' : 'text-gray-400'
+                              }`}
                             >
                               {formatTime(segment.start)}
                             </span>
                             <div className="flex-1">
                               <div
-                                className={`leading-relaxed ${isActive
+                                className={`leading-relaxed ${
+                                  isActive
                                     ? 'font-medium text-gray-900'
                                     : 'text-gray-700'
-                                  }`}
+                                }`}
                               >
                                 {segment.text}
                               </div>
@@ -1034,7 +1053,7 @@ function YouTubeTLDWContent() {
                                   {translationLoading && isActive
                                     ? '翻译中...'
                                     : translations.get(index) ||
-                                    (isActive ? '' : '')}
+                                      (isActive ? '' : '')}
                                 </div>
                               )}
                             </div>
@@ -1058,10 +1077,11 @@ function YouTubeTLDWContent() {
                             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                           >
                             <div
-                              className={`max-w-[85%] rounded-lg px-3 py-2 ${msg.role === 'user'
+                              className={`max-w-[85%] rounded-lg px-3 py-2 ${
+                                msg.role === 'user'
                                   ? 'bg-gradient-to-br from-red-500 to-red-600 text-white'
                                   : 'bg-gray-100 text-gray-800'
-                                }`}
+                              }`}
                               onContextMenu={
                                 msg.role === 'assistant'
                                   ? (e) => handleContextMenu(e, msg.content)
@@ -1072,10 +1092,11 @@ function YouTubeTLDWContent() {
                                 <ReactMarkdown>{msg.content}</ReactMarkdown>
                               </div>
                               <div
-                                className={`mt-1 text-[11px] ${msg.role === 'user'
+                                className={`mt-1 text-[11px] ${
+                                  msg.role === 'user'
                                     ? 'text-red-100'
                                     : 'text-gray-500'
-                                  }`}
+                                }`}
                               >
                                 {new Date(msg.timestamp).toLocaleTimeString()}
                               </div>
@@ -1086,7 +1107,7 @@ function YouTubeTLDWContent() {
                         {isStreaming &&
                           aiMessages.length > 0 &&
                           aiMessages[aiMessages.length - 1].role ===
-                          'assistant' &&
+                            'assistant' &&
                           !aiMessages[aiMessages.length - 1].content && (
                             <div className="flex justify-start">
                               <div className="flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-gray-600">
@@ -1202,7 +1223,11 @@ function YouTubeTLDWContent() {
 
               {activeTab === 'notes' && (
                 <div className="h-full overflow-y-auto">
-                  <NotesList source={`youtube:${videoId}`} />
+                  <NotesList
+                    source={`youtube:${videoId}`}
+                    refreshKey={notesRefreshKey}
+                    showActions
+                  />
                 </div>
               )}
             </div>
@@ -1216,8 +1241,9 @@ function YouTubeTLDWContent() {
           title={rightPanelCollapsed ? '展开右侧面板' : '折叠右侧面板'}
         >
           <svg
-            className={`h-5 w-5 text-gray-600 transition-transform ${rightPanelCollapsed ? 'rotate-180' : ''
-              }`}
+            className={`h-5 w-5 text-gray-600 transition-transform ${
+              rightPanelCollapsed ? 'rotate-180' : ''
+            }`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
