@@ -109,6 +109,8 @@ export class InfographicTemplateService {
   generateConsultingInfographicHTML(
     content: InfographicContent,
     backgroundImageBase64?: string,
+    width: number = 1200,
+    height: number = 800,
   ): string {
     // 商务专业配色：深蓝灰主色 + 冷青强调色 + 干净背景
     const colors = content.colorScheme || {
@@ -118,8 +120,18 @@ export class InfographicTemplateService {
       text: "#334155", // 深灰 - 易读文字
     };
 
-    // 将 sections 分成列（最多3列）
-    const columns = this.distributeToColumns(content.sections, 3);
+    // 根据宽高比调整列数：宽屏用3列，竖屏用2列，正方形用3列
+    const isVertical = height > width;
+    const numColumns = isVertical ? 2 : 3;
+    const columns = this.distributeToColumns(content.sections, numColumns);
+
+    // 根据尺寸调整字体和间距
+    const scale = width / 1200;
+    const padding = Math.round(40 * scale);
+    const titleSize = Math.round(32 * scale);
+    const subtitleSize = Math.round(16 * scale);
+    const sectionTitleSize = Math.round(18 * scale);
+    const bulletSize = Math.round(14 * scale);
 
     const backgroundStyle = backgroundImageBase64
       ? `background-image: linear-gradient(rgba(247, 249, 252, 0.92), rgba(247, 249, 252, 0.92)), url(${backgroundImageBase64});
@@ -132,7 +144,7 @@ export class InfographicTemplateService {
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=1200">
+  <meta name="viewport" content="width=${width}">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
 
@@ -146,32 +158,32 @@ export class InfographicTemplateService {
       font-family: 'Noto Sans SC', 'Microsoft YaHei', 'PingFang SC', sans-serif;
       ${backgroundStyle}
       color: ${colors.text};
-      width: 1200px;
-      min-height: 800px;
+      width: ${width}px;
+      min-height: ${height}px;
       padding: 0;
     }
 
     .infographic {
-      padding: 40px;
+      padding: ${padding}px;
     }
 
     /* 顶部品牌栏 */
     .brand-bar {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 16px;
+      gap: ${Math.round(8 * scale)}px;
+      margin-bottom: ${Math.round(16 * scale)}px;
       padding: 0 4px;
     }
 
     .brand-logo {
-      width: 28px;
-      height: 28px;
+      width: ${Math.round(28 * scale)}px;
+      height: ${Math.round(28 * scale)}px;
       color: ${colors.primary};
     }
 
     .brand-name {
-      font-size: 14px;
+      font-size: ${Math.round(14 * scale)}px;
       font-weight: 600;
       color: ${colors.primary};
       letter-spacing: 0.5px;
@@ -181,9 +193,9 @@ export class InfographicTemplateService {
     .header {
       background: linear-gradient(135deg, ${colors.primary} 0%, ${this.adjustColor(colors.primary, 20)} 100%);
       color: white;
-      padding: 28px 36px;
-      border-radius: 12px;
-      margin-bottom: 28px;
+      padding: ${Math.round(28 * scale)}px ${Math.round(36 * scale)}px;
+      border-radius: ${Math.round(12 * scale)}px;
+      margin-bottom: ${Math.round(28 * scale)}px;
       position: relative;
       overflow: hidden;
     }
@@ -193,7 +205,7 @@ export class InfographicTemplateService {
       position: absolute;
       top: 0;
       right: 0;
-      width: 300px;
+      width: ${Math.round(300 * scale)}px;
       height: 100%;
       background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1));
     }
@@ -204,48 +216,48 @@ export class InfographicTemplateService {
     }
 
     .main-title {
-      font-size: 32px;
+      font-size: ${titleSize}px;
       font-weight: 700;
-      margin-bottom: 6px;
+      margin-bottom: ${Math.round(6 * scale)}px;
       line-height: 1.3;
     }
 
     .subtitle {
-      font-size: 16px;
+      font-size: ${subtitleSize}px;
       opacity: 0.9;
       font-weight: 400;
     }
 
     .hero-statement {
-      margin-top: 14px;
-      padding: 10px 16px;
+      margin-top: ${Math.round(14 * scale)}px;
+      padding: ${Math.round(10 * scale)}px ${Math.round(16 * scale)}px;
       background: rgba(255,255,255,0.15);
       border-left: 3px solid ${colors.accent};
-      border-radius: 0 6px 6px 0;
-      font-size: 14px;
+      border-radius: 0 ${Math.round(6 * scale)}px ${Math.round(6 * scale)}px 0;
+      font-size: ${bulletSize}px;
       font-style: italic;
       max-width: 80%;
     }
 
-    /* 三列布局 */
+    /* 动态列布局 */
     .columns {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 24px;
-      margin-bottom: 32px;
+      grid-template-columns: repeat(${numColumns}, 1fr);
+      gap: ${Math.round(24 * scale)}px;
+      margin-bottom: ${Math.round(32 * scale)}px;
     }
 
     .column {
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: ${Math.round(20 * scale)}px;
     }
 
     /* Section 卡片 */
     .section-card {
       background: white;
-      border-radius: 12px;
-      padding: 24px;
+      border-radius: ${Math.round(12 * scale)}px;
+      padding: ${Math.round(24 * scale)}px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.06);
       border: 1px solid rgba(0,0,0,0.06);
       transition: transform 0.2s, box-shadow 0.2s;
@@ -254,16 +266,16 @@ export class InfographicTemplateService {
     .section-header {
       display: flex;
       align-items: flex-start;
-      gap: 14px;
-      margin-bottom: 16px;
+      gap: ${Math.round(14 * scale)}px;
+      margin-bottom: ${Math.round(16 * scale)}px;
     }
 
     .section-icon {
-      width: 44px;
-      height: 44px;
-      min-width: 44px;
+      width: ${Math.round(44 * scale)}px;
+      height: ${Math.round(44 * scale)}px;
+      min-width: ${Math.round(44 * scale)}px;
       background: linear-gradient(135deg, ${colors.primary} 0%, ${this.adjustColor(colors.primary, 15)} 100%);
-      border-radius: 10px;
+      border-radius: ${Math.round(10 * scale)}px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -271,20 +283,20 @@ export class InfographicTemplateService {
     }
 
     .section-icon svg {
-      width: 24px;
-      height: 24px;
+      width: ${Math.round(24 * scale)}px;
+      height: ${Math.round(24 * scale)}px;
     }
 
     .section-number {
       position: absolute;
-      top: -6px;
-      right: -6px;
-      width: 22px;
-      height: 22px;
+      top: ${Math.round(-6 * scale)}px;
+      right: ${Math.round(-6 * scale)}px;
+      width: ${Math.round(22 * scale)}px;
+      height: ${Math.round(22 * scale)}px;
       background: ${colors.accent};
       color: white;
       border-radius: 50%;
-      font-size: 12px;
+      font-size: ${Math.round(12 * scale)}px;
       font-weight: 700;
       display: flex;
       align-items: center;
@@ -296,31 +308,31 @@ export class InfographicTemplateService {
     }
 
     .section-title {
-      font-size: 18px;
+      font-size: ${sectionTitleSize}px;
       font-weight: 700;
       color: ${colors.primary};
       line-height: 1.4;
     }
 
     .section-summary {
-      font-size: 14px;
+      font-size: ${bulletSize}px;
       color: #64748b;
-      margin-top: 4px;
+      margin-top: ${Math.round(4 * scale)}px;
       line-height: 1.5;
     }
 
     /* 要点列表 */
     .bullets {
       list-style: none;
-      margin-bottom: 16px;
+      margin-bottom: ${Math.round(16 * scale)}px;
     }
 
     .bullet-item {
       display: flex;
       align-items: flex-start;
-      gap: 10px;
-      padding: 8px 0;
-      font-size: 14px;
+      gap: ${Math.round(10 * scale)}px;
+      padding: ${Math.round(8 * scale)}px 0;
+      font-size: ${bulletSize}px;
       line-height: 1.5;
       border-bottom: 1px solid #f1f5f9;
     }
@@ -330,48 +342,48 @@ export class InfographicTemplateService {
     }
 
     .bullet-dot {
-      width: 8px;
-      height: 8px;
-      min-width: 8px;
+      width: ${Math.round(8 * scale)}px;
+      height: ${Math.round(8 * scale)}px;
+      min-width: ${Math.round(8 * scale)}px;
       background: ${colors.accent};
       border-radius: 50%;
-      margin-top: 6px;
+      margin-top: ${Math.round(6 * scale)}px;
     }
 
     /* 指标展示 */
     .metrics {
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
+      gap: ${Math.round(12 * scale)}px;
     }
 
     .metric {
       background: linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}15 100%);
       border: 1px solid ${colors.primary}20;
-      border-radius: 8px;
-      padding: 12px 16px;
+      border-radius: ${Math.round(8 * scale)}px;
+      padding: ${Math.round(12 * scale)}px ${Math.round(16 * scale)}px;
       flex: 1;
-      min-width: 100px;
+      min-width: ${Math.round(100 * scale)}px;
     }
 
     .metric-value {
-      font-size: 24px;
+      font-size: ${Math.round(24 * scale)}px;
       font-weight: 700;
       color: ${colors.primary};
       line-height: 1.2;
     }
 
     .metric-label {
-      font-size: 12px;
+      font-size: ${Math.round(12 * scale)}px;
       color: #64748b;
-      margin-top: 4px;
+      margin-top: ${Math.round(4 * scale)}px;
     }
 
     .metric-comparison {
-      font-size: 11px;
+      font-size: ${Math.round(11 * scale)}px;
       color: ${colors.accent};
       font-weight: 600;
-      margin-top: 2px;
+      margin-top: ${Math.round(2 * scale)}px;
     }
 
     /* 底部行动号召 */
@@ -379,17 +391,17 @@ export class InfographicTemplateService {
       background: linear-gradient(135deg, ${colors.accent} 0%, ${this.adjustColor(colors.accent, -15)} 100%);
       color: white;
       text-align: center;
-      padding: 20px 40px;
-      border-radius: 12px;
-      font-size: 18px;
+      padding: ${Math.round(20 * scale)}px ${Math.round(40 * scale)}px;
+      border-radius: ${Math.round(12 * scale)}px;
+      font-size: ${sectionTitleSize}px;
       font-weight: 600;
     }
 
     /* 水印/品牌 */
     .watermark {
       text-align: center;
-      margin-top: 24px;
-      font-size: 12px;
+      margin-top: ${Math.round(24 * scale)}px;
+      font-size: ${Math.round(12 * scale)}px;
       color: #94a3b8;
     }
   </style>
@@ -411,7 +423,7 @@ export class InfographicTemplateService {
       </div>
     </div>
 
-    <!-- 三列内容 -->
+    <!-- 动态列内容 -->
     <div class="columns">
       ${columns
         .map(
@@ -426,7 +438,7 @@ export class InfographicTemplateService {
                   <div class="section-icon">
                     ${this.getIcon(section.iconType)}
                   </div>
-                  <span class="section-number">${colIdx * Math.ceil(content.sections.length / 3) + idx + 1}</span>
+                  <span class="section-number">${colIdx * Math.ceil(content.sections.length / numColumns) + idx + 1}</span>
                 </div>
                 <div>
                   <h3 class="section-title">${this.escapeHtml(section.title)}</h3>
@@ -604,20 +616,21 @@ export class InfographicTemplateService {
       backgroundImageBase64?: string;
     },
   ): Promise<string> {
+    const width = options?.width || 1200;
+    const height = options?.height || 800;
+
     this.logger.log(
-      `[InfographicTemplate] Generating infographic: "${content.title}" with ${content.sections.length} sections`,
+      `[InfographicTemplate] Generating infographic: "${content.title}" with ${content.sections.length} sections, size: ${width}x${height}`,
     );
 
     const html = this.generateConsultingInfographicHTML(
       content,
       options?.backgroundImageBase64,
+      width,
+      height,
     );
 
-    const imageBase64 = await this.renderToImage(
-      html,
-      options?.width || 1200,
-      options?.height || 800,
-    );
+    const imageBase64 = await this.renderToImage(html, width, height);
 
     this.logger.log(`[InfographicTemplate] Infographic generated successfully`);
     return imageBase64;
