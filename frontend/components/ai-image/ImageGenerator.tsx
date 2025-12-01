@@ -377,6 +377,7 @@ export default function ImageGenerator({
 
     setIsGenerating(true);
     setError(null);
+    setSelectedImage(null); // Clear selected image to show loading state
 
     try {
       // 如果是文件上传模式，使用 FormData
@@ -432,6 +433,7 @@ export default function ImageGenerator({
             });
             if (extractedUrls.length > 0) {
               requestBody.urls = extractedUrls;
+              console.log('Including URLs in generation request:', extractedUrls);
             }
           }
           break;
@@ -483,7 +485,9 @@ export default function ImageGenerator({
       }
     } catch (err) {
       console.error('Image generation failed:', err);
-      setError(err instanceof Error ? err.message : 'Failed to generate image');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to generate image';
+      setError(errorMessage);
+      alert(`Generation Failed: ${errorMessage}`);
     } finally {
       setIsGenerating(false);
     }
@@ -653,12 +657,12 @@ export default function ImageGenerator({
         <div key={index} className="flex items-start gap-2 text-xs">
           <div
             className={`mt-0.5 h-4 w-4 flex-shrink-0 ${step.status === 'completed'
-                ? 'text-green-500'
-                : step.status === 'processing'
-                  ? 'animate-pulse text-blue-500'
-                  : step.status === 'error'
-                    ? 'text-red-500'
-                    : 'text-gray-400'
+              ? 'text-green-500'
+              : step.status === 'processing'
+                ? 'animate-pulse text-blue-500'
+                : step.status === 'error'
+                  ? 'text-red-500'
+                  : 'text-gray-400'
               }`}
           >
             {step.status === 'completed' && (
@@ -767,8 +771,8 @@ export default function ImageGenerator({
                 onClick={() => setAspectRatio(ratio)}
                 disabled={isGenerating}
                 className={`rounded px-2 py-1 text-xs transition ${aspectRatio === ratio
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white'
                   } disabled:opacity-50`}
                 title={
                   ratio === '1:1'
@@ -1000,8 +1004,8 @@ export default function ImageGenerator({
                 onClick={() => setSelectedImage(img)}
                 onContextMenu={(e) => handleContextMenu(e, img)}
                 className={`relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg transition ${selectedImage?.id === img.id
-                    ? 'ring-2 ring-purple-500 ring-offset-1 ring-offset-[#1a1a2e]'
-                    : 'opacity-60 hover:opacity-100'
+                  ? 'ring-2 ring-purple-500 ring-offset-1 ring-offset-[#1a1a2e]'
+                  : 'opacity-60 hover:opacity-100'
                   }`}
               >
                 {bookmarkedImages.has(img.id) && (
@@ -1079,8 +1083,8 @@ export default function ImageGenerator({
                 key={mode}
                 onClick={() => setInputMode(mode)}
                 className={`flex items-center gap-1.5 rounded-t-lg px-3 py-2 text-xs font-medium transition ${inputMode === mode
-                    ? 'bg-white/10 text-white'
-                    : 'text-gray-500 hover:text-gray-300'
+                  ? 'bg-white/10 text-white'
+                  : 'text-gray-500 hover:text-gray-300'
                   }`}
               >
                 <svg
@@ -1412,8 +1416,8 @@ export default function ImageGenerator({
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
                 className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition ${isDragging
-                    ? 'border-purple-500 bg-purple-500/10'
-                    : 'border-white/20 bg-white/5 hover:border-purple-500/50 hover:bg-white/10'
+                  ? 'border-purple-500 bg-purple-500/10'
+                  : 'border-white/20 bg-white/5 hover:border-purple-500/50 hover:bg-white/10'
                   }`}
               >
                 <svg

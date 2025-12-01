@@ -1170,6 +1170,7 @@ function HomeContent() {
       if (response.ok) {
         const savedNote = await response.json();
         console.log('Note saved successfully:', savedNote);
+        alert('Note saved successfully!');
 
         // Close context menu first
         setContextMenu(null);
@@ -1185,9 +1186,11 @@ function HomeContent() {
       } else {
         const errorData = await response.json();
         console.error('Failed to save note:', response.status, errorData);
+        alert(`Failed to save note: ${errorData.message || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Failed to save note:', error);
+      alert('Failed to save note: Network error or server unreachable');
     } finally {
       setSavingNote(false);
     }
@@ -2125,6 +2128,7 @@ function HomeContent() {
                                   thumbnailUrl: resource.thumbnailUrl,
                                   addedAt: new Date(),
                                 });
+                                alert(`Added "${resource.title}" to Image Source Pool.\n\nPlease type "@" in the prompt input to select and use this resource.`);
                                 router.push('/library?tab=images');
                               }}
                               className="flex items-center gap-2 text-sm text-gray-600 transition-colors hover:text-purple-600"
