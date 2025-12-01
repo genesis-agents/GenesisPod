@@ -159,12 +159,17 @@ export class InfographicTemplateService {
       ${backgroundStyle}
       color: ${colors.text};
       width: ${width}px;
-      min-height: ${height}px;
+      height: ${height}px;
       padding: 0;
+      overflow: hidden;
     }
 
     .infographic {
       padding: ${padding}px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
     }
 
     /* 顶部品牌栏 */
@@ -244,7 +249,9 @@ export class InfographicTemplateService {
       display: grid;
       grid-template-columns: repeat(${numColumns}, 1fr);
       gap: ${Math.round(24 * scale)}px;
-      margin-bottom: ${Math.round(32 * scale)}px;
+      flex: 1;
+      min-height: 0;
+      align-content: start;
     }
 
     .column {
@@ -557,6 +564,7 @@ export class InfographicTemplateService {
 
   /**
    * 将 HTML 渲染为 PNG 图片（Base64）
+   * 严格按照指定的 width x height 尺寸渲染
    */
   async renderToImage(
     html: string,
@@ -566,8 +574,12 @@ export class InfographicTemplateService {
     const browser = await this.getBrowser();
     const page = await browser.newPage();
 
+    this.logger.log(
+      `[renderToImage] Rendering with dimensions: ${width}x${height}`,
+    );
+
     try {
-      // 设置视口
+      // 设置视口为目标尺寸
       await page.setViewport({ width, height, deviceScaleFactor: 2 });
 
       // 加载 HTML
@@ -579,24 +591,21 @@ export class InfographicTemplateService {
       // 等待字体加载
       await page.evaluate(() => document.fonts.ready);
 
-      // 获取实际内容高度
-      const bodyHandle = await page.$("body");
-      const boundingBox = await bodyHandle?.boundingBox();
-      const actualHeight = boundingBox ? Math.ceil(boundingBox.height) : height;
-
-      // 重新设置视口以适应内容
-      await page.setViewport({
-        width,
-        height: actualHeight,
-        deviceScaleFactor: 2,
-      });
-
-      // 截图
+      // 截图 - 使用 clip 确保精确尺寸，不使用 fullPage
       const screenshot = await page.screenshot({
         type: "png",
-        fullPage: true,
         encoding: "base64",
+        clip: {
+          x: 0,
+          y: 0,
+          width: width,
+          height: height,
+        },
       });
+
+      this.logger.log(
+        `[renderToImage] Screenshot completed with exact dimensions: ${width}x${height}`,
+      );
 
       return `data:image/png;base64,${screenshot}`;
     } finally {
