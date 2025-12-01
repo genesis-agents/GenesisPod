@@ -244,7 +244,7 @@ function CanvasToolbar({
   onCopy: () => void;
 }) {
   return (
-    <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-slate-200/80 bg-white/95 px-4 py-2 shadow-lg shadow-slate-200/50 backdrop-blur-md">
+    <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 shadow-lg">
       <button
         onClick={onExpand}
         className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-gray-700 transition hover:bg-gray-100"
@@ -357,13 +357,13 @@ function InsightsPanel({
   return (
     <div className="flex h-full flex-col">
       {/* Tab Headers */}
-      <div className="flex border-b border-slate-200/60 bg-slate-50/50">
+      <div className="flex border-b border-gray-200 bg-gray-50">
         <button
           onClick={() => onTabChange('insights')}
           className={`flex-1 px-4 py-2.5 text-xs font-medium transition-all ${
             activeTab === 'insights'
               ? 'border-b-2 border-purple-500 bg-white text-purple-600 shadow-sm'
-              : 'text-slate-500 hover:bg-white/50 hover:text-slate-700'
+              : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
           }`}
         >
           Prompt Insights
@@ -373,7 +373,7 @@ function InsightsPanel({
           className={`flex-1 px-4 py-2.5 text-xs font-medium transition-all ${
             activeTab === 'steps'
               ? 'border-b-2 border-purple-500 bg-white text-purple-600 shadow-sm'
-              : 'text-slate-500 hover:bg-white/50 hover:text-slate-700'
+              : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
           }`}
         >
           Processing Steps
@@ -531,7 +531,7 @@ function InsightsPanel({
                               className="flex items-center gap-1.5 rounded bg-gray-100 px-2 py-1"
                             >
                               <div
-                                className="h-3 w-3 rounded-full border border-slate-300 shadow-sm"
+                                className="h-3 w-3 rounded-full border border-gray-300"
                                 style={{
                                   backgroundColor: color.startsWith('#')
                                     ? color
@@ -938,7 +938,7 @@ function InsightsPanel({
                 </div>
                 {/* Enhanced Prompt */}
                 {image.enhancedPrompt && (
-                  <div className="mt-4 border-t border-slate-200/60 pt-4">
+                  <div className="mt-4 border-t border-gray-200 pt-4">
                     <p className="mb-1.5 text-[10px] uppercase tracking-wider text-gray-500">
                       Final Image Prompt
                     </p>
@@ -988,10 +988,10 @@ function InsightCard({
   const [isExpanded, setIsExpanded] = useState(true);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200/80 bg-slate-50/80 shadow-sm">
+    <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-slate-100"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-gray-100"
       >
         <svg
           className="h-4 w-4 flex-shrink-0 text-purple-500"
@@ -1603,10 +1603,10 @@ export default function ImageGenerator({
   // ===================== RENDER =====================
 
   return (
-    <div className="-m-4 -mb-6 flex h-full flex-col overflow-hidden rounded-lg border border-slate-200/80 bg-gradient-to-br from-slate-50 via-white to-slate-50 shadow-sm">
+    <div className="-m-4 -mb-6 flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white">
       {/* Mobile: Horizontal Thumbnails at Top */}
       {isMobile && generatedImages.length > 0 && (
-        <div className="flex-shrink-0 border-b border-slate-200/60 bg-white/90 backdrop-blur-sm">
+        <div className="flex-shrink-0 border-b border-gray-200 bg-gray-50">
           <ThumbnailGallery
             images={generatedImages}
             selectedImage={selectedImage}
@@ -1623,7 +1623,7 @@ export default function ImageGenerator({
       <div className="flex flex-1 overflow-hidden">
         {/* LEFT: Vertical Thumbnail Gallery (Desktop Only) */}
         {!isMobile && (
-          <div className="w-20 flex-shrink-0 border-r border-slate-200/60 bg-white/80 backdrop-blur-sm">
+          <div className="w-20 flex-shrink-0 border-r border-gray-200 bg-gray-50">
             <ThumbnailGallery
               images={generatedImages}
               selectedImage={selectedImage}
@@ -1637,7 +1637,7 @@ export default function ImageGenerator({
         )}
 
         {/* CENTER: Main Canvas */}
-        <div className="flex flex-1 flex-col overflow-hidden bg-gradient-to-b from-slate-100/50 to-slate-50/30">
+        <div className="flex flex-1 flex-col overflow-hidden bg-gray-100">
           {/* Canvas Area */}
           <div className="relative flex flex-1 items-center justify-center overflow-auto p-4">
             {selectedImage ? (
@@ -1732,11 +1732,11 @@ export default function ImageGenerator({
 
         {/* RIGHT: Insights Panel + Input Area */}
         <div
-          className={`flex flex-col border-l border-slate-200/60 bg-white/90 backdrop-blur-sm ${isMobile ? 'w-full' : 'w-96'}`}
+          className={`flex flex-col border-l border-gray-200 bg-white ${isMobile ? 'w-full' : 'w-96'}`}
         >
           {/* Insights Panel (when image selected) */}
           {selectedImage && (
-            <div className="flex-1 overflow-hidden border-b border-slate-200/60">
+            <div className="flex-1 overflow-hidden border-b border-gray-200">
               <InsightsPanel
                 image={selectedImage}
                 activeTab={insightsTab}
@@ -1750,7 +1750,7 @@ export default function ImageGenerator({
             className={`flex-shrink-0 ${selectedImage ? '' : 'flex flex-1 flex-col justify-end'}`}
           >
             {/* Control Bar */}
-            <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/60 bg-slate-50/80 px-3 py-2">
+            <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-gray-50 px-3 py-2">
               {/* Model Selector */}
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] text-gray-500">Model:</span>
@@ -1760,7 +1760,7 @@ export default function ImageGenerator({
                   <select
                     value={selectedImageModelId}
                     onChange={(e) => setSelectedImageModelId(e.target.value)}
-                    className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-400/50"
+                    className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
                     disabled={isGenerating}
                   >
                     {models.imageModels.map((model) => (
@@ -1784,7 +1784,7 @@ export default function ImageGenerator({
                     className={`rounded-md px-1.5 py-0.5 text-[10px] transition-all ${
                       aspectRatio === ratio
                         ? 'bg-purple-600 text-white shadow-sm'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
                     }`}
                   >
                     {ratio}
@@ -1798,17 +1798,17 @@ export default function ImageGenerator({
                   type="checkbox"
                   checked={skipEnhancement}
                   onChange={(e) => setSkipEnhancement(e.target.checked)}
-                  className="h-3 w-3 rounded border-slate-300 text-purple-500 focus:ring-purple-400/50"
+                  className="h-3 w-3 rounded border-gray-300 text-purple-500 focus:ring-purple-500"
                   disabled={isGenerating}
                 />
-                <span className="text-[10px] text-slate-500">Skip AI</span>
+                <span className="text-[10px] text-gray-500">Skip AI</span>
               </label>
 
               {/* Refresh Models */}
               <button
                 onClick={fetchModels}
                 disabled={isLoadingModels}
-                className="ml-auto rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                className="ml-auto rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
                 title="Refresh models"
               >
                 <svg
@@ -1869,8 +1869,8 @@ export default function ImageGenerator({
                     onClick={() => setInputMode(mode)}
                     className={`flex items-center gap-1 rounded-t-md px-2 py-1.5 text-[10px] font-medium transition-all ${
                       inputMode === mode
-                        ? 'bg-slate-100 text-slate-800 shadow-sm'
-                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                        ? 'bg-gray-100 text-gray-800'
+                        : 'text-gray-500 hover:text-gray-700'
                     }`}
                   >
                     <svg
@@ -1937,7 +1937,7 @@ export default function ImageGenerator({
               {/* Prompt Input */}
               {inputMode === 'prompt' && (
                 <div className="relative">
-                  <div className="rounded-xl border border-slate-200 bg-white shadow-sm focus-within:border-purple-400 focus-within:ring-2 focus-within:ring-purple-400/20">
+                  <div className="rounded-xl border border-gray-300 bg-white focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500">
                     <textarea
                       ref={textareaRef}
                       value={prompt}
@@ -1999,8 +1999,8 @@ export default function ImageGenerator({
                   </div>
                   {/* Mentions Dropdown */}
                   {showMentions && filteredSources.length > 0 && (
-                    <div className="absolute bottom-full left-0 z-10 mb-2 w-full max-w-xs overflow-hidden rounded-xl border border-slate-200/80 bg-white/95 shadow-xl shadow-slate-200/50 backdrop-blur-sm">
-                      <div className="border-b border-slate-200/60 bg-slate-50/80 px-3 py-1.5 text-[10px] text-slate-500">
+                    <div className="absolute bottom-full left-0 z-10 mb-2 w-full max-w-xs overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl">
+                      <div className="border-b border-gray-200 bg-gray-50 px-3 py-1.5 text-[10px] text-gray-500">
                         Mention source...
                       </div>
                       <div className="max-h-40 overflow-y-auto">
@@ -2043,7 +2043,7 @@ export default function ImageGenerator({
               {/* YouTube Input */}
               {inputMode === 'youtube' && (
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm focus-within:border-red-400 focus-within:ring-2 focus-within:ring-red-400/20">
+                  <div className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 focus-within:border-red-500 focus-within:ring-1 focus-within:ring-red-500">
                     <svg
                       className="h-4 w-4 flex-shrink-0 text-red-500"
                       fill="currentColor"
@@ -2102,7 +2102,7 @@ export default function ImageGenerator({
                 <div className="space-y-2">
                   {urls.map((url, index) => (
                     <div key={index} className="flex items-center gap-2">
-                      <div className="flex flex-1 items-center rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm focus-within:border-purple-400 focus-within:ring-2 focus-within:ring-purple-400/20">
+                      <div className="flex flex-1 items-center rounded-xl border border-gray-300 bg-white px-3 py-2 focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500">
                         <svg
                           className="mr-2 h-3.5 w-3.5 flex-shrink-0 text-gray-400"
                           fill="none"
@@ -2219,7 +2219,7 @@ export default function ImageGenerator({
                     className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-4 transition-all ${
                       isDragging
                         ? 'border-purple-400 bg-purple-50/80 shadow-inner'
-                        : 'border-slate-300 bg-slate-50/80 hover:border-purple-400 hover:bg-slate-50'
+                        : 'border-gray-300 bg-gray-50 hover:border-purple-400'
                     }`}
                   >
                     <svg
@@ -2244,7 +2244,7 @@ export default function ImageGenerator({
                   </div>
 
                   {/* Prompt for files */}
-                  <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm focus-within:border-purple-400 focus-within:ring-2 focus-within:ring-purple-400/20">
+                  <div className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500">
                     <svg
                       className="h-3.5 w-3.5 flex-shrink-0 text-gray-400"
                       fill="none"
@@ -2273,7 +2273,7 @@ export default function ImageGenerator({
                       {uploadedFiles.map((uf) => (
                         <div
                           key={uf.id}
-                          className="group flex items-center gap-1.5 rounded-md border border-slate-200/80 bg-slate-100/80 px-2 py-1 shadow-sm"
+                          className="group flex items-center gap-1.5 rounded border border-gray-200 bg-gray-100 px-2 py-1"
                         >
                           {uf.preview ? (
                             <img
@@ -2384,7 +2384,7 @@ export default function ImageGenerator({
                   </div>
 
                   {/* Refine prompt input */}
-                  <div className="rounded-xl border border-slate-200 bg-white shadow-sm focus-within:border-purple-400 focus-within:ring-2 focus-within:ring-purple-400/20">
+                  <div className="rounded-xl border border-gray-300 bg-white focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500">
                     <textarea
                       value={refinePrompt}
                       onChange={(e) => setRefinePrompt(e.target.value)}
@@ -2517,7 +2517,7 @@ export default function ImageGenerator({
       {/* Context Menu */}
       {contextMenu && (
         <div
-          className="fixed z-[60] min-w-[160px] overflow-hidden rounded-xl border border-slate-200/80 bg-white/95 py-1 shadow-xl shadow-slate-200/50 backdrop-blur-sm"
+          className="fixed z-[60] min-w-[160px] overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-xl"
           style={{
             left: Math.min(contextMenu.x, window.innerWidth - 180),
             top: Math.min(contextMenu.y, window.innerHeight - 320),
@@ -2568,7 +2568,7 @@ export default function ImageGenerator({
             </svg>
             Refine Image
           </button>
-          <div className="my-1 border-t border-slate-200/60" />
+          <div className="my-1 border-t border-gray-200" />
           <button
             onClick={() => {
               handleDownload(contextMenu.image);
@@ -2629,7 +2629,7 @@ export default function ImageGenerator({
             </svg>
             Copy Link
           </button>
-          <div className="my-1 border-t border-slate-200/60" />
+          <div className="my-1 border-t border-gray-200" />
           <button
             onClick={() => handleOpenInNewTab(contextMenu.image)}
             className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
@@ -2673,7 +2673,7 @@ export default function ImageGenerator({
               View Fullscreen
             </button>
           )}
-          <div className="my-1 border-t border-slate-200/60" />
+          <div className="my-1 border-t border-gray-200" />
           <button
             onClick={() => handleDelete(contextMenu.image)}
             className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-red-600 hover:bg-red-50"
