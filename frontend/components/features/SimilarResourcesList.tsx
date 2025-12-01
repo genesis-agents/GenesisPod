@@ -83,16 +83,16 @@ const typeAccent: Record<string, { bg: string; text: string; border: string }> =
     },
   };
 
-const typeGlyphs: Record<string, string> = {
-  paper: '📄',
-  github: '',
-  youtube: '▶️',
-  article: '📰',
-  news: '🗞️',
-  blog: '✍️',
-  report: '📊',
-  podcast: '🎙️',
-  video: '🎬',
+const typeIcons: Record<string, string> = {
+  paper: 'PA',
+  github: 'GH',
+  youtube: 'YT',
+  article: 'AR',
+  news: 'NW',
+  blog: 'BL',
+  report: 'RP',
+  podcast: 'PC',
+  video: 'VD',
 };
 
 const getTypeAccent = (type: string) => {
@@ -213,9 +213,9 @@ export default function SimilarResourcesList({
             onClick={() => onResourceClick?.(resource)}
           >
             <div
-              className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border text-base ${getTypeAccent(resource.type).bg} ${getTypeAccent(resource.type).border}`}
+              className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border text-xs font-semibold tracking-wide ${getTypeAccent(resource.type).bg} ${getTypeAccent(resource.type).border}`}
             >
-              <span>{typeGlyphs[resource.type] || '🔖'}</span>
+              <span>{typeIcons[resource.type] || 'RES'}</span>
             </div>
 
             {/* Content */}

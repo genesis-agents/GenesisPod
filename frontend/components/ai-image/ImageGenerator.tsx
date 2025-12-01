@@ -1,19 +1,21 @@
 'use client';
 
 /**
- * AI Image Generator Component
- * - 支持多种输入：提示词、YouTube/视频URL、普通URL、文本内容、文件上传
- * - 使用系统默认文本模型优化提示词
- * - 显示完整的处理过程（可折叠）
+ * AI Image Generator Component - Professional Three-Column Layout
+ * - Left: Vertical thumbnail gallery (scroll + selection)
+ * - Center: Large image canvas with tools
+ * - Right: Insights panel + Input area
+ * - Responsive: Mobile uses horizontal thumbnails at top
  */
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { config } from '@/lib/config';
 import { getAuthHeader } from '@/lib/auth';
 import { useImageSourceStore } from '@/stores/imageSourceStore';
 import SourcePool from './SourcePool';
 
-// 处理步骤类型
+// ===================== TYPE DEFINITIONS =====================
+
 interface ProcessingStep {
   step: string;
   status: 'pending' | 'processing' | 'completed' | 'error';
@@ -22,10 +24,66 @@ interface ProcessingStep {
   timestamp?: string;
 }
 
+interface PromptDesignJournalEntry {
+  title: string;
+  narrative: string;
+}
+
+interface PromptMetric {
+  label: string;
+  value: string;
+  comparison?: string;
+}
+
+interface PromptVisualCue {
+  type?: string;
+  description?: string;
+}
+
+interface PromptSection {
+  title?: string;
+  summary?: string;
+  bullets: string[];
+  metrics: PromptMetric[];
+  visual?: PromptVisualCue;
+}
+
+interface PromptInformationArchitecture {
+  title?: string;
+  subtitle?: string;
+  heroStatement?: string;
+  sections: PromptSection[];
+  callToAction?: string;
+}
+
+interface PromptVisualLanguage {
+  colorPalette: string[];
+  typography?: string;
+  iconography?: string;
+  chartStyle?: string;
+  background?: string;
+  gridSystem?: string;
+}
+
+interface PromptInsights {
+  imagePrompt: string;
+  fallbackPrompt?: string;
+  designJournal: PromptDesignJournalEntry[];
+  informationArchitecture: PromptInformationArchitecture;
+  visualLanguage: PromptVisualLanguage;
+  layoutPlan: string[];
+  qualityChecks: string[];
+  negativeKeywords: string[];
+  styleShiftReasoning: string[];
+  inspiration: string[];
+}
+
 interface GeneratedImage {
   id: string;
   prompt: string;
   enhancedPrompt?: string;
+  promptInsights?: PromptInsights;
+  negativePrompt?: string;
   imageUrl: string;
   createdAt: string;
   width: number;
@@ -58,15 +116,847 @@ interface UploadedFile {
 }
 
 type InputMode = 'prompt' | 'youtube' | 'url' | 'files' | 'refine';
+type InsightsTab = 'insights' | 'steps';
 
 interface ImageGeneratorProps {
-  initialImageId?: string; // ID of image to select when component mounts
+  initialImageId?: string;
 }
+
+// ===================== HELPER COMPONENTS =====================
+
+// Thumbnail Gallery Component (Left Side / Top on Mobile)
+function ThumbnailGallery({
+  images,
+  selectedImage,
+  bookmarkedImages,
+  onSelect,
+  onContextMenu,
+  onWheel,
+  isVertical = true,
+}: {
+  images: GeneratedImage[];
+  selectedImage: GeneratedImage | null;
+  bookmarkedImages: Set<string>;
+  onSelect: (img: GeneratedImage) => void;
+  onContextMenu: (e: React.MouseEvent, img: GeneratedImage) => void;
+  onWheel: (e: React.WheelEvent<HTMLDivElement>) => void;
+  isVertical?: boolean;
+}) {
+  const galleryRef = useRef<HTMLDivElement>(null);
+
+  if (images.length === 0) {
+    return (
+      <div
+        className={`flex items-center justify-center ${isVertical ? 'h-full' : 'h-20'} text-gray-500`}
+      >
+        <div className="p-4 text-center">
+          <svg
+            className="mx-auto mb-2 h-8 w-8 opacity-50"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
+          </svg>
+          <p className="text-xs">No images yet</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={galleryRef}
+      onWheel={onWheel}
+      className={`
+        ${
+          isVertical
+            ? 'flex flex-col gap-2 overflow-y-auto px-2 py-2'
+            : 'flex flex-row gap-2 overflow-x-auto px-2 py-2'
+        }
+        scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/20 hover:scrollbar-thumb-white/40
+      `}
+    >
+      {images.map((img) => (
+        <button
+          key={img.id}
+          onClick={() => onSelect(img)}
+          onContextMenu={(e) => onContextMenu(e, img)}
+          className={`
+            relative flex-shrink-0 overflow-hidden rounded-lg transition-all duration-200
+            ${isVertical ? 'h-16 w-16' : 'h-14 w-14'}
+            ${
+              selectedImage?.id === img.id
+                ? 'scale-105 ring-2 ring-purple-500 ring-offset-2 ring-offset-[#1a1a2e]'
+                : 'hover:scale-102 opacity-70 hover:opacity-100'
+            }
+          `}
+        >
+          {/* Bookmark indicator */}
+          {bookmarkedImages.has(img.id) && (
+            <div className="absolute right-0.5 top-0.5 z-10">
+              <svg
+                className="h-3 w-3 text-yellow-400 drop-shadow"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+              </svg>
+            </div>
+          )}
+          {/* Time indicator */}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-1 py-0.5">
+            <span className="text-[8px] text-white/80">
+              {new Date(img.createdAt).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </span>
+          </div>
+          <img
+            src={img.imageUrl}
+            alt={img.prompt}
+            className="h-full w-full object-cover"
+          />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Canvas Toolbar Component
+function CanvasToolbar({
+  image,
+  onExpand,
+  onDownload,
+  onRefine,
+  onCopy,
+}: {
+  image: GeneratedImage;
+  onExpand: () => void;
+  onDownload: () => void;
+  onRefine: () => void;
+  onCopy: () => void;
+}) {
+  return (
+    <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/60 px-4 py-2 backdrop-blur-md">
+      <button
+        onClick={onExpand}
+        className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-white/90 transition hover:bg-white/10"
+        title="View fullscreen"
+      >
+        <svg
+          className="h-4 w-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+          />
+        </svg>
+        <span className="hidden sm:inline">Expand</span>
+      </button>
+      <div className="h-4 w-px bg-white/20" />
+      <button
+        onClick={onRefine}
+        className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-purple-300 transition hover:bg-purple-500/20"
+        title="Refine this image"
+      >
+        <svg
+          className="h-4 w-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+          />
+        </svg>
+        <span className="hidden sm:inline">Refine</span>
+      </button>
+      <div className="h-4 w-px bg-white/20" />
+      <button
+        onClick={onDownload}
+        className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-white/90 transition hover:bg-white/10"
+        title="Download image"
+      >
+        <svg
+          className="h-4 w-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+          />
+        </svg>
+        <span className="hidden sm:inline">Download</span>
+      </button>
+      <button
+        onClick={onCopy}
+        className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-white/90 transition hover:bg-white/10"
+        title="Copy image"
+      >
+        <svg
+          className="h-4 w-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+          />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+// Insights Panel Component
+function InsightsPanel({
+  image,
+  activeTab,
+  onTabChange,
+}: {
+  image: GeneratedImage;
+  activeTab: InsightsTab;
+  onTabChange: (tab: InsightsTab) => void;
+}) {
+  const insights = image.promptInsights;
+
+  return (
+    <div className="flex h-full flex-col">
+      {/* Tab Headers */}
+      <div className="flex border-b border-white/10">
+        <button
+          onClick={() => onTabChange('insights')}
+          className={`flex-1 px-4 py-2.5 text-xs font-medium transition ${
+            activeTab === 'insights'
+              ? 'border-b-2 border-purple-500 bg-white/5 text-purple-300'
+              : 'text-gray-500 hover:text-gray-300'
+          }`}
+        >
+          Prompt Insights
+        </button>
+        <button
+          onClick={() => onTabChange('steps')}
+          className={`flex-1 px-4 py-2.5 text-xs font-medium transition ${
+            activeTab === 'steps'
+              ? 'border-b-2 border-purple-500 bg-white/5 text-purple-300'
+              : 'text-gray-500 hover:text-gray-300'
+          }`}
+        >
+          Processing Steps
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      <div className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/20 flex-1 overflow-y-auto">
+        {activeTab === 'insights' && insights ? (
+          <div className="space-y-4 p-4">
+            {/* Design Journal */}
+            {insights.designJournal.length > 0 && (
+              <InsightCard
+                title="Design Journal"
+                icon="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+              >
+                <div className="space-y-3">
+                  {insights.designJournal.map((entry, idx) => (
+                    <div
+                      key={idx}
+                      className="border-l-2 border-purple-500/50 pl-3"
+                    >
+                      <p className="text-xs font-medium text-purple-300">
+                        {entry.title}
+                      </p>
+                      <p className="mt-0.5 text-xs text-gray-400">
+                        {entry.narrative}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </InsightCard>
+            )}
+
+            {/* Information Architecture */}
+            {insights.informationArchitecture.sections.length > 0 && (
+              <InsightCard
+                title="Information Architecture"
+                icon="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+              >
+                <div className="space-y-3">
+                  {insights.informationArchitecture.title && (
+                    <p className="text-sm font-semibold text-white">
+                      {insights.informationArchitecture.title}
+                    </p>
+                  )}
+                  {insights.informationArchitecture.subtitle && (
+                    <p className="text-xs text-gray-400">
+                      {insights.informationArchitecture.subtitle}
+                    </p>
+                  )}
+                  {insights.informationArchitecture.heroStatement && (
+                    <p className="text-xs italic text-purple-300">
+                      "{insights.informationArchitecture.heroStatement}"
+                    </p>
+                  )}
+                  {insights.informationArchitecture.sections.map(
+                    (section, idx) => (
+                      <div key={idx} className="rounded-lg bg-white/5 p-2.5">
+                        {section.title && (
+                          <p className="text-xs font-medium text-white">
+                            {section.title}
+                          </p>
+                        )}
+                        {section.summary && (
+                          <p className="mt-1 text-xs text-gray-400">
+                            {section.summary}
+                          </p>
+                        )}
+                        {section.bullets.length > 0 && (
+                          <ul className="mt-1.5 space-y-0.5">
+                            {section.bullets.map((bullet, bIdx) => (
+                              <li
+                                key={bIdx}
+                                className="flex items-start gap-1.5 text-xs text-gray-400"
+                              >
+                                <span className="mt-0.5 text-purple-400">
+                                  -
+                                </span>
+                                {bullet}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {section.metrics.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {section.metrics.map((metric, mIdx) => (
+                              <div
+                                key={mIdx}
+                                className="rounded bg-purple-500/10 px-2 py-1"
+                              >
+                                <span className="text-[10px] text-gray-400">
+                                  {metric.label}
+                                </span>
+                                <p className="text-xs font-medium text-purple-300">
+                                  {metric.value}
+                                </p>
+                                {metric.comparison && (
+                                  <span className="text-[10px] text-green-400">
+                                    {metric.comparison}
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  )}
+                </div>
+              </InsightCard>
+            )}
+
+            {/* Layout Plan */}
+            {insights.layoutPlan.length > 0 && (
+              <InsightCard
+                title="Layout Plan"
+                icon="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"
+              >
+                <ul className="space-y-1">
+                  {insights.layoutPlan.map((item, idx) => (
+                    <li
+                      key={idx}
+                      className="flex items-start gap-1.5 text-xs text-gray-400"
+                    >
+                      <span className="font-mono text-blue-400">
+                        {idx + 1}.
+                      </span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </InsightCard>
+            )}
+
+            {/* Visual Language */}
+            {(insights.visualLanguage.colorPalette.length > 0 ||
+              insights.visualLanguage.typography) && (
+              <InsightCard
+                title="Visual Language"
+                icon="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"
+              >
+                <div className="space-y-3">
+                  {/* Color Palette */}
+                  {insights.visualLanguage.colorPalette.length > 0 && (
+                    <div>
+                      <p className="mb-1.5 text-[10px] uppercase tracking-wider text-gray-500">
+                        Color Palette
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {insights.visualLanguage.colorPalette.map(
+                          (color, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-center gap-1.5 rounded bg-white/5 px-2 py-1"
+                            >
+                              <div
+                                className="h-3 w-3 rounded-full border border-white/20"
+                                style={{
+                                  backgroundColor: color.startsWith('#')
+                                    ? color
+                                    : undefined,
+                                }}
+                              />
+                              <span className="text-xs text-gray-300">
+                                {color}
+                              </span>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {/* Typography */}
+                  {insights.visualLanguage.typography && (
+                    <div>
+                      <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                        Typography
+                      </p>
+                      <p className="text-xs text-gray-300">
+                        {insights.visualLanguage.typography}
+                      </p>
+                    </div>
+                  )}
+                  {/* Iconography */}
+                  {insights.visualLanguage.iconography && (
+                    <div>
+                      <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                        Iconography
+                      </p>
+                      <p className="text-xs text-gray-300">
+                        {insights.visualLanguage.iconography}
+                      </p>
+                    </div>
+                  )}
+                  {/* Chart Style */}
+                  {insights.visualLanguage.chartStyle && (
+                    <div>
+                      <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                        Chart Style
+                      </p>
+                      <p className="text-xs text-gray-300">
+                        {insights.visualLanguage.chartStyle}
+                      </p>
+                    </div>
+                  )}
+                  {/* Background */}
+                  {insights.visualLanguage.background && (
+                    <div>
+                      <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                        Background
+                      </p>
+                      <p className="text-xs text-gray-300">
+                        {insights.visualLanguage.background}
+                      </p>
+                    </div>
+                  )}
+                  {/* Grid System */}
+                  {insights.visualLanguage.gridSystem && (
+                    <div>
+                      <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                        Grid System
+                      </p>
+                      <p className="text-xs text-gray-300">
+                        {insights.visualLanguage.gridSystem}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </InsightCard>
+            )}
+
+            {/* Quality Checks */}
+            {insights.qualityChecks.length > 0 && (
+              <InsightCard
+                title="Quality Checks"
+                icon="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              >
+                <ul className="space-y-1">
+                  {insights.qualityChecks.map((check, idx) => (
+                    <li
+                      key={idx}
+                      className="flex items-start gap-1.5 text-xs text-gray-400"
+                    >
+                      <svg
+                        className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-green-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                      {check}
+                    </li>
+                  ))}
+                </ul>
+              </InsightCard>
+            )}
+
+            {/* Negative Keywords */}
+            {insights.negativeKeywords.length > 0 && (
+              <InsightCard
+                title="Negative Keywords"
+                icon="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+              >
+                <div className="flex flex-wrap gap-1.5">
+                  {insights.negativeKeywords.map((keyword, idx) => (
+                    <span
+                      key={idx}
+                      className="rounded bg-red-500/10 px-2 py-0.5 text-xs text-red-400"
+                    >
+                      {keyword}
+                    </span>
+                  ))}
+                </div>
+              </InsightCard>
+            )}
+
+            {/* Inspiration */}
+            {insights.inspiration.length > 0 && (
+              <InsightCard
+                title="Inspiration"
+                icon="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+              >
+                <ul className="space-y-1">
+                  {insights.inspiration.map((item, idx) => (
+                    <li
+                      key={idx}
+                      className="flex items-start gap-1.5 text-xs text-gray-400"
+                    >
+                      <span className="text-yellow-400">*</span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </InsightCard>
+            )}
+
+            {/* Original Input & Final Prompts */}
+            <InsightCard
+              title="Prompts"
+              icon="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            >
+              <div className="space-y-3">
+                {image.prompt && (
+                  <div>
+                    <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                      Original Input
+                    </p>
+                    <p className="rounded bg-white/5 p-2 text-xs text-gray-300">
+                      {image.prompt}
+                    </p>
+                  </div>
+                )}
+                {insights.imagePrompt && (
+                  <div>
+                    <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                      Final Prompt
+                    </p>
+                    <p className="rounded bg-purple-500/10 p-2 text-xs text-gray-300">
+                      {insights.imagePrompt}
+                    </p>
+                  </div>
+                )}
+                {insights.fallbackPrompt && (
+                  <div>
+                    <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                      Fallback Prompt
+                    </p>
+                    <p className="rounded bg-white/5 p-2 text-xs text-gray-400">
+                      {insights.fallbackPrompt}
+                    </p>
+                  </div>
+                )}
+                {image.negativePrompt && (
+                  <div>
+                    <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                      Negative Prompt
+                    </p>
+                    <p className="rounded bg-red-500/10 p-2 text-xs text-red-300">
+                      {image.negativePrompt}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </InsightCard>
+          </div>
+        ) : activeTab === 'insights' ? (
+          <div className="flex h-full items-center justify-center p-4 text-gray-500">
+            <div className="text-center">
+              <svg
+                className="mx-auto mb-2 h-8 w-8 opacity-50"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                />
+              </svg>
+              <p className="text-xs">No prompt insights available</p>
+              <p className="mt-1 text-[10px] text-gray-600">
+                Enable AI enhancement to see insights
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4">
+            {/* Processing Steps */}
+            {image.processingSteps && image.processingSteps.length > 0 ? (
+              <div className="space-y-3">
+                {/* Models Used */}
+                {(image.textModelUsed || image.imageModelUsed) && (
+                  <div className="space-y-1.5 rounded-lg bg-white/5 p-3">
+                    {image.textModelUsed && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-gray-500">
+                          Text Model:
+                        </span>
+                        <span className="text-xs text-gray-300">
+                          {image.textModelUsed}
+                        </span>
+                      </div>
+                    )}
+                    {image.imageModelUsed && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-gray-500">
+                          Image Model:
+                        </span>
+                        <span className="text-xs text-gray-300">
+                          {image.imageModelUsed}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Steps Timeline */}
+                <div className="space-y-2">
+                  {image.processingSteps.map((step, index) => (
+                    <div key={index} className="flex items-start gap-2">
+                      <div
+                        className={`mt-0.5 h-4 w-4 flex-shrink-0 ${
+                          step.status === 'completed'
+                            ? 'text-green-500'
+                            : step.status === 'processing'
+                              ? 'animate-pulse text-blue-500'
+                              : step.status === 'error'
+                                ? 'text-red-500'
+                                : 'text-gray-400'
+                        }`}
+                      >
+                        {step.status === 'completed' && (
+                          <svg
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                        )}
+                        {step.status === 'processing' && (
+                          <svg
+                            className="animate-spin"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                            />
+                          </svg>
+                        )}
+                        {step.status === 'error' && (
+                          <svg
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        )}
+                        {step.status === 'pending' && (
+                          <svg
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              strokeWidth="2"
+                              className="opacity-30"
+                            />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium text-gray-300">
+                          {step.title}
+                        </p>
+                        {step.content && (
+                          <p className="mt-0.5 line-clamp-2 break-all text-xs text-gray-500">
+                            {step.content}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* Enhanced Prompt */}
+                {image.enhancedPrompt && (
+                  <div className="mt-4 border-t border-white/10 pt-4">
+                    <p className="mb-1.5 text-[10px] uppercase tracking-wider text-gray-500">
+                      Final Image Prompt
+                    </p>
+                    <p className="rounded bg-white/5 p-2 text-xs leading-relaxed text-gray-300">
+                      {image.enhancedPrompt}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex h-32 items-center justify-center text-gray-500">
+                <div className="text-center">
+                  <svg
+                    className="mx-auto mb-2 h-8 w-8 opacity-50"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <p className="text-xs">No processing steps recorded</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Insight Card Component
+function InsightCard({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon: string;
+  children: React.ReactNode;
+}) {
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  return (
+    <div className="overflow-hidden rounded-lg bg-white/5">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left transition hover:bg-white/5"
+      >
+        <svg
+          className="h-4 w-4 flex-shrink-0 text-purple-400"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d={icon}
+          />
+        </svg>
+        <span className="flex-1 text-xs font-medium text-gray-200">
+          {title}
+        </span>
+        <svg
+          className={`h-4 w-4 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 9l-7 7-7-7"
+          />
+        </svg>
+      </button>
+      {isExpanded && <div className="px-3 pb-3">{children}</div>}
+    </div>
+  );
+}
+
+// ===================== MAIN COMPONENT =====================
 
 export default function ImageGenerator({
   initialImageId,
 }: ImageGeneratorProps) {
-  // 输入状态
+  // Input state
   const [inputMode, setInputMode] = useState<InputMode>('prompt');
   const [prompt, setPrompt] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
@@ -75,11 +965,11 @@ export default function ImageGenerator({
   const [filesPrompt, setFilesPrompt] = useState('');
   const [isDragging, setIsDragging] = useState(false);
 
-  // 图片引用完善模式
+  // Refine mode
   const [refineImage, setRefineImage] = useState<GeneratedImage | null>(null);
   const [refinePrompt, setRefinePrompt] = useState('');
 
-  // 生成状态
+  // Generation state
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(
@@ -87,7 +977,7 @@ export default function ImageGenerator({
   );
   const [error, setError] = useState<string | null>(null);
 
-  // 模型状态 - 只保留图片模型选择
+  // Model state
   const [models, setModels] = useState<ModelsResponse>({
     textModels: [],
     imageModels: [],
@@ -98,7 +988,6 @@ export default function ImageGenerator({
   const [aspectRatio, setAspectRatio] = useState<
     '1:1' | '16:9' | '9:16' | '4:3'
   >(() => {
-    // 从 localStorage 读取上次的选择
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('ai-image-aspect-ratio');
       if (saved && ['1:1', '16:9', '9:16', '4:3'].includes(saved)) {
@@ -108,15 +997,11 @@ export default function ImageGenerator({
     return '1:1';
   });
 
-  // 思考过程展示
-  const [showProcessing, setShowProcessing] = useState(true);
-
-  // Lightbox 状态
+  // UI state
+  const [insightsTab, setInsightsTab] = useState<InsightsTab>('insights');
   const [lightboxImage, setLightboxImage] = useState<GeneratedImage | null>(
     null
   );
-
-  // Context Menu 状态
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -125,6 +1010,7 @@ export default function ImageGenerator({
   const [bookmarkedImages, setBookmarkedImages] = useState<Set<string>>(
     new Set()
   );
+  const [isMobile, setIsMobile] = useState(false);
 
   // Source Pool & Mentions
   const { sources } = useImageSourceStore();
@@ -132,24 +1018,30 @@ export default function ImageGenerator({
   const [mentionQuery, setMentionQuery] = useState('');
   const [cursorPosition, setCursorPosition] = useState(0);
 
-  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const galleryRef = useRef<HTMLDivElement>(null);
 
-  // 获取可用模型
+  // Check mobile on mount and resize
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Fetch models
   const fetchModels = useCallback(async () => {
     setIsLoadingModels(true);
     try {
       const response = await fetch(
         `${config.apiBaseUrl}/api/v1/ai-image/models`,
-        { headers: { ...getAuthHeader() } }
+        {
+          headers: { ...getAuthHeader() },
+        }
       );
-
       if (response.ok) {
         const data: ModelsResponse = await response.json();
         setModels(data);
-
-        // 只设置默认图片模型
         const defaultImageModel =
           data.imageModels.find((m) => m.isDefault) || data.imageModels[0];
         if (defaultImageModel) setSelectedImageModelId(defaultImageModel.id);
@@ -161,31 +1053,28 @@ export default function ImageGenerator({
     }
   }, []);
 
-  // 获取历史记录
+  // Fetch history
   const fetchHistory = useCallback(async () => {
     try {
       const response = await fetch(
         `${config.apiBaseUrl}/api/v1/ai-image/history`,
-        { headers: { ...getAuthHeader() } }
+        {
+          headers: { ...getAuthHeader() },
+        }
       );
-
       if (response.ok) {
         const data: GeneratedImage[] = await response.json();
         if (data && data.length > 0) {
           setGeneratedImages(data);
-          // 如果提供了 initialImageId，选中对应的图片，否则选中最新的图片
           if (initialImageId) {
             const targetImage = data.find((img) => img.id === initialImageId);
             setSelectedImage(targetImage || data[0]);
           } else {
             setSelectedImage(data[0]);
           }
-          // 初始化已收藏的图片
           const bookmarked = new Set<string>();
           data.forEach((img) => {
-            if (img.isBookmarked) {
-              bookmarked.add(img.id);
-            }
+            if (img.isBookmarked) bookmarked.add(img.id);
           });
           setBookmarkedImages(bookmarked);
         }
@@ -200,12 +1089,12 @@ export default function ImageGenerator({
     fetchHistory();
   }, [fetchModels, fetchHistory]);
 
-  // 保存比例选择到 localStorage
+  // Save aspect ratio
   useEffect(() => {
     localStorage.setItem('ai-image-aspect-ratio', aspectRatio);
   }, [aspectRatio]);
 
-  // ESC 键关闭 Lightbox 和 Context Menu
+  // ESC key handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -224,7 +1113,7 @@ export default function ImageGenerator({
     };
   }, [lightboxImage, contextMenu]);
 
-  // URL 相关函数
+  // URL helpers
   const addUrlInput = () => setUrls([...urls, '']);
   const removeUrlInput = (index: number) => {
     if (urls.length > 1) setUrls(urls.filter((_, i) => i !== index));
@@ -235,10 +1124,9 @@ export default function ImageGenerator({
     setUrls(newUrls);
   };
 
-  // 文件处理函数
+  // File handling
   const handleFileSelect = (files: FileList | null) => {
     if (!files) return;
-
     const newFiles: UploadedFile[] = [];
     Array.from(files).forEach((file) => {
       const supportedTypes = [
@@ -280,7 +1168,6 @@ export default function ImageGenerator({
         newFiles.push(uploadedFile);
       }
     });
-
     setUploadedFiles((prev) => [...prev, ...newFiles]);
   };
 
@@ -292,7 +1179,7 @@ export default function ImageGenerator({
     });
   };
 
-  // 拖放处理
+  // Drag and drop
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -307,7 +1194,7 @@ export default function ImageGenerator({
     handleFileSelect(e.dataTransfer.files);
   };
 
-  // 获取文件图标
+  // File icon helper
   const getFileIcon = (file: File) => {
     if (file.type.startsWith('image/'))
       return 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z';
@@ -316,7 +1203,7 @@ export default function ImageGenerator({
     return 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z';
   };
 
-  // 检查是否有有效输入
+  // Validation
   const hasValidInput = () => {
     switch (inputMode) {
       case 'prompt':
@@ -334,7 +1221,7 @@ export default function ImageGenerator({
     }
   };
 
-  // 将图片URL转换为Base64
+  // Convert image URL to Base64
   const imageUrlToBase64 = async (imageUrl: string): Promise<string> => {
     try {
       const response = await fetch(imageUrl);
@@ -343,7 +1230,6 @@ export default function ImageGenerator({
         const reader = new FileReader();
         reader.onloadend = () => {
           const base64 = reader.result as string;
-          // 返回不含 data:image/xxx;base64, 前缀的纯 Base64 字符串
           const base64Data = base64.split(',')[1] || base64;
           resolve(base64Data);
         };
@@ -356,7 +1242,7 @@ export default function ImageGenerator({
     }
   };
 
-  // 处理"引用此图片进行完善"
+  // Refine mode
   const handleRefineImage = (image: GeneratedImage) => {
     setRefineImage(image);
     setRefinePrompt('');
@@ -364,23 +1250,21 @@ export default function ImageGenerator({
     setContextMenu(null);
   };
 
-  // 取消图片完善模式
   const handleCancelRefine = () => {
     setRefineImage(null);
     setRefinePrompt('');
     setInputMode('prompt');
   };
 
-  // 生成图片
+  // Generate image
   const handleGenerate = async () => {
     if (!hasValidInput() || isGenerating) return;
 
     setIsGenerating(true);
     setError(null);
-    setSelectedImage(null); // Clear selected image to show loading state
+    setSelectedImage(null);
 
     try {
-      // 如果是文件上传模式，使用 FormData
       if (inputMode === 'files' && uploadedFiles.length > 0) {
         const formData = new FormData();
         uploadedFiles.forEach((uf) => formData.append('files', uf.file));
@@ -388,13 +1272,15 @@ export default function ImageGenerator({
           formData.append('imageModelId', selectedImageModelId);
         formData.append('skipEnhancement', String(skipEnhancement));
         formData.append('aspectRatio', aspectRatio);
-        if (filesPrompt.trim()) {
-          formData.append('prompt', filesPrompt.trim());
-        }
+        if (filesPrompt.trim()) formData.append('prompt', filesPrompt.trim());
 
         const response = await fetch(
           `${config.apiBaseUrl}/api/v1/ai-image/generate-with-files`,
-          { method: 'POST', headers: { ...getAuthHeader() }, body: formData }
+          {
+            method: 'POST',
+            headers: { ...getAuthHeader() },
+            body: formData,
+          }
         );
 
         if (!response.ok) {
@@ -412,7 +1298,6 @@ export default function ImageGenerator({
         return;
       }
 
-      // 其他模式使用 JSON
       const requestBody: Record<string, unknown> = {
         imageModelId: selectedImageModelId,
         skipEnhancement,
@@ -422,7 +1307,6 @@ export default function ImageGenerator({
       switch (inputMode) {
         case 'prompt':
           requestBody.prompt = prompt.trim();
-          // Extract mentions and add to URLs
           const mentions = prompt.match(/@\[(.*?)\]/g);
           if (mentions) {
             const extractedUrls: string[] = [];
@@ -431,10 +1315,7 @@ export default function ImageGenerator({
               const source = sources.find((s) => s.title === title);
               if (source) extractedUrls.push(source.url);
             });
-            if (extractedUrls.length > 0) {
-              requestBody.urls = extractedUrls;
-              console.log('Including URLs in generation request:', extractedUrls);
-            }
+            if (extractedUrls.length > 0) requestBody.urls = extractedUrls;
           }
           break;
         case 'youtube':
@@ -445,11 +1326,9 @@ export default function ImageGenerator({
           break;
         case 'refine':
           if (refineImage) {
-            // 将参考图片转换为Base64
             const imageBase64 = await imageUrlToBase64(refineImage.imageUrl);
             requestBody.imageBase64 = imageBase64;
             requestBody.prompt = refinePrompt.trim();
-            // 图片编辑模式必须跳过AI增强，直接使用用户的编辑指令
             requestBody.skipEnhancement = true;
           }
           break;
@@ -477,7 +1356,6 @@ export default function ImageGenerator({
       setGeneratedImages((prev) => [newImage, ...prev]);
       setSelectedImage(newImage);
 
-      // 如果是refine模式，成功后清理状态
       if (inputMode === 'refine') {
         setRefineImage(null);
         setRefinePrompt('');
@@ -485,21 +1363,22 @@ export default function ImageGenerator({
       }
     } catch (err) {
       console.error('Image generation failed:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to generate image';
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to generate image';
       setError(errorMessage);
-      alert(`Generation Failed: ${errorMessage}`);
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey && inputMode === 'prompt') {
       e.preventDefault();
       handleGenerate();
     }
   };
 
+  // Download
   const handleDownload = async (image: GeneratedImage) => {
     try {
       const response = await fetch(image.imageUrl);
@@ -517,13 +1396,14 @@ export default function ImageGenerator({
     }
   };
 
-  // Context Menu 处理
+  // Context menu
   const handleContextMenu = (e: React.MouseEvent, image: GeneratedImage) => {
     e.preventDefault();
     e.stopPropagation();
     setContextMenu({ x: e.clientX, y: e.clientY, image });
   };
 
+  // Bookmark
   const handleBookmark = async (image: GeneratedImage) => {
     try {
       const isBookmarked = bookmarkedImages.has(image.id);
@@ -538,14 +1418,10 @@ export default function ImageGenerator({
       if (response.ok) {
         setBookmarkedImages((prev) => {
           const newSet = new Set(prev);
-          if (isBookmarked) {
-            newSet.delete(image.id);
-          } else {
-            newSet.add(image.id);
-          }
+          if (isBookmarked) newSet.delete(image.id);
+          else newSet.add(image.id);
           return newSet;
         });
-        // 更新图片列表中的状态
         setGeneratedImages((prev) =>
           prev.map((img) =>
             img.id === image.id ? { ...img, isBookmarked: !isBookmarked } : img
@@ -558,6 +1434,7 @@ export default function ImageGenerator({
     setContextMenu(null);
   };
 
+  // Delete
   const handleDelete = async (image: GeneratedImage) => {
     if (!confirm('Are you sure you want to delete this image?')) {
       setContextMenu(null);
@@ -574,13 +1451,8 @@ export default function ImageGenerator({
       );
 
       if (response.ok) {
-        // 从列表中移除
         setGeneratedImages((prev) => prev.filter((img) => img.id !== image.id));
-        // 如果删除的是当前选中的图片，清除选中状态
-        if (selectedImage?.id === image.id) {
-          setSelectedImage(null);
-        }
-        // 从收藏中移除
+        if (selectedImage?.id === image.id) setSelectedImage(null);
         setBookmarkedImages((prev) => {
           const newSet = new Set(prev);
           newSet.delete(image.id);
@@ -593,6 +1465,7 @@ export default function ImageGenerator({
     setContextMenu(null);
   };
 
+  // Copy
   const handleCopyLink = async (image: GeneratedImage) => {
     try {
       await navigator.clipboard.writeText(image.imageUrl);
@@ -620,23 +1493,16 @@ export default function ImageGenerator({
     setContextMenu(null);
   };
 
-  // Handle wheel scroll in gallery to navigate between images
+  // Wheel navigation
   const handleGalleryWheel = useCallback(
     (e: React.WheelEvent<HTMLDivElement>) => {
       if (generatedImages.length <= 1) return;
 
-      // Prevent default vertical scroll, scroll horizontally
-      if (galleryRef.current) {
-        galleryRef.current.scrollLeft += e.deltaY;
-      }
-
-      // Also change selected image on scroll
       const currentIndex = generatedImages.findIndex(
         (img) => img.id === selectedImage?.id
       );
       if (currentIndex === -1) return;
 
-      // Scroll down (positive deltaY) = next image, scroll up = previous image
       const direction = e.deltaY > 0 ? 1 : -1;
       const newIndex = Math.max(
         0,
@@ -650,709 +1516,117 @@ export default function ImageGenerator({
     [generatedImages, selectedImage]
   );
 
-  // 渲染处理步骤
-  const renderProcessingSteps = (steps: ProcessingStep[]) => (
-    <div className="space-y-2">
-      {steps.map((step, index) => (
-        <div key={index} className="flex items-start gap-2 text-xs">
-          <div
-            className={`mt-0.5 h-4 w-4 flex-shrink-0 ${step.status === 'completed'
-              ? 'text-green-500'
-              : step.status === 'processing'
-                ? 'animate-pulse text-blue-500'
-                : step.status === 'error'
-                  ? 'text-red-500'
-                  : 'text-gray-400'
-              }`}
-          >
-            {step.status === 'completed' && (
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-            )}
-            {step.status === 'processing' && (
-              <svg
-                className="animate-spin"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                />
-              </svg>
-            )}
-            {step.status === 'error' && (
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            )}
-            {step.status === 'pending' && (
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <circle
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  strokeWidth="2"
-                  className="opacity-30"
-                />
-              </svg>
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-medium text-gray-300">{step.title}</p>
-            {step.content && (
-              <p className="mt-0.5 line-clamp-2 break-all text-gray-500">
-                {step.content}
-              </p>
-            )}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+  // Filtered sources for mentions
+  const filteredSources = useMemo(() => {
+    return sources.filter((s) =>
+      s.title.toLowerCase().includes(mentionQuery.toLowerCase())
+    );
+  }, [sources, mentionQuery]);
+
+  // ===================== RENDER =====================
 
   return (
     <div className="flex h-full flex-col bg-[#1a1a2e]">
-      {/* Top Bar - Only Image Model Selector */}
-      <div className="flex flex-shrink-0 flex-wrap items-center gap-3 border-b border-white/10 px-4 py-2">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">Image Model:</span>
-          {isLoadingModels ? (
-            <div className="h-7 w-36 animate-pulse rounded bg-white/10" />
-          ) : models.imageModels.length > 0 ? (
-            <select
-              value={selectedImageModelId}
-              onChange={(e) => setSelectedImageModelId(e.target.value)}
-              className="rounded bg-white/10 px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-purple-500/50"
-              disabled={isGenerating}
-            >
-              {models.imageModels.map((model) => (
-                <option
-                  key={model.id}
-                  value={model.id}
-                  className="bg-[#1a1a2e]"
-                >
-                  {model.name}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <span className="text-xs text-yellow-400">No image models</span>
-          )}
-        </div>
-
-        {/* Aspect Ratio Selector */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">Ratio:</span>
-          <div className="flex gap-1">
-            {(['1:1', '16:9', '9:16', '4:3'] as const).map((ratio) => (
-              <button
-                key={ratio}
-                onClick={() => setAspectRatio(ratio)}
-                disabled={isGenerating}
-                className={`rounded px-2 py-1 text-xs transition ${aspectRatio === ratio
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white'
-                  } disabled:opacity-50`}
-                title={
-                  ratio === '1:1'
-                    ? '正方形'
-                    : ratio === '16:9'
-                      ? '横向'
-                      : ratio === '9:16'
-                        ? '竖向'
-                        : '4:3'
-                }
-              >
-                {ratio}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <label className="flex cursor-pointer items-center gap-2">
-          <input
-            type="checkbox"
-            checked={skipEnhancement}
-            onChange={(e) => setSkipEnhancement(e.target.checked)}
-            className="h-3.5 w-3.5 rounded border-gray-600 bg-transparent text-purple-500 focus:ring-purple-500/50"
-            disabled={isGenerating}
-          />
-          <span className="text-xs text-gray-400">
-            Skip AI prompt enhancement
-          </span>
-        </label>
-
-        <button
-          onClick={fetchModels}
-          disabled={isLoadingModels}
-          className="ml-auto rounded p-1.5 text-gray-400 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
-          title="Refresh models"
-        >
-          <svg
-            className={`h-4 w-4 ${isLoadingModels ? 'animate-spin' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
-        </button>
-      </div>
-
-      {/* Main Image Display Area */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Image Display */}
-        <div className="flex flex-1 items-center justify-center overflow-auto p-6">
-          {selectedImage ? (
-            <div className="relative max-h-full max-w-full">
-              <img
-                src={selectedImage.imageUrl}
-                alt={selectedImage.prompt}
-                className="max-h-[75vh] cursor-pointer rounded-2xl object-contain shadow-2xl transition hover:opacity-90"
-                onClick={() => setLightboxImage(selectedImage)}
-                onContextMenu={(e) => handleContextMenu(e, selectedImage)}
-                title="点击放大查看 | 右键打开菜单"
-              />
-              <div className="absolute bottom-4 right-4 flex gap-2">
-                <button
-                  onClick={() => setLightboxImage(selectedImage)}
-                  className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm text-white backdrop-blur-md transition hover:bg-white/20"
-                  title="全屏查看"
-                >
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-                    />
-                  </svg>
-                  Expand
-                </button>
-                <button
-                  onClick={() => handleDownload(selectedImage)}
-                  className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm text-white backdrop-blur-md transition hover:bg-white/20"
-                >
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                    />
-                  </svg>
-                  Download
-                </button>
-              </div>
-            </div>
-          ) : isGenerating ? (
-            <div className="flex flex-col items-center gap-6">
-              <div className="relative h-24 w-24">
-                <div className="absolute inset-0 animate-spin rounded-full border-4 border-purple-500/30 border-t-purple-500" />
-                <div
-                  className="absolute inset-3 animate-spin rounded-full border-4 border-blue-500/30 border-t-blue-500"
-                  style={{
-                    animationDirection: 'reverse',
-                    animationDuration: '1.5s',
-                  }}
-                />
-              </div>
-              <p className="text-lg text-gray-400">Creating your image...</p>
-            </div>
-          ) : (
-            <div className="flex max-w-xl flex-col items-center gap-6 text-center">
-              <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20">
-                <svg
-                  className="h-12 w-12 text-purple-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-              </div>
-              <div>
-                <h2 className="mb-2 text-2xl font-semibold text-white">
-                  Create with AI
-                </h2>
-                <p className="text-gray-400">
-                  Describe, paste URLs, upload files, or add YouTube videos
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Processing Steps Panel (Right Side) */}
-        {selectedImage?.processingSteps &&
-          selectedImage.processingSteps.length > 0 && (
-            <div
-              className={`flex flex-col border-l border-white/10 bg-[#12121f] transition-all duration-300 ${showProcessing ? 'w-80' : 'w-10'}`}
-            >
-              <button
-                onClick={() => setShowProcessing(!showProcessing)}
-                className="flex w-full flex-shrink-0 items-center justify-between border-b border-white/10 px-3 py-2 text-xs text-gray-400 hover:text-white"
-              >
-                {showProcessing && <span>Processing Details</span>}
-                <svg
-                  className={`h-4 w-4 transition-transform ${showProcessing ? '' : 'rotate-180'}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </button>
-              {showProcessing && (
-                <div className="scrollbar-dark flex-1 overflow-y-auto p-4">
-                  {/* Models Used */}
-                  {(selectedImage.textModelUsed ||
-                    selectedImage.imageModelUsed) && (
-                      <div className="mb-4 space-y-1 border-b border-white/10 pb-3">
-                        {selectedImage.textModelUsed && (
-                          <p className="text-xs text-gray-500">
-                            <span className="text-gray-400">Text Model:</span>{' '}
-                            {selectedImage.textModelUsed}
-                          </p>
-                        )}
-                        {selectedImage.imageModelUsed && (
-                          <p className="text-xs text-gray-500">
-                            <span className="text-gray-400">Image Model:</span>{' '}
-                            {selectedImage.imageModelUsed}
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                  {/* Steps */}
-                  {renderProcessingSteps(selectedImage.processingSteps)}
-
-                  {/* Enhanced Prompt */}
-                  {selectedImage.enhancedPrompt && (
-                    <div className="mt-4 border-t border-white/10 pt-4">
-                      <p className="mb-2 text-xs font-medium text-gray-400">
-                        Final Image Prompt:
-                      </p>
-                      <p className="text-xs leading-relaxed text-gray-300">
-                        {selectedImage.enhancedPrompt}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-      </div>
-
-      {/* Generated Images Gallery - Compact */}
-      {generatedImages.length > 0 && (
-        <div className="flex-shrink-0 border-t border-white/10 px-4 py-2">
-          <div
-            ref={galleryRef}
+      {/* Mobile: Horizontal Thumbnails at Top */}
+      {isMobile && generatedImages.length > 0 && (
+        <div className="flex-shrink-0 border-b border-white/10 bg-[#12121f]">
+          <ThumbnailGallery
+            images={generatedImages}
+            selectedImage={selectedImage}
+            bookmarkedImages={bookmarkedImages}
+            onSelect={setSelectedImage}
+            onContextMenu={handleContextMenu}
             onWheel={handleGalleryWheel}
-            className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/20 hover:scrollbar-thumb-white/40 flex gap-2 overflow-x-auto"
-          >
-            {generatedImages.map((img) => (
-              <button
-                key={img.id}
-                onClick={() => setSelectedImage(img)}
-                onContextMenu={(e) => handleContextMenu(e, img)}
-                className={`relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg transition ${selectedImage?.id === img.id
-                  ? 'ring-2 ring-purple-500 ring-offset-1 ring-offset-[#1a1a2e]'
-                  : 'opacity-60 hover:opacity-100'
-                  }`}
-              >
-                {bookmarkedImages.has(img.id) && (
-                  <div className="absolute right-0.5 top-0.5 z-10">
-                    <svg
-                      className="h-3 w-3 text-yellow-400"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                    </svg>
-                  </div>
-                )}
-                <img
-                  src={img.imageUrl}
-                  alt={img.prompt}
-                  className="h-full w-full object-cover"
-                />
-              </button>
-            ))}
-          </div>
+            isVertical={false}
+          />
         </div>
       )}
 
-      {/* Input Mode Tabs */}
-      <div className="flex-shrink-0 border-t border-white/10 px-4 pt-2">
-        {inputMode === 'refine' ? (
-          /* Refine 模式显示特殊头部 */
-          <div className="flex items-center gap-2 rounded-t-lg bg-purple-500/10 px-3 py-2">
-            <svg
-              className="h-4 w-4 text-purple-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            <span className="text-xs font-medium text-purple-300">
-              Refine Image
-            </span>
-            <span className="text-xs text-gray-500">
-              - Describe how you want to improve this image
-            </span>
-          </div>
-        ) : (
-          <div className="flex gap-1">
-            {[
-              {
-                mode: 'prompt' as InputMode,
-                label: 'Prompt',
-                icon: 'M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
-              },
-              {
-                mode: 'youtube' as InputMode,
-                label: 'YouTube',
-                icon: 'M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-              },
-              {
-                mode: 'url' as InputMode,
-                label: 'URLs',
-                icon: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1',
-              },
-              {
-                mode: 'files' as InputMode,
-                label: 'Files',
-                icon: 'M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12',
-              },
-            ].map(({ mode, label, icon }) => (
-              <button
-                key={mode}
-                onClick={() => setInputMode(mode)}
-                className={`flex items-center gap-1.5 rounded-t-lg px-3 py-2 text-xs font-medium transition ${inputMode === mode
-                  ? 'bg-white/10 text-white'
-                  : 'text-gray-500 hover:text-gray-300'
-                  }`}
-              >
-                <svg
-                  className="h-3.5 w-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d={icon}
-                  />
-                </svg>
-                {label}
-              </button>
-            ))}
+      {/* Main Three-Column Layout */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* LEFT: Vertical Thumbnail Gallery (Desktop Only) */}
+        {!isMobile && (
+          <div className="w-20 flex-shrink-0 border-r border-white/10 bg-[#12121f]">
+            <ThumbnailGallery
+              images={generatedImages}
+              selectedImage={selectedImage}
+              bookmarkedImages={bookmarkedImages}
+              onSelect={setSelectedImage}
+              onContextMenu={handleContextMenu}
+              onWheel={handleGalleryWheel}
+              isVertical={true}
+            />
           </div>
         )}
-      </div>
 
-      {/* Input Area */}
-      <div className="border-t border-white/10 p-4">
-        <div className="mx-auto max-w-3xl">
-          <SourcePool />
-          {error && (
-            <div className="mb-3 rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">
-              {error}
-            </div>
-          )}
-
-          {/* Prompt Input */}
-          {inputMode === 'prompt' && (
-            <div className="flex items-center gap-3 rounded-xl bg-white/5 p-2 ring-1 ring-white/10 focus-within:ring-purple-500/50">
-              <div className="relative flex-1">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={prompt}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setPrompt(value);
-                    const cursor = e.target.selectionStart || 0;
-                    setCursorPosition(cursor);
-
-                    // Check for @
-                    const lastAt = value.lastIndexOf('@', cursor);
-                    if (lastAt !== -1 && lastAt < cursor) {
-                      const query = value.slice(lastAt + 1, cursor);
-                      // Only show if no spaces in query (simple implementation)
-                      if (!query.includes(' ')) {
-                        setShowMentions(true);
-                        setMentionQuery(query);
-                        return;
-                      }
-                    }
-                    setShowMentions(false);
-                  }}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Describe what you want to create... (Type @ to mention sources)"
-                  className="w-full bg-transparent px-3 py-2 text-white placeholder-gray-500 focus:outline-none"
-                  disabled={isGenerating}
-                />
-                {/* Mentions Dropdown */}
-                {showMentions && sources.length > 0 && (
-                  <div className="absolute bottom-full left-0 mb-2 w-64 overflow-hidden rounded-lg border border-white/10 bg-[#1a1a2e] shadow-xl">
-                    <div className="border-b border-white/10 bg-white/5 px-3 py-2 text-xs text-gray-400">
-                      Mention source...
-                    </div>
-                    <div className="max-h-48 overflow-y-auto">
-                      {sources
-                        .filter((s) =>
-                          s.title
-                            .toLowerCase()
-                            .includes(mentionQuery.toLowerCase())
-                        )
-                        .map((source) => (
-                          <button
-                            key={source.id}
-                            onClick={() => {
-                              const lastAt = prompt.lastIndexOf(
-                                '@',
-                                cursorPosition
-                              );
-                              if (lastAt !== -1) {
-                                const newPrompt =
-                                  prompt.slice(0, lastAt) +
-                                  `@[${source.title}]` +
-                                  prompt.slice(cursorPosition);
-                                setPrompt(newPrompt);
-                                setShowMentions(false);
-                                inputRef.current?.focus();
-                                // Update cursor position (approximate)
-                                setTimeout(() => {
-                                  const newCursor =
-                                    lastAt + source.title.length + 3;
-                                  inputRef.current?.setSelectionRange(
-                                    newCursor,
-                                    newCursor
-                                  );
-                                }, 0);
-                              }
-                            }}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-300 hover:bg-white/10 hover:text-white"
-                          >
-                            <span className="flex-shrink-0">
-                              {source.type === 'paper'
-                                ? '📄'
-                                : source.type === 'youtube'
-                                  ? '🎬'
-                                  : '🔗'}
-                            </span>
-                            <span className="truncate">{source.title}</span>
-                          </button>
-                        ))}
-                    </div>
+        {/* CENTER: Main Canvas */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          {/* Canvas Area */}
+          <div className="relative flex flex-1 items-center justify-center overflow-auto p-4">
+            {selectedImage ? (
+              <div className="relative max-h-full max-w-full">
+                {/* Image Info Bar */}
+                <div className="absolute left-0 right-0 top-0 flex items-center justify-between rounded-t-xl bg-gradient-to-b from-black/60 to-transparent px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-white/80">
+                      {selectedImage.width} x {selectedImage.height}
+                    </span>
+                    {selectedImage.imageModelUsed && (
+                      <>
+                        <span className="text-white/30">|</span>
+                        <span className="text-xs text-purple-300">
+                          {selectedImage.imageModelUsed}
+                        </span>
+                      </>
+                    )}
                   </div>
-                )}
-              </div>
-              <button
-                onClick={handleGenerate}
-                disabled={
-                  !hasValidInput() ||
-                  isGenerating ||
-                  models.imageModels.length === 0
-                }
-                className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white transition hover:from-purple-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isGenerating ? (
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                ) : (
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-                    />
-                  </svg>
-                )}
-              </button>
-            </div>
-          )}
-
-          {/* YouTube Input */}
-          {inputMode === 'youtube' && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/10 focus-within:ring-red-500/50">
-                <svg
-                  className="h-5 w-5 text-red-500"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                </svg>
-                <input
-                  type="url"
-                  value={youtubeUrl}
-                  onChange={(e) => setYoutubeUrl(e.target.value)}
-                  placeholder="Paste YouTube video URL..."
-                  className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none"
-                  disabled={isGenerating}
-                />
-              </div>
-              <p className="text-xs text-gray-500">
-                The system will extract video subtitles and generate an image
-                based on the content
-              </p>
-              <div className="flex justify-end">
-                <button
-                  onClick={handleGenerate}
-                  disabled={
-                    !hasValidInput() ||
-                    isGenerating ||
-                    models.imageModels.length === 0
-                  }
-                  className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-red-600 to-pink-600 px-4 py-2 text-sm text-white transition hover:from-red-700 hover:to-pink-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isGenerating ? (
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  ) : (
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-                      />
-                    </svg>
-                  )}
-                  Generate from Video
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* URL Input */}
-          {inputMode === 'url' && (
-            <div className="space-y-2">
-              {urls.map((url, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <div className="flex flex-1 items-center rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/10 focus-within:ring-purple-500/50">
-                    <svg
-                      className="mr-2 h-4 w-4 flex-shrink-0 text-gray-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                      />
-                    </svg>
-                    <input
-                      type="text"
-                      value={url}
-                      onChange={(e) => updateUrl(index, e.target.value)}
-                      placeholder="https://example.com/article  输入描述来指导AI生成..."
-                      className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none"
-                      disabled={isGenerating}
-                    />
-                  </div>
-                  {urls.length > 1 && (
-                    <button
-                      onClick={() => removeUrlInput(index)}
-                      className="rounded-lg p-2 text-gray-500 transition hover:bg-white/10 hover:text-white"
-                    >
-                      <svg
-                        className="h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
-                  )}
+                  <span className="text-xs text-white/60">
+                    {new Date(selectedImage.createdAt).toLocaleString()}
+                  </span>
                 </div>
-              ))}
-              <p className="text-xs text-gray-500">
-                支持在URL后添加描述来指导AI生成，例如：https://example.com/article
-                请生成信息图
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={addUrlInput}
-                  className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs text-gray-400 transition hover:bg-white/10 hover:text-white"
-                >
+                {/* Main Image */}
+                <img
+                  src={selectedImage.imageUrl}
+                  alt={selectedImage.prompt}
+                  className="max-h-[70vh] cursor-pointer rounded-xl object-contain shadow-2xl transition hover:shadow-purple-500/20"
+                  onClick={() => setLightboxImage(selectedImage)}
+                  onContextMenu={(e) => handleContextMenu(e, selectedImage)}
+                />
+                {/* Toolbar */}
+                <CanvasToolbar
+                  image={selectedImage}
+                  onExpand={() => setLightboxImage(selectedImage)}
+                  onDownload={() => handleDownload(selectedImage)}
+                  onRefine={() => handleRefineImage(selectedImage)}
+                  onCopy={() => handleCopyImage(selectedImage)}
+                />
+              </div>
+            ) : isGenerating ? (
+              <div className="flex flex-col items-center gap-6">
+                <div className="relative h-24 w-24">
+                  <div className="absolute inset-0 animate-spin rounded-full border-4 border-purple-500/30 border-t-purple-500" />
+                  <div
+                    className="absolute inset-3 animate-spin rounded-full border-4 border-blue-500/30 border-t-blue-500"
+                    style={{
+                      animationDirection: 'reverse',
+                      animationDuration: '1.5s',
+                    }}
+                  />
+                </div>
+                <div className="text-center">
+                  <p className="text-lg text-gray-300">
+                    Creating your image...
+                  </p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    AI is processing your request
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex max-w-md flex-col items-center gap-6 px-4 text-center">
+                <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20">
                   <svg
-                    className="h-3.5 w-3.5"
+                    className="h-12 w-12 text-purple-400"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -1360,93 +1634,112 @@ export default function ImageGenerator({
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
+                      strokeWidth={1.5}
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                     />
                   </svg>
-                  Add URL
-                </button>
-                <div className="flex-1" />
-                <button
-                  onClick={handleGenerate}
-                  disabled={
-                    !hasValidInput() ||
-                    isGenerating ||
-                    models.imageModels.length === 0
-                  }
-                  className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 px-4 py-2 text-sm text-white transition hover:from-purple-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isGenerating ? (
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  ) : (
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-                      />
-                    </svg>
-                  )}
-                  Generate
-                </button>
+                </div>
+                <div>
+                  <h2 className="mb-2 text-2xl font-semibold text-white">
+                    Create with AI
+                  </h2>
+                  <p className="text-gray-400">
+                    Describe your vision, paste URLs, upload files, or add
+                    YouTube videos
+                  </p>
+                </div>
               </div>
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT: Insights Panel + Input Area */}
+        <div
+          className={`flex flex-col border-l border-white/10 bg-[#12121f] ${isMobile ? 'w-full' : 'w-96'}`}
+        >
+          {/* Insights Panel (when image selected) */}
+          {selectedImage && (
+            <div className="flex-1 overflow-hidden border-b border-white/10">
+              <InsightsPanel
+                image={selectedImage}
+                activeTab={insightsTab}
+                onTabChange={setInsightsTab}
+              />
             </div>
           )}
 
-          {/* Files Input */}
-          {inputMode === 'files' && (
-            <div className="space-y-3">
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept=".txt,.md,.html,.json,.pdf,.srt,.vtt,image/*"
-                onChange={(e) => handleFileSelect(e.target.files)}
-                className="hidden"
-              />
-              <div
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition ${isDragging
-                  ? 'border-purple-500 bg-purple-500/10'
-                  : 'border-white/20 bg-white/5 hover:border-purple-500/50 hover:bg-white/10'
-                  }`}
-              >
-                <svg
-                  className={`mb-2 h-8 w-8 ${isDragging ? 'text-purple-400' : 'text-gray-500'}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                  />
-                </svg>
-                <p className="text-sm text-gray-400">
-                  {isDragging
-                    ? 'Drop files here'
-                    : 'Click or drag files to upload'}
-                </p>
-                <p className="mt-1 text-xs text-gray-500">
-                  PDF, TXT, MD, HTML, JSON, SRT, VTT, Images (max 50MB)
-                </p>
+          {/* Input Area */}
+          <div
+            className={`flex-shrink-0 ${selectedImage ? '' : 'flex flex-1 flex-col justify-end'}`}
+          >
+            {/* Control Bar */}
+            <div className="flex flex-wrap items-center gap-2 border-b border-white/10 bg-[#0f0f1a] px-3 py-2">
+              {/* Model Selector */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-gray-500">Model:</span>
+                {isLoadingModels ? (
+                  <div className="h-6 w-24 animate-pulse rounded bg-white/10" />
+                ) : models.imageModels.length > 0 ? (
+                  <select
+                    value={selectedImageModelId}
+                    onChange={(e) => setSelectedImageModelId(e.target.value)}
+                    className="rounded bg-white/10 px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-purple-500/50"
+                    disabled={isGenerating}
+                  >
+                    {models.imageModels.map((model) => (
+                      <option
+                        key={model.id}
+                        value={model.id}
+                        className="bg-[#1a1a2e]"
+                      >
+                        {model.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="text-xs text-yellow-400">No models</span>
+                )}
               </div>
 
-              {/* Prompt input for files */}
-              <div className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/10 focus-within:ring-purple-500/50">
+              {/* Aspect Ratio */}
+              <div className="flex items-center gap-1">
+                {(['1:1', '16:9', '9:16', '4:3'] as const).map((ratio) => (
+                  <button
+                    key={ratio}
+                    onClick={() => setAspectRatio(ratio)}
+                    disabled={isGenerating}
+                    className={`rounded px-1.5 py-0.5 text-[10px] transition ${
+                      aspectRatio === ratio
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                    }`}
+                  >
+                    {ratio}
+                  </button>
+                ))}
+              </div>
+
+              {/* Skip Enhancement */}
+              <label className="flex cursor-pointer items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={skipEnhancement}
+                  onChange={(e) => setSkipEnhancement(e.target.checked)}
+                  className="h-3 w-3 rounded border-gray-600 bg-transparent text-purple-500"
+                  disabled={isGenerating}
+                />
+                <span className="text-[10px] text-gray-400">Skip AI</span>
+              </label>
+
+              {/* Refresh Models */}
+              <button
+                onClick={fetchModels}
+                disabled={isLoadingModels}
+                className="ml-auto rounded p-1 text-gray-500 hover:bg-white/10 hover:text-white"
+                title="Refresh models"
+              >
                 <svg
-                  className="h-4 w-4 flex-shrink-0 text-gray-500"
+                  className={`h-3.5 w-3.5 ${isLoadingModels ? 'animate-spin' : ''}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -1455,125 +1748,60 @@ export default function ImageGenerator({
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                   />
                 </svg>
-                <input
-                  type="text"
-                  value={filesPrompt}
-                  onChange={(e) => setFilesPrompt(e.target.value)}
-                  placeholder="Describe what image to generate from these files..."
-                  className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none"
-                  disabled={isGenerating}
-                />
-              </div>
-
-              {uploadedFiles.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {uploadedFiles.map((uf) => (
-                    <div
-                      key={uf.id}
-                      className="group flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2"
-                    >
-                      {uf.preview ? (
-                        <img
-                          src={uf.preview}
-                          alt={uf.file.name}
-                          className="h-8 w-8 rounded object-cover"
-                        />
-                      ) : (
-                        <svg
-                          className="h-5 w-5 text-gray-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d={getFileIcon(uf.file)}
-                          />
-                        </svg>
-                      )}
-                      <span className="max-w-[150px] truncate text-xs text-gray-300">
-                        {uf.file.name}
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeFile(uf.id);
-                        }}
-                        className="ml-1 rounded p-0.5 text-gray-500 opacity-0 transition hover:bg-white/10 hover:text-white group-hover:opacity-100"
-                      >
-                        <svg
-                          className="h-3.5 w-3.5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="flex justify-end">
-                <button
-                  onClick={handleGenerate}
-                  disabled={
-                    !hasValidInput() ||
-                    isGenerating ||
-                    models.imageModels.length === 0
-                  }
-                  className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 px-4 py-2 text-sm text-white transition hover:from-purple-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isGenerating ? (
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  ) : (
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-                      />
-                    </svg>
-                  )}
-                  Generate from Files
-                </button>
-              </div>
+              </button>
             </div>
-          )}
 
-          {/* Refine Input - 图片引用完善模式 */}
-          {inputMode === 'refine' && refineImage && (
-            <div className="space-y-3">
-              {/* 参考图片预览 */}
-              <div className="flex items-start gap-4 rounded-xl bg-purple-500/10 p-4 ring-1 ring-purple-500/30">
-                <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg">
-                  <img
-                    src={refineImage.imageUrl}
-                    alt="Reference image"
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="mb-1 flex items-center gap-2">
+            {/* Source Pool */}
+            <div className="px-3 pt-2">
+              <SourcePool />
+            </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="mx-3 mb-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
+                {error}
+              </div>
+            )}
+
+            {/* Input Mode Tabs */}
+            {inputMode !== 'refine' && (
+              <div className="flex gap-0.5 px-3 pt-1">
+                {[
+                  {
+                    mode: 'prompt' as InputMode,
+                    label: 'Prompt',
+                    icon: 'M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+                  },
+                  {
+                    mode: 'youtube' as InputMode,
+                    label: 'YouTube',
+                    icon: 'M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+                  },
+                  {
+                    mode: 'url' as InputMode,
+                    label: 'URL',
+                    icon: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1',
+                  },
+                  {
+                    mode: 'files' as InputMode,
+                    label: 'Files',
+                    icon: 'M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12',
+                  },
+                ].map(({ mode, label, icon }) => (
+                  <button
+                    key={mode}
+                    onClick={() => setInputMode(mode)}
+                    className={`flex items-center gap-1 rounded-t px-2 py-1.5 text-[10px] font-medium transition ${
+                      inputMode === mode
+                        ? 'bg-white/10 text-white'
+                        : 'text-gray-500 hover:text-gray-300'
+                    }`}
+                  >
                     <svg
-                      className="h-4 w-4 text-purple-400"
+                      className="h-3 w-3"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -1582,24 +1810,37 @@ export default function ImageGenerator({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                        d={icon}
                       />
                     </svg>
-                    <span className="text-sm font-medium text-purple-300">
-                      Refine Image Mode
-                    </span>
-                  </div>
-                  <p className="line-clamp-2 text-xs text-gray-400">
-                    {refineImage.enhancedPrompt || refineImage.prompt}
-                  </p>
-                  <p className="mt-1 text-xs text-gray-500">
-                    {refineImage.width} × {refineImage.height}
-                  </p>
-                </div>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Refine Mode Header */}
+            {inputMode === 'refine' && (
+              <div className="mx-3 mt-2 flex items-center gap-2 rounded-t-lg bg-purple-500/10 px-3 py-2">
+                <svg
+                  className="h-4 w-4 text-purple-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                <span className="text-xs font-medium text-purple-300">
+                  Refine Image
+                </span>
                 <button
                   onClick={handleCancelRefine}
-                  className="flex-shrink-0 rounded-lg p-1.5 text-gray-400 transition hover:bg-white/10 hover:text-white"
-                  title="Cancel refine"
+                  className="ml-auto text-gray-400 hover:text-white"
                 >
                   <svg
                     className="h-4 w-4"
@@ -1616,38 +1857,323 @@ export default function ImageGenerator({
                   </svg>
                 </button>
               </div>
+            )}
 
-              {/* 提示词输入 */}
-              <div className="flex items-center gap-3 rounded-xl bg-white/5 p-2 ring-1 ring-white/10 focus-within:ring-purple-500/50">
-                <input
-                  type="text"
-                  value={refinePrompt}
-                  onChange={(e) => setRefinePrompt(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleGenerate();
-                    }
-                  }}
-                  placeholder="Describe how to refine this image... (e.g., 'make it more vibrant', 'add snow', 'change style to watercolor')"
-                  className="flex-1 bg-transparent px-3 py-2 text-white placeholder-gray-500 focus:outline-none"
-                  disabled={isGenerating}
-                  autoFocus
-                />
-                <button
-                  onClick={handleGenerate}
-                  disabled={
-                    !hasValidInput() ||
-                    isGenerating ||
-                    models.imageModels.length === 0
-                  }
-                  className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white transition hover:from-purple-700 hover:to-pink-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isGenerating ? (
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  ) : (
+            {/* Input Area Content */}
+            <div className="p-3">
+              {/* Prompt Input */}
+              {inputMode === 'prompt' && (
+                <div className="relative">
+                  <div className="rounded-xl bg-white/5 ring-1 ring-white/10 focus-within:ring-purple-500/50">
+                    <textarea
+                      ref={textareaRef}
+                      value={prompt}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setPrompt(value);
+                        const cursor = e.target.selectionStart || 0;
+                        setCursorPosition(cursor);
+                        const lastAt = value.lastIndexOf('@', cursor);
+                        if (lastAt !== -1 && lastAt < cursor) {
+                          const query = value.slice(lastAt + 1, cursor);
+                          if (!query.includes(' ')) {
+                            setShowMentions(true);
+                            setMentionQuery(query);
+                            return;
+                          }
+                        }
+                        setShowMentions(false);
+                      }}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Describe what you want to create... (Type @ to mention sources, Shift+Enter for new line)"
+                      className="max-h-[200px] min-h-[80px] w-full resize-none bg-transparent px-3 py-3 text-sm text-white placeholder-gray-500 focus:outline-none"
+                      disabled={isGenerating}
+                      rows={3}
+                    />
+                    <div className="flex items-center justify-between px-3 pb-2">
+                      <span className="text-[10px] text-gray-500">
+                        Enter to generate
+                      </span>
+                      <button
+                        onClick={handleGenerate}
+                        disabled={
+                          !hasValidInput() ||
+                          isGenerating ||
+                          models.imageModels.length === 0
+                        }
+                        className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 px-3 py-1.5 text-xs text-white transition hover:from-purple-700 hover:to-blue-700 disabled:opacity-50"
+                      >
+                        {isGenerating ? (
+                          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        ) : (
+                          <svg
+                            className="h-3.5 w-3.5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+                            />
+                          </svg>
+                        )}
+                        Generate
+                      </button>
+                    </div>
+                  </div>
+                  {/* Mentions Dropdown */}
+                  {showMentions && filteredSources.length > 0 && (
+                    <div className="absolute bottom-full left-0 z-10 mb-2 w-full max-w-xs overflow-hidden rounded-lg border border-white/10 bg-[#1a1a2e] shadow-xl">
+                      <div className="border-b border-white/10 bg-white/5 px-3 py-1.5 text-[10px] text-gray-400">
+                        Mention source...
+                      </div>
+                      <div className="max-h-40 overflow-y-auto">
+                        {filteredSources.map((source) => (
+                          <button
+                            key={source.id}
+                            onClick={() => {
+                              const lastAt = prompt.lastIndexOf(
+                                '@',
+                                cursorPosition
+                              );
+                              if (lastAt !== -1) {
+                                const newPrompt =
+                                  prompt.slice(0, lastAt) +
+                                  `@[${source.title}]` +
+                                  prompt.slice(cursorPosition);
+                                setPrompt(newPrompt);
+                                setShowMentions(false);
+                                textareaRef.current?.focus();
+                              }
+                            }}
+                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-300 hover:bg-white/10"
+                          >
+                            <span className="flex-shrink-0">
+                              {source.type === 'paper'
+                                ? '📄'
+                                : source.type === 'youtube'
+                                  ? '🎬'
+                                  : '🔗'}
+                            </span>
+                            <span className="truncate">{source.title}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* YouTube Input */}
+              {inputMode === 'youtube' && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/10 focus-within:ring-red-500/50">
                     <svg
-                      className="h-4 w-4"
+                      className="h-4 w-4 flex-shrink-0 text-red-500"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                    </svg>
+                    <input
+                      type="url"
+                      value={youtubeUrl}
+                      onChange={(e) => setYoutubeUrl(e.target.value)}
+                      placeholder="Paste YouTube video URL..."
+                      className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none"
+                      disabled={isGenerating}
+                    />
+                  </div>
+                  <p className="text-[10px] text-gray-500">
+                    Extract video subtitles and generate an image based on
+                    content
+                  </p>
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleGenerate}
+                      disabled={
+                        !hasValidInput() ||
+                        isGenerating ||
+                        models.imageModels.length === 0
+                      }
+                      className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-red-600 to-pink-600 px-3 py-1.5 text-xs text-white transition hover:from-red-700 hover:to-pink-700 disabled:opacity-50"
+                    >
+                      {isGenerating ? (
+                        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      ) : (
+                        <svg
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+                          />
+                        </svg>
+                      )}
+                      Generate
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* URL Input */}
+              {inputMode === 'url' && (
+                <div className="space-y-2">
+                  {urls.map((url, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <div className="flex flex-1 items-center rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/10 focus-within:ring-purple-500/50">
+                        <svg
+                          className="mr-2 h-3.5 w-3.5 flex-shrink-0 text-gray-500"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                          />
+                        </svg>
+                        <input
+                          type="text"
+                          value={url}
+                          onChange={(e) => updateUrl(index, e.target.value)}
+                          placeholder="https://example.com/article"
+                          className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none"
+                          disabled={isGenerating}
+                        />
+                      </div>
+                      {urls.length > 1 && (
+                        <button
+                          onClick={() => removeUrlInput(index)}
+                          className="rounded p-1 text-gray-500 hover:bg-white/10 hover:text-white"
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={addUrlInput}
+                      className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-white"
+                    >
+                      <svg
+                        className="h-3 w-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 4v16m8-8H4"
+                        />
+                      </svg>
+                      Add URL
+                    </button>
+                    <div className="flex-1" />
+                    <button
+                      onClick={handleGenerate}
+                      disabled={
+                        !hasValidInput() ||
+                        isGenerating ||
+                        models.imageModels.length === 0
+                      }
+                      className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 px-3 py-1.5 text-xs text-white transition hover:from-purple-700 hover:to-blue-700 disabled:opacity-50"
+                    >
+                      {isGenerating ? (
+                        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      ) : (
+                        <svg
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+                          />
+                        </svg>
+                      )}
+                      Generate
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Files Input */}
+              {inputMode === 'files' && (
+                <div className="space-y-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".txt,.md,.html,.json,.pdf,.srt,.vtt,image/*"
+                    onChange={(e) => handleFileSelect(e.target.files)}
+                    className="hidden"
+                  />
+                  <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-4 transition ${
+                      isDragging
+                        ? 'border-purple-500 bg-purple-500/10'
+                        : 'border-white/20 bg-white/5 hover:border-purple-500/50'
+                    }`}
+                  >
+                    <svg
+                      className={`mb-1 h-6 w-6 ${isDragging ? 'text-purple-400' : 'text-gray-500'}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                      />
+                    </svg>
+                    <p className="text-xs text-gray-400">
+                      {isDragging ? 'Drop files here' : 'Click or drag files'}
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-gray-500">
+                      PDF, TXT, MD, HTML, JSON, Images (max 50MB)
+                    </p>
+                  </div>
+
+                  {/* Prompt for files */}
+                  <div className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/10 focus-within:ring-purple-500/50">
+                    <svg
+                      className="h-3.5 w-3.5 flex-shrink-0 text-gray-500"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -1656,39 +2182,201 @@ export default function ImageGenerator({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                       />
                     </svg>
-                  )}
-                </button>
-              </div>
-              <p className="text-xs text-gray-500">
-                Enter to generate • AI will use this image as reference
-              </p>
-            </div>
-          )}
+                    <input
+                      type="text"
+                      value={filesPrompt}
+                      onChange={(e) => setFilesPrompt(e.target.value)}
+                      placeholder="Describe what to generate from files..."
+                      className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none"
+                      disabled={isGenerating}
+                    />
+                  </div>
 
-          <p className="mt-1 pb-1 text-center text-xs text-gray-500">
-            {inputMode === 'prompt' &&
-              'Enter to generate • AI enhances prompts'}
-            {inputMode === 'youtube' && 'Extract subtitles to generate images'}
-            {inputMode === 'url' && 'Add URLs to generate images'}
-            {inputMode === 'files' && 'Upload files for AI analysis'}
-          </p>
+                  {uploadedFiles.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {uploadedFiles.map((uf) => (
+                        <div
+                          key={uf.id}
+                          className="group flex items-center gap-1.5 rounded bg-white/10 px-2 py-1"
+                        >
+                          {uf.preview ? (
+                            <img
+                              src={uf.preview}
+                              alt={uf.file.name}
+                              className="h-5 w-5 rounded object-cover"
+                            />
+                          ) : (
+                            <svg
+                              className="h-4 w-4 text-gray-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d={getFileIcon(uf.file)}
+                              />
+                            </svg>
+                          )}
+                          <span className="max-w-[100px] truncate text-[10px] text-gray-300">
+                            {uf.file.name}
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeFile(uf.id);
+                            }}
+                            className="text-gray-500 opacity-0 hover:text-white group-hover:opacity-100"
+                          >
+                            <svg
+                              className="h-3 w-3"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleGenerate}
+                      disabled={
+                        !hasValidInput() ||
+                        isGenerating ||
+                        models.imageModels.length === 0
+                      }
+                      className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 px-3 py-1.5 text-xs text-white transition hover:from-purple-700 hover:to-blue-700 disabled:opacity-50"
+                    >
+                      {isGenerating ? (
+                        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      ) : (
+                        <svg
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+                          />
+                        </svg>
+                      )}
+                      Generate
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Refine Input */}
+              {inputMode === 'refine' && refineImage && (
+                <div className="space-y-2">
+                  {/* Reference image preview */}
+                  <div className="flex items-start gap-3 rounded-xl bg-purple-500/10 p-3 ring-1 ring-purple-500/30">
+                    <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg">
+                      <img
+                        src={refineImage.imageUrl}
+                        alt="Reference"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium text-purple-300">
+                        Reference Image
+                      </p>
+                      <p className="mt-0.5 line-clamp-2 text-[10px] text-gray-400">
+                        {refineImage.enhancedPrompt || refineImage.prompt}
+                      </p>
+                      <p className="mt-0.5 text-[10px] text-gray-500">
+                        {refineImage.width} x {refineImage.height}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Refine prompt input */}
+                  <div className="rounded-xl bg-white/5 ring-1 ring-white/10 focus-within:ring-purple-500/50">
+                    <textarea
+                      value={refinePrompt}
+                      onChange={(e) => setRefinePrompt(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleGenerate();
+                        }
+                      }}
+                      placeholder="Describe how to refine... (e.g., 'make it more vibrant', 'add snow')"
+                      className="min-h-[60px] w-full resize-none bg-transparent px-3 py-3 text-sm text-white placeholder-gray-500 focus:outline-none"
+                      disabled={isGenerating}
+                      autoFocus
+                      rows={2}
+                    />
+                    <div className="flex items-center justify-between px-3 pb-2">
+                      <span className="text-[10px] text-gray-500">
+                        Enter to generate
+                      </span>
+                      <button
+                        onClick={handleGenerate}
+                        disabled={
+                          !hasValidInput() ||
+                          isGenerating ||
+                          models.imageModels.length === 0
+                        }
+                        className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-3 py-1.5 text-xs text-white transition hover:from-purple-700 hover:to-pink-700 disabled:opacity-50"
+                      >
+                        {isGenerating ? (
+                          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        ) : (
+                          <svg
+                            className="h-3.5 w-3.5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                            />
+                          </svg>
+                        )}
+                        Refine
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Lightbox Modal */}
       {lightboxImage && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-sm"
           onClick={() => setLightboxImage(null)}
         >
-          {/* Close button */}
           <button
             onClick={() => setLightboxImage(null)}
             className="absolute right-4 top-4 z-10 rounded-full bg-white/10 p-3 text-white transition hover:bg-white/20"
-            title="关闭 (ESC)"
           >
             <svg
               className="h-6 w-6"
@@ -1704,15 +2392,12 @@ export default function ImageGenerator({
               />
             </svg>
           </button>
-
-          {/* Download button */}
           <button
             onClick={(e) => {
               e.stopPropagation();
               handleDownload(lightboxImage);
             }}
             className="absolute right-20 top-4 z-10 rounded-full bg-white/10 p-3 text-white transition hover:bg-white/20"
-            title="下载图片"
           >
             <svg
               className="h-6 w-6"
@@ -1728,8 +2413,6 @@ export default function ImageGenerator({
               />
             </svg>
           </button>
-
-          {/* Image container */}
           <div
             className="relative max-h-[95vh] max-w-[95vw]"
             onClick={(e) => e.stopPropagation()}
@@ -1740,8 +2423,6 @@ export default function ImageGenerator({
               className="max-h-[95vh] max-w-[95vw] rounded-lg object-contain shadow-2xl"
               onContextMenu={(e) => handleContextMenu(e, lightboxImage)}
             />
-
-            {/* Image info at bottom */}
             <div className="absolute bottom-0 left-0 right-0 rounded-b-lg bg-gradient-to-t from-black/80 to-transparent p-4">
               {lightboxImage.enhancedPrompt && (
                 <p className="line-clamp-2 text-sm text-gray-300">
@@ -1749,15 +2430,13 @@ export default function ImageGenerator({
                 </p>
               )}
               <p className="mt-1 text-xs text-gray-500">
-                {lightboxImage.width} × {lightboxImage.height} •{' '}
+                {lightboxImage.width} x {lightboxImage.height} -{' '}
                 {new Date(lightboxImage.createdAt).toLocaleString()}
               </p>
             </div>
           </div>
-
-          {/* Navigation hint */}
           <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-gray-500">
-            点击图片外区域或按 ESC 关闭
+            Click outside or press ESC to close
           </p>
         </div>
       )}
@@ -1765,20 +2444,19 @@ export default function ImageGenerator({
       {/* Context Menu */}
       {contextMenu && (
         <div
-          className="fixed z-[60] min-w-[180px] overflow-hidden rounded-lg border border-white/10 bg-[#1a1a2e] py-1 shadow-xl"
+          className="fixed z-[60] min-w-[160px] overflow-hidden rounded-lg border border-white/10 bg-[#1a1a2e] py-1 shadow-xl"
           style={{
-            left: Math.min(contextMenu.x, window.innerWidth - 200),
-            top: Math.min(contextMenu.y, window.innerHeight - 280),
+            left: Math.min(contextMenu.x, window.innerWidth - 180),
+            top: Math.min(contextMenu.y, window.innerHeight - 320),
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Bookmark */}
           <button
             onClick={() => handleBookmark(contextMenu.image)}
-            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-300 transition hover:bg-white/10"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-300 hover:bg-white/10"
           >
             <svg
-              className={`h-4 w-4 ${bookmarkedImages.has(contextMenu.image.id) ? 'text-yellow-400' : 'text-gray-400'}`}
+              className={`h-3.5 w-3.5 ${bookmarkedImages.has(contextMenu.image.id) ? 'text-yellow-400' : 'text-gray-400'}`}
               fill={
                 bookmarkedImages.has(contextMenu.image.id)
                   ? 'currentColor'
@@ -1798,14 +2476,12 @@ export default function ImageGenerator({
               ? 'Remove Bookmark'
               : 'Add Bookmark'}
           </button>
-
-          {/* Refine Image - 引用此图片进行完善 */}
           <button
             onClick={() => handleRefineImage(contextMenu.image)}
-            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-300 transition hover:bg-white/10"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-purple-300 hover:bg-white/10"
           >
             <svg
-              className="h-4 w-4 text-purple-400"
+              className="h-3.5 w-3.5"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -1819,19 +2495,16 @@ export default function ImageGenerator({
             </svg>
             Refine Image
           </button>
-
           <div className="my-1 border-t border-white/10" />
-
-          {/* Download */}
           <button
             onClick={() => {
               handleDownload(contextMenu.image);
               setContextMenu(null);
             }}
-            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-300 transition hover:bg-white/10"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-300 hover:bg-white/10"
           >
             <svg
-              className="h-4 w-4 text-gray-400"
+              className="h-3.5 w-3.5 text-gray-400"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -1845,14 +2518,12 @@ export default function ImageGenerator({
             </svg>
             Download
           </button>
-
-          {/* Copy Image */}
           <button
             onClick={() => handleCopyImage(contextMenu.image)}
-            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-300 transition hover:bg-white/10"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-300 hover:bg-white/10"
           >
             <svg
-              className="h-4 w-4 text-gray-400"
+              className="h-3.5 w-3.5 text-gray-400"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -1866,14 +2537,12 @@ export default function ImageGenerator({
             </svg>
             Copy Image
           </button>
-
-          {/* Copy Link */}
           <button
             onClick={() => handleCopyLink(contextMenu.image)}
-            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-300 transition hover:bg-white/10"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-300 hover:bg-white/10"
           >
             <svg
-              className="h-4 w-4 text-gray-400"
+              className="h-3.5 w-3.5 text-gray-400"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -1887,16 +2556,13 @@ export default function ImageGenerator({
             </svg>
             Copy Link
           </button>
-
           <div className="my-1 border-t border-white/10" />
-
-          {/* Open in New Tab */}
           <button
             onClick={() => handleOpenInNewTab(contextMenu.image)}
-            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-300 transition hover:bg-white/10"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-300 hover:bg-white/10"
           >
             <svg
-              className="h-4 w-4 text-gray-400"
+              className="h-3.5 w-3.5 text-gray-400"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -1910,18 +2576,16 @@ export default function ImageGenerator({
             </svg>
             Open in New Tab
           </button>
-
-          {/* View in Lightbox (if not already in lightbox) */}
           {!lightboxImage && (
             <button
               onClick={() => {
                 setLightboxImage(contextMenu.image);
                 setContextMenu(null);
               }}
-              className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-300 transition hover:bg-white/10"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-300 hover:bg-white/10"
             >
               <svg
-                className="h-4 w-4 text-gray-400"
+                className="h-3.5 w-3.5 text-gray-400"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -1936,16 +2600,13 @@ export default function ImageGenerator({
               View Fullscreen
             </button>
           )}
-
           <div className="my-1 border-t border-white/10" />
-
-          {/* Delete */}
           <button
             onClick={() => handleDelete(contextMenu.image)}
-            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-red-400 transition hover:bg-red-500/10"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-red-400 hover:bg-red-500/10"
           >
             <svg
-              className="h-4 w-4"
+              className="h-3.5 w-3.5"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
