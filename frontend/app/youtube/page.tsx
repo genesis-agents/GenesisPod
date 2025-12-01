@@ -109,6 +109,7 @@ function YouTubeTLDWContent() {
   });
 
   const [notesRefreshKey, setNotesRefreshKey] = useState(0);
+  const activeAIModel = aiModels.find((m) => m.modelId === aiModel);
 
   // Key moments states
   const [keyMoments, setKeyMoments] = useState<KeyMoment[]>([]);
@@ -1104,23 +1105,29 @@ function YouTubeTLDWContent() {
                           </div>
                         ))}
                         {/* AI Thinking Indicator */}
-                        {isStreaming &&
-                          aiMessages.length > 0 &&
-                          aiMessages[aiMessages.length - 1].role ===
-                            'assistant' &&
-                          !aiMessages[aiMessages.length - 1].content && (
-                            <div className="flex justify-start">
-                              <div className="flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-gray-600">
-                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-red-600"></div>
-                                <span className="text-sm">
-                                  {aiModels.find((m) => m.modelId === aiModel)
-                                    ?.name || 'AI'}{' '}
-                                  正在分析...
-                                </span>
-                              </div>
+                        {isStreaming && (
+                          <div className="flex justify-start">
+                            <div className="flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-gray-600">
+                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-red-600" />
+                              <span className="text-sm">
+                                {activeAIModel?.name || 'AI'} 正在分析...
+                              </span>
                             </div>
-                          )}
+                          </div>
+                        )}
                       </>
+                    ) : isStreaming ? (
+                      <div className="flex h-full items-center justify-center">
+                        <div className="flex flex-col items-center gap-3 text-gray-600">
+                          <div className="h-10 w-10 animate-spin rounded-full border-2 border-gray-300 border-t-red-600" />
+                          <div className="text-sm font-medium">
+                            {activeAIModel?.name || 'AI'} 正在分析视频内容...
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            这通常只需要几秒钟
+                          </div>
+                        </div>
+                      </div>
                     ) : (
                       <div className="flex h-full items-center justify-center">
                         <div className="text-center">

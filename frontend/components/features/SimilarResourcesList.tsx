@@ -22,20 +22,87 @@ interface SimilarResourcesListProps {
   limit?: number;
 }
 
-const typeIcons: Record<string, string> = {
-  paper: '/icons/types/paper.svg',
-  github: '/icons/types/github.svg',
-  youtube: '/icons/types/youtube.svg',
-  article: '/icons/types/article.svg',
-  news: '/icons/types/news.svg',
-};
-
 const typeLabels: Record<string, string> = {
   paper: '论文',
   github: 'GitHub',
   youtube: 'YouTube',
   article: '文章',
   news: '新闻',
+  blog: '博客',
+  report: '报告',
+  podcast: '播客',
+  video: '视频',
+};
+
+const typeAccent: Record<string, { bg: string; text: string; border: string }> =
+  {
+    paper: {
+      bg: 'bg-purple-50',
+      text: 'text-purple-600',
+      border: 'border-purple-200',
+    },
+    github: {
+      bg: 'bg-gray-900',
+      text: 'text-white',
+      border: 'border-gray-900',
+    },
+    youtube: {
+      bg: 'bg-red-50',
+      text: 'text-red-600',
+      border: 'border-red-200',
+    },
+    article: {
+      bg: 'bg-blue-50',
+      text: 'text-blue-600',
+      border: 'border-blue-200',
+    },
+    news: {
+      bg: 'bg-amber-50',
+      text: 'text-amber-600',
+      border: 'border-amber-200',
+    },
+    blog: {
+      bg: 'bg-teal-50',
+      text: 'text-teal-600',
+      border: 'border-teal-200',
+    },
+    report: {
+      bg: 'bg-indigo-50',
+      text: 'text-indigo-600',
+      border: 'border-indigo-200',
+    },
+    podcast: {
+      bg: 'bg-rose-50',
+      text: 'text-rose-600',
+      border: 'border-rose-200',
+    },
+    video: {
+      bg: 'bg-red-50',
+      text: 'text-red-600',
+      border: 'border-red-200',
+    },
+  };
+
+const typeGlyphs: Record<string, string> = {
+  paper: '📄',
+  github: '',
+  youtube: '▶️',
+  article: '📰',
+  news: '🗞️',
+  blog: '✍️',
+  report: '📊',
+  podcast: '🎙️',
+  video: '🎬',
+};
+
+const getTypeAccent = (type: string) => {
+  return (
+    typeAccent[type] ?? {
+      bg: 'bg-slate-100',
+      text: 'text-slate-600',
+      border: 'border-slate-200',
+    }
+  );
 };
 
 export default function SimilarResourcesList({
@@ -138,66 +205,64 @@ export default function SimilarResourcesList({
       </div>
 
       {/* Resources Grid */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         {resources.map((resource) => (
           <div
             key={resource.id}
-            className="group cursor-pointer rounded-lg border border-gray-200 bg-white p-3 transition-all hover:border-blue-300 hover:shadow-md"
+            className="group flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-white p-3 transition-all hover:border-blue-200 hover:bg-blue-50/40"
             onClick={() => onResourceClick?.(resource)}
           >
-            <div className="flex gap-3">
-              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-blue-50">
-                <img
-                  src={typeIcons[resource.type] || '/icons/types/default.svg'}
-                  alt={resource.type}
-                  className="h-5 w-5 opacity-70"
-                />
+            <div
+              className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border text-base ${getTypeAccent(resource.type).bg} ${getTypeAccent(resource.type).border}`}
+            >
+              <span>{typeGlyphs[resource.type] || '🔖'}</span>
+            </div>
+
+            {/* Content */}
+            <div className="min-w-0 flex-1">
+              {/* Type & Date */}
+              <div className="mb-1 flex items-center gap-2 text-xs text-gray-500">
+                <span
+                  className={`rounded-full px-2 py-0.5 font-medium ${getTypeAccent(resource.type).bg} ${getTypeAccent(resource.type).text}`}
+                >
+                  {typeLabels[resource.type] || resource.type}
+                </span>
+                <span>{formatDate(resource.publishedAt)}</span>
               </div>
 
-              {/* Content */}
-              <div className="min-w-0 flex-1">
-                {/* Type & Date */}
-                <div className="mb-1 flex items-center gap-2 text-xs text-gray-500">
-                  <span className="rounded bg-gray-100 px-1.5 py-0.5">
-                    {typeLabels[resource.type] || resource.type}
-                  </span>
-                  <span>{formatDate(resource.publishedAt)}</span>
+              {/* Title */}
+              <h4 className="line-clamp-2 text-sm font-semibold text-gray-900 group-hover:text-blue-600">
+                {resource.title}
+              </h4>
+
+              {/* Abstract */}
+              {(resource.aiSummary || resource.abstract) && (
+                <p className="mt-1 line-clamp-2 text-xs text-gray-500">
+                  {truncateText(
+                    resource.aiSummary || resource.abstract || '',
+                    90
+                  )}
+                </p>
+              )}
+
+              {/* Categories */}
+              {resource.categories && resource.categories.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {resource.categories.slice(0, 2).map((cat, idx) => (
+                    <span
+                      key={idx}
+                      className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600"
+                    >
+                      {cat}
+                    </span>
+                  ))}
+                  {resource.categories.length > 2 && (
+                    <span className="text-xs text-gray-400">
+                      +{resource.categories.length - 2}
+                    </span>
+                  )}
                 </div>
-
-                {/* Title */}
-                <h4 className="line-clamp-2 text-sm font-medium text-gray-900 group-hover:text-blue-600">
-                  {resource.title}
-                </h4>
-
-                {/* Abstract */}
-                {(resource.aiSummary || resource.abstract) && (
-                  <p className="mt-1 line-clamp-2 text-xs text-gray-500">
-                    {truncateText(
-                      resource.aiSummary || resource.abstract || '',
-                      80
-                    )}
-                  </p>
-                )}
-
-                {/* Categories */}
-                {resource.categories && resource.categories.length > 0 && (
-                  <div className="mt-1.5 flex flex-wrap gap-1">
-                    {resource.categories.slice(0, 2).map((cat, idx) => (
-                      <span
-                        key={idx}
-                        className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600"
-                      >
-                        {cat}
-                      </span>
-                    ))}
-                    {resource.categories.length > 2 && (
-                      <span className="text-xs text-gray-400">
-                        +{resource.categories.length - 2}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           </div>
         ))}
