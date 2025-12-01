@@ -2,6 +2,9 @@ import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { YoutubeService } from "../youtube/youtube.service";
+import { JSDOM } from "jsdom";
+import { Readability } from "@mozilla/readability";
+import * as pdfjsLib from "pdfjs-dist";
 
 /**
  * 内容提取服务
@@ -18,7 +21,7 @@ export class ContentExtractorService {
   constructor(
     private readonly httpService: HttpService,
     private readonly youtubeService: YoutubeService,
-  ) {}
+  ) { }
 
   /**
    * 从URL提取内容
@@ -33,6 +36,11 @@ export class ContentExtractorService {
 
     if (this.isBilibiliUrl(url)) {
       return this.extractBilibiliSubtitles(url);
+    }
+
+    // 检查是否是 PDF URL
+    if (url.toLowerCase().endsWith(".pdf")) {
+      return this.extractPdfFromUrl(url);
     }
 
     // 普通网页内容提取
@@ -71,7 +79,7 @@ export class ContentExtractorService {
 
     // HTML 文件
     if (mimeType === "text/html" || filename.endsWith(".html")) {
-      return this.stripHtmlTags(buffer.toString("utf-8"));
+      return this.extractHtmlContent(buffer.toString("utf-8"), filename);
     }
 
     // PDF 文件 - 简单文本提取
@@ -312,7 +320,7 @@ export class ContentExtractorService {
   }
 
   /**
-   * 提取网页内容
+   * 提取网页内容（使用 Readability）
    */
   private async extractWebPageContent(url: string): Promise<string> {
     try {
@@ -330,40 +338,58 @@ export class ContentExtractorService {
         }),
       );
 
-      let content = response.data;
-
-      if (typeof content === "string") {
-        // 提取标题
-        const titleMatch = content.match(/<title[^>]*>([^<]*)<\/title>/i);
-        const title = titleMatch
-          ? this.decodeHtmlEntities(titleMatch[1].trim())
-          : "";
-
-        // 提取 meta description
-        const descMatch = content.match(
-          /<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i,
-        );
-        const description = descMatch
-          ? this.decodeHtmlEntities(descMatch[1].trim())
-          : "";
-
-        // 提取正文内容
-        const bodyContent = this.stripHtmlTags(content);
-
-        let result = "";
-        if (title) result += `Title: ${title}\n\n`;
-        if (description) result += `Description: ${description}\n\n`;
-        result += `Content:\n${bodyContent}`;
-
-        return result.slice(0, 8000); // 限制长度
-      } else if (typeof content === "object") {
-        return JSON.stringify(content, null, 2).slice(0, 8000);
-      }
-
-      return `[Content from: ${url}]`;
+      const html = typeof response.data === "string" ? response.data : JSON.stringify(response.data);
+      return this.extractHtmlContent(html, url);
     } catch (error) {
       this.logger.warn(`Failed to fetch URL content: ${url}`, error);
       return `[Unable to fetch content from: ${url}]`;
+    }
+  }
+
+  /**
+   * 从 HTML 内容中提取正文（使用 Readability）
+   */
+  private extractHtmlContent(html: string, sourceUrl: string): string {
+    try {
+      const dom = new JSDOM(html, { url: sourceUrl.startsWith('http') ? sourceUrl : 'http://localhost' });
+      const reader = new Readability(dom.window.document);
+      const article = reader.parse();
+
+      if (article) {
+        let result = `Title: ${article.title}\n`;
+        if (article.byline) result += `Author: ${article.byline}\n`;
+        if (article.siteName) result += `Site: ${article.siteName}\n`;
+        result += `\nContent:\n${article.textContent}`;
+
+        // 限制长度，但保留足够多的内容
+        return result.slice(0, 15000);
+      }
+
+      // Readability 失败，回退到简单的 HTML 标签移除
+      this.logger.warn(`Readability failed to parse content from ${sourceUrl}, falling back to simple stripping`);
+      return this.stripHtmlTags(html).slice(0, 10000);
+    } catch (error) {
+      this.logger.error(`Failed to parse HTML from ${sourceUrl}:`, error);
+      return this.stripHtmlTags(html).slice(0, 5000);
+    }
+  }
+
+  /**
+   * 从 URL 下载并提取 PDF 内容
+   */
+  private async extractPdfFromUrl(url: string): Promise<string> {
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get(url, {
+          responseType: 'arraybuffer',
+          timeout: 30000,
+        }),
+      );
+
+      return this.extractPdfText(Buffer.from(response.data));
+    } catch (error) {
+      this.logger.error(`Failed to download PDF from ${url}:`, error);
+      return `[Failed to download PDF from: ${url}]`;
     }
   }
 
@@ -394,29 +420,57 @@ export class ContentExtractorService {
     );
   }
 
+
+
   /**
-   * 解码 HTML 实体
+   * 提取 PDF 文本（使用 pdfjs-dist）
    */
-  private decodeHtmlEntities(text: string): string {
-    return text
-      .replace(/&nbsp;/g, " ")
-      .replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code)))
-      .replace(/&#x([a-fA-F0-9]+);/g, (_, code) =>
-        String.fromCharCode(parseInt(code, 16)),
-      );
+  private async extractPdfText(buffer: Buffer): Promise<string> {
+    try {
+      // 将 Buffer 转换为 Uint8Array
+      const uint8Array = new Uint8Array(buffer);
+
+      // 加载 PDF 文档
+      const loadingTask = pdfjsLib.getDocument({
+        data: uint8Array,
+        useSystemFonts: true,
+        disableFontFace: true,
+      });
+
+      const pdfDocument = await loadingTask.promise;
+      const numPages = pdfDocument.numPages;
+      let fullText = `[PDF Document - ${numPages} pages]\n\n`;
+
+      // 限制提取页数，防止过大（例如前 20 页）
+      const maxPages = Math.min(numPages, 20);
+
+      for (let i = 1; i <= maxPages; i++) {
+        const page = await pdfDocument.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ');
+
+        fullText += `--- Page ${i} ---\n${pageText}\n\n`;
+      }
+
+      if (numPages > maxPages) {
+        fullText += `\n... (Remaining ${numPages - maxPages} pages omitted)`;
+      }
+
+      return fullText;
+    } catch (error) {
+      this.logger.error("Failed to extract PDF text using pdfjs-dist:", error);
+      // 回退到旧的简单提取方法
+      return this.extractPdfTextSimple(buffer);
+    }
   }
 
   /**
-   * 提取 PDF 文本（简单实现）
+   * 提取 PDF 文本（简单回退实现）
    */
-  private extractPdfText(buffer: Buffer): string {
+  private extractPdfTextSimple(buffer: Buffer): string {
     try {
-      // 简单的 PDF 文本提取 - 查找文本流
       const content = buffer.toString("binary");
       const textMatches: string[] = [];
 
@@ -437,10 +491,10 @@ export class ContentExtractorService {
       }
 
       if (textMatches.length > 0) {
-        return `[PDF Content]\n${textMatches.join("\n").slice(0, 5000)}`;
+        return `[PDF Content (Simple Extraction)]\n${textMatches.join("\n").slice(0, 5000)}`;
       }
 
-      return "[PDF file - text extraction limited]";
+      return "[PDF file - text extraction failed]";
     } catch {
       return "[PDF file - unable to extract text]";
     }
