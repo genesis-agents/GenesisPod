@@ -42,6 +42,13 @@ const ICONS: Record<string, string> = {
 
 const DEFAULT_ICON = ICONS.star;
 
+// DeepDive Logo SVG
+const DEEPDIVE_LOGO = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M12 3v14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+  <path d="M5 10l7 7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+  <path d="M8 20h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5" />
+</svg>`;
+
 @Injectable()
 export class InfographicTemplateService {
   private readonly logger = new Logger(InfographicTemplateService.name);
@@ -93,11 +100,12 @@ export class InfographicTemplateService {
     content: InfographicContent,
     backgroundImageBase64?: string,
   ): string {
+    // 商务专业配色：深蓝灰主色 + 冷青强调色 + 干净背景
     const colors = content.colorScheme || {
-      primary: "#1a365d",
-      accent: "#c9a227",
-      background: "#f7f9fc",
-      text: "#1a202c",
+      primary: "#1e3a5f", // 深蓝灰 - 专业稳重
+      accent: "#0891b2", // 冷青色 - 现代科技感
+      background: "#f8fafc", // 浅灰白 - 干净背景
+      text: "#334155", // 深灰 - 易读文字
     };
 
     // 将 sections 分成列（最多3列）
@@ -137,13 +145,35 @@ export class InfographicTemplateService {
       padding: 40px;
     }
 
+    /* 顶部品牌栏 */
+    .brand-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      padding: 0 4px;
+    }
+
+    .brand-logo {
+      width: 28px;
+      height: 28px;
+      color: ${colors.primary};
+    }
+
+    .brand-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: ${colors.primary};
+      letter-spacing: 0.5px;
+    }
+
     /* 顶部标题区 */
     .header {
       background: linear-gradient(135deg, ${colors.primary} 0%, ${this.adjustColor(colors.primary, 20)} 100%);
       color: white;
-      padding: 32px 40px;
+      padding: 28px 36px;
       border-radius: 12px;
-      margin-bottom: 32px;
+      margin-bottom: 28px;
       position: relative;
       overflow: hidden;
     }
@@ -164,26 +194,27 @@ export class InfographicTemplateService {
     }
 
     .main-title {
-      font-size: 36px;
+      font-size: 32px;
       font-weight: 700;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       line-height: 1.3;
     }
 
     .subtitle {
-      font-size: 18px;
+      font-size: 16px;
       opacity: 0.9;
       font-weight: 400;
     }
 
     .hero-statement {
-      margin-top: 16px;
-      padding: 12px 20px;
+      margin-top: 14px;
+      padding: 10px 16px;
       background: rgba(255,255,255,0.15);
-      border-left: 4px solid ${colors.accent};
-      border-radius: 0 8px 8px 0;
-      font-size: 16px;
+      border-left: 3px solid ${colors.accent};
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;
       font-style: italic;
+      max-width: 80%;
     }
 
     /* 三列布局 */
@@ -355,6 +386,12 @@ export class InfographicTemplateService {
 </head>
 <body>
   <div class="infographic">
+    <!-- 品牌栏 -->
+    <div class="brand-bar">
+      <div class="brand-logo">${DEEPDIVE_LOGO}</div>
+      <span class="brand-name">DeepDive AI</span>
+    </div>
+
     <!-- 标题区 -->
     <div class="header">
       <div class="header-content">
@@ -368,7 +405,7 @@ export class InfographicTemplateService {
     <div class="columns">
       ${columns
         .map(
-          (column) => `
+          (column, colIdx) => `
         <div class="column">
           ${column
             .map(
@@ -379,11 +416,11 @@ export class InfographicTemplateService {
                   <div class="section-icon">
                     ${this.getIcon(section.iconType)}
                   </div>
-                  <span class="section-number">${idx + 1}</span>
+                  <span class="section-number">${colIdx * Math.ceil(content.sections.length / 3) + idx + 1}</span>
                 </div>
                 <div>
                   <h3 class="section-title">${this.escapeHtml(section.title)}</h3>
-                  ${section.summary ? `<p class="section-summary">${this.escapeHtml(section.summary)}</p>` : ""}
+                  ${section.summary ? `<p class="section-summary">${this.escapeHtml(this.truncateText(section.summary, 60))}</p>` : ""}
                 </div>
               </div>
 
@@ -392,11 +429,12 @@ export class InfographicTemplateService {
                   ? `
                 <ul class="bullets">
                   ${section.bullets
+                    .slice(0, 3)
                     .map(
                       (bullet) => `
                     <li class="bullet-item">
                       <span class="bullet-dot"></span>
-                      <span>${this.escapeHtml(bullet)}</span>
+                      <span>${this.escapeHtml(this.truncateText(bullet, 50))}</span>
                     </li>
                   `,
                     )
@@ -411,12 +449,12 @@ export class InfographicTemplateService {
                   ? `
                 <div class="metrics">
                   ${section.metrics
+                    .slice(0, 2)
                     .map(
                       (metric) => `
                     <div class="metric">
                       <div class="metric-value">${this.escapeHtml(metric.value)}</div>
-                      <div class="metric-label">${this.escapeHtml(metric.label)}</div>
-                      ${metric.comparison ? `<div class="metric-comparison">${this.escapeHtml(metric.comparison)}</div>` : ""}
+                      <div class="metric-label">${this.escapeHtml(this.truncateText(metric.label, 20))}</div>
                     </div>
                   `,
                     )
@@ -436,10 +474,7 @@ export class InfographicTemplateService {
     </div>
 
     <!-- 行动号召 -->
-    ${content.callToAction ? `<div class="cta">${this.escapeHtml(content.callToAction)}</div>` : ""}
-
-    <!-- 水印 -->
-    <div class="watermark">Generated by DeepDive AI</div>
+    ${content.callToAction ? `<div class="cta">${this.escapeHtml(this.truncateText(content.callToAction, 80))}</div>` : ""}
   </div>
 </body>
 </html>`;
@@ -477,6 +512,14 @@ export class InfographicTemplateService {
       "'": "&#39;",
     };
     return text.replace(/[&<>"']/g, (char) => escapeMap[char]);
+  }
+
+  /**
+   * 截断文本
+   */
+  private truncateText(text: string, maxLength: number): string {
+    if (text.length <= maxLength) return text;
+    return text.slice(0, maxLength - 1) + "…";
   }
 
   /**

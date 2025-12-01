@@ -182,9 +182,9 @@ The JSON must be STRICTLY valid (no markdown fences):
   },
   "layout_plan": ["string"],
   "visual_language": {
-    "color_palette": ["#1a365d", "#c9a227", "#f7f9fc", "#1a202c"],
-    "primary_color": "#1a365d",
-    "accent_color": "#c9a227",
+    "color_palette": ["#1e3a5f", "#0891b2", "#f8fafc", "#334155"],
+    "primary_color": "#1e3a5f",
+    "accent_color": "#0891b2",
     "background_color": "#f7f9fc",
     "text_color": "#1a202c",
     "typography": "string",
@@ -220,8 +220,8 @@ The JSON must be STRICTLY valid (no markdown fences):
    - Bottom: Call to action or timeline
 
 6. **VISUAL LANGUAGE**:
-   - Primary: Navy blue (#1a365d)
-   - Accent: Gold (#c9a227)
+   - Primary: Deep blue-gray (#1e3a5f) - professional, trustworthy
+   - Accent: Cool cyan (#0891b2) - modern, tech-savvy
    - Background: Light gray (#f7f9fc)
    - Icons: 2D flat line icons
 
@@ -329,10 +329,10 @@ export class AiImageService {
       },
       visualLanguage: {
         colorPalette: [],
-        primaryColor: "#1a365d",
-        accentColor: "#c9a227",
-        backgroundColor: "#f7f9fc",
-        textColor: "#1a202c",
+        primaryColor: "#1e3a5f", // 深蓝灰 - 专业稳重
+        accentColor: "#0891b2", // 冷青色 - 现代科技感
+        backgroundColor: "#f8fafc", // 浅灰白 - 干净背景
+        textColor: "#334155", // 深灰 - 易读文字
         typography: undefined,
         iconography: undefined,
         chartStyle: undefined,
@@ -532,11 +532,11 @@ export class AiImageService {
         primaryColor:
           this.normalizeString(
             visualRaw.primary_color ?? visualRaw.primaryColor,
-          ) || "#1a365d",
+          ) || "#1e3a5f",
         accentColor:
           this.normalizeString(
             visualRaw.accent_color ?? visualRaw.accentColor,
-          ) || "#c9a227",
+          ) || "#0891b2",
         backgroundColor:
           this.normalizeString(
             visualRaw.background_color ?? visualRaw.backgroundColor,
@@ -1656,10 +1656,10 @@ export class AiImageService {
       sections,
       callToAction: info.callToAction,
       colorScheme: {
-        primary: visual.primaryColor || "#1a365d",
-        accent: visual.accentColor || "#c9a227",
-        background: visual.backgroundColor || "#f7f9fc",
-        text: visual.textColor || "#1a202c",
+        primary: visual.primaryColor || "#1e3a5f",
+        accent: visual.accentColor || "#0891b2",
+        background: visual.backgroundColor || "#f8fafc",
+        text: visual.textColor || "#334155",
       },
     };
   }
