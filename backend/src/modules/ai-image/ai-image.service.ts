@@ -1651,17 +1651,71 @@ export class AiImageService {
     const info = insights.informationArchitecture;
     const visual = insights.visualLanguage;
 
-    const sections: InfographicSection[] = info.sections.map((section) => ({
-      title: section.title || "Section",
-      summary: section.summary,
-      bullets: section.bullets,
-      metrics: section.metrics.map((m) => ({
-        label: m.label || "",
-        value: m.value || "",
-        comparison: m.comparison,
-      })),
-      iconType: section.iconType || section.visual?.type,
-    }));
+    this.logger.log(
+      `[convertToInfographicContent] Title: ${info.title}, Sections count: ${info.sections?.length || 0}`,
+    );
+
+    let sections: InfographicSection[] = [];
+
+    if (info.sections && info.sections.length > 0) {
+      sections = info.sections.map((section) => ({
+        title: section.title || "Section",
+        summary: section.summary,
+        bullets: section.bullets || [],
+        metrics: (section.metrics || []).map((m) => ({
+          label: m.label || "",
+          value: m.value || "",
+          comparison: m.comparison,
+        })),
+        iconType: section.iconType || section.visual?.type,
+      }));
+    } else {
+      // Fallback: 如果没有sections，从imagePrompt中提取关键信息创建简单内容
+      this.logger.warn(
+        "[convertToInfographicContent] No sections found, creating fallback content",
+      );
+
+      // 从 prompt 中提取一些内容作为 fallback
+      const promptText = insights.imagePrompt || "";
+      const lines = promptText
+        .split(/[.。\n]/)
+        .filter((line) => line.trim().length > 10)
+        .slice(0, 6);
+
+      if (lines.length > 0) {
+        sections = [
+          {
+            title: "Key Points",
+            summary: "Main highlights from the content",
+            bullets: lines.slice(0, 4).map((l) => l.trim().slice(0, 100)),
+            metrics: [],
+            iconType: "lightbulb",
+          },
+        ];
+      }
+    }
+
+    // 如果仍然没有内容，创建占位符
+    if (sections.length === 0) {
+      sections = [
+        {
+          title: "Content Summary",
+          summary:
+            "This infographic summarizes the key information from the source material.",
+          bullets: [
+            "Key information extracted from the content",
+            "Structured for easy reading",
+            "Professional presentation format",
+          ],
+          metrics: [],
+          iconType: "chart",
+        },
+      ];
+    }
+
+    this.logger.log(
+      `[convertToInfographicContent] Final sections count: ${sections.length}`,
+    );
 
     return {
       title: info.title || "Infographic",
