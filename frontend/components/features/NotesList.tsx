@@ -24,6 +24,7 @@ interface Note {
 
 interface NotesListProps {
   resourceId?: string;
+  source?: string; // Add source prop
   searchQuery?: string;
   refreshKey?: number; // Trigger reload when changed
   onNoteClick?: (note: Note) => void;
@@ -34,6 +35,7 @@ interface NotesListProps {
 
 export default function NotesList({
   resourceId,
+  source,
   searchQuery = '',
   refreshKey,
   onNoteClick,
@@ -51,16 +53,21 @@ export default function NotesList({
 
   useEffect(() => {
     loadNotes();
-  }, [resourceId, refreshKey]);
+  }, [resourceId, source, refreshKey]);
 
   const loadNotes = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const url = resourceId
-        ? `${config.apiBaseUrl}/api/v1/notes/resource/${resourceId}`
-        : `${config.apiBaseUrl}/api/v1/notes`;
+      let url;
+      if (resourceId) {
+        url = `${config.apiBaseUrl}/api/v1/notes/resource/${resourceId}`;
+      } else if (source) {
+        url = `${config.apiBaseUrl}/api/v1/notes?source=${encodeURIComponent(source)}`;
+      } else {
+        url = `${config.apiBaseUrl}/api/v1/notes`;
+      }
 
       console.log('Loading notes from:', url);
 
@@ -222,8 +229,8 @@ export default function NotesList({
           <button
             onClick={() => setSelectedTag(null)}
             className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-all ${selectedTag === null
-                ? 'bg-blue-600 text-white'
-                : 'border border-gray-300 bg-white text-gray-700 hover:border-blue-300'
+              ? 'bg-blue-600 text-white'
+              : 'border border-gray-300 bg-white text-gray-700 hover:border-blue-300'
               }`}
           >
             All
@@ -233,8 +240,8 @@ export default function NotesList({
               key={tag}
               onClick={() => setSelectedTag(tag)}
               className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-all ${selectedTag === tag
-                  ? 'bg-blue-600 text-white'
-                  : 'border border-gray-300 bg-white text-gray-700 hover:border-blue-300'
+                ? 'bg-blue-600 text-white'
+                : 'border border-gray-300 bg-white text-gray-700 hover:border-blue-300'
                 }`}
             >
               {tag}
