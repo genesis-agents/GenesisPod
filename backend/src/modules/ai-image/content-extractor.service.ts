@@ -4,7 +4,7 @@ import { firstValueFrom } from "rxjs";
 import { YoutubeService } from "../youtube/youtube.service";
 import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";
-import * as pdfjsLib from "pdfjs-dist";
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 
 /**
  * 内容提取服务
