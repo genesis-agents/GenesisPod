@@ -20,7 +20,7 @@ import { CreateNoteDto, UpdateNoteDto, AddHighlightDto } from "./dto";
 export class NotesService {
   private readonly logger = new Logger(NotesService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   /**
    * 创建笔记
@@ -28,7 +28,7 @@ export class NotesService {
   async createNote(userId: string, dto: CreateNoteDto) {
     // CRITICAL FIX: Validate resourceId if provided to prevent FOREIGN_KEY_VIOLATION
     // Empty strings or invalid UUIDs should be treated as null
-    let resourceId: string | undefined = dto.resourceId;
+    let resourceId: string | null = dto.resourceId || null;
 
     if (resourceId) {
       // Check if resourceId is a valid UUID and exists
@@ -39,32 +39,37 @@ export class NotesService {
 
       if (!resource) {
         this.logger.warn(
-          `Invalid resourceId ${resourceId} provided for note creation, creating standalone note`,
+          `Invalid resourceId ${resourceId} provided for note creation`,
         );
-        resourceId = undefined; // Create standalone note instead of failing
+        throw new NotFoundException(`Resource with ID ${resourceId} not found`);
       }
     }
 
+    const data: any = {
+      userId,
+      title: dto.title,
+      content: dto.content,
+      source: dto.source,
+      highlights: dto.highlights || [],
+      tags: dto.tags || [],
+      isPublic: dto.isPublic ?? false,
+    };
+
+    if (resourceId) {
+      data.resourceId = resourceId;
+    }
+
     const note = await this.prisma.note.create({
-      data: {
-        userId,
-        resourceId,
-        title: dto.title,
-        content: dto.content,
-        source: dto.source,
-        highlights: dto.highlights || [],
-        tags: dto.tags || [],
-        isPublic: dto.isPublic ?? false,
-      },
+      data,
       include: {
         resource: resourceId
           ? {
-              select: {
-                id: true,
-                type: true,
-                title: true,
-              },
-            }
+            select: {
+              id: true,
+              type: true,
+              title: true,
+            },
+          }
           : false,
       },
     });

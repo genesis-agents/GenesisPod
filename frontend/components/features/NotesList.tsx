@@ -60,12 +60,15 @@ export default function NotesList({
         ? `${config.apiBaseUrl}/api/v1/notes/resource/${resourceId}`
         : `${config.apiBaseUrl}/api/v1/notes`;
 
+      console.log('Loading notes from:', url);
+
       const response = await fetch(url, {
         headers: getAuthHeader(),
       });
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Notes loaded:', data);
         setNotes(resourceId ? data : data.notes);
       } else {
         setError('Failed to load notes');
@@ -216,11 +219,10 @@ export default function NotesList({
           </span>
           <button
             onClick={() => setSelectedTag(null)}
-            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-all ${
-              selectedTag === null
+            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-all ${selectedTag === null
                 ? 'bg-blue-600 text-white'
                 : 'border border-gray-300 bg-white text-gray-700 hover:border-blue-300'
-            }`}
+              }`}
           >
             All
           </button>
@@ -228,11 +230,10 @@ export default function NotesList({
             <button
               key={tag}
               onClick={() => setSelectedTag(tag)}
-              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-all ${
-                selectedTag === tag
+              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-all ${selectedTag === tag
                   ? 'bg-blue-600 text-white'
                   : 'border border-gray-300 bg-white text-gray-700 hover:border-blue-300'
-              }`}
+                }`}
             >
               {tag}
             </button>
