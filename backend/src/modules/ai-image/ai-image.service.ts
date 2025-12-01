@@ -3,7 +3,7 @@ import { PrismaService } from "../../common/prisma/prisma.service";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { ContentExtractorService } from "./content-extractor.service";
-import { AIModelType } from "@prisma/client";
+import { AIModelType, Prisma } from "@prisma/client";
 
 // 处理步骤类型
 export interface ProcessingStep {
@@ -47,19 +47,48 @@ export interface GenerateImageOptions {
 }
 
 // 提示词优化系统提示
-const PROMPT_ENHANCEMENT_SYSTEM = `You are an expert AI image prompt engineer. Your task is to analyze the given content and create a highly detailed, professional image generation prompt that captures the essence of the content.
+// 提示词优化系统提示 —— 要求返回结构化 reasoning + prompt 的 JSON
+// 提示词优化系统提示 —— 要求返回结构化 reasoning + prompt 的 JSON
+// Image prompt enhancement system (structured reasoning JSON)
+const PROMPT_ENHANCEMENT_SYSTEM = `You are an expert visual prompt engineer assisting professional Imagen 4 (Nano Banana Pro) workflows. Analyze the provided material and respond with a single JSON object capturing both your reasoning and the final instructions.
+
+The JSON must be STRICTLY valid (no markdown fences) and follow:
+{
+  "style_shift_reasoning": ["..."],
+  "layout_plan": ["..."],
+  "quality_checks": ["..."],
+  "color_palette": ["..."],
+  "typography": "string",
+  "background": "string",
+  "visual_style": "string",
+  "inspiration": ["..."],
+  "negative_keywords": ["..."],
+  "image_prompt": "string"
+}
 
 Guidelines:
-1. Analyze the content (text, article summary, or description) to identify the core theme, mood, and key visual elements
-2. Create a vivid, detailed image prompt that represents the content
-3. Add specific visual details: lighting, composition, perspective, color palette, atmosphere
-4. Include technical quality terms: 8K, photorealistic, detailed, sharp focus (when appropriate)
-5. Keep the enhanced prompt concise but comprehensive (max 150 words)
-6. Output ONLY the enhanced prompt in English, no explanations or prefixes
+1. Use English.
+2. Explain the aesthetic transition (e.g. futuristic lab → business minimalist) with 2-4 sentences inside "style_shift_reasoning".
+3. Provide grid/section layout details in "layout_plan" (KPI strip, executive summary panel, comparison charts, etc.).
+4. Populate "quality_checks" with validation statements ensuring the deliverable is business-ready (fonts, clarity, tone, accessibility).
+5. Supply 3–5 palette cues in "color_palette". Summarise fonts/background/style via the dedicated string fields.
+6. Use "inspiration" for optional references; leave an empty array if none.
+7. List undesired elements in "negative_keywords" (e.g. neon lighting, sci-fi HUD overlays).
+8. "image_prompt" must be a polished English prompt ready for Imagen, referencing layout, tone, colour palette, typography, data callouts, and quality requirements. Avoid first-person phrasing.
+9. Respond ONLY with the JSON object.`;
 
-Example input: "An article about climate change and melting glaciers"
-Example output: "A dramatic aerial view of a massive glacier with deep blue crevasses, chunks of ice calving into dark arctic waters, misty atmosphere, golden hour lighting breaking through storm clouds, environmental documentary style, ultra-detailed, 8K resolution, melancholic mood, stark contrast between pristine ice and rising waters"`;
-
+interface PromptEngineeringInsights {
+  imagePrompt: string;
+  styleShiftReasoning: string[];
+  layoutPlan: string[];
+  qualityChecks: string[];
+  colorPalette: string[];
+  typography?: string;
+  background?: string;
+  visualStyle?: string;
+  inspiration: string[];
+  negativeKeywords: string[];
+}
 @Injectable()
 export class AiImageService {
   private readonly logger = new Logger(AiImageService.name);
@@ -68,7 +97,208 @@ export class AiImageService {
     private readonly prisma: PrismaService,
     private readonly httpService: HttpService,
     private readonly contentExtractor: ContentExtractorService,
-  ) { }
+  ) {}
+
+  private createDefaultInsights(basePrompt: string): PromptEngineeringInsights {
+    return {
+      imagePrompt: (basePrompt || "").trim(),
+      styleShiftReasoning: [],
+      layoutPlan: [],
+      qualityChecks: [],
+      colorPalette: [],
+      typography: undefined,
+      background: undefined,
+      visualStyle: undefined,
+      inspiration: [],
+      negativeKeywords: [],
+    };
+  }
+
+  private normalizeString(value: unknown): string | undefined {
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : undefined;
+    }
+    if (typeof value === "number" || typeof value === "boolean") {
+      return String(value);
+    }
+    return undefined;
+  }
+
+  private parsePromptEnhancementResponse(
+    raw: string,
+    fallbackPrompt: string,
+  ): PromptEngineeringInsights {
+    if (!raw || !raw.trim()) {
+      return this.createDefaultInsights(fallbackPrompt);
+    }
+
+    let payload = raw.trim();
+    const fencedMatch = payload.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fencedMatch) {
+      payload = fencedMatch[1].trim();
+    }
+
+    const toArray = (value: unknown): string[] => {
+      if (value === undefined || value === null) {
+        return [];
+      }
+      if (Array.isArray(value)) {
+        return value
+          .map((item) => {
+            if (typeof item === "string") {
+              return item.trim();
+            }
+            if (typeof item === "number" || typeof item === "boolean") {
+              return String(item);
+            }
+            return "";
+          })
+          .filter((item) => item.length > 0);
+      }
+      if (typeof value === "string") {
+        return value
+          .split(/[\r\n;,]+/)
+          .map((item) => item.trim())
+          .filter((item) => item.length > 0);
+      }
+      if (typeof value === "number" || typeof value === "boolean") {
+        return [String(value)];
+      }
+      return [];
+    };
+
+    try {
+      const parsed = JSON.parse(payload);
+      const insights: PromptEngineeringInsights = {
+        imagePrompt:
+          this.normalizeString(parsed.image_prompt ?? parsed.imagePrompt) ||
+          fallbackPrompt,
+        styleShiftReasoning: toArray(
+          parsed.style_shift_reasoning ?? parsed.styleShiftReasoning,
+        ),
+        layoutPlan: toArray(parsed.layout_plan ?? parsed.layoutPlan),
+        qualityChecks: toArray(parsed.quality_checks ?? parsed.qualityChecks),
+        colorPalette: toArray(parsed.color_palette ?? parsed.colorPalette),
+        typography: this.normalizeString(parsed.typography ?? parsed.fonts),
+        background: this.normalizeString(
+          parsed.background ?? parsed.background_treatment ?? parsed.backdrop,
+        ),
+        visualStyle: this.normalizeString(
+          parsed.visual_style ?? parsed.visualStyle,
+        ),
+        inspiration: toArray(parsed.inspiration ?? parsed.references),
+        negativeKeywords: toArray(
+          parsed.negative_keywords ??
+            parsed.negativeKeywords ??
+            parsed.negative_prompt ??
+            parsed.negativeTerms,
+        ),
+      };
+
+      if (!insights.imagePrompt || insights.imagePrompt.length < 5) {
+        insights.imagePrompt = fallbackPrompt;
+      }
+
+      return insights;
+    } catch (error) {
+      this.logger.warn(
+        `[PromptEnhancement] Failed to parse structured response, falling back to raw prompt: ${error}`,
+      );
+      return this.createDefaultInsights(raw || fallbackPrompt);
+    }
+  }
+
+  private composeFinalImagePrompt(
+    insights: PromptEngineeringInsights,
+    style?: string,
+  ): { prompt: string; negativeCandidates: string[] } {
+    const promptParts: string[] = [];
+
+    if (insights.imagePrompt) {
+      promptParts.push(insights.imagePrompt.trim());
+    }
+    if (insights.styleShiftReasoning.length > 0) {
+      promptParts.push(
+        `Style transformation goals: ${insights.styleShiftReasoning.join("; ")}`,
+      );
+    }
+    if (insights.layoutPlan.length > 0) {
+      promptParts.push(
+        `Layout instructions: ${insights.layoutPlan.join("; ")}`,
+      );
+    }
+    if (insights.colorPalette.length > 0) {
+      promptParts.push(`Color palette: ${insights.colorPalette.join(", ")}`);
+    }
+    if (insights.typography) {
+      promptParts.push(`Typography: ${insights.typography}`);
+    }
+    if (insights.background) {
+      promptParts.push(`Background: ${insights.background}`);
+    }
+    if (insights.visualStyle) {
+      promptParts.push(`Visual style: ${insights.visualStyle}`);
+    }
+    if (insights.inspiration.length > 0) {
+      promptParts.push(`Design references: ${insights.inspiration.join("; ")}`);
+    }
+    if (insights.qualityChecks.length > 0) {
+      promptParts.push(
+        `Quality checklist: ${insights.qualityChecks.join("; ")}`,
+      );
+    }
+
+    const combined = promptParts.join(" ").trim();
+    const finalPrompt = this.addStyleToPrompt(
+      combined.length > 0 ? combined : insights.imagePrompt,
+      style,
+    );
+
+    return {
+      prompt: finalPrompt.trim(),
+      negativeCandidates: insights.negativeKeywords,
+    };
+  }
+
+  private mergeNegativePrompts(
+    base: string | undefined,
+    extras: string[],
+  ): string | undefined {
+    const tokens = new Map<string, string>();
+
+    const addToken = (value: string) => {
+      const cleaned = value.trim();
+      if (!cleaned) return;
+      const key = cleaned.toLowerCase();
+      if (!tokens.has(key)) {
+        tokens.set(key, cleaned);
+      }
+    };
+
+    if (base) {
+      base
+        .split(/[,;\r\n]+/)
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0)
+        .forEach(addToken);
+    }
+
+    extras.forEach(addToken);
+
+    if (tokens.size === 0) {
+      return undefined;
+    }
+
+    return Array.from(tokens.values()).join(", ");
+  }
+
+  private formatListForStep(items: string[]): string | undefined {
+    if (!items || items.length === 0) {
+      return undefined;
+    }
+    return items.map((item) => `- ${item}`).join("\n");
+  }
 
   /**
    * 获取所有可用模型（文本模型 + 图片模型）
@@ -160,6 +390,9 @@ export class AiImageService {
       skipEnhancement,
       userId,
     } = options;
+    let mergedNegativePrompt = negativePrompt
+      ? negativePrompt.trim()
+      : undefined;
 
     // 处理步骤记录
     const processingSteps: ProcessingStep[] = [];
@@ -445,24 +678,21 @@ export class AiImageService {
     this.logger.log(
       `========== STEP 1 COMPLETE: ${inputContent.length} chars ==========`,
     );
-    this.logger.debug(`[STEP 1] Input Content Preview: ${inputContent.slice(0, 500)}...`);
+    this.logger.debug(
+      `[STEP 1] Input Content Preview: ${inputContent.slice(0, 500)}...`,
+    );
 
     // ============================================================
     // 步骤2: AI Prompt 生成
     // ============================================================
     this.logger.log("========== STEP 2: AI Prompt Generation ==========");
-    let enhancedPrompt: string;
     let textModelUsed: string | undefined;
+    let promptInsights = this.createDefaultInsights(inputContent);
+    let enhancedPrompt = "";
 
     if (skipEnhancement) {
-      enhancedPrompt = this.addStyleToPrompt(inputContent, style);
-      updateStep(
-        "prompt_generate",
-        "Using Direct Input",
-        "completed",
-        enhancedPrompt.slice(0, 300),
-      );
-      this.logger.log(`[STEP 2] Using direct input as prompt`);
+      textModelUsed = "Direct Input";
+      this.logger.log(`[STEP 2] Using direct input as prompt source`);
     } else {
       updateStep(
         "prompt_generate",
@@ -485,29 +715,22 @@ export class AiImageService {
         textModelUsed = textModel.displayName || textModel.name;
         this.logger.log(`[STEP 2] Using text model: ${textModelUsed}`);
 
-        // 调用文本模型生成 prompt
         const provider = textModel.provider.toLowerCase();
         const modelId = textModel.modelId.toLowerCase();
+        let rawEnhancedPrompt: string;
 
         if (
           provider.includes("google") ||
           provider.includes("gemini") ||
           modelId.includes("gemini")
         ) {
-          enhancedPrompt = await this.callGeminiTextAPI(
+          rawEnhancedPrompt = await this.callGeminiTextAPI(
             textModel.apiKey,
-            textModel.modelId,
-            inputContent,
-          );
-        } else if (provider.includes("openai") || modelId.includes("gpt")) {
-          enhancedPrompt = await this.callOpenAITextAPI(
-            textModel.apiKey,
-            textModel.apiEndpoint,
             textModel.modelId,
             inputContent,
           );
         } else {
-          enhancedPrompt = await this.callOpenAITextAPI(
+          rawEnhancedPrompt = await this.callOpenAITextAPI(
             textModel.apiKey,
             textModel.apiEndpoint,
             textModel.modelId,
@@ -515,29 +738,16 @@ export class AiImageService {
           );
         }
 
-        enhancedPrompt = this.addStyleToPrompt(enhancedPrompt, style);
-
-        // 验证生成的 prompt
-        if (!enhancedPrompt || enhancedPrompt.length < 20) {
-          updateStep(
-            "prompt_generate",
-            "Prompt Generation Failed",
-            "error",
-            "Generated prompt is empty or too short",
-          );
-          return returnError("AI failed to generate a valid image prompt");
-        }
-
-        updateStep(
-          "prompt_generate",
-          `AI Prompt Generated (${textModelUsed})`,
-          "completed",
-          enhancedPrompt,
+        this.logger.debug(
+          `[STEP 2] Structured prompt response: ${rawEnhancedPrompt.slice(0, 500)}${
+            rawEnhancedPrompt.length > 500 ? "..." : ""
+          }`,
         );
-        this.logger.log(
-          `[STEP 2] ✓ Generated prompt: ${enhancedPrompt.slice(0, 100)}...`,
+
+        promptInsights = this.parsePromptEnhancementResponse(
+          rawEnhancedPrompt,
+          inputContent,
         );
-        this.logger.debug(`[STEP 2] Full Enhanced Prompt: ${enhancedPrompt}`);
       } catch (error) {
         const errorMsg =
           error instanceof Error ? error.message : "Unknown error";
@@ -551,7 +761,94 @@ export class AiImageService {
       }
     }
 
-    this.logger.log(`========== STEP 2 COMPLETE ==========`);
+    const composedPrompt = this.composeFinalImagePrompt(promptInsights, style);
+    enhancedPrompt = composedPrompt.prompt;
+    mergedNegativePrompt = this.mergeNegativePrompts(
+      mergedNegativePrompt,
+      composedPrompt.negativeCandidates,
+    );
+
+    updateStep(
+      "prompt_generate",
+      skipEnhancement
+        ? "Using Direct Input"
+        : `AI Prompt Generated (${textModelUsed})`,
+      "completed",
+      enhancedPrompt.slice(0, 500),
+    );
+
+    const styleStep = this.formatListForStep(
+      promptInsights.styleShiftReasoning,
+    );
+    if (styleStep) {
+      updateStep(
+        "prompt_style_shift",
+        "Style Transformation Plan",
+        "completed",
+        styleStep,
+      );
+    }
+
+    const layoutStep = this.formatListForStep(promptInsights.layoutPlan);
+    if (layoutStep) {
+      updateStep("prompt_layout", "Layout Blueprint", "completed", layoutStep);
+    }
+
+    const qualityStep = this.formatListForStep(promptInsights.qualityChecks);
+    if (qualityStep) {
+      updateStep(
+        "prompt_quality",
+        "Quality Validation",
+        "completed",
+        qualityStep,
+      );
+    }
+
+    const designNotes: string[] = [];
+
+    if (promptInsights.colorPalette.length > 0) {
+      designNotes.push(`Palette: ${promptInsights.colorPalette.join(", ")}`);
+    }
+    if (promptInsights.typography) {
+      designNotes.push(`Typography: ${promptInsights.typography}`);
+    }
+    if (promptInsights.background) {
+      designNotes.push(`Background: ${promptInsights.background}`);
+    }
+    if (promptInsights.visualStyle) {
+      designNotes.push(`Visual style: ${promptInsights.visualStyle}`);
+    }
+
+    const designStep = this.formatListForStep(designNotes);
+    if (designStep) {
+      updateStep("prompt_design", "Design Directives", "completed", designStep);
+    }
+
+    const inspirationStep = this.formatListForStep(promptInsights.inspiration);
+    if (inspirationStep) {
+      updateStep(
+        "prompt_inspiration",
+        "Reference Inspiration",
+        "completed",
+        inspirationStep,
+      );
+    }
+
+    if (mergedNegativePrompt) {
+      updateStep(
+        "prompt_negative",
+        "Negative Keywords",
+        "completed",
+        mergedNegativePrompt,
+      );
+    }
+
+    this.logger.log(
+      `[STEP 2] Final prompt preview: ${enhancedPrompt.slice(0, 120)}${
+        enhancedPrompt.length > 120 ? "..." : ""
+      }`,
+    );
+    this.logger.log("========== STEP 2 COMPLETE ==========");
 
     // ============================================================
     // 步骤3: 图片生成
@@ -587,17 +884,17 @@ export class AiImageService {
       // 如果有参考图片，使用 image-to-image 生成
       const generatedImageUrl = imageBase64
         ? await this.callImageToImageAPI(
-          imageModelConfig,
-          enhancedPrompt,
-          imageBase64,
-          dimensions,
-        )
+            imageModelConfig,
+            enhancedPrompt,
+            imageBase64,
+            dimensions,
+          )
         : await this.callImageGenerationAPI(
-          imageModelConfig,
-          enhancedPrompt,
-          dimensions,
-          negativePrompt,
-        );
+            imageModelConfig,
+            enhancedPrompt,
+            dimensions,
+            mergedNegativePrompt,
+          );
 
       // 验证生成的图片
       if (!generatedImageUrl || !generatedImageUrl.startsWith("data:image")) {
@@ -681,6 +978,7 @@ export class AiImageService {
           generationConfig: {
             maxOutputTokens: 300,
             temperature: 0.7,
+            responseMimeType: "application/json",
           },
         },
         {
@@ -733,26 +1031,34 @@ export class AiImageService {
       : { max_tokens: 300 };
 
     try {
+      const requestBody: Record<string, any> = {
+        model: effectiveModel,
+        messages: [
+          { role: "system", content: PROMPT_ENHANCEMENT_SYSTEM },
+          { role: "user", content: `Content to analyze:\n${content}` },
+        ],
+        ...tokenParam,
+        temperature: 0.7,
+      };
+
+      const supportsJsonFormat =
+        !effectiveModel.startsWith("gpt-3.5") &&
+        !effectiveModel.startsWith("text-") &&
+        !effectiveModel.startsWith("davinci") &&
+        !effectiveModel.startsWith("curie");
+
+      if (supportsJsonFormat) {
+        requestBody.response_format = { type: "json_object" };
+      }
+
       const response = await firstValueFrom(
-        this.httpService.post(
-          url,
-          {
-            model: effectiveModel,
-            messages: [
-              { role: "system", content: PROMPT_ENHANCEMENT_SYSTEM },
-              { role: "user", content: `Content to analyze:\n${content}` },
-            ],
-            ...tokenParam,
-            temperature: 0.7,
+        this.httpService.post(url, requestBody, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
           },
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${apiKey}`,
-            },
-            timeout: 30000,
-          },
-        ),
+          timeout: 30000,
+        }),
       );
 
       this.logger.log(
@@ -1253,7 +1559,30 @@ Generate the edited version of this image now.`;
    * 优先使用 isDefault=true 的模型
    */
   private async getDefaultTextModel() {
-    // 首先尝试获取设置为默认的聊天模型
+    const googleConditions: Prisma.AIModelWhereInput = {
+      OR: [
+        {
+          provider: {
+            contains: "google",
+            mode: Prisma.QueryMode.insensitive,
+          },
+        },
+        {
+          provider: {
+            contains: "gemini",
+            mode: Prisma.QueryMode.insensitive,
+          },
+        },
+        {
+          modelId: {
+            contains: "gemini",
+            mode: Prisma.QueryMode.insensitive,
+          },
+        },
+      ],
+    };
+
+    // 1) 用户显式设置的默认 CHAT 模型（无论 provider）
     const defaultModel = await this.prisma.aIModel.findFirst({
       where: {
         isEnabled: true,
@@ -1261,7 +1590,6 @@ Generate the edited version of this image now.`;
         modelType: AIModelType.CHAT,
       },
     });
-
     if (defaultModel) {
       this.logger.log(
         `[getDefaultTextModel] Found default CHAT model: ${defaultModel.displayName || defaultModel.name} (${defaultModel.modelId})`,
@@ -1269,7 +1597,23 @@ Generate the edited version of this image now.`;
       return defaultModel;
     }
 
-    // 如果没有默认的聊天模型，查找任意可用的聊天模型
+    // 2) 若无默认模型，优先寻找 Google/Gemini
+    const googleModel = await this.prisma.aIModel.findFirst({
+      where: {
+        isEnabled: true,
+        modelType: AIModelType.CHAT,
+        ...googleConditions,
+      },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+    });
+    if (googleModel) {
+      this.logger.log(
+        `[getDefaultTextModel] Found Google/Gemini CHAT model: ${googleModel.displayName || googleModel.name} (${googleModel.modelId})`,
+      );
+      return googleModel;
+    }
+
+    // 3) 最后再找任意可用聊天模型
     const anyModel = await this.prisma.aIModel.findFirst({
       where: {
         isEnabled: true,
@@ -1277,7 +1621,6 @@ Generate the edited version of this image now.`;
       },
       orderBy: { createdAt: "desc" },
     });
-
     if (anyModel) {
       this.logger.log(
         `[getDefaultTextModel] Found fallback CHAT model: ${anyModel.displayName || anyModel.name} (${anyModel.modelId})`,
