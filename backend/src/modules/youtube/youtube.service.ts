@@ -24,7 +24,6 @@ export interface TranscriptResponse {
 export class YoutubeService {
   private readonly logger = new Logger(YoutubeService.name);
   private youtube: YoutubeClient | null = null;
-  private youtubeLogConfigured = false;
 
   async onModuleInit() {
     try {
@@ -198,24 +197,8 @@ export class YoutubeService {
       );
       const youtubeModule = (await importDynamic(
         "youtubei.js",
-      )) as YoutubeModule & {
-        Log?: {
-          Level?: Record<string, number>;
-          setLevel?: (...args: number[]) => void;
-        };
-      };
-      const { Innertube, Log } = youtubeModule;
-      if (!this.youtubeLogConfigured && Log?.Level && Log?.setLevel) {
-        try {
-          // Reduce youtubei.js logging noise from parser warnings
-          Log.setLevel(Log.Level.ERROR ?? Log.Level.WARNING ?? 1);
-          this.youtubeLogConfigured = true;
-        } catch (error) {
-          this.logger.debug(
-            `Failed to adjust youtubei.js log level: ${String(error)}`,
-          );
-        }
-      }
+      )) as YoutubeModule;
+      const { Innertube } = youtubeModule;
       this.youtube = await Innertube.create();
     }
   }

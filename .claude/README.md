@@ -1,142 +1,58 @@
-# .claude 目录说明
+# .claude Workspace Guide
 
-此目录包含项目状态和会话交接文档，确保在会话重启或上下文切换时能够快速恢复工作。
+Last updated: 2025-12-01
 
----
-
-## 📋 文档索引
-
-### 🚀 快速开始
-
-**如果你是新接手的会话，请按以下顺序阅读**:
-
-1. **RESUME.md** (1分钟) - 快速了解当前状态和下一步操作
-2. **PROJECT_STATUS.md** (5分钟) - 完整项目状态和详细背景
-3. **TODO.md** (3分钟) - 详细任务清单和进度追踪
-
-### 📄 文档清单
-
-| 文件                | 用途                                    | 更新频率       |
-| ------------------- | --------------------------------------- | -------------- |
-| `RESUME.md`         | 会话恢复快速指南，一句话状态 + 立即行动 | 每次阶段性变化 |
-| `PROJECT_STATUS.md` | 完整项目状态文档，包含所有上下文信息    | 每完成一个阶段 |
-| `TODO.md`           | 详细任务清单，25个任务的完整追踪        | 实时更新       |
-| `readme.md`         | 本文件，文档索引和使用指南              | 按需更新       |
+The `.claude` directory stores lightweight hand-off material for engineers and AI copilots.  
+Keep the content short, ASCII-only, and in sync with the actual project state.
 
 ---
 
-## 🔄 使用场景
+## Start Here
 
-### 场景 1: 会话被重启
+1. **`RESUME.md`** – one-paragraph status + immediate next steps.
+2. **`TODO.md`** – current scoped task list with owners and priority.
+3. **`PROJECT_STATUS.md`** – longer context, architecture decisions, and history.
 
-1. 打开 `RESUME.md`
-2. 快速了解当前阻塞点
-3. 检查是否有用户新的反馈
-4. 继续执行下一步操作
-
-### 场景 2: 需要完整上下文
-
-1. 打开 `PROJECT_STATUS.md`
-2. 阅读第二节"当前进度总览"
-3. 阅读第四节"关键文件清单"
-4. 阅读第六节"下一步操作指南"
-
-### 场景 3: 规划下一步工作
-
-1. 打开 `TODO.md`
-2. 查看当前优先级（文件末尾）
-3. 选择下一个待开始的任务
-4. 更新任务状态为 in_progress
+If any of these files feel outdated, update them before continuing work.
 
 ---
 
-## 📝 更新规范
+## File Overview
 
-### 何时更新这些文档
-
-**RESUME.md**:
-
-- ✅ 当前阻塞状态改变时
-- ✅ 完成一个重要里程碑时
-- ✅ 发现新的阻塞问题时
-
-**PROJECT_STATUS.md**:
-
-- ✅ 每完成一个阶段（如阶段2、阶段3）
-- ✅ 关键技术决策变更时
-- ✅ 添加新的核心功能时
-- ✅ 遇到重大问题并解决后
-
-**TODO.md**:
-
-- ✅ 任务状态变更（pending → in_progress → completed）
-- ✅ 添加新任务时
-- ✅ 任务优先级调整时
-- ✅ 预计时间估算变化时
-
-### 更新检查清单
-
-在完成一个阶段后，请确保：
-
-- [ ] 更新 `RESUME.md` 中的"当前状态（一句话）"
-- [ ] 更新 `PROJECT_STATUS.md` 中的"当前进度总览"
-- [ ] 更新 `TODO.md` 中对应任务的状态
-- [ ] 更新所有文档的"最后更新"时间戳
-- [ ] 如有新的阻塞问题，添加到"当前阻塞"部分
+| File                           | Purpose                                               | Update Rhythm          |
+| ------------------------------ | ----------------------------------------------------- | ---------------------- |
+| `RESUME.md`                    | Quick resume note for the next engineer/agent         | Whenever focus changes |
+| `TODO.md`                      | Active tasks (≤10) with status and owner              | Daily or per PR        |
+| `PROJECT_STATUS.md`            | Phase summary, key decisions, outstanding risks       | End of each milestone  |
+| `TODO.archive.md` _(optional)_ | Completed worklog (keep outside this folder if large) | As needed              |
+| `config/monitoring.yml`        | Monitoring template (sync with infra repo)            | When infra changes     |
+| `standards/*.md`               | Coding/documentation standards reference              | Review quarterly       |
 
 ---
 
-## 🎯 当前状态速览
+## Update Checklist
 
-**阶段**: 阶段 2 - 环境配置
-**进度**: 5/25 任务完成 (20%)
-**阻塞**: Docker Desktop 未安装（等待用户）
-**运行中**:
-
-- ✅ Frontend @ http://localhost:3000
-- ⚠️ Backend @ 等待数据库连接
-
-**最后更新**: 2025-11-08 09:47 AM
+- [ ] Confirm timestamps (“Last updated”) reflect the latest edit.
+- [ ] Ensure instructions match the current directory structure (`D:\projects\deepdive\`).
+- [ ] Remove or archive obsolete task lists instead of keeping crossed-out items.
+- [ ] Keep status sections factual; avoid speculative or stale statements.
+- [ ] Run `git status` to verify the documentation change is captured.
 
 ---
 
-## 📂 项目核心文档位置
+## Conventions
 
-```
-D:\projects\deepdive-engine\
-├── .claude/                     # 本目录 - 会话状态文档
-│   ├── readme.md                # 本文件
-│   ├── RESUME.md                # 快速恢复指南
-│   ├── PROJECT_STATUS.md        # 完整状态文档
-│   └── TODO.md                  # 任务清单
-├── prd.md                       # 产品需求文档
-├── project-rules.md             # 开发规范
-├── architecture.md              # 技术架构
-├── readme.md                    # 项目说明
-├── .env                         # 环境变量
-└── docker-compose.yml           # 数据库编排
-```
+- **Encoding**: UTF-8, ASCII characters preferred to avoid mojibake.
+- **Links**: Use repository-relative paths (e.g. `docs/architecture/...`).
+- **Source of truth**: Detailed specs live under `/docs`; `.claude` hosts resumés and live tasks only.
+- **Role clarity**: Note whether an item targets engineers, PMs, or agents.
 
 ---
 
-## 💡 最佳实践
+## Maintainers
 
-1. **总是从 RESUME.md 开始** - 最快了解当前状态
-2. **保持文档同步** - 在完成任务时立即更新
-3. **记录关键决策** - 在 PROJECT_STATUS.md 第八节记录
-4. **更新阻塞状态** - 遇到问题立即在 RESUME.md 中标注
-5. **版本控制** - 这些文档应该被 Git 追踪（已包含在仓库中）
+- Primary: Platform Architecture Team
+- Secondary: On-call engineer (rotate weekly)
+- Automation: Future integration with CI can update timestamps automatically.
 
----
-
-## 🔗 相关资源
-
-- 产品参考: https://www.alphaxiv.org/
-- Docker Desktop: https://www.docker.com/products/docker-desktop/
-- 项目仓库: `D:\projects\deepdive-engine\`
-
----
-
-**维护者**: Claude Code
-**创建时间**: 2025-11-08
-**文档版本**: v1.0
+If you add new files under `.claude`, document them in the table above.
