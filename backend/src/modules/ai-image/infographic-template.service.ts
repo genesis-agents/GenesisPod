@@ -56,17 +56,27 @@ export class InfographicTemplateService {
 
   /**
    * 初始化 Puppeteer 浏览器实例
+   * 支持通过环境变量 PUPPETEER_EXECUTABLE_PATH 指定 Chrome/Chromium 路径
    */
   private async getBrowser(): Promise<puppeteer.Browser> {
     if (!this.browser) {
+      const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+
+      this.logger.log(
+        `Launching Puppeteer with executable: ${executablePath || "bundled chromium"}`,
+      );
+
       this.browser = await puppeteer.launch({
         headless: true,
+        executablePath: executablePath || undefined,
         args: [
           "--no-sandbox",
           "--disable-setuid-sandbox",
           "--disable-dev-shm-usage",
           "--disable-gpu",
           "--font-render-hinting=none",
+          "--disable-software-rasterizer",
+          "--single-process", // 更好的容器兼容性
         ],
       });
     }
