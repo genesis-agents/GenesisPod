@@ -90,12 +90,8 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/prisma ./prisma
 
-# Create non-root user
-RUN groupadd -g 1001 nodejs && \
-    useradd -u 1001 -g nodejs nodejs && \
-    chown -R nodejs:nodejs /app
-
-USER nodejs
+# Note: Running as root for Chromium compatibility in containers
+# Chromium requires certain permissions that non-root users may not have
 
 # Expose port
 EXPOSE 4000
