@@ -1427,7 +1427,7 @@ export class AiImageService {
     this.logger.log(`[STEP 3] Rendering mode: ${promptInsights.renderingMode}`);
 
     const dimensions = this.getDimensions(aspectRatio || "1:1");
-    let generatedImageUrl: string;
+    let generatedImageUrl: string | undefined;
     let imageModelUsed: string = "HTML Renderer";
 
     // 根据渲染模式选择生成方式
@@ -1514,11 +1514,22 @@ export class AiImageService {
       } catch (htmlError) {
         const errorMsg =
           htmlError instanceof Error ? htmlError.message : "Unknown error";
-        updateStep("html_render", "HTML Rendering Failed", "error", errorMsg);
-        return returnError(`HTML rendering failed: ${errorMsg}`);
+        this.logger.warn(
+          `[STEP 3] HTML rendering failed, falling back to AI image: ${errorMsg}`,
+        );
+        updateStep(
+          "html_render",
+          "HTML Rendering Failed - Falling back to AI",
+          "completed",
+          errorMsg,
+        );
+        // 不返回错误，继续使用 AI 图片模式作为回退
       }
-    } else {
-      // AI 图片模式 (ai_image)
+    }
+
+    // 如果 HTML 渲染失败或者是 ai_image 模式，使用 AI 图片生成
+    if (!generatedImageUrl) {
+      // AI 图片模式 (ai_image) 或 HTML 回退
       const imageModelConfig = imageModelId
         ? await this.getModelById(imageModelId)
         : await this.getDefaultImageModel();
@@ -1588,8 +1599,11 @@ export class AiImageService {
     }
 
     // 保存到数据库并返回结果
-    const providerName =
-      renderingMode === "html_render"
+    // 如果使用了 AI 模型生成（包括回退情况），记录为 AI_IMAGE
+    const actuallyUsedAI = imageModelUsed !== "HTML Renderer";
+    const providerName = actuallyUsedAI
+      ? "AI_IMAGE"
+      : renderingMode === "html_render"
         ? "HTML_RENDER"
         : renderingMode === "hybrid"
           ? "HYBRID"
