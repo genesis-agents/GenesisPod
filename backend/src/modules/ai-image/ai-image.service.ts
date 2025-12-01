@@ -1756,14 +1756,14 @@ export class AiImageService {
             },
           ],
           generationConfig: {
-            maxOutputTokens: 300,
+            maxOutputTokens: 4096,
             temperature: 0.7,
             responseMimeType: "application/json",
           },
         },
         {
           headers: { "Content-Type": "application/json" },
-          timeout: 30000,
+          timeout: 60000,
         },
       ),
     );
@@ -1807,8 +1807,8 @@ export class AiImageService {
       effectiveModel.startsWith("o3");
 
     const tokenParam = isNewerModel
-      ? { max_completion_tokens: 300 }
-      : { max_tokens: 300 };
+      ? { max_completion_tokens: 4096 }
+      : { max_tokens: 4096 };
 
     try {
       const requestBody: Record<string, any> = {
@@ -1837,7 +1837,7 @@ export class AiImageService {
             "Content-Type": "application/json",
             Authorization: `Bearer ${apiKey}`,
           },
-          timeout: 30000,
+          timeout: 60000,
         }),
       );
 
