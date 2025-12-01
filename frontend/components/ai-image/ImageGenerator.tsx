@@ -1053,6 +1053,13 @@ export default function ImageGenerator({
     null
   );
   const [error, setError] = useState<string | null>(null);
+  // SSE streaming state
+  const [streamingSteps, setStreamingSteps] = useState<ProcessingStep[]>([]);
+  const [streamingInsights, setStreamingInsights] = useState<{
+    textModelUsed?: string;
+    imageModelUsed?: string;
+    renderingMode?: string;
+  } | null>(null);
 
   // Model state
   const [models, setModels] = useState<ModelsResponse>({
@@ -1333,15 +1340,18 @@ export default function ImageGenerator({
     setInputMode('prompt');
   };
 
-  // Generate image
+  // Generate image with SSE streaming
   const handleGenerate = async () => {
     if (!hasValidInput() || isGenerating) return;
 
     setIsGenerating(true);
     setError(null);
     setSelectedImage(null);
+    setStreamingSteps([]);
+    setStreamingInsights(null);
 
     try {
+      // File uploads still use the regular POST endpoint
       if (inputMode === 'files' && uploadedFiles.length > 0) {
         const formData = new FormData();
         uploadedFiles.forEach((uf) => formData.append('files', uf.file));
@@ -1372,18 +1382,20 @@ export default function ImageGenerator({
         };
         setGeneratedImages((prev) => [newImage, ...prev]);
         setSelectedImage(newImage);
+        setIsGenerating(false);
         return;
       }
 
-      const requestBody: Record<string, unknown> = {
-        imageModelId: selectedImageModelId,
-        skipEnhancement,
-        aspectRatio,
-      };
+      // Build SSE URL params
+      const params = new URLSearchParams();
+      params.set('aspectRatio', aspectRatio);
+      params.set('skipEnhancement', String(skipEnhancement));
+      if (selectedImageModelId)
+        params.set('imageModelId', selectedImageModelId);
 
       switch (inputMode) {
         case 'prompt':
-          requestBody.prompt = prompt.trim();
+          params.set('prompt', prompt.trim());
           const mentions = prompt.match(/@\[(.*?)\]/g);
           if (mentions) {
             const extractedUrls: string[] = [];
@@ -1392,46 +1404,119 @@ export default function ImageGenerator({
               const source = sources.find((s) => s.title === title);
               if (source) extractedUrls.push(source.url);
             });
-            if (extractedUrls.length > 0) requestBody.urls = extractedUrls;
+            if (extractedUrls.length > 0)
+              params.set('urls', extractedUrls.join(','));
           }
           break;
         case 'youtube':
-          requestBody.urls = [youtubeUrl.trim()];
+          params.set('urls', youtubeUrl.trim());
           break;
         case 'url':
-          requestBody.urls = urls.filter((u) => u.trim());
+          params.set('urls', urls.filter((u) => u.trim()).join(','));
           break;
         case 'refine':
+          // Refine mode still uses regular POST (needs imageBase64)
           if (refineImage) {
             const imageBase64 = await imageUrlToBase64(refineImage.imageUrl);
-            requestBody.imageBase64 = imageBase64;
-            requestBody.prompt = refinePrompt.trim();
-            requestBody.skipEnhancement = true;
+            const response = await fetch(
+              `${config.apiBaseUrl}/api/v1/ai-image/generate`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...getAuthHeader(),
+                },
+                body: JSON.stringify({
+                  imageBase64,
+                  prompt: refinePrompt.trim(),
+                  skipEnhancement: true,
+                  imageModelId: selectedImageModelId,
+                  aspectRatio,
+                }),
+              }
+            );
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({}));
+              throw new Error(errorData.message || 'Failed to generate image');
+            }
+            const data = await response.json();
+            const newImage: GeneratedImage = {
+              ...data,
+              createdAt: new Date().toISOString(),
+            };
+            setGeneratedImages((prev) => [newImage, ...prev]);
+            setSelectedImage(newImage);
+            setRefineImage(null);
+            setRefinePrompt('');
+            setInputMode('prompt');
+            setIsGenerating(false);
+            return;
           }
           break;
       }
 
-      const response = await fetch(
-        `${config.apiBaseUrl}/api/v1/ai-image/generate`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          body: JSON.stringify(requestBody),
-        }
-      );
+      // Use SSE for streaming generation with fetch (supports auth headers)
+      const sseUrl = `${config.apiBaseUrl}/api/v1/ai-image/generate/stream?${params.toString()}`;
+
+      const response = await fetch(sseUrl, {
+        method: 'GET',
+        headers: {
+          Accept: 'text/event-stream',
+          ...getAuthHeader(),
+        },
+      });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to generate image');
+        throw new Error('Failed to connect to stream');
       }
 
-      const data = await response.json();
-      const newImage: GeneratedImage = {
-        ...data,
-        createdAt: new Date().toISOString(),
-      };
-      setGeneratedImages((prev) => [newImage, ...prev]);
-      setSelectedImage(newImage);
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error('No response body');
+      }
+
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              if (data.type === 'step') {
+                setStreamingSteps(data.allSteps || []);
+              } else if (data.type === 'insights') {
+                setStreamingInsights({
+                  textModelUsed: data.textModelUsed,
+                  renderingMode: data.renderingMode,
+                });
+              } else if (data.type === 'complete') {
+                const newImage: GeneratedImage = {
+                  ...data.result,
+                  createdAt: new Date().toISOString(),
+                };
+                setGeneratedImages((prev) => [newImage, ...prev]);
+                setSelectedImage(newImage);
+                setStreamingSteps([]);
+                setStreamingInsights(null);
+              } else if (data.type === 'error') {
+                throw new Error(data.error || 'Generation failed');
+              }
+            } catch (parseError) {
+              console.warn('Failed to parse SSE data:', line);
+            }
+          }
+        }
+      }
 
       if (inputMode === 'refine') {
         setRefineImage(null);
@@ -1445,6 +1530,8 @@ export default function ImageGenerator({
       setError(errorMessage);
     } finally {
       setIsGenerating(false);
+      setStreamingSteps([]);
+      setStreamingInsights(null);
     }
   };
 
@@ -1679,8 +1766,9 @@ export default function ImageGenerator({
                 />
               </div>
             ) : isGenerating ? (
-              <div className="flex flex-col items-center gap-6">
-                <div className="relative h-24 w-24">
+              <div className="flex flex-col items-center gap-6 p-8">
+                {/* Spinner */}
+                <div className="relative h-20 w-20">
                   <div className="absolute inset-0 animate-spin rounded-full border-4 border-purple-200 border-t-purple-500" />
                   <div
                     className="absolute inset-3 animate-spin rounded-full border-4 border-blue-200 border-t-blue-500"
@@ -1690,14 +1778,98 @@ export default function ImageGenerator({
                     }}
                   />
                 </div>
+
+                {/* Title */}
                 <div className="text-center">
-                  <p className="text-lg text-gray-700">
+                  <p className="text-lg font-medium text-gray-700">
                     Creating your image...
                   </p>
-                  <p className="mt-1 text-sm text-gray-500">
-                    AI is processing your request
-                  </p>
+                  {streamingInsights?.textModelUsed && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Text Model: {streamingInsights.textModelUsed}
+                    </p>
+                  )}
                 </div>
+
+                {/* Real-time Steps */}
+                {streamingSteps.length > 0 && (
+                  <div className="w-full max-w-md space-y-2">
+                    {streamingSteps.map((step, index) => (
+                      <div
+                        key={step.step}
+                        className={`flex items-start gap-3 rounded-lg p-3 text-sm transition-all ${
+                          step.status === 'processing'
+                            ? 'border border-purple-200 bg-purple-50'
+                            : step.status === 'completed'
+                              ? 'border border-green-200 bg-green-50'
+                              : step.status === 'error'
+                                ? 'border border-red-200 bg-red-50'
+                                : 'bg-gray-50'
+                        }`}
+                      >
+                        {/* Status Icon */}
+                        <div className="mt-0.5 flex-shrink-0">
+                          {step.status === 'processing' ? (
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-purple-300 border-t-purple-600" />
+                          ) : step.status === 'completed' ? (
+                            <svg
+                              className="h-4 w-4 text-green-500"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          ) : step.status === 'error' ? (
+                            <svg
+                              className="h-4 w-4 text-red-500"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                          ) : (
+                            <div className="h-4 w-4 rounded-full bg-gray-300" />
+                          )}
+                        </div>
+
+                        {/* Content */}
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={`font-medium ${
+                              step.status === 'processing'
+                                ? 'text-purple-700'
+                                : step.status === 'completed'
+                                  ? 'text-green-700'
+                                  : step.status === 'error'
+                                    ? 'text-red-700'
+                                    : 'text-gray-700'
+                            }`}
+                          >
+                            {step.title}
+                          </p>
+                          {step.content && (
+                            <p className="mt-0.5 truncate text-xs text-gray-500">
+                              {step.content.slice(0, 100)}
+                              {step.content.length > 100 ? '...' : ''}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex max-w-md flex-col items-center gap-6 px-4 text-center">

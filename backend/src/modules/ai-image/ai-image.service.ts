@@ -1,7 +1,12 @@
-import { Injectable, Logger, BadRequestException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  MessageEvent,
+} from "@nestjs/common";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { HttpService } from "@nestjs/axios";
-import { firstValueFrom } from "rxjs";
+import { firstValueFrom, Observable, Subject } from "rxjs";
 import { ContentExtractorService } from "./content-extractor.service";
 import { AIModelType, Prisma } from "@prisma/client";
 
@@ -881,6 +886,510 @@ export class AiImageService {
         isDefault: m.isDefault,
       })),
     };
+  }
+
+  /**
+   * SSE 流式生成图片 - 实时推送处理进度
+   * 返回 Observable，每个步骤完成时发送事件
+   */
+  generateImageStream(options: GenerateImageOptions): Observable<MessageEvent> {
+    const subject = new Subject<MessageEvent>();
+
+    // 异步执行生成流程
+    this.executeStreamGeneration(options, subject).catch((error) => {
+      this.logger.error(`Stream generation error: ${error.message}`);
+      subject.next({
+        data: JSON.stringify({
+          type: "error",
+          error: error.message,
+        }),
+      });
+      subject.complete();
+    });
+
+    return subject.asObservable();
+  }
+
+  /**
+   * 执行流式生成的内部方法
+   */
+  private async executeStreamGeneration(
+    options: GenerateImageOptions,
+    subject: Subject<MessageEvent>,
+  ): Promise<void> {
+    const {
+      prompt,
+      urls,
+      content,
+      imageBase64,
+      files,
+      imageModelId,
+      style,
+      aspectRatio,
+      negativePrompt,
+      skipEnhancement,
+      userId,
+    } = options;
+
+    let mergedNegativePrompt = negativePrompt
+      ? negativePrompt.trim()
+      : undefined;
+    const processingSteps: ProcessingStep[] = [];
+
+    // 发送步骤更新的辅助函数
+    const emitStep = (
+      stepId: string,
+      title: string,
+      status: ProcessingStep["status"],
+      stepContent?: string,
+    ) => {
+      const step: ProcessingStep = {
+        step: stepId,
+        title,
+        status,
+        content: stepContent,
+        timestamp: new Date().toISOString(),
+      };
+
+      // 更新本地记录
+      const existing = processingSteps.find((s) => s.step === stepId);
+      if (existing) {
+        Object.assign(existing, step);
+      } else {
+        processingSteps.push(step);
+      }
+
+      // 发送 SSE 事件
+      subject.next({
+        data: JSON.stringify({
+          type: "step",
+          step,
+          allSteps: processingSteps,
+        }),
+      });
+    };
+
+    try {
+      // 验证输入
+      const hasUrls = urls && urls.length > 0 && urls.some((u) => u.trim());
+      const hasFiles = files && files.length > 0;
+      if (!prompt && !hasUrls && !content && !imageBase64 && !hasFiles) {
+        throw new BadRequestException("At least one input is required");
+      }
+
+      // ============================================================
+      // 步骤1: 内容提取
+      // ============================================================
+      this.logger.log(
+        "========== STREAM STEP 1: Content Extraction ==========",
+      );
+      const contentParts: string[] = [];
+
+      if (prompt) {
+        contentParts.push(`User prompt: ${prompt}`);
+        emitStep("prompt_input", "User Prompt Received", "completed", prompt);
+      }
+
+      if (hasUrls) {
+        for (const urlInput of urls!) {
+          if (!urlInput.trim()) continue;
+
+          const trimmedInput = urlInput.trim();
+          const urlMatch = trimmedInput.match(
+            /^(https?:\/\/\S+)(?:\s+(.*))?$/i,
+          );
+          let trimmedUrl: string;
+          let userDescription: string | null = null;
+
+          if (urlMatch) {
+            trimmedUrl = urlMatch[1];
+            userDescription = urlMatch[2]?.trim() || null;
+          } else {
+            trimmedUrl = trimmedInput;
+          }
+
+          const isYouTube =
+            trimmedUrl.includes("youtube.com") ||
+            trimmedUrl.includes("youtu.be");
+          const isBilibili = trimmedUrl.includes("bilibili.com");
+          const stepId = `url_${Date.now()}`;
+          const stepTitle = isYouTube
+            ? "Extracting YouTube Subtitles"
+            : isBilibili
+              ? "Extracting Bilibili Content"
+              : "Extracting Web Content";
+
+          emitStep(stepId, stepTitle, "processing", trimmedUrl);
+
+          try {
+            const urlContent =
+              await this.contentExtractor.extractFromUrl(trimmedUrl);
+            const cleanContent = urlContent.replace(/\[.*?\]/g, "").trim();
+
+            if (cleanContent.length < 50) {
+              emitStep(
+                stepId,
+                `${stepTitle} - Failed`,
+                "error",
+                `Insufficient content (${cleanContent.length} chars)`,
+              );
+              throw new Error(
+                `Failed to extract sufficient content from ${trimmedUrl}`,
+              );
+            }
+
+            contentParts.push(`Content from ${trimmedUrl}:\n${urlContent}`);
+            if (userDescription) {
+              contentParts.push(`User instruction: ${userDescription}`);
+            }
+
+            emitStep(
+              stepId,
+              isYouTube
+                ? "YouTube Content Extracted"
+                : isBilibili
+                  ? "Bilibili Content Extracted"
+                  : "Web Content Extracted",
+              "completed",
+              urlContent.slice(0, 500) + (urlContent.length > 500 ? "..." : ""),
+            );
+          } catch (error) {
+            const errorMsg =
+              error instanceof Error ? error.message : "Unknown error";
+            emitStep(stepId, `${stepTitle} - Failed`, "error", errorMsg);
+            throw error;
+          }
+        }
+      }
+
+      if (content) {
+        contentParts.push(`Text content:\n${content}`);
+        emitStep(
+          "text_content",
+          "Text Content Received",
+          "completed",
+          content.slice(0, 300) + "...",
+        );
+      }
+
+      if (hasFiles) {
+        for (const file of files!) {
+          const stepId = `file_${file.filename}`;
+          emitStep(stepId, `Processing ${file.filename}`, "processing");
+
+          try {
+            const fileContent = await this.contentExtractor.extractFromFile(
+              file.buffer,
+              file.mimeType,
+              file.filename,
+            );
+            contentParts.push(
+              `Content from file "${file.filename}":\n${fileContent}`,
+            );
+            emitStep(
+              stepId,
+              `Extracted from ${file.filename}`,
+              "completed",
+              fileContent.slice(0, 300) + "...",
+            );
+          } catch (error) {
+            const errorMsg =
+              error instanceof Error ? error.message : "Unknown error";
+            emitStep(
+              stepId,
+              `Failed to process ${file.filename}`,
+              "error",
+              errorMsg,
+            );
+            throw error;
+          }
+        }
+      }
+
+      if (imageBase64) {
+        emitStep(
+          "image_reference",
+          "Reference Image Prepared",
+          "completed",
+          "Image will be used as reference",
+        );
+      }
+
+      const inputContent = contentParts.join("\n\n---\n\n");
+      emitStep(
+        "content_check",
+        "Content Extraction Complete",
+        "completed",
+        `${inputContent.length} characters`,
+      );
+
+      // ============================================================
+      // 步骤2: AI Prompt 生成
+      // ============================================================
+      this.logger.log(
+        "========== STREAM STEP 2: AI Prompt Generation ==========",
+      );
+      let textModelUsed: string | undefined;
+      let promptInsights = this.createDefaultInsights(inputContent);
+
+      if (!skipEnhancement) {
+        emitStep(
+          "prompt_generate",
+          "Generating Image Prompt with AI",
+          "processing",
+        );
+
+        const textModel = await this.getDefaultTextModel();
+        if (!textModel || !textModel.apiKey) {
+          emitStep(
+            "prompt_generate",
+            "No Text Model Available",
+            "error",
+            "Please configure a text model",
+          );
+          throw new Error("No text model configured");
+        }
+
+        textModelUsed = textModel.displayName || textModel.name;
+        emitStep("prompt_generate", `Using ${textModelUsed}`, "processing");
+
+        const provider = textModel.provider.toLowerCase();
+        const modelId = textModel.modelId.toLowerCase();
+        let rawEnhancedPrompt: string;
+
+        if (
+          provider.includes("google") ||
+          provider.includes("gemini") ||
+          modelId.includes("gemini")
+        ) {
+          rawEnhancedPrompt = await this.callGeminiTextAPI(
+            textModel.apiKey,
+            textModel.modelId,
+            inputContent,
+          );
+        } else {
+          rawEnhancedPrompt = await this.callOpenAITextAPI(
+            textModel.apiKey,
+            textModel.apiEndpoint,
+            textModel.modelId,
+            inputContent,
+          );
+        }
+
+        promptInsights = this.parsePromptEnhancementResponse(
+          rawEnhancedPrompt,
+          inputContent,
+        );
+        emitStep(
+          "prompt_generate",
+          "AI Prompt Generated",
+          "completed",
+          promptInsights.imagePrompt?.slice(0, 200) + "...",
+        );
+      } else {
+        textModelUsed = "Direct Input";
+        emitStep("prompt_generate", "Using Direct Input", "completed");
+      }
+
+      const composedPrompt = this.composeFinalImagePrompt(
+        promptInsights,
+        style,
+      );
+      const enhancedPrompt = composedPrompt.prompt;
+      mergedNegativePrompt = this.mergeNegativePrompts(
+        mergedNegativePrompt,
+        composedPrompt.negativeCandidates,
+      );
+
+      // 发送 prompt insights
+      subject.next({
+        data: JSON.stringify({
+          type: "insights",
+          textModelUsed,
+          imagePrompt: enhancedPrompt,
+          informationArchitecture: promptInsights.informationArchitecture,
+          renderingMode: promptInsights.renderingMode,
+        }),
+      });
+
+      // ============================================================
+      // 步骤3: 图片生成
+      // ============================================================
+      this.logger.log("========== STREAM STEP 3: Image Generation ==========");
+      const dimensions = this.getDimensions(aspectRatio || "1:1");
+      let generatedImageUrl: string | undefined;
+      let imageModelUsed: string = "HTML Renderer";
+
+      const renderingMode = promptInsights.renderingMode;
+
+      if (renderingMode === "html_render" || renderingMode === "hybrid") {
+        emitStep(
+          "html_render",
+          renderingMode === "hybrid"
+            ? "Generating HTML Infographic with AI Background"
+            : "Generating HTML Infographic",
+          "processing",
+        );
+
+        try {
+          const infographicContent =
+            this.convertToInfographicContent(promptInsights);
+          let backgroundImageBase64: string | undefined;
+
+          if (renderingMode === "hybrid") {
+            emitStep(
+              "background_gen",
+              "Generating AI Background",
+              "processing",
+            );
+            const imageModelConfig = imageModelId
+              ? await this.getModelById(imageModelId)
+              : await this.getDefaultImageModel();
+
+            if (imageModelConfig && imageModelConfig.apiKey) {
+              try {
+                const bgPrompt =
+                  promptInsights.backgroundPrompt ||
+                  "Abstract professional background, subtle geometric patterns, gradient, modern, clean";
+                backgroundImageBase64 = await this.callImageGenerationAPI(
+                  imageModelConfig,
+                  bgPrompt,
+                  dimensions,
+                  mergedNegativePrompt,
+                );
+                imageModelUsed =
+                  imageModelConfig.displayName || imageModelConfig.name;
+                emitStep(
+                  "background_gen",
+                  "AI Background Generated",
+                  "completed",
+                );
+              } catch (bgError) {
+                this.logger.warn(`Background generation failed: ${bgError}`);
+                emitStep(
+                  "background_gen",
+                  "Background Generation Skipped",
+                  "completed",
+                  "Continuing without AI background",
+                );
+              }
+            }
+          }
+
+          generatedImageUrl =
+            await this.infographicTemplate.generateInfographic(
+              infographicContent,
+              {
+                width: dimensions.width,
+                height: dimensions.height,
+                backgroundImageBase64,
+              },
+            );
+
+          emitStep(
+            "html_render",
+            "HTML Infographic Generated Successfully",
+            "completed",
+          );
+        } catch (htmlError) {
+          this.logger.warn(
+            `HTML rendering failed: ${htmlError}, falling back to AI image`,
+          );
+          emitStep(
+            "html_render",
+            "HTML Rendering Failed - Falling back to AI",
+            "error",
+          );
+        }
+      }
+
+      if (!generatedImageUrl) {
+        emitStep("ai_image", "Generating Image with AI", "processing");
+
+        const imageModelConfig = imageModelId
+          ? await this.getModelById(imageModelId)
+          : await this.getDefaultImageModel();
+
+        if (!imageModelConfig || !imageModelConfig.apiKey) {
+          emitStep("ai_image", "No Image Model Available", "error");
+          throw new Error("No image model configured");
+        }
+
+        imageModelUsed = imageModelConfig.displayName || imageModelConfig.name;
+        emitStep("ai_image", `Using ${imageModelUsed}`, "processing");
+
+        generatedImageUrl = await this.callImageGenerationAPI(
+          imageModelConfig,
+          enhancedPrompt,
+          dimensions,
+          mergedNegativePrompt,
+        );
+        emitStep("ai_image", "AI Image Generated Successfully", "completed");
+      }
+
+      // 保存到数据库
+      emitStep("save", "Saving to Database", "processing");
+
+      const actuallyUsedAI = imageModelUsed !== "HTML Renderer";
+      const providerName = actuallyUsedAI
+        ? "AI_IMAGE"
+        : renderingMode === "html_render"
+          ? "HTML_RENDER"
+          : renderingMode === "hybrid"
+            ? "HTML_RENDER_WITH_AI_BACKGROUND"
+            : "AI_IMAGE";
+
+      const image = await this.prisma.generatedImage.create({
+        data: {
+          prompt: inputContent.slice(0, 1000),
+          enhancedPrompt,
+          style: style || "realistic",
+          aspectRatio: aspectRatio || "1:1",
+          imageUrl: generatedImageUrl,
+          width: dimensions.width,
+          height: dimensions.height,
+          userId: userId || null,
+          provider: providerName,
+        },
+      });
+
+      emitStep("save", "Saved Successfully", "completed");
+
+      // 发送最终结果
+      subject.next({
+        data: JSON.stringify({
+          type: "complete",
+          result: {
+            id: image.id,
+            prompt: inputContent.slice(0, 1000),
+            enhancedPrompt,
+            imageUrl: generatedImageUrl,
+            width: image.width,
+            height: image.height,
+            createdAt: image.createdAt.toISOString(),
+            processingSteps,
+            extractedContent: inputContent.slice(0, 2000),
+            textModelUsed,
+            imageModelUsed,
+          },
+        }),
+      });
+
+      subject.complete();
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      this.logger.error(`Stream generation failed: ${errorMsg}`);
+
+      subject.next({
+        data: JSON.stringify({
+          type: "error",
+          error: errorMsg,
+          processingSteps,
+        }),
+      });
+
+      subject.complete();
+    }
   }
 
   /**

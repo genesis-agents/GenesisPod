@@ -10,8 +10,12 @@ import {
   Logger,
   UseInterceptors,
   UploadedFiles,
+  Sse,
+  Query,
+  MessageEvent,
 } from "@nestjs/common";
 import { FilesInterceptor } from "@nestjs/platform-express";
+import { Observable } from "rxjs";
 import { AiImageService } from "./ai-image.service";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 
@@ -62,6 +66,51 @@ export class AiImageController {
       aspectRatio: dto.aspectRatio,
       negativePrompt: dto.negativePrompt,
       skipEnhancement: dto.skipEnhancement,
+      userId: req.user?.userId,
+    });
+  }
+
+  /**
+   * SSE 流式生成图片 - 实时推送处理进度
+   * 前端使用 EventSource 连接此端点
+   */
+  @Sse("generate/stream")
+  @UseGuards(JwtAuthGuard)
+  generateImageStream(
+    @Query("prompt") prompt: string,
+    @Query("urls") urls: string,
+    @Query("content") content: string,
+    @Query("imageModelId") imageModelId: string,
+    @Query("textModelId") textModelId: string,
+    @Query("style") style: string,
+    @Query("aspectRatio") aspectRatio: string,
+    @Query("negativePrompt") negativePrompt: string,
+    @Query("skipEnhancement") skipEnhancement: string,
+    @Request() req: any,
+  ): Observable<MessageEvent> {
+    this.logger.log(
+      `SSE: Starting stream generation for user ${req.user?.userId}`,
+    );
+
+    const parsedUrls = urls
+      ? urls.split(",").filter((u) => u.trim())
+      : undefined;
+    const validAspectRatio = ["1:1", "16:9", "9:16", "4:3"].includes(
+      aspectRatio,
+    )
+      ? (aspectRatio as "1:1" | "16:9" | "9:16" | "4:3")
+      : undefined;
+
+    return this.aiImageService.generateImageStream({
+      prompt: prompt || undefined,
+      urls: parsedUrls,
+      content: content || undefined,
+      imageModelId: imageModelId || undefined,
+      textModelId: textModelId || undefined,
+      style: style || undefined,
+      aspectRatio: validAspectRatio,
+      negativePrompt: negativePrompt || undefined,
+      skipEnhancement: skipEnhancement === "true",
       userId: req.user?.userId,
     });
   }
