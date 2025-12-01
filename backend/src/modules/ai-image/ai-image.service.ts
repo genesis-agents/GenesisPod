@@ -50,44 +50,119 @@ export interface GenerateImageOptions {
 // 提示词优化系统提示 —— 要求返回结构化 reasoning + prompt 的 JSON
 // 提示词优化系统提示 —— 要求返回结构化 reasoning + prompt 的 JSON
 // Image prompt enhancement system (structured reasoning JSON)
-const PROMPT_ENHANCEMENT_SYSTEM = `You are an expert visual prompt engineer assisting professional Imagen 4 (Nano Banana Pro) workflows. Analyze the provided material and respond with a single JSON object capturing both your reasoning and the final instructions.
+const PROMPT_ENHANCEMENT_SYSTEM = `You are an expert visual prompt engineer assisting professional Imagen 4 (Nano Banana Pro) workflows. Analyze the provided material and respond with a single JSON object capturing both your reasoning process and the final production instructions.
 
 The JSON must be STRICTLY valid (no markdown fences) and follow:
 {
-  "style_shift_reasoning": ["..."],
-  "layout_plan": ["..."],
-  "quality_checks": ["..."],
-  "color_palette": ["..."],
-  "typography": "string",
-  "background": "string",
-  "visual_style": "string",
-  "inspiration": ["..."],
-  "negative_keywords": ["..."],
-  "image_prompt": "string"
+  "design_journal": [
+    {
+      "title": "string",
+      "narrative": "string"
+    }
+  ],
+  "information_architecture": {
+    "title": "string",
+    "subtitle": "string",
+    "hero_statement": "string",
+    "sections": [
+      {
+        "title": "string",
+        "summary": "string",
+        "bullets": ["string"],
+        "metrics": [
+          {
+            "label": "string",
+            "value": "string",
+            "comparison": "string"
+          }
+        ],
+        "visual": {
+          "type": "string",
+          "description": "string"
+        }
+      }
+    ],
+    "call_to_action": "string"
+  },
+  "layout_plan": ["string"],
+  "visual_language": {
+    "color_palette": ["string"],
+    "typography": "string",
+    "iconography": "string",
+    "chart_style": "string",
+    "background": "string",
+    "grid_system": "string"
+  },
+  "quality_checks": ["string"],
+  "negative_keywords": ["string"],
+  "final_prompt": "string",
+  "fallback_prompt": "string"
 }
 
 Guidelines:
 1. Use English.
-2. Explain the aesthetic transition (e.g. futuristic lab → business minimalist) with 2-4 sentences inside "style_shift_reasoning".
-3. Provide grid/section layout details in "layout_plan" (KPI strip, executive summary panel, comparison charts, etc.).
-4. Populate "quality_checks" with validation statements ensuring the deliverable is business-ready (fonts, clarity, tone, accessibility).
-5. Supply 3–5 palette cues in "color_palette". Summarise fonts/background/style via the dedicated string fields.
-6. Use "inspiration" for optional references; leave an empty array if none.
-7. List undesired elements in "negative_keywords" (e.g. neon lighting, sci-fi HUD overlays).
-8. "image_prompt" must be a polished English prompt ready for Imagen, referencing layout, tone, colour palette, typography, data callouts, and quality requirements. Avoid first-person phrasing.
-9. Respond ONLY with the JSON object.`;
+2. The design journal must contain 3-5 chronologically ordered entries (e.g. style shift, layout planning, data validation, quality checks) written in natural language.
+3. Populate the information architecture with concrete copy: titles, hero statement, bullet points, numeric metrics (with comparisons or context), and recommended visuals for each section.
+4. Layout plan should describe spatial arrangement (columns, grids, hero, KPI bands, chart placement) and user flow.
+5. Visual language must specify palette (e.g. navy #002B5B, forest green #1B8770, neutral greys), typography pairings, iconography style, chart treatments, background, and grid rules.
+6. Quality checks must emphasise clarity, print-ready typography, accessibility, unmistakable labelling, and freedom from "AI art" effects.
+7. Negative keywords should explicitly ban neon glows, 3D renders, graffiti, painterly strokes, distorted text, illegible microtype, and other undesirable traits.
+8. Final prompt must be a polished instruction set for Imagen that integrates the content structure, layout, visual language, and quality requirements.
+9. Fallback prompt should be a concise backup instruction if final prompt cannot be honoured.
+10. Respond ONLY with the JSON object; do not include prose outside the JSON.`;
+
+interface PromptDesignJournalEntry {
+  title: string;
+  narrative: string;
+}
+
+interface PromptMetric {
+  label: string;
+  value: string;
+  comparison?: string;
+}
+
+interface PromptVisualCue {
+  type?: string;
+  description?: string;
+}
+
+interface PromptSection {
+  title?: string;
+  summary?: string;
+  bullets: string[];
+  metrics: PromptMetric[];
+  visual?: PromptVisualCue;
+}
+
+interface PromptInformationArchitecture {
+  title?: string;
+  subtitle?: string;
+  heroStatement?: string;
+  sections: PromptSection[];
+  callToAction?: string;
+}
+
+interface PromptVisualLanguage {
+  colorPalette: string[];
+  typography?: string;
+  iconography?: string;
+  chartStyle?: string;
+  background?: string;
+  gridSystem?: string;
+}
 
 interface PromptEngineeringInsights {
   imagePrompt: string;
-  styleShiftReasoning: string[];
+  fallbackPrompt?: string;
+  designJournal: PromptDesignJournalEntry[];
+  informationArchitecture: PromptInformationArchitecture;
+  visualLanguage: PromptVisualLanguage;
   layoutPlan: string[];
   qualityChecks: string[];
-  colorPalette: string[];
-  typography?: string;
-  background?: string;
-  visualStyle?: string;
-  inspiration: string[];
   negativeKeywords: string[];
+  styleShiftReasoning: string[];
+  inspiration: string[];
 }
 @Injectable()
 export class AiImageService {
@@ -102,15 +177,28 @@ export class AiImageService {
   private createDefaultInsights(basePrompt: string): PromptEngineeringInsights {
     return {
       imagePrompt: (basePrompt || "").trim(),
-      styleShiftReasoning: [],
+      fallbackPrompt: undefined,
+      designJournal: [],
+      informationArchitecture: {
+        title: undefined,
+        subtitle: undefined,
+        heroStatement: undefined,
+        sections: [],
+        callToAction: undefined,
+      },
+      visualLanguage: {
+        colorPalette: [],
+        typography: undefined,
+        iconography: undefined,
+        chartStyle: undefined,
+        background: undefined,
+        gridSystem: undefined,
+      },
       layoutPlan: [],
       qualityChecks: [],
-      colorPalette: [],
-      typography: undefined,
-      background: undefined,
-      visualStyle: undefined,
-      inspiration: [],
       negativeKeywords: [],
+      styleShiftReasoning: [],
+      inspiration: [],
     };
   }
 
@@ -170,31 +258,127 @@ export class AiImageService {
 
     try {
       const parsed = JSON.parse(payload);
-      const insights: PromptEngineeringInsights = {
-        imagePrompt:
-          this.normalizeString(parsed.image_prompt ?? parsed.imagePrompt) ||
-          fallbackPrompt,
-        styleShiftReasoning: toArray(
-          parsed.style_shift_reasoning ?? parsed.styleShiftReasoning,
+      const insights = this.createDefaultInsights(fallbackPrompt);
+
+      insights.imagePrompt =
+        this.normalizeString(
+          parsed.final_prompt ?? parsed.image_prompt ?? parsed.imagePrompt,
+        ) || fallbackPrompt;
+      insights.fallbackPrompt = this.normalizeString(
+        parsed.fallback_prompt ??
+          parsed.backup_prompt ??
+          parsed.alternate_prompt,
+      );
+
+      const designJournalRaw = parsed.design_journal ?? parsed.designJournal;
+      if (Array.isArray(designJournalRaw)) {
+        insights.designJournal = designJournalRaw
+          .map((entry: any, index: number): PromptDesignJournalEntry | null => {
+            if (entry && typeof entry === "object") {
+              const title =
+                this.normalizeString(entry.title) || `Step ${index + 1}`;
+              const narrative =
+                this.normalizeString(entry.narrative) ??
+                this.normalizeString(entry.description) ??
+                this.normalizeString(entry.text);
+              if (narrative) {
+                return { title, narrative };
+              }
+              return null;
+            }
+            if (typeof entry === "string") {
+              return { title: `Step ${index + 1}`, narrative: entry.trim() };
+            }
+            return null;
+          })
+          .filter((entry): entry is PromptDesignJournalEntry => entry !== null);
+      }
+
+      const infoRaw =
+        parsed.information_architecture ?? parsed.informationArchitecture ?? {};
+      const sectionsRaw = Array.isArray(infoRaw.sections)
+        ? infoRaw.sections
+        : [];
+      const sections: PromptSection[] = sectionsRaw.map((section: any) => ({
+        title: this.normalizeString(section.title),
+        summary: this.normalizeString(section.summary ?? section.description),
+        bullets: toArray(section.bullets ?? section.points),
+        metrics: Array.isArray(section.metrics)
+          ? section.metrics
+              .map((metric: any) => ({
+                label: this.normalizeString(metric.label) || undefined,
+                value: this.normalizeString(metric.value) || undefined,
+                comparison:
+                  this.normalizeString(metric.comparison ?? metric.delta) ||
+                  undefined,
+              }))
+              .filter((metric: { label?: string; value?: string }) =>
+                Boolean(metric.label || metric.value),
+              )
+          : [],
+        visual:
+          section.visual || section.chart
+            ? {
+                type: this.normalizeString(
+                  section.visual?.type ?? section.chart?.type,
+                ),
+                description: this.normalizeString(
+                  section.visual?.description ?? section.chart?.description,
+                ),
+              }
+            : undefined,
+      }));
+
+      insights.informationArchitecture = {
+        title: this.normalizeString(infoRaw.title),
+        subtitle: this.normalizeString(infoRaw.subtitle),
+        heroStatement: this.normalizeString(
+          infoRaw.hero_statement ?? infoRaw.heroStatement ?? infoRaw.tagline,
         ),
-        layoutPlan: toArray(parsed.layout_plan ?? parsed.layoutPlan),
-        qualityChecks: toArray(parsed.quality_checks ?? parsed.qualityChecks),
-        colorPalette: toArray(parsed.color_palette ?? parsed.colorPalette),
-        typography: this.normalizeString(parsed.typography ?? parsed.fonts),
-        background: this.normalizeString(
-          parsed.background ?? parsed.background_treatment ?? parsed.backdrop,
-        ),
-        visualStyle: this.normalizeString(
-          parsed.visual_style ?? parsed.visualStyle,
-        ),
-        inspiration: toArray(parsed.inspiration ?? parsed.references),
-        negativeKeywords: toArray(
-          parsed.negative_keywords ??
-            parsed.negativeKeywords ??
-            parsed.negative_prompt ??
-            parsed.negativeTerms,
+        sections,
+        callToAction: this.normalizeString(
+          infoRaw.call_to_action ?? infoRaw.callToAction,
         ),
       };
+
+      const visualRaw = parsed.visual_language ?? parsed.visualLanguage ?? {};
+      insights.visualLanguage = {
+        colorPalette: toArray(
+          visualRaw.color_palette ?? visualRaw.colorPalette,
+        ),
+        typography: this.normalizeString(visualRaw.typography),
+        iconography: this.normalizeString(visualRaw.iconography),
+        chartStyle: this.normalizeString(
+          visualRaw.chart_style ?? visualRaw.chartStyle,
+        ),
+        background: this.normalizeString(visualRaw.background),
+        gridSystem: this.normalizeString(
+          visualRaw.grid_system ?? visualRaw.gridSystem,
+        ),
+      };
+
+      insights.layoutPlan = toArray(parsed.layout_plan ?? parsed.layoutPlan);
+      insights.qualityChecks = toArray(
+        parsed.quality_checks ?? parsed.qualityChecks,
+      );
+      insights.negativeKeywords = toArray(
+        parsed.negative_keywords ??
+          parsed.negativeKeywords ??
+          parsed.negative_prompt ??
+          parsed.negativeTerms,
+      );
+      insights.inspiration = toArray(parsed.inspiration ?? parsed.references);
+
+      const legacyStyle = toArray(
+        parsed.style_shift_reasoning ?? parsed.styleShiftReasoning,
+      );
+      if (legacyStyle.length > 0) {
+        insights.styleShiftReasoning = legacyStyle;
+      } else if (insights.designJournal.length > 0) {
+        insights.styleShiftReasoning = insights.designJournal.map(
+          (entry) => entry.narrative,
+        );
+      }
 
       if (!insights.imagePrompt || insights.imagePrompt.length < 5) {
         insights.imagePrompt = fallbackPrompt;
@@ -205,7 +389,7 @@ export class AiImageService {
       this.logger.warn(
         `[PromptEnhancement] Failed to parse structured response, falling back to raw prompt: ${error}`,
       );
-      return this.createDefaultInsights(raw || fallbackPrompt);
+      return this.createDefaultInsights(fallbackPrompt);
     }
   }
 
@@ -213,43 +397,110 @@ export class AiImageService {
     insights: PromptEngineeringInsights,
     style?: string,
   ): { prompt: string; negativeCandidates: string[] } {
-    const promptParts: string[] = [];
+    const info = insights.informationArchitecture;
+    const visual = insights.visualLanguage;
 
-    if (insights.imagePrompt) {
-      promptParts.push(insights.imagePrompt.trim());
+    const infoLines: string[] = [];
+    if (info.title) {
+      infoLines.push(`Title text: "${info.title}"`);
     }
+    if (info.subtitle) {
+      infoLines.push(`Subtitle: "${info.subtitle}"`);
+    }
+    if (info.heroStatement) {
+      infoLines.push(`Hero statement: ${info.heroStatement}`);
+    }
+    info.sections.forEach((section, index) => {
+      const sectionLines: string[] = [];
+      if (section.summary) {
+        sectionLines.push(section.summary);
+      }
+      if (section.bullets.length > 0) {
+        sectionLines.push(
+          `Bullets: ${section.bullets.map((bullet) => `"${bullet}"`).join(", ")}`,
+        );
+      }
+      if (section.metrics.length > 0) {
+        const metrics = section.metrics
+          .map((metric) => {
+            const valuePart = metric.value ? `${metric.value}` : "";
+            const comparisonPart = metric.comparison
+              ? ` (${metric.comparison})`
+              : "";
+            return `${metric.label || "Metric"}: ${valuePart}${comparisonPart}`;
+          })
+          .join("; ");
+        sectionLines.push(`Metrics: ${metrics}`);
+      }
+      if (section.visual?.type || section.visual?.description) {
+        sectionLines.push(
+          `Visual: ${section.visual?.type || "chart"} – ${section.visual?.description || ""}`,
+        );
+      }
+
+      const sectionTitle = section.title
+        ? `${index + 1}. ${section.title}`
+        : `Section ${index + 1}`;
+      infoLines.push(`${sectionTitle}: ${sectionLines.join(" | ")}`);
+    });
+    if (info.callToAction) {
+      infoLines.push(`Call to action: ${info.callToAction}`);
+    }
+
+    const visualLines: string[] = [];
+    if (visual.colorPalette.length > 0) {
+      visualLines.push(`Color palette: ${visual.colorPalette.join(", ")}`);
+    }
+    if (visual.typography) {
+      visualLines.push(`Typography: ${visual.typography}`);
+    }
+    if (visual.iconography) {
+      visualLines.push(`Iconography: ${visual.iconography}`);
+    }
+    if (visual.chartStyle) {
+      visualLines.push(`Chart style: ${visual.chartStyle}`);
+    }
+    if (visual.background) {
+      visualLines.push(`Background: ${visual.background}`);
+    }
+    if (visual.gridSystem) {
+      visualLines.push(`Grid system: ${visual.gridSystem}`);
+    }
+    if (insights.inspiration.length > 0) {
+      visualLines.push(`Design references: ${insights.inspiration.join(", ")}`);
+    }
+
+    const narrativeLines: string[] = [];
     if (insights.styleShiftReasoning.length > 0) {
-      promptParts.push(
+      narrativeLines.push(
         `Style transformation goals: ${insights.styleShiftReasoning.join("; ")}`,
       );
     }
     if (insights.layoutPlan.length > 0) {
-      promptParts.push(
-        `Layout instructions: ${insights.layoutPlan.join("; ")}`,
-      );
-    }
-    if (insights.colorPalette.length > 0) {
-      promptParts.push(`Color palette: ${insights.colorPalette.join(", ")}`);
-    }
-    if (insights.typography) {
-      promptParts.push(`Typography: ${insights.typography}`);
-    }
-    if (insights.background) {
-      promptParts.push(`Background: ${insights.background}`);
-    }
-    if (insights.visualStyle) {
-      promptParts.push(`Visual style: ${insights.visualStyle}`);
-    }
-    if (insights.inspiration.length > 0) {
-      promptParts.push(`Design references: ${insights.inspiration.join("; ")}`);
-    }
-    if (insights.qualityChecks.length > 0) {
-      promptParts.push(
-        `Quality checklist: ${insights.qualityChecks.join("; ")}`,
-      );
+      narrativeLines.push(`Layout plan: ${insights.layoutPlan.join("; ")}`);
     }
 
-    const combined = promptParts.join(" ").trim();
+    const qualityLine =
+      insights.qualityChecks.length > 0
+        ? `Quality checklist: ${insights.qualityChecks.join("; ")}`
+        : undefined;
+
+    const promptSegments = [
+      insights.imagePrompt.trim(),
+      infoLines.length > 0
+        ? `Content structure:\n${infoLines.join("\n")}`
+        : undefined,
+      narrativeLines.length > 0
+        ? `Design narrative:\n${narrativeLines.join("\n")}`
+        : undefined,
+      visualLines.length > 0
+        ? `Visual language:\n${visualLines.join("\n")}`
+        : undefined,
+      qualityLine,
+      "Output requirements: print-ready, ultra high resolution, crisp sans-serif typography, no AI-art artifacts, no glow, no 3D, no gradients, perfectly legible text.",
+    ].filter((segment): segment is string => Boolean(segment));
+
+    const combined = promptSegments.join("\n\n");
     const finalPrompt = this.addStyleToPrompt(
       combined.length > 0 ? combined : insights.imagePrompt,
       style,
@@ -286,6 +537,18 @@ export class AiImageService {
 
     extras.forEach(addToken);
 
+    const enforcedNegatives = [
+      "ai art style",
+      "neon glow",
+      "lens flare",
+      "3d render",
+      "graffiti texture",
+      "painterly brushstroke",
+      "blurry text",
+      "illegible typography",
+    ];
+    enforcedNegatives.forEach(addToken);
+
     if (tokens.size === 0) {
       return undefined;
     }
@@ -298,6 +561,56 @@ export class AiImageService {
       return undefined;
     }
     return items.map((item) => `- ${item}`).join("\n");
+  }
+
+  private formatInformationArchitectureStep(
+    info: PromptInformationArchitecture,
+  ): string | undefined {
+    const lines: string[] = [];
+    if (info.title) {
+      lines.push(`Title: ${info.title}`);
+    }
+    if (info.subtitle) {
+      lines.push(`Subtitle: ${info.subtitle}`);
+    }
+    if (info.heroStatement) {
+      lines.push(`Hero statement: ${info.heroStatement}`);
+    }
+    info.sections.forEach((section, index) => {
+      const sectionTitle = section.title || `Section ${index + 1}`;
+      const details: string[] = [];
+      if (section.summary) {
+        details.push(section.summary);
+      }
+      if (section.bullets.length > 0) {
+        details.push(`Bullets: ${section.bullets.join(", ")}`);
+      }
+      if (section.metrics.length > 0) {
+        details.push(
+          `Metrics: ${section.metrics
+            .map((metric) => {
+              const value = metric.value ? `${metric.value}` : "";
+              const comparison = metric.comparison
+                ? ` (${metric.comparison})`
+                : "";
+              return `${metric.label || "Metric"} ${value}${comparison}`.trim();
+            })
+            .join("; ")}`,
+        );
+      }
+      if (section.visual?.description || section.visual?.type) {
+        details.push(
+          `Visual: ${section.visual?.type || "chart"} – ${
+            section.visual?.description || ""
+          }`,
+        );
+      }
+      lines.push(`${sectionTitle}: ${details.join(" | ")}`);
+    });
+    if (info.callToAction) {
+      lines.push(`Call to action: ${info.callToAction}`);
+    }
+    return lines.length > 0 ? lines.join("\n") : undefined;
   }
 
   /**
@@ -777,15 +1090,38 @@ export class AiImageService {
       enhancedPrompt.slice(0, 500),
     );
 
-    const styleStep = this.formatListForStep(
-      promptInsights.styleShiftReasoning,
+    if (promptInsights.designJournal.length > 0) {
+      promptInsights.designJournal.forEach((entry, index) => {
+        updateStep(
+          `prompt_journal_${index + 1}`,
+          entry.title || `Design Journal Step ${index + 1}`,
+          "completed",
+          entry.narrative,
+        );
+      });
+    } else {
+      const styleStep = this.formatListForStep(
+        promptInsights.styleShiftReasoning,
+      );
+      if (styleStep) {
+        updateStep(
+          "prompt_style_shift",
+          "Style Transformation Plan",
+          "completed",
+          styleStep,
+        );
+      }
+    }
+
+    const infoStep = this.formatInformationArchitectureStep(
+      promptInsights.informationArchitecture,
     );
-    if (styleStep) {
+    if (infoStep) {
       updateStep(
-        "prompt_style_shift",
-        "Style Transformation Plan",
+        "prompt_information",
+        "Information Architecture",
         "completed",
-        styleStep,
+        infoStep,
       );
     }
 
@@ -805,18 +1141,35 @@ export class AiImageService {
     }
 
     const designNotes: string[] = [];
-
-    if (promptInsights.colorPalette.length > 0) {
-      designNotes.push(`Palette: ${promptInsights.colorPalette.join(", ")}`);
+    if (promptInsights.visualLanguage.colorPalette.length > 0) {
+      designNotes.push(
+        `Palette: ${promptInsights.visualLanguage.colorPalette.join(", ")}`,
+      );
     }
-    if (promptInsights.typography) {
-      designNotes.push(`Typography: ${promptInsights.typography}`);
+    if (promptInsights.visualLanguage.typography) {
+      designNotes.push(
+        `Typography: ${promptInsights.visualLanguage.typography}`,
+      );
     }
-    if (promptInsights.background) {
-      designNotes.push(`Background: ${promptInsights.background}`);
+    if (promptInsights.visualLanguage.background) {
+      designNotes.push(
+        `Background: ${promptInsights.visualLanguage.background}`,
+      );
     }
-    if (promptInsights.visualStyle) {
-      designNotes.push(`Visual style: ${promptInsights.visualStyle}`);
+    if (promptInsights.visualLanguage.iconography) {
+      designNotes.push(
+        `Iconography: ${promptInsights.visualLanguage.iconography}`,
+      );
+    }
+    if (promptInsights.visualLanguage.chartStyle) {
+      designNotes.push(
+        `Chart style: ${promptInsights.visualLanguage.chartStyle}`,
+      );
+    }
+    if (promptInsights.visualLanguage.gridSystem) {
+      designNotes.push(
+        `Grid system: ${promptInsights.visualLanguage.gridSystem}`,
+      );
     }
 
     const designStep = this.formatListForStep(designNotes);
