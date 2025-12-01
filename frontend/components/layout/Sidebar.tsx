@@ -64,52 +64,139 @@ export default function Sidebar({ className = '' }: SidebarProps) {
         className={`flex items-center p-4 ${isCollapsed ? 'justify-center' : ''}`}
       >
         {isCollapsed ? (
-          /* Collapsed Logo - Pure line art style */
+          /* Collapsed Logo - S-curve dive & rise with gradient accent */
           <Link href="/" className="group" title="DeepDive Engine">
             <svg
-              className="h-8 w-8 text-gray-700 transition-colors duration-200 group-hover:text-blue-600"
-              viewBox="0 0 24 24"
+              className="h-8 w-8 transition-transform duration-300 group-hover:scale-105"
+              viewBox="0 0 32 32"
               fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
             >
-              {/* Diving arrow - simple line art */}
-              <path d="M12 3v14" />
-              <path d="M5 10l7 7 7-7" />
-              {/* Depth waves */}
-              <path d="M8 20h8" opacity="0.5" />
+              {/* Gradient definitions */}
+              <defs>
+                <linearGradient
+                  id="logoGradientCollapsed"
+                  x1="0%"
+                  y1="100%"
+                  x2="100%"
+                  y2="0%"
+                >
+                  <stop offset="0%" stopColor="#0F2A46" />
+                  <stop offset="50%" stopColor="#2BB7DA" />
+                  <stop offset="100%" stopColor="#7C5BFE" />
+                </linearGradient>
+                <radialGradient id="glowCollapsed" cx="75%" cy="25%" r="50%">
+                  <stop offset="0%" stopColor="#7C5BFE" stopOpacity="0.6" />
+                  <stop offset="100%" stopColor="#7C5BFE" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+              {/* Glow effect at top right */}
+              <circle
+                cx="24"
+                cy="8"
+                r="6"
+                fill="url(#glowCollapsed)"
+                className="opacity-70 transition-opacity duration-300 group-hover:opacity-100"
+              />
+              {/* S-curve: dive down then rise up - 深潜后上升 */}
+              <path
+                d="M8 6 C8 6, 12 8, 12 14 C12 20, 16 22, 16 22 C16 22, 20 20, 20 14 C20 10, 24 8, 24 6"
+                stroke="url(#logoGradientCollapsed)"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                fill="none"
+                className="transition-all duration-300"
+              />
+              {/* Anchor base - 稳固基底 */}
+              <path
+                d="M10 26 L22 26"
+                stroke="#0F2A46"
+                strokeWidth="2"
+                strokeLinecap="round"
+                opacity="0.4"
+              />
+              {/* Rising light burst - 向上的光芒 */}
+              <circle
+                cx="24"
+                cy="6"
+                r="2"
+                fill="#7C5BFE"
+                className="group-hover:r-3 transition-all duration-300"
+              />
             </svg>
           </Link>
         ) : (
-          /* Expanded Logo - Line art + Text */
+          /* Expanded Logo - S-curve + Text with gradient */
           <Link
             href="/"
-            className="group flex items-center gap-2"
+            className="group flex items-center gap-2.5"
             title="DeepDive Engine"
           >
             <svg
-              className="h-7 w-7 flex-shrink-0 text-gray-700 transition-colors duration-200 group-hover:text-blue-600"
-              viewBox="0 0 24 24"
+              className="h-8 w-8 flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
+              viewBox="0 0 32 32"
               fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
             >
-              {/* Diving arrow - simple line art */}
-              <path d="M12 3v14" />
-              <path d="M5 10l7 7 7-7" />
-              {/* Depth waves */}
-              <path d="M8 20h8" opacity="0.5" />
+              {/* Gradient definitions */}
+              <defs>
+                <linearGradient
+                  id="logoGradient"
+                  x1="0%"
+                  y1="100%"
+                  x2="100%"
+                  y2="0%"
+                >
+                  <stop offset="0%" stopColor="#0F2A46" />
+                  <stop offset="50%" stopColor="#2BB7DA" />
+                  <stop offset="100%" stopColor="#7C5BFE" />
+                </linearGradient>
+                <radialGradient id="glow" cx="75%" cy="25%" r="50%">
+                  <stop offset="0%" stopColor="#7C5BFE" stopOpacity="0.6" />
+                  <stop offset="100%" stopColor="#7C5BFE" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+              {/* Glow effect at top right */}
+              <circle
+                cx="24"
+                cy="8"
+                r="6"
+                fill="url(#glow)"
+                className="opacity-70 transition-opacity duration-300 group-hover:opacity-100"
+              />
+              {/* S-curve: dive down then rise up - 深潜后上升 */}
+              <path
+                d="M8 6 C8 6, 12 8, 12 14 C12 20, 16 22, 16 22 C16 22, 20 20, 20 14 C20 10, 24 8, 24 6"
+                stroke="url(#logoGradient)"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                fill="none"
+                className="transition-all duration-300"
+              />
+              {/* Anchor base - 稳固基底 */}
+              <path
+                d="M10 26 L22 26"
+                stroke="#0F2A46"
+                strokeWidth="2"
+                strokeLinecap="round"
+                opacity="0.4"
+              />
+              {/* Rising light burst - 向上的光芒 */}
+              <circle
+                cx="24"
+                cy="6"
+                r="2"
+                fill="#7C5BFE"
+                className="group-hover:r-3 transition-all duration-300"
+              />
             </svg>
 
             <div className="flex flex-col leading-none">
-              <span className="text-[14px] font-semibold tracking-tight text-gray-800">
+              <span
+                className="bg-gradient-to-r from-[#0F2A46] via-[#2BB7DA] to-[#7C5BFE] bg-clip-text text-[15px] font-bold tracking-tight text-transparent"
+                style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
+              >
                 DeepDive
               </span>
-              <span className="text-[9px] font-medium tracking-wider text-gray-400">
+              <span className="text-[9px] font-medium tracking-[0.15em] text-[#0F2A46]/50">
                 ENGINE
               </span>
             </div>
