@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * AI Image Generator Component - Professional Three-Column Layout
+ * AI Image Generator Component - Professional Three-Column Layout (Light Theme)
  * - Left: Vertical thumbnail gallery (scroll + selection)
  * - Center: Large image canvas with tools
  * - Right: Insights panel + Input area
@@ -147,7 +147,7 @@ function ThumbnailGallery({
   if (images.length === 0) {
     return (
       <div
-        className={`flex items-center justify-center ${isVertical ? 'h-full' : 'h-20'} text-gray-500`}
+        className={`flex items-center justify-center ${isVertical ? 'h-full' : 'h-20'} text-gray-400`}
       >
         <div className="p-4 text-center">
           <svg
@@ -179,7 +179,7 @@ function ThumbnailGallery({
             ? 'flex flex-col gap-2 overflow-y-auto px-2 py-2'
             : 'flex flex-row gap-2 overflow-x-auto px-2 py-2'
         }
-        scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/20 hover:scrollbar-thumb-white/40
+        scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400
       `}
     >
       {images.map((img) => (
@@ -192,7 +192,7 @@ function ThumbnailGallery({
             ${isVertical ? 'h-16 w-16' : 'h-14 w-14'}
             ${
               selectedImage?.id === img.id
-                ? 'scale-105 ring-2 ring-purple-500 ring-offset-2 ring-offset-[#1a1a2e]'
+                ? 'scale-105 ring-2 ring-purple-500 ring-offset-2 ring-offset-white'
                 : 'hover:scale-102 opacity-70 hover:opacity-100'
             }
           `}
@@ -201,7 +201,7 @@ function ThumbnailGallery({
           {bookmarkedImages.has(img.id) && (
             <div className="absolute right-0.5 top-0.5 z-10">
               <svg
-                className="h-3 w-3 text-yellow-400 drop-shadow"
+                className="h-3 w-3 text-yellow-500 drop-shadow"
                 fill="currentColor"
                 viewBox="0 0 24 24"
               >
@@ -211,7 +211,7 @@ function ThumbnailGallery({
           )}
           {/* Time indicator */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-1 py-0.5">
-            <span className="text-[8px] text-white/80">
+            <span className="text-[8px] text-white/90">
               {new Date(img.createdAt).toLocaleTimeString([], {
                 hour: '2-digit',
                 minute: '2-digit',
@@ -244,10 +244,10 @@ function CanvasToolbar({
   onCopy: () => void;
 }) {
   return (
-    <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/60 px-4 py-2 backdrop-blur-md">
+    <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-gray-200 bg-white/90 px-4 py-2 shadow-lg backdrop-blur-md">
       <button
         onClick={onExpand}
-        className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-white/90 transition hover:bg-white/10"
+        className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-gray-700 transition hover:bg-gray-100"
         title="View fullscreen"
       >
         <svg
@@ -265,10 +265,10 @@ function CanvasToolbar({
         </svg>
         <span className="hidden sm:inline">Expand</span>
       </button>
-      <div className="h-4 w-px bg-white/20" />
+      <div className="h-4 w-px bg-gray-300" />
       <button
         onClick={onRefine}
-        className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-purple-300 transition hover:bg-purple-500/20"
+        className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-purple-600 transition hover:bg-purple-50"
         title="Refine this image"
       >
         <svg
@@ -286,10 +286,10 @@ function CanvasToolbar({
         </svg>
         <span className="hidden sm:inline">Refine</span>
       </button>
-      <div className="h-4 w-px bg-white/20" />
+      <div className="h-4 w-px bg-gray-300" />
       <button
         onClick={onDownload}
-        className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-white/90 transition hover:bg-white/10"
+        className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-gray-700 transition hover:bg-gray-100"
         title="Download image"
       >
         <svg
@@ -309,7 +309,7 @@ function CanvasToolbar({
       </button>
       <button
         onClick={onCopy}
-        className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-white/90 transition hover:bg-white/10"
+        className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-gray-700 transition hover:bg-gray-100"
         title="Copy image"
       >
         <svg
@@ -345,13 +345,13 @@ function InsightsPanel({
   return (
     <div className="flex h-full flex-col">
       {/* Tab Headers */}
-      <div className="flex border-b border-white/10">
+      <div className="flex border-b border-gray-200">
         <button
           onClick={() => onTabChange('insights')}
           className={`flex-1 px-4 py-2.5 text-xs font-medium transition ${
             activeTab === 'insights'
-              ? 'border-b-2 border-purple-500 bg-white/5 text-purple-300'
-              : 'text-gray-500 hover:text-gray-300'
+              ? 'border-b-2 border-purple-500 bg-purple-50 text-purple-600'
+              : 'text-gray-500 hover:text-gray-700'
           }`}
         >
           Prompt Insights
@@ -360,8 +360,8 @@ function InsightsPanel({
           onClick={() => onTabChange('steps')}
           className={`flex-1 px-4 py-2.5 text-xs font-medium transition ${
             activeTab === 'steps'
-              ? 'border-b-2 border-purple-500 bg-white/5 text-purple-300'
-              : 'text-gray-500 hover:text-gray-300'
+              ? 'border-b-2 border-purple-500 bg-purple-50 text-purple-600'
+              : 'text-gray-500 hover:text-gray-700'
           }`}
         >
           Processing Steps
@@ -369,7 +369,7 @@ function InsightsPanel({
       </div>
 
       {/* Tab Content */}
-      <div className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/20 flex-1 overflow-y-auto">
+      <div className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 flex-1 overflow-y-auto">
         {activeTab === 'insights' && insights ? (
           <div className="space-y-4 p-4">
             {/* Design Journal */}
@@ -382,12 +382,12 @@ function InsightsPanel({
                   {insights.designJournal.map((entry, idx) => (
                     <div
                       key={idx}
-                      className="border-l-2 border-purple-500/50 pl-3"
+                      className="border-l-2 border-purple-400 pl-3"
                     >
-                      <p className="text-xs font-medium text-purple-300">
+                      <p className="text-xs font-medium text-purple-700">
                         {entry.title}
                       </p>
-                      <p className="mt-0.5 text-xs text-gray-400">
+                      <p className="mt-0.5 text-xs text-gray-600">
                         {entry.narrative}
                       </p>
                     </div>
@@ -404,30 +404,30 @@ function InsightsPanel({
               >
                 <div className="space-y-3">
                   {insights.informationArchitecture.title && (
-                    <p className="text-sm font-semibold text-white">
+                    <p className="text-sm font-semibold text-gray-900">
                       {insights.informationArchitecture.title}
                     </p>
                   )}
                   {insights.informationArchitecture.subtitle && (
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-gray-600">
                       {insights.informationArchitecture.subtitle}
                     </p>
                   )}
                   {insights.informationArchitecture.heroStatement && (
-                    <p className="text-xs italic text-purple-300">
+                    <p className="text-xs italic text-purple-600">
                       "{insights.informationArchitecture.heroStatement}"
                     </p>
                   )}
                   {insights.informationArchitecture.sections.map(
                     (section, idx) => (
-                      <div key={idx} className="rounded-lg bg-white/5 p-2.5">
+                      <div key={idx} className="rounded-lg bg-gray-50 p-2.5">
                         {section.title && (
-                          <p className="text-xs font-medium text-white">
+                          <p className="text-xs font-medium text-gray-900">
                             {section.title}
                           </p>
                         )}
                         {section.summary && (
-                          <p className="mt-1 text-xs text-gray-400">
+                          <p className="mt-1 text-xs text-gray-600">
                             {section.summary}
                           </p>
                         )}
@@ -436,9 +436,9 @@ function InsightsPanel({
                             {section.bullets.map((bullet, bIdx) => (
                               <li
                                 key={bIdx}
-                                className="flex items-start gap-1.5 text-xs text-gray-400"
+                                className="flex items-start gap-1.5 text-xs text-gray-600"
                               >
-                                <span className="mt-0.5 text-purple-400">
+                                <span className="mt-0.5 text-purple-500">
                                   -
                                 </span>
                                 {bullet}
@@ -451,16 +451,16 @@ function InsightsPanel({
                             {section.metrics.map((metric, mIdx) => (
                               <div
                                 key={mIdx}
-                                className="rounded bg-purple-500/10 px-2 py-1"
+                                className="rounded bg-purple-50 px-2 py-1"
                               >
-                                <span className="text-[10px] text-gray-400">
+                                <span className="text-[10px] text-gray-500">
                                   {metric.label}
                                 </span>
-                                <p className="text-xs font-medium text-purple-300">
+                                <p className="text-xs font-medium text-purple-700">
                                   {metric.value}
                                 </p>
                                 {metric.comparison && (
-                                  <span className="text-[10px] text-green-400">
+                                  <span className="text-[10px] text-green-600">
                                     {metric.comparison}
                                   </span>
                                 )}
@@ -485,9 +485,9 @@ function InsightsPanel({
                   {insights.layoutPlan.map((item, idx) => (
                     <li
                       key={idx}
-                      className="flex items-start gap-1.5 text-xs text-gray-400"
+                      className="flex items-start gap-1.5 text-xs text-gray-600"
                     >
-                      <span className="font-mono text-blue-400">
+                      <span className="font-mono text-blue-500">
                         {idx + 1}.
                       </span>
                       {item}
@@ -516,17 +516,17 @@ function InsightsPanel({
                           (color, idx) => (
                             <div
                               key={idx}
-                              className="flex items-center gap-1.5 rounded bg-white/5 px-2 py-1"
+                              className="flex items-center gap-1.5 rounded bg-gray-100 px-2 py-1"
                             >
                               <div
-                                className="h-3 w-3 rounded-full border border-white/20"
+                                className="h-3 w-3 rounded-full border border-gray-300"
                                 style={{
                                   backgroundColor: color.startsWith('#')
                                     ? color
                                     : undefined,
                                 }}
                               />
-                              <span className="text-xs text-gray-300">
+                              <span className="text-xs text-gray-700">
                                 {color}
                               </span>
                             </div>
@@ -541,7 +541,7 @@ function InsightsPanel({
                       <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
                         Typography
                       </p>
-                      <p className="text-xs text-gray-300">
+                      <p className="text-xs text-gray-700">
                         {insights.visualLanguage.typography}
                       </p>
                     </div>
@@ -552,7 +552,7 @@ function InsightsPanel({
                       <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
                         Iconography
                       </p>
-                      <p className="text-xs text-gray-300">
+                      <p className="text-xs text-gray-700">
                         {insights.visualLanguage.iconography}
                       </p>
                     </div>
@@ -563,7 +563,7 @@ function InsightsPanel({
                       <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
                         Chart Style
                       </p>
-                      <p className="text-xs text-gray-300">
+                      <p className="text-xs text-gray-700">
                         {insights.visualLanguage.chartStyle}
                       </p>
                     </div>
@@ -574,7 +574,7 @@ function InsightsPanel({
                       <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
                         Background
                       </p>
-                      <p className="text-xs text-gray-300">
+                      <p className="text-xs text-gray-700">
                         {insights.visualLanguage.background}
                       </p>
                     </div>
@@ -585,7 +585,7 @@ function InsightsPanel({
                       <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
                         Grid System
                       </p>
-                      <p className="text-xs text-gray-300">
+                      <p className="text-xs text-gray-700">
                         {insights.visualLanguage.gridSystem}
                       </p>
                     </div>
@@ -604,10 +604,10 @@ function InsightsPanel({
                   {insights.qualityChecks.map((check, idx) => (
                     <li
                       key={idx}
-                      className="flex items-start gap-1.5 text-xs text-gray-400"
+                      className="flex items-start gap-1.5 text-xs text-gray-600"
                     >
                       <svg
-                        className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-green-400"
+                        className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-green-500"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -636,7 +636,7 @@ function InsightsPanel({
                   {insights.negativeKeywords.map((keyword, idx) => (
                     <span
                       key={idx}
-                      className="rounded bg-red-500/10 px-2 py-0.5 text-xs text-red-400"
+                      className="rounded border border-red-200 bg-red-50 px-2 py-0.5 text-xs text-red-600"
                     >
                       {keyword}
                     </span>
@@ -655,9 +655,9 @@ function InsightsPanel({
                   {insights.inspiration.map((item, idx) => (
                     <li
                       key={idx}
-                      className="flex items-start gap-1.5 text-xs text-gray-400"
+                      className="flex items-start gap-1.5 text-xs text-gray-600"
                     >
-                      <span className="text-yellow-400">*</span>
+                      <span className="text-yellow-500">*</span>
                       {item}
                     </li>
                   ))}
@@ -676,7 +676,7 @@ function InsightsPanel({
                     <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
                       Original Input
                     </p>
-                    <p className="rounded bg-white/5 p-2 text-xs text-gray-300">
+                    <p className="rounded bg-gray-50 p-2 text-xs text-gray-700">
                       {image.prompt}
                     </p>
                   </div>
@@ -686,7 +686,7 @@ function InsightsPanel({
                     <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
                       Final Prompt
                     </p>
-                    <p className="rounded bg-purple-500/10 p-2 text-xs text-gray-300">
+                    <p className="rounded bg-purple-50 p-2 text-xs text-gray-700">
                       {insights.imagePrompt}
                     </p>
                   </div>
@@ -696,7 +696,7 @@ function InsightsPanel({
                     <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
                       Fallback Prompt
                     </p>
-                    <p className="rounded bg-white/5 p-2 text-xs text-gray-400">
+                    <p className="rounded bg-gray-50 p-2 text-xs text-gray-600">
                       {insights.fallbackPrompt}
                     </p>
                   </div>
@@ -706,7 +706,7 @@ function InsightsPanel({
                     <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
                       Negative Prompt
                     </p>
-                    <p className="rounded bg-red-500/10 p-2 text-xs text-red-300">
+                    <p className="rounded bg-red-50 p-2 text-xs text-red-600">
                       {image.negativePrompt}
                     </p>
                   </div>
@@ -715,7 +715,7 @@ function InsightsPanel({
             </InsightCard>
           </div>
         ) : activeTab === 'insights' ? (
-          <div className="flex h-full items-center justify-center p-4 text-gray-500">
+          <div className="flex h-full items-center justify-center p-4 text-gray-400">
             <div className="text-center">
               <svg
                 className="mx-auto mb-2 h-8 w-8 opacity-50"
@@ -731,7 +731,7 @@ function InsightsPanel({
                 />
               </svg>
               <p className="text-xs">No prompt insights available</p>
-              <p className="mt-1 text-[10px] text-gray-600">
+              <p className="mt-1 text-[10px] text-gray-400">
                 Enable AI enhancement to see insights
               </p>
             </div>
@@ -743,13 +743,13 @@ function InsightsPanel({
               <div className="space-y-3">
                 {/* Models Used */}
                 {(image.textModelUsed || image.imageModelUsed) && (
-                  <div className="space-y-1.5 rounded-lg bg-white/5 p-3">
+                  <div className="space-y-1.5 rounded-lg bg-gray-50 p-3">
                     {image.textModelUsed && (
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] text-gray-500">
                           Text Model:
                         </span>
-                        <span className="text-xs text-gray-300">
+                        <span className="text-xs text-gray-700">
                           {image.textModelUsed}
                         </span>
                       </div>
@@ -759,7 +759,7 @@ function InsightsPanel({
                         <span className="text-[10px] text-gray-500">
                           Image Model:
                         </span>
-                        <span className="text-xs text-gray-300">
+                        <span className="text-xs text-gray-700">
                           {image.imageModelUsed}
                         </span>
                       </div>
@@ -778,7 +778,7 @@ function InsightsPanel({
                               ? 'animate-pulse text-blue-500'
                               : step.status === 'error'
                                 ? 'text-red-500'
-                                : 'text-gray-400'
+                                : 'text-gray-300'
                         }`}
                       >
                         {step.status === 'completed' && (
@@ -847,7 +847,7 @@ function InsightsPanel({
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium text-gray-300">
+                        <p className="text-xs font-medium text-gray-700">
                           {step.title}
                         </p>
                         {step.content && (
@@ -861,18 +861,18 @@ function InsightsPanel({
                 </div>
                 {/* Enhanced Prompt */}
                 {image.enhancedPrompt && (
-                  <div className="mt-4 border-t border-white/10 pt-4">
+                  <div className="mt-4 border-t border-gray-200 pt-4">
                     <p className="mb-1.5 text-[10px] uppercase tracking-wider text-gray-500">
                       Final Image Prompt
                     </p>
-                    <p className="rounded bg-white/5 p-2 text-xs leading-relaxed text-gray-300">
+                    <p className="rounded bg-gray-50 p-2 text-xs leading-relaxed text-gray-700">
                       {image.enhancedPrompt}
                     </p>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="flex h-32 items-center justify-center text-gray-500">
+              <div className="flex h-32 items-center justify-center text-gray-400">
                 <div className="text-center">
                   <svg
                     className="mx-auto mb-2 h-8 w-8 opacity-50"
@@ -911,13 +911,13 @@ function InsightCard({
   const [isExpanded, setIsExpanded] = useState(true);
 
   return (
-    <div className="overflow-hidden rounded-lg bg-white/5">
+    <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left transition hover:bg-white/5"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left transition hover:bg-gray-100"
       >
         <svg
-          className="h-4 w-4 flex-shrink-0 text-purple-400"
+          className="h-4 w-4 flex-shrink-0 text-purple-500"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -929,11 +929,11 @@ function InsightCard({
             d={icon}
           />
         </svg>
-        <span className="flex-1 text-xs font-medium text-gray-200">
+        <span className="flex-1 text-xs font-medium text-gray-700">
           {title}
         </span>
         <svg
-          className={`h-4 w-4 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+          className={`h-4 w-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -946,7 +946,7 @@ function InsightCard({
           />
         </svg>
       </button>
-      {isExpanded && <div className="px-3 pb-3">{children}</div>}
+      {isExpanded && <div className="bg-white px-3 pb-3">{children}</div>}
     </div>
   );
 }
@@ -1526,10 +1526,10 @@ export default function ImageGenerator({
   // ===================== RENDER =====================
 
   return (
-    <div className="flex h-full flex-col bg-[#1a1a2e]">
+    <div className="-m-4 -mb-6 flex h-full flex-col bg-gray-50">
       {/* Mobile: Horizontal Thumbnails at Top */}
       {isMobile && generatedImages.length > 0 && (
-        <div className="flex-shrink-0 border-b border-white/10 bg-[#12121f]">
+        <div className="flex-shrink-0 border-b border-gray-200 bg-white">
           <ThumbnailGallery
             images={generatedImages}
             selectedImage={selectedImage}
@@ -1546,7 +1546,7 @@ export default function ImageGenerator({
       <div className="flex flex-1 overflow-hidden">
         {/* LEFT: Vertical Thumbnail Gallery (Desktop Only) */}
         {!isMobile && (
-          <div className="w-20 flex-shrink-0 border-r border-white/10 bg-[#12121f]">
+          <div className="w-20 flex-shrink-0 border-r border-gray-200 bg-white">
             <ThumbnailGallery
               images={generatedImages}
               selectedImage={selectedImage}
@@ -1560,27 +1560,27 @@ export default function ImageGenerator({
         )}
 
         {/* CENTER: Main Canvas */}
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex flex-1 flex-col overflow-hidden bg-gray-100">
           {/* Canvas Area */}
           <div className="relative flex flex-1 items-center justify-center overflow-auto p-4">
             {selectedImage ? (
               <div className="relative max-h-full max-w-full">
                 {/* Image Info Bar */}
-                <div className="absolute left-0 right-0 top-0 flex items-center justify-between rounded-t-xl bg-gradient-to-b from-black/60 to-transparent px-3 py-2">
+                <div className="absolute left-0 right-0 top-0 flex items-center justify-between rounded-t-xl bg-gradient-to-b from-black/50 to-transparent px-3 py-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-white/80">
+                    <span className="text-xs text-white/90">
                       {selectedImage.width} x {selectedImage.height}
                     </span>
                     {selectedImage.imageModelUsed && (
                       <>
-                        <span className="text-white/30">|</span>
-                        <span className="text-xs text-purple-300">
+                        <span className="text-white/40">|</span>
+                        <span className="text-xs text-purple-200">
                           {selectedImage.imageModelUsed}
                         </span>
                       </>
                     )}
                   </div>
-                  <span className="text-xs text-white/60">
+                  <span className="text-xs text-white/70">
                     {new Date(selectedImage.createdAt).toLocaleString()}
                   </span>
                 </div>
@@ -1588,7 +1588,7 @@ export default function ImageGenerator({
                 <img
                   src={selectedImage.imageUrl}
                   alt={selectedImage.prompt}
-                  className="max-h-[70vh] cursor-pointer rounded-xl object-contain shadow-2xl transition hover:shadow-purple-500/20"
+                  className="max-h-[80vh] cursor-pointer rounded-xl object-contain shadow-2xl transition hover:shadow-purple-500/30"
                   onClick={() => setLightboxImage(selectedImage)}
                   onContextMenu={(e) => handleContextMenu(e, selectedImage)}
                 />
@@ -1604,9 +1604,9 @@ export default function ImageGenerator({
             ) : isGenerating ? (
               <div className="flex flex-col items-center gap-6">
                 <div className="relative h-24 w-24">
-                  <div className="absolute inset-0 animate-spin rounded-full border-4 border-purple-500/30 border-t-purple-500" />
+                  <div className="absolute inset-0 animate-spin rounded-full border-4 border-purple-200 border-t-purple-500" />
                   <div
-                    className="absolute inset-3 animate-spin rounded-full border-4 border-blue-500/30 border-t-blue-500"
+                    className="absolute inset-3 animate-spin rounded-full border-4 border-blue-200 border-t-blue-500"
                     style={{
                       animationDirection: 'reverse',
                       animationDuration: '1.5s',
@@ -1614,7 +1614,7 @@ export default function ImageGenerator({
                   />
                 </div>
                 <div className="text-center">
-                  <p className="text-lg text-gray-300">
+                  <p className="text-lg text-gray-700">
                     Creating your image...
                   </p>
                   <p className="mt-1 text-sm text-gray-500">
@@ -1624,9 +1624,9 @@ export default function ImageGenerator({
               </div>
             ) : (
               <div className="flex max-w-md flex-col items-center gap-6 px-4 text-center">
-                <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20">
+                <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-purple-100 to-blue-100">
                   <svg
-                    className="h-12 w-12 text-purple-400"
+                    className="h-12 w-12 text-purple-500"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -1640,10 +1640,10 @@ export default function ImageGenerator({
                   </svg>
                 </div>
                 <div>
-                  <h2 className="mb-2 text-2xl font-semibold text-white">
+                  <h2 className="mb-2 text-2xl font-semibold text-gray-800">
                     Create with AI
                   </h2>
-                  <p className="text-gray-400">
+                  <p className="text-gray-500">
                     Describe your vision, paste URLs, upload files, or add
                     YouTube videos
                   </p>
@@ -1655,11 +1655,11 @@ export default function ImageGenerator({
 
         {/* RIGHT: Insights Panel + Input Area */}
         <div
-          className={`flex flex-col border-l border-white/10 bg-[#12121f] ${isMobile ? 'w-full' : 'w-96'}`}
+          className={`flex flex-col border-l border-gray-200 bg-white ${isMobile ? 'w-full' : 'w-96'}`}
         >
           {/* Insights Panel (when image selected) */}
           {selectedImage && (
-            <div className="flex-1 overflow-hidden border-b border-white/10">
+            <div className="flex-1 overflow-hidden border-b border-gray-200">
               <InsightsPanel
                 image={selectedImage}
                 activeTab={insightsTab}
@@ -1673,31 +1673,27 @@ export default function ImageGenerator({
             className={`flex-shrink-0 ${selectedImage ? '' : 'flex flex-1 flex-col justify-end'}`}
           >
             {/* Control Bar */}
-            <div className="flex flex-wrap items-center gap-2 border-b border-white/10 bg-[#0f0f1a] px-3 py-2">
+            <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-gray-50 px-3 py-2">
               {/* Model Selector */}
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] text-gray-500">Model:</span>
                 {isLoadingModels ? (
-                  <div className="h-6 w-24 animate-pulse rounded bg-white/10" />
+                  <div className="h-6 w-24 animate-pulse rounded bg-gray-200" />
                 ) : models.imageModels.length > 0 ? (
                   <select
                     value={selectedImageModelId}
                     onChange={(e) => setSelectedImageModelId(e.target.value)}
-                    className="rounded bg-white/10 px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-purple-500/50"
+                    className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-purple-500"
                     disabled={isGenerating}
                   >
                     {models.imageModels.map((model) => (
-                      <option
-                        key={model.id}
-                        value={model.id}
-                        className="bg-[#1a1a2e]"
-                      >
+                      <option key={model.id} value={model.id}>
                         {model.name}
                       </option>
                     ))}
                   </select>
                 ) : (
-                  <span className="text-xs text-yellow-400">No models</span>
+                  <span className="text-xs text-yellow-600">No models</span>
                 )}
               </div>
 
@@ -1711,7 +1707,7 @@ export default function ImageGenerator({
                     className={`rounded px-1.5 py-0.5 text-[10px] transition ${
                       aspectRatio === ratio
                         ? 'bg-purple-600 text-white'
-                        : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
                     }`}
                   >
                     {ratio}
@@ -1725,17 +1721,17 @@ export default function ImageGenerator({
                   type="checkbox"
                   checked={skipEnhancement}
                   onChange={(e) => setSkipEnhancement(e.target.checked)}
-                  className="h-3 w-3 rounded border-gray-600 bg-transparent text-purple-500"
+                  className="h-3 w-3 rounded border-gray-300 text-purple-500 focus:ring-purple-500"
                   disabled={isGenerating}
                 />
-                <span className="text-[10px] text-gray-400">Skip AI</span>
+                <span className="text-[10px] text-gray-500">Skip AI</span>
               </label>
 
               {/* Refresh Models */}
               <button
                 onClick={fetchModels}
                 disabled={isLoadingModels}
-                className="ml-auto rounded p-1 text-gray-500 hover:bg-white/10 hover:text-white"
+                className="ml-auto rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
                 title="Refresh models"
               >
                 <svg
@@ -1761,7 +1757,7 @@ export default function ImageGenerator({
 
             {/* Error Message */}
             {error && (
-              <div className="mx-3 mb-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
+              <div className="mx-3 mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
                 {error}
               </div>
             )}
@@ -1796,8 +1792,8 @@ export default function ImageGenerator({
                     onClick={() => setInputMode(mode)}
                     className={`flex items-center gap-1 rounded-t px-2 py-1.5 text-[10px] font-medium transition ${
                       inputMode === mode
-                        ? 'bg-white/10 text-white'
-                        : 'text-gray-500 hover:text-gray-300'
+                        ? 'bg-gray-100 text-gray-800'
+                        : 'text-gray-500 hover:text-gray-700'
                     }`}
                   >
                     <svg
@@ -1821,9 +1817,9 @@ export default function ImageGenerator({
 
             {/* Refine Mode Header */}
             {inputMode === 'refine' && (
-              <div className="mx-3 mt-2 flex items-center gap-2 rounded-t-lg bg-purple-500/10 px-3 py-2">
+              <div className="mx-3 mt-2 flex items-center gap-2 rounded-t-lg border border-purple-200 bg-purple-50 px-3 py-2">
                 <svg
-                  className="h-4 w-4 text-purple-400"
+                  className="h-4 w-4 text-purple-500"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -1835,12 +1831,12 @@ export default function ImageGenerator({
                     d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                   />
                 </svg>
-                <span className="text-xs font-medium text-purple-300">
+                <span className="text-xs font-medium text-purple-700">
                   Refine Image
                 </span>
                 <button
                   onClick={handleCancelRefine}
-                  className="ml-auto text-gray-400 hover:text-white"
+                  className="ml-auto text-gray-400 hover:text-gray-600"
                 >
                   <svg
                     className="h-4 w-4"
@@ -1864,7 +1860,7 @@ export default function ImageGenerator({
               {/* Prompt Input */}
               {inputMode === 'prompt' && (
                 <div className="relative">
-                  <div className="rounded-xl bg-white/5 ring-1 ring-white/10 focus-within:ring-purple-500/50">
+                  <div className="rounded-xl border border-gray-300 bg-white focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500">
                     <textarea
                       ref={textareaRef}
                       value={prompt}
@@ -1886,12 +1882,12 @@ export default function ImageGenerator({
                       }}
                       onKeyDown={handleKeyDown}
                       placeholder="Describe what you want to create... (Type @ to mention sources, Shift+Enter for new line)"
-                      className="max-h-[200px] min-h-[80px] w-full resize-none bg-transparent px-3 py-3 text-sm text-white placeholder-gray-500 focus:outline-none"
+                      className="max-h-[200px] min-h-[80px] w-full resize-none bg-transparent px-3 py-3 text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
                       disabled={isGenerating}
                       rows={3}
                     />
                     <div className="flex items-center justify-between px-3 pb-2">
-                      <span className="text-[10px] text-gray-500">
+                      <span className="text-[10px] text-gray-400">
                         Enter to generate
                       </span>
                       <button
@@ -1926,8 +1922,8 @@ export default function ImageGenerator({
                   </div>
                   {/* Mentions Dropdown */}
                   {showMentions && filteredSources.length > 0 && (
-                    <div className="absolute bottom-full left-0 z-10 mb-2 w-full max-w-xs overflow-hidden rounded-lg border border-white/10 bg-[#1a1a2e] shadow-xl">
-                      <div className="border-b border-white/10 bg-white/5 px-3 py-1.5 text-[10px] text-gray-400">
+                    <div className="absolute bottom-full left-0 z-10 mb-2 w-full max-w-xs overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl">
+                      <div className="border-b border-gray-200 bg-gray-50 px-3 py-1.5 text-[10px] text-gray-500">
                         Mention source...
                       </div>
                       <div className="max-h-40 overflow-y-auto">
@@ -1949,7 +1945,7 @@ export default function ImageGenerator({
                                 textareaRef.current?.focus();
                               }
                             }}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-300 hover:bg-white/10"
+                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
                           >
                             <span className="flex-shrink-0">
                               {source.type === 'paper'
@@ -1970,7 +1966,7 @@ export default function ImageGenerator({
               {/* YouTube Input */}
               {inputMode === 'youtube' && (
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/10 focus-within:ring-red-500/50">
+                  <div className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 focus-within:border-red-500 focus-within:ring-1 focus-within:ring-red-500">
                     <svg
                       className="h-4 w-4 flex-shrink-0 text-red-500"
                       fill="currentColor"
@@ -1983,7 +1979,7 @@ export default function ImageGenerator({
                       value={youtubeUrl}
                       onChange={(e) => setYoutubeUrl(e.target.value)}
                       placeholder="Paste YouTube video URL..."
-                      className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none"
+                      className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
                       disabled={isGenerating}
                     />
                   </div>
@@ -2029,9 +2025,9 @@ export default function ImageGenerator({
                 <div className="space-y-2">
                   {urls.map((url, index) => (
                     <div key={index} className="flex items-center gap-2">
-                      <div className="flex flex-1 items-center rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/10 focus-within:ring-purple-500/50">
+                      <div className="flex flex-1 items-center rounded-xl border border-gray-300 bg-white px-3 py-2 focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500">
                         <svg
-                          className="mr-2 h-3.5 w-3.5 flex-shrink-0 text-gray-500"
+                          className="mr-2 h-3.5 w-3.5 flex-shrink-0 text-gray-400"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -2048,14 +2044,14 @@ export default function ImageGenerator({
                           value={url}
                           onChange={(e) => updateUrl(index, e.target.value)}
                           placeholder="https://example.com/article"
-                          className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none"
+                          className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
                           disabled={isGenerating}
                         />
                       </div>
                       {urls.length > 1 && (
                         <button
                           onClick={() => removeUrlInput(index)}
-                          className="rounded p-1 text-gray-500 hover:bg-white/10 hover:text-white"
+                          className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                         >
                           <svg
                             className="h-4 w-4"
@@ -2077,7 +2073,7 @@ export default function ImageGenerator({
                   <div className="flex items-center gap-2">
                     <button
                       onClick={addUrlInput}
-                      className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-white"
+                      className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-700"
                     >
                       <svg
                         className="h-3 w-3"
@@ -2145,12 +2141,12 @@ export default function ImageGenerator({
                     onClick={() => fileInputRef.current?.click()}
                     className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-4 transition ${
                       isDragging
-                        ? 'border-purple-500 bg-purple-500/10'
-                        : 'border-white/20 bg-white/5 hover:border-purple-500/50'
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-gray-300 bg-gray-50 hover:border-purple-400'
                     }`}
                   >
                     <svg
-                      className={`mb-1 h-6 w-6 ${isDragging ? 'text-purple-400' : 'text-gray-500'}`}
+                      className={`mb-1 h-6 w-6 ${isDragging ? 'text-purple-500' : 'text-gray-400'}`}
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -2162,18 +2158,18 @@ export default function ImageGenerator({
                         d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                       />
                     </svg>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-gray-600">
                       {isDragging ? 'Drop files here' : 'Click or drag files'}
                     </p>
-                    <p className="mt-0.5 text-[10px] text-gray-500">
+                    <p className="mt-0.5 text-[10px] text-gray-400">
                       PDF, TXT, MD, HTML, JSON, Images (max 50MB)
                     </p>
                   </div>
 
                   {/* Prompt for files */}
-                  <div className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/10 focus-within:ring-purple-500/50">
+                  <div className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500">
                     <svg
-                      className="h-3.5 w-3.5 flex-shrink-0 text-gray-500"
+                      className="h-3.5 w-3.5 flex-shrink-0 text-gray-400"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -2190,7 +2186,7 @@ export default function ImageGenerator({
                       value={filesPrompt}
                       onChange={(e) => setFilesPrompt(e.target.value)}
                       placeholder="Describe what to generate from files..."
-                      className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none"
+                      className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
                       disabled={isGenerating}
                     />
                   </div>
@@ -2200,7 +2196,7 @@ export default function ImageGenerator({
                       {uploadedFiles.map((uf) => (
                         <div
                           key={uf.id}
-                          className="group flex items-center gap-1.5 rounded bg-white/10 px-2 py-1"
+                          className="group flex items-center gap-1.5 rounded border border-gray-200 bg-gray-100 px-2 py-1"
                         >
                           {uf.preview ? (
                             <img
@@ -2210,7 +2206,7 @@ export default function ImageGenerator({
                             />
                           ) : (
                             <svg
-                              className="h-4 w-4 text-gray-400"
+                              className="h-4 w-4 text-gray-500"
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -2223,7 +2219,7 @@ export default function ImageGenerator({
                               />
                             </svg>
                           )}
-                          <span className="max-w-[100px] truncate text-[10px] text-gray-300">
+                          <span className="max-w-[100px] truncate text-[10px] text-gray-600">
                             {uf.file.name}
                           </span>
                           <button
@@ -2231,7 +2227,7 @@ export default function ImageGenerator({
                               e.stopPropagation();
                               removeFile(uf.id);
                             }}
-                            className="text-gray-500 opacity-0 hover:text-white group-hover:opacity-100"
+                            className="text-gray-400 opacity-0 hover:text-gray-600 group-hover:opacity-100"
                           >
                             <svg
                               className="h-3 w-3"
@@ -2289,7 +2285,7 @@ export default function ImageGenerator({
               {inputMode === 'refine' && refineImage && (
                 <div className="space-y-2">
                   {/* Reference image preview */}
-                  <div className="flex items-start gap-3 rounded-xl bg-purple-500/10 p-3 ring-1 ring-purple-500/30">
+                  <div className="flex items-start gap-3 rounded-xl border border-purple-200 bg-purple-50 p-3">
                     <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg">
                       <img
                         src={refineImage.imageUrl}
@@ -2298,10 +2294,10 @@ export default function ImageGenerator({
                       />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-purple-300">
+                      <p className="text-xs font-medium text-purple-700">
                         Reference Image
                       </p>
-                      <p className="mt-0.5 line-clamp-2 text-[10px] text-gray-400">
+                      <p className="mt-0.5 line-clamp-2 text-[10px] text-gray-600">
                         {refineImage.enhancedPrompt || refineImage.prompt}
                       </p>
                       <p className="mt-0.5 text-[10px] text-gray-500">
@@ -2311,7 +2307,7 @@ export default function ImageGenerator({
                   </div>
 
                   {/* Refine prompt input */}
-                  <div className="rounded-xl bg-white/5 ring-1 ring-white/10 focus-within:ring-purple-500/50">
+                  <div className="rounded-xl border border-gray-300 bg-white focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500">
                     <textarea
                       value={refinePrompt}
                       onChange={(e) => setRefinePrompt(e.target.value)}
@@ -2322,13 +2318,13 @@ export default function ImageGenerator({
                         }
                       }}
                       placeholder="Describe how to refine... (e.g., 'make it more vibrant', 'add snow')"
-                      className="min-h-[60px] w-full resize-none bg-transparent px-3 py-3 text-sm text-white placeholder-gray-500 focus:outline-none"
+                      className="min-h-[60px] w-full resize-none bg-transparent px-3 py-3 text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
                       disabled={isGenerating}
                       autoFocus
                       rows={2}
                     />
                     <div className="flex items-center justify-between px-3 pb-2">
-                      <span className="text-[10px] text-gray-500">
+                      <span className="text-[10px] text-gray-400">
                         Enter to generate
                       </span>
                       <button
@@ -2371,7 +2367,7 @@ export default function ImageGenerator({
       {/* Lightbox Modal */}
       {lightboxImage && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
           onClick={() => setLightboxImage(null)}
         >
           <button
@@ -2444,7 +2440,7 @@ export default function ImageGenerator({
       {/* Context Menu */}
       {contextMenu && (
         <div
-          className="fixed z-[60] min-w-[160px] overflow-hidden rounded-lg border border-white/10 bg-[#1a1a2e] py-1 shadow-xl"
+          className="fixed z-[60] min-w-[160px] overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-xl"
           style={{
             left: Math.min(contextMenu.x, window.innerWidth - 180),
             top: Math.min(contextMenu.y, window.innerHeight - 320),
@@ -2453,10 +2449,10 @@ export default function ImageGenerator({
         >
           <button
             onClick={() => handleBookmark(contextMenu.image)}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-300 hover:bg-white/10"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
           >
             <svg
-              className={`h-3.5 w-3.5 ${bookmarkedImages.has(contextMenu.image.id) ? 'text-yellow-400' : 'text-gray-400'}`}
+              className={`h-3.5 w-3.5 ${bookmarkedImages.has(contextMenu.image.id) ? 'text-yellow-500' : 'text-gray-400'}`}
               fill={
                 bookmarkedImages.has(contextMenu.image.id)
                   ? 'currentColor'
@@ -2478,7 +2474,7 @@ export default function ImageGenerator({
           </button>
           <button
             onClick={() => handleRefineImage(contextMenu.image)}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-purple-300 hover:bg-white/10"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-purple-600 hover:bg-gray-100"
           >
             <svg
               className="h-3.5 w-3.5"
@@ -2495,13 +2491,13 @@ export default function ImageGenerator({
             </svg>
             Refine Image
           </button>
-          <div className="my-1 border-t border-white/10" />
+          <div className="my-1 border-t border-gray-200" />
           <button
             onClick={() => {
               handleDownload(contextMenu.image);
               setContextMenu(null);
             }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-300 hover:bg-white/10"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
           >
             <svg
               className="h-3.5 w-3.5 text-gray-400"
@@ -2520,7 +2516,7 @@ export default function ImageGenerator({
           </button>
           <button
             onClick={() => handleCopyImage(contextMenu.image)}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-300 hover:bg-white/10"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
           >
             <svg
               className="h-3.5 w-3.5 text-gray-400"
@@ -2539,7 +2535,7 @@ export default function ImageGenerator({
           </button>
           <button
             onClick={() => handleCopyLink(contextMenu.image)}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-300 hover:bg-white/10"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
           >
             <svg
               className="h-3.5 w-3.5 text-gray-400"
@@ -2556,10 +2552,10 @@ export default function ImageGenerator({
             </svg>
             Copy Link
           </button>
-          <div className="my-1 border-t border-white/10" />
+          <div className="my-1 border-t border-gray-200" />
           <button
             onClick={() => handleOpenInNewTab(contextMenu.image)}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-300 hover:bg-white/10"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
           >
             <svg
               className="h-3.5 w-3.5 text-gray-400"
@@ -2582,7 +2578,7 @@ export default function ImageGenerator({
                 setLightboxImage(contextMenu.image);
                 setContextMenu(null);
               }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-300 hover:bg-white/10"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
             >
               <svg
                 className="h-3.5 w-3.5 text-gray-400"
@@ -2600,10 +2596,10 @@ export default function ImageGenerator({
               View Fullscreen
             </button>
           )}
-          <div className="my-1 border-t border-white/10" />
+          <div className="my-1 border-t border-gray-200" />
           <button
             onClick={() => handleDelete(contextMenu.image)}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-red-400 hover:bg-red-500/10"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-red-600 hover:bg-red-50"
           >
             <svg
               className="h-3.5 w-3.5"
