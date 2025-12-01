@@ -1153,13 +1153,13 @@ function HomeContent() {
 
   // Save selected text to notes
   const saveToNotes = async () => {
-    if (!contextMenu || !selectedResource) return;
+    if (!contextMenu) return;
 
     try {
       setSavingNote(true);
       console.log(
         'Saving note to resource:',
-        selectedResource.id,
+        selectedResource?.id || 'none',
         'content:',
         contextMenu.text.substring(0, 50) + '...'
       );
@@ -1171,7 +1171,7 @@ function HomeContent() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          resourceId: selectedResource.id,
+          resourceId: selectedResource?.id || null,
           content: contextMenu.text,
           tags: ['AI-Generated'],
           isPublic: false,
