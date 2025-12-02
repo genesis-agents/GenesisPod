@@ -192,4 +192,23 @@ export class StorageController {
     this.logger.log(`Running VACUUM FULL on ${tableName}`);
     return this.storageService.vacuumFullTable(tableName);
   }
+
+  /**
+   * Get full disk usage breakdown including WAL, TOAST, etc.
+   */
+  @Get("disk-usage")
+  async getFullDiskUsage(@Query("key") key: string): Promise<{
+    totalDiskMB: number;
+    databaseSizeMB: number;
+    tableDataMB: number;
+    indexesMB: number;
+    toastMB: number;
+    walEstimateMB: number;
+    otherMB: number;
+    breakdown: Array<{ category: string; sizeMB: number; percentage: number }>;
+  }> {
+    this.validateKey(key);
+    this.logger.log("Getting full disk usage breakdown");
+    return this.storageService.getFullDiskUsage();
+  }
 }

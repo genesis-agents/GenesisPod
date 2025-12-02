@@ -762,7 +762,7 @@ export class StorageService {
       const totalDatabaseSizeMB =
         Number(dbSizeResult[0]?.size || 0) / (1024 * 1024);
 
-      // Get detailed table sizes - use simpler query for Railway compatibility
+      // Get detailed table sizes including TOAST
       const tableSizes = await this.prisma.$queryRawUnsafe<
         Array<{
           table_name: string;
@@ -770,18 +770,20 @@ export class StorageService {
           total_bytes: string;
           index_bytes: string;
           table_bytes: string;
+          toast_bytes: string;
         }>
       >(`
         SELECT
-          relname as table_name,
-          reltuples::bigint::text as row_estimate,
-          pg_total_relation_size(oid)::text as total_bytes,
-          pg_indexes_size(oid)::text as index_bytes,
-          pg_relation_size(oid)::text as table_bytes
-        FROM pg_class
-        WHERE relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
-          AND relkind = 'r'
-        ORDER BY pg_total_relation_size(oid) DESC
+          c.relname as table_name,
+          c.reltuples::bigint::text as row_estimate,
+          pg_total_relation_size(c.oid)::text as total_bytes,
+          pg_indexes_size(c.oid)::text as index_bytes,
+          pg_relation_size(c.oid)::text as table_bytes,
+          COALESCE(pg_relation_size(c.reltoastrelid), 0)::text as toast_bytes
+        FROM pg_class c
+        WHERE c.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+          AND c.relkind = 'r'
+        ORDER BY pg_total_relation_size(c.oid) DESC
       `);
 
       const tables: TableSize[] = tableSizes.map((t) => ({
@@ -793,7 +795,8 @@ export class StorageService {
           Math.round((parseInt(t.table_bytes, 10) / (1024 * 1024)) * 100) / 100,
         indexSizeMB:
           Math.round((parseInt(t.index_bytes, 10) / (1024 * 1024)) * 100) / 100,
-        toastSizeMB: 0,
+        toastSizeMB:
+          Math.round((parseInt(t.toast_bytes, 10) / (1024 * 1024)) * 100) / 100,
       }));
 
       // Get top 5 largest tables
@@ -890,9 +893,7 @@ export class StorageService {
    * Run VACUUM FULL on a specific table to reclaim space to OS
    * WARNING: This locks the table exclusively during operation
    */
-  async vacuumFullTable(
-    tableName: string,
-  ): Promise<{
+  async vacuumFullTable(tableName: string): Promise<{
     success: boolean;
     message: string;
     beforeMB?: number;
@@ -949,6 +950,94 @@ export class StorageService {
         success: false,
         message: `VACUUM FULL failed: ${error instanceof Error ? error.message : "Unknown error"}`,
       };
+    }
+  }
+
+  /**
+   * Get full disk usage breakdown including WAL, system tables, etc.
+   */
+  async getFullDiskUsage(): Promise<{
+    totalDiskMB: number;
+    databaseSizeMB: number;
+    tableDataMB: number;
+    indexesMB: number;
+    toastMB: number;
+    walEstimateMB: number;
+    otherMB: number;
+    breakdown: Array<{ category: string; sizeMB: number; percentage: number }>;
+  }> {
+    try {
+      // Get total database size
+      const dbSize = await this.prisma.$queryRawUnsafe<Array<{ size: string }>>(
+        "SELECT pg_database_size(current_database())::text as size",
+      );
+      const databaseSizeMB = Number(dbSize[0]?.size || 0) / (1024 * 1024);
+
+      // Get all table sizes with TOAST
+      const tableSizes = await this.prisma.$queryRawUnsafe<
+        Array<{
+          table_bytes: string;
+          index_bytes: string;
+          toast_bytes: string;
+        }>
+      >(`
+        SELECT
+          SUM(pg_relation_size(c.oid))::text as table_bytes,
+          SUM(pg_indexes_size(c.oid))::text as index_bytes,
+          SUM(COALESCE(pg_relation_size(c.reltoastrelid), 0))::text as toast_bytes
+        FROM pg_class c
+        WHERE c.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+          AND c.relkind = 'r'
+      `);
+
+      const tableDataMB =
+        Number(tableSizes[0]?.table_bytes || 0) / (1024 * 1024);
+      const indexesMB = Number(tableSizes[0]?.index_bytes || 0) / (1024 * 1024);
+      const toastMB = Number(tableSizes[0]?.toast_bytes || 0) / (1024 * 1024);
+
+      // Calculate WAL and other overhead
+      const accountedMB = tableDataMB + indexesMB + toastMB;
+      const walEstimateMB = Math.max(0, databaseSizeMB - accountedMB);
+
+      // Railway volume is larger than database - the difference is filesystem overhead
+      // We can't query this directly, but we can report what we know
+
+      const breakdown = [
+        {
+          category: "Table Data",
+          sizeMB: Math.round(tableDataMB * 100) / 100,
+          percentage: Math.round((tableDataMB / databaseSizeMB) * 100),
+        },
+        {
+          category: "Indexes",
+          sizeMB: Math.round(indexesMB * 100) / 100,
+          percentage: Math.round((indexesMB / databaseSizeMB) * 100),
+        },
+        {
+          category: "TOAST (Large Objects)",
+          sizeMB: Math.round(toastMB * 100) / 100,
+          percentage: Math.round((toastMB / databaseSizeMB) * 100),
+        },
+        {
+          category: "WAL/System/Other",
+          sizeMB: Math.round(walEstimateMB * 100) / 100,
+          percentage: Math.round((walEstimateMB / databaseSizeMB) * 100),
+        },
+      ];
+
+      return {
+        totalDiskMB: 406, // From Railway dashboard - hardcoded for now
+        databaseSizeMB: Math.round(databaseSizeMB * 100) / 100,
+        tableDataMB: Math.round(tableDataMB * 100) / 100,
+        indexesMB: Math.round(indexesMB * 100) / 100,
+        toastMB: Math.round(toastMB * 100) / 100,
+        walEstimateMB: Math.round(walEstimateMB * 100) / 100,
+        otherMB: Math.round((406 - databaseSizeMB) * 100) / 100,
+        breakdown,
+      };
+    } catch (error) {
+      this.logger.error("Failed to get full disk usage:", error);
+      throw error;
     }
   }
 
