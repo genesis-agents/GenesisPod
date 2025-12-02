@@ -42,6 +42,7 @@ interface PromptSection {
   metrics: PromptMetric[];
   visual?: PromptVisualCue;
   iconType?: string;
+  sectionType?: "main" | "summary"; // AI-determined section classification
 }
 
 interface PromptInformationArchitecture {
@@ -180,13 +181,34 @@ First, analyze the content type and select the optimal rendering mode AND templa
 - Few text elements needed (< 10 words visible)
 - Examples: Concept art, mood boards, simple tagline posters
 
-**template_layout** - Choose the best layout for the content:
-- "cards": Grid of cards layout (default) - Best for multiple parallel topics, features, or categories
-- "center_visual": Central visual with surrounding points - Best for core concepts, capabilities, or when there's ONE main idea with supporting points (like NotebookLM style)
-- "timeline": Timeline/flow layout - Best for processes, steps, history, development stages
-- "comparison": Side-by-side comparison - Best for before/after, pros/cons, A vs B content
-- "pyramid": Hierarchical pyramid - Best for importance levels, priorities, organizational structures
-- "radial": Radial/hub-spoke - Best for ecosystems, relationships around a center
+**template_layout** - Choose the best layout based on DEEP CONTENT STRUCTURE ANALYSIS:
+- "cards": Grid of equal cards - Best for PARALLEL topics (e.g., 3 stories, 5 features, multiple categories with equal importance)
+- "center_visual": Central concept with surrounding points - Best for ONE main idea with supporting details
+- "timeline": Sequential flow - Best for processes, steps, chronological events, development stages
+- "comparison": Side-by-side - Best for contrasting two options, before/after, pros/cons
+- "pyramid": Hierarchical levels - Best for priorities, organizational structure, importance levels
+- "radial": Hub and spokes - Best for ecosystems, relationships radiating from a center
+
+## STEP 1.5: DEEP CONTENT STRUCTURE ANALYSIS (CRITICAL!)
+
+Before selecting a template, you MUST deeply analyze the content's logical structure:
+
+1. **Identify the narrative structure**:
+   - Is it a speech/presentation with multiple parallel stories? → "cards" (each story = 1 card)
+   - Is it explaining a core concept with features around it? → "center_visual"
+   - Is it a step-by-step guide or chronological history? → "timeline"
+   - Is it comparing two things? → "comparison"
+
+2. **Identify content groupings**:
+   - **Main content**: The primary parallel points (should be 2-4 items of EQUAL importance)
+   - **Summary/Conclusion**: Final takeaway, call-to-action, or wrap-up point
+   - **Supporting details**: Bullets, metrics, examples under each main point
+
+3. **For cards template - CRITICAL**:
+   - Main cards should be PARALLEL content of EQUAL logical weight
+   - If there's a concluding point that wraps up the others, mark it as "section_type": "summary"
+   - Example: Steve Jobs' Stanford speech has 3 PARALLEL stories + 1 conclusion ("Stay Hungry, Stay Foolish")
+     → 3 main cards + 1 summary section (NOT 4 equal cards!)
 
 ## STEP 2: OUTPUT FORMAT
 
@@ -198,7 +220,10 @@ The JSON must be STRICTLY valid (no markdown fences):
     "type": "data_heavy|balanced|visual_concept",
     "language": "zh|en|mixed",
     "complexity": "high|medium|low",
-    "reasoning": "string explaining why this rendering mode and template were chosen"
+    "structure_type": "parallel_stories|sequential_process|central_concept|comparison|hierarchy",
+    "main_points_count": 3,
+    "has_summary_conclusion": true,
+    "reasoning": "string explaining the content structure and why this template was chosen"
   },
   "design_journal": [
     {"title": "string", "narrative": "string"}
@@ -216,7 +241,8 @@ The JSON must be STRICTLY valid (no markdown fences):
         "bullets": ["string"],
         "metrics": [{"label": "string", "value": "string", "comparison": "string"}],
         "visual": {"type": "icon|chart|timeline|process", "description": "string"},
-        "icon_type": "target|chart|briefcase|shield|lightbulb|gear|users|globe|clock|trending|star|check"
+        "icon_type": "target|chart|briefcase|shield|lightbulb|gear|users|globe|clock|trending|star|check",
+        "section_type": "main|summary"
       }
     ],
     "call_to_action": "string"
@@ -247,21 +273,31 @@ The JSON must be STRICTLY valid (no markdown fences):
 
 ## CRITICAL GUIDELINES:
 
-1. **RENDERING MODE & TEMPLATE ARE MANDATORY**: Always include rendering_mode AND template_layout with reasoning.
+1. **DEEP CONTENT STRUCTURE ANALYSIS IS MANDATORY**:
+   - ALWAYS analyze the logical structure of content before selecting a template
+   - Identify: parallel points vs sequential vs hierarchical vs comparative
+   - Mark sections with "section_type": "main" or "summary"
+   - Set "main_points_count" and "has_summary_conclusion" in content_analysis
 
-2. **TEMPLATE SELECTION RULES**:
-   - "center_visual": Use when content has ONE central theme with 4-8 supporting capabilities/features/points
-     - Example: "产品核心能力", "公司六大优势", "技术平台架构"
-     - MUST provide center_visual_title (the main concept) and center_visual_items (surrounding points)
-   - "timeline": Use for sequential/process content
-     - Example: "发展历程", "实施步骤", "项目阶段"
-   - "cards": Default for general multi-topic content
-   - Keywords to detect:
-     - "核心能力/capabilities/core" → center_visual
-     - "步骤/流程/process/steps/timeline" → timeline
-     - "对比/comparison/vs" → comparison
+2. **TEMPLATE SELECTION - THINK BEFORE CHOOSING**:
+   - DON'T just count sections and pick a template
+   - DO analyze the semantic relationship between sections
+   - "cards": Only for truly PARALLEL content of EQUAL importance
+     - If one section is a conclusion/summary of others → mark it as "section_type": "summary"
+   - "center_visual": ONE central concept with 4-8 supporting FEATURES/CAPABILITIES
+     - MUST provide center_visual_title and center_visual_items
+   - "timeline": SEQUENTIAL content with clear temporal/logical order
+   - "comparison": TWO distinct things being CONTRASTED
 
-3. **LANGUAGE - EXTREMELY IMPORTANT**:
+3. **SECTION CLASSIFICATION** (for cards template):
+   - "section_type": "main" → Equal-weight parallel content (displayed as uniform cards)
+   - "section_type": "summary" → Conclusion, call-to-action, or wrap-up (displayed differently)
+   - Example analysis:
+     - Input: Steve Jobs Stanford speech
+     - Structure: 3 parallel stories + 1 concluding message
+     - Output: sections[0-2] with section_type="main", sections[3] with section_type="summary"
+
+4. **LANGUAGE - EXTREMELY IMPORTANT**:
    - Detect the language of the user's prompt/request (NOT the source content)
    - If user writes in Chinese, output ALL text in Chinese
    - If user writes in English, output ALL text in English
@@ -305,59 +341,8 @@ The JSON must be STRICTLY valid (no markdown fences):
 
 10. Respond ONLY with the JSON object.`;
 
-interface PromptDesignJournalEntry {
-  title: string;
-  narrative: string;
-}
-
-interface PromptMetric {
-  label: string;
-  value: string;
-  comparison?: string;
-}
-
-interface PromptVisualCue {
-  type?: string;
-  description?: string;
-}
-
-interface PromptSection {
-  title?: string;
-  summary?: string;
-  bullets: string[];
-  metrics: PromptMetric[];
-  visual?: PromptVisualCue;
-}
-
-interface PromptInformationArchitecture {
-  title?: string;
-  subtitle?: string;
-  heroStatement?: string;
-  sections: PromptSection[];
-  callToAction?: string;
-}
-
-interface PromptVisualLanguage {
-  colorPalette: string[];
-  typography?: string;
-  iconography?: string;
-  chartStyle?: string;
-  background?: string;
-  gridSystem?: string;
-}
-
-interface PromptEngineeringInsights {
-  imagePrompt: string;
-  fallbackPrompt?: string;
-  designJournal: PromptDesignJournalEntry[];
-  informationArchitecture: PromptInformationArchitecture;
-  visualLanguage: PromptVisualLanguage;
-  layoutPlan: string[];
-  qualityChecks: string[];
-  negativeKeywords: string[];
-  styleShiftReasoning: string[];
-  inspiration: string[];
-}
+// Note: Interface definitions are at the top of the file (lines 22-97)
+// Do not duplicate them here
 
 import {
   InfographicTemplateService,
@@ -605,6 +590,11 @@ export class AiImageService {
         iconType: this.normalizeString(
           section.icon_type ?? section.iconType ?? section.icon,
         ),
+        sectionType:
+          section.section_type === "summary" ||
+          section.sectionType === "summary"
+            ? "summary"
+            : "main",
       }));
 
       insights.informationArchitecture = {
@@ -2315,7 +2305,19 @@ export class AiImageService {
           comparison: m.comparison,
         })),
         iconType: section.iconType || section.visual?.type,
+        sectionType: section.sectionType, // 传递 AI 的 section 分类
       }));
+
+      // 记录 AI 的分类结果
+      const mainCount = sections.filter(
+        (s) => s.sectionType !== "summary",
+      ).length;
+      const summaryCount = sections.filter(
+        (s) => s.sectionType === "summary",
+      ).length;
+      this.logger.log(
+        `[convertToInfographicContent] AI section classification: main=${mainCount}, summary=${summaryCount}`,
+      );
     } else {
       // Fallback: 如果没有sections，从imagePrompt中提取关键信息创建简单内容
       this.logger.warn(

@@ -8,6 +8,7 @@ export interface InfographicSection {
   bullets: string[];
   metrics: { label: string; value: string; comparison?: string }[];
   iconType?: string;
+  sectionType?: "main" | "summary"; // AI-determined: main content vs summary/conclusion
 }
 
 // 支持的设计风格
@@ -312,20 +313,35 @@ export class InfographicTemplateService {
     const isVertical = height > width; // 9:16 等竖屏
 
     // 根据宽高比调整列数和布局策略
-    // 宽屏(16:9)：3列主卡片 + 底部总结栏
-    // 正方形(1:1)：3列主卡片 + 底部总结栏
-    // 竖屏(9:16)：2列主卡片 + 底部总结栏
     const numColumns = isVertical ? 2 : 3;
 
-    // 智能分配卡片：
-    // - 如果 sections 数量 <= numColumns：全部作为主卡片
-    // - 如果 sections 数量 > numColumns：前 numColumns 个作为主卡片，第 numColumns+1 个作为总结卡片
-    const totalSections = content.sections.length;
-    const mainCardsCount = Math.min(totalSections, numColumns);
-    const mainSections = content.sections.slice(0, mainCardsCount);
-    // 只有当有额外的 section 时才显示总结卡片
+    // 智能分配卡片 - 基于 AI 的 sectionType 分类
+    // 1. 优先使用 AI 标记的 sectionType
+    // 2. 如果没有标记，回退到数量分割逻辑
+    const aiMainSections = content.sections.filter(
+      (s) => s.sectionType !== "summary",
+    );
+    const aiSummarySections = content.sections.filter(
+      (s) => s.sectionType === "summary",
+    );
+
+    // 使用 AI 分类结果，限制主卡片数量为列数
+    const mainSections =
+      aiMainSections.length > 0
+        ? aiMainSections.slice(0, numColumns)
+        : content.sections.slice(0, numColumns);
+
+    // 总结卡片：优先用 AI 标记的，否则取剩余的第一个
     const summarySection =
-      totalSections > numColumns ? content.sections[numColumns] : null;
+      aiSummarySections.length > 0
+        ? aiSummarySections[0]
+        : content.sections.length > numColumns
+          ? content.sections[numColumns]
+          : null;
+
+    this.logger.log(
+      `[Cards] AI分类: main=${aiMainSections.length}, summary=${aiSummarySections.length}; 显示: main=${mainSections.length}, summary=${summarySection ? 1 : 0}`,
+    );
 
     // 根据尺寸调整字体和间距
     const scale = width / 1200;
