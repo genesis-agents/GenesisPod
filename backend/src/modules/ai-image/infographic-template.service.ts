@@ -882,10 +882,13 @@ export class InfographicTemplateService {
     // 生成中心图形周围的要点位置
     const itemCount = Math.min(centerItems.length, 8);
     const angleStep = (2 * Math.PI) / itemCount;
-    // 中心圆形的半径
-    const centerRadius = Math.min(width, height) * 0.18;
-    // 环绕要点的轨道半径（从中心到要点卡片中心的距离）
-    const orbitRadius = centerRadius + Math.round(120 * scale);
+    // 中心圆形的半径 - 根据要点数量调整
+    const centerRadius =
+      Math.min(width, height) * (itemCount > 6 ? 0.15 : 0.16);
+    // 环绕要点的轨道半径（从中心到要点卡片中心的距离）- 需要足够大以避免重叠
+    const orbitRadius = centerRadius + Math.round(140 * scale);
+    // 视觉区域的高度（去掉标题和底部的空间）
+    const visualAreaHeight = height - padding * 2 - Math.round(180 * scale);
 
     return `
 <!DOCTYPE html>
@@ -936,7 +939,8 @@ export class InfographicTemplateService {
     /* 标题区 */
     .header {
       text-align: center;
-      margin-bottom: ${Math.round(20 * scale)}px;
+      margin-bottom: ${Math.round(10 * scale)}px;
+      flex-shrink: 0;
     }
 
     .main-title {
@@ -1110,14 +1114,15 @@ export class InfographicTemplateService {
         .map((item, idx) => {
           // 从顶部开始（-PI/2），均匀分布
           const angle = angleStep * idx - Math.PI / 2;
+          // 计算轨道的椭圆形状（水平方向更宽，垂直方向稍窄以避免与标题重叠）
+          const horizontalRadius = orbitRadius * 1.1;
+          const verticalRadius = orbitRadius * 0.85;
           // 计算相对于 visual-area 中心的位置（百分比）
           const xPercent =
-            50 + Math.cos(angle) * (orbitRadius / (width - padding * 2)) * 100;
-          const yPercent =
             50 +
-            Math.sin(angle) *
-              (orbitRadius / (height - padding * 2 - 100 * scale)) *
-              100;
+            Math.cos(angle) * (horizontalRadius / (width - padding * 2)) * 100;
+          const yPercent =
+            50 + Math.sin(angle) * (verticalRadius / visualAreaHeight) * 100;
           return `
           <div class="orbit-item" style="left: ${xPercent}%; top: ${yPercent}%;">
             <div class="number">${idx + 1}</div>
