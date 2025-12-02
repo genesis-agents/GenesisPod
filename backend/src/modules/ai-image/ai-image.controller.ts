@@ -229,4 +229,22 @@ export class AiImageController {
     );
     return this.aiImageService.removeBookmark(id, req.user?.userId);
   }
+
+  /**
+   * 手动触发清理旧图片
+   * 保留最新的20张未收藏图片，删除其余的
+   */
+  @Post("cleanup")
+  @UseGuards(JwtAuthGuard)
+  async cleanupOldImages(@Request() req: any) {
+    this.logger.log(`Manual cleanup triggered by user ${req.user?.userId}`);
+    const deletedCount = await this.aiImageService.cleanupOldImages(
+      req.user?.userId,
+    );
+    return {
+      success: true,
+      deletedCount,
+      message: `Cleaned up ${deletedCount} old images`,
+    };
+  }
 }

@@ -3994,8 +3994,8 @@ Generate the edited version of this image now.`;
    * 保留最新的 MAX_IMAGES_PER_USER 张，删除其余的
    * 注意：已收藏的图片不会被删除
    */
-  private async cleanupOldImages(userId: string | null): Promise<void> {
-    if (!userId) return; // 未登录用户不限制
+  async cleanupOldImages(userId: string | null): Promise<number> {
+    if (!userId) return 0; // 未登录用户不限制
 
     try {
       // 获取用户所有未收藏的图片，按创建时间降序
@@ -4023,13 +4023,16 @@ Generate the edited version of this image now.`;
         this.logger.log(
           `Cleaned up ${idsToDelete.length} old images for user ${userId}`,
         );
+        return idsToDelete.length;
       }
+      return 0;
     } catch (error) {
       // 清理失败不影响主流程
       this.logger.warn(
         `Failed to cleanup old images for user ${userId}:`,
         error,
       );
+      return 0;
     }
   }
 }
