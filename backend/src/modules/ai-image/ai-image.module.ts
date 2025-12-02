@@ -9,6 +9,7 @@ import { DataFetchingService } from "./data-fetching.service";
 import { PrismaModule } from "../../common/prisma/prisma.module";
 import { YoutubeModule } from "../youtube/youtube.module";
 import { AdminModule } from "../admin/admin.module";
+import { StorageModule } from "../storage/storage.module";
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { AdminModule } from "../admin/admin.module";
     HttpModule,
     YoutubeModule, // 复用 YoutubeService 提取字幕
     AdminModule, // 用于从数据库获取搜索 API 配置
+    StorageModule, // R2 图片存储
     MulterModule.register({
       limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
     }),

@@ -12,6 +12,7 @@ import {
   DataFetchingService,
   DataFetchingResult,
 } from "./data-fetching.service";
+import { R2StorageService } from "../storage/r2-storage.service";
 import { AIModelType, Prisma } from "@prisma/client";
 
 // 处理步骤类型
@@ -422,7 +423,43 @@ export class AiImageService {
     private readonly contentExtractor: ContentExtractorService,
     private readonly infographicTemplate: InfographicTemplateService,
     private readonly dataFetchingService: DataFetchingService,
+    private readonly r2Storage: R2StorageService,
   ) {}
+
+  /**
+   * 上传图片到 R2 存储
+   * 如果 R2 未配置，返回原始 base64 URL
+   */
+  private async uploadImageToStorage(
+    base64ImageUrl: string,
+    userId?: string,
+  ): Promise<string> {
+    // 如果不是 base64 格式，直接返回（可能已经是 URL）
+    if (!base64ImageUrl.startsWith("data:image")) {
+      return base64ImageUrl;
+    }
+
+    // 尝试上传到 R2
+    if (this.r2Storage.isEnabled()) {
+      const prefix = userId ? `user/${userId}` : "anonymous";
+      const result = await this.r2Storage.uploadBase64Image(
+        base64ImageUrl,
+        prefix,
+      );
+
+      if (result.success && result.url) {
+        this.logger.log(`Image uploaded to R2: ${result.url}`);
+        return result.url;
+      } else {
+        this.logger.warn(
+          `Failed to upload to R2, using base64: ${result.error}`,
+        );
+      }
+    }
+
+    // R2 未配置或上传失败，返回原始 base64
+    return base64ImageUrl;
+  }
 
   private createDefaultInsights(basePrompt: string): PromptEngineeringInsights {
     return {
@@ -1635,6 +1672,14 @@ export class AiImageService {
         emitStep("ai_image", "AI Image Generated Successfully", "completed");
       }
 
+      // 上传图片到 R2 存储（如果配置了）
+      emitStep("upload", "Uploading to Storage", "processing");
+      const finalImageUrl = await this.uploadImageToStorage(
+        generatedImageUrl,
+        userId,
+      );
+      emitStep("upload", "Upload Complete", "completed");
+
       // 保存到数据库
       emitStep("save", "Saving to Database", "processing");
 
@@ -1653,7 +1698,7 @@ export class AiImageService {
           enhancedPrompt,
           style: style || "realistic",
           aspectRatio: aspectRatio || "1:1",
-          imageUrl: generatedImageUrl,
+          imageUrl: finalImageUrl,
           width: dimensions.width,
           height: dimensions.height,
           userId: userId || null,
@@ -1679,7 +1724,7 @@ export class AiImageService {
             id: image.id,
             prompt: inputContent.slice(0, 1000),
             enhancedPrompt,
-            imageUrl: generatedImageUrl,
+            imageUrl: finalImageUrl, // 使用上传后的 URL
             width: image.width,
             height: image.height,
             createdAt: image.createdAt.toISOString(),
