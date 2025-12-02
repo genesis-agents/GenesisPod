@@ -754,46 +754,45 @@ export class StorageService {
    */
   async getDatabaseAnalysis(): Promise<DatabaseAnalysis> {
     try {
-      // Get total database size in bytes
-      const dbSizeBytes = await this.prisma.$queryRaw<
-        Array<{ size: bigint }>
-      >`SELECT pg_database_size(current_database()) as size`;
+      // Get total database size using $queryRawUnsafe for better compatibility
+      const dbSizeResult = await this.prisma.$queryRawUnsafe<
+        Array<{ size: string }>
+      >("SELECT pg_database_size(current_database())::text as size");
 
       const totalDatabaseSizeMB =
-        Number(dbSizeBytes[0]?.size || 0) / (1024 * 1024);
+        Number(dbSizeResult[0]?.size || 0) / (1024 * 1024);
 
-      // Get detailed table sizes using pg_class for reliability
-      const tableSizes = await this.prisma.$queryRaw<
+      // Get detailed table sizes - use simpler query for Railway compatibility
+      const tableSizes = await this.prisma.$queryRawUnsafe<
         Array<{
           table_name: string;
-          row_estimate: bigint;
-          total_bytes: bigint;
-          index_bytes: bigint;
-          table_bytes: bigint;
+          row_estimate: string;
+          total_bytes: string;
+          index_bytes: string;
+          table_bytes: string;
         }>
-      >`
+      >(`
         SELECT
-          c.relname as table_name,
-          c.reltuples::bigint as row_estimate,
-          pg_total_relation_size(c.oid) as total_bytes,
-          pg_indexes_size(c.oid) as index_bytes,
-          pg_relation_size(c.oid) as table_bytes
-        FROM pg_class c
-        LEFT JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE n.nspname = 'public'
-          AND c.relkind = 'r'
-        ORDER BY pg_total_relation_size(c.oid) DESC
-      `;
+          relname as table_name,
+          reltuples::bigint::text as row_estimate,
+          pg_total_relation_size(oid)::text as total_bytes,
+          pg_indexes_size(oid)::text as index_bytes,
+          pg_relation_size(oid)::text as table_bytes
+        FROM pg_class
+        WHERE relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+          AND relkind = 'r'
+        ORDER BY pg_total_relation_size(oid) DESC
+      `);
 
       const tables: TableSize[] = tableSizes.map((t) => ({
         tableName: String(t.table_name),
-        rowCount: Number(t.row_estimate),
+        rowCount: parseInt(t.row_estimate, 10) || 0,
         totalSizeMB:
-          Math.round((Number(t.total_bytes) / (1024 * 1024)) * 100) / 100,
+          Math.round((parseInt(t.total_bytes, 10) / (1024 * 1024)) * 100) / 100,
         dataSizeMB:
-          Math.round((Number(t.table_bytes) / (1024 * 1024)) * 100) / 100,
+          Math.round((parseInt(t.table_bytes, 10) / (1024 * 1024)) * 100) / 100,
         indexSizeMB:
-          Math.round((Number(t.index_bytes) / (1024 * 1024)) * 100) / 100,
+          Math.round((parseInt(t.index_bytes, 10) / (1024 * 1024)) * 100) / 100,
         toastSizeMB: 0,
       }));
 
