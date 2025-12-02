@@ -301,25 +301,25 @@ export class InfographicTemplateService {
     const isVertical = height > width; // 9:16 等竖屏
 
     // 根据宽高比调整列数和布局策略
-    // 宽屏(16:9)：6列紧凑布局，每个section更小
+    // 宽屏(16:9)：3列布局，但卡片更紧凑，适合2行展示
     // 正方形(1:1)：3列标准布局
     // 竖屏(9:16)：2列展开布局
-    const numColumns = isWideScreen ? 6 : isVertical ? 2 : 3;
+    const numColumns = isVertical ? 2 : 3;
     const columns = this.distributeToColumns(content.sections, numColumns);
 
-    // 根据尺寸和宽高比调整字体和间距
+    // 根据尺寸调整字体和间距
     const scale = width / 1200;
-    // 宽屏需要更紧凑的布局
-    const compactScale = isWideScreen ? 0.7 : 1;
-    const padding = Math.round(40 * scale * (isWideScreen ? 0.6 : 1));
-    const titleSize = Math.round(32 * scale * (isWideScreen ? 0.85 : 1));
-    const subtitleSize = Math.round(16 * scale * (isWideScreen ? 0.85 : 1));
+    // 宽屏需要稍微紧凑的布局，但不要太极端
+    const compactScale = isWideScreen ? 0.85 : 1;
+    const padding = Math.round(40 * scale * (isWideScreen ? 0.7 : 1));
+    const titleSize = Math.round(32 * scale * (isWideScreen ? 0.9 : 1));
+    const subtitleSize = Math.round(16 * scale * (isWideScreen ? 0.9 : 1));
     const sectionTitleSize = Math.round(18 * scale * compactScale);
     const bulletSize = Math.round(14 * scale * compactScale);
 
-    // 宽屏模式下的内容截断长度
-    const summaryMaxLen = isWideScreen ? 30 : 60;
-    const bulletMaxLen = isWideScreen ? 25 : 50;
+    // 根据宽高比调整内容截断长度（宽屏适当缩短但保持可读）
+    const summaryMaxLen = isWideScreen ? 45 : 60;
+    const bulletMaxLen = isWideScreen ? 35 : 50;
     const bulletsToShow = isWideScreen ? 2 : 3;
     const metricsToShow = isWideScreen ? 1 : 2;
 
@@ -398,9 +398,9 @@ export class InfographicTemplateService {
     .header {
       background: linear-gradient(135deg, ${colors.primary} 0%, ${this.adjustColor(colors.primary, 20)} 100%);
       color: white;
-      padding: ${Math.round((isWideScreen ? 14 : 28) * scale)}px ${Math.round((isWideScreen ? 20 : 36) * scale)}px;
-      border-radius: ${Math.round((isWideScreen ? 8 : 12) * scale)}px;
-      margin-bottom: ${Math.round((isWideScreen ? 12 : 28) * scale)}px;
+      padding: ${Math.round((isWideScreen ? 18 : 28) * scale)}px ${Math.round((isWideScreen ? 28 : 36) * scale)}px;
+      border-radius: ${Math.round((isWideScreen ? 10 : 12) * scale)}px;
+      margin-bottom: ${Math.round((isWideScreen ? 16 : 28) * scale)}px;
       position: relative;
       overflow: hidden;
       flex-shrink: 0;
@@ -424,7 +424,7 @@ export class InfographicTemplateService {
     .main-title {
       font-size: ${titleSize}px;
       font-weight: 700;
-      margin-bottom: ${Math.round((isWideScreen ? 2 : 6) * scale)}px;
+      margin-bottom: ${Math.round((isWideScreen ? 4 : 6) * scale)}px;
       line-height: 1.2;
     }
 
@@ -435,12 +435,12 @@ export class InfographicTemplateService {
     }
 
     .hero-statement {
-      margin-top: ${Math.round((isWideScreen ? 6 : 14) * scale)}px;
-      padding: ${Math.round((isWideScreen ? 6 : 10) * scale)}px ${Math.round((isWideScreen ? 10 : 16) * scale)}px;
+      margin-top: ${Math.round((isWideScreen ? 10 : 14) * scale)}px;
+      padding: ${Math.round((isWideScreen ? 8 : 10) * scale)}px ${Math.round((isWideScreen ? 12 : 16) * scale)}px;
       background: rgba(255,255,255,0.15);
       border-left: 3px solid ${colors.accent};
       border-radius: 0 ${Math.round(6 * scale)}px ${Math.round(6 * scale)}px 0;
-      font-size: ${Math.round((isWideScreen ? 10 : 14) * scale)}px;
+      font-size: ${Math.round((isWideScreen ? 12 : 14) * scale)}px;
       font-style: italic;
       max-width: ${isWideScreen ? "100%" : "80%"};
     }
@@ -449,7 +449,7 @@ export class InfographicTemplateService {
     .columns {
       display: grid;
       grid-template-columns: repeat(${numColumns}, 1fr);
-      gap: ${Math.round((isWideScreen ? 12 : 24) * scale)}px;
+      gap: ${Math.round((isWideScreen ? 16 : 24) * scale)}px;
       flex: 1;
       min-height: 0;
       align-content: start;
@@ -459,14 +459,14 @@ export class InfographicTemplateService {
     .column {
       display: flex;
       flex-direction: column;
-      gap: ${Math.round((isWideScreen ? 8 : 20) * scale)}px;
+      gap: ${Math.round((isWideScreen ? 12 : 20) * scale)}px;
     }
 
     /* Section 卡片 */
     .section-card {
       background: ${cardBackground};
       border-radius: ${scaledBorderRadius}px;
-      padding: ${Math.round((isWideScreen ? 12 : 24) * scale)}px;
+      padding: ${Math.round((isWideScreen ? 16 : 24) * scale)}px;
       box-shadow: ${boxShadow};
       border: 1px solid ${cardBorder};
       transition: transform 0.2s, box-shadow 0.2s;
@@ -476,16 +476,16 @@ export class InfographicTemplateService {
     .section-header {
       display: flex;
       align-items: flex-start;
-      gap: ${Math.round((isWideScreen ? 8 : 14) * scale)}px;
-      margin-bottom: ${Math.round((isWideScreen ? 8 : 16) * scale)}px;
+      gap: ${Math.round((isWideScreen ? 10 : 14) * scale)}px;
+      margin-bottom: ${Math.round((isWideScreen ? 10 : 16) * scale)}px;
     }
 
     .section-icon {
-      width: ${Math.round((isWideScreen ? 28 : 44) * scale)}px;
-      height: ${Math.round((isWideScreen ? 28 : 44) * scale)}px;
-      min-width: ${Math.round((isWideScreen ? 28 : 44) * scale)}px;
+      width: ${Math.round((isWideScreen ? 36 : 44) * scale)}px;
+      height: ${Math.round((isWideScreen ? 36 : 44) * scale)}px;
+      min-width: ${Math.round((isWideScreen ? 36 : 44) * scale)}px;
       background: linear-gradient(135deg, ${colors.primary} 0%, ${this.adjustColor(colors.primary, 15)} 100%);
-      border-radius: ${Math.round((isWideScreen ? 6 : 10) * scale)}px;
+      border-radius: ${Math.round((isWideScreen ? 8 : 10) * scale)}px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -493,20 +493,20 @@ export class InfographicTemplateService {
     }
 
     .section-icon svg {
-      width: ${Math.round((isWideScreen ? 14 : 24) * scale)}px;
-      height: ${Math.round((isWideScreen ? 14 : 24) * scale)}px;
+      width: ${Math.round((isWideScreen ? 18 : 24) * scale)}px;
+      height: ${Math.round((isWideScreen ? 18 : 24) * scale)}px;
     }
 
     .section-number {
       position: absolute;
       top: ${Math.round(-4 * scale)}px;
       right: ${Math.round(-4 * scale)}px;
-      width: ${Math.round((isWideScreen ? 16 : 22) * scale)}px;
-      height: ${Math.round((isWideScreen ? 16 : 22) * scale)}px;
+      width: ${Math.round((isWideScreen ? 18 : 22) * scale)}px;
+      height: ${Math.round((isWideScreen ? 18 : 22) * scale)}px;
       background: ${colors.accent};
       color: white;
       border-radius: 50%;
-      font-size: ${Math.round((isWideScreen ? 9 : 12) * scale)}px;
+      font-size: ${Math.round((isWideScreen ? 10 : 12) * scale)}px;
       font-weight: 700;
       display: flex;
       align-items: center;
@@ -529,20 +529,19 @@ export class InfographicTemplateService {
       color: #64748b;
       margin-top: ${Math.round(2 * scale)}px;
       line-height: 1.4;
-      ${isWideScreen ? "display: none;" : ""}
     }
 
     /* 要点列表 */
     .bullets {
       list-style: none;
-      margin-bottom: ${Math.round((isWideScreen ? 6 : 16) * scale)}px;
+      margin-bottom: ${Math.round((isWideScreen ? 10 : 16) * scale)}px;
     }
 
     .bullet-item {
       display: flex;
       align-items: flex-start;
-      gap: ${Math.round((isWideScreen ? 6 : 10) * scale)}px;
-      padding: ${Math.round((isWideScreen ? 3 : 8) * scale)}px 0;
+      gap: ${Math.round((isWideScreen ? 8 : 10) * scale)}px;
+      padding: ${Math.round((isWideScreen ? 5 : 8) * scale)}px 0;
       font-size: ${bulletSize}px;
       line-height: 1.4;
       border-bottom: 1px solid ${bulletBorderColor};
@@ -553,45 +552,45 @@ export class InfographicTemplateService {
     }
 
     .bullet-dot {
-      width: ${Math.round((isWideScreen ? 5 : 8) * scale)}px;
-      height: ${Math.round((isWideScreen ? 5 : 8) * scale)}px;
-      min-width: ${Math.round((isWideScreen ? 5 : 8) * scale)}px;
+      width: ${Math.round((isWideScreen ? 6 : 8) * scale)}px;
+      height: ${Math.round((isWideScreen ? 6 : 8) * scale)}px;
+      min-width: ${Math.round((isWideScreen ? 6 : 8) * scale)}px;
       background: ${colors.accent};
       border-radius: 50%;
-      margin-top: ${Math.round((isWideScreen ? 4 : 6) * scale)}px;
+      margin-top: ${Math.round((isWideScreen ? 5 : 6) * scale)}px;
     }
 
     /* 指标展示 */
     .metrics {
       display: flex;
       flex-wrap: wrap;
-      gap: ${Math.round((isWideScreen ? 6 : 12) * scale)}px;
+      gap: ${Math.round((isWideScreen ? 8 : 12) * scale)}px;
     }
 
     .metric {
       background: linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}15 100%);
       border: 1px solid ${colors.primary}20;
-      border-radius: ${Math.round((isWideScreen ? 4 : 8) * scale)}px;
-      padding: ${Math.round((isWideScreen ? 6 : 12) * scale)}px ${Math.round((isWideScreen ? 8 : 16) * scale)}px;
+      border-radius: ${Math.round((isWideScreen ? 6 : 8) * scale)}px;
+      padding: ${Math.round((isWideScreen ? 8 : 12) * scale)}px ${Math.round((isWideScreen ? 12 : 16) * scale)}px;
       flex: 1;
-      min-width: ${Math.round((isWideScreen ? 60 : 100) * scale)}px;
+      min-width: ${Math.round((isWideScreen ? 80 : 100) * scale)}px;
     }
 
     .metric-value {
-      font-size: ${Math.round((isWideScreen ? 14 : 24) * scale)}px;
+      font-size: ${Math.round((isWideScreen ? 18 : 24) * scale)}px;
       font-weight: 700;
       color: ${colors.primary};
       line-height: 1.2;
     }
 
     .metric-label {
-      font-size: ${Math.round((isWideScreen ? 8 : 12) * scale)}px;
+      font-size: ${Math.round((isWideScreen ? 10 : 12) * scale)}px;
       color: #64748b;
       margin-top: ${Math.round(2 * scale)}px;
     }
 
     .metric-comparison {
-      font-size: ${Math.round((isWideScreen ? 8 : 11) * scale)}px;
+      font-size: ${Math.round((isWideScreen ? 9 : 11) * scale)}px;
       color: ${colors.accent};
       font-weight: 600;
       margin-top: ${Math.round(2 * scale)}px;
@@ -602,11 +601,11 @@ export class InfographicTemplateService {
       background: linear-gradient(135deg, ${colors.accent} 0%, ${this.adjustColor(colors.accent, -15)} 100%);
       color: white;
       text-align: center;
-      padding: ${Math.round((isWideScreen ? 10 : 20) * scale)}px ${Math.round((isWideScreen ? 20 : 40) * scale)}px;
-      border-radius: ${Math.round((isWideScreen ? 8 : 12) * scale)}px;
-      font-size: ${Math.round((isWideScreen ? 12 : 18) * scale)}px;
+      padding: ${Math.round((isWideScreen ? 14 : 20) * scale)}px ${Math.round((isWideScreen ? 30 : 40) * scale)}px;
+      border-radius: ${Math.round((isWideScreen ? 10 : 12) * scale)}px;
+      font-size: ${Math.round((isWideScreen ? 14 : 18) * scale)}px;
       font-weight: 600;
-      margin-top: ${Math.round((isWideScreen ? 8 : 16) * scale)}px;
+      margin-top: ${Math.round((isWideScreen ? 12 : 16) * scale)}px;
       flex-shrink: 0;
     }
 
@@ -654,7 +653,7 @@ export class InfographicTemplateService {
                   <span class="section-number">${colIdx * Math.ceil(content.sections.length / numColumns) + idx + 1}</span>
                 </div>
                 <div>
-                  <h3 class="section-title">${this.escapeHtml(this.truncateText(section.title, isWideScreen ? 15 : 40))}</h3>
+                  <h3 class="section-title">${this.escapeHtml(this.truncateText(section.title, isWideScreen ? 25 : 40))}</h3>
                   ${section.summary ? `<p class="section-summary">${this.escapeHtml(this.truncateText(section.summary, summaryMaxLen))}</p>` : ""}
                 </div>
               </div>
@@ -689,7 +688,7 @@ export class InfographicTemplateService {
                       (metric) => `
                     <div class="metric">
                       <div class="metric-value">${this.escapeHtml(metric.value)}</div>
-                      <div class="metric-label">${this.escapeHtml(this.truncateText(metric.label, isWideScreen ? 10 : 20))}</div>
+                      <div class="metric-label">${this.escapeHtml(this.truncateText(metric.label, isWideScreen ? 15 : 20))}</div>
                     </div>
                   `,
                     )
