@@ -4035,4 +4035,37 @@ Generate the edited version of this image now.`;
       return 0;
     }
   }
+
+  /**
+   * 清理所有用户超出限制的旧图片（管理员功能）
+   */
+  async cleanupAllUsersImages(): Promise<{
+    totalDeleted: number;
+    usersCleaned: number;
+  }> {
+    // 获取所有有图片的用户
+    const usersWithImages = await this.prisma.generatedImage.groupBy({
+      by: ["userId"],
+      where: {
+        userId: { not: null },
+      },
+    });
+
+    let totalDeleted = 0;
+    let usersCleaned = 0;
+
+    for (const { userId } of usersWithImages) {
+      if (userId) {
+        const deleted = await this.cleanupOldImages(userId);
+        totalDeleted += deleted;
+        if (deleted > 0) usersCleaned++;
+      }
+    }
+
+    this.logger.log(
+      `Admin cleanup: deleted ${totalDeleted} images from ${usersCleaned} users`,
+    );
+
+    return { totalDeleted, usersCleaned };
+  }
 }

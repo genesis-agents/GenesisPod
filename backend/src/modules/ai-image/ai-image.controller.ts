@@ -247,4 +247,23 @@ export class AiImageController {
       message: `Cleaned up ${deletedCount} old images`,
     };
   }
+
+  /**
+   * 管理员清理所有用户的旧图片
+   * 使用密钥验证，不需要登录
+   */
+  @Post("admin/cleanup-all")
+  async adminCleanupAllImages(@Query("key") key: string) {
+    // 简单的密钥验证
+    if (key !== "deepdive-admin-cleanup-2024") {
+      return { success: false, message: "Invalid key" };
+    }
+    this.logger.log("Admin cleanup all users images triggered");
+    const result = await this.aiImageService.cleanupAllUsersImages();
+    return {
+      success: true,
+      ...result,
+      message: `Cleaned up ${result.totalDeleted} images from ${result.usersCleaned} users`,
+    };
+  }
 }
