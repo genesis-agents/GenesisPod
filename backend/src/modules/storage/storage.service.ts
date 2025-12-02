@@ -887,6 +887,72 @@ export class StorageService {
   }
 
   /**
+   * Run VACUUM FULL on a specific table to reclaim space to OS
+   * WARNING: This locks the table exclusively during operation
+   */
+  async vacuumFullTable(
+    tableName: string,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    beforeMB?: number;
+    afterMB?: number;
+  }> {
+    try {
+      // Validate table name to prevent SQL injection
+      const validTables = [
+        "topic_messages",
+        "generated_images",
+        "resources",
+        "raw_data",
+        "debate_agents",
+        "debate_messages",
+        "collection_tasks",
+        "import_tasks",
+        "user_activities",
+      ];
+
+      if (!validTables.includes(tableName)) {
+        return {
+          success: false,
+          message: `Invalid table name. Allowed tables: ${validTables.join(", ")}`,
+        };
+      }
+
+      // Get size before
+      const beforeSize = await this.prisma.$queryRawUnsafe<
+        Array<{ size: string }>
+      >(`SELECT pg_total_relation_size('${tableName}')::text as size`);
+      const beforeMB = Number(beforeSize[0]?.size || 0) / (1024 * 1024);
+
+      // Run VACUUM FULL
+      this.logger.log(`Running VACUUM FULL on ${tableName}...`);
+      await this.prisma.$executeRawUnsafe(`VACUUM FULL ${tableName}`);
+
+      // Get size after
+      const afterSize = await this.prisma.$queryRawUnsafe<
+        Array<{ size: string }>
+      >(`SELECT pg_total_relation_size('${tableName}')::text as size`);
+      const afterMB = Number(afterSize[0]?.size || 0) / (1024 * 1024);
+
+      const freedMB = Math.round((beforeMB - afterMB) * 100) / 100;
+
+      return {
+        success: true,
+        message: `VACUUM FULL completed on ${tableName}. Freed ${freedMB}MB (${Math.round(beforeMB * 100) / 100}MB -> ${Math.round(afterMB * 100) / 100}MB)`,
+        beforeMB: Math.round(beforeMB * 100) / 100,
+        afterMB: Math.round(afterMB * 100) / 100,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to vacuum full ${tableName}:`, error);
+      return {
+        success: false,
+        message: `VACUUM FULL failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      };
+    }
+  }
+
+  /**
    * Run all cleanup operations
    */
   async runFullCleanup(): Promise<{

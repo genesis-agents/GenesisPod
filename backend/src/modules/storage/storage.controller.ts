@@ -170,4 +170,26 @@ export class StorageController {
     this.logger.log("Running VACUUM ANALYZE on database");
     return this.storageService.vacuumDatabase();
   }
+
+  /**
+   * Run VACUUM FULL on a specific table to reclaim space to OS
+   * WARNING: This locks the table exclusively during operation
+   */
+  @Post("vacuum-full")
+  async vacuumFullTable(
+    @Query("key") key: string,
+    @Query("table") tableName: string,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    beforeMB?: number;
+    afterMB?: number;
+  }> {
+    this.validateKey(key);
+    if (!tableName) {
+      throw new BadRequestException("Table name is required");
+    }
+    this.logger.log(`Running VACUUM FULL on ${tableName}`);
+    return this.storageService.vacuumFullTable(tableName);
+  }
 }
