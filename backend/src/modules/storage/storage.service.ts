@@ -27,6 +27,22 @@ export interface CleanupResult {
   message: string;
 }
 
+export interface TableSize {
+  tableName: string;
+  rowCount: number;
+  totalSizeMB: number;
+  dataSizeMB: number;
+  indexSizeMB: number;
+  toastSizeMB: number; // TOAST is for large text/json data
+}
+
+export interface DatabaseAnalysis {
+  totalDatabaseSizeMB: number;
+  tables: TableSize[];
+  largestTables: TableSize[];
+  recommendations: string[];
+}
+
 @Injectable()
 export class StorageService {
   private readonly logger = new Logger(StorageService.name);
@@ -728,6 +744,145 @@ export class StorageService {
         deletedCount: 0,
         freedSizeMB: 0,
         message: `Cleanup failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      };
+    }
+  }
+
+  /**
+   * Get REAL database table sizes using PostgreSQL system views
+   * This shows actual disk usage, not estimates
+   */
+  async getDatabaseAnalysis(): Promise<DatabaseAnalysis> {
+    try {
+      // Get total database size in bytes
+      const dbSizeBytes = await this.prisma.$queryRaw<
+        Array<{ size: bigint }>
+      >`SELECT pg_database_size(current_database()) as size`;
+
+      const totalDatabaseSizeMB =
+        Number(dbSizeBytes[0]?.size || 0) / (1024 * 1024);
+
+      // Get detailed table sizes
+      const tableSizes = await this.prisma.$queryRaw<
+        Array<{
+          table_name: string;
+          row_count: bigint;
+          total_size: bigint;
+          data_size: bigint;
+          index_size: bigint;
+          toast_size: bigint;
+        }>
+      >`
+        SELECT
+          relname as table_name,
+          n_live_tup as row_count,
+          pg_total_relation_size(quote_ident(relname)::regclass) as total_size,
+          pg_relation_size(quote_ident(relname)::regclass) as data_size,
+          pg_indexes_size(quote_ident(relname)::regclass) as index_size,
+          COALESCE(pg_total_relation_size(reltoastrelid), 0) as toast_size
+        FROM pg_stat_user_tables
+        ORDER BY pg_total_relation_size(quote_ident(relname)::regclass) DESC
+      `;
+
+      const tables: TableSize[] = tableSizes.map((t) => ({
+        tableName: t.table_name,
+        rowCount: Number(t.row_count),
+        totalSizeMB:
+          Math.round((Number(t.total_size) / (1024 * 1024)) * 100) / 100,
+        dataSizeMB:
+          Math.round((Number(t.data_size) / (1024 * 1024)) * 100) / 100,
+        indexSizeMB:
+          Math.round((Number(t.index_size) / (1024 * 1024)) * 100) / 100,
+        toastSizeMB:
+          Math.round((Number(t.toast_size) / (1024 * 1024)) * 100) / 100,
+      }));
+
+      // Get top 5 largest tables
+      const largestTables = tables.slice(0, 5);
+
+      // Generate recommendations
+      const recommendations: string[] = [];
+
+      // Check for large TOAST data (usually means large JSON/text fields)
+      const tablesWithLargeToast = tables.filter((t) => t.toastSizeMB > 10);
+      if (tablesWithLargeToast.length > 0) {
+        recommendations.push(
+          `Tables with large TOAST data (JSON/text): ${tablesWithLargeToast.map((t) => `${t.tableName}(${t.toastSizeMB}MB)`).join(", ")}. Consider archiving old data.`,
+        );
+      }
+
+      // Check for tables with high row counts
+      const highRowTables = tables.filter((t) => t.rowCount > 10000);
+      if (highRowTables.length > 0) {
+        recommendations.push(
+          `Tables with high row counts: ${highRowTables.map((t) => `${t.tableName}(${t.rowCount} rows)`).join(", ")}`,
+        );
+      }
+
+      // Specific table recommendations
+      const rawDataTable = tables.find((t) => t.tableName === "raw_data");
+      if (rawDataTable && rawDataTable.totalSizeMB > 50) {
+        recommendations.push(
+          `raw_data table is ${rawDataTable.totalSizeMB}MB - consider cleaning processed records older than 30 days`,
+        );
+      }
+
+      const imagesTable = tables.find(
+        (t) => t.tableName === "generated_images",
+      );
+      if (imagesTable && imagesTable.totalSizeMB > 100) {
+        recommendations.push(
+          `generated_images table is ${imagesTable.totalSizeMB}MB - consider cleaning unbookmarked images`,
+        );
+      }
+
+      const topicMessagesTable = tables.find(
+        (t) => t.tableName === "topic_messages",
+      );
+      if (topicMessagesTable && topicMessagesTable.totalSizeMB > 50) {
+        recommendations.push(
+          `topic_messages table is ${topicMessagesTable.totalSizeMB}MB - consider implementing message archiving`,
+        );
+      }
+
+      // Check if VACUUM is needed (bloat detection)
+      const potentialBloat = tables.filter(
+        (t) => t.dataSizeMB > 10 && t.rowCount < 1000,
+      );
+      if (potentialBloat.length > 0) {
+        recommendations.push(
+          `Potential bloat detected in: ${potentialBloat.map((t) => t.tableName).join(", ")}. Consider running VACUUM FULL.`,
+        );
+      }
+
+      return {
+        totalDatabaseSizeMB: Math.round(totalDatabaseSizeMB * 100) / 100,
+        tables,
+        largestTables,
+        recommendations,
+      };
+    } catch (error) {
+      this.logger.error("Failed to analyze database:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Run VACUUM ANALYZE on all tables to reclaim space
+   */
+  async vacuumDatabase(): Promise<{ success: boolean; message: string }> {
+    try {
+      // Note: VACUUM cannot run inside a transaction, so we use a separate connection
+      await this.prisma.$executeRawUnsafe("VACUUM ANALYZE");
+      return {
+        success: true,
+        message: "VACUUM ANALYZE completed successfully. Space reclaimed.",
+      };
+    } catch (error) {
+      this.logger.error("Failed to vacuum database:", error);
+      return {
+        success: false,
+        message: `VACUUM failed: ${error instanceof Error ? error.message : "Unknown error"}`,
       };
     }
   }

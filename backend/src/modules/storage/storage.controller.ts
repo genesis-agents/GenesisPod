@@ -7,7 +7,12 @@ import {
   Logger,
   BadRequestException,
 } from "@nestjs/common";
-import { StorageService, StorageStats, CleanupResult } from "./storage.service";
+import {
+  StorageService,
+  StorageStats,
+  CleanupResult,
+  DatabaseAnalysis,
+} from "./storage.service";
 
 const ADMIN_KEY = "deepdive-admin-cleanup-2024";
 
@@ -139,5 +144,30 @@ export class StorageController {
     this.validateKey(key);
     this.logger.log("Running full storage cleanup");
     return this.storageService.runFullCleanup();
+  }
+
+  /**
+   * Get REAL database table sizes (PostgreSQL system views)
+   * This shows actual disk usage, not estimates
+   */
+  @Get("database-analysis")
+  async getDatabaseAnalysis(
+    @Query("key") key: string,
+  ): Promise<DatabaseAnalysis> {
+    this.validateKey(key);
+    this.logger.log("Analyzing database table sizes");
+    return this.storageService.getDatabaseAnalysis();
+  }
+
+  /**
+   * Run VACUUM to reclaim space after deletions
+   */
+  @Post("vacuum")
+  async vacuumDatabase(
+    @Query("key") key: string,
+  ): Promise<{ success: boolean; message: string }> {
+    this.validateKey(key);
+    this.logger.log("Running VACUUM ANALYZE on database");
+    return this.storageService.vacuumDatabase();
   }
 }

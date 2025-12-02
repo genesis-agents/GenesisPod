@@ -20,6 +20,8 @@ import {
   Settings,
   TrendingDown,
   Shield,
+  BarChart3,
+  Sparkles,
 } from 'lucide-react';
 
 interface StorageCategory {
@@ -46,6 +48,22 @@ interface CleanupResult {
   deletedCount: number;
   freedSizeMB: number;
   message: string;
+}
+
+interface TableSize {
+  tableName: string;
+  rowCount: number;
+  totalSizeMB: number;
+  dataSizeMB: number;
+  indexSizeMB: number;
+  toastSizeMB: number;
+}
+
+interface DatabaseAnalysis {
+  totalDatabaseSizeMB: number;
+  tables: TableSize[];
+  largestTables: TableSize[];
+  recommendations: string[];
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
@@ -85,12 +103,16 @@ const categoryBgColors: Record<string, string> = {
 
 export default function StoragePage() {
   const [stats, setStats] = useState<StorageStats | null>(null);
+  const [dbAnalysis, setDbAnalysis] = useState<DatabaseAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
+  const [analyzingDb, setAnalyzingDb] = useState(false);
+  const [vacuuming, setVacuuming] = useState(false);
   const [cleaning, setCleaning] = useState<string | null>(null);
   const [message, setMessage] = useState<{
     type: 'success' | 'error';
     text: string;
   } | null>(null);
+  const [showDbAnalysis, setShowDbAnalysis] = useState(false);
 
   // Load storage statistics
   const loadStats = useCallback(async () => {
@@ -111,6 +133,59 @@ export default function StoragePage() {
       setLoading(false);
     }
   }, []);
+
+  // Load real database analysis
+  const loadDbAnalysis = useCallback(async () => {
+    setAnalyzingDb(true);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/v1/storage/database-analysis?key=${ADMIN_KEY}`
+      );
+      if (!res.ok) {
+        throw new Error('Failed to fetch database analysis');
+      }
+      const data = await res.json();
+      setDbAnalysis(data);
+      setShowDbAnalysis(true);
+    } catch (error) {
+      console.error('Failed to load database analysis:', error);
+      setMessage({ type: 'error', text: 'Failed to load database analysis' });
+    } finally {
+      setAnalyzingDb(false);
+    }
+  }, []);
+
+  // Run VACUUM
+  const handleVacuum = async () => {
+    if (
+      !confirm(
+        'Run VACUUM ANALYZE to reclaim space? This may take a few minutes.'
+      )
+    ) {
+      return;
+    }
+    setVacuuming(true);
+    setMessage(null);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/v1/storage/vacuum?key=${ADMIN_KEY}`,
+        { method: 'POST' }
+      );
+      const result = await res.json();
+      setMessage({
+        type: result.success ? 'success' : 'error',
+        text: result.message,
+      });
+      if (result.success) {
+        // Reload analysis to show updated sizes
+        loadDbAnalysis();
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to run VACUUM' });
+    } finally {
+      setVacuuming(false);
+    }
+  };
 
   useEffect(() => {
     loadStats();
@@ -231,6 +306,18 @@ export default function StoragePage() {
               Refresh
             </button>
             <button
+              onClick={loadDbAnalysis}
+              disabled={analyzingDb}
+              className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:from-blue-600 hover:to-indigo-600 disabled:opacity-50"
+            >
+              {analyzingDb ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <BarChart3 className="h-4 w-4" />
+              )}
+              Analyze DB
+            </button>
+            <button
               onClick={handleFullCleanup}
               disabled={cleaning !== null}
               className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-red-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:from-orange-600 hover:to-red-600 disabled:opacity-50"
@@ -296,6 +383,163 @@ export default function StoragePage() {
                 {stats.totalCategories}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Real Database Analysis */}
+        {showDbAnalysis && dbAnalysis && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+                <BarChart3 className="h-5 w-5 text-indigo-600" />
+                Real Database Analysis (PostgreSQL)
+              </h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleVacuum}
+                  disabled={vacuuming}
+                  className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-all hover:from-purple-600 hover:to-indigo-600 disabled:opacity-50"
+                >
+                  {vacuuming ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3 w-3" />
+                  )}
+                  Run VACUUM
+                </button>
+                <button
+                  onClick={() => setShowDbAnalysis(false)}
+                  className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-200"
+                >
+                  Hide
+                </button>
+              </div>
+            </div>
+
+            {/* DB Size Summary */}
+            <div className="rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 p-5 text-white">
+              <div className="text-sm font-medium opacity-80">
+                Total Database Size (Actual)
+              </div>
+              <div className="mt-1 text-4xl font-bold">
+                {formatSize(dbAnalysis.totalDatabaseSizeMB)}
+              </div>
+              <div className="mt-2 text-sm opacity-80">
+                {dbAnalysis.tables.length} tables total
+              </div>
+            </div>
+
+            {/* Top 5 Largest Tables */}
+            <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
+              <h3 className="mb-4 font-semibold text-gray-900">
+                Top 5 Largest Tables
+              </h3>
+              <div className="space-y-3">
+                {dbAnalysis.largestTables.map((table, idx) => (
+                  <div
+                    key={table.tableName}
+                    className="flex items-center justify-between rounded-lg bg-gray-50 p-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-600">
+                        {idx + 1}
+                      </span>
+                      <div>
+                        <div className="font-medium text-gray-900">
+                          {table.tableName}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {table.rowCount.toLocaleString()} rows
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium text-gray-900">
+                        {formatSize(table.totalSizeMB)}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Data: {formatSize(table.dataSizeMB)} | Index:{' '}
+                        {formatSize(table.indexSizeMB)}
+                        {table.toastSizeMB > 0 && (
+                          <> | TOAST: {formatSize(table.toastSizeMB)}</>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* All Tables */}
+            <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
+              <h3 className="mb-4 font-semibold text-gray-900">
+                All Tables ({dbAnalysis.tables.length})
+              </h3>
+              <div className="max-h-96 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-white">
+                    <tr className="border-b text-left text-gray-500">
+                      <th className="pb-2 font-medium">Table</th>
+                      <th className="pb-2 text-right font-medium">Rows</th>
+                      <th className="pb-2 text-right font-medium">Total</th>
+                      <th className="pb-2 text-right font-medium">Data</th>
+                      <th className="pb-2 text-right font-medium">Index</th>
+                      <th className="pb-2 text-right font-medium">TOAST</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dbAnalysis.tables.map((table) => (
+                      <tr
+                        key={table.tableName}
+                        className="border-b border-gray-100"
+                      >
+                        <td className="py-2 font-medium text-gray-900">
+                          {table.tableName}
+                        </td>
+                        <td className="py-2 text-right text-gray-600">
+                          {table.rowCount.toLocaleString()}
+                        </td>
+                        <td className="py-2 text-right font-medium text-indigo-600">
+                          {formatSize(table.totalSizeMB)}
+                        </td>
+                        <td className="py-2 text-right text-gray-600">
+                          {formatSize(table.dataSizeMB)}
+                        </td>
+                        <td className="py-2 text-right text-gray-600">
+                          {formatSize(table.indexSizeMB)}
+                        </td>
+                        <td className="py-2 text-right text-gray-600">
+                          {table.toastSizeMB > 0
+                            ? formatSize(table.toastSizeMB)
+                            : '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* DB Recommendations */}
+            {dbAnalysis.recommendations.length > 0 && (
+              <div className="rounded-xl border border-purple-200 bg-purple-50/50 p-5">
+                <h3 className="flex items-center gap-2 font-semibold text-purple-800">
+                  <AlertTriangle className="h-5 w-5" />
+                  Database Recommendations
+                </h3>
+                <ul className="mt-3 space-y-2">
+                  {dbAnalysis.recommendations.map((rec, i) => (
+                    <li
+                      key={i}
+                      className="flex items-start gap-2 text-sm text-purple-700"
+                    >
+                      <span className="mt-0.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-purple-500" />
+                      {rec}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 
