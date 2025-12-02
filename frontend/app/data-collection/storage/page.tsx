@@ -11,46 +11,77 @@ import {
   AlertTriangle,
   CheckCircle,
   Loader2,
+  Zap,
+  Clock,
+  Archive,
+  Activity,
+  MessageSquare,
+  BookOpen,
+  Settings,
+  TrendingDown,
+  Shield,
 } from 'lucide-react';
-import { getAuthTokens } from '@/lib/auth';
+
+interface StorageCategory {
+  name: string;
+  displayName: string;
+  count: number;
+  estimatedSizeMB: number;
+  description: string;
+  cleanupRecommendation?: string;
+  canCleanup: boolean;
+}
 
 interface StorageStats {
-  images?: {
-    total: number;
-    bookmarked: number;
-    unbookmarked: number;
-    totalSizeEstimate?: string;
-  };
-  rawData?: {
-    total: number;
-    byType?: Record<string, number>;
-  };
-  resources?: {
-    total: number;
-  };
+  totalCategories: number;
+  totalRecords: number;
+  estimatedTotalSizeMB: number;
+  categories: StorageCategory[];
+  recommendations: string[];
 }
 
 interface CleanupResult {
   success: boolean;
+  category: string;
+  deletedCount: number;
+  freedSizeMB: number;
   message: string;
-  deletedCount?: number;
-  totalDeleted?: number;
-  usersCleaned?: number;
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+const ADMIN_KEY = 'deepdive-admin-cleanup-2024';
 
-function getAuthHeaders(): HeadersInit {
-  const tokens = getAuthTokens();
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
-  if (tokens?.accessToken) {
-    (headers as Record<string, string>)['Authorization'] =
-      `Bearer ${tokens.accessToken}`;
-  }
-  return headers;
-}
+// Icon mapping for categories
+const categoryIcons: Record<string, React.ReactNode> = {
+  generatedImages: <Image className="h-5 w-5 text-purple-600" />,
+  rawData: <Database className="h-5 w-5 text-blue-600" />,
+  resources: <BookOpen className="h-5 w-5 text-green-600" />,
+  notes: <FileText className="h-5 w-5 text-amber-600" />,
+  researchProjectSources: <Archive className="h-5 w-5 text-indigo-600" />,
+  collectionTasks: <Settings className="h-5 w-5 text-gray-600" />,
+  importTasks: <Activity className="h-5 w-5 text-cyan-600" />,
+  parsedMetadata: <Clock className="h-5 w-5 text-orange-600" />,
+  deduplicationRecords: <Shield className="h-5 w-5 text-pink-600" />,
+  dataQualityMetrics: <TrendingDown className="h-5 w-5 text-red-600" />,
+  userActivities: <Activity className="h-5 w-5 text-teal-600" />,
+  topicMessages: <MessageSquare className="h-5 w-5 text-violet-600" />,
+};
+
+// Icon background colors
+const categoryBgColors: Record<string, string> = {
+  generatedImages: 'bg-purple-100',
+  rawData: 'bg-blue-100',
+  resources: 'bg-green-100',
+  notes: 'bg-amber-100',
+  researchProjectSources: 'bg-indigo-100',
+  collectionTasks: 'bg-gray-100',
+  importTasks: 'bg-cyan-100',
+  parsedMetadata: 'bg-orange-100',
+  deduplicationRecords: 'bg-pink-100',
+  dataQualityMetrics: 'bg-red-100',
+  userActivities: 'bg-teal-100',
+  topicMessages: 'bg-violet-100',
+};
 
 export default function StoragePage() {
   const [stats, setStats] = useState<StorageStats | null>(null);
@@ -61,19 +92,18 @@ export default function StoragePage() {
     text: string;
   } | null>(null);
 
-  // 加载存储统计
+  // Load storage statistics
   const loadStats = useCallback(async () => {
     setLoading(true);
     try {
-      // 获取图片统计
-      const imageRes = await fetch(
-        `${API_BASE}/api/v1/ai-image/stats?key=deepdive-admin-cleanup-2024`
+      const res = await fetch(
+        `${API_BASE}/api/v1/storage/stats?key=${ADMIN_KEY}`
       );
-      const imageStats = await imageRes.json();
-
-      setStats({
-        images: imageStats.success ? imageStats : undefined,
-      });
+      if (!res.ok) {
+        throw new Error('Failed to fetch storage stats');
+      }
+      const data = await res.json();
+      setStats(data);
     } catch (error) {
       console.error('Failed to load storage stats:', error);
       setMessage({ type: 'error', text: 'Failed to load storage statistics' });
@@ -86,30 +116,30 @@ export default function StoragePage() {
     loadStats();
   }, [loadStats]);
 
-  // 清理所有用户的旧图片
-  const handleCleanupOldImages = async () => {
-    if (
-      !confirm(
-        'This will delete old unbookmarked images for all users (keeping latest 20 per user). Continue?'
-      )
-    ) {
+  // Generic cleanup handler
+  const handleCleanup = async (
+    endpoint: string,
+    category: string,
+    confirmMessage: string
+  ) => {
+    if (!confirm(confirmMessage)) {
       return;
     }
 
-    setCleaning('images');
+    setCleaning(category);
     setMessage(null);
     try {
       const res = await fetch(
-        `${API_BASE}/api/v1/ai-image/cleanup-all?key=deepdive-admin-cleanup-2024`,
+        `${API_BASE}/api/v1/storage/${endpoint}?key=${ADMIN_KEY}`,
         {
-          method: 'POST',
+          method: endpoint.includes('images/all') ? 'DELETE' : 'POST',
         }
       );
       const result: CleanupResult = await res.json();
       if (result.success) {
         setMessage({
           type: 'success',
-          text: `Successfully cleaned up ${result.totalDeleted || 0} images from ${result.usersCleaned || 0} users`,
+          text: result.message,
         });
         loadStats();
       } else {
@@ -119,62 +149,61 @@ export default function StoragePage() {
         });
       }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to cleanup images' });
+      setMessage({ type: 'error', text: `Failed to cleanup ${category}` });
     } finally {
       setCleaning(null);
     }
   };
 
-  // 删除所有图片
-  const handleDeleteAllImages = async () => {
+  // Full cleanup
+  const handleFullCleanup = async () => {
     if (
       !confirm(
-        'WARNING: This will permanently delete ALL images from ALL users. This action cannot be undone! Are you sure?'
+        'This will run cleanup on all categories (images, raw data, tasks, metadata, activities). Continue?'
       )
     ) {
       return;
     }
 
-    if (
-      !confirm(
-        'Please confirm again: Delete ALL images permanently? Type "yes" in your mind and click OK to proceed.'
-      )
-    ) {
-      return;
-    }
-
-    setCleaning('delete-all-images');
+    setCleaning('all');
     setMessage(null);
     try {
       const res = await fetch(
-        `${API_BASE}/api/v1/ai-image/delete-all?key=deepdive-admin-cleanup-2024`,
+        `${API_BASE}/api/v1/storage/cleanup/all?key=${ADMIN_KEY}`,
         {
-          method: 'DELETE',
+          method: 'POST',
         }
       );
-      const result: CleanupResult = await res.json();
+      const result = await res.json();
       if (result.success) {
         setMessage({
           type: 'success',
-          text: `Successfully deleted ${result.deletedCount || 0} images`,
+          text: `Full cleanup completed: ${result.totalDeleted} records deleted, ~${result.totalFreedMB}MB freed`,
         });
         loadStats();
       } else {
         setMessage({
           type: 'error',
-          text: result.message || 'Delete failed',
+          text: 'Full cleanup failed',
         });
       }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to delete images' });
+      setMessage({ type: 'error', text: 'Failed to run full cleanup' });
     } finally {
       setCleaning(null);
     }
   };
 
+  // Format size
+  const formatSize = (mb: number) => {
+    if (mb < 1) return `${Math.round(mb * 1024)} KB`;
+    if (mb >= 1024) return `${(mb / 1024).toFixed(2)} GB`;
+    return `${mb.toFixed(2)} MB`;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100/50 p-8">
-      <div className="mx-auto max-w-5xl space-y-8">
+      <div className="mx-auto max-w-6xl space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -190,14 +219,30 @@ export default function StoragePage() {
               </p>
             </div>
           </div>
-          <button
-            onClick={loadStats}
-            disabled={loading}
-            className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-gray-200 transition-all hover:bg-gray-50 disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={loadStats}
+              disabled={loading}
+              className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-gray-200 transition-all hover:bg-gray-50 disabled:opacity-50"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+              />
+              Refresh
+            </button>
+            <button
+              onClick={handleFullCleanup}
+              disabled={cleaning !== null}
+              className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-red-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:from-orange-600 hover:to-red-600 disabled:opacity-50"
+            >
+              {cleaning === 'all' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Zap className="h-4 w-4" />
+              )}
+              Full Cleanup
+            </button>
+          </div>
         </div>
 
         {/* Alert Message */}
@@ -210,186 +255,187 @@ export default function StoragePage() {
             }`}
           >
             {message.type === 'success' ? (
-              <CheckCircle className="h-5 w-5" />
+              <CheckCircle className="h-5 w-5 flex-shrink-0" />
             ) : (
-              <AlertTriangle className="h-5 w-5" />
+              <AlertTriangle className="h-5 w-5 flex-shrink-0" />
             )}
-            <span>{message.text}</span>
+            <span className="flex-1">{message.text}</span>
             <button
               onClick={() => setMessage(null)}
-              className="ml-auto text-current opacity-50 hover:opacity-100"
+              className="text-current opacity-50 hover:opacity-100"
             >
               &times;
             </button>
           </div>
         )}
 
-        {/* Storage Overview */}
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-          </div>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-3">
-            {/* Images Storage */}
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100">
-                  <Image className="h-5 w-5 text-purple-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">AI Images</h3>
-                  <p className="text-xs text-gray-500">Generated images</p>
-                </div>
+        {/* Summary Cards */}
+        {!loading && stats && (
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
+              <div className="text-sm font-medium text-gray-500">
+                Total Records
               </div>
-              <div className="mt-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Total Images</span>
-                  <span className="font-medium text-gray-900">
-                    {stats?.images?.total ?? 'N/A'}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Bookmarked</span>
-                  <span className="font-medium text-green-600">
-                    {stats?.images?.bookmarked ?? 'N/A'}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Unbookmarked</span>
-                  <span className="font-medium text-orange-600">
-                    {stats?.images?.unbookmarked ?? 'N/A'}
-                  </span>
-                </div>
+              <div className="mt-1 text-3xl font-bold text-gray-900">
+                {stats.totalRecords.toLocaleString()}
               </div>
             </div>
-
-            {/* Raw Data Storage */}
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-                  <FileText className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">Raw Data</h3>
-                  <p className="text-xs text-gray-500">Collected content</p>
-                </div>
+            <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
+              <div className="text-sm font-medium text-gray-500">
+                Estimated Size
               </div>
-              <div className="mt-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Total Records</span>
-                  <span className="font-medium text-gray-900">
-                    {stats?.rawData?.total ?? 'Coming soon'}
-                  </span>
-                </div>
+              <div className="mt-1 text-3xl font-bold text-blue-600">
+                {formatSize(stats.estimatedTotalSizeMB)}
               </div>
             </div>
-
-            {/* Resources Storage */}
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100">
-                  <Database className="h-5 w-5 text-amber-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">Resources</h3>
-                  <p className="text-xs text-gray-500">Indexed resources</p>
-                </div>
+            <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
+              <div className="text-sm font-medium text-gray-500">
+                Categories
               </div>
-              <div className="mt-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Total Resources</span>
-                  <span className="font-medium text-gray-900">
-                    {stats?.resources?.total ?? 'Coming soon'}
-                  </span>
-                </div>
+              <div className="mt-1 text-3xl font-bold text-gray-900">
+                {stats.totalCategories}
               </div>
             </div>
           </div>
         )}
 
-        {/* Cleanup Actions */}
-        <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            Cleanup Actions
-          </h2>
-          <p className="mb-6 text-sm text-gray-500">
-            Railway charges based on storage usage. Use these actions to free up
-            space and reduce costs.
+        {/* Recommendations */}
+        {!loading && stats && stats.recommendations.length > 0 && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-5">
+            <h3 className="flex items-center gap-2 font-semibold text-amber-800">
+              <AlertTriangle className="h-5 w-5" />
+              Cleanup Recommendations
+            </h3>
+            <ul className="mt-3 space-y-2">
+              {stats.recommendations.map((rec, i) => (
+                <li
+                  key={i}
+                  className="flex items-start gap-2 text-sm text-amber-700"
+                >
+                  <span className="mt-0.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-500" />
+                  {rec}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Storage Categories Grid */}
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          </div>
+        ) : stats ? (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {stats.categories.map((category) => (
+              <div
+                key={category.name}
+                className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`flex h-10 w-10 items-center justify-center rounded-lg ${categoryBgColors[category.name] || 'bg-gray-100'}`}
+                    >
+                      {categoryIcons[category.name] || (
+                        <Database className="h-5 w-5 text-gray-600" />
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">
+                        {category.displayName}
+                      </h3>
+                      <p className="text-xs text-gray-500">
+                        {category.count.toLocaleString()} records
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-medium text-gray-900">
+                      {formatSize(category.estimatedSizeMB)}
+                    </div>
+                  </div>
+                </div>
+
+                <p className="mt-3 line-clamp-2 text-xs text-gray-500">
+                  {category.description}
+                </p>
+
+                {category.cleanupRecommendation && (
+                  <div className="mt-3 rounded-lg bg-amber-50 p-2 text-xs text-amber-700">
+                    {category.cleanupRecommendation}
+                  </div>
+                )}
+
+                {category.canCleanup && (
+                  <button
+                    onClick={() =>
+                      handleCleanup(
+                        `cleanup/${category.name === 'generatedImages' ? 'images' : category.name.replace(/([A-Z])/g, '-$1').toLowerCase()}`,
+                        category.name,
+                        `Clean up ${category.displayName}? This action cannot be undone.`
+                      )
+                    }
+                    disabled={cleaning !== null}
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs font-medium text-orange-700 transition-all hover:bg-orange-100 disabled:opacity-50"
+                  >
+                    {cleaning === category.name ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3 w-3" />
+                    )}
+                    Cleanup
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {/* Danger Zone */}
+        <div className="rounded-xl border border-red-200 bg-red-50/30 p-5">
+          <h3 className="flex items-center gap-2 font-semibold text-red-800">
+            <AlertTriangle className="h-5 w-5" />
+            Danger Zone
+          </h3>
+          <p className="mt-2 text-sm text-red-600">
+            These actions are irreversible and will permanently delete data.
           </p>
 
-          <div className="space-y-4">
-            {/* Clean Old Images */}
-            <div className="flex items-center justify-between rounded-lg border border-gray-200 p-4">
-              <div className="flex items-center gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100">
-                  <Trash2 className="h-5 w-5 text-orange-600" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-900">
-                    Cleanup Old Images
-                  </h3>
-                  <p className="text-sm text-gray-500">
-                    Delete old unbookmarked images, keeping latest 20 per user
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={handleCleanupOldImages}
-                disabled={cleaning !== null}
-                className="flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-orange-700 disabled:opacity-50"
-              >
-                {cleaning === 'images' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4" />
-                )}
-                Cleanup
-              </button>
-            </div>
-
-            {/* Delete All Images */}
-            <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50/50 p-4">
-              <div className="flex items-center gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100">
-                  <AlertTriangle className="h-5 w-5 text-red-600" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-red-900">
-                    Delete All Images
-                  </h3>
-                  <p className="text-sm text-red-600">
-                    Permanently delete ALL images from ALL users - cannot be
-                    undone!
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={handleDeleteAllImages}
-                disabled={cleaning !== null}
-                className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-red-700 disabled:opacity-50"
-              >
-                {cleaning === 'delete-all-images' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4" />
-                )}
-                Delete All
-              </button>
-            </div>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              onClick={() =>
+                handleCleanup(
+                  'images/all',
+                  'deleteAllImages',
+                  'WARNING: This will permanently delete ALL generated images from ALL users. This action cannot be undone! Are you sure?'
+                )
+              }
+              disabled={cleaning !== null}
+              className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-red-700 disabled:opacity-50"
+            >
+              {cleaning === 'deleteAllImages' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+              Delete All Images
+            </button>
           </div>
         </div>
 
         {/* Info Card */}
-        <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-6">
+        <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-5">
           <h3 className="flex items-center gap-2 font-medium text-blue-900">
             <HardDrive className="h-5 w-5" />
             About Railway Storage
           </h3>
           <p className="mt-2 text-sm text-blue-700">
-            Railway charges based on storage usage. Generated images and
-            collected data can accumulate quickly. Regular cleanup helps control
-            costs. Bookmarked images are preserved during cleanup operations.
+            Railway charges based on storage usage. This dashboard helps you
+            monitor and manage storage across different data categories. Size
+            estimates are approximate and based on average record sizes. Regular
+            cleanup of old data helps control costs while preserving important
+            information.
           </p>
         </div>
       </div>
