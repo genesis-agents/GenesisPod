@@ -408,7 +408,7 @@ export class InfographicTemplateService {
       height: 100%;
       display: flex;
       flex-direction: column;
-      justify-content: center;
+      justify-content: space-evenly;
       box-sizing: border-box;
     }
 
@@ -417,7 +417,6 @@ export class InfographicTemplateService {
       display: flex;
       align-items: center;
       gap: ${Math.round(8 * scale)}px;
-      margin-bottom: ${Math.round((isWideScreen ? 4 : 8) * scale)}px;
       padding: 0 4px;
       flex-shrink: 0;
     }
@@ -441,7 +440,6 @@ export class InfographicTemplateService {
       color: white;
       padding: ${Math.round((isWideScreen ? 14 : 20) * scale)}px ${Math.round((isWideScreen ? 24 : 32) * scale)}px;
       border-radius: ${Math.round((isWideScreen ? 10 : 12) * scale)}px;
-      margin-bottom: ${Math.round((isWideScreen ? 12 : 20) * scale)}px;
       position: relative;
       overflow: hidden;
       flex-shrink: 0;
@@ -486,12 +484,12 @@ export class InfographicTemplateService {
       max-width: ${isWideScreen ? "100%" : "80%"};
     }
 
-    /* 主内容区 - 并排卡片，按内容高度 */
+    /* 主内容区 - 并排卡片，等高 */
     .main-cards {
       display: grid;
       grid-template-columns: repeat(${numColumns}, 1fr);
       gap: ${Math.round((isWideScreen ? 16 : 24) * scale)}px;
-      align-items: start;
+      align-items: stretch;
     }
 
     /* Section 卡片 - 等高 */
@@ -511,7 +509,6 @@ export class InfographicTemplateService {
       border-radius: ${scaledBorderRadius}px;
       padding: ${Math.round((isWideScreen ? 16 : 20) * scale)}px ${Math.round((isWideScreen ? 24 : 32) * scale)}px;
       border: 2px solid ${colors.accent}40;
-      margin-top: ${Math.round((isWideScreen ? 16 : 20) * scale)}px;
       display: flex;
       align-items: center;
       gap: ${Math.round((isWideScreen ? 20 : 28) * scale)}px;
