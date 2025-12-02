@@ -54,7 +54,7 @@ export class AiImageController {
   @Post("generate")
   @UseGuards(JwtAuthGuard)
   async generateImage(@Body() dto: GenerateImageDto, @Request() req: any) {
-    this.logger.log(`Generating image for user ${req.user?.userId}`);
+    this.logger.log(`Generating image for user ${req.user?.id}`);
     return this.aiImageService.generateImage({
       prompt: dto.prompt,
       urls: dto.urls,
@@ -66,7 +66,7 @@ export class AiImageController {
       aspectRatio: dto.aspectRatio,
       negativePrompt: dto.negativePrompt,
       skipEnhancement: dto.skipEnhancement,
-      userId: req.user?.userId,
+      userId: req.user?.id,
     });
   }
 
@@ -89,9 +89,7 @@ export class AiImageController {
     @Query("templateLayout") templateLayout: string,
     @Request() req: any,
   ): Observable<MessageEvent> {
-    this.logger.log(
-      `SSE: Starting stream generation for user ${req.user?.userId}`,
-    );
+    this.logger.log(`SSE: Starting stream generation for user ${req.user?.id}`);
 
     const parsedUrls = urls
       ? urls.split(",").filter((u) => u.trim())
@@ -130,7 +128,7 @@ export class AiImageController {
       negativePrompt: negativePrompt || undefined,
       skipEnhancement: skipEnhancement === "true",
       templateLayout: validTemplateLayout,
-      userId: req.user?.userId,
+      userId: req.user?.id,
     });
   }
 
@@ -147,7 +145,7 @@ export class AiImageController {
     @Request() req: any,
   ) {
     this.logger.log(
-      `Generating image with ${files?.length || 0} files for user ${req.user?.userId}`,
+      `Generating image with ${files?.length || 0} files for user ${req.user?.id}`,
     );
 
     // 处理上传的文件
@@ -183,20 +181,20 @@ export class AiImageController {
       aspectRatio: dto.aspectRatio,
       negativePrompt: dto.negativePrompt,
       skipEnhancement: dto.skipEnhancement,
-      userId: req.user?.userId,
+      userId: req.user?.id,
     });
   }
 
   @Get("history")
   @UseGuards(JwtAuthGuard)
   async getHistory(@Request() req: any) {
-    return this.aiImageService.getHistory(req.user?.userId);
+    return this.aiImageService.getHistory(req.user?.id);
   }
 
   @Get("bookmarks")
   @UseGuards(JwtAuthGuard)
   async getBookmarkedImages(@Request() req: any) {
-    return this.aiImageService.getBookmarkedImages(req.user?.userId);
+    return this.aiImageService.getBookmarkedImages(req.user?.id);
   }
 
   /**
@@ -238,26 +236,24 @@ export class AiImageController {
   @Delete(":id")
   @UseGuards(JwtAuthGuard)
   async deleteImage(@Param("id") id: string, @Request() req: any) {
-    this.logger.log(`Deleting image ${id} for user ${req.user?.userId}`);
-    return this.aiImageService.deleteImage(id, req.user?.userId);
+    this.logger.log(`Deleting image ${id} for user ${req.user?.id}`);
+    return this.aiImageService.deleteImage(id, req.user?.id);
   }
 
   @Post(":id/bookmark")
   @UseGuards(JwtAuthGuard)
   async addBookmark(@Param("id") id: string, @Request() req: any) {
-    this.logger.log(
-      `Adding bookmark for image ${id} by user ${req.user?.userId}`,
-    );
-    return this.aiImageService.addBookmark(id, req.user?.userId);
+    this.logger.log(`Adding bookmark for image ${id} by user ${req.user?.id}`);
+    return this.aiImageService.addBookmark(id, req.user?.id);
   }
 
   @Delete(":id/bookmark")
   @UseGuards(JwtAuthGuard)
   async removeBookmark(@Param("id") id: string, @Request() req: any) {
     this.logger.log(
-      `Removing bookmark for image ${id} by user ${req.user?.userId}`,
+      `Removing bookmark for image ${id} by user ${req.user?.id}`,
     );
-    return this.aiImageService.removeBookmark(id, req.user?.userId);
+    return this.aiImageService.removeBookmark(id, req.user?.id);
   }
 
   /**
@@ -267,9 +263,9 @@ export class AiImageController {
   @Post("cleanup")
   @UseGuards(JwtAuthGuard)
   async cleanupOldImages(@Request() req: any) {
-    this.logger.log(`Manual cleanup triggered by user ${req.user?.userId}`);
+    this.logger.log(`Manual cleanup triggered by user ${req.user?.id}`);
     const deletedCount = await this.aiImageService.cleanupOldImages(
-      req.user?.userId,
+      req.user?.id,
     );
     return {
       success: true,
