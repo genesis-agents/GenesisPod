@@ -19,7 +19,9 @@ export type InfographicStyle =
   | "creative" // 创意风格：活泼配色，圆角
   | "dark" // 暗黑风格：深色背景
   | "academic" // 学术风格：严谨正式
-  | "business"; // 商务简约：专业简洁，蓝灰色调
+  | "business" // 商务简约：专业简洁，蓝灰色调
+  | "genspark" // Genspark风格：深蓝渐变背景 + 玻璃态卡片
+  | "tech_gradient"; // 科技渐变：紫蓝渐变 + 现代科技感
 
 // 字体风格
 export type FontStyle =
@@ -160,6 +162,30 @@ const STYLE_PRESETS: Record<
     borderRadius: 8,
     shadow: "0 1px 2px rgba(0,0,0,0.05)",
   },
+  // Genspark风格：深蓝渐变背景 + 玻璃态卡片
+  genspark: {
+    colors: {
+      primary: "#0A2B4E", // 深海军蓝 (Genspark背景色)
+      accent: "#3B82F6", // 亮蓝色强调
+      background: "#0A2B4E", // 深色背景
+      text: "#E5E7EB", // 浅灰正文
+    },
+    font: "'Noto Sans SC', 'Inter', sans-serif",
+    borderRadius: 12,
+    shadow: "0 8px 32px rgba(0,0,0,0.3)",
+  },
+  // 科技渐变风格：紫蓝渐变 + 现代科技感
+  tech_gradient: {
+    colors: {
+      primary: "#6366F1", // 靛蓝
+      accent: "#8B5CF6", // 紫色
+      background: "#0F172A", // 深色背景
+      text: "#F1F5F9", // 浅色文字
+    },
+    font: "'Inter', 'Noto Sans SC', sans-serif",
+    borderRadius: 16,
+    shadow: "0 12px 40px rgba(99,102,241,0.25)",
+  },
 };
 
 // 字体映射
@@ -299,13 +325,43 @@ export class InfographicTemplateService {
       shadowMap[content.styleOptions?.shadowStyle || "medium"] ||
       stylePreset.shadow;
 
-    // 暗黑模式特殊处理
-    const isDarkMode = styleKey === "dark";
-    const cardBackground = isDarkMode ? "#1e293b" : "white";
-    const cardBorder = isDarkMode
-      ? "rgba(255,255,255,0.1)"
-      : "rgba(0,0,0,0.06)";
+    // 暗黑模式特殊处理 - 包括 genspark 和 tech_gradient
+    const isDarkMode =
+      styleKey === "dark" ||
+      styleKey === "genspark" ||
+      styleKey === "tech_gradient";
+
+    // Genspark风格：玻璃态卡片
+    const isGlassmorphism =
+      styleKey === "genspark" || styleKey === "tech_gradient";
+
+    // 卡片背景和边框 - 玻璃态效果
+    const cardBackground = isGlassmorphism
+      ? "rgba(255, 255, 255, 0.08)"
+      : isDarkMode
+        ? "#1e293b"
+        : "white";
+    const cardBorder = isGlassmorphism
+      ? "rgba(255, 255, 255, 0.15)"
+      : isDarkMode
+        ? "rgba(255,255,255,0.1)"
+        : "rgba(0,0,0,0.06)";
     const bulletBorderColor = isDarkMode ? "#334155" : "#f1f5f9";
+
+    // 玻璃态额外样式
+    const glassmorphismStyles = isGlassmorphism
+      ? `backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);`
+      : "";
+
+    // Genspark风格的渐变色数组（用于不同卡片的图标）
+    const cardGradients = [
+      "linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)", // 蓝色
+      "linear-gradient(135deg, #10B981 0%, #059669 100%)", // 绿色
+      "linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)", // 紫色
+      "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)", // 橙色
+      "linear-gradient(135deg, #EF4444 0%, #DC2626 100%)", // 红色
+      "linear-gradient(135deg, #06B6D4 0%, #0891B2 100%)", // 青色
+    ];
 
     this.logger.log(
       `[generateInfographicHTML] Using style: ${styleKey}, font: ${fontStyle}, colors: ${JSON.stringify(colors)}`,
@@ -367,11 +423,22 @@ export class InfographicTemplateService {
     const overlayColor = isDarkMode
       ? "rgba(15, 23, 42, 0.92)"
       : "rgba(247, 249, 252, 0.92)";
+
+    // Genspark风格的渐变背景
+    const gensparkGradientBg =
+      styleKey === "genspark"
+        ? `linear-gradient(135deg, #0A2B4E 0%, #0F3460 50%, #16213E 100%)`
+        : styleKey === "tech_gradient"
+          ? `linear-gradient(135deg, #0F172A 0%, #1E1B4B 50%, #0F172A 100%)`
+          : null;
+
     const backgroundStyle = backgroundImageBase64
       ? `background-image: linear-gradient(${overlayColor}, ${overlayColor}), url(${backgroundImageBase64});
          background-size: cover;
          background-position: center;`
-      : `background: ${colors.background};`;
+      : gensparkGradientBg
+        ? `background: ${gensparkGradientBg};`
+        : `background: ${colors.background};`;
 
     // 计算动态圆角
     const scaledBorderRadius = Math.round(
@@ -492,27 +559,59 @@ export class InfographicTemplateService {
       align-items: stretch;
     }
 
-    /* Section 卡片 - 等高 */
+    /* Section 卡片 - 等高，支持玻璃态 */
     .section-card {
       background: ${cardBackground};
       border-radius: ${scaledBorderRadius}px;
       padding: ${Math.round((isWideScreen ? 16 : 24) * scale)}px;
-      box-shadow: ${boxShadow};
+      box-shadow: ${isGlassmorphism ? "0 8px 32px rgba(0,0,0,0.25)" : boxShadow};
       border: 1px solid ${cardBorder};
       display: flex;
       flex-direction: column;
+      ${glassmorphismStyles}
+      ${isGlassmorphism ? "position: relative; overflow: hidden;" : ""}
+    }
+
+    ${
+      isGlassmorphism
+        ? `
+    /* 玻璃态卡片顶部装饰条 */
+    .section-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--card-accent-gradient);
+    }
+
+    /* 玻璃态卡片发光效果 */
+    .section-card::after {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -50%;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    `
+        : ""
     }
 
     /* 总结卡片 - 横跨底部，不同风格 */
     .summary-card {
-      background: linear-gradient(135deg, ${colors.accent}15 0%, ${colors.primary}10 100%);
+      background: ${isGlassmorphism ? "rgba(255, 255, 255, 0.05)" : `linear-gradient(135deg, ${colors.accent}15 0%, ${colors.primary}10 100%)`};
       border-radius: ${scaledBorderRadius}px;
       padding: ${Math.round((isWideScreen ? 16 : 20) * scale)}px ${Math.round((isWideScreen ? 24 : 32) * scale)}px;
-      border: 2px solid ${colors.accent}40;
+      border: ${isGlassmorphism ? "1px solid rgba(255, 255, 255, 0.1)" : `2px solid ${colors.accent}40`};
       display: flex;
       align-items: center;
       gap: ${Math.round((isWideScreen ? 20 : 28) * scale)}px;
       flex-shrink: 0;
+      ${glassmorphismStyles}
     }
 
     .summary-icon {
@@ -739,10 +838,10 @@ export class InfographicTemplateService {
       ${mainSections
         .map(
           (section, idx) => `
-        <div class="section-card">
+        <div class="section-card" style="--card-accent-gradient: ${cardGradients[idx % cardGradients.length]}">
           <div class="section-header">
             <div class="section-icon-wrapper">
-              <div class="section-icon">
+              <div class="section-icon" ${isGlassmorphism ? `style="background: ${cardGradients[idx % cardGradients.length]}"` : ""}>
                 ${this.getIcon(section.iconType)}
               </div>
               <span class="section-number">${idx + 1}</span>
@@ -952,7 +1051,28 @@ export class InfographicTemplateService {
 
     const fontStyle = content.styleOptions?.fontStyle || "sans";
     const fontFamily = FONT_STYLES[fontStyle] || FONT_STYLES.sans;
-    const isDarkMode = styleKey === "dark";
+
+    // 暗黑模式检测 - 包括 genspark 和 tech_gradient
+    const isDarkMode =
+      styleKey === "dark" ||
+      styleKey === "genspark" ||
+      styleKey === "tech_gradient";
+
+    // Genspark风格：玻璃态效果
+    const isGlassmorphism =
+      styleKey === "genspark" || styleKey === "tech_gradient";
+
+    // Genspark风格的渐变色数组（用于不同节点）
+    const nodeGradients = [
+      "linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)", // 蓝色
+      "linear-gradient(135deg, #10B981 0%, #059669 100%)", // 绿色
+      "linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)", // 紫色
+      "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)", // 橙色
+      "linear-gradient(135deg, #EF4444 0%, #DC2626 100%)", // 红色
+      "linear-gradient(135deg, #06B6D4 0%, #0891B2 100%)", // 青色
+      "linear-gradient(135deg, #EC4899 0%, #DB2777 100%)", // 粉色
+      "linear-gradient(135deg, #84CC16 0%, #65A30D 100%)", // 柠檬绿
+    ];
 
     const scale = width / 1200;
     const padding = Math.round(40 * scale);
@@ -969,11 +1089,27 @@ export class InfographicTemplateService {
     const overlayColor = isDarkMode
       ? "rgba(15, 23, 42, 0.92)"
       : "rgba(247, 249, 252, 0.92)";
+
+    // Genspark风格的渐变背景
+    const gensparkGradientBg =
+      styleKey === "genspark"
+        ? `linear-gradient(135deg, #0A2B4E 0%, #0F3460 50%, #16213E 100%)`
+        : styleKey === "tech_gradient"
+          ? `linear-gradient(135deg, #0F172A 0%, #1E1B4B 50%, #0F172A 100%)`
+          : null;
+
     const backgroundStyle = backgroundImageBase64
       ? `background-image: linear-gradient(${overlayColor}, ${overlayColor}), url(${backgroundImageBase64});
          background-size: cover;
          background-position: center;`
-      : `background: ${colors.background};`;
+      : gensparkGradientBg
+        ? `background: ${gensparkGradientBg};`
+        : `background: ${colors.background};`;
+
+    // 玻璃态额外样式
+    const glassmorphismStyles = isGlassmorphism
+      ? `backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);`
+      : "";
 
     // 生成中心图形周围的要点位置
     const itemCount = Math.min(centerItems.length, 8);
@@ -1105,23 +1241,24 @@ export class InfographicTemplateService {
       line-height: 1.3;
     }
 
-    /* 周围要点 */
+    /* 周围要点 - 支持玻璃态 */
     .orbit-item {
       position: absolute;
-      background: ${isDarkMode ? "#1e293b" : "white"};
+      background: ${isGlassmorphism ? "rgba(255, 255, 255, 0.08)" : isDarkMode ? "#1e293b" : "white"};
       border-radius: ${Math.round(12 * scale)}px;
       padding: ${Math.round(12 * scale)}px ${Math.round(18 * scale)}px;
-      box-shadow: 0 4px 20px ${isDarkMode ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.08)"};
-      border: 1px solid ${isDarkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"};
+      box-shadow: ${isGlassmorphism ? "0 8px 32px rgba(0,0,0,0.25)" : isDarkMode ? "0 4px 20px rgba(0,0,0,0.4)" : "0 4px 20px rgba(0,0,0,0.08)"};
+      border: 1px solid ${isGlassmorphism ? "rgba(255,255,255,0.15)" : isDarkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"};
       max-width: ${Math.round(180 * scale)}px;
       text-align: center;
       transform: translate(-50%, -50%);
+      ${glassmorphismStyles}
     }
 
     .orbit-item .number {
       width: ${Math.round(24 * scale)}px;
       height: ${Math.round(24 * scale)}px;
-      background: ${colors.accent};
+      background: var(--node-gradient, ${colors.accent});
       color: white;
       border-radius: 50%;
       display: inline-flex;
@@ -1130,6 +1267,7 @@ export class InfographicTemplateService {
       font-size: ${Math.round(12 * scale)}px;
       font-weight: 700;
       margin-bottom: ${Math.round(6 * scale)}px;
+      ${isGlassmorphism ? "box-shadow: 0 4px 12px rgba(0,0,0,0.2);" : ""}
     }
 
     .orbit-item .text {
@@ -1137,6 +1275,17 @@ export class InfographicTemplateService {
       color: ${colors.text};
       font-weight: 500;
       line-height: 1.4;
+    }
+
+    /* SVG 连接线容器 */
+    .connections-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 5;
     }
 
     /* 连接线 */
@@ -1223,8 +1372,10 @@ export class InfographicTemplateService {
             Math.cos(angle) * (horizontalRadius / (width - padding * 2)) * 100;
           const yPercent =
             50 + Math.sin(angle) * (verticalRadius / visualAreaHeight) * 100;
+          // 为每个节点分配不同的渐变色
+          const nodeGradient = nodeGradients[idx % nodeGradients.length];
           return `
-          <div class="orbit-item" style="left: ${xPercent}%; top: ${yPercent}%;">
+          <div class="orbit-item" style="left: ${xPercent}%; top: ${yPercent}%; --node-gradient: ${nodeGradient}">
             <div class="number">${idx + 1}</div>
             <div class="text">${this.escapeHtml(item)}</div>
           </div>
@@ -1281,7 +1432,26 @@ export class InfographicTemplateService {
 
     const fontStyle = content.styleOptions?.fontStyle || "sans";
     const fontFamily = FONT_STYLES[fontStyle] || FONT_STYLES.sans;
-    const isDarkMode = styleKey === "dark";
+
+    // 暗黑模式检测 - 包括 genspark 和 tech_gradient
+    const isDarkMode =
+      styleKey === "dark" ||
+      styleKey === "genspark" ||
+      styleKey === "tech_gradient";
+
+    // Genspark风格：玻璃态效果
+    const isGlassmorphism =
+      styleKey === "genspark" || styleKey === "tech_gradient";
+
+    // Genspark风格的渐变色数组（用于不同步骤节点）
+    const stepGradients = [
+      "linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)", // 蓝色
+      "linear-gradient(135deg, #10B981 0%, #059669 100%)", // 绿色
+      "linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)", // 紫色
+      "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)", // 橙色
+      "linear-gradient(135deg, #EF4444 0%, #DC2626 100%)", // 红色
+      "linear-gradient(135deg, #06B6D4 0%, #0891B2 100%)", // 青色
+    ];
 
     const scale = width / 1200;
     const padding = Math.round(40 * scale);
@@ -1290,11 +1460,27 @@ export class InfographicTemplateService {
     const overlayColor = isDarkMode
       ? "rgba(15, 23, 42, 0.92)"
       : "rgba(247, 249, 252, 0.92)";
+
+    // Genspark风格的渐变背景
+    const gensparkGradientBg =
+      styleKey === "genspark"
+        ? `linear-gradient(135deg, #0A2B4E 0%, #0F3460 50%, #16213E 100%)`
+        : styleKey === "tech_gradient"
+          ? `linear-gradient(135deg, #0F172A 0%, #1E1B4B 50%, #0F172A 100%)`
+          : null;
+
     const backgroundStyle = backgroundImageBase64
       ? `background-image: linear-gradient(${overlayColor}, ${overlayColor}), url(${backgroundImageBase64});
          background-size: cover;
          background-position: center;`
-      : `background: ${colors.background};`;
+      : gensparkGradientBg
+        ? `background: ${gensparkGradientBg};`
+        : `background: ${colors.background};`;
+
+    // 玻璃态额外样式
+    const glassmorphismStyles = isGlassmorphism
+      ? `backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);`
+      : "";
 
     return `
 <!DOCTYPE html>
@@ -1405,14 +1591,15 @@ export class InfographicTemplateService {
     .timeline-node {
       width: ${Math.round(48 * scale)}px;
       height: ${Math.round(48 * scale)}px;
-      background: ${isDarkMode ? "#1e293b" : "white"};
-      border: 3px solid ${colors.primary};
+      background: ${isGlassmorphism ? "var(--step-gradient)" : isDarkMode ? "#1e293b" : "white"};
+      border: ${isGlassmorphism ? "none" : `3px solid ${colors.primary}`};
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: ${colors.primary};
+      color: ${isGlassmorphism ? "white" : colors.primary};
       z-index: 2;
+      ${isGlassmorphism ? "box-shadow: 0 8px 24px rgba(0,0,0,0.3);" : ""}
       ${
         isVertical
           ? `
@@ -1429,13 +1616,14 @@ export class InfographicTemplateService {
     }
 
     .timeline-content {
-      background: ${isDarkMode ? "#1e293b" : "white"};
+      background: ${isGlassmorphism ? "rgba(255, 255, 255, 0.08)" : isDarkMode ? "#1e293b" : "white"};
       border-radius: ${Math.round(12 * scale)}px;
       padding: ${Math.round(16 * scale)}px;
-      box-shadow: 0 4px 20px ${isDarkMode ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.08)"};
-      border: 1px solid ${isDarkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"};
+      box-shadow: ${isGlassmorphism ? "0 8px 32px rgba(0,0,0,0.25)" : isDarkMode ? "0 4px 20px rgba(0,0,0,0.4)" : "0 4px 20px rgba(0,0,0,0.08)"};
+      border: 1px solid ${isGlassmorphism ? "rgba(255,255,255,0.15)" : isDarkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"};
       ${isVertical ? "" : `margin-top: ${Math.round(20 * scale)}px;`}
       max-width: ${Math.round((isVertical ? 300 : 200) * scale)}px;
+      ${glassmorphismStyles}
     }
 
     .timeline-title {
@@ -1504,8 +1692,8 @@ export class InfographicTemplateService {
       ${content.sections
         .slice(0, 5)
         .map(
-          (section) => `
-        <div class="timeline-item">
+          (section, idx) => `
+        <div class="timeline-item" style="--step-gradient: ${stepGradients[idx % stepGradients.length]}">
           <div class="timeline-node">${this.getIcon(section.iconType)}</div>
           <div class="timeline-content">
             <h3 class="timeline-title">${this.escapeHtml(section.title)}</h3>

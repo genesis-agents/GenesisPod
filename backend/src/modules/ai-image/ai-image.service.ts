@@ -297,7 +297,7 @@ The JSON must be STRICTLY valid (no markdown fences):
     "chart_style": "string",
     "background": "string",
     "grid_system": "string",
-    "design_style": "consulting|tech|minimal|creative|dark|academic|business",
+    "design_style": "consulting|tech|minimal|creative|dark|academic|business|genspark|tech_gradient",
     "font_style": "sans|serif|mono|rounded",
     "border_radius": "none|small|medium|large",
     "shadow_style": "none|subtle|medium|strong"
