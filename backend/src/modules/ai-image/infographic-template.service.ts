@@ -634,7 +634,7 @@ export class InfographicTemplateService {
     <!-- 品牌栏 -->
     <div class="brand-bar">
       <div class="brand-logo">${DEEPDIVE_LOGO}</div>
-      <span class="brand-name">DeepDive AI</span>
+      <span class="brand-name">DeepDive ENGINE</span>
     </div>
 
     <!-- 标题区 -->
@@ -881,7 +881,6 @@ export class InfographicTemplateService {
 
     // 生成中心图形周围的要点位置
     const itemCount = Math.min(centerItems.length, 8);
-    const angleStep = (2 * Math.PI) / itemCount;
     // 中心圆形的半径 - 根据要点数量调整
     const centerRadius =
       Math.min(width, height) * (itemCount > 6 ? 0.15 : 0.16);
@@ -1097,7 +1096,7 @@ export class InfographicTemplateService {
   <div class="container">
     <div class="brand-bar">
       <div class="brand-logo">${DEEPDIVE_LOGO}</div>
-      <span class="brand-name">DeepDive AI</span>
+      <span class="brand-name">DeepDive ENGINE</span>
     </div>
 
     <div class="header">
@@ -1112,11 +1111,15 @@ export class InfographicTemplateService {
 
       ${centerItems
         .map((item, idx) => {
-          // 从顶部开始（-PI/2），均匀分布
-          const angle = angleStep * idx - Math.PI / 2;
-          // 计算轨道的椭圆形状（水平方向更宽，垂直方向稍窄以避免与标题重叠）
-          const horizontalRadius = orbitRadius * 1.1;
-          const verticalRadius = orbitRadius * 0.85;
+          // 从右上角开始（-PI/4），避开正上方与标题重叠
+          // 均匀分布但跳过顶部区域（上方60度范围）
+          const skipTopAngle = Math.PI / 3; // 跳过顶部60度
+          const availableAngle = 2 * Math.PI - skipTopAngle;
+          const startAngle = -Math.PI / 2 + skipTopAngle / 2; // 从右上开始
+          const angle = startAngle + (availableAngle / itemCount) * idx;
+          // 计算轨道的椭圆形状（水平方向更宽）
+          const horizontalRadius = orbitRadius * 1.2;
+          const verticalRadius = orbitRadius * 0.9;
           // 计算相对于 visual-area 中心的位置（百分比）
           const xPercent =
             50 +
@@ -1391,7 +1394,7 @@ export class InfographicTemplateService {
   <div class="container">
     <div class="brand-bar">
       <div class="brand-logo">${DEEPDIVE_LOGO}</div>
-      <span class="brand-name">DeepDive AI</span>
+      <span class="brand-name">DeepDive ENGINE</span>
     </div>
 
     <div class="header">
