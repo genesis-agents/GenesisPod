@@ -1444,6 +1444,357 @@ export class InfographicTemplateService {
 </html>`;
   }
 
+  /**
+   * 对比模板 - 左右两栏对比布局
+   * 适合展示对比、优缺点、前后对比等内容
+   */
+  generateComparisonHTML(
+    content: InfographicContent,
+    backgroundImageBase64?: string,
+    width: number = 1200,
+    height: number = 800,
+  ): string {
+    const styleKey = content.styleOptions?.style || "consulting";
+    const stylePreset = STYLE_PRESETS[styleKey] || STYLE_PRESETS.consulting;
+
+    const colors = {
+      primary: content.colorScheme?.primary || stylePreset.colors.primary,
+      accent: content.colorScheme?.accent || stylePreset.colors.accent,
+      background:
+        content.colorScheme?.background || stylePreset.colors.background,
+      text: content.colorScheme?.text || stylePreset.colors.text,
+    };
+
+    const fontStyle = content.styleOptions?.fontStyle || "sans";
+    const fontFamily = FONT_STYLES[fontStyle] || FONT_STYLES.sans;
+    const isDarkMode = styleKey === "dark";
+
+    const scale = width / 1200;
+    const padding = Math.round(40 * scale);
+    const isVertical = height > width;
+
+    const overlayColor = isDarkMode
+      ? "rgba(15, 23, 42, 0.92)"
+      : "rgba(247, 249, 252, 0.92)";
+    const backgroundStyle = backgroundImageBase64
+      ? `background-image: linear-gradient(${overlayColor}, ${overlayColor}), url(${backgroundImageBase64});
+         background-size: cover;
+         background-position: center;`
+      : `background: ${colors.background};`;
+
+    // 将 sections 分成两组进行对比
+    const midPoint = Math.ceil(content.sections.length / 2);
+    const leftSections = content.sections.slice(0, midPoint);
+    const rightSections = content.sections.slice(midPoint);
+
+    // 对比颜色
+    const leftColor = colors.primary;
+    const rightColor = colors.accent;
+
+    return `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: ${fontFamily};
+      ${backgroundStyle}
+      color: ${colors.text};
+      width: ${width}px;
+      height: ${height}px;
+      overflow: hidden;
+    }
+
+    .container {
+      padding: ${padding}px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand-bar {
+      display: flex;
+      align-items: center;
+      gap: ${Math.round(8 * scale)}px;
+      margin-bottom: ${Math.round(12 * scale)}px;
+    }
+
+    .brand-logo {
+      width: ${Math.round(24 * scale)}px;
+      height: ${Math.round(24 * scale)}px;
+      color: ${colors.primary};
+    }
+
+    .brand-name {
+      font-size: ${Math.round(12 * scale)}px;
+      font-weight: 600;
+      color: ${colors.primary};
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: ${Math.round(24 * scale)}px;
+    }
+
+    .main-title {
+      font-size: ${Math.round(32 * scale)}px;
+      font-weight: 700;
+      color: ${colors.primary};
+      margin-bottom: ${Math.round(8 * scale)}px;
+    }
+
+    .subtitle {
+      font-size: ${Math.round(14 * scale)}px;
+      color: ${colors.text};
+      opacity: 0.8;
+    }
+
+    .comparison-container {
+      flex: 1;
+      display: flex;
+      ${isVertical ? "flex-direction: column;" : "flex-direction: row;"}
+      gap: ${Math.round(24 * scale)}px;
+      min-height: 0;
+    }
+
+    .comparison-side {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      border-radius: ${Math.round(16 * scale)}px;
+      overflow: hidden;
+      background: ${isDarkMode ? "#1e293b" : "white"};
+      box-shadow: 0 4px 20px ${isDarkMode ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.08)"};
+    }
+
+    .side-header {
+      padding: ${Math.round(16 * scale)}px ${Math.round(20 * scale)}px;
+      color: white;
+      font-size: ${Math.round(18 * scale)}px;
+      font-weight: 700;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: ${Math.round(10 * scale)}px;
+    }
+
+    .side-header-icon {
+      width: ${Math.round(24 * scale)}px;
+      height: ${Math.round(24 * scale)}px;
+    }
+
+    .left-side .side-header {
+      background: linear-gradient(135deg, ${leftColor} 0%, ${this.adjustColor(leftColor, 20)} 100%);
+    }
+
+    .right-side .side-header {
+      background: linear-gradient(135deg, ${rightColor} 0%, ${this.adjustColor(rightColor, -15)} 100%);
+    }
+
+    .side-content {
+      flex: 1;
+      padding: ${Math.round(20 * scale)}px;
+      display: flex;
+      flex-direction: column;
+      gap: ${Math.round(16 * scale)}px;
+    }
+
+    .compare-item {
+      display: flex;
+      align-items: flex-start;
+      gap: ${Math.round(12 * scale)}px;
+    }
+
+    .compare-icon {
+      width: ${Math.round(32 * scale)}px;
+      height: ${Math.round(32 * scale)}px;
+      border-radius: ${Math.round(8 * scale)}px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .left-side .compare-icon {
+      background: ${this.adjustColor(leftColor, 80)};
+      color: ${leftColor};
+    }
+
+    .right-side .compare-icon {
+      background: ${this.adjustColor(rightColor, 60)};
+      color: ${rightColor};
+    }
+
+    .compare-icon svg {
+      width: ${Math.round(18 * scale)}px;
+      height: ${Math.round(18 * scale)}px;
+    }
+
+    .compare-text {
+      flex: 1;
+    }
+
+    .compare-title {
+      font-size: ${Math.round(14 * scale)}px;
+      font-weight: 600;
+      color: ${colors.text};
+      margin-bottom: ${Math.round(4 * scale)}px;
+    }
+
+    .compare-desc {
+      font-size: ${Math.round(12 * scale)}px;
+      color: ${colors.text};
+      opacity: 0.7;
+      line-height: 1.4;
+    }
+
+    .vs-divider {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      ${isVertical ? `height: ${Math.round(40 * scale)}px;` : `width: ${Math.round(40 * scale)}px; flex-direction: column;`}
+    }
+
+    .vs-badge {
+      width: ${Math.round(48 * scale)}px;
+      height: ${Math.round(48 * scale)}px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, ${leftColor} 0%, ${rightColor} 100%);
+      color: white;
+      font-size: ${Math.round(14 * scale)}px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .cta {
+      background: linear-gradient(135deg, ${colors.accent} 0%, ${this.adjustColor(colors.accent, -15)} 100%);
+      color: white;
+      text-align: center;
+      padding: ${Math.round(14 * scale)}px;
+      border-radius: ${Math.round(10 * scale)}px;
+      font-size: ${Math.round(13 * scale)}px;
+      font-weight: 600;
+      margin-top: ${Math.round(16 * scale)}px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="brand-bar">
+      <div class="brand-logo">${DEEPDIVE_LOGO}</div>
+      <span class="brand-name">DeepDive ENGINE</span>
+    </div>
+
+    <div class="header">
+      <h1 class="main-title">${this.escapeHtml(content.title)}</h1>
+      ${content.subtitle ? `<p class="subtitle">${this.escapeHtml(content.subtitle)}</p>` : ""}
+    </div>
+
+    <div class="comparison-container">
+      <div class="comparison-side left-side">
+        <div class="side-header">
+          <span class="side-header-icon">${this.getIcon(leftSections[0]?.iconType || "target")}</span>
+          <span>${leftSections[0]?.title || "Option A"}</span>
+        </div>
+        <div class="side-content">
+          ${leftSections
+            .map(
+              (section, idx) => `
+            ${
+              section.bullets.length > 0
+                ? section.bullets
+                    .slice(0, 4)
+                    .map(
+                      (bullet) => `
+                <div class="compare-item">
+                  <div class="compare-icon">${this.getIcon(section.iconType || "check")}</div>
+                  <div class="compare-text">
+                    <div class="compare-desc">${this.escapeHtml(bullet)}</div>
+                  </div>
+                </div>
+              `,
+                    )
+                    .join("")
+                : section.summary
+                  ? `
+                <div class="compare-item">
+                  <div class="compare-icon">${this.getIcon(section.iconType || "check")}</div>
+                  <div class="compare-text">
+                    ${idx > 0 ? `<div class="compare-title">${this.escapeHtml(section.title)}</div>` : ""}
+                    <div class="compare-desc">${this.escapeHtml(section.summary)}</div>
+                  </div>
+                </div>
+              `
+                  : ""
+            }
+          `,
+            )
+            .join("")}
+        </div>
+      </div>
+
+      <div class="vs-divider">
+        <div class="vs-badge">VS</div>
+      </div>
+
+      <div class="comparison-side right-side">
+        <div class="side-header">
+          <span class="side-header-icon">${this.getIcon(rightSections[0]?.iconType || "chart")}</span>
+          <span>${rightSections[0]?.title || "Option B"}</span>
+        </div>
+        <div class="side-content">
+          ${rightSections
+            .map(
+              (section, idx) => `
+            ${
+              section.bullets.length > 0
+                ? section.bullets
+                    .slice(0, 4)
+                    .map(
+                      (bullet) => `
+                <div class="compare-item">
+                  <div class="compare-icon">${this.getIcon(section.iconType || "check")}</div>
+                  <div class="compare-text">
+                    <div class="compare-desc">${this.escapeHtml(bullet)}</div>
+                  </div>
+                </div>
+              `,
+                    )
+                    .join("")
+                : section.summary
+                  ? `
+                <div class="compare-item">
+                  <div class="compare-icon">${this.getIcon(section.iconType || "check")}</div>
+                  <div class="compare-text">
+                    ${idx > 0 ? `<div class="compare-title">${this.escapeHtml(section.title)}</div>` : ""}
+                    <div class="compare-desc">${this.escapeHtml(section.summary)}</div>
+                  </div>
+                </div>
+              `
+                  : ""
+            }
+          `,
+            )
+            .join("")}
+        </div>
+      </div>
+    </div>
+
+    ${content.callToAction ? `<div class="cta">${this.escapeHtml(content.callToAction)}</div>` : ""}
+  </div>
+</body>
+</html>`;
+  }
+
   async generateInfographic(
     content: InfographicContent,
     options?: {
@@ -1474,6 +1825,14 @@ export class InfographicTemplateService {
         break;
       case "timeline":
         html = this.generateTimelineHTML(
+          content,
+          options?.backgroundImageBase64,
+          width,
+          height,
+        );
+        break;
+      case "comparison":
+        html = this.generateComparisonHTML(
           content,
           options?.backgroundImageBase64,
           width,
