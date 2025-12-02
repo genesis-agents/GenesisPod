@@ -1094,7 +1094,13 @@ export default function ImageGenerator({
     | 'cards'
     | 'center_visual'
     | 'timeline'
-    | 'comparison';
+    | 'comparison'
+    | 'pyramid'
+    | 'radial'
+    | 'statistics'
+    | 'checklist'
+    | 'funnel'
+    | 'matrix';
   const [templateLayout, setTemplateLayout] = useState<TemplateLayout>('auto');
 
   // UI state
@@ -2022,6 +2028,12 @@ export default function ImageGenerator({
                   <option value="center_visual">Center</option>
                   <option value="timeline">Timeline</option>
                   <option value="comparison">Compare</option>
+                  <option value="pyramid">Pyramid</option>
+                  <option value="radial">Radial</option>
+                  <option value="statistics">Stats</option>
+                  <option value="checklist">Checklist</option>
+                  <option value="funnel">Funnel</option>
+                  <option value="matrix">Matrix</option>
                 </select>
               </div>
 
