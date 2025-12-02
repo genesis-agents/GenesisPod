@@ -316,7 +316,11 @@ export class InfographicTemplateService {
     // 正方形(1:1)：3列标准布局
     // 竖屏(9:16)：2列展开布局
     const numColumns = isVertical ? 2 : 3;
-    const columns = this.distributeToColumns(content.sections, numColumns);
+    // 限制显示的 sections 数量，防止内容溢出
+    // 宽屏(16:9)最多4个，正方形最多6个，竖屏最多4个
+    const maxSections = isWideScreen ? 4 : isVertical ? 4 : 6;
+    const sectionsToShow = content.sections.slice(0, maxSections);
+    const columns = this.distributeToColumns(sectionsToShow, numColumns);
 
     // 根据尺寸调整字体和间距
     const scale = width / 1200;
@@ -659,7 +663,7 @@ export class InfographicTemplateService {
                   <div class="section-icon">
                     ${this.getIcon(section.iconType)}
                   </div>
-                  <span class="section-number">${colIdx * Math.ceil(content.sections.length / numColumns) + idx + 1}</span>
+                  <span class="section-number">${colIdx * Math.ceil(sectionsToShow.length / numColumns) + idx + 1}</span>
                 </div>
                 <div>
                   <h3 class="section-title">${this.escapeHtml(this.truncateText(section.title, isWideScreen ? 25 : 40))}</h3>
