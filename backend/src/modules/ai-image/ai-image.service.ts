@@ -159,35 +159,53 @@ export interface GenerateImageOptions {
 // Prompt enhancement system for consulting-style infographics
 // Optimized for Imagen 4 (Nano Banana Pro) with smart layout detection
 // Supports 3 rendering modes: html_render, hybrid, ai_image
-const PROMPT_ENHANCEMENT_SYSTEM = `You are an expert infographic designer. Analyze the provided material and respond with a single JSON object.
+const PROMPT_ENHANCEMENT_SYSTEM = `You are an expert visual content designer. Analyze the provided material and respond with a single JSON object.
 
-## STEP 1: CONTENT ANALYSIS & TEMPLATE SELECTION
+## STEP 0: FIRST DETERMINE - IS THIS A VISUAL SCENE OR AN INFOGRAPHIC?
 
-First, analyze the content type and select the optimal rendering mode AND template layout:
+**CRITICAL FIRST CHECK - Answer this question FIRST before anything else:**
+Is the user asking for a PICTURE/IMAGE of something, or an INFOGRAPHIC with structured information?
 
-**CRITICAL: AI image models CANNOT accurately render text!** Always prefer modes with HTML text rendering.
+**Signs it's a VISUAL SCENE (use ai_image mode):**
+- Short prompt (under 30 words)
+- Describes a visual scene, action, or subject to SEE
+- Contains: animals, people, nature, landscapes, actions, emotions
+- Examples: "猫嗅毛线", "日落", "狗狗追球", "孩子在草地上玩耍", "a cat playing with yarn", "mountain landscape"
+- User wants to see an IMAGE/PICTURE, not read information
 
-**rendering_mode: "hybrid"** (STRONGLY PREFERRED for most content) - Use when:
-- You want beautiful AI-generated backgrounds/illustrations WITH accurate text
-- Content has informational value that needs to be readable
-- Any infographic, presentation, or summary content
-- Content with Chinese or complex text that must be precise
-- Marketing materials, reports, tutorials, summaries
-- Examples: Strategy presentations, market overviews, tech summaries, news summaries, product introductions
-- This mode generates AI background + HTML text overlay = best of both worlds!
+**Signs it's an INFOGRAPHIC (use hybrid or html_render):**
+- Long content (50+ words) with multiple sections
+- Contains: data, statistics, bullet points, steps, comparisons
+- Educational/informational content that needs to be READ
+- Examples: "AI发展趋势报告", "10个提高效率的方法", "产品功能介绍"
+
+## STEP 1: CONTENT ANALYSIS & RENDERING MODE SELECTION
+
+**rendering_mode: "ai_image"** - ⭐ USE FOR VISUAL SCENES (CHECK THIS FIRST!):
+- Short visual descriptions (1-30 words) describing a SCENE, SUBJECT, or ACTION
+- Animals: "猫嗅毛线", "狗狗追球", "小鸟飞翔", "a cat sniffing yarn"
+- People: "孩子放风筝", "舞者", "老人下棋"
+- Nature: "sunset over mountains", "樱花盛开", "雪景"
+- Actions: "children playing", "猫咪玩毛线球"
+- Art/Illustration requests: "画一幅...", "create an image of..."
+- CRITICAL: If the prompt describes what user wants to SEE visually, use this mode!
+- This mode generates a complete AI image - NO HTML overlay, NO text!
+- The output is a pure PICTURE, like a photograph or illustration
+
+**rendering_mode: "hybrid"** - Use for INFOGRAPHIC content:
+- Long articles, reports, summaries (50+ words) that need visualization
+- Content with multiple sections/points requiring structured presentation
+- Marketing materials, tutorials, how-to guides with steps
+- News summaries, product introductions with features
+- Examples: "AI技术发展趋势分析", "2024年市场报告", "五个提高效率的方法"
+- This mode generates AI background + HTML text overlay
+- DO NOT use for short visual scene prompts!
 
 **rendering_mode: "html_render"** - Use when:
 - Content is purely data-focused (spreadsheets, tables)
 - Simple clean design without decorative backgrounds needed
 - Pure text content with minimal visual elements
 - Examples: Financial tables, spec sheets, checklists
-
-**rendering_mode: "ai_image"** - RARELY USE, only when:
-- Content is PURELY visual/artistic with NO text needed at all
-- Abstract art, mood boards, or decorative images
-- ZERO readable text required (AI cannot render text accurately!)
-- Examples: Abstract backgrounds, artistic illustrations, decorative elements
-- WARNING: Never use this for infographics, summaries, or any content with text!
 
 **template_layout** - Choose the best layout based on DEEP CONTENT STRUCTURE ANALYSIS:
 - "cards": Grid of equal cards - Best for 3+ PARALLEL topics (e.g., 3 stories, 5 features, multiple categories)
@@ -293,7 +311,21 @@ The JSON must be STRICTLY valid (no markdown fences):
 
 ## CRITICAL GUIDELINES:
 
-1. **DEEP CONTENT STRUCTURE ANALYSIS IS MANDATORY**:
+0. **VISUAL SCENE DETECTION - CHECK THIS FIRST! (HIGHEST PRIORITY)**:
+   - If prompt is SHORT (under 30 words) AND describes something to SEE → USE "ai_image" mode!
+   - Visual scene indicators:
+     * Animals doing things: 猫嗅毛线, 狗追球, 鸟飞翔, cat playing
+     * People in action: 孩子玩耍, 舞者跳舞, 老人散步
+     * Nature/landscapes: 日落, 雪山, 樱花, sunset, forest
+     * Artistic requests: 画一幅..., create an image of...
+   - When ai_image mode is selected:
+     * Set rendering_mode: "ai_image"
+     * Set template_layout: "cards" (not used but required)
+     * final_prompt should be a detailed image generation prompt
+     * information_architecture can be minimal (title only)
+     * DO NOT generate HTML text overlay - the image IS the output!
+
+1. **DEEP CONTENT STRUCTURE ANALYSIS IS MANDATORY** (for hybrid/html_render modes):
    - ALWAYS analyze the logical structure of content before selecting a template
    - Identify: parallel points vs sequential vs hierarchical vs comparative
    - Mark sections with "section_type": "main" or "summary"
@@ -349,11 +381,17 @@ The JSON must be STRICTLY valid (no markdown fences):
    - "学术/academic/formal/traditional" → academic style
    - "商务/business/corporate/professional" → business style
 
-7. **FINAL PROMPT**: For ai_image/hybrid modes, must include:
-   - "professional consulting infographic"
-   - "2D flat design illustration"
-   - "clean geometric shapes"
-   - "NO 3D rendering, NO photorealistic"
+7. **FINAL PROMPT**:
+   - For **ai_image** mode (visual scenes): Create a vivid image generation prompt describing:
+     * The subject/scene in detail (e.g., "A fluffy orange cat curiously sniffing a ball of colorful yarn")
+     * Art style (e.g., "digital art, illustration, watercolor, oil painting")
+     * Mood/lighting (e.g., "warm afternoon light, cozy atmosphere")
+     * DO NOT include infographic keywords!
+   - For **hybrid** mode (infographics): Must include:
+     * "professional consulting infographic"
+     * "2D flat design illustration"
+     * "clean geometric shapes"
+     * "NO 3D rendering, NO photorealistic"
 
 8. **BACKGROUND PROMPT**: For hybrid mode only - describe a decorative background that complements but doesn't overpower the text.
 
