@@ -4068,4 +4068,38 @@ Generate the edited version of this image now.`;
 
     return { totalDeleted, usersCleaned };
   }
+
+  /**
+   * 获取图片统计信息
+   */
+  async getImageStats() {
+    const totalImages = await this.prisma.generatedImage.count();
+    const bookmarkedImages = await this.prisma.generatedImage.count({
+      where: { isBookmarked: true },
+    });
+    const unbookmarkedImages = await this.prisma.generatedImage.count({
+      where: { isBookmarked: false },
+    });
+
+    // 按用户统计未收藏图片
+    const userStats = await this.prisma.generatedImage.groupBy({
+      by: ["userId"],
+      _count: { id: true },
+      where: {
+        userId: { not: null },
+        isBookmarked: false,
+      },
+    });
+
+    return {
+      totalImages,
+      bookmarkedImages,
+      unbookmarkedImages,
+      usersWithUnbookmarkedImages: userStats.length,
+      userStats: userStats.map((u) => ({
+        userId: u.userId,
+        unbookmarkedCount: u._count.id,
+      })),
+    };
+  }
 }

@@ -266,4 +266,15 @@ export class AiImageController {
       message: `Cleaned up ${result.totalDeleted} images from ${result.usersCleaned} users`,
     };
   }
+
+  /**
+   * 管理员查看图片统计
+   */
+  @Get("stats")
+  async getImageStats(@Query("key") key: string) {
+    if (key !== "deepdive-admin-cleanup-2024") {
+      return { success: false, message: "Invalid key" };
+    }
+    return this.aiImageService.getImageStats();
+  }
 }
