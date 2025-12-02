@@ -184,7 +184,7 @@ function ThumbnailGallery({
         scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400
       `}
     >
-      {images.map((img) => (
+      {images.map((img, index) => (
         <button
           key={img.id}
           onClick={() => onSelect(img)}
@@ -199,6 +199,10 @@ function ThumbnailGallery({
             }
           `}
         >
+          {/* Number indicator */}
+          <div className="absolute left-0.5 top-0.5 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-[9px] font-medium text-white">
+            {images.length - index}
+          </div>
           {/* Bookmark indicator */}
           {bookmarkedImages.has(img.id) && (
             <div className="absolute right-0.5 top-0.5 z-10">
@@ -2793,16 +2797,16 @@ export default function ImageGenerator({
             </svg>
           </button>
           <div
-            className="relative max-h-[95vh] max-w-[95vw]"
+            className="flex max-h-[90vh] max-w-[95vw] flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <img
               src={lightboxImage.imageUrl}
               alt={lightboxImage.prompt}
-              className="max-h-[95vh] max-w-[95vw] rounded-lg object-contain shadow-2xl"
+              className="max-h-[80vh] max-w-[95vw] rounded-t-lg object-contain shadow-2xl"
               onContextMenu={(e) => handleContextMenu(e, lightboxImage)}
             />
-            <div className="absolute bottom-0 left-0 right-0 rounded-b-lg bg-gradient-to-t from-black/80 to-transparent p-4">
+            <div className="rounded-b-lg bg-gray-900/95 px-4 py-3">
               {lightboxImage.enhancedPrompt && (
                 <p className="line-clamp-2 text-sm text-gray-300">
                   {lightboxImage.enhancedPrompt}
@@ -2814,7 +2818,7 @@ export default function ImageGenerator({
               </p>
             </div>
           </div>
-          <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-gray-500">
+          <p className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs text-gray-600">
             Click outside or press ESC to close
           </p>
         </div>
