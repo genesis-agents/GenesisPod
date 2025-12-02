@@ -8,7 +8,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { getAuthTokens } from '@/lib/auth';
-import Sidebar from '@/components/layout/Sidebar';
 
 // ==================== 自定义图标组件 ====================
 const PlusIcon = ({ className }: { className?: string }) => (
@@ -560,113 +559,107 @@ export default function StudioPage() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-
-      <main className="flex-1 overflow-auto">
-        {/* Header */}
-        <div className="sticky top-0 z-10 border-b border-gray-200 bg-white/80 backdrop-blur-sm">
-          <div className="mx-auto max-w-7xl px-6 py-8">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/25">
-                  <svg
-                    className="h-7 w-7 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">
-                    AI Studio
-                  </h1>
-                  <p className="text-sm text-gray-500">
-                    上传资料，让AI帮你研究和分析
-                  </p>
-                </div>
+    <div className="h-full overflow-auto bg-gray-50">
+      {/* Header */}
+      <div className="sticky top-0 z-10 border-b border-gray-200 bg-white/80 backdrop-blur-sm">
+        <div className="mx-auto max-w-7xl px-6 py-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/25">
+                <svg
+                  className="h-7 w-7 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+                  />
+                </svg>
               </div>
-              <button
-                onClick={() => setShowCreateDialog(true)}
-                className="flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-amber-700"
-              >
-                <PlusIcon className="h-5 w-5" />
-                New Project
-              </button>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">AI Studio</h1>
+                <p className="text-sm text-gray-500">
+                  上传资料，让AI帮你研究和分析
+                </p>
+              </div>
             </div>
+            <button
+              onClick={() => setShowCreateDialog(true)}
+              className="flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-amber-700"
+            >
+              <PlusIcon className="h-5 w-5" />
+              New Project
+            </button>
+          </div>
 
-            {/* Search Bar */}
-            <div className="mt-6">
-              <div className="relative">
-                <SearchIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="搜索项目..."
-                  className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
-                />
-              </div>
+          {/* Search Bar */}
+          <div className="mt-6">
+            <div className="relative">
+              <SearchIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="搜索项目..."
+                className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+              />
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Content */}
-        <div className="mx-auto max-w-7xl px-6 py-8">
-          {/* Projects Grid */}
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <LoaderIcon className="h-8 w-8 animate-spin text-amber-600" />
-            </div>
-          ) : error ? (
-            <div className="rounded-xl bg-red-50 p-6 text-center">
-              <p className="text-red-600">{error}</p>
-              <button
-                onClick={loadProjects}
-                className="mt-4 text-sm text-purple-600 hover:underline"
-              >
-                Try again
-              </button>
-            </div>
-          ) : projects.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-20">
-              <FolderOpenIcon className="h-16 w-16 text-gray-300" />
-              <h3 className="mt-4 text-lg font-medium text-gray-900">
-                No projects yet
-              </h3>
-              <p className="mt-1 text-gray-500">
-                Create your first research project to get started
-              </p>
-              <button
-                onClick={() => setShowCreateDialog(true)}
-                className="mt-6 flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2.5 font-medium text-white hover:bg-purple-700"
-              >
-                <PlusIcon className="h-5 w-5" />
-                Create Project
-              </button>
-            </div>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {projects.map((project) => (
-                <ProjectCard
-                  key={project.id}
-                  project={project}
-                  onClick={() => router.push(`/studio/${project.id}`)}
-                  onArchive={() => handleArchive(project.id)}
-                  onDelete={() => handleDelete(project.id)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </main>
+      {/* Content */}
+      <div className="mx-auto max-w-7xl px-6 py-8">
+        {/* Projects Grid */}
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <LoaderIcon className="h-8 w-8 animate-spin text-amber-600" />
+          </div>
+        ) : error ? (
+          <div className="rounded-xl bg-red-50 p-6 text-center">
+            <p className="text-red-600">{error}</p>
+            <button
+              onClick={loadProjects}
+              className="mt-4 text-sm text-purple-600 hover:underline"
+            >
+              Try again
+            </button>
+          </div>
+        ) : projects.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-20">
+            <FolderOpenIcon className="h-16 w-16 text-gray-300" />
+            <h3 className="mt-4 text-lg font-medium text-gray-900">
+              No projects yet
+            </h3>
+            <p className="mt-1 text-gray-500">
+              Create your first research project to get started
+            </p>
+            <button
+              onClick={() => setShowCreateDialog(true)}
+              className="mt-6 flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2.5 font-medium text-white hover:bg-purple-700"
+            >
+              <PlusIcon className="h-5 w-5" />
+              Create Project
+            </button>
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {projects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                onClick={() => router.push(`/studio/${project.id}`)}
+                onArchive={() => handleArchive(project.id)}
+                onDelete={() => handleDelete(project.id)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Create Project Dialog */}
       <CreateProjectDialog
