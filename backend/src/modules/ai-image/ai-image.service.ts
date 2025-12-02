@@ -3714,8 +3714,14 @@ Generate the edited version of this image now.`;
       return [];
     }
 
+    // 查询当前用户的图片 + 历史遗留的无用户绑定图片（向后兼容）
     const images = await this.prisma.generatedImage.findMany({
-      where: { userId },
+      where: {
+        OR: [
+          { userId }, // 当前用户的图片
+          { userId: null }, // 历史遗留的无用户绑定图片
+        ],
+      },
       orderBy: { createdAt: "desc" },
       take: 50,
     });
@@ -3808,10 +3814,13 @@ Generate the edited version of this image now.`;
     }
 
     try {
+      // 查询当前用户的收藏 + 历史遗留的无用户绑定收藏（向后兼容）
       const images = await this.prisma.generatedImage.findMany({
         where: {
-          userId,
-          isBookmarked: true,
+          OR: [
+            { userId, isBookmarked: true }, // 当前用户的收藏
+            { userId: null, isBookmarked: true }, // 历史遗留的无用户绑定收藏
+          ],
         },
         orderBy: { createdAt: "desc" },
       });
