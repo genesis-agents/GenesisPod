@@ -1495,7 +1495,7 @@ function LibraryPageContent() {
 
             {/* Images Tab - AI Image Generator */}
             {activeTab === 'images' && (
-              <div className="h-[calc(100vh-220px)]">
+              <div className="h-[calc(100vh-180px)]">
                 <ImageGenerator initialImageId={selectedImageId} />
               </div>
             )}

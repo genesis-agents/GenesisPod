@@ -1690,7 +1690,7 @@ export default function ImageGenerator({
   // ===================== RENDER =====================
 
   return (
-    <div className="-m-4 -mb-6 flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white">
+    <div className="-mx-4 -mb-2 -mt-4 flex h-[calc(100%+24px)] flex-col overflow-hidden rounded-lg border border-gray-200 bg-white">
       {/* Mobile: Horizontal Thumbnails at Top */}
       {isMobile && generatedImages.length > 0 && (
         <div className="flex-shrink-0 border-b border-gray-200 bg-gray-50">
