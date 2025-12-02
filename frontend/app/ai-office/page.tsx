@@ -10,12 +10,12 @@ import WorkspaceLayout from '@/components/ai-office/layout/WorkspaceLayout';
  */
 export default function AIOfficePage() {
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="flex h-screen bg-gray-50">
       <Sidebar />
-      <div className="flex h-full flex-1 flex-col overflow-hidden">
+      <main className="flex-1 overflow-auto">
         {/* Header */}
-        <div className="border-b border-gray-200 bg-white/80 backdrop-blur-sm">
-          <div className="px-6 py-6">
+        <div className="sticky top-0 z-10 border-b border-gray-200 bg-white/80 backdrop-blur-sm">
+          <div className="mx-auto max-w-7xl px-6 py-8">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/25">
@@ -45,11 +45,11 @@ export default function AIOfficePage() {
           </div>
         </div>
 
-        {/* 内容区域 - 直接显示 WorkspaceLayout */}
-        <div className="flex-1 overflow-hidden">
+        {/* 内容区域 */}
+        <div className="h-[calc(100vh-120px)]">
           <WorkspaceLayout />
         </div>
-      </div>
+      </main>
     </div>
   );
 }

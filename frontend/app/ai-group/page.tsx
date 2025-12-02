@@ -168,7 +168,7 @@ export default function AIGroupPage() {
         </div>
 
         {/* Topic Grid */}
-        <div className="p-6">
+        <div className="mx-auto max-w-7xl px-6 py-8">
           {isLoadingTopics ? (
             <div className="flex items-center justify-center py-12">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
