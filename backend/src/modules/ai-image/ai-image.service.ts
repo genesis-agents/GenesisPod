@@ -3772,27 +3772,40 @@ Generate the edited version of this image now.`;
   async getHistory(userId?: string): Promise<GeneratedImageResult[]> {
     this.logger.log(`[getHistory] userId: ${userId || "not provided"}`);
 
-    // 构建查询条件
-    const whereCondition = userId
-      ? {
-          OR: [
-            { userId }, // 当前用户的图片
-            { userId: null }, // 历史遗留的无用户绑定图片
-          ],
-        }
-      : { userId: null }; // 未登录：仅返回历史遗留图片
+    if (!userId) {
+      // 未登录用户：不返回图片
+      return [];
+    }
 
-    this.logger.log(
-      `[getHistory] whereCondition: ${JSON.stringify(whereCondition)}`,
-    );
-
-    const images = await this.prisma.generatedImage.findMany({
-      where: whereCondition,
+    // 获取用户所有收藏的图片（无限制）
+    const bookmarkedImages = await this.prisma.generatedImage.findMany({
+      where: {
+        userId,
+        isBookmarked: true,
+      },
       orderBy: { createdAt: "desc" },
-      take: 50,
     });
 
-    this.logger.log(`[getHistory] Found ${images.length} images`);
+    // 获取用户最新的20张未收藏图片
+    const unbookmarkedImages = await this.prisma.generatedImage.findMany({
+      where: {
+        userId,
+        isBookmarked: false,
+      },
+      orderBy: { createdAt: "desc" },
+      take: this.MAX_IMAGES_PER_USER,
+    });
+
+    // 合并并按时间排序
+    const allImages = [...bookmarkedImages, ...unbookmarkedImages].sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+    );
+
+    this.logger.log(
+      `[getHistory] Found ${bookmarkedImages.length} bookmarked + ${unbookmarkedImages.length} unbookmarked = ${allImages.length} images`,
+    );
+
+    const images = allImages;
 
     return images.map((img) => ({
       id: img.id,
