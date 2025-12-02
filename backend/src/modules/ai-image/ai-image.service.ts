@@ -597,18 +597,34 @@ export class AiImageService {
       const wordCount = fallbackPrompt
         .split(/[\s，。、！？；：""''【】《》（）]+/)
         .filter((w) => w.length > 0).length;
+      // 检测是否包含列表/排名/数据型内容，这类内容即使短也应使用 hybrid 模式
       const hasStructuredContent =
         /\d+%|\d+\.\d+|第[一二三四五六七八九十]+|步骤|流程|对比|分析|报告|数据|统计|方案|计划/.test(
           fallbackPrompt,
         );
+      // 检测列表/排名型内容：Top N, N大, 前N名, N个xxx 等
+      const hasListContent =
+        /top\s*\d+|\d+\s*大|\d+\s*个|前\s*\d+|排行|排名|榜单|清单|列表|企业|公司|品牌|产品|技术/i.test(
+          fallbackPrompt,
+        );
       const isShortVisualPrompt =
-        (promptLength < 30 || wordCount < 10) && !hasStructuredContent;
+        (promptLength < 30 || wordCount < 10) &&
+        !hasStructuredContent &&
+        !hasListContent;
 
       if (isShortVisualPrompt && insights.renderingMode !== "ai_image") {
         this.logger.log(
           `[parsePromptEnhancementResponse] Short visual prompt detected (${promptLength} chars, ${wordCount} words), forcing ai_image mode`,
         );
         insights.renderingMode = "ai_image";
+      }
+
+      // 如果检测到列表型内容，强制使用 hybrid 模式
+      if (hasListContent && insights.renderingMode === "ai_image") {
+        this.logger.log(
+          `[parsePromptEnhancementResponse] List/ranking content detected, switching from ai_image to hybrid mode`,
+        );
+        insights.renderingMode = "hybrid";
       }
 
       // 解析模板布局类型
