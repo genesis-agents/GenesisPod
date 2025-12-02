@@ -48,6 +48,8 @@ interface PromptInformationArchitecture {
   title?: string;
   subtitle?: string;
   heroStatement?: string;
+  centerVisualTitle?: string; // 中心视觉模板的核心标题
+  centerVisualItems?: string[]; // 中心视觉模板周围的要点
   sections: PromptSection[];
   callToAction?: string;
 }
@@ -60,6 +62,7 @@ interface PromptVisualLanguage {
   textColor?: string;
   typography?: string;
   iconography?: string;
+  templateLayout?: string; // 模板布局类型
   chartStyle?: string;
   background?: string;
   gridSystem?: string;
@@ -81,11 +84,21 @@ interface ContentAnalysis {
   reasoning: string;
 }
 
+// 模板布局类型
+type TemplateLayoutType =
+  | "cards"
+  | "center_visual"
+  | "timeline"
+  | "comparison"
+  | "pyramid"
+  | "radial";
+
 interface PromptEngineeringInsights {
   imagePrompt: string;
   fallbackPrompt?: string;
   backgroundPrompt?: string; // 用于 hybrid 模式的背景生成
   renderingMode: RenderingMode;
+  templateLayout: TemplateLayoutType; // 模板布局类型
   contentAnalysis?: ContentAnalysis;
   designJournal: PromptDesignJournalEntry[];
   informationArchitecture: PromptInformationArchitecture;
@@ -136,9 +149,9 @@ export interface GenerateImageOptions {
 // Supports 3 rendering modes: html_render, hybrid, ai_image
 const PROMPT_ENHANCEMENT_SYSTEM = `You are an expert infographic designer. Analyze the provided material and respond with a single JSON object.
 
-## STEP 1: CONTENT ANALYSIS & RENDERING MODE SELECTION
+## STEP 1: CONTENT ANALYSIS & TEMPLATE SELECTION
 
-First, analyze the content type and select the optimal rendering mode:
+First, analyze the content type and select the optimal rendering mode AND template layout:
 
 **rendering_mode: "html_render"** - Use when:
 - Content has many structured data points, statistics, or metrics
@@ -160,16 +173,25 @@ First, analyze the content type and select the optimal rendering mode:
 - Few text elements needed (< 10 words visible)
 - Examples: Concept art, mood boards, simple tagline posters
 
+**template_layout** - Choose the best layout for the content:
+- "cards": Grid of cards layout (default) - Best for multiple parallel topics, features, or categories
+- "center_visual": Central visual with surrounding points - Best for core concepts, capabilities, or when there's ONE main idea with supporting points (like NotebookLM style)
+- "timeline": Timeline/flow layout - Best for processes, steps, history, development stages
+- "comparison": Side-by-side comparison - Best for before/after, pros/cons, A vs B content
+- "pyramid": Hierarchical pyramid - Best for importance levels, priorities, organizational structures
+- "radial": Radial/hub-spoke - Best for ecosystems, relationships around a center
+
 ## STEP 2: OUTPUT FORMAT
 
 The JSON must be STRICTLY valid (no markdown fences):
 {
   "rendering_mode": "html_render|hybrid|ai_image",
+  "template_layout": "cards|center_visual|timeline|comparison|pyramid|radial",
   "content_analysis": {
     "type": "data_heavy|balanced|visual_concept",
     "language": "zh|en|mixed",
     "complexity": "high|medium|low",
-    "reasoning": "string explaining why this rendering mode was chosen"
+    "reasoning": "string explaining why this rendering mode and template were chosen"
   },
   "design_journal": [
     {"title": "string", "narrative": "string"}
@@ -178,6 +200,8 @@ The JSON must be STRICTLY valid (no markdown fences):
     "title": "string",
     "subtitle": "string",
     "hero_statement": "string",
+    "center_visual_title": "string (for center_visual template - the main concept shown in center)",
+    "center_visual_items": ["string (for center_visual template - 4-8 items around the center)"],
     "sections": [
       {
         "title": "string",
@@ -202,7 +226,7 @@ The JSON must be STRICTLY valid (no markdown fences):
     "chart_style": "string",
     "background": "string",
     "grid_system": "string",
-    "design_style": "consulting|tech|minimal|creative|dark|academic",
+    "design_style": "consulting|tech|minimal|creative|dark|academic|business",
     "font_style": "sans|serif|mono|rounded",
     "border_radius": "none|small|medium|large",
     "shadow_style": "none|subtle|medium|strong"
@@ -216,28 +240,33 @@ The JSON must be STRICTLY valid (no markdown fences):
 
 ## CRITICAL GUIDELINES:
 
-1. **RENDERING MODE IS MANDATORY**: Always include rendering_mode with content_analysis.reasoning.
+1. **RENDERING MODE & TEMPLATE ARE MANDATORY**: Always include rendering_mode AND template_layout with reasoning.
 
-2. **LANGUAGE - EXTREMELY IMPORTANT**:
+2. **TEMPLATE SELECTION RULES**:
+   - "center_visual": Use when content has ONE central theme with 4-8 supporting capabilities/features/points
+     - Example: "产品核心能力", "公司六大优势", "技术平台架构"
+     - MUST provide center_visual_title (the main concept) and center_visual_items (surrounding points)
+   - "timeline": Use for sequential/process content
+     - Example: "发展历程", "实施步骤", "项目阶段"
+   - "cards": Default for general multi-topic content
+   - Keywords to detect:
+     - "核心能力/capabilities/core" → center_visual
+     - "步骤/流程/process/steps/timeline" → timeline
+     - "对比/comparison/vs" → comparison
+
+3. **LANGUAGE - EXTREMELY IMPORTANT**:
    - Detect the language of the user's prompt/request (NOT the source content)
-   - If user writes in Chinese (e.g., "请输出信息图", "生成中文信息图"), output ALL text in Chinese
-   - If user writes in English (e.g., "generate infographic", "create summary"), output ALL text in English
-   - This includes: title, subtitle, hero_statement, section titles, bullets, metrics labels, call_to_action
-   - If source content is in a different language than the user's request, TRANSLATE it
-   - Example: If source is English but user asks "请用中文生成", translate everything to Chinese
+   - If user writes in Chinese, output ALL text in Chinese
+   - If user writes in English, output ALL text in English
+   - This includes: title, subtitle, hero_statement, section titles, bullets, metrics labels, call_to_action, center_visual_title, center_visual_items
 
-3. **DESIGN JOURNAL**: 3-5 entries documenting your design reasoning process.
+4. **DESIGN JOURNAL**: 3-5 entries documenting your design reasoning process.
 
-4. **INFORMATION ARCHITECTURE**: Extract 4-6 key sections from the content. Each section needs:
-   - Clear title (short, impactful)
-   - 2-4 bullet points with specific data/facts
+5. **INFORMATION ARCHITECTURE**: Extract 4-6 key sections from the content. Each section needs:
+   - Clear title (short, impactful) - DO NOT truncate, use complete text
+   - 2-4 bullet points with specific data/facts - DO NOT truncate, use complete sentences
    - Relevant metrics with numbers
    - icon_type: one of [target, chart, briefcase, shield, lightbulb, gear, users, globe, clock, trending, star, check]
-
-5. **LAYOUT**: Multi-column grid with clear positions:
-   - Header band with main title
-   - 3-column layout for sections
-   - Bottom: Call to action or timeline
 
 6. **VISUAL LANGUAGE & STYLE DETECTION**:
    Detect user's style preferences from the prompt and set design_style accordingly:
@@ -249,11 +278,6 @@ The JSON must be STRICTLY valid (no markdown fences):
    - "academic": Formal, serif fonts, traditional colors (#1e40af)
    - "business": Business minimal, gray/blue (#374151, #3b82f6), clean professional
 
-   Also detect:
-   - font_style: "sans" (modern), "serif" (formal), "mono" (tech), "rounded" (friendly)
-   - border_radius: "none" (sharp), "small", "medium", "large" (very rounded)
-   - shadow_style: "none", "subtle", "medium", "strong"
-
    Keywords to detect:
    - "科技/tech/modern/futuristic" → tech style
    - "简约/minimal/clean/simple" → minimal style
@@ -261,8 +285,6 @@ The JSON must be STRICTLY valid (no markdown fences):
    - "暗黑/dark/night" → dark style
    - "学术/academic/formal/traditional" → academic style
    - "商务/business/corporate/professional" → business style
-   - "圆角/rounded" → large border_radius
-   - "扁平/flat" → none shadow_style
 
 7. **FINAL PROMPT**: For ai_image/hybrid modes, must include:
    - "professional consulting infographic"
@@ -270,11 +292,7 @@ The JSON must be STRICTLY valid (no markdown fences):
    - "clean geometric shapes"
    - "NO 3D rendering, NO photorealistic"
 
-8. **BACKGROUND PROMPT**: For hybrid mode only - describe a decorative background that complements but doesn't overpower the text:
-   - Abstract geometric patterns
-   - Subtle gradients
-   - Professional textures
-   - NO text or detailed elements
+8. **BACKGROUND PROMPT**: For hybrid mode only - describe a decorative background that complements but doesn't overpower the text.
 
 9. **NEGATIVE KEYWORDS**: Always include: 3D render, photorealistic, neon glow, gradient mesh, painterly, artistic, abstract, futuristic sci-fi, dark moody, cinematic lighting, depth of field, bokeh, text, typography, letters, words, numbers
 
@@ -357,12 +375,15 @@ export class AiImageService {
       fallbackPrompt: undefined,
       backgroundPrompt: undefined,
       renderingMode: "html_render", // 默认使用 HTML 渲染模式以确保文字精确
+      templateLayout: "cards", // 默认卡片网格布局
       contentAnalysis: undefined,
       designJournal: [],
       informationArchitecture: {
         title: undefined,
         subtitle: undefined,
         heroStatement: undefined,
+        centerVisualTitle: undefined,
+        centerVisualItems: undefined,
         sections: [],
         callToAction: undefined,
       },
@@ -372,6 +393,7 @@ export class AiImageService {
         accentColor: "#0891b2", // 冷青色 - 现代科技感
         backgroundColor: "#f8fafc", // 浅灰白 - 干净背景
         textColor: "#334155", // 深灰 - 易读文字
+        templateLayout: "cards",
         typography: undefined,
         iconography: undefined,
         chartStyle: undefined,
@@ -475,6 +497,27 @@ export class AiImageService {
         insights.renderingMode = "html_render";
       }
 
+      // 解析模板布局类型
+      const templateLayoutRaw = this.normalizeString(
+        parsed.template_layout ?? parsed.templateLayout,
+      );
+      const validTemplateLayouts: TemplateLayoutType[] = [
+        "cards",
+        "center_visual",
+        "timeline",
+        "comparison",
+        "pyramid",
+        "radial",
+      ];
+      if (
+        templateLayoutRaw &&
+        validTemplateLayouts.includes(templateLayoutRaw as TemplateLayoutType)
+      ) {
+        insights.templateLayout = templateLayoutRaw as TemplateLayoutType;
+      } else {
+        insights.templateLayout = "cards";
+      }
+
       // 解析内容分析
       const contentAnalysisRaw =
         parsed.content_analysis ?? parsed.contentAnalysis;
@@ -556,6 +599,12 @@ export class AiImageService {
         subtitle: this.normalizeString(infoRaw.subtitle),
         heroStatement: this.normalizeString(
           infoRaw.hero_statement ?? infoRaw.heroStatement ?? infoRaw.tagline,
+        ),
+        centerVisualTitle: this.normalizeString(
+          infoRaw.center_visual_title ?? infoRaw.centerVisualTitle,
+        ),
+        centerVisualItems: toArray(
+          infoRaw.center_visual_items ?? infoRaw.centerVisualItems,
         ),
         sections,
         callToAction: this.normalizeString(
@@ -1397,6 +1446,11 @@ export class AiImageService {
           height: dimensions.height,
           userId: userId || null,
           provider: providerName,
+          // 保存处理详情，用于历史记录显示
+          textModelUsed: textModelUsed || null,
+          imageModelUsed: imageModelUsed || null,
+          processingSteps: processingSteps as any,
+          promptInsights: promptInsights as any,
         },
       });
 
@@ -1418,6 +1472,7 @@ export class AiImageService {
             extractedContent: inputContent.slice(0, 2000),
             textModelUsed,
             imageModelUsed,
+            promptInsights,
           },
         }),
       });
@@ -2176,6 +2231,11 @@ export class AiImageService {
         height: dimensions.height,
         provider: providerName,
         userId,
+        // 保存处理详情，用于历史记录显示
+        textModelUsed: textModelUsed || null,
+        imageModelUsed: imageModelUsed || null,
+        processingSteps: processingSteps as any,
+        promptInsights: promptInsights as any,
       },
     });
 
@@ -2269,8 +2329,11 @@ export class AiImageService {
       ];
     }
 
+    // 获取模板布局类型
+    const templateLayout = insights.templateLayout || "cards";
+
     this.logger.log(
-      `[convertToInfographicContent] Final sections count: ${sections.length}, style: ${visual.designStyle || "consulting"}`,
+      `[convertToInfographicContent] Final sections count: ${sections.length}, style: ${visual.designStyle || "consulting"}, template: ${templateLayout}`,
     );
 
     // 映射风格字符串到类型安全的值
@@ -2286,6 +2349,14 @@ export class AiImageService {
     const validFontStyles = ["sans", "serif", "mono", "rounded"] as const;
     const validBorderRadius = ["none", "small", "medium", "large"] as const;
     const validShadowStyle = ["none", "subtle", "medium", "strong"] as const;
+    const validTemplateLayouts = [
+      "cards",
+      "center_visual",
+      "timeline",
+      "comparison",
+      "pyramid",
+      "radial",
+    ] as const;
 
     const designStyle = validDesignStyles.includes(
       visual.designStyle as (typeof validDesignStyles)[number],
@@ -2311,6 +2382,12 @@ export class AiImageService {
       ? (visual.shadowStyle as (typeof validShadowStyle)[number])
       : "medium";
 
+    const finalTemplateLayout = validTemplateLayouts.includes(
+      templateLayout as (typeof validTemplateLayouts)[number],
+    )
+      ? (templateLayout as (typeof validTemplateLayouts)[number])
+      : "cards";
+
     return {
       title: info.title || "Infographic",
       subtitle: info.subtitle,
@@ -2326,8 +2403,11 @@ export class AiImageService {
       styleOptions: {
         style: designStyle,
         fontStyle: fontStyle,
+        templateLayout: finalTemplateLayout,
         borderRadius: borderRadius,
         shadowStyle: shadowStyle,
+        centerVisualTitle: info.centerVisualTitle,
+        centerVisualItems: info.centerVisualItems,
       },
     };
   }
@@ -3623,10 +3703,19 @@ Generate the edited version of this image now.`;
 
   /**
    * 获取用户生成历史
+   * 只返回当前用户的数据，确保用户隔离
    */
   async getHistory(userId?: string): Promise<GeneratedImageResult[]> {
+    // 如果没有 userId，返回空列表（用户数据隔离）
+    if (!userId) {
+      this.logger.warn(
+        "[getHistory] No userId provided, returning empty list for privacy",
+      );
+      return [];
+    }
+
     const images = await this.prisma.generatedImage.findMany({
-      where: userId ? { userId } : {},
+      where: { userId },
       orderBy: { createdAt: "desc" },
       take: 50,
     });
@@ -3640,6 +3729,11 @@ Generate the edited version of this image now.`;
       height: img.height,
       isBookmarked: img.isBookmarked || false,
       createdAt: img.createdAt.toISOString(),
+      // 返回处理详情
+      textModelUsed: img.textModelUsed || undefined,
+      imageModelUsed: img.imageModelUsed || undefined,
+      processingSteps: (img.processingSteps as any) || undefined,
+      promptInsights: (img.promptInsights as any) || undefined,
     }));
   }
 
@@ -3702,8 +3796,17 @@ Generate the edited version of this image now.`;
 
   /**
    * 获取用户收藏的图片
+   * 只返回当前用户的收藏，确保用户隔离
    */
   async getBookmarkedImages(userId?: string) {
+    // 如果没有 userId，返回空列表（用户数据隔离）
+    if (!userId) {
+      this.logger.warn(
+        "[getBookmarkedImages] No userId provided, returning empty list for privacy",
+      );
+      return [];
+    }
+
     try {
       const images = await this.prisma.generatedImage.findMany({
         where: {
@@ -3731,10 +3834,11 @@ Generate the edited version of this image now.`;
 
   /**
    * 添加书签
+   * 验证图片属于当前用户
    */
   async addBookmark(
     id: string,
-    _userId?: string,
+    userId?: string,
   ): Promise<{ success: boolean; message: string }> {
     try {
       const image = await this.prisma.generatedImage.findUnique({
@@ -3745,12 +3849,20 @@ Generate the edited version of this image now.`;
         return { success: false, message: "Image not found" };
       }
 
+      // 验证图片所有权
+      if (userId && image.userId && image.userId !== userId) {
+        return {
+          success: false,
+          message: "Not authorized to bookmark this image",
+        };
+      }
+
       await this.prisma.generatedImage.update({
         where: { id },
         data: { isBookmarked: true },
       });
 
-      this.logger.log(`Bookmarked image: ${id}`);
+      this.logger.log(`Bookmarked image: ${id} by user: ${userId}`);
       return { success: true, message: "Image bookmarked" };
     } catch (error) {
       this.logger.error(`Failed to bookmark image ${id}:`, error);
@@ -3760,10 +3872,11 @@ Generate the edited version of this image now.`;
 
   /**
    * 移除书签
+   * 验证图片属于当前用户
    */
   async removeBookmark(
     id: string,
-    _userId?: string,
+    userId?: string,
   ): Promise<{ success: boolean; message: string }> {
     try {
       const image = await this.prisma.generatedImage.findUnique({
@@ -3774,12 +3887,20 @@ Generate the edited version of this image now.`;
         return { success: false, message: "Image not found" };
       }
 
+      // 验证图片所有权
+      if (userId && image.userId && image.userId !== userId) {
+        return {
+          success: false,
+          message: "Not authorized to modify this image",
+        };
+      }
+
       await this.prisma.generatedImage.update({
         where: { id },
         data: { isBookmarked: false },
       });
 
-      this.logger.log(`Removed bookmark from image: ${id}`);
+      this.logger.log(`Removed bookmark from image: ${id} by user: ${userId}`);
       return { success: true, message: "Bookmark removed" };
     } catch (error) {
       this.logger.error(`Failed to remove bookmark from image ${id}:`, error);

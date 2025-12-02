@@ -27,20 +27,25 @@ export type FontStyle =
   | "mono" // 等宽：科技感
   | "rounded"; // 圆角：友好亲切
 
-// 布局风格
-export type LayoutStyle =
-  | "grid" // 网格布局
-  | "cards" // 卡片布局
-  | "timeline" // 时间线布局
-  | "flow"; // 流程布局
+// 模板布局类型
+export type TemplateLayout =
+  | "cards" // 卡片网格布局（当前默认）
+  | "center_visual" // 中心视觉图形 + 周围要点（类似 NotebookLM）
+  | "timeline" // 时间线/流程布局
+  | "comparison" // 对比布局（左右或上下）
+  | "pyramid" // 金字塔/层级布局
+  | "radial"; // 放射状布局
 
 export interface InfographicStyleOptions {
   style?: InfographicStyle;
   fontStyle?: FontStyle;
-  layoutStyle?: LayoutStyle;
+  templateLayout?: TemplateLayout; // 模板布局类型
   borderRadius?: "none" | "small" | "medium" | "large";
   shadowStyle?: "none" | "subtle" | "medium" | "strong";
   iconStyle?: "outline" | "filled" | "duotone";
+  // 中心视觉相关配置
+  centerVisualTitle?: string; // 中心图形的标题
+  centerVisualItems?: string[]; // 中心图形周围的要点
 }
 
 export interface InfographicContent {
@@ -178,11 +183,12 @@ const ICONS: Record<string, string> = {
 
 const DEFAULT_ICON = ICONS.star;
 
-// DeepDive Logo SVG
-const DEEPDIVE_LOGO = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M12 3v14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-  <path d="M5 10l7 7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-  <path d="M8 20h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5" />
+// DeepDive Logo SVG - 深潜品牌标识
+const DEEPDIVE_LOGO = `<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2" fill="none"/>
+  <path d="M16 6v12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M10 12l6 6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M10 22l6 4 6-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
 </svg>`;
 
 @Injectable()
@@ -749,11 +755,11 @@ export class InfographicTemplateService {
   }
 
   /**
-   * 截断文本
+   * 处理文本（不再截断，完整显示）
    */
-  private truncateText(text: string, maxLength: number): string {
-    if (text.length <= maxLength) return text;
-    return text.slice(0, maxLength - 1) + "…";
+  private truncateText(text: string, _maxLength: number): string {
+    // 不再截断文本，完整显示所有内容
+    return text;
   }
 
   /**
@@ -822,6 +828,600 @@ export class InfographicTemplateService {
    * 从 AI 分析结果生成信息图
    * 这是主要入口方法
    */
+  /**
+   * 生成中心视觉布局 HTML（类似 NotebookLM 风格）
+   * 中心是一个大的视觉图形，周围环绕着关键要点
+   */
+  generateCenterVisualHTML(
+    content: InfographicContent,
+    backgroundImageBase64?: string,
+    width: number = 1200,
+    height: number = 800,
+  ): string {
+    const styleKey = content.styleOptions?.style || "consulting";
+    const stylePreset = STYLE_PRESETS[styleKey] || STYLE_PRESETS.consulting;
+
+    const colors = {
+      primary: content.colorScheme?.primary || stylePreset.colors.primary,
+      accent: content.colorScheme?.accent || stylePreset.colors.accent,
+      background:
+        content.colorScheme?.background || stylePreset.colors.background,
+      text: content.colorScheme?.text || stylePreset.colors.text,
+    };
+
+    const fontStyle = content.styleOptions?.fontStyle || "sans";
+    const fontFamily = FONT_STYLES[fontStyle] || FONT_STYLES.sans;
+    const isDarkMode = styleKey === "dark";
+
+    const scale = width / 1200;
+    const padding = Math.round(40 * scale);
+    const titleSize = Math.round(36 * scale);
+    const subtitleSize = Math.round(18 * scale);
+
+    // 中心视觉配置
+    const centerTitle =
+      content.styleOptions?.centerVisualTitle || content.title;
+    const centerItems =
+      content.styleOptions?.centerVisualItems ||
+      content.sections.slice(0, 6).map((s) => s.title);
+
+    const overlayColor = isDarkMode
+      ? "rgba(15, 23, 42, 0.92)"
+      : "rgba(247, 249, 252, 0.92)";
+    const backgroundStyle = backgroundImageBase64
+      ? `background-image: linear-gradient(${overlayColor}, ${overlayColor}), url(${backgroundImageBase64});
+         background-size: cover;
+         background-position: center;`
+      : `background: ${colors.background};`;
+
+    // 生成中心图形周围的要点位置
+    const itemCount = Math.min(centerItems.length, 8);
+    const angleStep = (2 * Math.PI) / itemCount;
+    const radius = Math.min(width, height) * 0.32;
+
+    return `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: ${fontFamily};
+      ${backgroundStyle}
+      color: ${colors.text};
+      width: ${width}px;
+      height: ${height}px;
+      overflow: hidden;
+    }
+
+    .container {
+      padding: ${padding}px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 品牌栏 */
+    .brand-bar {
+      display: flex;
+      align-items: center;
+      gap: ${Math.round(8 * scale)}px;
+      margin-bottom: ${Math.round(16 * scale)}px;
+    }
+
+    .brand-logo {
+      width: ${Math.round(28 * scale)}px;
+      height: ${Math.round(28 * scale)}px;
+      color: ${colors.primary};
+    }
+
+    .brand-name {
+      font-size: ${Math.round(14 * scale)}px;
+      font-weight: 600;
+      color: ${colors.primary};
+    }
+
+    /* 标题区 */
+    .header {
+      text-align: center;
+      margin-bottom: ${Math.round(20 * scale)}px;
+    }
+
+    .main-title {
+      font-size: ${titleSize}px;
+      font-weight: 700;
+      color: ${colors.primary};
+      margin-bottom: ${Math.round(8 * scale)}px;
+    }
+
+    .subtitle {
+      font-size: ${subtitleSize}px;
+      color: ${isDarkMode ? "#94a3b8" : "#64748b"};
+    }
+
+    /* 中心视觉区域 */
+    .visual-area {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* 中心圆形图形 */
+    .center-visual {
+      width: ${Math.round(radius * 1.2)}px;
+      height: ${Math.round(radius * 1.2)}px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, ${colors.primary} 0%, ${this.adjustColor(colors.primary, 30)} 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      box-shadow: 0 20px 60px ${colors.primary}40;
+    }
+
+    .center-visual::before {
+      content: '';
+      position: absolute;
+      inset: -${Math.round(15 * scale)}px;
+      border-radius: 50%;
+      border: 2px dashed ${colors.accent}60;
+    }
+
+    .center-visual::after {
+      content: '';
+      position: absolute;
+      inset: -${Math.round(35 * scale)}px;
+      border-radius: 50%;
+      border: 1px solid ${colors.primary}20;
+    }
+
+    .center-title {
+      color: white;
+      font-size: ${Math.round(24 * scale)}px;
+      font-weight: 700;
+      text-align: center;
+      padding: ${Math.round(20 * scale)}px;
+      line-height: 1.3;
+    }
+
+    /* 周围要点 */
+    .orbit-item {
+      position: absolute;
+      background: ${isDarkMode ? "#1e293b" : "white"};
+      border-radius: ${Math.round(12 * scale)}px;
+      padding: ${Math.round(12 * scale)}px ${Math.round(18 * scale)}px;
+      box-shadow: 0 4px 20px ${isDarkMode ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.08)"};
+      border: 1px solid ${isDarkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"};
+      max-width: ${Math.round(180 * scale)}px;
+      text-align: center;
+      transform: translate(-50%, -50%);
+    }
+
+    .orbit-item .number {
+      width: ${Math.round(24 * scale)}px;
+      height: ${Math.round(24 * scale)}px;
+      background: ${colors.accent};
+      color: white;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: ${Math.round(12 * scale)}px;
+      font-weight: 700;
+      margin-bottom: ${Math.round(6 * scale)}px;
+    }
+
+    .orbit-item .text {
+      font-size: ${Math.round(13 * scale)}px;
+      color: ${colors.text};
+      font-weight: 500;
+      line-height: 1.4;
+    }
+
+    /* 连接线 */
+    .connector {
+      position: absolute;
+      width: 2px;
+      background: linear-gradient(to bottom, ${colors.accent}60, transparent);
+      transform-origin: top center;
+    }
+
+    /* 底部时间线/步骤 */
+    .bottom-timeline {
+      display: flex;
+      justify-content: center;
+      gap: ${Math.round(30 * scale)}px;
+      margin-top: ${Math.round(20 * scale)}px;
+      padding: ${Math.round(16 * scale)}px;
+      background: ${isDarkMode ? "rgba(30,41,59,0.8)" : "rgba(255,255,255,0.8)"};
+      border-radius: ${Math.round(12 * scale)}px;
+    }
+
+    .timeline-step {
+      display: flex;
+      align-items: center;
+      gap: ${Math.round(8 * scale)}px;
+    }
+
+    .step-icon {
+      width: ${Math.round(32 * scale)}px;
+      height: ${Math.round(32 * scale)}px;
+      background: ${colors.primary};
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .step-icon svg {
+      width: ${Math.round(16 * scale)}px;
+      height: ${Math.round(16 * scale)}px;
+    }
+
+    .step-text {
+      font-size: ${Math.round(13 * scale)}px;
+      color: ${colors.text};
+      font-weight: 500;
+    }
+
+    .step-arrow {
+      color: ${colors.accent};
+      font-size: ${Math.round(20 * scale)}px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="brand-bar">
+      <div class="brand-logo">${DEEPDIVE_LOGO}</div>
+      <span class="brand-name">DeepDive AI</span>
+    </div>
+
+    <div class="header">
+      <h1 class="main-title">${this.escapeHtml(content.title)}</h1>
+      ${content.subtitle ? `<p class="subtitle">${this.escapeHtml(content.subtitle)}</p>` : ""}
+    </div>
+
+    <div class="visual-area">
+      <div class="center-visual">
+        <span class="center-title">${this.escapeHtml(centerTitle)}</span>
+      </div>
+
+      ${centerItems
+        .map((item, idx) => {
+          const angle = angleStep * idx - Math.PI / 2;
+          const x = width / 2 + Math.cos(angle) * (radius + 100 * scale);
+          const y =
+            (height - padding * 2 - 100 * scale) / 2 +
+            80 * scale +
+            Math.sin(angle) * (radius + 60 * scale);
+          return `
+          <div class="orbit-item" style="left: ${x}px; top: ${y}px;">
+            <div class="number">${idx + 1}</div>
+            <div class="text">${this.escapeHtml(item)}</div>
+          </div>
+        `;
+        })
+        .join("")}
+    </div>
+
+    ${
+      content.sections.length > 0 && content.sections[0].metrics?.length > 0
+        ? `
+    <div class="bottom-timeline">
+      ${content.sections
+        .slice(0, 4)
+        .map(
+          (section, idx) => `
+        <div class="timeline-step">
+          <div class="step-icon">${this.getIcon(section.iconType)}</div>
+          <span class="step-text">${this.escapeHtml(section.title)}</span>
+        </div>
+        ${idx < Math.min(content.sections.length, 4) - 1 ? '<span class="step-arrow">→</span>' : ""}
+      `,
+        )
+        .join("")}
+    </div>
+    `
+        : ""
+    }
+  </div>
+</body>
+</html>`;
+  }
+
+  /**
+   * 生成时间线布局 HTML
+   * 适合流程、步骤、发展历程等内容
+   */
+  generateTimelineHTML(
+    content: InfographicContent,
+    backgroundImageBase64?: string,
+    width: number = 1200,
+    height: number = 800,
+  ): string {
+    const styleKey = content.styleOptions?.style || "consulting";
+    const stylePreset = STYLE_PRESETS[styleKey] || STYLE_PRESETS.consulting;
+
+    const colors = {
+      primary: content.colorScheme?.primary || stylePreset.colors.primary,
+      accent: content.colorScheme?.accent || stylePreset.colors.accent,
+      background:
+        content.colorScheme?.background || stylePreset.colors.background,
+      text: content.colorScheme?.text || stylePreset.colors.text,
+    };
+
+    const fontStyle = content.styleOptions?.fontStyle || "sans";
+    const fontFamily = FONT_STYLES[fontStyle] || FONT_STYLES.sans;
+    const isDarkMode = styleKey === "dark";
+
+    const scale = width / 1200;
+    const padding = Math.round(40 * scale);
+    const isVertical = height > width;
+
+    const overlayColor = isDarkMode
+      ? "rgba(15, 23, 42, 0.92)"
+      : "rgba(247, 249, 252, 0.92)";
+    const backgroundStyle = backgroundImageBase64
+      ? `background-image: linear-gradient(${overlayColor}, ${overlayColor}), url(${backgroundImageBase64});
+         background-size: cover;
+         background-position: center;`
+      : `background: ${colors.background};`;
+
+    return `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: ${fontFamily};
+      ${backgroundStyle}
+      color: ${colors.text};
+      width: ${width}px;
+      height: ${height}px;
+      overflow: hidden;
+    }
+
+    .container {
+      padding: ${padding}px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand-bar {
+      display: flex;
+      align-items: center;
+      gap: ${Math.round(8 * scale)}px;
+      margin-bottom: ${Math.round(12 * scale)}px;
+    }
+
+    .brand-logo {
+      width: ${Math.round(24 * scale)}px;
+      height: ${Math.round(24 * scale)}px;
+      color: ${colors.primary};
+    }
+
+    .brand-name {
+      font-size: ${Math.round(12 * scale)}px;
+      font-weight: 600;
+      color: ${colors.primary};
+    }
+
+    .header {
+      background: linear-gradient(135deg, ${colors.primary} 0%, ${this.adjustColor(colors.primary, 20)} 100%);
+      color: white;
+      padding: ${Math.round(24 * scale)}px ${Math.round(32 * scale)}px;
+      border-radius: ${Math.round(12 * scale)}px;
+      margin-bottom: ${Math.round(24 * scale)}px;
+      text-align: center;
+    }
+
+    .main-title {
+      font-size: ${Math.round(28 * scale)}px;
+      font-weight: 700;
+      margin-bottom: ${Math.round(6 * scale)}px;
+    }
+
+    .subtitle {
+      font-size: ${Math.round(14 * scale)}px;
+      opacity: 0.9;
+    }
+
+    .timeline-container {
+      flex: 1;
+      display: flex;
+      ${isVertical ? "flex-direction: column;" : "flex-direction: row;"}
+      align-items: ${isVertical ? "flex-start" : "center"};
+      justify-content: space-between;
+      position: relative;
+      padding: ${Math.round(20 * scale)}px 0;
+    }
+
+    /* 时间线主轴 */
+    .timeline-axis {
+      position: absolute;
+      ${
+        isVertical
+          ? `
+        left: ${Math.round(40 * scale)}px;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+      `
+          : `
+        left: 0;
+        right: 0;
+        top: 50%;
+        height: 4px;
+        transform: translateY(-50%);
+      `
+      }
+      background: linear-gradient(${isVertical ? "to bottom" : "to right"}, ${colors.primary}, ${colors.accent});
+      border-radius: 2px;
+    }
+
+    .timeline-item {
+      display: flex;
+      ${isVertical ? "flex-direction: row;" : "flex-direction: column;"}
+      align-items: ${isVertical ? "flex-start" : "center"};
+      position: relative;
+      ${isVertical ? `padding-left: ${Math.round(80 * scale)}px;` : ""}
+      flex: 1;
+    }
+
+    .timeline-node {
+      width: ${Math.round(48 * scale)}px;
+      height: ${Math.round(48 * scale)}px;
+      background: ${isDarkMode ? "#1e293b" : "white"};
+      border: 3px solid ${colors.primary};
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: ${colors.primary};
+      z-index: 2;
+      ${
+        isVertical
+          ? `
+        position: absolute;
+        left: ${Math.round(16 * scale)}px;
+      `
+          : ""
+      }
+    }
+
+    .timeline-node svg {
+      width: ${Math.round(24 * scale)}px;
+      height: ${Math.round(24 * scale)}px;
+    }
+
+    .timeline-content {
+      background: ${isDarkMode ? "#1e293b" : "white"};
+      border-radius: ${Math.round(12 * scale)}px;
+      padding: ${Math.round(16 * scale)}px;
+      box-shadow: 0 4px 20px ${isDarkMode ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.08)"};
+      border: 1px solid ${isDarkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"};
+      ${isVertical ? "" : `margin-top: ${Math.round(20 * scale)}px;`}
+      max-width: ${Math.round((isVertical ? 300 : 200) * scale)}px;
+    }
+
+    .timeline-title {
+      font-size: ${Math.round(16 * scale)}px;
+      font-weight: 700;
+      color: ${colors.primary};
+      margin-bottom: ${Math.round(8 * scale)}px;
+    }
+
+    .timeline-summary {
+      font-size: ${Math.round(13 * scale)}px;
+      color: ${isDarkMode ? "#94a3b8" : "#64748b"};
+      line-height: 1.5;
+      margin-bottom: ${Math.round(8 * scale)}px;
+    }
+
+    .timeline-bullets {
+      list-style: none;
+    }
+
+    .timeline-bullet {
+      font-size: ${Math.round(12 * scale)}px;
+      color: ${colors.text};
+      padding: ${Math.round(4 * scale)}px 0;
+      display: flex;
+      align-items: flex-start;
+      gap: ${Math.round(6 * scale)}px;
+    }
+
+    .bullet-dot {
+      width: ${Math.round(6 * scale)}px;
+      height: ${Math.round(6 * scale)}px;
+      background: ${colors.accent};
+      border-radius: 50%;
+      margin-top: ${Math.round(5 * scale)}px;
+      flex-shrink: 0;
+    }
+
+    .cta {
+      background: linear-gradient(135deg, ${colors.accent} 0%, ${this.adjustColor(colors.accent, -15)} 100%);
+      color: white;
+      text-align: center;
+      padding: ${Math.round(16 * scale)}px;
+      border-radius: ${Math.round(10 * scale)}px;
+      font-size: ${Math.round(14 * scale)}px;
+      font-weight: 600;
+      margin-top: ${Math.round(16 * scale)}px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="brand-bar">
+      <div class="brand-logo">${DEEPDIVE_LOGO}</div>
+      <span class="brand-name">DeepDive AI</span>
+    </div>
+
+    <div class="header">
+      <h1 class="main-title">${this.escapeHtml(content.title)}</h1>
+      ${content.subtitle ? `<p class="subtitle">${this.escapeHtml(content.subtitle)}</p>` : ""}
+    </div>
+
+    <div class="timeline-container">
+      <div class="timeline-axis"></div>
+
+      ${content.sections
+        .slice(0, 5)
+        .map(
+          (section) => `
+        <div class="timeline-item">
+          <div class="timeline-node">${this.getIcon(section.iconType)}</div>
+          <div class="timeline-content">
+            <h3 class="timeline-title">${this.escapeHtml(section.title)}</h3>
+            ${section.summary ? `<p class="timeline-summary">${this.escapeHtml(section.summary)}</p>` : ""}
+            ${
+              section.bullets.length > 0
+                ? `
+              <ul class="timeline-bullets">
+                ${section.bullets
+                  .slice(0, 3)
+                  .map(
+                    (bullet) => `
+                  <li class="timeline-bullet">
+                    <span class="bullet-dot"></span>
+                    <span>${this.escapeHtml(bullet)}</span>
+                  </li>
+                `,
+                  )
+                  .join("")}
+              </ul>
+            `
+                : ""
+            }
+          </div>
+        </div>
+      `,
+        )
+        .join("")}
+    </div>
+
+    ${content.callToAction ? `<div class="cta">${this.escapeHtml(content.callToAction)}</div>` : ""}
+  </div>
+</body>
+</html>`;
+  }
+
   async generateInfographic(
     content: InfographicContent,
     options?: {
@@ -832,21 +1432,48 @@ export class InfographicTemplateService {
   ): Promise<string> {
     const width = options?.width || 1200;
     const height = options?.height || 800;
+    const templateLayout = content.styleOptions?.templateLayout || "cards";
 
     this.logger.log(
-      `[InfographicTemplate] Generating infographic: "${content.title}" with ${content.sections.length} sections, size: ${width}x${height}`,
+      `[InfographicTemplate] Generating infographic: "${content.title}" with ${content.sections.length} sections, size: ${width}x${height}, template: ${templateLayout}`,
     );
 
-    const html = this.generateConsultingInfographicHTML(
-      content,
-      options?.backgroundImageBase64,
-      width,
-      height,
-    );
+    let html: string;
+
+    // 根据模板类型选择渲染方法
+    switch (templateLayout) {
+      case "center_visual":
+        html = this.generateCenterVisualHTML(
+          content,
+          options?.backgroundImageBase64,
+          width,
+          height,
+        );
+        break;
+      case "timeline":
+        html = this.generateTimelineHTML(
+          content,
+          options?.backgroundImageBase64,
+          width,
+          height,
+        );
+        break;
+      case "cards":
+      default:
+        html = this.generateConsultingInfographicHTML(
+          content,
+          options?.backgroundImageBase64,
+          width,
+          height,
+        );
+        break;
+    }
 
     const imageBase64 = await this.renderToImage(html, width, height);
 
-    this.logger.log(`[InfographicTemplate] Infographic generated successfully`);
+    this.logger.log(
+      `[InfographicTemplate] Infographic generated successfully with template: ${templateLayout}`,
+    );
     return imageBase64;
   }
 }

@@ -2036,6 +2036,12 @@ model GeneratedImage {
   // Provider info
   provider String @default("stability") @db.VarChar(50)
 
+  // Processing details (for history display)
+  textModelUsed   String? @map("text_model_used") @db.VarChar(100)
+  imageModelUsed  String? @map("image_model_used") @db.VarChar(100)
+  processingSteps Json?   @map("processing_steps")
+  promptInsights  Json?   @map("prompt_insights")
+
   // Bookmark status
   isBookmarked Boolean @default(false) @map("is_bookmarked")
 
