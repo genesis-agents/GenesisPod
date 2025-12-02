@@ -1710,7 +1710,7 @@ export default function ImageGenerator({
       <div className="flex flex-1 overflow-hidden">
         {/* LEFT: Vertical Thumbnail Gallery (Desktop Only) */}
         {!isMobile && (
-          <div className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400 w-20 flex-shrink-0 overflow-y-auto border-r border-gray-200 bg-gray-50">
+          <div className="scrollbar-thin w-20 flex-shrink-0 overflow-y-auto border-r border-gray-200 bg-gray-50">
             <ThumbnailGallery
               images={generatedImages}
               selectedImage={selectedImage}
