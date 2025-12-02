@@ -66,10 +66,6 @@ export default function Sidebar({ className = '' }: SidebarProps) {
         {isCollapsed ? (
           /* Collapsed Logo - S-curve dive & rise with gradient accent */
           <Link href="/" className="group relative" title="DeepDive Engine">
-            {/* MVP Badge */}
-            <span className="absolute -right-1 -top-1 rounded bg-gradient-to-r from-amber-500 to-orange-500 px-1 py-0.5 text-[6px] font-bold text-white shadow-sm">
-              MVP
-            </span>
             <svg
               className="h-8 w-8 transition-transform duration-300 group-hover:scale-105"
               viewBox="0 0 32 32"
@@ -135,10 +131,6 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             className="group relative flex items-center gap-2.5"
             title="DeepDive Engine"
           >
-            {/* MVP Badge */}
-            <span className="absolute -right-2 -top-2 rounded bg-gradient-to-r from-amber-500 to-orange-500 px-1.5 py-0.5 text-[8px] font-bold text-white shadow-sm">
-              MVP
-            </span>
             <svg
               className="h-8 w-8 flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
               viewBox="0 0 32 32"
@@ -198,12 +190,17 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             </svg>
 
             <div className="flex flex-col leading-none">
-              <span
-                className="bg-gradient-to-r from-[#0F2A46] via-[#2BB7DA] to-[#7C5BFE] bg-clip-text text-[15px] font-bold tracking-tight text-transparent"
-                style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
-              >
-                DeepDive
-              </span>
+              <div className="flex items-center gap-1">
+                <span
+                  className="bg-gradient-to-r from-[#0F2A46] via-[#2BB7DA] to-[#7C5BFE] bg-clip-text text-[15px] font-bold tracking-tight text-transparent"
+                  style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
+                >
+                  DeepDive
+                </span>
+                <span className="rounded bg-gradient-to-r from-amber-500 to-orange-500 px-1 py-0.5 text-[7px] font-bold text-white">
+                  MVP
+                </span>
+              </div>
               <span className="text-[9px] font-medium tracking-[0.15em] text-[#0F2A46]/50">
                 ENGINE
               </span>
