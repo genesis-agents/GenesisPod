@@ -362,11 +362,15 @@ The JSON must be STRICTLY valid (no markdown fences):
 
 4. **DESIGN JOURNAL**: 3-5 entries documenting your design reasoning process.
 
-5. **INFORMATION ARCHITECTURE**: Extract 4-6 key sections from the content. Each section needs:
-   - Clear title (short, impactful) - DO NOT truncate, use complete text
-   - 2-4 bullet points with specific data/facts - DO NOT truncate, use complete sentences
-   - Relevant metrics with numbers
-   - icon_type: one of [target, chart, briefcase, shield, lightbulb, gear, users, globe, clock, trending, star, check]
+5. **INFORMATION ARCHITECTURE**:
+   - **CRITICAL**: If user specifies a quantity (TOP 10, 5个, 前8名, etc.), you MUST create EXACTLY that many sections!
+   - If no quantity specified, extract 4-6 key sections from the content
+   - Each section needs:
+     * Clear title (short, impactful) - DO NOT truncate, use complete text
+     * 2-4 bullet points with specific data/facts - DO NOT truncate, use complete sentences
+     * Relevant metrics with numbers
+     * icon_type: one of [target, chart, briefcase, shield, lightbulb, gear, users, globe, clock, trending, star, check]
+   - For list/ranking content (TOP N, N大, 排行榜): create one section per item, up to 12 sections max
 
 6. **VISUAL LANGUAGE & STYLE DETECTION**:
    Detect user's style preferences from the prompt and set design_style accordingly:

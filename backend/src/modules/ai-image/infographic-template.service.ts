@@ -396,13 +396,19 @@ export class InfographicTemplateService {
     } else if (totalMainItems <= 6) {
       // 5-6项：3列网格
       numColumns = 3;
+    } else if (totalMainItems <= 8) {
+      // 7-8项：4列网格
+      numColumns = 4;
+    } else if (totalMainItems <= 10) {
+      // 9-10项：5列网格
+      numColumns = 5;
     } else {
-      // 超过6项：3列，多行
-      numColumns = 3;
+      // 超过10项：5列，多行
+      numColumns = 5;
     }
 
-    // 主卡片：显示所有非summary的section（最多6个）
-    const maxMainCards = isVertical ? 4 : 6;
+    // 主卡片：显示所有非summary的section（最多12个，支持TOP 10等列表型内容）
+    const maxMainCards = isVertical ? 8 : 12;
     const mainSections =
       aiMainSections.length > 0
         ? aiMainSections.slice(0, maxMainCards)
