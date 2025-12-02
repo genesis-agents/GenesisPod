@@ -2754,7 +2754,7 @@ export default function ImageGenerator({
       {/* Lightbox Modal */}
       {lightboxImage && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm"
           onClick={() => setLightboxImage(null)}
         >
           <button
@@ -2827,7 +2827,7 @@ export default function ImageGenerator({
       {/* Context Menu */}
       {contextMenu && (
         <div
-          className="fixed z-[60] min-w-[160px] overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-xl"
+          className="fixed z-[110] min-w-[160px] overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-xl"
           style={{
             left: Math.min(contextMenu.x, window.innerWidth - 180),
             top: Math.min(contextMenu.y, window.innerHeight - 320),

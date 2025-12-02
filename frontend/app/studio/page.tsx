@@ -7,19 +7,160 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Plus,
-  Search,
-  MoreVertical,
-  Archive,
-  Trash2,
-  Clock,
-  FileText,
-  MessageSquare,
-  Loader2,
-  FolderOpen,
-} from 'lucide-react';
 import { getAuthTokens } from '@/lib/auth';
+
+// ==================== 自定义图标组件 ====================
+const PlusIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M12 4v16m8-8H4"
+    />
+  </svg>
+);
+
+const SearchIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+    />
+  </svg>
+);
+
+const MoreVerticalIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+    <circle cx="12" cy="5" r="1.5" />
+    <circle cx="12" cy="12" r="1.5" />
+    <circle cx="12" cy="19" r="1.5" />
+  </svg>
+);
+
+const ArchiveIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+    />
+  </svg>
+);
+
+const TrashIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+    />
+  </svg>
+);
+
+const ClockIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+    />
+  </svg>
+);
+
+const FileTextIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+    />
+  </svg>
+);
+
+const MessageSquareIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+    />
+  </svg>
+);
+
+const LoaderIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+    />
+  </svg>
+);
+
+const FolderOpenIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"
+    />
+  </svg>
+);
 
 // ==================== 类型定义 ====================
 interface ResearchProject {
@@ -227,7 +368,7 @@ function CreateProjectDialog({
               disabled={!name.trim() || loading}
               className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
             >
-              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+              {loading && <LoaderIcon className="h-4 w-4 animate-spin" />}
               Create Project
             </button>
           </div>
@@ -287,7 +428,7 @@ function ProjectCard({
         }}
         className="absolute right-3 top-3 rounded-lg p-1.5 opacity-0 transition-opacity hover:bg-gray-100 group-hover:opacity-100"
       >
-        <MoreVertical className="h-4 w-4 text-gray-500" />
+        <MoreVerticalIcon className="h-4 w-4 text-gray-500" />
       </button>
 
       {/* Dropdown Menu */}
@@ -303,7 +444,7 @@ function ProjectCard({
             }}
             className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
           >
-            <Archive className="h-4 w-4" />
+            <ArchiveIcon className="h-4 w-4" />
             Archive
           </button>
           <button
@@ -313,7 +454,7 @@ function ProjectCard({
             }}
             className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
           >
-            <Trash2 className="h-4 w-4" />
+            <TrashIcon className="h-4 w-4" />
             Delete
           </button>
         </div>
@@ -340,18 +481,18 @@ function ProjectCard({
       {/* Stats */}
       <div className="mt-4 flex items-center gap-4 text-xs text-gray-500">
         <div className="flex items-center gap-1">
-          <FileText className="h-3.5 w-3.5" />
+          <FileTextIcon className="h-3.5 w-3.5" />
           <span>{sourceCount} sources</span>
         </div>
         <div className="flex items-center gap-1">
-          <MessageSquare className="h-3.5 w-3.5" />
+          <MessageSquareIcon className="h-3.5 w-3.5" />
           <span>{noteCount} notes</span>
         </div>
       </div>
 
       {/* Last Access */}
       <div className="mt-3 flex items-center gap-1 text-xs text-gray-400">
-        <Clock className="h-3 w-3" />
+        <ClockIcon className="h-3 w-3" />
         <span>{formatDate(project.lastAccessAt || project.updatedAt)}</span>
       </div>
     </div>
@@ -450,7 +591,7 @@ export default function StudioPage() {
               onClick={() => setShowCreateDialog(true)}
               className="flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-amber-700"
             >
-              <Plus className="h-5 w-5" />
+              <PlusIcon className="h-5 w-5" />
               New Project
             </button>
           </div>
@@ -458,7 +599,7 @@ export default function StudioPage() {
           {/* Search Bar */}
           <div className="mt-6">
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+              <SearchIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 value={searchQuery}
@@ -476,7 +617,7 @@ export default function StudioPage() {
         {/* Projects Grid */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+            <LoaderIcon className="h-8 w-8 animate-spin text-amber-600" />
           </div>
         ) : error ? (
           <div className="rounded-xl bg-red-50 p-6 text-center">
@@ -490,7 +631,7 @@ export default function StudioPage() {
           </div>
         ) : projects.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-20">
-            <FolderOpen className="h-16 w-16 text-gray-300" />
+            <FolderOpenIcon className="h-16 w-16 text-gray-300" />
             <h3 className="mt-4 text-lg font-medium text-gray-900">
               No projects yet
             </h3>
@@ -501,7 +642,7 @@ export default function StudioPage() {
               onClick={() => setShowCreateDialog(true)}
               className="mt-6 flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2.5 font-medium text-white hover:bg-purple-700"
             >
-              <Plus className="h-5 w-5" />
+              <PlusIcon className="h-5 w-5" />
               Create Project
             </button>
           </div>

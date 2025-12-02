@@ -35,7 +35,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
   return (
     <aside
-      className={`${isCollapsed ? 'w-16' : 'w-52'} relative flex flex-col border-r border-gray-200 bg-white transition-all duration-300 ${className}`}
+      className={`${isCollapsed ? 'w-16' : 'w-52'} relative z-40 flex flex-col border-r border-gray-200 bg-white transition-all duration-300 ${className}`}
     >
       {/* Collapse/Expand Button - Vertically Centered */}
       <button
