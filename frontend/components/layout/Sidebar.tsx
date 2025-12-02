@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useResourceStore } from '@/stores/aiOfficeStore';
@@ -16,10 +16,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
   const [isLocked, setIsLocked] = useState(false);
   // 悬停展开
   const [isHovered, setIsHovered] = useState(false);
-  // 跟踪鼠标是否真正在侧边栏内
-  const [isMouseInside, setIsMouseInside] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const sidebarRef = useRef<HTMLElement>(null);
   const pathname = usePathname();
   const aiOfficeResourceCount = useResourceStore(
     (state) => state.resources.length
@@ -33,38 +30,22 @@ export default function Sidebar({ className = '' }: SidebarProps) {
   const handleMouseEnter = () => {
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
     }
-    setIsMouseInside(true);
     setIsHovered(true);
   };
 
-  // 处理鼠标离开 - 只有当鼠标真正离开侧边栏区域时才折叠
-  const handleMouseLeave = useCallback(
-    (e: React.MouseEvent) => {
-      // 检查鼠标是否真的离开了侧边栏区域
-      if (sidebarRef.current) {
-        const rect = sidebarRef.current.getBoundingClientRect();
-        const isStillInside =
-          e.clientX >= rect.left &&
-          e.clientX <= rect.right &&
-          e.clientY >= rect.top &&
-          e.clientY <= rect.bottom;
-
-        if (isStillInside) {
-          return; // 鼠标还在侧边栏内，不触发折叠
-        }
-      }
-
-      setIsMouseInside(false);
-      hoverTimeoutRef.current = setTimeout(() => {
-        // 再次检查鼠标是否在侧边栏内
-        if (!isMouseInside) {
-          setIsHovered(false);
-        }
-      }, 300);
-    },
-    [isMouseInside]
-  );
+  // 处理鼠标离开 - 延迟折叠
+  const handleMouseLeave = () => {
+    // 清除之前的定时器
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    // 延迟折叠，给用户时间点击菜单项
+    hoverTimeoutRef.current = setTimeout(() => {
+      setIsHovered(false);
+    }, 300);
+  };
 
   // 清理定时器
   useEffect(() => {
@@ -79,7 +60,6 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
   return (
     <aside
-      ref={sidebarRef}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       className={`${showExpanded ? 'w-52' : 'w-16'} relative z-40 flex flex-col border-r border-gray-200 bg-white transition-all duration-300 ${className}`}
