@@ -372,12 +372,7 @@ export class InfographicTemplateService {
     const isWideScreen = aspectRatio >= 1.5; // 16:9 = 1.78, 4:3 = 1.33
     const isVertical = height > width; // 9:16 等竖屏
 
-    // 根据宽高比调整列数和布局策略
-    const numColumns = isVertical ? 2 : 3;
-
     // 智能分配卡片 - 基于 AI 的 sectionType 分类
-    // 1. 优先使用 AI 标记的 sectionType
-    // 2. 如果没有标记，回退到数量分割逻辑
     const aiMainSections = content.sections.filter(
       (s) => s.sectionType !== "summary",
     );
@@ -385,22 +380,42 @@ export class InfographicTemplateService {
       (s) => s.sectionType === "summary",
     );
 
-    // 使用 AI 分类结果，限制主卡片数量为列数
+    // 根据实际内容数量和宽高比动态决定列数
+    const totalMainItems = aiMainSections.length || content.sections.length;
+    let numColumns: number;
+
+    if (isVertical) {
+      // 竖屏：最多2列
+      numColumns = Math.min(totalMainItems, 2);
+    } else if (totalMainItems <= 2) {
+      // 横屏2项以下：并排显示
+      numColumns = totalMainItems;
+    } else if (totalMainItems === 4) {
+      // 4项：2x2网格
+      numColumns = 2;
+    } else if (totalMainItems <= 6) {
+      // 5-6项：3列网格
+      numColumns = 3;
+    } else {
+      // 超过6项：3列，多行
+      numColumns = 3;
+    }
+
+    // 主卡片：显示所有非summary的section（最多6个）
+    const maxMainCards = isVertical ? 4 : 6;
     const mainSections =
       aiMainSections.length > 0
-        ? aiMainSections.slice(0, numColumns)
-        : content.sections.slice(0, numColumns);
+        ? aiMainSections.slice(0, maxMainCards)
+        : content.sections
+            .filter((s) => s.sectionType !== "summary")
+            .slice(0, maxMainCards);
 
-    // 总结卡片：优先用 AI 标记的，否则取剩余的第一个
+    // 总结卡片：仅当明确标记为summary时才显示
     const summarySection =
-      aiSummarySections.length > 0
-        ? aiSummarySections[0]
-        : content.sections.length > numColumns
-          ? content.sections[numColumns]
-          : null;
+      aiSummarySections.length > 0 ? aiSummarySections[0] : null;
 
     this.logger.log(
-      `[Cards] AI分类: main=${aiMainSections.length}, summary=${aiSummarySections.length}; 显示: main=${mainSections.length}, summary=${summarySection ? 1 : 0}`,
+      `[Cards] 内容数: ${totalMainItems}, 列数: ${numColumns}, 显示: main=${mainSections.length}, summary=${summarySection ? 1 : 0}`,
     );
 
     // 根据尺寸调整字体和间距
@@ -568,8 +583,22 @@ export class InfographicTemplateService {
       border: 1px solid ${cardBorder};
       display: flex;
       flex-direction: column;
+      height: 100%;
       ${glassmorphismStyles}
       ${isGlassmorphism ? "position: relative; overflow: hidden;" : ""}
+    }
+
+    /* 卡片内容区 - 弹性填充 */
+    .section-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 卡片底部区域 - 固定在底部 */
+    .section-footer {
+      margin-top: auto;
+      padding-top: ${Math.round(12 * scale)}px;
     }
 
     ${
@@ -852,6 +881,7 @@ export class InfographicTemplateService {
             </div>
           </div>
 
+          <div class="section-body">
           ${
             section.bullets.length > 0
               ? `
@@ -871,22 +901,25 @@ export class InfographicTemplateService {
           `
               : ""
           }
+          </div>
 
           ${
             section.metrics.length > 0
               ? `
-            <div class="metrics">
-              ${section.metrics
-                .slice(0, metricsToShow)
-                .map(
-                  (metric) => `
-                <div class="metric">
-                  <div class="metric-value">${this.escapeHtml(metric.value)}</div>
-                  <div class="metric-label">${this.escapeHtml(this.truncateText(metric.label, isWideScreen ? 15 : 20))}</div>
-                </div>
-              `,
-                )
-                .join("")}
+            <div class="section-footer">
+              <div class="metrics">
+                ${section.metrics
+                  .slice(0, metricsToShow)
+                  .map(
+                    (metric) => `
+                  <div class="metric">
+                    <div class="metric-value">${this.escapeHtml(metric.value)}</div>
+                    <div class="metric-label">${this.escapeHtml(this.truncateText(metric.label, isWideScreen ? 15 : 20))}</div>
+                  </div>
+                `,
+                  )
+                  .join("")}
+              </div>
             </div>
           `
               : ""
