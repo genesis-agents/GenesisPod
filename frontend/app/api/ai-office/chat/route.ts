@@ -26,7 +26,7 @@ const CACHE_TTL = 60000; // 1 分钟缓存
 
 /**
  * 获取系统配置的默认 CHAT 类型 AI 模型
- * 使用新的 type-defaults API 获取指定类型的默认模型
+ * 使用公开的 ai-office/models/default/text 端点（无需认证）
  */
 async function getDefaultModel(): Promise<string> {
   const now = Date.now();
@@ -35,67 +35,30 @@ async function getDefaultModel(): Promise<string> {
   }
 
   try {
-    // 优先使用新的类型化API获取CHAT类型的默认模型
-    const typeRes = await fetch(
-      `${BACKEND_URL}/api/v1/admin/ai-models/type/CHAT/default`,
+    // 使用公开的 AI Office 端点获取默认文本模型
+    const res = await fetch(
+      `${BACKEND_URL}/api/v1/ai-office/models/default/text`,
       {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       }
     );
 
-    if (typeRes.ok) {
-      const defaultModel = await typeRes.json();
+    if (res.ok) {
+      const defaultModel = await res.json();
       if (defaultModel?.name) {
         cachedDefaultModel = defaultModel.name;
         cacheTimestamp = now;
+        console.log('[AI Office] Using default model:', defaultModel.name);
         return defaultModel.name;
-      }
-    }
-
-    // 降级：使用旧的API获取模型列表
-    const res = await fetch(`${BACKEND_URL}/api/v1/admin/ai-models`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    if (res.ok) {
-      const models = await res.json();
-      // 查找CHAT类型的默认模型（isDefault: true 且 modelType: CHAT）
-      const defaultChatModel = models.find(
-        (m: { isDefault?: boolean; modelType?: string; isEnabled?: boolean }) =>
-          m.isDefault && m.modelType === 'CHAT' && m.isEnabled
-      );
-      if (defaultChatModel?.name) {
-        cachedDefaultModel = defaultChatModel.name;
-        cacheTimestamp = now;
-        return defaultChatModel.name;
-      }
-      // 如果没有设置默认，使用第一个启用的CHAT模型
-      const enabledChatModel = models.find(
-        (m: { isEnabled?: boolean; modelType?: string }) =>
-          m.isEnabled && m.modelType === 'CHAT'
-      );
-      if (enabledChatModel?.name) {
-        cachedDefaultModel = enabledChatModel.name;
-        cacheTimestamp = now;
-        return enabledChatModel.name;
-      }
-      // 最后降级：使用任意启用的模型
-      const enabledModel = models.find(
-        (m: { isEnabled?: boolean }) => m.isEnabled
-      );
-      if (enabledModel?.name) {
-        cachedDefaultModel = enabledModel.name;
-        cacheTimestamp = now;
-        return enabledModel.name;
       }
     }
   } catch (err) {
     console.warn('[AI Office] Failed to fetch default model:', err);
   }
 
-  // 如果获取失败，回退到 grok（但这只是最后的保底）
+  // 如果获取失败，回退到 grok（保底方案）
+  console.warn('[AI Office] Falling back to grok model');
   return 'grok';
 }
 
