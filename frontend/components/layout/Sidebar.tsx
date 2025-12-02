@@ -65,7 +65,11 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       >
         {isCollapsed ? (
           /* Collapsed Logo - S-curve dive & rise with gradient accent */
-          <Link href="/" className="group" title="DeepDive Engine">
+          <Link href="/" className="group relative" title="DeepDive Engine">
+            {/* MVP Badge */}
+            <span className="absolute -right-1 -top-1 rounded bg-gradient-to-r from-amber-500 to-orange-500 px-1 py-0.5 text-[6px] font-bold text-white shadow-sm">
+              MVP
+            </span>
             <svg
               className="h-8 w-8 transition-transform duration-300 group-hover:scale-105"
               viewBox="0 0 32 32"
@@ -128,9 +132,13 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           /* Expanded Logo - S-curve + Text with gradient */
           <Link
             href="/"
-            className="group flex items-center gap-2.5"
+            className="group relative flex items-center gap-2.5"
             title="DeepDive Engine"
           >
+            {/* MVP Badge */}
+            <span className="absolute -right-2 -top-2 rounded bg-gradient-to-r from-amber-500 to-orange-500 px-1.5 py-0.5 text-[8px] font-bold text-white shadow-sm">
+              MVP
+            </span>
             <svg
               className="h-8 w-8 flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
               viewBox="0 0 32 32"
