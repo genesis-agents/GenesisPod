@@ -223,7 +223,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                   DeepDive
                 </span>
                 <span className="rounded bg-gradient-to-r from-amber-500 to-orange-500 px-1 py-0.5 text-[7px] font-bold text-white">
-                  MVP
+                  Beta
                 </span>
               </div>
               <span className="text-[9px] font-medium tracking-[0.15em] text-[#0F2A46]/50">
