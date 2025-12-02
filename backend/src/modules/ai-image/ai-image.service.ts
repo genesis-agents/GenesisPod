@@ -218,7 +218,13 @@ The JSON must be STRICTLY valid (no markdown fences):
 
 1. **RENDERING MODE IS MANDATORY**: Always include rendering_mode with content_analysis.reasoning.
 
-2. **LANGUAGE**: Match the input language. If input is Chinese, use Chinese for ALL text content.
+2. **LANGUAGE - EXTREMELY IMPORTANT**:
+   - Detect the language of the user's prompt/request (NOT the source content)
+   - If user writes in Chinese (e.g., "请输出信息图", "生成中文信息图"), output ALL text in Chinese
+   - If user writes in English (e.g., "generate infographic", "create summary"), output ALL text in English
+   - This includes: title, subtitle, hero_statement, section titles, bullets, metrics labels, call_to_action
+   - If source content is in a different language than the user's request, TRANSLATE it
+   - Example: If source is English but user asks "请用中文生成", translate everything to Chinese
 
 3. **DESIGN JOURNAL**: 3-5 entries documenting your design reasoning process.
 
