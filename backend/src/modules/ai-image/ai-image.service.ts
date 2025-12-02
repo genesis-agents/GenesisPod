@@ -1486,6 +1486,9 @@ export class AiImageService {
         },
       });
 
+      // 清理用户超出限制的旧图片
+      await this.cleanupOldImages(userId || null);
+
       emitStep("save", "Saved Successfully", "completed");
 
       // 发送最终结果
@@ -2279,6 +2282,9 @@ export class AiImageService {
         promptInsights: promptInsights as any,
       },
     });
+
+    // 清理用户超出限制的旧图片
+    await this.cleanupOldImages(userId || null);
 
     this.logger.log(`========== ALL STEPS COMPLETE: ${image.id} ==========`);
 
@@ -3973,6 +3979,57 @@ Generate the edited version of this image now.`;
     } catch (error) {
       this.logger.error(`Failed to remove bookmark from image ${id}:`, error);
       return { success: false, message: "Failed to remove bookmark" };
+    }
+  }
+
+  // ============ 图片数量限制 ============
+
+  /**
+   * 每个用户最多保留的图片数量
+   */
+  private readonly MAX_IMAGES_PER_USER = 20;
+
+  /**
+   * 清理用户超出限制的旧图片
+   * 保留最新的 MAX_IMAGES_PER_USER 张，删除其余的
+   * 注意：已收藏的图片不会被删除
+   */
+  private async cleanupOldImages(userId: string | null): Promise<void> {
+    if (!userId) return; // 未登录用户不限制
+
+    try {
+      // 获取用户所有未收藏的图片，按创建时间降序
+      const allImages = await this.prisma.generatedImage.findMany({
+        where: {
+          userId,
+          isBookmarked: false, // 只计算未收藏的图片
+        },
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
+      });
+
+      // 如果未收藏的图片超过限制，删除最旧的
+      if (allImages.length > this.MAX_IMAGES_PER_USER) {
+        const idsToDelete = allImages
+          .slice(this.MAX_IMAGES_PER_USER)
+          .map((img) => img.id);
+
+        await this.prisma.generatedImage.deleteMany({
+          where: {
+            id: { in: idsToDelete },
+          },
+        });
+
+        this.logger.log(
+          `Cleaned up ${idsToDelete.length} old images for user ${userId}`,
+        );
+      }
+    } catch (error) {
+      // 清理失败不影响主流程
+      this.logger.warn(
+        `Failed to cleanup old images for user ${userId}:`,
+        error,
+      );
     }
   }
 }
