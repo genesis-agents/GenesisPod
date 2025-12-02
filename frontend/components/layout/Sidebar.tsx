@@ -38,7 +38,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
   const handleMouseLeave = () => {
     hoverTimeoutRef.current = setTimeout(() => {
       setIsHovered(false);
-    }, 150);
+    }, 300); // 增加延迟，让用户有时间点击菜单项后导航
   };
 
   // 清理定时器
