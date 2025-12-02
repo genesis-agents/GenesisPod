@@ -210,6 +210,25 @@ export class AiImageController {
     return this.aiImageService.getImageStats();
   }
 
+  /**
+   * 管理员删除所有图片（必须放在 :id 路由之前）
+   * 使用密钥验证，不需要登录
+   */
+  @Delete("delete-all")
+  async adminDeleteAllImages(@Query("key") key: string) {
+    // 简单的密钥验证
+    if (key !== "deepdive-admin-cleanup-2024") {
+      return { success: false, message: "Invalid key" };
+    }
+    this.logger.log("Admin delete all images triggered");
+    const result = await this.aiImageService.deleteAllImages();
+    return {
+      success: true,
+      deletedCount: result,
+      message: `Deleted ${result} images`,
+    };
+  }
+
   @Get(":id")
   @UseGuards(JwtAuthGuard)
   async getImage(@Param("id") id: string) {
@@ -275,25 +294,6 @@ export class AiImageController {
       success: true,
       ...result,
       message: `Cleaned up ${result.totalDeleted} images from ${result.usersCleaned} users`,
-    };
-  }
-
-  /**
-   * 管理员删除所有图片
-   * 使用密钥验证，不需要登录
-   */
-  @Delete("delete-all")
-  async adminDeleteAllImages(@Query("key") key: string) {
-    // 简单的密钥验证
-    if (key !== "deepdive-admin-cleanup-2024") {
-      return { success: false, message: "Invalid key" };
-    }
-    this.logger.log("Admin delete all images triggered");
-    const result = await this.aiImageService.deleteAllImages();
-    return {
-      success: true,
-      deletedCount: result,
-      message: `Deleted ${result} images`,
     };
   }
 }
