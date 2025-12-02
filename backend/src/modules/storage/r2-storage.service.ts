@@ -16,10 +16,17 @@ export interface UploadResult {
 }
 
 /**
- * Cloudflare R2 存储服务
+ * 对象存储服务（支持 Backblaze B2 / Cloudflare R2）
  *
- * R2 兼容 S3 API，使用 AWS SDK 即可
- * 免费额度：10GB 存储 + 无限出站流量
+ * 两者都兼容 S3 API，使用 AWS SDK
+ *
+ * Backblaze B2 免费额度（无需信用卡）：
+ * - 10GB 存储
+ * - 1GB/天 出站流量
+ *
+ * Cloudflare R2 免费额度（需信用卡）：
+ * - 10GB 存储
+ * - 无限出站流量
  */
 @Injectable()
 export class R2StorageService implements OnModuleInit {
@@ -28,45 +35,79 @@ export class R2StorageService implements OnModuleInit {
   private bucketName: string;
   private publicUrl: string;
   private isConfigured = false;
+  private provider: "b2" | "r2" | "none" = "none";
 
   constructor(private readonly configService: ConfigService) {
     this.bucketName =
-      this.configService.get<string>("R2_BUCKET_NAME") || "deepdive-images";
+      this.configService.get<string>("B2_BUCKET_NAME") ||
+      this.configService.get<string>("R2_BUCKET_NAME") ||
+      "deepdive-images";
     this.publicUrl =
+      this.configService.get<string>("B2_PUBLIC_URL") ||
       this.configService.get<string>("R2_PUBLIC_URL") ||
-      `https://pub-xxx.r2.dev`; // 替换为你的 R2 公开 URL
+      "";
   }
 
   onModuleInit() {
-    const accountId = this.configService.get<string>("R2_ACCOUNT_ID");
-    const accessKeyId = this.configService.get<string>("R2_ACCESS_KEY_ID");
-    const secretAccessKey = this.configService.get<string>(
-      "R2_SECRET_ACCESS_KEY",
-    );
+    // 优先检查 Backblaze B2 配置
+    const b2KeyId = this.configService.get<string>("B2_KEY_ID");
+    const b2AppKey = this.configService.get<string>("B2_APP_KEY");
+    const b2Endpoint = this.configService.get<string>("B2_ENDPOINT");
 
-    if (accountId && accessKeyId && secretAccessKey) {
+    if (b2KeyId && b2AppKey && b2Endpoint) {
       this.s3Client = new S3Client({
-        region: "auto",
-        endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+        region: "us-west-004", // B2 区域，从 endpoint 获取
+        endpoint: b2Endpoint, // 如: https://s3.us-west-004.backblazeb2.com
         credentials: {
-          accessKeyId,
-          secretAccessKey,
+          accessKeyId: b2KeyId,
+          secretAccessKey: b2AppKey,
         },
       });
       this.isConfigured = true;
-      this.logger.log("R2 Storage configured successfully");
-    } else {
-      this.logger.warn(
-        "R2 Storage not configured - missing credentials. Images will be stored as base64 in database.",
-      );
+      this.provider = "b2";
+      this.logger.log("Backblaze B2 Storage configured successfully");
+      return;
     }
+
+    // 其次检查 Cloudflare R2 配置
+    const r2AccountId = this.configService.get<string>("R2_ACCOUNT_ID");
+    const r2AccessKeyId = this.configService.get<string>("R2_ACCESS_KEY_ID");
+    const r2SecretAccessKey = this.configService.get<string>(
+      "R2_SECRET_ACCESS_KEY",
+    );
+
+    if (r2AccountId && r2AccessKeyId && r2SecretAccessKey) {
+      this.s3Client = new S3Client({
+        region: "auto",
+        endpoint: `https://${r2AccountId}.r2.cloudflarestorage.com`,
+        credentials: {
+          accessKeyId: r2AccessKeyId,
+          secretAccessKey: r2SecretAccessKey,
+        },
+      });
+      this.isConfigured = true;
+      this.provider = "r2";
+      this.logger.log("Cloudflare R2 Storage configured successfully");
+      return;
+    }
+
+    this.logger.warn(
+      "Object Storage not configured - missing credentials. Images will be stored as base64 in database.",
+    );
   }
 
   /**
-   * 检查 R2 是否已配置
+   * 检查存储是否已配置
    */
   isEnabled(): boolean {
     return this.isConfigured;
+  }
+
+  /**
+   * 获取当前使用的存储提供商
+   */
+  getProvider(): "b2" | "r2" | "none" {
+    return this.provider;
   }
 
   /**
