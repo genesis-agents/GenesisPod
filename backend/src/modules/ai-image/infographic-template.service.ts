@@ -183,12 +183,17 @@ const ICONS: Record<string, string> = {
 
 const DEFAULT_ICON = ICONS.star;
 
-// DeepDive Logo SVG - 深潜品牌标识
-const DEEPDIVE_LOGO = `<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2" fill="none"/>
-  <path d="M16 6v12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-  <path d="M10 12l6 6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M10 22l6 4 6-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
+// DeepDive ENGINE 品牌 Logo - 紫色渐变 V 形标志
+const DEEPDIVE_LOGO = `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8B5CF6"/>
+      <stop offset="50%" style="stop-color:#6366F1"/>
+      <stop offset="100%" style="stop-color:#3B82F6"/>
+    </linearGradient>
+  </defs>
+  <path d="M8 10 L20 30 L32 10" stroke="url(#logoGradient)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M14 10 L20 22 L26 10" stroke="url(#logoGradient)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.6"/>
 </svg>`;
 
 @Injectable()
@@ -877,7 +882,10 @@ export class InfographicTemplateService {
     // 生成中心图形周围的要点位置
     const itemCount = Math.min(centerItems.length, 8);
     const angleStep = (2 * Math.PI) / itemCount;
-    const radius = Math.min(width, height) * 0.32;
+    // 中心圆形的半径
+    const centerRadius = Math.min(width, height) * 0.18;
+    // 环绕要点的轨道半径（从中心到要点卡片中心的距离）
+    const orbitRadius = centerRadius + Math.round(120 * scale);
 
     return `
 <!DOCTYPE html>
@@ -954,15 +962,19 @@ export class InfographicTemplateService {
 
     /* 中心圆形图形 */
     .center-visual {
-      width: ${Math.round(radius * 1.2)}px;
-      height: ${Math.round(radius * 1.2)}px;
+      width: ${Math.round(centerRadius * 2)}px;
+      height: ${Math.round(centerRadius * 2)}px;
       border-radius: 50%;
       background: linear-gradient(135deg, ${colors.primary} 0%, ${this.adjustColor(colors.primary, 30)} 100%);
       display: flex;
       align-items: center;
       justify-content: center;
-      position: relative;
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
       box-shadow: 0 20px 60px ${colors.primary}40;
+      z-index: 10;
     }
 
     .center-visual::before {
@@ -1096,14 +1108,18 @@ export class InfographicTemplateService {
 
       ${centerItems
         .map((item, idx) => {
+          // 从顶部开始（-PI/2），均匀分布
           const angle = angleStep * idx - Math.PI / 2;
-          const x = width / 2 + Math.cos(angle) * (radius + 100 * scale);
-          const y =
-            (height - padding * 2 - 100 * scale) / 2 +
-            80 * scale +
-            Math.sin(angle) * (radius + 60 * scale);
+          // 计算相对于 visual-area 中心的位置（百分比）
+          const xPercent =
+            50 + Math.cos(angle) * (orbitRadius / (width - padding * 2)) * 100;
+          const yPercent =
+            50 +
+            Math.sin(angle) *
+              (orbitRadius / (height - padding * 2 - 100 * scale)) *
+              100;
           return `
-          <div class="orbit-item" style="left: ${x}px; top: ${y}px;">
+          <div class="orbit-item" style="left: ${xPercent}%; top: ${yPercent}%;">
             <div class="number">${idx + 1}</div>
             <div class="text">${this.escapeHtml(item)}</div>
           </div>
