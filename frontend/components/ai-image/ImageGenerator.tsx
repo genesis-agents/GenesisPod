@@ -1039,7 +1039,9 @@ export default function ImageGenerator({
   const [inputMode, setInputMode] = useState<InputMode>('prompt');
   const [prompt, setPrompt] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [youtubePrompt, setYoutubePrompt] = useState('');
   const [urls, setUrls] = useState<string[]>(['']);
+  const [urlPrompt, setUrlPrompt] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [filesPrompt, setFilesPrompt] = useState('');
   const [isDragging, setIsDragging] = useState(false);
@@ -1423,9 +1425,11 @@ export default function ImageGenerator({
           break;
         case 'youtube':
           params.set('urls', youtubeUrl.trim());
+          if (youtubePrompt.trim()) params.set('prompt', youtubePrompt.trim());
           break;
         case 'url':
           params.set('urls', urls.filter((u) => u.trim()).join(','));
+          if (urlPrompt.trim()) params.set('prompt', urlPrompt.trim());
           break;
         case 'refine':
           // Refine mode still uses regular POST (needs imageBase64)
@@ -2311,6 +2315,32 @@ export default function ImageGenerator({
                       disabled={isGenerating}
                     />
                   </div>
+
+                  {/* Prompt for YouTube */}
+                  <div className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 focus-within:border-red-500 focus-within:ring-1 focus-within:ring-red-500">
+                    <svg
+                      className="h-3.5 w-3.5 flex-shrink-0 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                      />
+                    </svg>
+                    <input
+                      type="text"
+                      value={youtubePrompt}
+                      onChange={(e) => setYoutubePrompt(e.target.value)}
+                      placeholder="Describe what to generate from video..."
+                      className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
+                      disabled={isGenerating}
+                    />
+                  </div>
+
                   <p className="text-[10px] text-gray-500">
                     Extract video subtitles and generate an image based on
                     content
@@ -2398,27 +2428,52 @@ export default function ImageGenerator({
                       )}
                     </div>
                   ))}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={addUrlInput}
-                      className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-700"
+                  <button
+                    onClick={addUrlInput}
+                    className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-700"
+                  >
+                    <svg
+                      className="h-3 w-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
                     >
-                      <svg
-                        className="h-3 w-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 4v16m8-8H4"
-                        />
-                      </svg>
-                      Add URL
-                    </button>
-                    <div className="flex-1" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                    Add URL
+                  </button>
+
+                  {/* Prompt for URLs */}
+                  <div className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500">
+                    <svg
+                      className="h-3.5 w-3.5 flex-shrink-0 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                      />
+                    </svg>
+                    <input
+                      type="text"
+                      value={urlPrompt}
+                      onChange={(e) => setUrlPrompt(e.target.value)}
+                      placeholder="Describe what to generate from URLs..."
+                      className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
+                      disabled={isGenerating}
+                    />
+                  </div>
+
+                  <div className="flex justify-end">
                     <button
                       onClick={handleGenerate}
                       disabled={
