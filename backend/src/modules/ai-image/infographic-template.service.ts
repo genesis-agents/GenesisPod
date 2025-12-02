@@ -464,7 +464,6 @@ export class InfographicTemplateService {
       flex: 1;
       min-height: 0;
       align-content: start;
-      overflow: hidden;
     }
 
     .column {
@@ -481,7 +480,6 @@ export class InfographicTemplateService {
       box-shadow: ${boxShadow};
       border: 1px solid ${cardBorder};
       transition: transform 0.2s, box-shadow 0.2s;
-      overflow: hidden;
     }
 
     .section-header {
