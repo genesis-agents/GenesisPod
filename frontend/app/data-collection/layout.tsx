@@ -4,8 +4,6 @@ import Sidebar from '@/components/layout/Sidebar';
 import {
   LayoutDashboard,
   Database,
-  Activity,
-  History,
   Users,
   Bot,
   Plug,
@@ -59,19 +57,6 @@ export default function DataCollectionLayout({
       href: '/data-collection/external-api',
       icon: Plug,
       description: 'Search and third-party API configuration',
-    },
-    // 运维监控
-    {
-      name: 'Monitor',
-      href: '/data-collection/monitor',
-      icon: Activity,
-      description: 'Real-time system monitoring',
-    },
-    {
-      name: 'History',
-      href: '/data-collection/history',
-      icon: History,
-      description: 'Task execution history',
     },
     // 存储管理
     {
