@@ -3703,25 +3703,22 @@ Generate the edited version of this image now.`;
 
   /**
    * 获取用户生成历史
-   * 只返回当前用户的数据，确保用户隔离
+   * 已登录：返回用户自己的图片 + 历史遗留图片
+   * 未登录：仅返回历史遗留的无用户绑定图片（向后兼容）
    */
   async getHistory(userId?: string): Promise<GeneratedImageResult[]> {
-    // 如果没有 userId，返回空列表（用户数据隔离）
-    if (!userId) {
-      this.logger.warn(
-        "[getHistory] No userId provided, returning empty list for privacy",
-      );
-      return [];
-    }
+    // 构建查询条件
+    const whereCondition = userId
+      ? {
+          OR: [
+            { userId }, // 当前用户的图片
+            { userId: null }, // 历史遗留的无用户绑定图片
+          ],
+        }
+      : { userId: null }; // 未登录：仅返回历史遗留图片
 
-    // 查询当前用户的图片 + 历史遗留的无用户绑定图片（向后兼容）
     const images = await this.prisma.generatedImage.findMany({
-      where: {
-        OR: [
-          { userId }, // 当前用户的图片
-          { userId: null }, // 历史遗留的无用户绑定图片
-        ],
-      },
+      where: whereCondition,
       orderBy: { createdAt: "desc" },
       take: 50,
     });
@@ -3802,26 +3799,23 @@ Generate the edited version of this image now.`;
 
   /**
    * 获取用户收藏的图片
-   * 只返回当前用户的收藏，确保用户隔离
+   * 已登录：返回用户自己的收藏 + 历史遗留收藏
+   * 未登录：仅返回历史遗留的无用户绑定收藏（向后兼容）
    */
   async getBookmarkedImages(userId?: string) {
-    // 如果没有 userId，返回空列表（用户数据隔离）
-    if (!userId) {
-      this.logger.warn(
-        "[getBookmarkedImages] No userId provided, returning empty list for privacy",
-      );
-      return [];
-    }
-
     try {
-      // 查询当前用户的收藏 + 历史遗留的无用户绑定收藏（向后兼容）
+      // 构建查询条件
+      const whereCondition = userId
+        ? {
+            OR: [
+              { userId, isBookmarked: true }, // 当前用户的收藏
+              { userId: null, isBookmarked: true }, // 历史遗留的无用户绑定收藏
+            ],
+          }
+        : { userId: null, isBookmarked: true }; // 未登录：仅返回历史遗留收藏
+
       const images = await this.prisma.generatedImage.findMany({
-        where: {
-          OR: [
-            { userId, isBookmarked: true }, // 当前用户的收藏
-            { userId: null, isBookmarked: true }, // 历史遗留的无用户绑定收藏
-          ],
-        },
+        where: whereCondition,
         orderBy: { createdAt: "desc" },
       });
 
