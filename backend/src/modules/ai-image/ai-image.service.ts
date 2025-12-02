@@ -92,7 +92,11 @@ type TemplateLayoutType =
   | "timeline"
   | "comparison"
   | "pyramid"
-  | "radial";
+  | "radial"
+  | "statistics"
+  | "checklist"
+  | "funnel"
+  | "matrix";
 
 interface PromptEngineeringInsights {
   imagePrompt: string;
@@ -182,22 +186,34 @@ First, analyze the content type and select the optimal rendering mode AND templa
 - Examples: Concept art, mood boards, simple tagline posters
 
 **template_layout** - Choose the best layout based on DEEP CONTENT STRUCTURE ANALYSIS:
-- "cards": Grid of equal cards - Best for PARALLEL topics (e.g., 3 stories, 5 features, multiple categories with equal importance)
+- "cards": Grid of equal cards - Best for 3+ PARALLEL topics (e.g., 3 stories, 5 features, multiple categories)
 - "center_visual": Central concept with surrounding points - Best for ONE main idea with supporting details
-- "timeline": Sequential flow - Best for processes, steps, chronological events, development stages
-- "comparison": Side-by-side - Best for contrasting two options, before/after, pros/cons
-- "pyramid": Hierarchical levels - Best for priorities, organizational structure, importance levels
-- "radial": Hub and spokes - Best for ecosystems, relationships radiating from a center
+- "timeline": Sequential flow - Best for processes, steps, chronological events
+- "comparison": Side-by-side - ONLY for comparing EXACTLY 2 distinct things (A vs B, before/after, pros/cons)
+- "pyramid": Hierarchical levels - Best for priorities, organizational structure
+- "radial": Hub and spokes - Best for ecosystems, relationships radiating from center
+- "statistics": Data-focused - Best for survey results, KPIs, metrics-heavy content
+- "checklist": List format - Best for tips, best practices, to-do items, key takeaways
+- "funnel": Conversion flow - Best for sales funnel, filtering process, staged reduction
+- "matrix": 2x2 grid analysis - Best for quadrant analysis, priority matrix, positioning
 
 ## STEP 1.5: DEEP CONTENT STRUCTURE ANALYSIS (CRITICAL!)
 
 Before selecting a template, you MUST deeply analyze the content's logical structure:
 
 1. **Identify the narrative structure**:
-   - Is it a speech/presentation with multiple parallel stories? → "cards" (each story = 1 card)
-   - Is it explaining a core concept with features around it? → "center_visual"
-   - Is it a step-by-step guide or chronological history? → "timeline"
-   - Is it comparing two things? → "comparison"
+   - Multiple parallel stories/topics (3+)? → "cards" (NEVER comparison!)
+   - ONE central concept with features? → "center_visual"
+   - Step-by-step or chronological? → "timeline"
+   - EXACTLY 2 things being contrasted? → "comparison" (ONLY if truly A vs B!)
+   - Data/metrics heavy content? → "statistics"
+   - Tips/best practices list? → "checklist"
+
+2. **CRITICAL: comparison template restrictions**:
+   - ONLY use when content explicitly compares TWO distinct options
+   - Examples: "React vs Vue", "Before vs After", "Pros vs Cons"
+   - NEVER use for 3+ parallel topics - use "cards" instead!
+   - Steve Jobs' 3 stories = "cards" NOT "comparison"!
 
 2. **Identify content groupings**:
    - **Main content**: The primary parallel points (should be 2-4 items of EQUAL importance)
@@ -500,6 +516,10 @@ export class AiImageService {
         "comparison",
         "pyramid",
         "radial",
+        "statistics",
+        "checklist",
+        "funnel",
+        "matrix",
       ];
       if (
         templateLayoutRaw &&
@@ -2389,6 +2409,10 @@ export class AiImageService {
       "comparison",
       "pyramid",
       "radial",
+      "statistics",
+      "checklist",
+      "funnel",
+      "matrix",
     ] as const;
 
     const designStyle = validDesignStyles.includes(

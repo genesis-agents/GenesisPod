@@ -31,11 +31,15 @@ export type FontStyle =
 // 模板布局类型
 export type TemplateLayout =
   | "cards" // 卡片网格布局（当前默认）
-  | "center_visual" // 中心视觉图形 + 周围要点（类似 NotebookLM）
+  | "center_visual" // 中心视觉图形 + 周围要点
   | "timeline" // 时间线/流程布局
-  | "comparison" // 对比布局（左右或上下）
+  | "comparison" // 对比布局（仅限2项对比）
   | "pyramid" // 金字塔/层级布局
-  | "radial"; // 放射状布局
+  | "radial" // 放射状布局
+  | "statistics" // 统计数据展示
+  | "checklist" // 清单/要点列表
+  | "funnel" // 漏斗图
+  | "matrix"; // 2x2矩阵/象限图
 
 export interface InfographicStyleOptions {
   style?: InfographicStyle;
@@ -347,7 +351,7 @@ export class InfographicTemplateService {
     const scale = width / 1200;
     // 宽屏需要稍微紧凑的布局，但不要太极端
     const compactScale = isWideScreen ? 0.85 : 1;
-    const padding = Math.round(40 * scale * (isWideScreen ? 0.7 : 1));
+    const padding = Math.round(32 * scale * (isWideScreen ? 0.6 : 0.85));
     const titleSize = Math.round(32 * scale * (isWideScreen ? 0.9 : 1));
     const subtitleSize = Math.round(16 * scale * (isWideScreen ? 0.9 : 1));
     const sectionTitleSize = Math.round(18 * scale * compactScale);
@@ -412,7 +416,7 @@ export class InfographicTemplateService {
       display: flex;
       align-items: center;
       gap: ${Math.round(8 * scale)}px;
-      margin-bottom: ${Math.round((isWideScreen ? 8 : 16) * scale)}px;
+      margin-bottom: ${Math.round((isWideScreen ? 4 : 8) * scale)}px;
       padding: 0 4px;
       flex-shrink: 0;
     }
@@ -434,9 +438,9 @@ export class InfographicTemplateService {
     .header {
       background: linear-gradient(135deg, ${colors.primary} 0%, ${this.adjustColor(colors.primary, 20)} 100%);
       color: white;
-      padding: ${Math.round((isWideScreen ? 18 : 28) * scale)}px ${Math.round((isWideScreen ? 28 : 36) * scale)}px;
+      padding: ${Math.round((isWideScreen ? 14 : 20) * scale)}px ${Math.round((isWideScreen ? 24 : 32) * scale)}px;
       border-radius: ${Math.round((isWideScreen ? 10 : 12) * scale)}px;
-      margin-bottom: ${Math.round((isWideScreen ? 16 : 28) * scale)}px;
+      margin-bottom: ${Math.round((isWideScreen ? 12 : 20) * scale)}px;
       position: relative;
       overflow: hidden;
       flex-shrink: 0;
@@ -1893,6 +1897,707 @@ export class InfographicTemplateService {
 </html>`;
   }
 
+  /**
+   * 统计数据模板 - 突出展示关键数字和指标
+   */
+  generateStatisticsHTML(
+    content: InfographicContent,
+    backgroundImageBase64?: string,
+    width: number = 1200,
+    height: number = 800,
+  ): string {
+    const styleKey = content.styleOptions?.style || "consulting";
+    const stylePreset = STYLE_PRESETS[styleKey] || STYLE_PRESETS.consulting;
+    const colors = {
+      primary: content.colorScheme?.primary || stylePreset.colors.primary,
+      accent: content.colorScheme?.accent || stylePreset.colors.accent,
+      background:
+        content.colorScheme?.background || stylePreset.colors.background,
+      text: content.colorScheme?.text || stylePreset.colors.text,
+    };
+    const fontStyle = content.styleOptions?.fontStyle || "sans";
+    const fontFamily = FONT_STYLES[fontStyle] || FONT_STYLES.sans;
+    const isDarkMode = styleKey === "dark";
+    const scale = width / 1200;
+    const padding = Math.round(40 * scale);
+
+    const overlayColor = isDarkMode
+      ? "rgba(15, 23, 42, 0.92)"
+      : "rgba(247, 249, 252, 0.92)";
+    const backgroundStyle = backgroundImageBase64
+      ? `background-image: linear-gradient(${overlayColor}, ${overlayColor}), url(${backgroundImageBase64}); background-size: cover; background-position: center;`
+      : `background: ${colors.background};`;
+
+    // 收集所有指标
+    const allMetrics = content.sections
+      .flatMap((s) => s.metrics || [])
+      .slice(0, 6);
+    const mainStats = allMetrics.slice(0, 3);
+    const secondaryStats = allMetrics.slice(3, 6);
+
+    return `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: ${fontFamily};
+      ${backgroundStyle}
+      color: ${colors.text};
+      width: ${width}px;
+      height: ${height}px;
+      overflow: hidden;
+    }
+    .container {
+      padding: ${padding}px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .brand-bar {
+      display: flex;
+      align-items: center;
+      gap: ${Math.round(8 * scale)}px;
+      margin-bottom: ${Math.round(12 * scale)}px;
+    }
+    .brand-logo { width: ${Math.round(24 * scale)}px; height: ${Math.round(24 * scale)}px; color: ${colors.primary}; }
+    .brand-name { font-size: ${Math.round(12 * scale)}px; font-weight: 600; color: ${colors.primary}; }
+    .header {
+      text-align: center;
+      margin-bottom: ${Math.round(32 * scale)}px;
+    }
+    .main-title {
+      font-size: ${Math.round(36 * scale)}px;
+      font-weight: 700;
+      color: ${colors.primary};
+      margin-bottom: ${Math.round(8 * scale)}px;
+    }
+    .subtitle { font-size: ${Math.round(16 * scale)}px; color: ${colors.text}; opacity: 0.8; }
+    .stats-grid {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: ${Math.round(24 * scale)}px;
+    }
+    .main-stats {
+      display: grid;
+      grid-template-columns: repeat(${Math.min(mainStats.length, 3)}, 1fr);
+      gap: ${Math.round(24 * scale)}px;
+    }
+    .stat-card {
+      background: ${isDarkMode ? "#1e293b" : "white"};
+      border-radius: ${Math.round(16 * scale)}px;
+      padding: ${Math.round(32 * scale)}px;
+      text-align: center;
+      box-shadow: 0 4px 20px ${isDarkMode ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.08)"};
+    }
+    .stat-value {
+      font-size: ${Math.round(48 * scale)}px;
+      font-weight: 700;
+      color: ${colors.primary};
+      margin-bottom: ${Math.round(8 * scale)}px;
+    }
+    .stat-label {
+      font-size: ${Math.round(14 * scale)}px;
+      color: ${colors.text};
+      opacity: 0.7;
+    }
+    .stat-comparison {
+      font-size: ${Math.round(12 * scale)}px;
+      color: ${colors.accent};
+      margin-top: ${Math.round(8 * scale)}px;
+    }
+    .secondary-stats {
+      display: grid;
+      grid-template-columns: repeat(${Math.min(secondaryStats.length || 1, 3)}, 1fr);
+      gap: ${Math.round(16 * scale)}px;
+    }
+    .secondary-stat {
+      background: ${colors.primary}10;
+      border-radius: ${Math.round(12 * scale)}px;
+      padding: ${Math.round(20 * scale)}px;
+      display: flex;
+      align-items: center;
+      gap: ${Math.round(16 * scale)}px;
+    }
+    .secondary-value {
+      font-size: ${Math.round(28 * scale)}px;
+      font-weight: 700;
+      color: ${colors.primary};
+    }
+    .secondary-label {
+      font-size: ${Math.round(13 * scale)}px;
+      color: ${colors.text};
+    }
+    .cta {
+      background: linear-gradient(135deg, ${colors.accent} 0%, ${this.adjustColor(colors.accent, -15)} 100%);
+      color: white;
+      text-align: center;
+      padding: ${Math.round(16 * scale)}px;
+      border-radius: ${Math.round(10 * scale)}px;
+      font-size: ${Math.round(14 * scale)}px;
+      font-weight: 600;
+      margin-top: ${Math.round(20 * scale)}px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="brand-bar">
+      <div class="brand-logo">${DEEPDIVE_LOGO}</div>
+      <span class="brand-name">DeepDive ENGINE</span>
+    </div>
+    <div class="header">
+      <h1 class="main-title">${this.escapeHtml(content.title)}</h1>
+      ${content.subtitle ? `<p class="subtitle">${this.escapeHtml(content.subtitle)}</p>` : ""}
+    </div>
+    <div class="stats-grid">
+      <div class="main-stats">
+        ${mainStats
+          .map(
+            (stat) => `
+          <div class="stat-card">
+            <div class="stat-value">${this.escapeHtml(stat.value)}</div>
+            <div class="stat-label">${this.escapeHtml(stat.label)}</div>
+            ${stat.comparison ? `<div class="stat-comparison">${this.escapeHtml(stat.comparison)}</div>` : ""}
+          </div>
+        `,
+          )
+          .join("")}
+      </div>
+      ${
+        secondaryStats.length > 0
+          ? `
+        <div class="secondary-stats">
+          ${secondaryStats
+            .map(
+              (stat) => `
+            <div class="secondary-stat">
+              <div class="secondary-value">${this.escapeHtml(stat.value)}</div>
+              <div class="secondary-label">${this.escapeHtml(stat.label)}</div>
+            </div>
+          `,
+            )
+            .join("")}
+        </div>
+      `
+          : ""
+      }
+    </div>
+    ${content.callToAction ? `<div class="cta">${this.escapeHtml(content.callToAction)}</div>` : ""}
+  </div>
+</body>
+</html>`;
+  }
+
+  /**
+   * 清单模板 - 要点列表、技巧、最佳实践
+   */
+  generateChecklistHTML(
+    content: InfographicContent,
+    backgroundImageBase64?: string,
+    width: number = 1200,
+    height: number = 800,
+  ): string {
+    const styleKey = content.styleOptions?.style || "consulting";
+    const stylePreset = STYLE_PRESETS[styleKey] || STYLE_PRESETS.consulting;
+    const colors = {
+      primary: content.colorScheme?.primary || stylePreset.colors.primary,
+      accent: content.colorScheme?.accent || stylePreset.colors.accent,
+      background:
+        content.colorScheme?.background || stylePreset.colors.background,
+      text: content.colorScheme?.text || stylePreset.colors.text,
+    };
+    const fontStyle = content.styleOptions?.fontStyle || "sans";
+    const fontFamily = FONT_STYLES[fontStyle] || FONT_STYLES.sans;
+    const isDarkMode = styleKey === "dark";
+    const scale = width / 1200;
+    const padding = Math.round(40 * scale);
+    const isVertical = height > width;
+
+    const overlayColor = isDarkMode
+      ? "rgba(15, 23, 42, 0.92)"
+      : "rgba(247, 249, 252, 0.92)";
+    const backgroundStyle = backgroundImageBase64
+      ? `background-image: linear-gradient(${overlayColor}, ${overlayColor}), url(${backgroundImageBase64}); background-size: cover; background-position: center;`
+      : `background: ${colors.background};`;
+
+    // 收集所有 bullets
+    const allItems = content.sections
+      .flatMap((s, idx) =>
+        s.bullets.map((b) => ({ text: b, section: s.title, index: idx })),
+      )
+      .slice(0, isVertical ? 8 : 10);
+
+    const numColumns = isVertical ? 1 : 2;
+    const itemsPerColumn = Math.ceil(allItems.length / numColumns);
+
+    return `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: ${fontFamily};
+      ${backgroundStyle}
+      color: ${colors.text};
+      width: ${width}px;
+      height: ${height}px;
+      overflow: hidden;
+    }
+    .container {
+      padding: ${padding}px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .brand-bar {
+      display: flex;
+      align-items: center;
+      gap: ${Math.round(8 * scale)}px;
+      margin-bottom: ${Math.round(12 * scale)}px;
+    }
+    .brand-logo { width: ${Math.round(24 * scale)}px; height: ${Math.round(24 * scale)}px; color: ${colors.primary}; }
+    .brand-name { font-size: ${Math.round(12 * scale)}px; font-weight: 600; color: ${colors.primary}; }
+    .header {
+      background: linear-gradient(135deg, ${colors.primary} 0%, ${this.adjustColor(colors.primary, 20)} 100%);
+      color: white;
+      padding: ${Math.round(24 * scale)}px;
+      border-radius: ${Math.round(12 * scale)}px;
+      margin-bottom: ${Math.round(24 * scale)}px;
+      text-align: center;
+    }
+    .main-title { font-size: ${Math.round(28 * scale)}px; font-weight: 700; margin-bottom: ${Math.round(6 * scale)}px; }
+    .subtitle { font-size: ${Math.round(14 * scale)}px; opacity: 0.9; }
+    .checklist-container {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(${numColumns}, 1fr);
+      gap: ${Math.round(20 * scale)}px;
+    }
+    .checklist-column {
+      display: flex;
+      flex-direction: column;
+      gap: ${Math.round(12 * scale)}px;
+    }
+    .checklist-item {
+      background: ${isDarkMode ? "#1e293b" : "white"};
+      border-radius: ${Math.round(12 * scale)}px;
+      padding: ${Math.round(16 * scale)}px ${Math.round(20 * scale)}px;
+      display: flex;
+      align-items: center;
+      gap: ${Math.round(14 * scale)}px;
+      box-shadow: 0 2px 8px ${isDarkMode ? "rgba(0,0,0,0.2)" : "rgba(0,0,0,0.05)"};
+    }
+    .check-icon {
+      width: ${Math.round(28 * scale)}px;
+      height: ${Math.round(28 * scale)}px;
+      min-width: ${Math.round(28 * scale)}px;
+      background: ${colors.accent};
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+    }
+    .check-icon svg { width: ${Math.round(16 * scale)}px; height: ${Math.round(16 * scale)}px; }
+    .item-number {
+      font-size: ${Math.round(12 * scale)}px;
+      font-weight: 700;
+    }
+    .item-text {
+      font-size: ${Math.round(14 * scale)}px;
+      color: ${colors.text};
+      line-height: 1.4;
+    }
+    .cta {
+      background: linear-gradient(135deg, ${colors.accent} 0%, ${this.adjustColor(colors.accent, -15)} 100%);
+      color: white;
+      text-align: center;
+      padding: ${Math.round(14 * scale)}px;
+      border-radius: ${Math.round(10 * scale)}px;
+      font-size: ${Math.round(13 * scale)}px;
+      font-weight: 600;
+      margin-top: ${Math.round(16 * scale)}px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="brand-bar">
+      <div class="brand-logo">${DEEPDIVE_LOGO}</div>
+      <span class="brand-name">DeepDive ENGINE</span>
+    </div>
+    <div class="header">
+      <h1 class="main-title">${this.escapeHtml(content.title)}</h1>
+      ${content.subtitle ? `<p class="subtitle">${this.escapeHtml(content.subtitle)}</p>` : ""}
+    </div>
+    <div class="checklist-container">
+      ${Array.from(
+        { length: numColumns },
+        (_, colIdx) => `
+        <div class="checklist-column">
+          ${allItems
+            .slice(colIdx * itemsPerColumn, (colIdx + 1) * itemsPerColumn)
+            .map(
+              (item, idx) => `
+            <div class="checklist-item">
+              <div class="check-icon">
+                <span class="item-number">${colIdx * itemsPerColumn + idx + 1}</span>
+              </div>
+              <span class="item-text">${this.escapeHtml(item.text)}</span>
+            </div>
+          `,
+            )
+            .join("")}
+        </div>
+      `,
+      ).join("")}
+    </div>
+    ${content.callToAction ? `<div class="cta">${this.escapeHtml(content.callToAction)}</div>` : ""}
+  </div>
+</body>
+</html>`;
+  }
+
+  /**
+   * 漏斗模板 - 转化流程、筛选过程
+   */
+  generateFunnelHTML(
+    content: InfographicContent,
+    backgroundImageBase64?: string,
+    width: number = 1200,
+    height: number = 800,
+  ): string {
+    const styleKey = content.styleOptions?.style || "consulting";
+    const stylePreset = STYLE_PRESETS[styleKey] || STYLE_PRESETS.consulting;
+    const colors = {
+      primary: content.colorScheme?.primary || stylePreset.colors.primary,
+      accent: content.colorScheme?.accent || stylePreset.colors.accent,
+      background:
+        content.colorScheme?.background || stylePreset.colors.background,
+      text: content.colorScheme?.text || stylePreset.colors.text,
+    };
+    const fontStyle = content.styleOptions?.fontStyle || "sans";
+    const fontFamily = FONT_STYLES[fontStyle] || FONT_STYLES.sans;
+    const isDarkMode = styleKey === "dark";
+    const scale = width / 1200;
+    const padding = Math.round(40 * scale);
+
+    const overlayColor = isDarkMode
+      ? "rgba(15, 23, 42, 0.92)"
+      : "rgba(247, 249, 252, 0.92)";
+    const backgroundStyle = backgroundImageBase64
+      ? `background-image: linear-gradient(${overlayColor}, ${overlayColor}), url(${backgroundImageBase64}); background-size: cover; background-position: center;`
+      : `background: ${colors.background};`;
+
+    const stages = content.sections.slice(0, 5);
+    const stageColors = [
+      colors.primary,
+      this.adjustColor(colors.primary, 30),
+      colors.accent,
+      this.adjustColor(colors.accent, 20),
+      this.adjustColor(colors.accent, 40),
+    ];
+
+    return `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: ${fontFamily};
+      ${backgroundStyle}
+      color: ${colors.text};
+      width: ${width}px;
+      height: ${height}px;
+      overflow: hidden;
+    }
+    .container {
+      padding: ${padding}px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .brand-bar {
+      display: flex;
+      align-items: center;
+      gap: ${Math.round(8 * scale)}px;
+      margin-bottom: ${Math.round(12 * scale)}px;
+    }
+    .brand-logo { width: ${Math.round(24 * scale)}px; height: ${Math.round(24 * scale)}px; color: ${colors.primary}; }
+    .brand-name { font-size: ${Math.round(12 * scale)}px; font-weight: 600; color: ${colors.primary}; }
+    .header { text-align: center; margin-bottom: ${Math.round(24 * scale)}px; }
+    .main-title { font-size: ${Math.round(32 * scale)}px; font-weight: 700; color: ${colors.primary}; margin-bottom: ${Math.round(8 * scale)}px; }
+    .subtitle { font-size: ${Math.round(14 * scale)}px; color: ${colors.text}; opacity: 0.8; }
+    .funnel-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: ${Math.round(4 * scale)}px;
+    }
+    .funnel-stage {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+      position: relative;
+      clip-path: polygon(5% 0%, 95% 0%, 100% 100%, 0% 100%);
+    }
+    .stage-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 80%;
+      padding: ${Math.round(8 * scale)}px 0;
+    }
+    .stage-title { font-size: ${Math.round(16 * scale)}px; }
+    .stage-value { font-size: ${Math.round(20 * scale)}px; font-weight: 700; }
+    .cta {
+      background: linear-gradient(135deg, ${colors.accent} 0%, ${this.adjustColor(colors.accent, -15)} 100%);
+      color: white;
+      text-align: center;
+      padding: ${Math.round(14 * scale)}px;
+      border-radius: ${Math.round(10 * scale)}px;
+      font-size: ${Math.round(13 * scale)}px;
+      font-weight: 600;
+      margin-top: ${Math.round(16 * scale)}px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="brand-bar">
+      <div class="brand-logo">${DEEPDIVE_LOGO}</div>
+      <span class="brand-name">DeepDive ENGINE</span>
+    </div>
+    <div class="header">
+      <h1 class="main-title">${this.escapeHtml(content.title)}</h1>
+      ${content.subtitle ? `<p class="subtitle">${this.escapeHtml(content.subtitle)}</p>` : ""}
+    </div>
+    <div class="funnel-container">
+      ${stages
+        .map((stage, idx) => {
+          const widthPercent = 100 - idx * 15;
+          const stageHeight = Math.round(
+            (height - padding * 2 - 150) / stages.length,
+          );
+          return `
+          <div class="funnel-stage" style="width: ${widthPercent}%; height: ${stageHeight}px; background: ${stageColors[idx % stageColors.length]};">
+            <div class="stage-content">
+              <span class="stage-title">${this.escapeHtml(stage.title)}</span>
+              ${stage.metrics?.[0] ? `<span class="stage-value">${this.escapeHtml(stage.metrics[0].value)}</span>` : ""}
+            </div>
+          </div>
+        `;
+        })
+        .join("")}
+    </div>
+    ${content.callToAction ? `<div class="cta">${this.escapeHtml(content.callToAction)}</div>` : ""}
+  </div>
+</body>
+</html>`;
+  }
+
+  /**
+   * 矩阵模板 - 2x2 象限分析
+   */
+  generateMatrixHTML(
+    content: InfographicContent,
+    backgroundImageBase64?: string,
+    width: number = 1200,
+    height: number = 800,
+  ): string {
+    const styleKey = content.styleOptions?.style || "consulting";
+    const stylePreset = STYLE_PRESETS[styleKey] || STYLE_PRESETS.consulting;
+    const colors = {
+      primary: content.colorScheme?.primary || stylePreset.colors.primary,
+      accent: content.colorScheme?.accent || stylePreset.colors.accent,
+      background:
+        content.colorScheme?.background || stylePreset.colors.background,
+      text: content.colorScheme?.text || stylePreset.colors.text,
+    };
+    const fontStyle = content.styleOptions?.fontStyle || "sans";
+    const fontFamily = FONT_STYLES[fontStyle] || FONT_STYLES.sans;
+    const isDarkMode = styleKey === "dark";
+    const scale = width / 1200;
+    const padding = Math.round(40 * scale);
+
+    const overlayColor = isDarkMode
+      ? "rgba(15, 23, 42, 0.92)"
+      : "rgba(247, 249, 252, 0.92)";
+    const backgroundStyle = backgroundImageBase64
+      ? `background-image: linear-gradient(${overlayColor}, ${overlayColor}), url(${backgroundImageBase64}); background-size: cover; background-position: center;`
+      : `background: ${colors.background};`;
+
+    const quadrants = content.sections.slice(0, 4);
+    const quadrantColors = [
+      { bg: `${colors.primary}15`, border: colors.primary },
+      { bg: `${colors.accent}15`, border: colors.accent },
+      {
+        bg: `${this.adjustColor(colors.primary, 40)}15`,
+        border: this.adjustColor(colors.primary, 40),
+      },
+      {
+        bg: `${this.adjustColor(colors.accent, 30)}15`,
+        border: this.adjustColor(colors.accent, 30),
+      },
+    ];
+
+    return `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: ${fontFamily};
+      ${backgroundStyle}
+      color: ${colors.text};
+      width: ${width}px;
+      height: ${height}px;
+      overflow: hidden;
+    }
+    .container {
+      padding: ${padding}px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .brand-bar {
+      display: flex;
+      align-items: center;
+      gap: ${Math.round(8 * scale)}px;
+      margin-bottom: ${Math.round(12 * scale)}px;
+    }
+    .brand-logo { width: ${Math.round(24 * scale)}px; height: ${Math.round(24 * scale)}px; color: ${colors.primary}; }
+    .brand-name { font-size: ${Math.round(12 * scale)}px; font-weight: 600; color: ${colors.primary}; }
+    .header { text-align: center; margin-bottom: ${Math.round(20 * scale)}px; }
+    .main-title { font-size: ${Math.round(28 * scale)}px; font-weight: 700; color: ${colors.primary}; margin-bottom: ${Math.round(6 * scale)}px; }
+    .subtitle { font-size: ${Math.round(14 * scale)}px; color: ${colors.text}; opacity: 0.8; }
+    .matrix-container {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: ${Math.round(16 * scale)}px;
+      position: relative;
+    }
+    .quadrant {
+      border-radius: ${Math.round(12 * scale)}px;
+      padding: ${Math.round(20 * scale)}px;
+      display: flex;
+      flex-direction: column;
+    }
+    .quadrant-title {
+      font-size: ${Math.round(18 * scale)}px;
+      font-weight: 700;
+      margin-bottom: ${Math.round(12 * scale)}px;
+      display: flex;
+      align-items: center;
+      gap: ${Math.round(8 * scale)}px;
+    }
+    .quadrant-icon {
+      width: ${Math.round(24 * scale)}px;
+      height: ${Math.round(24 * scale)}px;
+    }
+    .quadrant-bullets {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: ${Math.round(8 * scale)}px;
+    }
+    .quadrant-bullet {
+      font-size: ${Math.round(13 * scale)}px;
+      display: flex;
+      align-items: flex-start;
+      gap: ${Math.round(8 * scale)}px;
+    }
+    .bullet-dot {
+      width: ${Math.round(6 * scale)}px;
+      height: ${Math.round(6 * scale)}px;
+      border-radius: 50%;
+      margin-top: ${Math.round(6 * scale)}px;
+      flex-shrink: 0;
+    }
+    .axis-label {
+      position: absolute;
+      font-size: ${Math.round(12 * scale)}px;
+      font-weight: 600;
+      color: ${colors.text};
+      opacity: 0.6;
+    }
+    .axis-x { bottom: -${Math.round(20 * scale)}px; left: 50%; transform: translateX(-50%); }
+    .axis-y { left: -${Math.round(30 * scale)}px; top: 50%; transform: rotate(-90deg) translateX(-50%); transform-origin: left center; }
+    .cta {
+      background: linear-gradient(135deg, ${colors.accent} 0%, ${this.adjustColor(colors.accent, -15)} 100%);
+      color: white;
+      text-align: center;
+      padding: ${Math.round(12 * scale)}px;
+      border-radius: ${Math.round(10 * scale)}px;
+      font-size: ${Math.round(13 * scale)}px;
+      font-weight: 600;
+      margin-top: ${Math.round(16 * scale)}px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="brand-bar">
+      <div class="brand-logo">${DEEPDIVE_LOGO}</div>
+      <span class="brand-name">DeepDive ENGINE</span>
+    </div>
+    <div class="header">
+      <h1 class="main-title">${this.escapeHtml(content.title)}</h1>
+      ${content.subtitle ? `<p class="subtitle">${this.escapeHtml(content.subtitle)}</p>` : ""}
+    </div>
+    <div class="matrix-container">
+      ${quadrants
+        .map(
+          (q, idx) => `
+        <div class="quadrant" style="background: ${quadrantColors[idx].bg}; border: 2px solid ${quadrantColors[idx].border};">
+          <div class="quadrant-title" style="color: ${quadrantColors[idx].border};">
+            <span class="quadrant-icon">${this.getIcon(q.iconType)}</span>
+            ${this.escapeHtml(q.title)}
+          </div>
+          <ul class="quadrant-bullets">
+            ${(q.bullets || [])
+              .slice(0, 3)
+              .map(
+                (b) => `
+              <li class="quadrant-bullet">
+                <span class="bullet-dot" style="background: ${quadrantColors[idx].border};"></span>
+                <span>${this.escapeHtml(b)}</span>
+              </li>
+            `,
+              )
+              .join("")}
+          </ul>
+        </div>
+      `,
+        )
+        .join("")}
+    </div>
+    ${content.callToAction ? `<div class="cta">${this.escapeHtml(content.callToAction)}</div>` : ""}
+  </div>
+</body>
+</html>`;
+  }
+
   async generateInfographic(
     content: InfographicContent,
     options?: {
@@ -1931,6 +2636,38 @@ export class InfographicTemplateService {
         break;
       case "comparison":
         html = this.generateComparisonHTML(
+          content,
+          options?.backgroundImageBase64,
+          width,
+          height,
+        );
+        break;
+      case "statistics":
+        html = this.generateStatisticsHTML(
+          content,
+          options?.backgroundImageBase64,
+          width,
+          height,
+        );
+        break;
+      case "checklist":
+        html = this.generateChecklistHTML(
+          content,
+          options?.backgroundImageBase64,
+          width,
+          height,
+        );
+        break;
+      case "funnel":
+        html = this.generateFunnelHTML(
+          content,
+          options?.backgroundImageBase64,
+          width,
+          height,
+        );
+        break;
+      case "matrix":
+        html = this.generateMatrixHTML(
           content,
           options?.backgroundImageBase64,
           width,
