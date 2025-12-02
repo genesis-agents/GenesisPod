@@ -408,6 +408,7 @@ export class InfographicTemplateService {
       height: 100%;
       display: flex;
       flex-direction: column;
+      justify-content: center;
       box-sizing: border-box;
     }
 
