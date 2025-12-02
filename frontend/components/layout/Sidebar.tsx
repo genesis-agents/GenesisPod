@@ -12,6 +12,8 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ className = '' }: SidebarProps) {
+  // 手动锁定展开状态
+  const [isLocked, setIsLocked] = useState(false);
   // 悬停展开
   const [isHovered, setIsHovered] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -21,8 +23,8 @@ export default function Sidebar({ className = '' }: SidebarProps) {
   );
   const { isAdmin } = useAuth();
 
-  // 悬停时展开
-  const showExpanded = isHovered;
+  // 锁定时始终展开，否则悬停时展开
+  const showExpanded = isLocked || isHovered;
 
   // 处理鼠标进入
   const handleMouseEnter = () => {
@@ -56,6 +58,32 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       onMouseLeave={handleMouseLeave}
       className={`${showExpanded ? 'w-52' : 'w-16'} relative z-40 flex flex-col border-r border-gray-200 bg-white transition-all duration-300 ${className}`}
     >
+      {/* Collapse/Expand Button - Vertically Centered */}
+      <button
+        onClick={() => setIsLocked(!isLocked)}
+        className="group absolute -right-4 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg bg-gradient-to-br from-blue-50 to-purple-50 shadow-sm ring-1 ring-gray-200/50 transition-all duration-200 hover:shadow-md hover:ring-blue-300/50"
+        title={
+          isLocked
+            ? 'Unlock sidebar (auto-collapse)'
+            : 'Lock sidebar (stay expanded)'
+        }
+      >
+        <svg
+          className={`h-4 w-4 text-gray-600 transition-all duration-200 group-hover:text-blue-600 ${!showExpanded ? 'rotate-180' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2.5}
+            d="M15 19l-7-7 7-7"
+          />
+        </svg>
+        <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-blue-400/0 to-purple-400/0 opacity-0 transition-opacity duration-200 group-hover:from-blue-400/10 group-hover:to-purple-400/10 group-hover:opacity-100" />
+      </button>
+
       {/* Header */}
       <div
         className={`flex items-center p-4 ${!showExpanded ? 'justify-center' : ''}`}
