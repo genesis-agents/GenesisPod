@@ -3,8 +3,9 @@ import {
   S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
-  HeadObjectCommand,
+  GetObjectCommand,
 } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { ConfigService } from "@nestjs/config";
 import * as crypto from "crypto";
 
@@ -18,34 +19,28 @@ export interface UploadResult {
 /**
  * 对象存储服务（支持 Backblaze B2 / Cloudflare R2）
  *
- * 两者都兼容 S3 API，使用 AWS SDK
+ * 使用私有 Bucket + 预签名 URL，完全免费无需信用卡
  *
- * Backblaze B2 免费额度（无需信用卡）：
+ * Backblaze B2 免费额度：
  * - 10GB 存储
  * - 1GB/天 出站流量
- *
- * Cloudflare R2 免费额度（需信用卡）：
- * - 10GB 存储
- * - 无限出站流量
+ * - 私有 Bucket 免费
  */
 @Injectable()
 export class R2StorageService implements OnModuleInit {
   private readonly logger = new Logger(R2StorageService.name);
   private s3Client: S3Client | null = null;
   private bucketName: string;
-  private publicUrl: string;
   private isConfigured = false;
   private provider: "b2" | "r2" | "none" = "none";
+  // 预签名 URL 有效期（秒）- 7天
+  private readonly PRESIGN_EXPIRES = 7 * 24 * 60 * 60;
 
   constructor(private readonly configService: ConfigService) {
     this.bucketName =
       this.configService.get<string>("B2_BUCKET_NAME") ||
       this.configService.get<string>("R2_BUCKET_NAME") ||
       "deepdive-images";
-    this.publicUrl =
-      this.configService.get<string>("B2_PUBLIC_URL") ||
-      this.configService.get<string>("R2_PUBLIC_URL") ||
-      "";
   }
 
   onModuleInit() {
@@ -55,9 +50,13 @@ export class R2StorageService implements OnModuleInit {
     const b2Endpoint = this.configService.get<string>("B2_ENDPOINT");
 
     if (b2KeyId && b2AppKey && b2Endpoint) {
+      // 从 endpoint 提取 region（如 s3.us-west-004.backblazeb2.com -> us-west-004）
+      const regionMatch = b2Endpoint.match(/s3\.([^.]+)\.backblazeb2\.com/);
+      const region = regionMatch ? regionMatch[1] : "us-west-004";
+
       this.s3Client = new S3Client({
-        region: "us-west-004", // B2 区域，从 endpoint 获取
-        endpoint: b2Endpoint, // 如: https://s3.us-west-004.backblazeb2.com
+        region,
+        endpoint: b2Endpoint,
         credentials: {
           accessKeyId: b2KeyId,
           secretAccessKey: b2AppKey,
@@ -65,7 +64,9 @@ export class R2StorageService implements OnModuleInit {
       });
       this.isConfigured = true;
       this.provider = "b2";
-      this.logger.log("Backblaze B2 Storage configured successfully");
+      this.logger.log(
+        `Backblaze B2 Storage configured (bucket: ${this.bucketName}, region: ${region})`,
+      );
       return;
     }
 
@@ -111,11 +112,11 @@ export class R2StorageService implements OnModuleInit {
   }
 
   /**
-   * 上传 base64 图片到 R2
+   * 上传 base64 图片并返回预签名 URL
    *
    * @param base64Data - 完整的 data:image/xxx;base64,xxx 字符串
    * @param prefix - 文件前缀，用于组织目录结构
-   * @returns 上传结果，包含公开 URL
+   * @returns 上传结果，包含预签名 URL（有效期7天）
    */
   async uploadBase64Image(
     base64Data: string,
@@ -124,7 +125,7 @@ export class R2StorageService implements OnModuleInit {
     if (!this.isConfigured || !this.s3Client) {
       return {
         success: false,
-        error: "R2 Storage not configured",
+        error: "Object Storage not configured",
       };
     }
 
@@ -153,25 +154,25 @@ export class R2StorageService implements OnModuleInit {
       const timestamp = Date.now();
       const key = `${prefix}/${timestamp}-${hash}.${imageType}`;
 
-      // 上传到 R2
-      const command = new PutObjectCommand({
+      // 上传到存储
+      const putCommand = new PutObjectCommand({
         Bucket: this.bucketName,
         Key: key,
         Body: buffer,
         ContentType: `image/${imageType}`,
-        // R2 支持的元数据
         Metadata: {
           "uploaded-at": new Date().toISOString(),
           "original-size": buffer.length.toString(),
         },
       });
 
-      await this.s3Client.send(command);
+      await this.s3Client.send(putCommand);
 
-      const url = `${this.publicUrl}/${key}`;
+      // 生成预签名 URL（有效期7天）
+      const url = await this.getPresignedUrl(key);
 
       this.logger.log(
-        `Uploaded image to R2: ${key} (${Math.round(buffer.length / 1024)}KB)`,
+        `Uploaded image: ${key} (${Math.round(buffer.length / 1024)}KB) - URL valid for 7 days`,
       );
 
       return {
@@ -180,11 +181,48 @@ export class R2StorageService implements OnModuleInit {
         key,
       };
     } catch (error) {
-      this.logger.error("Failed to upload to R2:", error);
+      this.logger.error("Failed to upload:", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Upload failed",
       };
+    }
+  }
+
+  /**
+   * 获取图片的预签名 URL
+   * 用于私有 Bucket 的临时访问
+   */
+  async getPresignedUrl(key: string): Promise<string> {
+    if (!this.s3Client) {
+      throw new Error("Storage not configured");
+    }
+
+    const command = new GetObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+    });
+
+    return getSignedUrl(this.s3Client, command, {
+      expiresIn: this.PRESIGN_EXPIRES,
+    });
+  }
+
+  /**
+   * 刷新图片 URL（当旧 URL 即将过期时调用）
+   * 从数据库中的 key 生成新的预签名 URL
+   */
+  async refreshImageUrl(oldUrl: string): Promise<string | null> {
+    const key = this.extractKeyFromUrl(oldUrl);
+    if (!key) {
+      return null;
+    }
+
+    try {
+      return await this.getPresignedUrl(key);
+    } catch (error) {
+      this.logger.error(`Failed to refresh URL for key: ${key}`, error);
+      return null;
     }
   }
 
@@ -203,43 +241,32 @@ export class R2StorageService implements OnModuleInit {
       });
 
       await this.s3Client.send(command);
-      this.logger.log(`Deleted image from R2: ${key}`);
+      this.logger.log(`Deleted image: ${key}`);
       return true;
     } catch (error) {
-      this.logger.error(`Failed to delete from R2: ${key}`, error);
+      this.logger.error(`Failed to delete: ${key}`, error);
       return false;
     }
   }
 
   /**
-   * 检查图片是否存在
-   */
-  async imageExists(key: string): Promise<boolean> {
-    if (!this.isConfigured || !this.s3Client) {
-      return false;
-    }
-
-    try {
-      const command = new HeadObjectCommand({
-        Bucket: this.bucketName,
-        Key: key,
-      });
-
-      await this.s3Client.send(command);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * 从 URL 中提取 R2 key
+   * 从预签名 URL 中提取 key
+   * URL 格式: https://xxx.backblazeb2.com/bucket/prefix/timestamp-hash.png?签名参数
    */
   extractKeyFromUrl(url: string): string | null {
-    if (!url.startsWith(this.publicUrl)) {
+    try {
+      const urlObj = new URL(url);
+      // 移除开头的 /bucket-name/
+      const path = urlObj.pathname;
+      const bucketPrefix = `/${this.bucketName}/`;
+      if (path.startsWith(bucketPrefix)) {
+        return path.slice(bucketPrefix.length);
+      }
+      // 有些 URL 格式可能不同，尝试直接返回路径
+      return path.startsWith("/") ? path.slice(1) : path;
+    } catch {
       return null;
     }
-    return url.replace(`${this.publicUrl}/`, "");
   }
 
   /**
