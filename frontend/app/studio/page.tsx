@@ -559,7 +559,7 @@ export default function StudioPage() {
   };
 
   return (
-    <div className="flex h-full flex-col overflow-auto bg-gray-50">
+    <div className="h-full overflow-auto bg-gray-50">
       {/* Header */}
       <div className="sticky top-0 z-10 border-b border-gray-200 bg-white/80 backdrop-blur-sm">
         <div className="mx-auto max-w-7xl px-6 py-8">
