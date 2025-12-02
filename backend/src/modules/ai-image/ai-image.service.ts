@@ -514,8 +514,14 @@ export class AiImageService {
         validTemplateLayouts.includes(templateLayoutRaw as TemplateLayoutType)
       ) {
         insights.templateLayout = templateLayoutRaw as TemplateLayoutType;
+        this.logger.log(
+          `[parsePromptEngineeringResponse] AI selected template: ${templateLayoutRaw}`,
+        );
       } else {
         insights.templateLayout = "cards";
+        this.logger.warn(
+          `[parsePromptEngineeringResponse] Invalid or missing template_layout: "${templateLayoutRaw}", using default "cards"`,
+        );
       }
 
       // 解析内容分析
