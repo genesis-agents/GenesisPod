@@ -1972,39 +1972,99 @@ export default function ImageGenerator({
 
           {/* Input Area */}
           <div className={`flex-shrink-0 ${selectedImage ? '' : ''}`}>
-            {/* Control Bar */}
-            <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-gray-50 px-3 py-2">
-              {/* Model Selector */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-gray-500">Model:</span>
-                {isLoadingModels ? (
-                  <div className="h-6 w-24 animate-pulse rounded bg-gray-200" />
-                ) : models.imageModels.length > 0 ? (
+            {/* Control Bar - Two Rows */}
+            <div className="border-b border-gray-200 bg-gray-50 px-3 py-2">
+              {/* Row 1: Model, Template, Skip AI, Refresh */}
+              <div className="flex items-center gap-2">
+                {/* Model Selector */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-gray-500">Model:</span>
+                  {isLoadingModels ? (
+                    <div className="h-6 w-20 animate-pulse rounded bg-gray-200" />
+                  ) : models.imageModels.length > 0 ? (
+                    <select
+                      value={selectedImageModelId}
+                      onChange={(e) => setSelectedImageModelId(e.target.value)}
+                      className="rounded border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] text-gray-700 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                      disabled={isGenerating}
+                    >
+                      {models.imageModels.map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="text-[10px] text-yellow-600">
+                      No models
+                    </span>
+                  )}
+                </div>
+
+                {/* Template Layout Selector */}
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] text-gray-500">Layout:</span>
                   <select
-                    value={selectedImageModelId}
-                    onChange={(e) => setSelectedImageModelId(e.target.value)}
-                    className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    value={templateLayout}
+                    onChange={(e) =>
+                      setTemplateLayout(e.target.value as typeof templateLayout)
+                    }
+                    className="rounded border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] text-gray-700 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
                     disabled={isGenerating}
+                    title="Template layout (Auto = AI decides)"
                   >
-                    {models.imageModels.map((model) => (
-                      <option key={model.id} value={model.id}>
-                        {model.name}
-                      </option>
-                    ))}
+                    <option value="auto">Auto</option>
+                    <option value="cards">Cards</option>
+                    <option value="center_visual">Center</option>
+                    <option value="timeline">Timeline</option>
+                    <option value="comparison">Compare</option>
                   </select>
-                ) : (
-                  <span className="text-xs text-yellow-600">No models</span>
-                )}
+                </div>
+
+                {/* Skip Enhancement */}
+                <label className="flex cursor-pointer items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={skipEnhancement}
+                    onChange={(e) => setSkipEnhancement(e.target.checked)}
+                    className="h-3 w-3 rounded border-gray-300 text-purple-500 focus:ring-purple-500"
+                    disabled={isGenerating}
+                  />
+                  <span className="text-[10px] text-gray-500">Skip AI</span>
+                </label>
+
+                {/* Refresh Models */}
+                <button
+                  onClick={fetchModels}
+                  disabled={isLoadingModels}
+                  className="ml-auto rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+                  title="Refresh models"
+                >
+                  <svg
+                    className={`h-3.5 w-3.5 ${isLoadingModels ? 'animate-spin' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                </button>
               </div>
 
-              {/* Aspect Ratio */}
-              <div className="flex items-center gap-1">
+              {/* Row 2: Aspect Ratio */}
+              <div className="mt-2 flex items-center gap-1">
+                <span className="text-[10px] text-gray-500">Ratio:</span>
                 {(['1:1', '16:9', '9:16', '4:3'] as const).map((ratio) => (
                   <button
                     key={ratio}
                     onClick={() => setAspectRatio(ratio)}
                     disabled={isGenerating}
-                    className={`rounded-md px-1.5 py-0.5 text-[10px] transition-all ${
+                    className={`rounded-md px-2 py-0.5 text-[10px] transition-all ${
                       aspectRatio === ratio
                         ? 'bg-purple-600 text-white shadow-sm'
                         : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
@@ -2014,59 +2074,6 @@ export default function ImageGenerator({
                   </button>
                 ))}
               </div>
-
-              {/* Skip Enhancement */}
-              <label className="flex cursor-pointer items-center gap-1">
-                <input
-                  type="checkbox"
-                  checked={skipEnhancement}
-                  onChange={(e) => setSkipEnhancement(e.target.checked)}
-                  className="h-3 w-3 rounded border-gray-300 text-purple-500 focus:ring-purple-500"
-                  disabled={isGenerating}
-                />
-                <span className="text-[10px] text-gray-500">Skip AI</span>
-              </label>
-
-              {/* Template Layout Selector */}
-              <div className="flex items-center gap-1">
-                <select
-                  value={templateLayout}
-                  onChange={(e) =>
-                    setTemplateLayout(e.target.value as typeof templateLayout)
-                  }
-                  className="rounded border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] text-gray-700 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                  disabled={isGenerating}
-                  title="Template layout (Auto = AI decides)"
-                >
-                  <option value="auto">Auto</option>
-                  <option value="cards">Cards</option>
-                  <option value="center_visual">Center</option>
-                  <option value="timeline">Timeline</option>
-                  <option value="comparison">Compare</option>
-                </select>
-              </div>
-
-              {/* Refresh Models */}
-              <button
-                onClick={fetchModels}
-                disabled={isLoadingModels}
-                className="ml-auto rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
-                title="Refresh models"
-              >
-                <svg
-                  className={`h-3.5 w-3.5 ${isLoadingModels ? 'animate-spin' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                  />
-                </svg>
-              </button>
             </div>
 
             {/* Source Pool */}
