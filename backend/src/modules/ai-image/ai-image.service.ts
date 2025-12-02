@@ -788,6 +788,58 @@ export class AiImageService {
     insights: PromptEngineeringInsights,
     style?: string,
   ): { prompt: string; negativeCandidates: string[] } {
+    // ============================================================
+    // ai_image 模式：纯图片生成，不添加信息图关键词
+    // ============================================================
+    if (insights.renderingMode === "ai_image") {
+      this.logger.log(
+        `[composeFinalImagePrompt] ai_image mode - using pure image prompt without infographic keywords`,
+      );
+
+      // 直接使用 AI 生成的 imagePrompt，不添加信息图关键词
+      let pureImagePrompt = insights.imagePrompt.trim();
+
+      // 如果 imagePrompt 为空或太短，使用标题作为基础
+      if (!pureImagePrompt || pureImagePrompt.length < 10) {
+        const title = insights.informationArchitecture?.title || "";
+        pureImagePrompt = title || "A beautiful artistic image";
+      }
+
+      // 添加用户指定的风格
+      const finalPrompt = this.addStyleToPrompt(pureImagePrompt, style);
+
+      // ai_image 模式的负面关键词：避免文字和信息图元素
+      const aiImageNegatives = [
+        "text",
+        "words",
+        "letters",
+        "typography",
+        "infographic",
+        "chart",
+        "diagram",
+        "graph",
+        "data visualization",
+        "bullet points",
+        "numbered list",
+        "icons",
+        "watermark",
+        "logo",
+        "signature",
+        "blurry",
+        "low quality",
+        "distorted",
+        "deformed",
+      ];
+
+      return {
+        prompt: finalPrompt,
+        negativeCandidates: aiImageNegatives,
+      };
+    }
+
+    // ============================================================
+    // hybrid/html_render 模式：信息图生成
+    // ============================================================
     const info = insights.informationArchitecture;
     const visual = insights.visualLanguage;
 
