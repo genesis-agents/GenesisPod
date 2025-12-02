@@ -1009,6 +1009,7 @@ export class InfographicTemplateService {
       height: 100%;
       display: flex;
       flex-direction: column;
+      justify-content: space-evenly;
     }
 
     /* 品牌栏 */
@@ -1319,13 +1320,13 @@ export class InfographicTemplateService {
       height: 100%;
       display: flex;
       flex-direction: column;
+      justify-content: space-evenly;
     }
 
     .brand-bar {
       display: flex;
       align-items: center;
       gap: ${Math.round(8 * scale)}px;
-      margin-bottom: ${Math.round(12 * scale)}px;
     }
 
     .brand-logo {
@@ -1345,7 +1346,6 @@ export class InfographicTemplateService {
       color: white;
       padding: ${Math.round(24 * scale)}px ${Math.round(32 * scale)}px;
       border-radius: ${Math.round(12 * scale)}px;
-      margin-bottom: ${Math.round(24 * scale)}px;
       text-align: center;
     }
 
@@ -1613,13 +1613,13 @@ export class InfographicTemplateService {
       height: 100%;
       display: flex;
       flex-direction: column;
+      justify-content: space-evenly;
     }
 
     .brand-bar {
       display: flex;
       align-items: center;
       gap: ${Math.round(8 * scale)}px;
-      margin-bottom: ${Math.round(12 * scale)}px;
     }
 
     .brand-logo {
@@ -1636,7 +1636,6 @@ export class InfographicTemplateService {
 
     .header {
       text-align: center;
-      margin-bottom: ${Math.round(24 * scale)}px;
     }
 
     .main-title {
@@ -1653,11 +1652,9 @@ export class InfographicTemplateService {
     }
 
     .comparison-container {
-      flex: 1;
       display: flex;
       ${isVertical ? "flex-direction: column;" : "flex-direction: row;"}
       gap: ${Math.round(24 * scale)}px;
-      min-height: 0;
     }
 
     .comparison-side {
@@ -1952,18 +1949,17 @@ export class InfographicTemplateService {
       height: 100%;
       display: flex;
       flex-direction: column;
+      justify-content: space-evenly;
     }
     .brand-bar {
       display: flex;
       align-items: center;
       gap: ${Math.round(8 * scale)}px;
-      margin-bottom: ${Math.round(12 * scale)}px;
     }
     .brand-logo { width: ${Math.round(24 * scale)}px; height: ${Math.round(24 * scale)}px; color: ${colors.primary}; }
     .brand-name { font-size: ${Math.round(12 * scale)}px; font-weight: 600; color: ${colors.primary}; }
     .header {
       text-align: center;
-      margin-bottom: ${Math.round(32 * scale)}px;
     }
     .main-title {
       font-size: ${Math.round(36 * scale)}px;
@@ -1973,7 +1969,6 @@ export class InfographicTemplateService {
     }
     .subtitle { font-size: ${Math.round(16 * scale)}px; color: ${colors.text}; opacity: 0.8; }
     .stats-grid {
-      flex: 1;
       display: flex;
       flex-direction: column;
       gap: ${Math.round(24 * scale)}px;
@@ -2152,12 +2147,12 @@ export class InfographicTemplateService {
       height: 100%;
       display: flex;
       flex-direction: column;
+      justify-content: space-evenly;
     }
     .brand-bar {
       display: flex;
       align-items: center;
       gap: ${Math.round(8 * scale)}px;
-      margin-bottom: ${Math.round(12 * scale)}px;
     }
     .brand-logo { width: ${Math.round(24 * scale)}px; height: ${Math.round(24 * scale)}px; color: ${colors.primary}; }
     .brand-name { font-size: ${Math.round(12 * scale)}px; font-weight: 600; color: ${colors.primary}; }
@@ -2166,13 +2161,11 @@ export class InfographicTemplateService {
       color: white;
       padding: ${Math.round(24 * scale)}px;
       border-radius: ${Math.round(12 * scale)}px;
-      margin-bottom: ${Math.round(24 * scale)}px;
       text-align: center;
     }
     .main-title { font-size: ${Math.round(28 * scale)}px; font-weight: 700; margin-bottom: ${Math.round(6 * scale)}px; }
     .subtitle { font-size: ${Math.round(14 * scale)}px; opacity: 0.9; }
     .checklist-container {
-      flex: 1;
       display: grid;
       grid-template-columns: repeat(${numColumns}, 1fr);
       gap: ${Math.round(20 * scale)}px;
@@ -2323,20 +2316,19 @@ export class InfographicTemplateService {
       height: 100%;
       display: flex;
       flex-direction: column;
+      justify-content: space-evenly;
     }
     .brand-bar {
       display: flex;
       align-items: center;
       gap: ${Math.round(8 * scale)}px;
-      margin-bottom: ${Math.round(12 * scale)}px;
     }
     .brand-logo { width: ${Math.round(24 * scale)}px; height: ${Math.round(24 * scale)}px; color: ${colors.primary}; }
     .brand-name { font-size: ${Math.round(12 * scale)}px; font-weight: 600; color: ${colors.primary}; }
-    .header { text-align: center; margin-bottom: ${Math.round(24 * scale)}px; }
+    .header { text-align: center; }
     .main-title { font-size: ${Math.round(32 * scale)}px; font-weight: 700; color: ${colors.primary}; margin-bottom: ${Math.round(8 * scale)}px; }
     .subtitle { font-size: ${Math.round(14 * scale)}px; color: ${colors.text}; opacity: 0.8; }
     .funnel-container {
-      flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -2473,20 +2465,19 @@ export class InfographicTemplateService {
       height: 100%;
       display: flex;
       flex-direction: column;
+      justify-content: space-evenly;
     }
     .brand-bar {
       display: flex;
       align-items: center;
       gap: ${Math.round(8 * scale)}px;
-      margin-bottom: ${Math.round(12 * scale)}px;
     }
     .brand-logo { width: ${Math.round(24 * scale)}px; height: ${Math.round(24 * scale)}px; color: ${colors.primary}; }
     .brand-name { font-size: ${Math.round(12 * scale)}px; font-weight: 600; color: ${colors.primary}; }
-    .header { text-align: center; margin-bottom: ${Math.round(20 * scale)}px; }
+    .header { text-align: center; }
     .main-title { font-size: ${Math.round(28 * scale)}px; font-weight: 700; color: ${colors.primary}; margin-bottom: ${Math.round(6 * scale)}px; }
     .subtitle { font-size: ${Math.round(14 * scale)}px; color: ${colors.text}; opacity: 0.8; }
     .matrix-container {
-      flex: 1;
       display: grid;
       grid-template-columns: 1fr 1fr;
       grid-template-rows: 1fr 1fr;
