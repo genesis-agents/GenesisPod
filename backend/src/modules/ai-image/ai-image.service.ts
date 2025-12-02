@@ -4143,4 +4143,13 @@ Generate the edited version of this image now.`;
       })),
     };
   }
+
+  /**
+   * 删除所有图片（管理员功能）
+   */
+  async deleteAllImages(): Promise<number> {
+    const result = await this.prisma.generatedImage.deleteMany({});
+    this.logger.log(`Admin deleted all ${result.count} images`);
+    return result.count;
+  }
 }
