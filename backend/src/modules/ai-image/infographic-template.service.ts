@@ -485,14 +485,12 @@ export class InfographicTemplateService {
       max-width: ${isWideScreen ? "100%" : "80%"};
     }
 
-    /* 主内容区 - 并排等高卡片 */
+    /* 主内容区 - 并排卡片，按内容高度 */
     .main-cards {
       display: grid;
       grid-template-columns: repeat(${numColumns}, 1fr);
       gap: ${Math.round((isWideScreen ? 16 : 24) * scale)}px;
-      flex: 1;
-      min-height: 0;
-      align-items: stretch;
+      align-items: start;
     }
 
     /* Section 卡片 - 等高 */
