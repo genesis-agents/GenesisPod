@@ -10,6 +10,7 @@ import {
   Bot,
   Plug,
   Shield,
+  HardDrive,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -71,6 +72,13 @@ export default function DataCollectionLayout({
       href: '/data-collection/history',
       icon: History,
       description: 'Task execution history',
+    },
+    // 存储管理
+    {
+      name: 'Storage',
+      href: '/data-collection/storage',
+      icon: HardDrive,
+      description: 'Railway storage management',
     },
   ];
 

@@ -418,7 +418,7 @@ function ProjectCard({
   return (
     <div
       onClick={onClick}
-      className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 transition-all hover:border-purple-300 hover:shadow-lg"
+      className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 transition-all hover:border-amber-300 hover:shadow-lg"
     >
       {/* Menu Button */}
       <button
