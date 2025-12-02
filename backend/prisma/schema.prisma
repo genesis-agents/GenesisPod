@@ -63,20 +63,23 @@ model User {
   workspaces    Workspace[]
 
   // AI Group 相关
-  createdTopics       Topic[]                 @relation("TopicCreator")
-  topicMemberships    TopicMember[]           @relation("TopicMemberships")
-  topicMessages       TopicMessage[]          @relation("TopicMessageSender")
-  topicReactions      TopicMessageReaction[]  @relation("TopicReactionUser")
-  addedAIMembers      TopicAIMember[]         @relation("TopicAIAdder")
-  topicResources      TopicResource[]         @relation("TopicResourceAdder")
-  topicSummaries      TopicSummary[]          @relation("TopicSummaryCreator")
-  topicMentions       TopicMessageMention[]   @relation("TopicMentionUser")
+  createdTopics    Topic[]                @relation("TopicCreator")
+  topicMemberships TopicMember[]          @relation("TopicMemberships")
+  topicMessages    TopicMessage[]         @relation("TopicMessageSender")
+  topicReactions   TopicMessageReaction[] @relation("TopicReactionUser")
+  addedAIMembers   TopicAIMember[]        @relation("TopicAIAdder")
+  topicResources   TopicResource[]        @relation("TopicResourceAdder")
+  topicSummaries   TopicSummary[]         @relation("TopicSummaryCreator")
+  topicMentions    TopicMessageMention[]  @relation("TopicMentionUser")
 
   // AI Studio 研究项目
-  researchProjects    ResearchProject[]
+  researchProjects ResearchProject[]
 
   // AI Image 生成
-  generatedImages     GeneratedImage[]
+  generatedImages GeneratedImage[]
+
+  // AI Office 文档
+  officeDocuments OfficeDocument[]
 
   @@map("users")
 }
@@ -218,6 +221,9 @@ model Resource {
 
   // Raw data collection (replaces MongoDB)
   rawDataRecords RawData[]
+
+  // AI Office 文档引用
+  officeDocumentRefs OfficeDocumentResourceRef[]
 
   @@index([type, publishedAt(sort: Desc)])
   @@index([qualityScore(sort: Desc)])
@@ -517,10 +523,11 @@ model Workspace {
   createdAt DateTime        @default(now()) @map("created_at")
   updatedAt DateTime        @updatedAt @map("updated_at")
 
-  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  resources WorkspaceResource[]
-  tasks     WorkspaceTask[]
-  reports   Report[]
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resources       WorkspaceResource[]
+  tasks           WorkspaceTask[]
+  reports         Report[]
+  officeDocuments OfficeDocument[]
 
   @@index([userId])
   @@map("workspaces")
@@ -1036,7 +1043,7 @@ model DataSource {
   keywords        String[] // ["AI", "Machine Learning"]
   categories      String[] // ["cs.AI", "cs.LG"]
   languages       Json? // ["en", "zh"]
-  minQualityScore Float @default(0) @map("min_quality_score")
+  minQualityScore Float    @default(0) @map("min_quality_score")
 
   // 去重配置
   deduplicationConfig Json? @map("deduplication_config") // {methods, thresholds}
@@ -1127,8 +1134,8 @@ model CollectionTask {
   nextRunAt   DateTime? @map("next_run_at")
 
   // 错误信息
-  errorMessage String? @db.Text @map("error_message")
-  errorStack   String? @db.Text @map("error_stack")
+  errorMessage String? @map("error_message") @db.Text
+  errorStack   String? @map("error_stack") @db.Text
   warnings     Json? // ["warning1", "warning2"]
 
   // 结果数据
@@ -1239,32 +1246,32 @@ enum MentionType {
 
 // AI能力类型枚举
 enum AICapability {
-  TEXT_GENERATION      // 文本生成
-  CODE_GENERATION      // 代码生成
-  CODE_REVIEW          // 代码审查
-  IMAGE_GENERATION     // 图片生成
-  IMAGE_ANALYSIS       // 图片分析
-  WEB_SEARCH           // 网络搜索
-  URL_FETCH            // URL抓取
-  DOCUMENT_ANALYSIS    // 文档分析
-  REASONING            // 深度推理
-  MATH                 // 数学计算
-  TRANSLATION          // 翻译
-  SUMMARIZATION        // 摘要生成
+  TEXT_GENERATION // 文本生成
+  CODE_GENERATION // 代码生成
+  CODE_REVIEW // 代码审查
+  IMAGE_GENERATION // 图片生成
+  IMAGE_ANALYSIS // 图片分析
+  WEB_SEARCH // 网络搜索
+  URL_FETCH // URL抓取
+  DOCUMENT_ANALYSIS // 文档分析
+  REASONING // 深度推理
+  MATH // 数学计算
+  TRANSLATION // 翻译
+  SUMMARIZATION // 摘要生成
 }
 
 // 消息转发目标类型
 enum ForwardTargetType {
-  TOPIC              // 转发到其他Topic
-  USER               // 私信转发给用户
-  EXTERNAL           // 导出为文件
+  TOPIC // 转发到其他Topic
+  USER // 私信转发给用户
+  EXTERNAL // 导出为文件
 }
 
 // 消息合并模式
 enum MergeMode {
-  SEPARATE           // 保持原样，分别发送
-  MERGED             // 合并为一条消息
-  SUMMARY            // AI生成摘要后转发
+  SEPARATE // 保持原样，分别发送
+  MERGED // 合并为一条消息
+  SUMMARY // AI生成摘要后转发
 }
 
 enum AttachmentType {
@@ -1339,9 +1346,9 @@ model TopicAIMember {
   topicId String @map("topic_id")
   topic   Topic  @relation(fields: [topicId], references: [id], onDelete: Cascade)
 
-  aiModel       String  @map("ai_model") @db.VarChar(50) // grok, gpt-4, claude, gemini
-  displayName   String  @map("display_name") @db.VarChar(100) // 显示名称，如 "AI-Grok"
-  avatar        String? @db.Text
+  aiModel         String  @map("ai_model") @db.VarChar(50) // grok, gpt-4, claude, gemini
+  displayName     String  @map("display_name") @db.VarChar(100) // 显示名称，如 "AI-Grok"
+  avatar          String? @db.Text
   roleDescription String? @map("role_description") @db.VarChar(200) // 角色描述，如 "技术专家"
 
   systemPrompt  String? @map("system_prompt") @db.Text // 系统提示词
@@ -1351,8 +1358,8 @@ model TopicAIMember {
 
   // AI能力配置（新增）
   capabilities       AICapability[] // AI能力列表
-  canMentionOtherAI  Boolean @default(false) @map("can_mention_other_ai") // 是否可以@其他AI
-  collaborationStyle String? @map("collaboration_style") @db.VarChar(50) // independent, collaborative, supportive
+  canMentionOtherAI  Boolean        @default(false) @map("can_mention_other_ai") // 是否可以@其他AI
+  collaborationStyle String?        @map("collaboration_style") @db.VarChar(50) // independent, collaborative, supportive
 
   addedById String @map("added_by_id")
   addedBy   User   @relation("TopicAIAdder", fields: [addedById], references: [id])
@@ -1727,15 +1734,15 @@ model ResearchProjectChat {
 
 // 项目生成产出
 enum OutputType {
-  STUDY_GUIDE      // 学习指南
-  BRIEFING_DOC     // 简报文档
-  FAQ              // 常见问题
-  TIMELINE         // 时间线
-  AUDIO_OVERVIEW   // 音频概述
-  TREND_REPORT     // 趋势报告
-  COMPARISON       // 对比分析
-  KNOWLEDGE_GRAPH  // 知识图谱
-  CUSTOM           // 自定义
+  STUDY_GUIDE // 学习指南
+  BRIEFING_DOC // 简报文档
+  FAQ // 常见问题
+  TIMELINE // 时间线
+  AUDIO_OVERVIEW // 音频概述
+  TREND_REPORT // 趋势报告
+  COMPARISON // 对比分析
+  KNOWLEDGE_GRAPH // 知识图谱
+  CUSTOM // 自定义
 }
 
 enum OutputStatus {
@@ -1750,7 +1757,7 @@ model ResearchProjectOutput {
   projectId String @map("project_id")
 
   type   OutputType
-  title  String     @db.VarChar(500)
+  title  String       @db.VarChar(500)
   status OutputStatus @default(PENDING)
 
   // 产出内容
@@ -1795,21 +1802,21 @@ model SystemSetting {
 
 // AI模型类型枚举
 enum AIModelType {
-  CHAT            // 文本聊天模型 (GPT-4, Claude, Gemini Pro)
+  CHAT // 文本聊天模型 (GPT-4, Claude, Gemini Pro)
   IMAGE_GENERATION // 图片生成模型 (DALL-E 3, Imagen 4, Midjourney)
-  IMAGE_EDITING    // 图片编辑模型 (Imagen 3, DALL-E 2 edit)
-  MULTIMODAL       // 多模态模型 (Gemini 2.0 Flash - 同时支持文本和图片)
+  IMAGE_EDITING // 图片编辑模型 (Imagen 3, DALL-E 2 edit)
+  MULTIMODAL // 多模态模型 (Gemini 2.0 Flash - 同时支持文本和图片)
 }
 
 model AIModel {
-  id          String  @id @default(uuid())
-  name        String  @db.VarChar(50) // 内部名称 (grok, gpt-4, claude, gemini) - 不再唯一，允许同一provider多个模型
-  displayName String  @map("display_name") @db.VarChar(100)
-  provider    String  @db.VarChar(50) // xAI, OpenAI, Anthropic, Google
-  modelId     String  @unique @map("model_id") @db.VarChar(200) // 实际模型ID - 唯一约束
+  id          String @id @default(uuid())
+  name        String @db.VarChar(50) // 内部名称 (grok, gpt-4, claude, gemini) - 不再唯一，允许同一provider多个模型
+  displayName String @map("display_name") @db.VarChar(100)
+  provider    String @db.VarChar(50) // xAI, OpenAI, Anthropic, Google
+  modelId     String @unique @map("model_id") @db.VarChar(200) // 实际模型ID - 唯一约束
 
   // 模型类型 - 用于按业务需求选择合适的模型
-  modelType   AIModelType @default(CHAT) @map("model_type")
+  modelType AIModelType @default(CHAT) @map("model_type")
 
   // 显示设置
   icon  String @db.Text // emoji or icon URL path
@@ -1842,18 +1849,18 @@ model AIModel {
 // ============================================================================
 
 enum DebateStatus {
-  PENDING     // 等待开始
-  ACTIVE      // 进行中
-  PAUSED      // 暂停
-  COMPLETED   // 已完成
-  CANCELLED   // 已取消
+  PENDING // 等待开始
+  ACTIVE // 进行中
+  PAUSED // 暂停
+  COMPLETED // 已完成
+  CANCELLED // 已取消
 }
 
 enum DebateRole {
-  RED         // 红方/正方
-  BLUE        // 蓝方/反方
-  JUDGE       // 裁判
-  OBSERVER    // 观察者
+  RED // 红方/正方
+  BLUE // 蓝方/反方
+  JUDGE // 裁判
+  OBSERVER // 观察者
 }
 
 // 辩论会话 - 每次辩论是独立的Session，与Topic消息历史隔离
@@ -1864,15 +1871,15 @@ model DebateSession {
   topicId String @map("topic_id")
 
   // 辩论主题
-  topic       String @db.VarChar(500)
+  topic       String  @db.VarChar(500)
   description String? @db.Text
 
   // 辩论状态
   status DebateStatus @default(PENDING)
 
   // 辩论配置
-  maxRounds     Int @default(3) @map("max_rounds")     // 最大轮次
-  currentRound  Int @default(0) @map("current_round")  // 当前轮次
+  maxRounds      Int @default(3) @map("max_rounds") // 最大轮次
+  currentRound   Int @default(0) @map("current_round") // 当前轮次
   roundTimeoutMs Int @default(120000) @map("round_timeout_ms") // 每轮超时
 
   // 发起者
@@ -1918,7 +1925,7 @@ model DebateAgent {
   role DebateRole
 
   // 立场描述（系统生成或用户指定）
-  stance      String? @db.VarChar(200) // 如 "支持先有鸡"
+  stance       String? @db.VarChar(200) // 如 "支持先有鸡"
   stancePrompt String? @map("stance_prompt") @db.Text // 完整的角色prompt
 
   // 独立的对话历史（核心！不与Topic历史共享）
@@ -2052,4 +2059,191 @@ model GeneratedImage {
   @@index([createdAt])
   @@index([isBookmarked])
   @@map("generated_images")
+}
+
+// ============================================================================
+// AI Office - 智能文档生成系统
+// 支持 PPT、Word、Excel 等多种格式，Genspark 风格版本管理
+// ============================================================================
+
+// 文档类型枚举
+enum OfficeDocumentType {
+  ARTICLE // 文章/博客 → DOCX
+  PPT // 演示文稿 → PPTX
+  SPREADSHEET // 数据表格 → XLSX
+  REPORT // 分析报告 → DOCX/PDF
+  PROPOSAL // 提案/计划书 → DOCX/PPTX
+  RESEARCH // 研究文档 → DOCX
+}
+
+// 文档状态枚举
+enum OfficeDocumentStatus {
+  DRAFT // 草稿
+  GENERATING // 生成中
+  COMPLETED // 已完成
+  ARCHIVED // 已归档
+}
+
+// 版本触发方式枚举
+enum VersionTrigger {
+  AI_GENERATION // AI生成新版本
+  USER_EDIT // 用户编辑触发
+  MANUAL_SAVE // 手动保存
+  AUTO_SAVE // 自动保存
+}
+
+// 资源引用类型枚举
+enum ResourceRefType {
+  PRIMARY // 主要参考资源
+  SUPPORTING // 辅助参考
+  CITED // 引用来源
+}
+
+// AI Office 文档主表
+model OfficeDocument {
+  id          String  @id @default(uuid())
+  userId      String  @map("user_id")
+  workspaceId String? @map("workspace_id")
+
+  // 基础信息
+  title  String               @db.VarChar(500)
+  type   OfficeDocumentType
+  status OfficeDocumentStatus @default(DRAFT)
+
+  // 内容存储
+  content       Json // 结构化内容 (每页/每节数据)
+  markdown      String? @db.Text // Markdown 源码 (可选)
+  htmlSnapshots Json?   @map("html_snapshots") // HTML 页面快照数组
+
+  // 版本管理
+  currentVersionId String? @map("current_version_id")
+
+  // 元数据
+  metadata Json @default("{}") // { slideCount, wordCount, duration, ... }
+
+  // AI 配置 (动态，不硬编码模型)
+  aiConfig       Json? @map("ai_config") // { textModelId, imageModelId, temperature, style }
+  generationLogs Json? @map("generation_logs") // 生成过程日志
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关联
+  user         User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace    Workspace?                  @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  versions     OfficeDocumentVersion[]
+  resourceRefs OfficeDocumentResourceRef[]
+
+  @@index([userId, createdAt])
+  @@index([workspaceId])
+  @@index([type, status])
+  @@map("office_documents")
+}
+
+// 文档版本表 (Genspark 风格保存点)
+model OfficeDocumentVersion {
+  id            String @id @default(uuid())
+  documentId    String @map("document_id")
+  versionNumber Int    @map("version_number") // 递增版本号 (1, 2, 3...)
+
+  // 版本标识
+  name        String  @db.VarChar(100) // "保存点-14" (自动生成)
+  description String? @db.Text // AI 生成的版本描述
+
+  // 内容快照
+  contentSnapshot  Json    @map("content_snapshot") // 完整内容快照
+  markdownSnapshot String? @map("markdown_snapshot") @db.Text // Markdown 快照
+
+  // 触发信息
+  trigger       VersionTrigger
+  triggerSource String?        @map("trigger_source") @db.VarChar(200) // 触发来源详情
+
+  // 元数据快照
+  metadataSnapshot Json @map("metadata_snapshot") // { slideCount, wordCount }
+
+  // 缩略图
+  thumbnail String? @db.Text // Base64 or URL
+
+  // AI 信息 (记录使用的模型，不硬编码)
+  aiModelId  String? @map("ai_model_id") // 关联到 AIModel 表
+  promptUsed String? @map("prompt_used") @db.Text // 生成时使用的 Prompt
+
+  // 时间
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // 关联
+  document OfficeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId, versionNumber])
+  @@index([documentId, createdAt])
+  @@map("office_document_versions")
+}
+
+// 文档资源引用表 (@ 引用系统)
+model OfficeDocumentResourceRef {
+  id         String @id @default(uuid())
+  documentId String @map("document_id")
+  resourceId String @map("resource_id")
+
+  // 引用类型
+  refType ResourceRefType @default(PRIMARY) @map("ref_type")
+
+  // 使用追踪
+  usedInPages       Int[]   @map("used_in_pages") // 在哪些页面使用了此资源
+  extractionSummary String? @map("extraction_summary") @db.Text // AI 从资源提取的关键信息摘要
+
+  // 时间
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // 关联
+  document OfficeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  resource Resource       @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, resourceId])
+  @@index([documentId])
+  @@index([resourceId])
+  @@map("office_document_resource_refs")
+}
+
+// 文档模板表
+enum TemplateCategory {
+  BUSINESS // 商业
+  ACADEMIC // 学术
+  MARKETING // 营销
+  TECHNICAL // 技术
+  CREATIVE // 创意
+  GENERAL // 通用
+}
+
+model OfficeDocumentTemplate {
+  id String @id @default(uuid())
+
+  // 基础信息
+  name        String           @db.VarChar(200) // "商业计划书模板"
+  description String?          @db.Text
+  category    TemplateCategory @default(GENERAL)
+
+  // 模板配置
+  style         String @db.VarChar(50) // genspark, consulting, tech, ...
+  defaultLayout String @default("cards") @map("default_layout") @db.VarChar(50) // cards, timeline, ...
+  colorScheme   Json   @map("color_scheme") // { primary, accent, background, text }
+
+  // 结构定义
+  structure Json // 预定义的章节结构
+
+  // 预览
+  thumbnail String? @db.Text
+
+  // 元数据
+  usageCount Int     @default(0) @map("usage_count")
+  isBuiltin  Boolean @default(false) @map("is_builtin")
+  isPublic   Boolean @default(true) @map("is_public")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@index([isBuiltin, isPublic])
+  @@map("office_document_templates")
 }

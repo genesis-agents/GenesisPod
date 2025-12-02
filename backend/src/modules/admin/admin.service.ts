@@ -691,6 +691,7 @@ export class AdminService {
    */
   async getSearchConfig() {
     const provider = await this.getSetting("search.provider");
+    const perplexityKey = await this.getSetting("search.perplexity.apiKey");
     const tavilyKey = await this.getSetting("search.tavily.apiKey");
     const serperKey = await this.getSetting("search.serper.apiKey");
     const enabled = await this.getSetting("search.enabled");
@@ -698,6 +699,10 @@ export class AdminService {
     return {
       provider: provider || "tavily",
       enabled: enabled !== false,
+      perplexity: {
+        apiKey: perplexityKey ? "***configured***" : null,
+        hasApiKey: !!perplexityKey,
+      },
       tavily: {
         apiKey: tavilyKey ? "***configured***" : null,
         hasApiKey: !!tavilyKey,
@@ -715,6 +720,7 @@ export class AdminService {
   async updateSearchConfig(config: {
     provider?: string;
     enabled?: boolean;
+    perplexityApiKey?: string;
     tavilyApiKey?: string;
     serperApiKey?: string;
   }) {
@@ -729,7 +735,7 @@ export class AdminService {
       updates.push({
         key: "search.provider",
         value: config.provider,
-        description: "Search API provider (tavily or serper)",
+        description: "Search API provider (perplexity, tavily or serper)",
         category: "search",
       });
     }
@@ -744,6 +750,19 @@ export class AdminService {
     }
 
     // Only update API keys if they are provided and not the masked value
+    if (
+      config.perplexityApiKey &&
+      config.perplexityApiKey !== "***configured***" &&
+      config.perplexityApiKey.trim() !== ""
+    ) {
+      updates.push({
+        key: "search.perplexity.apiKey",
+        value: config.perplexityApiKey.trim(),
+        description: "Perplexity API Key",
+        category: "search",
+      });
+    }
+
     if (
       config.tavilyApiKey &&
       config.tavilyApiKey !== "***configured***" &&
@@ -781,7 +800,9 @@ export class AdminService {
    * 获取搜索API Key（内部使用，返回实际值）
    */
   async getSearchApiKey(provider: string): Promise<string | null> {
-    if (provider === "tavily") {
+    if (provider === "perplexity") {
+      return this.getSetting("search.perplexity.apiKey");
+    } else if (provider === "tavily") {
       return this.getSetting("search.tavily.apiKey");
     } else if (provider === "serper") {
       return this.getSetting("search.serper.apiKey");

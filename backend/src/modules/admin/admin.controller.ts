@@ -345,6 +345,7 @@ export class AdminController {
     body: {
       provider?: string;
       enabled?: boolean;
+      perplexityApiKey?: string;
       tavilyApiKey?: string;
       serperApiKey?: string;
     },
@@ -377,7 +378,37 @@ export class AdminController {
       const testQuery = "AI technology news";
       let response;
 
-      if (body.provider === "tavily") {
+      if (body.provider === "perplexity") {
+        const { firstValueFrom } = await import("rxjs");
+        response = await firstValueFrom(
+          httpService.post(
+            "https://api.perplexity.ai/chat/completions",
+            {
+              model: "llama-3.1-sonar-small-128k-online",
+              messages: [
+                {
+                  role: "user",
+                  content: testQuery,
+                },
+              ],
+              max_tokens: 50,
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${body.apiKey}`,
+                "Content-Type": "application/json",
+              },
+              timeout: 15000,
+            },
+          ),
+        );
+
+        return {
+          success: true,
+          message: "Perplexity API connection successful",
+          model: response.data.model || "llama-3.1-sonar-small-128k-online",
+        };
+      } else if (body.provider === "tavily") {
         const { firstValueFrom } = await import("rxjs");
         response = await firstValueFrom(
           httpService.post(

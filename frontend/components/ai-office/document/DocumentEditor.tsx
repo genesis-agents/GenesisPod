@@ -25,6 +25,7 @@ import {
   History,
 } from 'lucide-react';
 import VersionHistory from './VersionHistory';
+import VersionSelector from './VersionSelector';
 import { parseMarkdownToEnhancedSlides } from '@/lib/markdown-parser';
 import EnhancedSlideRenderer from './EnhancedSlideRenderer';
 import ResearchPageRenderer from './ResearchPageRenderer';
@@ -390,15 +391,13 @@ export default function DocumentEditor() {
               {currentDocument.metadata?.wordCount || 0} 字
             </div>
 
-            {/* 版本历史按钮 */}
-            <button
-              onClick={() => setShowVersionHistory(true)}
-              className="flex items-center space-x-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-all hover:bg-gray-50"
-              title="查看版本历史"
-            >
-              <History className="h-4 w-4" />
-              <span>版本</span>
-            </button>
+            {/* Genspark 风格版本选择器 */}
+            {currentDocumentId && (
+              <VersionSelector
+                documentId={currentDocumentId}
+                onOpenHistory={() => setShowVersionHistory(true)}
+              />
+            )}
 
             {/* 导出按钮（下拉菜单） */}
             <div className="relative" ref={exportMenuRef}>

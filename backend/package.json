@@ -29,7 +29,8 @@
     "seed": "tsx prisma/seed.ts",
     "diagnose": "tsx prisma/diagnose-db.ts",
     "fix-railway": "tsx prisma/fix-railway-connection.ts",
-    "deploy": "tsx prisma/resolve-migrations.ts && npm run prisma:seed"
+    "deploy": "tsx prisma/deploy-migrations.ts && npm run prisma:seed",
+    "deploy:migrate": "tsx prisma/deploy-migrations.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -61,6 +62,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "docx": "^9.5.1",
+    "exceljs": "^4.4.0",
     "fontkit": "^2.0.4",
     "graphql": "^16.8.0",
     "helmet": "^8.1.0",
@@ -84,11 +86,11 @@
     "sharp": "^0.34.5",
     "socket.io": "^4.8.1",
     "string-similarity-js": "^2.1.4",
+    "tsx": "^4.20.6",
     "turndown": "^7.2.2",
     "xml2js": "^0.6.2",
     "youtube-transcript": "^1.2.1",
-    "youtubei.js": "^16.0.1",
-    "tsx": "^4.20.6"
+    "youtubei.js": "^16.0.1"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.3.0",

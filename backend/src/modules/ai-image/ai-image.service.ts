@@ -8,6 +8,10 @@ import { PrismaService } from "../../common/prisma/prisma.service";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom, Observable, Subject } from "rxjs";
 import { ContentExtractorService } from "./content-extractor.service";
+import {
+  DataFetchingService,
+  DataFetchingResult,
+} from "./data-fetching.service";
 import { AIModelType, Prisma } from "@prisma/client";
 
 // 处理步骤类型
@@ -417,6 +421,7 @@ export class AiImageService {
     private readonly httpService: HttpService,
     private readonly contentExtractor: ContentExtractorService,
     private readonly infographicTemplate: InfographicTemplateService,
+    private readonly dataFetchingService: DataFetchingService,
   ) {}
 
   private createDefaultInsights(basePrompt: string): PromptEngineeringInsights {
@@ -1299,13 +1304,72 @@ export class AiImageService {
         );
       }
 
-      const inputContent = contentParts.join("\n\n---\n\n");
+      let inputContent = contentParts.join("\n\n---\n\n");
       emitStep(
         "content_check",
         "Content Extraction Complete",
         "completed",
         `${inputContent.length} characters`,
       );
+
+      // ============================================================
+      // 步骤1.5: 智能数据获取 (Data Fetching)
+      // ============================================================
+      this.logger.log("========== STREAM STEP 1.5: Data Fetching ==========");
+
+      try {
+        const detection =
+          this.dataFetchingService.detectDataFetchingNeed(inputContent);
+
+        if (detection.needsFetching) {
+          emitStep(
+            "data_fetching",
+            "Fetching Real-time Data",
+            "processing",
+            `Intent: ${detection.intent}`,
+          );
+          this.logger.log(
+            `[STREAM STEP 1.5] Data fetching needed. Intent: ${detection.intent}`,
+          );
+
+          // 带超时的数据获取
+          const fetchPromise =
+            this.dataFetchingService.processDataFetching(inputContent);
+          const timeoutPromise = new Promise<DataFetchingResult>((_, reject) =>
+            setTimeout(() => reject(new Error("Timeout")), 5000),
+          );
+
+          try {
+            const dataFetchingResult = await Promise.race([
+              fetchPromise,
+              timeoutPromise,
+            ]);
+
+            if (dataFetchingResult.fetchedData.length > 0) {
+              inputContent = dataFetchingResult.enrichedContent;
+              emitStep(
+                "data_fetching",
+                "Real-time Data Retrieved",
+                "completed",
+                `${dataFetchingResult.fetchedData.length} sources`,
+              );
+              this.logger.log(`[STREAM STEP 1.5] ✓ Data fetching completed`);
+            } else {
+              emitStep("data_fetching", "No External Data Found", "completed");
+            }
+          } catch {
+            emitStep(
+              "data_fetching",
+              "Data Fetching Skipped",
+              "completed",
+              "Timeout",
+            );
+            this.logger.warn("[STREAM STEP 1.5] Data fetching timed out");
+          }
+        }
+      } catch (error) {
+        this.logger.error(`[STREAM STEP 1.5] Error: ${error}`);
+      }
 
       // ============================================================
       // 步骤2: AI Prompt 生成
@@ -1870,7 +1934,7 @@ export class AiImageService {
     }
 
     // 检查是否有足够的内容
-    const inputContent = contentParts.join("\n\n---\n\n");
+    let inputContent = contentParts.join("\n\n---\n\n");
     this.logger.log(`[STEP 1] Total content: ${inputContent.length} chars`);
 
     // 如果用户提供了直接 prompt 或参考图片，跳过最小内容检查
@@ -1910,6 +1974,88 @@ export class AiImageService {
     this.logger.debug(
       `[STEP 1] Input Content Preview: ${inputContent.slice(0, 500)}...`,
     );
+
+    // ============================================================
+    // 步骤1.5: 智能数据获取 (Data Fetching)
+    // ============================================================
+    this.logger.log("========== STEP 1.5: Data Fetching ==========");
+    let dataFetchingResult: DataFetchingResult | null = null;
+
+    try {
+      // 检测是否需要数据获取
+      const detection =
+        this.dataFetchingService.detectDataFetchingNeed(inputContent);
+
+      if (detection.needsFetching) {
+        updateStep(
+          "data_fetching",
+          "Fetching Real-time Data",
+          "processing",
+          `Intent: ${detection.intent}, Queries: ${detection.queries.length}`,
+        );
+        this.logger.log(
+          `[STEP 1.5] Data fetching needed. Intent: ${detection.intent}, Queries: ${detection.queries.join(", ")}`,
+        );
+
+        // 执行数据获取（带超时保护）
+        const fetchPromise =
+          this.dataFetchingService.processDataFetching(inputContent);
+        const timeoutPromise = new Promise<DataFetchingResult>((_, reject) =>
+          setTimeout(
+            () => reject(new Error("Data fetching timeout (5s)")),
+            5000,
+          ),
+        );
+
+        try {
+          dataFetchingResult = await Promise.race([
+            fetchPromise,
+            timeoutPromise,
+          ]);
+
+          if (dataFetchingResult.fetchedData.length > 0) {
+            // 使用增强后的内容
+            inputContent = dataFetchingResult.enrichedContent;
+            updateStep(
+              "data_fetching",
+              "Real-time Data Retrieved",
+              "completed",
+              `Fetched ${dataFetchingResult.fetchedData.length} data sources with ${dataFetchingResult.fetchedData.reduce((acc, d) => acc + d.items.length, 0)} data points`,
+            );
+            this.logger.log(
+              `[STEP 1.5] ✓ Data fetching completed. Enriched content length: ${inputContent.length}`,
+            );
+          } else {
+            updateStep(
+              "data_fetching",
+              "No External Data Found",
+              "completed",
+              "Proceeding with original content",
+            );
+            this.logger.log(
+              "[STEP 1.5] No data fetched, using original content",
+            );
+          }
+        } catch (timeoutError) {
+          this.logger.warn(
+            `[STEP 1.5] Data fetching timed out or failed: ${timeoutError}`,
+          );
+          updateStep(
+            "data_fetching",
+            "Data Fetching Skipped",
+            "completed",
+            "Timeout - proceeding with original content",
+          );
+        }
+      } else {
+        this.logger.log("[STEP 1.5] No data fetching needed, skipping");
+      }
+    } catch (error) {
+      this.logger.error(`[STEP 1.5] Data fetching error: ${error}`);
+      // 数据获取失败不阻塞主流程
+    }
+
+    this.logger.log("========== STEP 1.5 COMPLETE ==========");
 
     // ============================================================
     // 步骤2: AI Prompt 生成

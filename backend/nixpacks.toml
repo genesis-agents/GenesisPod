@@ -22,4 +22,4 @@ cmds = [
 ]
 
 [start]
-cmd = "npx tsx prisma/resolve-migrations.ts && npx prisma migrate deploy && node dist/main"
+cmd = "npm run deploy && node dist/main"

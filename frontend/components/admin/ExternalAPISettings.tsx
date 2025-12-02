@@ -15,6 +15,7 @@ import {
 interface SearchConfig {
   provider: string;
   enabled: boolean;
+  perplexity: { apiKey: string | null; hasApiKey: boolean };
   tavily: { apiKey: string | null; hasApiKey: boolean };
   serper: { apiKey: string | null; hasApiKey: boolean };
 }
@@ -24,9 +25,11 @@ export default function ExternalAPISettings() {
   const [searchConfig, setSearchConfig] = useState<SearchConfig>({
     provider: 'tavily',
     enabled: true,
+    perplexity: { apiKey: null, hasApiKey: false },
     tavily: { apiKey: null, hasApiKey: false },
     serper: { apiKey: null, hasApiKey: false },
   });
+  const [perplexityApiKey, setPerplexityApiKey] = useState('');
   const [tavilyApiKey, setTavilyApiKey] = useState('');
   const [serperApiKey, setSerperApiKey] = useState('');
   const [loading, setLoading] = useState(true);
@@ -80,6 +83,7 @@ export default function ExternalAPISettings() {
         body: JSON.stringify({
           provider: searchConfig.provider,
           enabled: searchConfig.enabled,
+          perplexityApiKey: perplexityApiKey || undefined,
           tavilyApiKey: tavilyApiKey || undefined,
           serperApiKey: serperApiKey || undefined,
         }),
@@ -88,6 +92,7 @@ export default function ExternalAPISettings() {
       if (res.ok) {
         const data = await res.json();
         setSearchConfig(data);
+        setPerplexityApiKey('');
         setTavilyApiKey('');
         setSerperApiKey('');
         setSuccess('Configuration saved successfully');
@@ -108,12 +113,20 @@ export default function ExternalAPISettings() {
     setTestResult(null);
 
     try {
-      const apiKey =
-        provider === 'tavily'
-          ? tavilyApiKey ||
-            (searchConfig.tavily.hasApiKey ? '***use-saved***' : '')
-          : serperApiKey ||
-            (searchConfig.serper.hasApiKey ? '***use-saved***' : '');
+      let apiKey = '';
+      if (provider === 'perplexity') {
+        apiKey =
+          perplexityApiKey ||
+          (searchConfig.perplexity?.hasApiKey ? '***use-saved***' : '');
+      } else if (provider === 'tavily') {
+        apiKey =
+          tavilyApiKey ||
+          (searchConfig.tavily?.hasApiKey ? '***use-saved***' : '');
+      } else if (provider === 'serper') {
+        apiKey =
+          serperApiKey ||
+          (searchConfig.serper?.hasApiKey ? '***use-saved***' : '');
+      }
 
       if (!apiKey) {
         setTestResult({
@@ -244,16 +257,84 @@ export default function ExternalAPISettings() {
               }
               className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
             >
-              <option value="tavily">Tavily (Recommended for AI)</option>
+              <option value="perplexity">
+                Perplexity (AI-Powered Research)
+              </option>
+              <option value="tavily">Tavily (AI Agent Optimized)</option>
               <option value="serper">Serper (Google Search)</option>
             </select>
             <p className="mt-1 text-xs text-gray-500">
-              Tavily is optimized for AI search. Serper provides Google results.
+              Perplexity provides AI-powered answers. Tavily is optimized for AI
+              agents. Serper provides Google results.
             </p>
           </div>
 
           {/* API Keys */}
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-3">
+            {/* Perplexity */}
+            <div className="rounded-lg border border-gray-200 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-gray-900">Perplexity</span>
+                  <a
+                    href="https://perplexity.ai"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-purple-600 hover:text-purple-700"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                </div>
+                {searchConfig.perplexity?.hasApiKey && (
+                  <span className="flex items-center gap-1 text-xs text-green-600">
+                    <CheckCircle className="h-3 w-3" />
+                    Configured
+                  </span>
+                )}
+              </div>
+              <div className="space-y-2">
+                <input
+                  type="password"
+                  value={perplexityApiKey}
+                  onChange={(e) => setPerplexityApiKey(e.target.value)}
+                  placeholder={
+                    searchConfig.perplexity?.hasApiKey
+                      ? '••••••••••••••••'
+                      : 'pplx-...'
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                />
+                <button
+                  onClick={() => handleTest('perplexity')}
+                  disabled={
+                    testing === 'perplexity' ||
+                    (!perplexityApiKey && !searchConfig.perplexity?.hasApiKey)
+                  }
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {testing === 'perplexity' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    'Test Connection'
+                  )}
+                </button>
+                {testResult?.provider === 'perplexity' && (
+                  <div
+                    className={`flex items-center gap-1 text-xs ${
+                      testResult.success ? 'text-green-600' : 'text-red-600'
+                    }`}
+                  >
+                    {testResult.success ? (
+                      <CheckCircle className="h-3 w-3" />
+                    ) : (
+                      <XCircle className="h-3 w-3" />
+                    )}
+                    {testResult.message}
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Tavily */}
             <div className="rounded-lg border border-gray-200 p-4">
               <div className="mb-3 flex items-center justify-between">
@@ -268,7 +349,7 @@ export default function ExternalAPISettings() {
                     <ExternalLink className="h-3.5 w-3.5" />
                   </a>
                 </div>
-                {searchConfig.tavily.hasApiKey && (
+                {searchConfig.tavily?.hasApiKey && (
                   <span className="flex items-center gap-1 text-xs text-green-600">
                     <CheckCircle className="h-3 w-3" />
                     Configured
@@ -281,7 +362,7 @@ export default function ExternalAPISettings() {
                   value={tavilyApiKey}
                   onChange={(e) => setTavilyApiKey(e.target.value)}
                   placeholder={
-                    searchConfig.tavily.hasApiKey
+                    searchConfig.tavily?.hasApiKey
                       ? '••••••••••••••••'
                       : 'tvly-...'
                   }
@@ -291,7 +372,7 @@ export default function ExternalAPISettings() {
                   onClick={() => handleTest('tavily')}
                   disabled={
                     testing === 'tavily' ||
-                    (!tavilyApiKey && !searchConfig.tavily.hasApiKey)
+                    (!tavilyApiKey && !searchConfig.tavily?.hasApiKey)
                   }
                   className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -332,7 +413,7 @@ export default function ExternalAPISettings() {
                     <ExternalLink className="h-3.5 w-3.5" />
                   </a>
                 </div>
-                {searchConfig.serper.hasApiKey && (
+                {searchConfig.serper?.hasApiKey && (
                   <span className="flex items-center gap-1 text-xs text-green-600">
                     <CheckCircle className="h-3 w-3" />
                     Configured
@@ -345,7 +426,7 @@ export default function ExternalAPISettings() {
                   value={serperApiKey}
                   onChange={(e) => setSerperApiKey(e.target.value)}
                   placeholder={
-                    searchConfig.serper.hasApiKey
+                    searchConfig.serper?.hasApiKey
                       ? '••••••••••••••••'
                       : 'Enter API key'
                   }
@@ -355,7 +436,7 @@ export default function ExternalAPISettings() {
                   onClick={() => handleTest('serper')}
                   disabled={
                     testing === 'serper' ||
-                    (!serperApiKey && !searchConfig.serper.hasApiKey)
+                    (!serperApiKey && !searchConfig.serper?.hasApiKey)
                   }
                   className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
