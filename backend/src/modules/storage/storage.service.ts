@@ -762,37 +762,39 @@ export class StorageService {
       const totalDatabaseSizeMB =
         Number(dbSizeBytes[0]?.size || 0) / (1024 * 1024);
 
-      // Get detailed table sizes using a simpler query
+      // Get detailed table sizes using pg_class for reliability
       const tableSizes = await this.prisma.$queryRaw<
         Array<{
           table_name: string;
-          row_count: bigint;
-          total_size: bigint;
-          table_size: bigint;
-          index_size: bigint;
+          row_estimate: bigint;
+          total_bytes: bigint;
+          index_bytes: bigint;
+          table_bytes: bigint;
         }>
       >`
         SELECT
-          schemaname || '.' || relname as table_name,
-          n_live_tup as row_count,
-          pg_total_relation_size(schemaname || '.' || relname) as total_size,
-          pg_table_size(schemaname || '.' || relname) as table_size,
-          pg_indexes_size(schemaname || '.' || relname) as index_size
-        FROM pg_stat_user_tables
-        WHERE schemaname = 'public'
-        ORDER BY pg_total_relation_size(schemaname || '.' || relname) DESC
+          c.relname as table_name,
+          c.reltuples::bigint as row_estimate,
+          pg_total_relation_size(c.oid) as total_bytes,
+          pg_indexes_size(c.oid) as index_bytes,
+          pg_relation_size(c.oid) as table_bytes
+        FROM pg_class c
+        LEFT JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public'
+          AND c.relkind = 'r'
+        ORDER BY pg_total_relation_size(c.oid) DESC
       `;
 
       const tables: TableSize[] = tableSizes.map((t) => ({
-        tableName: t.table_name.replace("public.", ""),
-        rowCount: Number(t.row_count),
+        tableName: String(t.table_name),
+        rowCount: Number(t.row_estimate),
         totalSizeMB:
-          Math.round((Number(t.total_size) / (1024 * 1024)) * 100) / 100,
+          Math.round((Number(t.total_bytes) / (1024 * 1024)) * 100) / 100,
         dataSizeMB:
-          Math.round((Number(t.table_size) / (1024 * 1024)) * 100) / 100,
+          Math.round((Number(t.table_bytes) / (1024 * 1024)) * 100) / 100,
         indexSizeMB:
-          Math.round((Number(t.index_size) / (1024 * 1024)) * 100) / 100,
-        toastSizeMB: 0, // Included in table_size
+          Math.round((Number(t.index_bytes) / (1024 * 1024)) * 100) / 100,
+        toastSizeMB: 0,
       }));
 
       // Get top 5 largest tables
