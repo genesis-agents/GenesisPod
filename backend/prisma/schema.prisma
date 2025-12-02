@@ -81,6 +81,9 @@ model User {
   // AI Office 文档
   officeDocuments OfficeDocument[]
 
+  // DeepDive Engine 品牌套件
+  brandKits BrandKit[]
+
   @@map("users")
 }
 
@@ -2059,6 +2062,36 @@ model GeneratedImage {
   @@index([createdAt])
   @@index([isBookmarked])
   @@map("generated_images")
+}
+
+// ============================================================================
+// DeepDive Engine v2.1 - 品牌套件系统
+// ============================================================================
+
+model BrandKit {
+  id          String  @id @default(uuid())
+  userId      String  @map("user_id")
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 基础信息
+  name        String  @db.VarChar(100)
+  description String? @db.VarChar(500)
+
+  // 品牌配置 (JSON)
+  colors      Json    // BrandColor[]
+  fonts       Json    // BrandFont[]
+  logos       Json    // { primary?, secondary?, icon? }
+  voice       Json?   // { tone, keywords }
+
+  // 默认设计风格
+  defaultStyle String @default("consulting") @map("default_style") @db.VarChar(50)
+
+  // 时间戳
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("brand_kits")
 }
 
 // ============================================================================

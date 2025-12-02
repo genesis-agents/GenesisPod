@@ -190,6 +190,76 @@ export class R2StorageService implements OnModuleInit {
   }
 
   /**
+   * 上传 Buffer 数据（支持任意文件类型）
+   * DeepDive Engine v2.1 新增 - 用于 SVG/PDF/PPTX 等导出
+   *
+   * @param buffer - 文件数据 Buffer
+   * @param prefix - 文件前缀，用于组织目录结构
+   * @param filename - 文件名
+   * @param contentType - MIME 类型
+   * @returns 上传结果，包含预签名 URL
+   */
+  async uploadBuffer(
+    buffer: Buffer,
+    prefix: string,
+    filename: string,
+    contentType: string,
+  ): Promise<UploadResult> {
+    if (!this.isConfigured || !this.s3Client) {
+      return {
+        success: false,
+        error: "Object Storage not configured",
+      };
+    }
+
+    try {
+      // 生成唯一文件名
+      const hash = crypto
+        .createHash("md5")
+        .update(buffer.slice(0, 1000))
+        .digest("hex")
+        .slice(0, 8);
+      const timestamp = Date.now();
+      const ext = filename.split(".").pop() || "bin";
+      const key = `${prefix}/${timestamp}-${hash}.${ext}`;
+
+      // 上传到存储
+      const putCommand = new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+        Body: buffer,
+        ContentType: contentType,
+        Metadata: {
+          "uploaded-at": new Date().toISOString(),
+          "original-size": buffer.length.toString(),
+          "original-filename": filename,
+        },
+      });
+
+      await this.s3Client.send(putCommand);
+
+      // 生成预签名 URL（有效期7天）
+      const url = await this.getPresignedUrl(key);
+
+      this.logger.log(
+        `Uploaded file: ${key} (${Math.round(buffer.length / 1024)}KB) - URL valid for 7 days`,
+      );
+
+      return {
+        success: true,
+        url,
+        key,
+      };
+    } catch (error) {
+      this.logger.error("Failed to upload buffer:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Upload failed",
+      };
+    }
+  }
+
+  /**
    * 获取图片的预签名 URL
    * 用于私有 Bucket 的临时访问
    */

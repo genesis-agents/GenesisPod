@@ -10,6 +10,12 @@ import { PrismaModule } from "../../common/prisma/prisma.module";
 import { YoutubeModule } from "../youtube/youtube.module";
 import { AdminModule } from "../admin/admin.module";
 import { StorageModule } from "../storage/storage.module";
+// DeepDive Engine v2.1 新增服务和控制器
+import { AgentExecutorService } from "./agent-executor.service";
+import { BrandKitService } from "./brand-kit.service";
+import { BrandKitController } from "./brand-kit.controller";
+import { ExportService } from "./export.service";
+import { ExportController } from "./export.controller";
 
 @Module({
   imports: [
@@ -22,18 +28,31 @@ import { StorageModule } from "../storage/storage.module";
       limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
     }),
   ],
-  controllers: [AiImageController],
+  controllers: [
+    AiImageController,
+    // DeepDive Engine v2.1 新增
+    BrandKitController,
+    ExportController,
+  ],
   providers: [
     AiImageService,
     ContentExtractorService,
     InfographicTemplateService,
     DataFetchingService,
+    // DeepDive Engine v2.1 新增
+    AgentExecutorService,
+    BrandKitService,
+    ExportService,
   ],
   exports: [
     AiImageService,
     ContentExtractorService,
     InfographicTemplateService,
     DataFetchingService,
+    // DeepDive Engine v2.1 新增
+    AgentExecutorService,
+    BrandKitService,
+    ExportService,
   ],
 })
 export class AiImageModule {}
