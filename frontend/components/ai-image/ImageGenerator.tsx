@@ -151,7 +151,7 @@ function ThumbnailGallery({
       >
         <div className="p-4 text-center">
           <svg
-            className="mx-auto mb-2 h-8 w-8 opacity-50"
+            className="mx-auto mb-2 h-6 w-6 opacity-40"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -163,7 +163,9 @@ function ThumbnailGallery({
               d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
             />
           </svg>
-          <p className="text-xs">No images yet</p>
+          <p className="text-[10px] leading-tight opacity-60">
+            {isVertical ? 'History' : 'Images'}
+          </p>
         </div>
       </div>
     );
@@ -1928,10 +1930,37 @@ export default function ImageGenerator({
             </div>
           )}
 
+          {/* Empty State - Insights placeholder */}
+          {!selectedImage && !isGenerating && (
+            <div className="flex flex-1 flex-col items-center justify-center border-b border-gray-100 bg-gray-50/50 p-6 text-center">
+              <div className="mb-3 rounded-full bg-gray-100 p-3">
+                <svg
+                  className="h-6 w-6 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <p className="mb-1 text-xs font-medium text-gray-500">
+                Insights Panel
+              </p>
+              <p className="text-[10px] leading-relaxed text-gray-400">
+                Select an image to view details,
+                <br />
+                or generate a new one below
+              </p>
+            </div>
+          )}
+
           {/* Input Area */}
-          <div
-            className={`flex-shrink-0 ${selectedImage ? '' : 'flex flex-1 flex-col justify-end'}`}
-          >
+          <div className={`flex-shrink-0 ${selectedImage ? '' : ''}`}>
             {/* Control Bar */}
             <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-gray-50 px-3 py-2">
               {/* Model Selector */}
