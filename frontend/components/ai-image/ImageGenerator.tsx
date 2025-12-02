@@ -1972,57 +1972,78 @@ export default function ImageGenerator({
 
           {/* Input Area */}
           <div className={`flex-shrink-0 ${selectedImage ? '' : ''}`}>
-            {/* Control Bar - Two Rows */}
-            <div className="border-b border-gray-200 bg-gray-50 px-3 py-2">
-              {/* Row 1: Model, Template, Skip AI, Refresh */}
-              <div className="flex items-center gap-2">
-                {/* Model Selector */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-gray-500">Model:</span>
-                  {isLoadingModels ? (
-                    <div className="h-6 w-20 animate-pulse rounded bg-gray-200" />
-                  ) : models.imageModels.length > 0 ? (
-                    <select
-                      value={selectedImageModelId}
-                      onChange={(e) => setSelectedImageModelId(e.target.value)}
-                      className="rounded border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] text-gray-700 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                      disabled={isGenerating}
-                    >
-                      {models.imageModels.map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.name}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <span className="text-[10px] text-yellow-600">
-                      No models
-                    </span>
-                  )}
-                </div>
-
-                {/* Template Layout Selector */}
-                <div className="flex items-center gap-1">
-                  <span className="text-[10px] text-gray-500">Layout:</span>
+            {/* Control Bar - Compact Single Row */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-gray-200 bg-gray-50 px-3 py-2">
+              {/* Model Selector */}
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-gray-500">Model:</span>
+                {isLoadingModels ? (
+                  <div className="h-5 w-16 animate-pulse rounded bg-gray-200" />
+                ) : models.imageModels.length > 0 ? (
                   <select
-                    value={templateLayout}
-                    onChange={(e) =>
-                      setTemplateLayout(e.target.value as typeof templateLayout)
-                    }
-                    className="rounded border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] text-gray-700 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    value={selectedImageModelId}
+                    onChange={(e) => setSelectedImageModelId(e.target.value)}
+                    className="h-5 rounded border border-gray-300 bg-white px-1 text-[10px] text-gray-700 focus:border-purple-500 focus:outline-none"
                     disabled={isGenerating}
-                    title="Template layout (Auto = AI decides)"
                   >
-                    <option value="auto">Auto</option>
-                    <option value="cards">Cards</option>
-                    <option value="center_visual">Center</option>
-                    <option value="timeline">Timeline</option>
-                    <option value="comparison">Compare</option>
+                    {models.imageModels.map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {model.name}
+                      </option>
+                    ))}
                   </select>
-                </div>
+                ) : (
+                  <span className="text-[10px] text-yellow-600">N/A</span>
+                )}
+              </div>
 
-                {/* Skip Enhancement */}
-                <label className="flex cursor-pointer items-center gap-1">
+              {/* Template Layout */}
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-gray-500">Layout:</span>
+                <select
+                  value={templateLayout}
+                  onChange={(e) =>
+                    setTemplateLayout(e.target.value as typeof templateLayout)
+                  }
+                  className="h-5 rounded border border-gray-300 bg-white px-1 text-[10px] text-gray-700 focus:border-purple-500 focus:outline-none"
+                  disabled={isGenerating}
+                  title="Template layout"
+                >
+                  <option value="auto">Auto</option>
+                  <option value="cards">Cards</option>
+                  <option value="center_visual">Center</option>
+                  <option value="timeline">Timeline</option>
+                  <option value="comparison">Compare</option>
+                </select>
+              </div>
+
+              {/* Aspect Ratio */}
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-gray-500">Ratio:</span>
+                <div className="flex gap-0.5">
+                  {(['1:1', '16:9', '9:16', '4:3'] as const).map((ratio) => (
+                    <button
+                      key={ratio}
+                      onClick={() => setAspectRatio(ratio)}
+                      disabled={isGenerating}
+                      className={`h-5 rounded px-1.5 text-[10px] transition-colors ${
+                        aspectRatio === ratio
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                      }`}
+                    >
+                      {ratio}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Skip AI & Refresh */}
+              <div className="flex items-center gap-2">
+                <label
+                  className="flex cursor-pointer items-center gap-1"
+                  title="Skip AI enhancement"
+                >
                   <input
                     type="checkbox"
                     checked={skipEnhancement}
@@ -2030,14 +2051,14 @@ export default function ImageGenerator({
                     className="h-3 w-3 rounded border-gray-300 text-purple-500 focus:ring-purple-500"
                     disabled={isGenerating}
                   />
-                  <span className="text-[10px] text-gray-500">Skip AI</span>
+                  <span className="whitespace-nowrap text-[10px] text-gray-500">
+                    Skip AI
+                  </span>
                 </label>
-
-                {/* Refresh Models */}
                 <button
                   onClick={fetchModels}
                   disabled={isLoadingModels}
-                  className="ml-auto rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+                  className="rounded p-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
                   title="Refresh models"
                 >
                   <svg
@@ -2054,25 +2075,6 @@ export default function ImageGenerator({
                     />
                   </svg>
                 </button>
-              </div>
-
-              {/* Row 2: Aspect Ratio */}
-              <div className="mt-2 flex items-center gap-1">
-                <span className="text-[10px] text-gray-500">Ratio:</span>
-                {(['1:1', '16:9', '9:16', '4:3'] as const).map((ratio) => (
-                  <button
-                    key={ratio}
-                    onClick={() => setAspectRatio(ratio)}
-                    disabled={isGenerating}
-                    className={`rounded-md px-2 py-0.5 text-[10px] transition-all ${
-                      aspectRatio === ratio
-                        ? 'bg-purple-600 text-white shadow-sm'
-                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                    }`}
-                  >
-                    {ratio}
-                  </button>
-                ))}
               </div>
             </div>
 
