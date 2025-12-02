@@ -3707,6 +3707,8 @@ Generate the edited version of this image now.`;
    * 未登录：仅返回历史遗留的无用户绑定图片（向后兼容）
    */
   async getHistory(userId?: string): Promise<GeneratedImageResult[]> {
+    this.logger.log(`[getHistory] userId: ${userId || "not provided"}`);
+
     // 构建查询条件
     const whereCondition = userId
       ? {
@@ -3717,11 +3719,17 @@ Generate the edited version of this image now.`;
         }
       : { userId: null }; // 未登录：仅返回历史遗留图片
 
+    this.logger.log(
+      `[getHistory] whereCondition: ${JSON.stringify(whereCondition)}`,
+    );
+
     const images = await this.prisma.generatedImage.findMany({
       where: whereCondition,
       orderBy: { createdAt: "desc" },
       take: 50,
     });
+
+    this.logger.log(`[getHistory] Found ${images.length} images`);
 
     return images.map((img) => ({
       id: img.id,
