@@ -165,25 +165,29 @@ const PROMPT_ENHANCEMENT_SYSTEM = `You are an expert infographic designer. Analy
 
 First, analyze the content type and select the optimal rendering mode AND template layout:
 
+**CRITICAL: AI image models CANNOT accurately render text!** Always prefer modes with HTML text rendering.
+
+**rendering_mode: "hybrid"** (STRONGLY PREFERRED for most content) - Use when:
+- You want beautiful AI-generated backgrounds/illustrations WITH accurate text
+- Content has informational value that needs to be readable
+- Any infographic, presentation, or summary content
+- Content with Chinese or complex text that must be precise
+- Marketing materials, reports, tutorials, summaries
+- Examples: Strategy presentations, market overviews, tech summaries, news summaries, product introductions
+- This mode generates AI background + HTML text overlay = best of both worlds!
+
 **rendering_mode: "html_render"** - Use when:
-- Content has many structured data points, statistics, or metrics
-- Accuracy of text/numbers is critical
-- Content is a report, analysis, comparison, or data summary
-- Chinese text with complex characters needs precise rendering
-- Examples: Financial reports, research papers, product specs, tutorials
+- Content is purely data-focused (spreadsheets, tables)
+- Simple clean design without decorative backgrounds needed
+- Pure text content with minimal visual elements
+- Examples: Financial tables, spec sheets, checklists
 
-**rendering_mode: "hybrid"** - Use when:
-- Content needs both accurate text AND visual appeal
-- Conceptual topics that benefit from illustrative backgrounds
-- Marketing/presentation materials with key data
-- Examples: Strategy presentations, market overviews, tech summaries
-
-**rendering_mode: "ai_image"** - Use when:
-- Content is conceptual, abstract, or artistic
-- Visual metaphors are more important than text accuracy
-- Simple posters, mood boards, or creative visuals
-- Few text elements needed (< 10 words visible)
-- Examples: Concept art, mood boards, simple tagline posters
+**rendering_mode: "ai_image"** - RARELY USE, only when:
+- Content is PURELY visual/artistic with NO text needed at all
+- Abstract art, mood boards, or decorative images
+- ZERO readable text required (AI cannot render text accurately!)
+- Examples: Abstract backgrounds, artistic illustrations, decorative elements
+- WARNING: Never use this for infographics, summaries, or any content with text!
 
 **template_layout** - Choose the best layout based on DEEP CONTENT STRUCTURE ANALYSIS:
 - "cards": Grid of equal cards - Best for 3+ PARALLEL topics (e.g., 3 stories, 5 features, multiple categories)
@@ -230,7 +234,7 @@ Before selecting a template, you MUST deeply analyze the content's logical struc
 
 The JSON must be STRICTLY valid (no markdown fences):
 {
-  "rendering_mode": "html_render|hybrid|ai_image",
+  "rendering_mode": "hybrid|html_render|ai_image",  // Default to "hybrid" for best results!
   "template_layout": "cards|center_visual|timeline|comparison|pyramid|radial",
   "content_analysis": {
     "type": "data_heavy|balanced|visual_concept",
@@ -284,7 +288,7 @@ The JSON must be STRICTLY valid (no markdown fences):
   "negative_keywords": ["string"],
   "final_prompt": "string",
   "fallback_prompt": "string",
-  "background_prompt": "string (only for hybrid mode - describes decorative background)"
+  "background_prompt": "string - IMPORTANT for hybrid mode! Describe a thematic illustration/background that matches the content topic. Example: For a tech article about AI, describe 'abstract neural network visualization, glowing nodes and connections, deep blue gradient background, futuristic digital art style'. For nature content: 'serene forest landscape, soft morning light, watercolor style'. Always specify: NO TEXT, NO LETTERS, NO TYPOGRAPHY in the background!"
 }
 
 ## CRITICAL GUIDELINES:
@@ -382,7 +386,7 @@ export class AiImageService {
       imagePrompt: (basePrompt || "").trim(),
       fallbackPrompt: undefined,
       backgroundPrompt: undefined,
-      renderingMode: "html_render", // 默认使用 HTML 渲染模式以确保文字精确
+      renderingMode: "hybrid", // 默认使用混合模式：AI背景 + HTML文字精确渲染
       templateLayout: "cards", // 默认卡片网格布局
       contentAnalysis: undefined,
       designJournal: [],
@@ -501,8 +505,8 @@ export class AiImageService {
       ) {
         insights.renderingMode = renderingModeRaw;
       } else {
-        // 默认根据内容类型推断
-        insights.renderingMode = "html_render";
+        // 默认使用 hybrid 模式（AI背景 + HTML精确文字）
+        insights.renderingMode = "hybrid";
       }
 
       // 解析模板布局类型
