@@ -312,15 +312,20 @@ export class InfographicTemplateService {
     const isVertical = height > width; // 9:16 等竖屏
 
     // 根据宽高比调整列数和布局策略
-    // 宽屏(16:9)：3列布局，但卡片更紧凑，适合2行展示
-    // 正方形(1:1)：3列标准布局
-    // 竖屏(9:16)：2列展开布局
+    // 宽屏(16:9)：3列主卡片 + 底部总结栏
+    // 正方形(1:1)：3列主卡片 + 底部总结栏
+    // 竖屏(9:16)：2列主卡片 + 底部总结栏
     const numColumns = isVertical ? 2 : 3;
-    // 限制显示的 sections 数量，防止内容溢出
-    // 宽屏(16:9)最多4个，正方形最多6个，竖屏最多4个
-    const maxSections = isWideScreen ? 4 : isVertical ? 4 : 6;
-    const sectionsToShow = content.sections.slice(0, maxSections);
-    const columns = this.distributeToColumns(sectionsToShow, numColumns);
+
+    // 智能分配卡片：
+    // - 如果 sections 数量 <= numColumns：全部作为主卡片
+    // - 如果 sections 数量 > numColumns：前 numColumns 个作为主卡片，第 numColumns+1 个作为总结卡片
+    const totalSections = content.sections.length;
+    const mainCardsCount = Math.min(totalSections, numColumns);
+    const mainSections = content.sections.slice(0, mainCardsCount);
+    // 只有当有额外的 section 时才显示总结卡片
+    const summarySection =
+      totalSections > numColumns ? content.sections[numColumns] : null;
 
     // 根据尺寸调整字体和间距
     const scale = width / 1200;
@@ -460,30 +465,95 @@ export class InfographicTemplateService {
       max-width: ${isWideScreen ? "100%" : "80%"};
     }
 
-    /* 动态列布局 */
-    .columns {
+    /* 主内容区 - 并排等高卡片 */
+    .main-cards {
       display: grid;
       grid-template-columns: repeat(${numColumns}, 1fr);
       gap: ${Math.round((isWideScreen ? 16 : 24) * scale)}px;
       flex: 1;
       min-height: 0;
-      align-content: start;
+      align-items: stretch;
     }
 
-    .column {
-      display: flex;
-      flex-direction: column;
-      gap: ${Math.round((isWideScreen ? 12 : 20) * scale)}px;
-    }
-
-    /* Section 卡片 */
+    /* Section 卡片 - 等高 */
     .section-card {
       background: ${cardBackground};
       border-radius: ${scaledBorderRadius}px;
       padding: ${Math.round((isWideScreen ? 16 : 24) * scale)}px;
       box-shadow: ${boxShadow};
       border: 1px solid ${cardBorder};
-      transition: transform 0.2s, box-shadow 0.2s;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 总结卡片 - 横跨底部，不同风格 */
+    .summary-card {
+      background: linear-gradient(135deg, ${colors.accent}15 0%, ${colors.primary}10 100%);
+      border-radius: ${scaledBorderRadius}px;
+      padding: ${Math.round((isWideScreen ? 16 : 20) * scale)}px ${Math.round((isWideScreen ? 24 : 32) * scale)}px;
+      border: 2px solid ${colors.accent}40;
+      margin-top: ${Math.round((isWideScreen ? 16 : 20) * scale)}px;
+      display: flex;
+      align-items: center;
+      gap: ${Math.round((isWideScreen ? 20 : 28) * scale)}px;
+      flex-shrink: 0;
+    }
+
+    .summary-icon {
+      width: ${Math.round((isWideScreen ? 48 : 56) * scale)}px;
+      height: ${Math.round((isWideScreen ? 48 : 56) * scale)}px;
+      min-width: ${Math.round((isWideScreen ? 48 : 56) * scale)}px;
+      background: linear-gradient(135deg, ${colors.accent} 0%, ${this.adjustColor(colors.accent, -20)} 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+    }
+
+    .summary-icon svg {
+      width: ${Math.round((isWideScreen ? 24 : 28) * scale)}px;
+      height: ${Math.round((isWideScreen ? 24 : 28) * scale)}px;
+    }
+
+    .summary-content {
+      flex: 1;
+    }
+
+    .summary-title {
+      font-size: ${Math.round((isWideScreen ? 16 : 20) * scale)}px;
+      font-weight: 700;
+      color: ${colors.primary};
+      margin-bottom: ${Math.round(4 * scale)}px;
+    }
+
+    .summary-text {
+      font-size: ${Math.round((isWideScreen ? 12 : 14) * scale)}px;
+      color: ${colors.text};
+      opacity: 0.85;
+      line-height: 1.5;
+    }
+
+    .summary-bullets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: ${Math.round(8 * scale)}px ${Math.round(16 * scale)}px;
+      margin-top: ${Math.round(8 * scale)}px;
+    }
+
+    .summary-bullet {
+      display: flex;
+      align-items: center;
+      gap: ${Math.round(6 * scale)}px;
+      font-size: ${Math.round((isWideScreen ? 11 : 13) * scale)}px;
+      color: ${colors.text};
+    }
+
+    .summary-bullet-dot {
+      width: ${Math.round(6 * scale)}px;
+      height: ${Math.round(6 * scale)}px;
+      background: ${colors.accent};
+      border-radius: 50%;
     }
 
     .section-header {
@@ -648,103 +718,111 @@ export class InfographicTemplateService {
       </div>
     </div>
 
-    <!-- 动态列内容 -->
-    <div class="columns">
-      ${columns
+    <!-- 主内容卡片 - 并排等高 -->
+    <div class="main-cards">
+      ${mainSections
         .map(
-          (column, colIdx) => `
-        <div class="column">
-          ${column
-            .map(
-              (section, idx) => `
-            <div class="section-card">
-              <div class="section-header">
-                <div class="section-icon-wrapper">
-                  <div class="section-icon">
-                    ${this.getIcon(section.iconType)}
-                  </div>
-                  <span class="section-number">${colIdx * Math.ceil(sectionsToShow.length / numColumns) + idx + 1}</span>
-                </div>
-                <div>
-                  <h3 class="section-title">${this.escapeHtml(this.truncateText(section.title, isWideScreen ? 25 : 40))}</h3>
-                  ${section.summary ? `<p class="section-summary">${this.escapeHtml(this.truncateText(section.summary, summaryMaxLen))}</p>` : ""}
-                </div>
+          (section, idx) => `
+        <div class="section-card">
+          <div class="section-header">
+            <div class="section-icon-wrapper">
+              <div class="section-icon">
+                ${this.getIcon(section.iconType)}
               </div>
-
-              ${
-                section.bullets.length > 0
-                  ? `
-                <ul class="bullets">
-                  ${section.bullets
-                    .slice(0, bulletsToShow)
-                    .map(
-                      (bullet) => `
-                    <li class="bullet-item">
-                      <span class="bullet-dot"></span>
-                      <span>${this.escapeHtml(this.truncateText(bullet, bulletMaxLen))}</span>
-                    </li>
-                  `,
-                    )
-                    .join("")}
-                </ul>
-              `
-                  : ""
-              }
-
-              ${
-                section.metrics.length > 0
-                  ? `
-                <div class="metrics">
-                  ${section.metrics
-                    .slice(0, metricsToShow)
-                    .map(
-                      (metric) => `
-                    <div class="metric">
-                      <div class="metric-value">${this.escapeHtml(metric.value)}</div>
-                      <div class="metric-label">${this.escapeHtml(this.truncateText(metric.label, isWideScreen ? 15 : 20))}</div>
-                    </div>
-                  `,
-                    )
-                    .join("")}
-                </div>
-              `
-                  : ""
-              }
+              <span class="section-number">${idx + 1}</span>
             </div>
-          `,
-            )
-            .join("")}
+            <div>
+              <h3 class="section-title">${this.escapeHtml(this.truncateText(section.title, isWideScreen ? 25 : 40))}</h3>
+              ${section.summary ? `<p class="section-summary">${this.escapeHtml(this.truncateText(section.summary, summaryMaxLen))}</p>` : ""}
+            </div>
+          </div>
+
+          ${
+            section.bullets.length > 0
+              ? `
+            <ul class="bullets">
+              ${section.bullets
+                .slice(0, bulletsToShow)
+                .map(
+                  (bullet) => `
+                <li class="bullet-item">
+                  <span class="bullet-dot"></span>
+                  <span>${this.escapeHtml(this.truncateText(bullet, bulletMaxLen))}</span>
+                </li>
+              `,
+                )
+                .join("")}
+            </ul>
+          `
+              : ""
+          }
+
+          ${
+            section.metrics.length > 0
+              ? `
+            <div class="metrics">
+              ${section.metrics
+                .slice(0, metricsToShow)
+                .map(
+                  (metric) => `
+                <div class="metric">
+                  <div class="metric-value">${this.escapeHtml(metric.value)}</div>
+                  <div class="metric-label">${this.escapeHtml(this.truncateText(metric.label, isWideScreen ? 15 : 20))}</div>
+                </div>
+              `,
+                )
+                .join("")}
+            </div>
+          `
+              : ""
+          }
         </div>
       `,
         )
         .join("")}
     </div>
 
+    <!-- 总结卡片 - 横跨底部，不同风格 -->
+    ${
+      summarySection
+        ? `
+      <div class="summary-card">
+        <div class="summary-icon">
+          ${this.getIcon(summarySection.iconType || "star")}
+        </div>
+        <div class="summary-content">
+          <h3 class="summary-title">${this.escapeHtml(summarySection.title)}</h3>
+          ${summarySection.summary ? `<p class="summary-text">${this.escapeHtml(summarySection.summary)}</p>` : ""}
+          ${
+            summarySection.bullets.length > 0
+              ? `
+            <div class="summary-bullets">
+              ${summarySection.bullets
+                .slice(0, 3)
+                .map(
+                  (bullet) => `
+                <span class="summary-bullet">
+                  <span class="summary-bullet-dot"></span>
+                  <span>${this.escapeHtml(this.truncateText(bullet, 50))}</span>
+                </span>
+              `,
+                )
+                .join("")}
+            </div>
+          `
+              : ""
+          }
+        </div>
+      </div>
+    `
+        : ""
+    }
+
     <!-- 行动号召 -->
-    ${content.callToAction ? `<div class="cta">${this.escapeHtml(this.truncateText(content.callToAction, isWideScreen ? 50 : 80))}</div>` : ""}
+    ${content.callToAction && !summarySection ? `<div class="cta">${this.escapeHtml(this.truncateText(content.callToAction, isWideScreen ? 50 : 80))}</div>` : ""}
   </div>
 </body>
 </html>`;
-  }
-
-  /**
-   * 将 sections 分配到多列
-   */
-  private distributeToColumns(
-    sections: InfographicSection[],
-    numColumns: number,
-  ): InfographicSection[][] {
-    const columns: InfographicSection[][] = Array.from(
-      { length: numColumns },
-      () => [],
-    );
-
-    // 简单的轮询分配
-    sections.forEach((section, idx) => {
-      columns[idx % numColumns].push(section);
-    });
-
-    return columns;
   }
 
   /**
