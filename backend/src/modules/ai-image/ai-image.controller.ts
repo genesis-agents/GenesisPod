@@ -199,6 +199,17 @@ export class AiImageController {
     return this.aiImageService.getBookmarkedImages(req.user?.userId);
   }
 
+  /**
+   * 管理员查看图片统计（必须放在 :id 路由之前）
+   */
+  @Get("stats")
+  async getImageStats(@Query("key") key: string) {
+    if (key !== "deepdive-admin-cleanup-2024") {
+      return { success: false, message: "Invalid key" };
+    }
+    return this.aiImageService.getImageStats();
+  }
+
   @Get(":id")
   @UseGuards(JwtAuthGuard)
   async getImage(@Param("id") id: string) {
@@ -265,16 +276,5 @@ export class AiImageController {
       ...result,
       message: `Cleaned up ${result.totalDeleted} images from ${result.usersCleaned} users`,
     };
-  }
-
-  /**
-   * 管理员查看图片统计
-   */
-  @Get("stats")
-  async getImageStats(@Query("key") key: string) {
-    if (key !== "deepdive-admin-cleanup-2024") {
-      return { success: false, message: "Invalid key" };
-    }
-    return this.aiImageService.getImageStats();
   }
 }
