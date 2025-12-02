@@ -954,6 +954,38 @@ export class StorageService {
   }
 
   /**
+   * Force checkpoint and clean WAL to reduce disk usage
+   */
+  async cleanupWAL(): Promise<{ success: boolean; message: string }> {
+    try {
+      // Force a checkpoint to flush WAL to disk
+      await this.prisma.$executeRawUnsafe("CHECKPOINT");
+
+      // Get WAL stats before
+      const walBefore = await this.prisma.$queryRawUnsafe<
+        Array<{ wal_bytes: string }>
+      >(
+        "SELECT pg_wal_lsn_diff(pg_current_wal_lsn(), '0/0')::text as wal_bytes",
+      );
+
+      this.logger.log(
+        `WAL position: ${Number(walBefore[0]?.wal_bytes || 0) / (1024 * 1024)}MB`,
+      );
+
+      return {
+        success: true,
+        message: `CHECKPOINT completed. WAL logs flushed. Note: Railway volume may not shrink immediately - this prevents future growth.`,
+      };
+    } catch (error) {
+      this.logger.error("Failed to cleanup WAL:", error);
+      return {
+        success: false,
+        message: `WAL cleanup failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      };
+    }
+  }
+
+  /**
    * Get full disk usage breakdown including WAL, system tables, etc.
    */
   async getFullDiskUsage(): Promise<{

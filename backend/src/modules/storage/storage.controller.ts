@@ -194,6 +194,18 @@ export class StorageController {
   }
 
   /**
+   * Force checkpoint to clean WAL logs
+   */
+  @Post("cleanup-wal")
+  async cleanupWAL(
+    @Query("key") key: string,
+  ): Promise<{ success: boolean; message: string }> {
+    this.validateKey(key);
+    this.logger.log("Running CHECKPOINT to cleanup WAL");
+    return this.storageService.cleanupWAL();
+  }
+
+  /**
    * Get full disk usage breakdown including WAL, TOAST, etc.
    */
   @Get("disk-usage")
