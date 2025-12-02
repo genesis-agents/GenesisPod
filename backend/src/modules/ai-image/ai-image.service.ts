@@ -252,7 +252,7 @@ Before selecting a template, you MUST deeply analyze the content's logical struc
 
 The JSON must be STRICTLY valid (no markdown fences):
 {
-  "rendering_mode": "hybrid|html_render|ai_image",  // Default to "hybrid" for best results!
+  "rendering_mode": "hybrid|html_render|ai_image",  // CRITICAL: Use "ai_image" for short visual prompts (under 30 words describing scenes/subjects)!
   "template_layout": "cards|center_visual|timeline|comparison|pyramid|radial",
   "content_analysis": {
     "type": "data_heavy|balanced|visual_concept",
@@ -545,6 +545,28 @@ export class AiImageService {
       } else {
         // 默认使用 hybrid 模式（AI背景 + HTML精确文字）
         insights.renderingMode = "hybrid";
+      }
+
+      // 强制短视觉提示使用 ai_image 模式
+      // 检测条件：
+      // 1. 原始提示词较短（少于30个字符或少于15个词）
+      // 2. 没有明显的结构化/数据化内容特征（如数字、百分比、列表等）
+      const promptLength = fallbackPrompt.length;
+      const wordCount = fallbackPrompt
+        .split(/[\s，。、！？；：""''【】《》（）]+/)
+        .filter((w) => w.length > 0).length;
+      const hasStructuredContent =
+        /\d+%|\d+\.\d+|第[一二三四五六七八九十]+|步骤|流程|对比|分析|报告|数据|统计|方案|计划/.test(
+          fallbackPrompt,
+        );
+      const isShortVisualPrompt =
+        (promptLength < 30 || wordCount < 10) && !hasStructuredContent;
+
+      if (isShortVisualPrompt && insights.renderingMode !== "ai_image") {
+        this.logger.log(
+          `[parsePromptEnhancementResponse] Short visual prompt detected (${promptLength} chars, ${wordCount} words), forcing ai_image mode`,
+        );
+        insights.renderingMode = "ai_image";
       }
 
       // 解析模板布局类型
