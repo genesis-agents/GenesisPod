@@ -762,39 +762,37 @@ export class StorageService {
       const totalDatabaseSizeMB =
         Number(dbSizeBytes[0]?.size || 0) / (1024 * 1024);
 
-      // Get detailed table sizes
+      // Get detailed table sizes using a simpler query
       const tableSizes = await this.prisma.$queryRaw<
         Array<{
           table_name: string;
           row_count: bigint;
           total_size: bigint;
-          data_size: bigint;
+          table_size: bigint;
           index_size: bigint;
-          toast_size: bigint;
         }>
       >`
         SELECT
-          relname as table_name,
+          schemaname || '.' || relname as table_name,
           n_live_tup as row_count,
-          pg_total_relation_size(quote_ident(relname)::regclass) as total_size,
-          pg_relation_size(quote_ident(relname)::regclass) as data_size,
-          pg_indexes_size(quote_ident(relname)::regclass) as index_size,
-          COALESCE(pg_total_relation_size(reltoastrelid), 0) as toast_size
+          pg_total_relation_size(schemaname || '.' || relname) as total_size,
+          pg_table_size(schemaname || '.' || relname) as table_size,
+          pg_indexes_size(schemaname || '.' || relname) as index_size
         FROM pg_stat_user_tables
-        ORDER BY pg_total_relation_size(quote_ident(relname)::regclass) DESC
+        WHERE schemaname = 'public'
+        ORDER BY pg_total_relation_size(schemaname || '.' || relname) DESC
       `;
 
       const tables: TableSize[] = tableSizes.map((t) => ({
-        tableName: t.table_name,
+        tableName: t.table_name.replace("public.", ""),
         rowCount: Number(t.row_count),
         totalSizeMB:
           Math.round((Number(t.total_size) / (1024 * 1024)) * 100) / 100,
         dataSizeMB:
-          Math.round((Number(t.data_size) / (1024 * 1024)) * 100) / 100,
+          Math.round((Number(t.table_size) / (1024 * 1024)) * 100) / 100,
         indexSizeMB:
           Math.round((Number(t.index_size) / (1024 * 1024)) * 100) / 100,
-        toastSizeMB:
-          Math.round((Number(t.toast_size) / (1024 * 1024)) * 100) / 100,
+        toastSizeMB: 0, // Included in table_size
       }));
 
       // Get top 5 largest tables
