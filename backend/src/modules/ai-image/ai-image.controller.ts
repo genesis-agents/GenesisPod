@@ -86,6 +86,7 @@ export class AiImageController {
     @Query("aspectRatio") aspectRatio: string,
     @Query("negativePrompt") negativePrompt: string,
     @Query("skipEnhancement") skipEnhancement: string,
+    @Query("templateLayout") templateLayout: string,
     @Request() req: any,
   ): Observable<MessageEvent> {
     this.logger.log(
@@ -100,6 +101,23 @@ export class AiImageController {
     )
       ? (aspectRatio as "1:1" | "16:9" | "9:16" | "4:3")
       : undefined;
+    const validTemplateLayouts = [
+      "cards",
+      "center_visual",
+      "timeline",
+      "comparison",
+      "pyramid",
+      "radial",
+    ];
+    const validTemplateLayout = validTemplateLayouts.includes(templateLayout)
+      ? (templateLayout as
+          | "cards"
+          | "center_visual"
+          | "timeline"
+          | "comparison"
+          | "pyramid"
+          | "radial")
+      : undefined;
 
     return this.aiImageService.generateImageStream({
       prompt: prompt || undefined,
@@ -111,6 +129,7 @@ export class AiImageController {
       aspectRatio: validAspectRatio,
       negativePrompt: negativePrompt || undefined,
       skipEnhancement: skipEnhancement === "true",
+      templateLayout: validTemplateLayout,
       userId: req.user?.userId,
     });
   }

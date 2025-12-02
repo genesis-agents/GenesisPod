@@ -1082,6 +1082,14 @@ export default function ImageGenerator({
     }
     return '1:1';
   });
+  // Template layout selection (auto = AI decides)
+  type TemplateLayout =
+    | 'auto'
+    | 'cards'
+    | 'center_visual'
+    | 'timeline'
+    | 'comparison';
+  const [templateLayout, setTemplateLayout] = useState<TemplateLayout>('auto');
 
   // UI state
   const [insightsTab, setInsightsTab] = useState<InsightsTab>('insights');
@@ -1394,6 +1402,9 @@ export default function ImageGenerator({
       params.set('skipEnhancement', String(skipEnhancement));
       if (selectedImageModelId)
         params.set('imageModelId', selectedImageModelId);
+      // Only pass template if user explicitly selected (not auto)
+      if (templateLayout !== 'auto')
+        params.set('templateLayout', templateLayout);
 
       switch (inputMode) {
         case 'prompt':
@@ -2015,6 +2026,25 @@ export default function ImageGenerator({
                 />
                 <span className="text-[10px] text-gray-500">Skip AI</span>
               </label>
+
+              {/* Template Layout Selector */}
+              <div className="flex items-center gap-1">
+                <select
+                  value={templateLayout}
+                  onChange={(e) =>
+                    setTemplateLayout(e.target.value as typeof templateLayout)
+                  }
+                  className="rounded border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] text-gray-700 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  disabled={isGenerating}
+                  title="Template layout (Auto = AI decides)"
+                >
+                  <option value="auto">Auto</option>
+                  <option value="cards">Cards</option>
+                  <option value="center_visual">Center</option>
+                  <option value="timeline">Timeline</option>
+                  <option value="comparison">Compare</option>
+                </select>
+              </div>
 
               {/* Refresh Models */}
               <button

@@ -963,7 +963,7 @@ export class InfographicTemplateService {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding-top: ${Math.round(30 * scale)}px;
+      margin-top: ${Math.round(40 * scale)}px;
     }
 
     /* 中心圆形图形 */

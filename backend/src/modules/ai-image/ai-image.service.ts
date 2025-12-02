@@ -141,6 +141,13 @@ export interface GenerateImageOptions {
   aspectRatio?: "1:1" | "16:9" | "9:16" | "4:3";
   negativePrompt?: string;
   skipEnhancement?: boolean;
+  templateLayout?:
+    | "cards"
+    | "center_visual"
+    | "timeline"
+    | "comparison"
+    | "pyramid"
+    | "radial"; // User-specified template layout (overrides AI selection)
   userId?: string;
 }
 
@@ -1030,6 +1037,7 @@ export class AiImageService {
       aspectRatio,
       negativePrompt,
       skipEnhancement,
+      templateLayout: userTemplateLayout, // User-specified template (overrides AI)
       userId,
     } = options;
 
@@ -1334,6 +1342,14 @@ export class AiImageService {
         );
 
         try {
+          // Override template if user specified one
+          if (userTemplateLayout) {
+            promptInsights.templateLayout = userTemplateLayout;
+            this.logger.log(
+              `[executeStreamGeneration] User overrode template to: ${userTemplateLayout}`,
+            );
+          }
+
           const infographicContent =
             this.convertToInfographicContent(promptInsights);
           let backgroundImageBase64: string | undefined;
@@ -1523,6 +1539,7 @@ export class AiImageService {
       aspectRatio,
       negativePrompt,
       skipEnhancement,
+      templateLayout: userTemplateLayout, // User-specified template (overrides AI)
       userId,
     } = options;
     let mergedNegativePrompt = negativePrompt
@@ -2061,6 +2078,14 @@ export class AiImageService {
       );
 
       try {
+        // Override template if user specified one
+        if (userTemplateLayout) {
+          promptInsights.templateLayout = userTemplateLayout;
+          this.logger.log(
+            `[generateImage] User overrode template to: ${userTemplateLayout}`,
+          );
+        }
+
         // 转换信息架构为模板内容
         const infographicContent =
           this.convertToInfographicContent(promptInsights);
