@@ -2797,16 +2797,16 @@ export default function ImageGenerator({
             </svg>
           </button>
           <div
-            className="flex max-h-[90vh] max-w-[95vw] flex-col"
+            className="flex max-w-[95vw] flex-col items-center"
             onClick={(e) => e.stopPropagation()}
           >
             <img
               src={lightboxImage.imageUrl}
               alt={lightboxImage.prompt}
-              className="max-h-[80vh] max-w-[95vw] rounded-t-lg object-contain shadow-2xl"
+              className="max-h-[70vh] max-w-[95vw] rounded-t-lg object-contain shadow-2xl"
               onContextMenu={(e) => handleContextMenu(e, lightboxImage)}
             />
-            <div className="rounded-b-lg bg-gray-900/95 px-4 py-3">
+            <div className="w-full max-w-[95vw] rounded-b-lg bg-gray-900/95 px-4 py-3">
               {lightboxImage.enhancedPrompt && (
                 <p className="line-clamp-2 text-sm text-gray-300">
                   {lightboxImage.enhancedPrompt}
