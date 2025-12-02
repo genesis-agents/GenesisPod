@@ -938,8 +938,10 @@ export class InfographicTemplateService {
     /* 标题区 */
     .header {
       text-align: center;
-      margin-bottom: ${Math.round(10 * scale)}px;
+      margin-bottom: ${Math.round(20 * scale)}px;
       flex-shrink: 0;
+      position: relative;
+      z-index: 20;
     }
 
     .main-title {
@@ -961,6 +963,7 @@ export class InfographicTemplateService {
       display: flex;
       align-items: center;
       justify-content: center;
+      padding-top: ${Math.round(30 * scale)}px;
     }
 
     /* 中心圆形图形 */
@@ -1111,15 +1114,12 @@ export class InfographicTemplateService {
 
       ${centerItems
         .map((item, idx) => {
-          // 从右上角开始（-PI/4），避开正上方与标题重叠
-          // 均匀分布但跳过顶部区域（上方60度范围）
-          const skipTopAngle = Math.PI / 3; // 跳过顶部60度
-          const availableAngle = 2 * Math.PI - skipTopAngle;
-          const startAngle = -Math.PI / 2 + skipTopAngle / 2; // 从右上开始
-          const angle = startAngle + (availableAngle / itemCount) * idx;
-          // 计算轨道的椭圆形状（水平方向更宽）
-          const horizontalRadius = orbitRadius * 1.2;
-          const verticalRadius = orbitRadius * 0.9;
+          // 完整圆形分布，从右侧开始（0度），顺时针排列
+          const angleStep = (2 * Math.PI) / itemCount;
+          const angle = angleStep * idx; // 从右侧(0度)开始
+          // 椭圆形轨道（水平更宽，垂直稍扁）
+          const horizontalRadius = orbitRadius * 1.3;
+          const verticalRadius = orbitRadius * 0.95;
           // 计算相对于 visual-area 中心的位置（百分比）
           const xPercent =
             50 +
