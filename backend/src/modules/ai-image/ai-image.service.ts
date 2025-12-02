@@ -63,6 +63,11 @@ interface PromptVisualLanguage {
   chartStyle?: string;
   background?: string;
   gridSystem?: string;
+  // 新增风格相关字段
+  designStyle?: string; // consulting, tech, minimal, creative, dark, academic
+  fontStyle?: string; // sans, serif, mono, rounded
+  borderRadius?: string; // none, small, medium, large
+  shadowStyle?: string; // none, subtle, medium, strong
 }
 
 // 渲染模式类型
@@ -196,7 +201,11 @@ The JSON must be STRICTLY valid (no markdown fences):
     "iconography": "string",
     "chart_style": "string",
     "background": "string",
-    "grid_system": "string"
+    "grid_system": "string",
+    "design_style": "consulting|tech|minimal|creative|dark|academic",
+    "font_style": "sans|serif|mono|rounded",
+    "border_radius": "none|small|medium|large",
+    "shadow_style": "none|subtle|medium|strong"
   },
   "quality_checks": ["string"],
   "negative_keywords": ["string"],
@@ -224,11 +233,30 @@ The JSON must be STRICTLY valid (no markdown fences):
    - 3-column layout for sections
    - Bottom: Call to action or timeline
 
-6. **VISUAL LANGUAGE**:
-   - Primary: Deep blue-gray (#1e3a5f) - professional, trustworthy
-   - Accent: Cool cyan (#0891b2) - modern, tech-savvy
-   - Background: Light gray (#f7f9fc)
-   - Icons: 2D flat line icons
+6. **VISUAL LANGUAGE & STYLE DETECTION**:
+   Detect user's style preferences from the prompt and set design_style accordingly:
+   - "consulting" (default): McKinsey/BCG style, navy blue (#1e3a5f), professional
+   - "tech": Modern tech feel, purple/cyan (#6366f1, #22d3ee), gradients
+   - "minimal": Black/white (#18181b), lots of whitespace, subtle
+   - "creative": Vibrant colors (#ec4899, #f59e0b), playful, rounded
+   - "dark": Dark background (#0f172a), light text, modern
+   - "academic": Formal, serif fonts, traditional colors (#1e40af)
+   - "business": Business minimal, gray/blue (#374151, #3b82f6), clean professional
+
+   Also detect:
+   - font_style: "sans" (modern), "serif" (formal), "mono" (tech), "rounded" (friendly)
+   - border_radius: "none" (sharp), "small", "medium", "large" (very rounded)
+   - shadow_style: "none", "subtle", "medium", "strong"
+
+   Keywords to detect:
+   - "科技/tech/modern/futuristic" → tech style
+   - "简约/minimal/clean/simple" → minimal style
+   - "创意/creative/colorful/fun" → creative style
+   - "暗黑/dark/night" → dark style
+   - "学术/academic/formal/traditional" → academic style
+   - "商务/business/corporate/professional" → business style
+   - "圆角/rounded" → large border_radius
+   - "扁平/flat" → none shadow_style
 
 7. **FINAL PROMPT**: For ai_image/hybrid modes, must include:
    - "professional consulting infographic"
@@ -557,6 +585,19 @@ export class AiImageService {
         background: this.normalizeString(visualRaw.background),
         gridSystem: this.normalizeString(
           visualRaw.grid_system ?? visualRaw.gridSystem,
+        ),
+        // 新增风格字段
+        designStyle: this.normalizeString(
+          visualRaw.design_style ?? visualRaw.designStyle,
+        ),
+        fontStyle: this.normalizeString(
+          visualRaw.font_style ?? visualRaw.fontStyle,
+        ),
+        borderRadius: this.normalizeString(
+          visualRaw.border_radius ?? visualRaw.borderRadius,
+        ),
+        shadowStyle: this.normalizeString(
+          visualRaw.shadow_style ?? visualRaw.shadowStyle,
         ),
       };
 
@@ -2223,8 +2264,46 @@ export class AiImageService {
     }
 
     this.logger.log(
-      `[convertToInfographicContent] Final sections count: ${sections.length}`,
+      `[convertToInfographicContent] Final sections count: ${sections.length}, style: ${visual.designStyle || "consulting"}`,
     );
+
+    // 映射风格字符串到类型安全的值
+    const validDesignStyles = [
+      "consulting",
+      "tech",
+      "minimal",
+      "creative",
+      "dark",
+      "academic",
+      "business",
+    ] as const;
+    const validFontStyles = ["sans", "serif", "mono", "rounded"] as const;
+    const validBorderRadius = ["none", "small", "medium", "large"] as const;
+    const validShadowStyle = ["none", "subtle", "medium", "strong"] as const;
+
+    const designStyle = validDesignStyles.includes(
+      visual.designStyle as (typeof validDesignStyles)[number],
+    )
+      ? (visual.designStyle as (typeof validDesignStyles)[number])
+      : "consulting";
+
+    const fontStyle = validFontStyles.includes(
+      visual.fontStyle as (typeof validFontStyles)[number],
+    )
+      ? (visual.fontStyle as (typeof validFontStyles)[number])
+      : "sans";
+
+    const borderRadius = validBorderRadius.includes(
+      visual.borderRadius as (typeof validBorderRadius)[number],
+    )
+      ? (visual.borderRadius as (typeof validBorderRadius)[number])
+      : "medium";
+
+    const shadowStyle = validShadowStyle.includes(
+      visual.shadowStyle as (typeof validShadowStyle)[number],
+    )
+      ? (visual.shadowStyle as (typeof validShadowStyle)[number])
+      : "medium";
 
     return {
       title: info.title || "Infographic",
@@ -2237,6 +2316,12 @@ export class AiImageService {
         accent: visual.accentColor || "#0891b2",
         background: visual.backgroundColor || "#f8fafc",
         text: visual.textColor || "#334155",
+      },
+      styleOptions: {
+        style: designStyle,
+        fontStyle: fontStyle,
+        borderRadius: borderRadius,
+        shadowStyle: shadowStyle,
       },
     };
   }
