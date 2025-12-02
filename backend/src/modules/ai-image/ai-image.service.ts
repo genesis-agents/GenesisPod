@@ -4038,10 +4038,12 @@ Generate the edited version of this image now.`;
 
   /**
    * 清理所有用户超出限制的旧图片（管理员功能）
+   * 同时清理没有userId的图片（保留最新20张）
    */
   async cleanupAllUsersImages(): Promise<{
     totalDeleted: number;
     usersCleaned: number;
+    orphanDeleted: number;
   }> {
     // 获取所有有图片的用户
     const usersWithImages = await this.prisma.generatedImage.groupBy({
@@ -4062,11 +4064,37 @@ Generate the edited version of this image now.`;
       }
     }
 
+    // 清理没有userId的孤儿图片（保留最新20张）
+    const orphanImages = await this.prisma.generatedImage.findMany({
+      where: {
+        userId: null,
+        isBookmarked: false,
+      },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+
+    let orphanDeleted = 0;
+    if (orphanImages.length > this.MAX_IMAGES_PER_USER) {
+      const idsToDelete = orphanImages
+        .slice(this.MAX_IMAGES_PER_USER)
+        .map((img) => img.id);
+
+      await this.prisma.generatedImage.deleteMany({
+        where: {
+          id: { in: idsToDelete },
+        },
+      });
+
+      orphanDeleted = idsToDelete.length;
+      totalDeleted += orphanDeleted;
+    }
+
     this.logger.log(
-      `Admin cleanup: deleted ${totalDeleted} images from ${usersCleaned} users`,
+      `Admin cleanup: deleted ${totalDeleted} images (${usersCleaned} users, ${orphanDeleted} orphan)`,
     );
 
-    return { totalDeleted, usersCleaned };
+    return { totalDeleted, usersCleaned, orphanDeleted };
   }
 
   /**
