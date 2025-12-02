@@ -252,7 +252,7 @@ export class AiImageController {
    * 管理员清理所有用户的旧图片
    * 使用密钥验证，不需要登录
    */
-  @Post("admin/cleanup-all")
+  @Post("cleanup-all")
   async adminCleanupAllImages(@Query("key") key: string) {
     // 简单的密钥验证
     if (key !== "deepdive-admin-cleanup-2024") {
