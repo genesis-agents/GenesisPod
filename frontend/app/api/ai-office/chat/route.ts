@@ -3,21 +3,11 @@ import { CoordinatorAgent, ResourceAnalysisAgent } from '@/lib/ai-agents';
 import type { Resource } from '@/types/ai-office';
 
 // 服务器端使用内部域名进行服务间通信
-// Railway 生产环境：https://deepdive-engine-ai-service.up.railway.app
-const AI_SERVICE_URL =
-  process.env.AI_SERVICE_INTERNAL_URL ||
-  process.env.NEXT_PUBLIC_AI_URL ||
-  (process.env.NODE_ENV === 'production'
-    ? 'https://deepdive-engine-ai-service.up.railway.app'
-    : 'http://localhost:5000');
+// Railway 生产环境使用硬编码的 URL（因为是内部服务通信）
+const AI_SERVICE_URL = 'https://deepdive-engine-ai-service.up.railway.app';
 
-// Railway 生产环境：https://deepdive-engine.up.railway.app
-const BACKEND_URL =
-  process.env.BACKEND_INTERNAL_URL ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  (process.env.NODE_ENV === 'production'
-    ? 'https://deepdive-engine.up.railway.app'
-    : 'http://localhost:4000');
+// 后端 API URL - 内部服务通信
+const BACKEND_API_URL = 'https://deepdive-engine.up.railway.app/api/v1';
 
 // 缓存默认模型 ID（避免每次请求都查询）
 let cachedDefaultModel: string | null = null;
@@ -37,7 +27,7 @@ async function getDefaultModel(): Promise<string> {
   try {
     // 使用公开的 AI Office 端点获取默认文本模型
     const res = await fetch(
-      `${BACKEND_URL}/api/v1/ai-office/models/default/text`,
+      `${BACKEND_API_URL}/ai-office/models/default/text`,
       {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
