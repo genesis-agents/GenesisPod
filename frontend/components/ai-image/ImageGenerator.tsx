@@ -2946,13 +2946,13 @@ export default function ImageGenerator({
             </svg>
           </button>
           <div
-            className="flex max-w-[95vw] flex-col items-center"
+            className="mb-12 flex max-w-[95vw] flex-col items-center"
             onClick={(e) => e.stopPropagation()}
           >
             <img
               src={lightboxImage.imageUrl}
               alt={lightboxImage.prompt}
-              className="max-h-[70vh] max-w-[95vw] rounded-t-lg object-contain shadow-2xl"
+              className="max-h-[65vh] max-w-[95vw] rounded-t-lg object-contain shadow-2xl"
               onContextMenu={(e) => handleContextMenu(e, lightboxImage)}
             />
             <div className="w-full max-w-[95vw] rounded-b-lg bg-gray-900/95 px-4 py-3">
@@ -2967,7 +2967,7 @@ export default function ImageGenerator({
               </p>
             </div>
           </div>
-          <p className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs text-gray-600">
+          <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-gray-500">
             Click outside or press ESC to close
           </p>
         </div>
