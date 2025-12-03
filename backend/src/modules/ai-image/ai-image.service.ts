@@ -1554,14 +1554,13 @@ export class AiImageService {
         textModelUsed = "Direct Input";
         emitStep("prompt_generate", "Using Direct Input", "completed");
 
-        // 如果有参考图片，强制使用 ai_image 模式（image-to-image 编辑）
-        // 这是 Refine 功能的核心逻辑：基于现有图片进行修改
-        if (imageBase64) {
-          promptInsights.renderingMode = "ai_image";
-          this.logger.log(
-            `[STREAM STEP 2] Reference image detected - forcing ai_image mode for image-to-image editing`,
-          );
-        }
+        // Skip AI 模式：始终使用 ai_image 模式，直接将用户输入传给图像生成模型
+        // 这样用户可以绕过 HTML 信息图模板，获得与 Gemini 网页版一致的结果
+        promptInsights.renderingMode = "ai_image";
+        promptInsights.imagePrompt = inputContent; // 直接使用用户输入作为 prompt
+        this.logger.log(
+          `[STREAM STEP 2] Skip AI enabled - forcing ai_image mode with direct user prompt`,
+        );
       }
 
       const composedPrompt = this.composeFinalImagePrompt(
@@ -2209,14 +2208,13 @@ export class AiImageService {
       textModelUsed = "Direct Input";
       this.logger.log(`[STEP 2] Using direct input as prompt source`);
 
-      // 如果有参考图片，强制使用 ai_image 模式（image-to-image 编辑）
-      // 这是 Refine 功能的核心逻辑：基于现有图片进行修改
-      if (imageBase64) {
-        promptInsights.renderingMode = "ai_image";
-        this.logger.log(
-          `[STEP 2] Reference image detected - forcing ai_image mode for image-to-image editing`,
-        );
-      }
+      // Skip AI 模式：始终使用 ai_image 模式，直接将用户输入传给图像生成模型
+      // 这样用户可以绕过 HTML 信息图模板，获得与 Gemini 网页版一致的结果
+      promptInsights.renderingMode = "ai_image";
+      promptInsights.imagePrompt = inputContent; // 直接使用用户输入作为 prompt
+      this.logger.log(
+        `[STEP 2] Skip AI enabled - forcing ai_image mode with direct user prompt`,
+      );
     } else {
       updateStep(
         "prompt_generate",
