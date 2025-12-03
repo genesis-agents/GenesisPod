@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { config } from '@/lib/config';
 
 interface ReaderViewProps {
@@ -69,6 +69,159 @@ const fontSizes: Record<
   medium: { body: 'text-[18px]', heading: 'text-3xl', meta: 'text-sm' },
   large: { body: 'text-[21px]', heading: 'text-4xl', meta: 'text-base' },
 };
+
+// 处理 HTML 内容 - 清理多余空白和优化结构
+function processHtmlContent(
+  html: string,
+  _currentTheme: typeof themes.light,
+  _theme: ThemeType
+): string {
+  // 移除多余的空段落和换行
+  let processed = html
+    // 移除空的 p 标签
+    .replace(/<p>\s*<\/p>/gi, '')
+    .replace(/<p>\s*<br\s*\/?>\s*<\/p>/gi, '')
+    // 移除多余的 br 标签
+    .replace(/(<br\s*\/?>\s*){3,}/gi, '<br><br>')
+    // 移除段落开头的 br
+    .replace(/<p>\s*<br\s*\/?>/gi, '<p>')
+    // 移除段落结尾的 br
+    .replace(/<br\s*\/?>\s*<\/p>/gi, '</p>')
+    // 清理连续空白
+    .replace(/\s{3,}/g, ' ')
+    // 移除只包含空白的 div
+    .replace(/<div>\s*<\/div>/gi, '');
+
+  // 识别并标记元信息（日期、来源等短文本）
+  processed = processed.replace(
+    /<p>([A-Za-z]+ \d{1,2}, \d{4})<\/p>/gi,
+    '<p class="meta-info">$1</p>'
+  );
+
+  return processed;
+}
+
+// 处理纯文本内容 - 智能识别结构
+function processPlainTextContent(
+  content: string,
+  currentTheme: typeof themes.light,
+  currentFontSize: typeof fontSizes.medium,
+  _theme: ThemeType
+): React.ReactNode[] {
+  // 按段落分割，过滤空行
+  const paragraphs = content
+    .split(/\n\n+/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+
+  return paragraphs.map((paragraph, index) => {
+    const trimmed = paragraph.trim();
+
+    // 检测是否为元信息（日期、短标签等）
+    const isMetaInfo =
+      /^(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}$/i.test(
+        trimmed
+      ) ||
+      /^\d{4}[-/]\d{2}[-/]\d{2}$/.test(trimmed) ||
+      (trimmed.length < 30 &&
+        /^(In The News|Read Article|Share|Tags?:|Source:|By\s|Published|Updated)/.test(
+          trimmed
+        ));
+
+    if (isMetaInfo) {
+      return (
+        <p key={index} className={`text-sm ${currentTheme.secondary} mb-2`}>
+          {trimmed}
+        </p>
+      );
+    }
+
+    // 检测标题模式
+    const isNumberedHeading =
+      /^(\d+\.|\w+\s+\d+[:.])/.test(trimmed) && trimmed.length < 100;
+    const isSectionHeading =
+      /^(Section|Chapter|Part|Sec\.|Summary|Introduction|Conclusion|Background|Overview|Key\s|Main\s)/i.test(
+        trimmed
+      ) && trimmed.length < 120;
+    const isAllCaps =
+      trimmed === trimmed.toUpperCase() &&
+      trimmed.length < 60 &&
+      /^[A-Z\s]+$/.test(trimmed);
+    const isShortTitle =
+      trimmed.length < 60 &&
+      !trimmed.includes('.') &&
+      /^[A-Z]/.test(trimmed) &&
+      !trimmed.includes(',');
+
+    if (isAllCaps || isNumberedHeading || isSectionHeading) {
+      return (
+        <h2
+          key={index}
+          className={`mb-3 mt-6 text-xl font-bold ${currentTheme.heading}`}
+          style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
+        >
+          {trimmed}
+        </h2>
+      );
+    }
+
+    if (isShortTitle && index > 0 && index < paragraphs.length - 1) {
+      return (
+        <h3
+          key={index}
+          className={`mb-2 mt-5 text-lg font-semibold ${currentTheme.heading}`}
+        >
+          {trimmed}
+        </h3>
+      );
+    }
+
+    // 检测列表
+    const lines = trimmed.split('\n');
+    const listLines = lines.filter((line) =>
+      /^(\s*[-•*]\s+|\s*\d+[.)]\s+|\s*\([a-z]\)\s+|\s*\([ivx]+\)\s+)/i.test(
+        line
+      )
+    );
+    const isListBlock =
+      listLines.length > 1 && listLines.length === lines.length;
+
+    if (isListBlock) {
+      return (
+        <ul key={index} className="my-4 list-disc space-y-1 pl-5">
+          {lines.map((item, i) => {
+            const cleanItem = item
+              .replace(
+                /^(\s*[-•*]\s+|\s*\d+[.)]\s+|\s*\([a-z]\)\s+|\s*\([ivx]+\)\s+)/i,
+                ''
+              )
+              .trim();
+            return cleanItem ? (
+              <li key={i} className={`leading-relaxed ${currentTheme.text}`}>
+                {cleanItem}
+              </li>
+            ) : null;
+          })}
+        </ul>
+      );
+    }
+
+    // 普通段落
+    return (
+      <p
+        key={index}
+        className={`mb-4 leading-relaxed ${currentFontSize.body} ${currentTheme.text}`}
+      >
+        {paragraph.split('\n').map((line, lineIndex) => (
+          <span key={lineIndex}>
+            {line}
+            {lineIndex < paragraph.split('\n').length - 1 && <br />}
+          </span>
+        ))}
+      </p>
+    );
+  });
+}
 
 /**
  * Reader View组件 - 使用Mozilla Readability提取清洁内容
@@ -460,210 +613,251 @@ export default function ReaderView({
         {/* 文章内容 - 优化的阅读样式 */}
         {article && !loading && !error && (
           <article
-            className="mx-auto px-6 py-10 sm:px-8 md:px-12"
-            style={{ maxWidth: '680px' }}
+            className="mx-auto px-4 py-8 sm:px-6 md:px-8 lg:px-12"
+            style={{ maxWidth: '720px' }}
           >
-            {/* 文章元信息 */}
-            <header className={`mb-8 border-b pb-6 ${currentTheme.border}`}>
+            {/* 文章元信息 - 紧凑的头部设计 */}
+            <header className={`mb-6 ${currentTheme.border}`}>
               <h1
-                className={`mb-4 font-bold leading-tight ${currentFontSize.heading} ${currentTheme.heading}`}
+                className={`mb-3 font-serif font-bold leading-snug tracking-tight ${currentFontSize.heading} ${currentTheme.heading}`}
+                style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
               >
                 {article.title || propTitle || '无标题'}
               </h1>
 
+              {/* 元信息行 - 单行紧凑显示 */}
               <div
-                className={`flex flex-wrap items-center gap-3 ${currentFontSize.meta} ${currentTheme.secondary}`}
+                className={`flex flex-wrap items-center gap-2 text-sm ${currentTheme.secondary}`}
               >
-                {article.byline && (
-                  <div className="flex items-center gap-1">
-                    <svg
-                      className="h-4 w-4"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span>{article.byline}</span>
-                  </div>
-                )}
-
                 {article.siteName && (
-                  <div className="flex items-center gap-1">
-                    <svg
-                      className="h-4 w-4"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M4.083 9h1.946c.089-1.546.383-2.97.837-4.118A6.004 6.004 0 004.083 9zM10 2a8 8 0 100 16 8 8 0 000-16zm0 2c-.076 0-.232.032-.465.262-.238.234-.497.623-.737 1.182-.389.907-.673 2.142-.766 3.556h3.936c-.093-1.414-.377-2.649-.766-3.556-.24-.56-.5-.948-.737-1.182C10.232 4.032 10.076 4 10 4zm3.971 5c-.089-1.546-.383-2.97-.837-4.118A6.004 6.004 0 0115.917 9h-1.946zm-2.003 2H8.032c.093 1.414.377 2.649.766 3.556.24.56.5.948.737 1.182.233.23.389.262.465.262.076 0 .232-.032.465-.262.238-.234.498-.623.737-1.182.389-.907.673-2.142.766-3.556zm1.166 4.118c.454-1.147.748-2.572.837-4.118h1.946a6.004 6.004 0 01-2.783 4.118zm-6.268 0C6.412 13.97 6.118 12.546 6.03 11H4.083a6.004 6.004 0 002.783 4.118z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span>{article.siteName}</span>
-                  </div>
+                  <span className="font-medium">{article.siteName}</span>
                 )}
-
+                {article.siteName && article.byline && <span>·</span>}
+                {article.byline && <span>{article.byline}</span>}
+                {(article.siteName || article.byline) && article.length && (
+                  <span>·</span>
+                )}
                 {article.length && (
-                  <div className="flex items-center gap-1">
-                    <svg
-                      className="h-4 w-4"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span>{Math.ceil(article.length / 1000)} 分钟阅读</span>
-                  </div>
+                  <span>{Math.ceil(article.length / 1000)} min read</span>
                 )}
               </div>
 
+              {/* 摘要 - 突出显示 */}
               {article.excerpt && (
                 <p
-                  className={`mt-4 text-lg leading-relaxed ${currentTheme.text}`}
+                  className={`mt-4 border-l-4 border-blue-500 pl-4 text-base italic leading-relaxed ${currentTheme.secondary}`}
                 >
                   {article.excerpt}
                 </p>
               )}
+
+              {/* 分隔线 */}
+              <div className={`mt-6 border-b ${currentTheme.border}`} />
             </header>
 
-            {/* 文章正文 - 使用 prose 样式，支持纯文本和 HTML，动态主题和字号 */}
+            {/* 文章正文 - 优化排版 */}
             <div
-              className={`prose max-w-none [&>*:first-child]:mt-0
-                ${currentFontSize.body} leading-[1.85]
-                ${currentTheme.text}
-                prose-headings:font-bold prose-headings:mt-10 prose-headings:mb-4
-                ${theme === 'dark' ? 'prose-headings:text-gray-100' : theme === 'sepia' ? 'prose-headings:text-[#3D2E1C]' : 'prose-headings:text-gray-900'}
-                prose-h1:text-2xl prose-h1:border-b prose-h1:pb-3
-                ${theme === 'dark' ? 'prose-h1:border-gray-700' : theme === 'sepia' ? 'prose-h1:border-[#E8DFD0]' : 'prose-h1:border-gray-200'}
-                prose-h2:text-xl prose-h3:text-lg
-                prose-p:leading-[1.9] prose-p:mb-5
-                prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-a:font-medium
-                ${theme === 'dark' ? 'prose-strong:text-gray-100' : theme === 'sepia' ? 'prose-strong:text-[#3D2E1C]' : 'prose-strong:text-gray-900'} prose-strong:font-bold
-                prose-em:italic
-                ${theme === 'dark' ? 'prose-code:bg-gray-800 prose-code:text-pink-400' : theme === 'sepia' ? 'prose-code:bg-[#EDE5D8] prose-code:text-red-700' : 'prose-code:bg-gray-100 prose-code:text-red-600'}
-                prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-mono
-                ${theme === 'dark' ? 'prose-pre:bg-gray-950' : 'prose-pre:bg-gray-900'} prose-pre:text-gray-100 prose-pre:rounded-lg prose-pre:p-4
-                prose-img:rounded-xl prose-img:shadow-lg prose-img:my-8 prose-img:mx-auto
-                prose-blockquote:border-l-4 prose-blockquote:border-blue-500 prose-blockquote:pl-6 prose-blockquote:italic prose-blockquote:py-4 prose-blockquote:pr-4 prose-blockquote:rounded-r-lg prose-blockquote:my-8
-                ${theme === 'dark' ? 'prose-blockquote:bg-gradient-to-r prose-blockquote:from-blue-900/30 prose-blockquote:to-transparent' : theme === 'sepia' ? 'prose-blockquote:bg-gradient-to-r prose-blockquote:from-[#E8DFD0] prose-blockquote:to-transparent' : 'prose-blockquote:bg-gradient-to-r prose-blockquote:from-blue-50 prose-blockquote:to-transparent'}
-                prose-ul:list-disc prose-ul:pl-6 prose-ul:my-5 prose-ul:space-y-2
-                prose-ol:list-decimal prose-ol:pl-6 prose-ol:my-5 prose-ol:space-y-2
-                prose-li:leading-[1.8]
-                prose-hr:my-10 ${theme === 'dark' ? 'prose-hr:border-gray-700' : theme === 'sepia' ? 'prose-hr:border-[#E8DFD0]' : 'prose-hr:border-gray-200'}
-                prose-table:border-collapse prose-table:w-full prose-th:p-3 prose-th:text-left prose-td:p-3 prose-td:border
-                ${theme === 'dark' ? 'prose-th:bg-gray-800 prose-td:border-gray-700' : theme === 'sepia' ? 'prose-th:bg-[#EDE5D8] prose-td:border-[#E8DFD0]' : 'prose-th:bg-gray-100 prose-td:border-gray-200'}`}
+              className={`article-content
+                ${currentFontSize.body} leading-relaxed
+                ${currentTheme.text}`}
+              style={{
+                fontFamily:
+                  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+              }}
             >
-              {/* 检查内容是否包含HTML标签，如果是纯文本则智能转换 */}
+              {/* 智能处理 HTML 内容 */}
               {article.content.includes('<p>') ||
               article.content.includes('<div>') ||
               article.content.includes('<h') ? (
-                <div dangerouslySetInnerHTML={{ __html: article.content }} />
+                <div
+                  dangerouslySetInnerHTML={{
+                    __html: processHtmlContent(
+                      article.content,
+                      currentTheme,
+                      theme
+                    ),
+                  }}
+                  className="processed-html"
+                />
               ) : (
                 // 纯文本内容：智能识别格式并转换
-                <div>
-                  {article.content
-                    .split(/\n\n+/)
-                    .filter((para) => para.trim())
-                    .map((paragraph, index) => {
-                      const trimmed = paragraph.trim();
-
-                      // 检测标题模式 (以数字+点开头，如 "1. Title" 或 "Section 1:")
-                      const isNumberedHeading =
-                        /^(\d+\.|\w+\s+\d+[:.])/.test(trimmed) &&
-                        trimmed.length < 100;
-                      const isSectionHeading =
-                        /^(Section|Chapter|Part|Sec\.|[A-Z][a-z]*:)/.test(
-                          trimmed
-                        ) && trimmed.length < 120;
-                      const isShortTitle =
-                        trimmed.length < 80 &&
-                        !trimmed.includes('.') &&
-                        /^[A-Z]/.test(trimmed);
-
-                      // 检测列表项
-                      const listItems = trimmed
-                        .split('\n')
-                        .filter((line) =>
-                          /^(\s*[-•*]\s+|\s*\d+[.)]\s+|\s*\([a-z]\)\s+|\s*\([ivx]+\)\s+)/i.test(
-                            line
-                          )
-                        );
-                      const isListBlock = listItems.length > 1;
-
-                      if (isNumberedHeading || isSectionHeading) {
-                        return (
-                          <h2
-                            key={index}
-                            className={`mb-4 mt-10 border-l-4 border-blue-500 pl-4 text-xl font-bold ${currentTheme.heading}`}
-                          >
-                            {trimmed}
-                          </h2>
-                        );
-                      }
-
-                      if (isShortTitle && index > 0) {
-                        return (
-                          <h3
-                            key={index}
-                            className={`mb-3 mt-8 text-lg font-semibold ${currentTheme.heading}`}
-                          >
-                            {trimmed}
-                          </h3>
-                        );
-                      }
-
-                      if (isListBlock) {
-                        return (
-                          <ul key={index} className="my-5 space-y-2 pl-6">
-                            {trimmed.split('\n').map((item, i) => {
-                              const cleanItem = item
-                                .replace(
-                                  /^(\s*[-•*]\s+|\s*\d+[.)]\s+|\s*\([a-z]\)\s+|\s*\([ivx]+\)\s+)/i,
-                                  ''
-                                )
-                                .trim();
-                              return cleanItem ? (
-                                <li
-                                  key={i}
-                                  className={`leading-[1.8] ${currentTheme.text}`}
-                                >
-                                  {cleanItem}
-                                </li>
-                              ) : null;
-                            })}
-                          </ul>
-                        );
-                      }
-
-                      // 普通段落
-                      return (
-                        <p
-                          key={index}
-                          className={`mb-5 leading-[1.9] ${currentFontSize.body} ${currentTheme.text}`}
-                        >
-                          {paragraph.split('\n').map((line, lineIndex) => (
-                            <span key={lineIndex}>
-                              {line}
-                              {lineIndex < paragraph.split('\n').length - 1 && (
-                                <br />
-                              )}
-                            </span>
-                          ))}
-                        </p>
-                      );
-                    })}
+                <div className="plain-text-content">
+                  {processPlainTextContent(
+                    article.content,
+                    currentTheme,
+                    currentFontSize,
+                    theme
+                  )}
                 </div>
               )}
             </div>
+
+            {/* 文章底部样式 */}
+            <style jsx global>{`
+              .article-content h1,
+              .article-content h2 {
+                font-family: Georgia, 'Times New Roman', serif;
+                font-weight: 700;
+                margin-top: 2rem;
+                margin-bottom: 0.75rem;
+                line-height: 1.3;
+              }
+              .article-content h1 {
+                font-size: 1.5rem;
+              }
+              .article-content h2 {
+                font-size: 1.25rem;
+              }
+              .article-content h3 {
+                font-size: 1.125rem;
+                font-weight: 600;
+                margin-top: 1.5rem;
+                margin-bottom: 0.5rem;
+              }
+
+              .article-content p {
+                margin-bottom: 1.25rem;
+                line-height: 1.75;
+              }
+
+              .article-content p:empty,
+              .article-content br + br {
+                display: none;
+              }
+
+              .article-content a {
+                color: #2563eb;
+                text-decoration: none;
+                font-weight: 500;
+              }
+              .article-content a:hover {
+                text-decoration: underline;
+              }
+
+              .article-content strong,
+              .article-content b {
+                font-weight: 600;
+                color: ${theme === 'dark'
+                  ? '#f3f4f6'
+                  : theme === 'sepia'
+                    ? '#3D2E1C'
+                    : '#111827'};
+              }
+
+              .article-content blockquote {
+                border-left: 4px solid #3b82f6;
+                padding-left: 1rem;
+                margin: 1.5rem 0;
+                font-style: italic;
+                color: ${theme === 'dark'
+                  ? '#9ca3af'
+                  : theme === 'sepia'
+                    ? '#8B7355'
+                    : '#6b7280'};
+              }
+
+              .article-content ul,
+              .article-content ol {
+                margin: 1rem 0;
+                padding-left: 1.5rem;
+              }
+              .article-content li {
+                margin-bottom: 0.5rem;
+                line-height: 1.7;
+              }
+
+              .article-content img {
+                max-width: 100%;
+                height: auto;
+                border-radius: 0.5rem;
+                margin: 1.5rem auto;
+                display: block;
+              }
+
+              .article-content hr {
+                border: none;
+                border-top: 1px solid
+                  ${theme === 'dark'
+                    ? '#374151'
+                    : theme === 'sepia'
+                      ? '#E8DFD0'
+                      : '#e5e7eb'};
+                margin: 2rem 0;
+              }
+
+              .article-content pre,
+              .article-content code {
+                font-family:
+                  ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
+                  monospace;
+                font-size: 0.875rem;
+              }
+              .article-content code {
+                background: ${theme === 'dark'
+                  ? '#374151'
+                  : theme === 'sepia'
+                    ? '#EDE5D8'
+                    : '#f3f4f6'};
+                padding: 0.125rem 0.375rem;
+                border-radius: 0.25rem;
+              }
+              .article-content pre {
+                background: ${theme === 'dark' ? '#111827' : '#1f2937'};
+                color: #f3f4f6;
+                padding: 1rem;
+                border-radius: 0.5rem;
+                overflow-x: auto;
+                margin: 1.5rem 0;
+              }
+              .article-content pre code {
+                background: none;
+                padding: 0;
+              }
+
+              .article-content table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 1.5rem 0;
+              }
+              .article-content th,
+              .article-content td {
+                border: 1px solid
+                  ${theme === 'dark'
+                    ? '#374151'
+                    : theme === 'sepia'
+                      ? '#E8DFD0'
+                      : '#e5e7eb'};
+                padding: 0.75rem;
+                text-align: left;
+              }
+              .article-content th {
+                background: ${theme === 'dark'
+                  ? '#1f2937'
+                  : theme === 'sepia'
+                    ? '#EDE5D8'
+                    : '#f9fafb'};
+                font-weight: 600;
+              }
+
+              /* 清理多余空白 */
+              .processed-html > div > *:first-child {
+                margin-top: 0;
+              }
+              .processed-html > div > *:last-child {
+                margin-bottom: 0;
+              }
+
+              /* 元信息样式（如日期、来源等短文本）*/
+              .article-content .meta-info {
+                font-size: 0.875rem;
+                color: ${theme === 'dark'
+                  ? '#9ca3af'
+                  : theme === 'sepia'
+                    ? '#8B7355'
+                    : '#6b7280'};
+                margin-bottom: 0.5rem;
+              }
+            `}</style>
           </article>
         )}
       </div>
