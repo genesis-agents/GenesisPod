@@ -1154,9 +1154,11 @@ export class InfographicTemplateService {
     // 中心视觉配置
     const centerTitle =
       content.styleOptions?.centerVisualTitle || content.title;
+    // 获取完整的section数据，包含title和bullets
+    const centerSections = content.sections.slice(0, 8);
     const centerItems =
       content.styleOptions?.centerVisualItems ||
-      content.sections.slice(0, 8).map((s) => s.title);
+      centerSections.map((s) => s.title);
 
     const overlayColor = isDarkMode
       ? "rgba(15, 23, 42, 0.92)"
@@ -1199,21 +1201,26 @@ export class InfographicTemplateService {
     const centerRadius = Math.round(minDimension * centerRadiusRatio);
 
     // 卡片尺寸：根据元素数量动态计算
-    // 元素越多，卡片越小
-    const cardWidthBase = itemCount <= 4 ? 150 : itemCount <= 6 ? 130 : 115;
+    // 增大卡片以容纳关键点
+    const cardWidthBase = itemCount <= 4 ? 180 : itemCount <= 6 ? 160 : 145;
     const cardWidth = Math.round(cardWidthBase * scale);
-    const cardPadding = Math.round((itemCount <= 6 ? 10 : 8) * scale);
+    const cardPadding = Math.round((itemCount <= 6 ? 12 : 10) * scale);
     const cardFontSize = Math.round(
       (itemCount <= 4 ? 13 : itemCount <= 6 ? 12 : 11) * scale,
     );
-    const numberSize = Math.round((itemCount <= 6 ? 20 : 18) * scale);
+    const bulletFontSize = Math.round(
+      (itemCount <= 4 ? 10 : itemCount <= 6 ? 9 : 8) * scale,
+    );
+    const numberSize = Math.round((itemCount <= 6 ? 22 : 20) * scale);
 
     // 轨道半径：确保卡片不与中心圆和边界重叠
     // 水平方向：(可用宽度 - 卡片宽度) / 2 - 边距
     // 垂直方向：(可用高度 - 卡片估算高度) / 2 - 边距（增加垂直边距防止与标题重叠）
-    const cardEstimatedHeight = cardPadding * 2 + numberSize + cardFontSize * 3;
-    const horizontalMargin = Math.round(20 * scale);
-    const verticalMargin = Math.round(25 * scale);
+    // 卡片高度估算：padding + number + title + bullets(2行)
+    const cardEstimatedHeight =
+      cardPadding * 2 + numberSize + cardFontSize * 2 + bulletFontSize * 4;
+    const horizontalMargin = Math.round(15 * scale);
+    const verticalMargin = Math.round(18 * scale);
     const horizontalRadius =
       (visualAreaWidth - cardWidth) / 2 - horizontalMargin;
     const verticalRadius =
@@ -1374,9 +1381,34 @@ export class InfographicTemplateService {
     .orbit-item .text {
       font-size: ${cardFontSize}px;
       color: ${colors.text};
-      font-weight: 500;
-      line-height: 1.35;
+      font-weight: 600;
+      line-height: 1.3;
       word-break: break-word;
+      margin-bottom: ${Math.round(4 * scale)}px;
+    }
+
+    .orbit-item .bullets {
+      text-align: left;
+      margin-top: ${Math.round(4 * scale)}px;
+      padding-top: ${Math.round(4 * scale)}px;
+      border-top: 1px solid ${isDarkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)"};
+    }
+
+    .orbit-item .bullet {
+      font-size: ${bulletFontSize}px;
+      color: ${isDarkMode ? "#94a3b8" : "#64748b"};
+      line-height: 1.4;
+      margin-bottom: ${Math.round(2 * scale)}px;
+      display: flex;
+      align-items: flex-start;
+      gap: ${Math.round(4 * scale)}px;
+    }
+
+    .orbit-item .bullet::before {
+      content: '•';
+      color: ${colors.accent};
+      font-weight: bold;
+      flex-shrink: 0;
     }
 
     /* 底部时间线区域 - 精确高度 */
@@ -1465,10 +1497,18 @@ export class InfographicTemplateService {
             50 + ((Math.sin(angle) * verticalRadius) / visualAreaHeight) * 100;
           // 为每个节点分配不同的渐变色
           const nodeGradient = nodeGradients[idx % nodeGradients.length];
+          // 获取该section的关键点（最多显示2个）
+          const section = centerSections[idx];
+          const bullets = section?.bullets?.slice(0, 2) || [];
+          const bulletsHtml =
+            bullets.length > 0
+              ? `<div class="bullets">${bullets.map((b) => `<div class="bullet">${this.escapeHtml(b.length > 20 ? b.substring(0, 18) + "..." : b)}</div>`).join("")}</div>`
+              : "";
           return `
           <div class="orbit-item" style="left: ${xPercent.toFixed(2)}%; top: ${yPercent.toFixed(2)}%; --node-gradient: ${nodeGradient}">
             <div class="number">${idx + 1}</div>
             <div class="text">${this.escapeHtml(item)}</div>
+            ${bulletsHtml}
           </div>
         `;
         })
