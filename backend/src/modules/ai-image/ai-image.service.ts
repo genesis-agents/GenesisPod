@@ -1553,6 +1553,15 @@ export class AiImageService {
       } else {
         textModelUsed = "Direct Input";
         emitStep("prompt_generate", "Using Direct Input", "completed");
+
+        // 如果有参考图片，强制使用 ai_image 模式（image-to-image 编辑）
+        // 这是 Refine 功能的核心逻辑：基于现有图片进行修改
+        if (imageBase64) {
+          promptInsights.renderingMode = "ai_image";
+          this.logger.log(
+            `[STREAM STEP 2] Reference image detected - forcing ai_image mode for image-to-image editing`,
+          );
+        }
       }
 
       const composedPrompt = this.composeFinalImagePrompt(
@@ -2199,6 +2208,15 @@ export class AiImageService {
     if (skipEnhancement) {
       textModelUsed = "Direct Input";
       this.logger.log(`[STEP 2] Using direct input as prompt source`);
+
+      // 如果有参考图片，强制使用 ai_image 模式（image-to-image 编辑）
+      // 这是 Refine 功能的核心逻辑：基于现有图片进行修改
+      if (imageBase64) {
+        promptInsights.renderingMode = "ai_image";
+        this.logger.log(
+          `[STEP 2] Reference image detected - forcing ai_image mode for image-to-image editing`,
+        );
+      }
     } else {
       updateStep(
         "prompt_generate",
