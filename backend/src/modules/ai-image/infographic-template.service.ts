@@ -1148,15 +1148,15 @@ export class InfographicTemplateService {
 
     const scale = width / 1200;
     const padding = Math.round(40 * scale);
-    const titleSize = Math.round(36 * scale);
-    const subtitleSize = Math.round(18 * scale);
+    const titleSize = Math.round(32 * scale);
+    const subtitleSize = Math.round(16 * scale);
 
     // 中心视觉配置
     const centerTitle =
       content.styleOptions?.centerVisualTitle || content.title;
     const centerItems =
       content.styleOptions?.centerVisualItems ||
-      content.sections.slice(0, 6).map((s) => s.title);
+      content.sections.slice(0, 8).map((s) => s.title);
 
     const overlayColor = isDarkMode
       ? "rgba(15, 23, 42, 0.92)"
@@ -1183,16 +1183,42 @@ export class InfographicTemplateService {
       ? `backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);`
       : "";
 
-    // 生成中心图形周围的要点位置
+    // ========== 精确空间计算 ==========
     const itemCount = Math.min(centerItems.length, 8);
-    // 中心圆形的半径 - 根据要点数量调整
-    const centerRadius =
-      Math.min(width, height) * (itemCount > 6 ? 0.13 : 0.15);
-    // 环绕要点的轨道半径（从中心到要点卡片中心的距离）
-    const orbitRadius = centerRadius + Math.round(160 * scale);
-    // 视觉区域的宽度和高度（用于计算轨道范围）
+
+    // 布局区域划分（固定比例）
+    const headerHeight = Math.round(90 * scale); // 品牌+标题区域
+    const footerHeight = Math.round(70 * scale); // 底部时间线区域
+    const visualAreaHeight = height - headerHeight - footerHeight - padding * 2;
     const visualAreaWidth = width - padding * 2;
-    const visualAreaHeight = height - padding * 2 - Math.round(200 * scale);
+
+    // 中心圆尺寸：基于可视区域的较小边，根据元素数量调整
+    const minDimension = Math.min(visualAreaWidth, visualAreaHeight);
+    const centerRadiusRatio =
+      itemCount <= 4 ? 0.2 : itemCount <= 6 ? 0.17 : 0.15;
+    const centerRadius = Math.round(minDimension * centerRadiusRatio);
+
+    // 卡片尺寸：根据元素数量动态计算
+    // 元素越多，卡片越小
+    const cardWidthBase = itemCount <= 4 ? 150 : itemCount <= 6 ? 130 : 115;
+    const cardWidth = Math.round(cardWidthBase * scale);
+    const cardPadding = Math.round((itemCount <= 6 ? 10 : 8) * scale);
+    const cardFontSize = Math.round(
+      (itemCount <= 4 ? 13 : itemCount <= 6 ? 12 : 11) * scale,
+    );
+    const numberSize = Math.round((itemCount <= 6 ? 20 : 18) * scale);
+
+    // 轨道半径：确保卡片不与中心圆和边界重叠
+    // 水平方向：(可用宽度 - 卡片宽度) / 2 - 边距
+    // 垂直方向：(可用高度 - 卡片估算高度) / 2 - 边距
+    const cardEstimatedHeight =
+      cardPadding * 2 + numberSize + cardFontSize * 2.5;
+    const horizontalMargin = Math.round(15 * scale);
+    const verticalMargin = Math.round(10 * scale);
+    const horizontalRadius =
+      (visualAreaWidth - cardWidth) / 2 - horizontalMargin;
+    const verticalRadius =
+      (visualAreaHeight - cardEstimatedHeight) / 2 - verticalMargin;
 
     return `
 <!DOCTYPE html>
@@ -1218,25 +1244,30 @@ export class InfographicTemplateService {
       height: 100%;
       display: flex;
       flex-direction: column;
-      justify-content: space-evenly;
+    }
+
+    /* 头部区域：品牌+标题 */
+    .header-section {
+      height: ${headerHeight}px;
+      flex-shrink: 0;
     }
 
     /* 品牌栏 */
     .brand-bar {
       display: flex;
       align-items: center;
-      gap: ${Math.round(8 * scale)}px;
-      margin-bottom: ${Math.round(16 * scale)}px;
+      gap: ${Math.round(6 * scale)}px;
+      margin-bottom: ${Math.round(8 * scale)}px;
     }
 
     .brand-logo {
-      width: ${Math.round(28 * scale)}px;
-      height: ${Math.round(28 * scale)}px;
+      width: ${Math.round(22 * scale)}px;
+      height: ${Math.round(22 * scale)}px;
       color: ${colors.primary};
     }
 
     .brand-name {
-      font-size: ${Math.round(14 * scale)}px;
+      font-size: ${Math.round(12 * scale)}px;
       font-weight: 600;
       color: ${colors.primary};
     }
@@ -1244,39 +1275,35 @@ export class InfographicTemplateService {
     /* 标题区 */
     .header {
       text-align: center;
-      margin-bottom: ${Math.round(20 * scale)}px;
-      flex-shrink: 0;
-      position: relative;
-      z-index: 20;
     }
 
     .main-title {
       font-size: ${titleSize}px;
       font-weight: 700;
       color: ${colors.primary};
-      margin-bottom: ${Math.round(8 * scale)}px;
+      margin-bottom: ${Math.round(4 * scale)}px;
+      line-height: 1.2;
     }
 
     .subtitle {
       font-size: ${subtitleSize}px;
       color: ${isDarkMode ? "#94a3b8" : "#64748b"};
+      line-height: 1.3;
     }
 
-    /* 中心视觉区域 */
+    /* 中心视觉区域 - 精确尺寸 */
     .visual-area {
-      flex: 1;
+      height: ${visualAreaHeight}px;
       position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-top: ${Math.round(10 * scale)}px;
-      margin-bottom: ${Math.round(30 * scale)}px;
     }
 
     /* 中心圆形图形 */
     .center-visual {
-      width: ${Math.round(centerRadius * 2)}px;
-      height: ${Math.round(centerRadius * 2)}px;
+      width: ${centerRadius * 2}px;
+      height: ${centerRadius * 2}px;
       border-radius: 50%;
       background: linear-gradient(135deg, ${colors.primary} 0%, ${this.adjustColor(colors.primary, 30)} 100%);
       display: flex;
@@ -1286,44 +1313,44 @@ export class InfographicTemplateService {
       left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
-      box-shadow: 0 20px 60px ${colors.primary}40;
+      box-shadow: 0 ${Math.round(15 * scale)}px ${Math.round(40 * scale)}px ${colors.primary}40;
       z-index: 10;
     }
 
     .center-visual::before {
       content: '';
       position: absolute;
-      inset: -${Math.round(15 * scale)}px;
+      inset: -${Math.round(10 * scale)}px;
       border-radius: 50%;
-      border: 2px dashed ${colors.accent}60;
+      border: 2px dashed ${colors.accent}50;
     }
 
     .center-visual::after {
       content: '';
       position: absolute;
-      inset: -${Math.round(35 * scale)}px;
+      inset: -${Math.round(25 * scale)}px;
       border-radius: 50%;
       border: 1px solid ${colors.primary}20;
     }
 
     .center-title {
       color: white;
-      font-size: ${Math.round(24 * scale)}px;
+      font-size: ${Math.round(18 * scale)}px;
       font-weight: 700;
       text-align: center;
-      padding: ${Math.round(20 * scale)}px;
+      padding: ${Math.round(15 * scale)}px;
       line-height: 1.3;
     }
 
-    /* 周围要点 - 支持玻璃态 */
+    /* 周围卡片 - 精确尺寸 */
     .orbit-item {
       position: absolute;
+      width: ${cardWidth}px;
       background: ${isGlassmorphism ? "rgba(255, 255, 255, 0.08)" : isDarkMode ? "#1e293b" : "white"};
-      border-radius: ${Math.round(12 * scale)}px;
-      padding: ${Math.round(12 * scale)}px ${Math.round(16 * scale)}px;
-      box-shadow: ${isGlassmorphism ? "0 8px 32px rgba(0,0,0,0.25)" : isDarkMode ? "0 4px 20px rgba(0,0,0,0.4)" : "0 4px 20px rgba(0,0,0,0.08)"};
+      border-radius: ${Math.round(8 * scale)}px;
+      padding: ${cardPadding}px;
+      box-shadow: ${isGlassmorphism ? "0 6px 24px rgba(0,0,0,0.25)" : isDarkMode ? "0 3px 15px rgba(0,0,0,0.4)" : "0 3px 15px rgba(0,0,0,0.08)"};
       border: 1px solid ${isGlassmorphism ? "rgba(255,255,255,0.15)" : isDarkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"};
-      max-width: ${Math.round(160 * scale)}px;
       text-align: center;
       transform: translate(-50%, -50%);
       z-index: 15;
@@ -1331,66 +1358,55 @@ export class InfographicTemplateService {
     }
 
     .orbit-item .number {
-      width: ${Math.round(24 * scale)}px;
-      height: ${Math.round(24 * scale)}px;
+      width: ${numberSize}px;
+      height: ${numberSize}px;
       background: var(--node-gradient, ${colors.accent});
       color: white;
       border-radius: 50%;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: ${Math.round(12 * scale)}px;
+      font-size: ${Math.round(numberSize * 0.5)}px;
       font-weight: 700;
-      margin-bottom: ${Math.round(6 * scale)}px;
-      ${isGlassmorphism ? "box-shadow: 0 4px 12px rgba(0,0,0,0.2);" : ""}
+      margin-bottom: ${Math.round(4 * scale)}px;
+      ${isGlassmorphism ? "box-shadow: 0 3px 10px rgba(0,0,0,0.2);" : ""}
     }
 
     .orbit-item .text {
-      font-size: ${Math.round(13 * scale)}px;
+      font-size: ${cardFontSize}px;
       color: ${colors.text};
       font-weight: 500;
-      line-height: 1.4;
+      line-height: 1.35;
+      word-break: break-word;
     }
 
-    /* SVG 连接线容器 */
-    .connections-layer {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 5;
+    /* 底部时间线区域 - 精确高度 */
+    .footer-section {
+      height: ${footerHeight}px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    /* 连接线 */
-    .connector {
-      position: absolute;
-      width: 2px;
-      background: linear-gradient(to bottom, ${colors.accent}60, transparent);
-      transform-origin: top center;
-    }
-
-    /* 底部时间线/步骤 */
     .bottom-timeline {
       display: flex;
       justify-content: center;
-      gap: ${Math.round(30 * scale)}px;
-      margin-top: ${Math.round(20 * scale)}px;
-      padding: ${Math.round(16 * scale)}px;
+      gap: ${Math.round(20 * scale)}px;
+      padding: ${Math.round(12 * scale)}px ${Math.round(20 * scale)}px;
       background: ${isDarkMode ? "rgba(30,41,59,0.8)" : "rgba(255,255,255,0.8)"};
-      border-radius: ${Math.round(12 * scale)}px;
+      border-radius: ${Math.round(10 * scale)}px;
     }
 
     .timeline-step {
       display: flex;
       align-items: center;
-      gap: ${Math.round(8 * scale)}px;
+      gap: ${Math.round(6 * scale)}px;
     }
 
     .step-icon {
-      width: ${Math.round(32 * scale)}px;
-      height: ${Math.round(32 * scale)}px;
+      width: ${Math.round(26 * scale)}px;
+      height: ${Math.round(26 * scale)}px;
       background: ${colors.primary};
       color: white;
       border-radius: 50%;
@@ -1400,34 +1416,37 @@ export class InfographicTemplateService {
     }
 
     .step-icon svg {
-      width: ${Math.round(16 * scale)}px;
-      height: ${Math.round(16 * scale)}px;
+      width: ${Math.round(14 * scale)}px;
+      height: ${Math.round(14 * scale)}px;
     }
 
     .step-text {
-      font-size: ${Math.round(13 * scale)}px;
+      font-size: ${Math.round(11 * scale)}px;
       color: ${colors.text};
       font-weight: 500;
     }
 
     .step-arrow {
       color: ${colors.accent};
-      font-size: ${Math.round(20 * scale)}px;
+      font-size: ${Math.round(16 * scale)}px;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="brand-bar">
-      <div class="brand-logo">${DEEPDIVE_LOGO}</div>
-      <span class="brand-name">DeepDive ENGINE</span>
+    <!-- 头部区域 -->
+    <div class="header-section">
+      <div class="brand-bar">
+        <div class="brand-logo">${DEEPDIVE_LOGO}</div>
+        <span class="brand-name">DeepDive ENGINE</span>
+      </div>
+      <div class="header">
+        <h1 class="main-title">${this.escapeHtml(content.title)}</h1>
+        ${content.subtitle ? `<p class="subtitle">${this.escapeHtml(content.subtitle)}</p>` : ""}
+      </div>
     </div>
 
-    <div class="header">
-      <h1 class="main-title">${this.escapeHtml(content.title)}</h1>
-      ${content.subtitle ? `<p class="subtitle">${this.escapeHtml(content.subtitle)}</p>` : ""}
-    </div>
-
+    <!-- 视觉区域 -->
     <div class="visual-area">
       <div class="center-visual">
         <span class="center-title">${this.escapeHtml(centerTitle)}</span>
@@ -1435,20 +1454,10 @@ export class InfographicTemplateService {
 
       ${centerItems
         .map((item, idx) => {
-          // 完整圆形分布，从右侧开始（0度），顺时针排列
+          // 从顶部开始（-90度），顺时针均匀分布
           const angleStep = (2 * Math.PI) / itemCount;
-          const angle = angleStep * idx; // 从右侧(0度)开始
-          // 椭圆形轨道 - 水平方向宽，垂直方向稍扁
-          // 使用绝对像素值计算，确保节点分布合理
-          const horizontalRadius = Math.min(
-            visualAreaWidth * 0.38,
-            orbitRadius * 1.4,
-          );
-          const verticalRadius = Math.min(
-            visualAreaHeight * 0.38,
-            orbitRadius * 0.9,
-          );
-          // 计算相对于 visual-area 中心的位置（百分比）
+          const angle = -Math.PI / 2 + angleStep * idx;
+          // 计算卡片中心位置（百分比）
           const xPercent =
             50 + ((Math.cos(angle) * horizontalRadius) / visualAreaWidth) * 100;
           const yPercent =
@@ -1456,7 +1465,7 @@ export class InfographicTemplateService {
           // 为每个节点分配不同的渐变色
           const nodeGradient = nodeGradients[idx % nodeGradients.length];
           return `
-          <div class="orbit-item" style="left: ${xPercent}%; top: ${yPercent}%; --node-gradient: ${nodeGradient}">
+          <div class="orbit-item" style="left: ${xPercent.toFixed(2)}%; top: ${yPercent.toFixed(2)}%; --node-gradient: ${nodeGradient}">
             <div class="number">${idx + 1}</div>
             <div class="text">${this.escapeHtml(item)}</div>
           </div>
@@ -1465,26 +1474,29 @@ export class InfographicTemplateService {
         .join("")}
     </div>
 
+    <!-- 底部区域 -->
+    <div class="footer-section">
     ${
       content.sections.length > 0 && content.sections[0].metrics?.length > 0
         ? `
-    <div class="bottom-timeline">
-      ${content.sections
-        .slice(0, 4)
-        .map(
-          (section, idx) => `
-        <div class="timeline-step">
-          <div class="step-icon">${this.getIcon(section.iconType)}</div>
-          <span class="step-text">${this.escapeHtml(section.title)}</span>
-        </div>
-        ${idx < Math.min(content.sections.length, 4) - 1 ? '<span class="step-arrow">→</span>' : ""}
-      `,
-        )
-        .join("")}
-    </div>
-    `
+      <div class="bottom-timeline">
+        ${content.sections
+          .slice(0, 4)
+          .map(
+            (section, idx) => `
+          <div class="timeline-step">
+            <div class="step-icon">${this.getIcon(section.iconType)}</div>
+            <span class="step-text">${this.escapeHtml(section.title)}</span>
+          </div>
+          ${idx < Math.min(content.sections.length, 4) - 1 ? '<span class="step-arrow">→</span>' : ""}
+        `,
+          )
+          .join("")}
+      </div>
+        `
         : ""
     }
+    </div>
   </div>
 </body>
 </html>`;
