@@ -258,6 +258,14 @@ Is the user asking for a PICTURE/IMAGE of something, or an INFOGRAPHIC with stru
   - Metric 3: "增长率" (with comparison field showing +XX%)
 - This allows users to see the CHANGE over time, not just current values
 
+## CRITICAL: Ranking order (排序规则):
+- For "ranking" template, entities MUST be sorted by a primary metric in DESCENDING order
+- Default sort: by the CURRENT/LATEST value (e.g., 2025市值 for market cap comparison)
+- If user mentions "增长率排名" or "增长最快", sort by growth rate instead
+- The #1 position should have the HIGHEST value of the primary sort metric
+- Example: If comparing 2025 market cap, NVIDIA ($5.06T) should be #1, not Apple ($4.5T)
+- NEVER use arbitrary order like company fame or alphabetical order
+
 ## STEP 1.5: DEEP CONTENT STRUCTURE ANALYSIS (CRITICAL!)
 
 Before selecting a template, you MUST deeply analyze the content's logical structure AND data quantity:
