@@ -225,13 +225,26 @@ export class RssService {
     // 提取标签（从categories）
     const tags = item.categories?.slice(0, 10) || [];
 
+    // 检测是否为 arXiv 论文并提取 PDF URL
+    // arXiv URL 格式: https://arxiv.org/abs/2512.02080 -> PDF: https://arxiv.org/pdf/2512.02080
+    let pdfUrl: string | null = null;
+    const sourceUrl = item.link!;
+
+    if (sourceUrl.includes("arxiv.org/abs/")) {
+      pdfUrl = sourceUrl.replace("/abs/", "/pdf/");
+      this.logger.log(`Extracted arXiv PDF URL: ${pdfUrl}`);
+    }
+
     return {
       type: category as any,
 
       // 基础信息
       title: item.title!,
       abstract: summary,
-      sourceUrl: item.link!,
+      sourceUrl: sourceUrl,
+
+      // PDF URL（arXiv 论文专用）
+      pdfUrl: pdfUrl,
 
       // 作者信息
       authors: [{ name: author }],
@@ -249,6 +262,9 @@ export class RssService {
         feedDescription: feed.description,
         categories: item.categories || [],
         guid: item.guid,
+        // 标记为 arXiv 论文
+        isArxiv: sourceUrl.includes("arxiv.org"),
+        arxivId: this.extractArxivId(sourceUrl),
       },
 
       // ⚠️ 关键！MongoDB 原始数据引用
@@ -258,6 +274,15 @@ export class RssService {
       qualityScore: 8.0, // RSS源通常质量较高
       trendingScore: 0,
     };
+  }
+
+  /**
+   * 从 arXiv URL 提取论文 ID
+   * 例如: https://arxiv.org/abs/2512.02080 -> 2512.02080
+   */
+  private extractArxivId(url: string): string | null {
+    const match = url.match(/arxiv\.org\/abs\/(\d+\.\d+)/);
+    return match ? match[1] : null;
   }
 
   /**
