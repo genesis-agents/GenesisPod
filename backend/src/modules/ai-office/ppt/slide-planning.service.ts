@@ -281,33 +281,28 @@ export class SlidePlanningService {
   }
 
   /**
-   * 批量规划所有幻灯片（并行优化）
+   * 批量规划所有幻灯片（使用快速规则引擎，不调用 AI）
+   *
+   * 注意：之前使用 AI 逐页规划导致 7+ 页时需要 10+ 分钟
+   * 现在改用快速规则引擎，秒级完成
    */
   async planAllSlides(
     outline: PPTOutline,
     theme: PPTTheme,
   ): Promise<SlideSpec[]> {
-    this.logger.log(`[planAllSlides] Planning ${outline.slides.length} slides`);
+    this.logger.log(
+      `[planAllSlides] Quick planning ${outline.slides.length} slides (rule-based)`,
+    );
 
-    const slideSpecs: SlideSpec[] = [];
+    const totalSlides = outline.slides.length;
 
-    // 顺序规划，以保持上下文连贯性
-    for (const outlineItem of outline.slides) {
-      const previousSlides = slideSpecs.map((s) => ({
-        purpose: s.purpose,
-        layoutType: s.layoutType,
-      }));
-
-      const spec = await this.planSlide(outlineItem, theme, {
-        totalSlides: outline.slides.length,
-        previousSlides,
-      });
-
-      slideSpecs.push(spec);
-    }
+    // 使用快速规则引擎，不调用 AI
+    const slideSpecs = outline.slides.map((outlineItem, index) =>
+      this.quickPlanSlide(outlineItem, theme, index, totalSlides),
+    );
 
     this.logger.log(
-      `[planAllSlides] Completed planning for ${slideSpecs.length} slides`,
+      `[planAllSlides] Completed quick planning for ${slideSpecs.length} slides`,
     );
 
     return slideSpecs;
