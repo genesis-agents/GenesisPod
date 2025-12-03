@@ -147,24 +147,30 @@ function ThumbnailGallery({
   if (images.length === 0) {
     return (
       <div
-        className={`flex items-center justify-center ${isVertical ? 'h-full' : 'h-20'} text-gray-400`}
+        className={`flex items-center justify-center ${isVertical ? 'h-full' : 'h-20'}`}
       >
         <div className="p-4 text-center">
-          <svg
-            className="mx-auto mb-2 h-6 w-6 opacity-40"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-            />
-          </svg>
-          <p className="text-[10px] leading-tight opacity-60">
+          {/* 更精美的空状态图标 */}
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-gray-100 to-gray-50 shadow-inner">
+            <svg
+              className="h-6 w-6 text-gray-300"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+          </div>
+          <p className="text-xs font-medium text-gray-400">
             {isVertical ? 'History' : 'Images'}
+          </p>
+          <p className="mt-1 text-[10px] leading-tight text-gray-300">
+            {isVertical ? 'Your creations appear here' : 'No images yet'}
           </p>
         </div>
       </div>
@@ -1897,30 +1903,136 @@ export default function ImageGenerator({
                 </p>
               </div>
             ) : (
-              <div className="flex max-w-md flex-col items-center gap-6 px-4 text-center">
-                <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-purple-100 to-blue-100">
-                  <svg
-                    className="h-12 w-12 text-purple-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
+              <div className="flex max-w-lg flex-col items-center gap-8 px-6 text-center">
+                {/* 精美的渐变图标 */}
+                <div className="relative">
+                  {/* 背景光晕效果 */}
+                  <div className="absolute -inset-4 rounded-full bg-gradient-to-r from-purple-200 via-pink-100 to-blue-200 opacity-60 blur-xl" />
+                  <div className="relative flex h-28 w-28 items-center justify-center rounded-3xl bg-gradient-to-br from-purple-500 via-purple-400 to-indigo-500 shadow-xl shadow-purple-200">
+                    <svg
+                      className="h-14 w-14 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
+                    </svg>
+                    {/* AI 星星装饰 */}
+                    <div className="absolute -right-1 -top-1 flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg">
+                      <svg
+                        className="h-4 w-4 text-white"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                      </svg>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="mb-2 text-2xl font-semibold text-gray-800">
+
+                {/* 标题和描述 */}
+                <div className="space-y-3">
+                  <h2 className="text-2xl font-bold tracking-tight text-gray-900">
                     Create with AI
                   </h2>
-                  <p className="text-gray-500">
-                    Describe your vision, paste URLs, upload files, or add
-                    YouTube videos
+                  <p className="text-base leading-relaxed text-gray-500">
+                    Transform your ideas into stunning visuals
                   </p>
+                </div>
+
+                {/* 功能提示卡片 */}
+                <div className="grid w-full max-w-sm grid-cols-2 gap-3">
+                  <div className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100">
+                      <svg
+                        className="h-4 w-4 text-purple-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                        />
+                      </svg>
+                    </div>
+                    <span className="text-xs font-medium text-gray-700">
+                      Prompt
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100">
+                      <svg
+                        className="h-4 w-4 text-red-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    </div>
+                    <span className="text-xs font-medium text-gray-700">
+                      YouTube
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
+                      <svg
+                        className="h-4 w-4 text-blue-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                        />
+                      </svg>
+                    </div>
+                    <span className="text-xs font-medium text-gray-700">
+                      URL
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-100">
+                      <svg
+                        className="h-4 w-4 text-green-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                        />
+                      </svg>
+                    </div>
+                    <span className="text-xs font-medium text-gray-700">
+                      Files
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
@@ -2045,30 +2157,38 @@ export default function ImageGenerator({
 
           {/* Empty State - Insights placeholder */}
           {!selectedImage && !isGenerating && (
-            <div className="flex flex-1 flex-col items-center justify-center border-b border-gray-100 bg-gray-50/50 p-6 text-center">
-              <div className="mb-3 rounded-full bg-gray-100 p-3">
-                <svg
-                  className="h-6 w-6 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
+            <div className="flex flex-1 flex-col items-center justify-center border-b border-gray-100 bg-gradient-to-b from-gray-50 to-white p-8 text-center">
+              {/* 精美的空状态图标 */}
+              <div className="relative mb-5">
+                <div className="absolute -inset-3 rounded-full bg-gradient-to-r from-purple-100 to-blue-100 opacity-50 blur-lg" />
+                <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-gray-100 bg-gradient-to-br from-gray-100 to-white shadow-inner">
+                  <svg
+                    className="h-8 w-8 text-gray-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </div>
               </div>
-              <p className="mb-1 text-xs font-medium text-gray-500">
+              <p className="mb-2 text-sm font-semibold text-gray-600">
                 Insights Panel
               </p>
-              <p className="text-[10px] leading-relaxed text-gray-400">
-                Select an image to view details,
-                <br />
-                or generate a new one below
+              <p className="max-w-[200px] text-xs leading-relaxed text-gray-400">
+                Select an image to view details, or generate a new one below
               </p>
+              {/* 装饰性虚线 */}
+              <div className="mt-6 flex items-center gap-2">
+                <div className="h-px w-8 bg-gradient-to-r from-transparent to-gray-200" />
+                <div className="h-1.5 w-1.5 rounded-full bg-gray-200" />
+                <div className="h-px w-8 bg-gradient-to-l from-transparent to-gray-200" />
+              </div>
             </div>
           )}
 
