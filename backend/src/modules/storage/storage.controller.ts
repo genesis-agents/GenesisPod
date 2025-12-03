@@ -198,6 +198,27 @@ export class StorageController {
   }
 
   /**
+   * Run VACUUM FULL on all major tables to reclaim disk space
+   * WARNING: This locks tables during operation - use during low traffic
+   */
+  @Post("vacuum-full-all")
+  async vacuumFullAll(@Query("key") key: string): Promise<{
+    success: boolean;
+    message: string;
+    results: Array<{
+      table: string;
+      beforeMB: number;
+      afterMB: number;
+      freedMB: number;
+    }>;
+    totalFreedMB: number;
+  }> {
+    this.validateKey(key);
+    this.logger.log("Running VACUUM FULL on all major tables");
+    return this.storageService.vacuumFullAll();
+  }
+
+  /**
    * Run VACUUM FULL on a specific table to reclaim space to OS
    * WARNING: This locks the table exclusively during operation
    */

@@ -110,6 +110,7 @@ export default function StoragePage() {
   const [loading, setLoading] = useState(true);
   const [analyzingDb, setAnalyzingDb] = useState(false);
   const [vacuuming, setVacuuming] = useState(false);
+  const [deepCleaning, setDeepCleaning] = useState(false);
   const [cleaning, setCleaning] = useState<string | null>(null);
   const [message, setMessage] = useState<{
     type: 'success' | 'error';
@@ -187,6 +188,37 @@ export default function StoragePage() {
       setMessage({ type: 'error', text: 'Failed to run VACUUM' });
     } finally {
       setVacuuming(false);
+    }
+  };
+
+  // Run VACUUM FULL ALL (Deep Clean)
+  const handleDeepClean = async () => {
+    if (
+      !confirm(
+        'Run VACUUM FULL on all tables? This will LOCK tables during operation and may take several minutes. Use during low traffic periods. Continue?'
+      )
+    ) {
+      return;
+    }
+    setDeepCleaning(true);
+    setMessage(null);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/v1/storage/vacuum-full-all?key=${ADMIN_KEY}`,
+        { method: 'POST' }
+      );
+      const result = await res.json();
+      setMessage({
+        type: result.success ? 'success' : 'error',
+        text: result.message,
+      });
+      if (result.success) {
+        loadDbAnalysis();
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to run Deep Clean' });
+    } finally {
+      setDeepCleaning(false);
     }
   };
 
@@ -400,7 +432,7 @@ export default function StoragePage() {
               <div className="flex gap-2">
                 <button
                   onClick={handleVacuum}
-                  disabled={vacuuming}
+                  disabled={vacuuming || deepCleaning}
                   className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-all hover:from-purple-600 hover:to-indigo-600 disabled:opacity-50"
                 >
                   {vacuuming ? (
@@ -408,7 +440,19 @@ export default function StoragePage() {
                   ) : (
                     <Sparkles className="h-3 w-3" />
                   )}
-                  Run VACUUM
+                  VACUUM
+                </button>
+                <button
+                  onClick={handleDeepClean}
+                  disabled={vacuuming || deepCleaning}
+                  className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-red-500 to-orange-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-all hover:from-red-600 hover:to-orange-600 disabled:opacity-50"
+                >
+                  {deepCleaning ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Zap className="h-3 w-3" />
+                  )}
+                  Deep Clean
                 </button>
                 <button
                   onClick={() => setShowDbAnalysis(false)}

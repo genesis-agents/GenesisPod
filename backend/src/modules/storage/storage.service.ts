@@ -1115,6 +1115,108 @@ export class StorageService {
   }
 
   /**
+   * Run VACUUM FULL on all major tables to reclaim disk space
+   * WARNING: This locks tables during operation - use during low traffic
+   */
+  async vacuumFullAll(): Promise<{
+    success: boolean;
+    message: string;
+    results: Array<{
+      table: string;
+      beforeMB: number;
+      afterMB: number;
+      freedMB: number;
+    }>;
+    totalFreedMB: number;
+  }> {
+    const tablesToVacuum = [
+      "generated_images",
+      "topic_messages",
+      "raw_data",
+      "office_documents",
+      "office_document_versions",
+      "resources",
+      "debate_messages",
+      "user_activities",
+    ];
+
+    const results: Array<{
+      table: string;
+      beforeMB: number;
+      afterMB: number;
+      freedMB: number;
+    }> = [];
+    let totalFreedMB = 0;
+
+    try {
+      // Get database size before
+      const dbSizeBefore = await this.prisma.$queryRawUnsafe<
+        Array<{ size: string }>
+      >("SELECT pg_database_size(current_database())::text as size");
+      const dbBeforeMB = Number(dbSizeBefore[0]?.size || 0) / (1024 * 1024);
+
+      for (const table of tablesToVacuum) {
+        try {
+          // Get size before
+          const beforeSize = await this.prisma.$queryRawUnsafe<
+            Array<{ size: string }>
+          >(`SELECT pg_total_relation_size('${table}')::text as size`);
+          const beforeMB = Number(beforeSize[0]?.size || 0) / (1024 * 1024);
+
+          if (beforeMB < 0.1) {
+            // Skip tiny tables
+            continue;
+          }
+
+          this.logger.log(
+            `VACUUM FULL ${table} (${Math.round(beforeMB * 100) / 100}MB)...`,
+          );
+          await this.prisma.$executeRawUnsafe(`VACUUM FULL ${table}`);
+
+          // Get size after
+          const afterSize = await this.prisma.$queryRawUnsafe<
+            Array<{ size: string }>
+          >(`SELECT pg_total_relation_size('${table}')::text as size`);
+          const afterMB = Number(afterSize[0]?.size || 0) / (1024 * 1024);
+          const freedMB = Math.round((beforeMB - afterMB) * 100) / 100;
+
+          results.push({
+            table,
+            beforeMB: Math.round(beforeMB * 100) / 100,
+            afterMB: Math.round(afterMB * 100) / 100,
+            freedMB,
+          });
+          totalFreedMB += freedMB;
+        } catch (tableError) {
+          this.logger.warn(`Failed to vacuum ${table}: ${tableError}`);
+        }
+      }
+
+      // Get database size after
+      const dbSizeAfter = await this.prisma.$queryRawUnsafe<
+        Array<{ size: string }>
+      >("SELECT pg_database_size(current_database())::text as size");
+      const dbAfterMB = Number(dbSizeAfter[0]?.size || 0) / (1024 * 1024);
+      const actualFreed = Math.round((dbBeforeMB - dbAfterMB) * 100) / 100;
+
+      return {
+        success: true,
+        message: `VACUUM FULL completed. Database: ${Math.round(dbBeforeMB)}MB -> ${Math.round(dbAfterMB)}MB (freed ${actualFreed}MB)`,
+        results,
+        totalFreedMB: actualFreed,
+      };
+    } catch (error) {
+      this.logger.error("Failed to vacuum full all:", error);
+      return {
+        success: false,
+        message: `VACUUM FULL ALL failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        results,
+        totalFreedMB,
+      };
+    }
+  }
+
+  /**
    * Force checkpoint and clean WAL to reduce disk usage
    */
   async cleanupWAL(): Promise<{ success: boolean; message: string }> {
