@@ -1185,13 +1185,14 @@ export class InfographicTemplateService {
 
     // 生成中心图形周围的要点位置
     const itemCount = Math.min(centerItems.length, 8);
-    // 中心圆形的半径 - 根据要点数量调整（缩小以留出更多空间）
+    // 中心圆形的半径 - 根据要点数量调整
     const centerRadius =
-      Math.min(width, height) * (itemCount > 6 ? 0.12 : 0.14);
-    // 环绕要点的轨道半径（从中心到要点卡片中心的距离）- 适度调整避免重叠
-    const orbitRadius = centerRadius + Math.round(120 * scale);
-    // 视觉区域的高度（去掉标题和底部的空间）- 增加保留空间防止重叠
-    const visualAreaHeight = height - padding * 2 - Math.round(260 * scale);
+      Math.min(width, height) * (itemCount > 6 ? 0.13 : 0.15);
+    // 环绕要点的轨道半径（从中心到要点卡片中心的距离）
+    const orbitRadius = centerRadius + Math.round(160 * scale);
+    // 视觉区域的宽度和高度（用于计算轨道范围）
+    const visualAreaWidth = width - padding * 2;
+    const visualAreaHeight = height - padding * 2 - Math.round(200 * scale);
 
     return `
 <!DOCTYPE html>
@@ -1268,10 +1269,8 @@ export class InfographicTemplateService {
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-top: ${Math.round(20 * scale)}px;
-      margin-bottom: ${Math.round(20 * scale)}px;
-      min-height: 0;
-      overflow: hidden;
+      margin-top: ${Math.round(10 * scale)}px;
+      margin-bottom: ${Math.round(30 * scale)}px;
     }
 
     /* 中心圆形图形 */
@@ -1320,11 +1319,11 @@ export class InfographicTemplateService {
     .orbit-item {
       position: absolute;
       background: ${isGlassmorphism ? "rgba(255, 255, 255, 0.08)" : isDarkMode ? "#1e293b" : "white"};
-      border-radius: ${Math.round(10 * scale)}px;
-      padding: ${Math.round(10 * scale)}px ${Math.round(14 * scale)}px;
+      border-radius: ${Math.round(12 * scale)}px;
+      padding: ${Math.round(12 * scale)}px ${Math.round(16 * scale)}px;
       box-shadow: ${isGlassmorphism ? "0 8px 32px rgba(0,0,0,0.25)" : isDarkMode ? "0 4px 20px rgba(0,0,0,0.4)" : "0 4px 20px rgba(0,0,0,0.08)"};
       border: 1px solid ${isGlassmorphism ? "rgba(255,255,255,0.15)" : isDarkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"};
-      max-width: ${Math.round(150 * scale)}px;
+      max-width: ${Math.round(160 * scale)}px;
       text-align: center;
       transform: translate(-50%, -50%);
       z-index: 15;
@@ -1439,18 +1438,21 @@ export class InfographicTemplateService {
           // 完整圆形分布，从右侧开始（0度），顺时针排列
           const angleStep = (2 * Math.PI) / itemCount;
           const angle = angleStep * idx; // 从右侧(0度)开始
-          // 椭圆形轨道（水平更宽，垂直更扁以避免与标题和底栏重叠）
-          const horizontalRadius = orbitRadius * 1.2;
-          const verticalRadius = orbitRadius * 0.7;
+          // 椭圆形轨道 - 水平方向宽，垂直方向稍扁
+          // 使用绝对像素值计算，确保节点分布合理
+          const horizontalRadius = Math.min(
+            visualAreaWidth * 0.38,
+            orbitRadius * 1.4,
+          );
+          const verticalRadius = Math.min(
+            visualAreaHeight * 0.38,
+            orbitRadius * 0.9,
+          );
           // 计算相对于 visual-area 中心的位置（百分比）
-          // 限制垂直方向范围在 15%-85% 之间，避免溢出
-          const rawXPercent =
-            50 +
-            Math.cos(angle) * (horizontalRadius / (width - padding * 2)) * 100;
-          const rawYPercent =
-            50 + Math.sin(angle) * (verticalRadius / visualAreaHeight) * 100;
-          const xPercent = Math.max(10, Math.min(90, rawXPercent));
-          const yPercent = Math.max(15, Math.min(85, rawYPercent));
+          const xPercent =
+            50 + ((Math.cos(angle) * horizontalRadius) / visualAreaWidth) * 100;
+          const yPercent =
+            50 + ((Math.sin(angle) * verticalRadius) / visualAreaHeight) * 100;
           // 为每个节点分配不同的渐变色
           const nodeGradient = nodeGradients[idx % nodeGradients.length];
           return `
