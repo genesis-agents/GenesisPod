@@ -413,15 +413,16 @@ export class ResourcesService {
         pdfUrl = this.extractPdfUrl(finalUrl);
       }
 
-      // 如果URL已存在，更新现有资源
+      // 如果URL已存在，更新现有资源（刷新内容和类型）
       if (existing) {
         this.logger.log(
-          `URL already exists, updating resource: ${existing.id}`,
+          `URL already exists, refreshing resource: ${existing.id} (type: ${existing.type} -> ${type})`,
         );
 
         const resource = await this.prisma.resource.update({
           where: { id: existing.id },
           data: {
+            type: type as any, // 更新类型（允许用户更改分类）
             title: title,
             abstract: abstract || `从URL导入: ${finalUrl}`,
             pdfUrl: pdfUrl,
@@ -429,7 +430,9 @@ export class ResourcesService {
           },
         });
 
-        this.logger.log(`Resource updated successfully: ${resource.id}`);
+        this.logger.log(
+          `Resource refreshed successfully: ${resource.id} (type: ${type})`,
+        );
         return resource;
       }
 
