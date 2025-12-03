@@ -101,7 +101,8 @@ type TemplateLayoutType =
   | "statistics"
   | "checklist"
   | "funnel"
-  | "matrix";
+  | "matrix"
+  | "ranking"; // 新增：排行榜/横向比较表格
 
 interface PromptEngineeringInsights {
   imagePrompt: string;
@@ -222,42 +223,70 @@ Is the user asking for a PICTURE/IMAGE of something, or an INFOGRAPHIC with stru
 - Pure text content with minimal visual elements
 - Examples: Financial tables, spec sheets, checklists
 
-**template_layout** - Choose the best layout based on DEEP CONTENT STRUCTURE ANALYSIS:
-- "cards": Grid of equal cards - Best for 3+ PARALLEL topics (e.g., 3 stories, 5 features, multiple categories)
-- "center_visual": Central concept with surrounding points - Best for ONE main idea with supporting details
-- "timeline": Sequential flow - Best for processes, steps, chronological events
+**template_layout** - Choose the best layout based on DEEP CONTENT STRUCTURE ANALYSIS and DATA QUANTITY:
+- "cards": Grid of equal cards - Best for 3-15 PARALLEL topics (e.g., multiple categories). Supports up to 15 items with dynamic layout.
+- "center_visual": Central concept with surrounding points - Best for ONE main idea with 4-8 supporting details
+- "timeline": Sequential flow - Best for processes, steps, chronological events (max 5 stages)
 - "comparison": Side-by-side - ONLY for comparing EXACTLY 2 distinct things (A vs B, before/after, pros/cons)
-- "pyramid": Hierarchical levels - Best for priorities, organizational structure
-- "radial": Hub and spokes - Best for ecosystems, relationships radiating from center
-- "statistics": Data-focused - Best for survey results, KPIs, metrics-heavy content
-- "checklist": List format - Best for tips, best practices, to-do items, key takeaways
-- "funnel": Conversion flow - Best for sales funnel, filtering process, staged reduction
-- "matrix": 2x2 grid analysis - Best for quadrant analysis, priority matrix, positioning
+- "pyramid": Hierarchical levels - Best for priorities, organizational structure (5-6 levels)
+- "radial": Hub and spokes - Best for ecosystems, relationships radiating from center (8-10 items)
+- "statistics": Data-focused metrics display - Best for survey results, KPIs with 1-12 metrics.
+- "checklist": List format - Best for tips, best practices, to-do items (8-10 items)
+- "funnel": Conversion flow - Best for sales funnel, filtering process (5 stages)
+- "matrix": 2x2 grid analysis - Best for quadrant analysis, priority matrix (exactly 4 quadrants)
+- "ranking": **TABLE-STYLE HORIZONTAL COMPARISON** - Best for TOP 10 rankings, leaderboards, multi-entity comparison with multiple metrics per entity. Shows entities as ROWS with metrics as COLUMNS for easy cross-comparison. **RECOMMENDED for "横向比较/横评" requests!** Supports 5-15 entities with 2-5 metrics each.
+
+## DATA QUANTITY GUIDELINES (CRITICAL for template selection):
+- **1-3 items with metrics**: Use "statistics" (large cards, prominent numbers)
+- **4-6 items with metrics**: Use "statistics" (3+3 layout) or "cards"
+- **7-15 items needing HORIZONTAL COMPARISON (横向比较/横评)**: Use "ranking" - TABLE format with rows=entities, columns=metrics. BEST for TOP 10 rankings!
+- **7-12 items with simple metrics (no cross-comparison needed)**: Use "statistics" (grid layout)
+- **3-8 items without metrics**: Use "cards" or template matching content structure
+- **9-15 items without metrics**: Use "cards" (supports multi-row grid)
+
+## CRITICAL: When to use "ranking" template:
+- User mentions "横向比较", "横评", "对比", "排行榜", "TOP N", "排名"
+- Multiple entities (companies, products, countries) need to be compared on SAME metrics
+- Each entity has 2-5 numerical metrics (e.g., market cap, growth rate, revenue)
+- User wants to see all entities side-by-side in a TABLE format
 
 ## STEP 1.5: DEEP CONTENT STRUCTURE ANALYSIS (CRITICAL!)
 
-Before selecting a template, you MUST deeply analyze the content's logical structure:
+Before selecting a template, you MUST deeply analyze the content's logical structure AND data quantity:
 
-1. **Identify the narrative structure**:
+1. **COUNT THE DATA ITEMS FIRST** (Most Important!):
+   - Count total items/entities being discussed (e.g., TOP 10 = 10 items)
+   - Count metrics/numbers per item (e.g., market cap, growth rate)
+   - This determines which template can display ALL your data!
+
+2. **Identify the narrative structure**:
    - Multiple parallel stories/topics (3+)? → "cards" (NEVER comparison!)
    - ONE central concept with features? → "center_visual"
    - Step-by-step or chronological? → "timeline"
    - EXACTLY 2 things being contrasted? → "comparison" (ONLY if truly A vs B!)
-   - Data/metrics heavy content? → "statistics"
+   - Data/metrics heavy content (rankings, KPIs)? → "statistics" (supports up to 12 items!)
    - Tips/best practices list? → "checklist"
 
-2. **CRITICAL: comparison template restrictions**:
+3. **CRITICAL: Template capacity matching**:
+   - "statistics": 1-12 metrics with values (BEST for TOP 10 rankings!)
+   - "cards": 3-15 sections (flexible grid layout)
+   - "timeline": max 5 stages
+   - "matrix": exactly 4 quadrants
+   - "comparison": exactly 2 sides
+   - **NEVER truncate data** - choose a template that fits ALL items!
+
+4. **CRITICAL: comparison template restrictions**:
    - ONLY use when content explicitly compares TWO distinct options
    - Examples: "React vs Vue", "Before vs After", "Pros vs Cons"
    - NEVER use for 3+ parallel topics - use "cards" instead!
    - Steve Jobs' 3 stories = "cards" NOT "comparison"!
 
-2. **Identify content groupings**:
+5. **Identify content groupings**:
    - **Main content**: The primary parallel points (should be 2-4 items of EQUAL importance)
    - **Summary/Conclusion**: Final takeaway, call-to-action, or wrap-up point
    - **Supporting details**: Bullets, metrics, examples under each main point
 
-3. **For cards template - CRITICAL**:
+6. **For cards template - CRITICAL**:
    - Main cards should be PARALLEL content of EQUAL logical weight
    - If there's a concluding point that wraps up the others, mark it as "section_type": "summary"
    - Example: Steve Jobs' Stanford speech has 3 PARALLEL stories + 1 conclusion ("Stay Hungry, Stay Foolish")
@@ -705,6 +734,7 @@ export class AiImageService {
         "checklist",
         "funnel",
         "matrix",
+        "ranking",
       ];
       if (
         templateLayoutRaw &&
@@ -2835,6 +2865,7 @@ export class AiImageService {
       "checklist",
       "funnel",
       "matrix",
+      "ranking",
     ] as const;
 
     const designStyle = validDesignStyles.includes(

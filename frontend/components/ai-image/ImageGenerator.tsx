@@ -341,10 +341,12 @@ function InsightsPanel({
   image,
   activeTab,
   onTabChange,
+  templateLayout = 'auto',
 }: {
   image: GeneratedImage;
   activeTab: InsightsTab;
   onTabChange: (tab: InsightsTab) => void;
+  templateLayout?: string;
 }) {
   const insights = image.promptInsights;
 
@@ -421,6 +423,65 @@ function InsightsPanel({
                 icon="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
               >
                 <div className="space-y-3">
+                  {/* 数据量统计与布局提示 */}
+                  {(() => {
+                    const sectionCount =
+                      insights.informationArchitecture.sections.length;
+                    const totalMetrics =
+                      insights.informationArchitecture.sections.reduce(
+                        (acc, s) => acc + (s.metrics?.length || 0),
+                        0
+                      );
+                    // 根据模板类型显示容量信息
+                    const getLayoutCapacity = () => {
+                      if (templateLayout === 'statistics') {
+                        return { max: 12, type: '指标' };
+                      } else if (
+                        templateLayout === 'cards' ||
+                        templateLayout === 'auto'
+                      ) {
+                        return { max: 15, type: '卡片' };
+                      } else if (templateLayout === 'timeline') {
+                        return { max: 5, type: '阶段' };
+                      } else if (templateLayout === 'ranking') {
+                        return { max: 15, type: '排名项' }; // ranking模板支持15个实体
+                      }
+                      return null;
+                    };
+                    const capacity = getLayoutCapacity();
+                    const isOverCapacity =
+                      capacity &&
+                      ((capacity.type === '指标' &&
+                        totalMetrics > capacity.max) ||
+                        (capacity.type !== '指标' &&
+                          sectionCount > capacity.max));
+
+                    return (
+                      <div className="flex items-center justify-between rounded-md bg-blue-50 px-2.5 py-1.5">
+                        <span className="text-xs text-blue-700">
+                          {sectionCount} 个区块 · {totalMetrics} 个指标
+                        </span>
+                        {isOverCapacity && (
+                          <span className="flex items-center gap-1 text-xs text-amber-600">
+                            <svg
+                              className="h-3.5 w-3.5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                              />
+                            </svg>
+                            超出{capacity.type}容量({capacity.max})
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {insights.informationArchitecture.title && (
                     <p className="text-sm font-semibold text-gray-900">
                       {insights.informationArchitecture.title}
@@ -437,57 +498,83 @@ function InsightsPanel({
                     </p>
                   )}
                   {insights.informationArchitecture.sections.map(
-                    (section, idx) => (
-                      <div key={idx} className="rounded-lg bg-gray-50 p-2.5">
-                        {section.title && (
-                          <p className="text-xs font-medium text-gray-900">
-                            {section.title}
-                          </p>
-                        )}
-                        {section.summary && (
-                          <p className="mt-1 text-xs text-gray-600">
-                            {section.summary}
-                          </p>
-                        )}
-                        {section.bullets.length > 0 && (
-                          <ul className="mt-1.5 space-y-0.5">
-                            {section.bullets.map((bullet, bIdx) => (
-                              <li
-                                key={bIdx}
-                                className="flex items-start gap-1.5 text-xs text-gray-600"
-                              >
-                                <span className="mt-0.5 text-purple-500">
-                                  -
-                                </span>
-                                {bullet}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        {section.metrics.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {section.metrics.map((metric, mIdx) => (
-                              <div
-                                key={mIdx}
-                                className="rounded bg-purple-50 px-2 py-1"
-                              >
-                                <span className="text-[10px] text-gray-500">
-                                  {metric.label}
-                                </span>
-                                <p className="text-xs font-medium text-purple-700">
-                                  {metric.value}
-                                </p>
-                                {metric.comparison && (
-                                  <span className="text-[10px] text-green-600">
-                                    {metric.comparison}
-                                  </span>
-                                )}
-                              </div>
-                            ))}
+                    (section, idx) => {
+                      // 计算该section在当前模板下是否会被截断
+                      const getMaxSections = () => {
+                        if (templateLayout === 'statistics') return 12;
+                        if (templateLayout === 'timeline') return 5;
+                        if (templateLayout === 'matrix') return 4;
+                        if (templateLayout === 'ranking') return 15;
+                        return 15; // cards/auto
+                      };
+                      const willBeTruncated = idx >= getMaxSections();
+
+                      return (
+                        <div
+                          key={idx}
+                          className={`rounded-lg p-2.5 ${
+                            willBeTruncated
+                              ? 'border border-dashed border-amber-300 bg-amber-50/50'
+                              : 'bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            {section.title && (
+                              <p className="text-xs font-medium text-gray-900">
+                                {section.title}
+                              </p>
+                            )}
+                            {willBeTruncated && (
+                              <span className="ml-2 shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">
+                                可能不显示
+                              </span>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    )
+                          {section.summary && (
+                            <p className="mt-1 text-xs text-gray-600">
+                              {section.summary}
+                            </p>
+                          )}
+                          {section.bullets.length > 0 && (
+                            <ul className="mt-1.5 space-y-0.5">
+                              {section.bullets.map((bullet, bIdx) => (
+                                <li
+                                  key={bIdx}
+                                  className="flex items-start gap-1.5 text-xs text-gray-600"
+                                >
+                                  <span className="mt-0.5 text-purple-500">
+                                    -
+                                  </span>
+                                  {bullet}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          {section.metrics.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {section.metrics.map((metric, mIdx) => (
+                                <div
+                                  key={mIdx}
+                                  className="rounded bg-purple-50 px-2 py-1"
+                                >
+                                  <span className="text-[10px] text-gray-500">
+                                    {metric.label}
+                                  </span>
+                                  <p className="text-xs font-medium text-purple-700">
+                                    {metric.value}
+                                  </p>
+                                  {metric.comparison && (
+                                    <span className="text-[10px] text-green-600">
+                                      {metric.comparison}
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
                   )}
                 </div>
               </InsightCard>
@@ -1100,7 +1187,8 @@ export default function ImageGenerator({
     | 'statistics'
     | 'checklist'
     | 'funnel'
-    | 'matrix';
+    | 'matrix'
+    | 'ranking'; // 新增：排行榜/横向比较
   const [templateLayout, setTemplateLayout] = useState<TemplateLayout>('auto');
 
   // UI state
@@ -1850,6 +1938,7 @@ export default function ImageGenerator({
                 image={selectedImage}
                 activeTab={insightsTab}
                 onTabChange={setInsightsTab}
+                templateLayout={templateLayout}
               />
             </div>
           )}
@@ -2033,6 +2122,7 @@ export default function ImageGenerator({
                   <option value="checklist">Checklist</option>
                   <option value="funnel">Funnel</option>
                   <option value="matrix">Matrix</option>
+                  <option value="ranking">Ranking</option>
                 </select>
               </div>
 

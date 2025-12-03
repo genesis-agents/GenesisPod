@@ -41,7 +41,8 @@ export type TemplateLayout =
   | "statistics" // 统计数据展示
   | "checklist" // 清单/要点列表
   | "funnel" // 漏斗图
-  | "matrix"; // 2x2矩阵/象限图
+  | "matrix" // 2x2矩阵/象限图
+  | "ranking"; // 排行榜/横向比较表格
 
 export interface InfographicStyleOptions {
   style?: InfographicStyle;
@@ -407,14 +408,19 @@ export class InfographicTemplateService {
       numColumns = 5;
     }
 
-    // 主卡片：显示所有非summary的section（最多12个，支持TOP 10等列表型内容）
-    const maxMainCards = isVertical ? 8 : 12;
+    // 主卡片：动态计算最大显示数量，根据内容量自适应
+    // 横屏：最多15个（5列×3行），竖屏：最多12个（2列×6行）
+    const maxMainCards = isVertical ? 12 : 15;
     const mainSections =
       aiMainSections.length > 0
         ? aiMainSections.slice(0, maxMainCards)
         : content.sections
             .filter((s) => s.sectionType !== "summary")
             .slice(0, maxMainCards);
+
+    // 根据实际显示数量动态调整布局紧凑度
+    const isCompactCards = mainSections.length > 8;
+    const isVeryCompactCards = mainSections.length > 12;
 
     // 总结卡片：仅当明确标记为summary时才显示
     const summarySection =
@@ -434,11 +440,38 @@ export class InfographicTemplateService {
     const sectionTitleSize = Math.round(18 * scale * compactScale);
     const bulletSize = Math.round(14 * scale * compactScale);
 
-    // 根据宽高比调整内容截断长度（宽屏适当缩短但保持可读）
-    const summaryMaxLen = isWideScreen ? 45 : 60;
-    const bulletMaxLen = isWideScreen ? 35 : 50;
-    const bulletsToShow = isWideScreen ? 2 : 3;
-    const metricsToShow = isWideScreen ? 1 : 2;
+    // 根据内容数量和宽高比动态调整截断参数
+    // 数据越多，每个卡片显示的内容越精简，但保证核心数据完整
+    const summaryMaxLen = isVeryCompactCards
+      ? 30
+      : isCompactCards
+        ? 40
+        : isWideScreen
+          ? 45
+          : 60;
+    const bulletMaxLen = isVeryCompactCards
+      ? 25
+      : isCompactCards
+        ? 30
+        : isWideScreen
+          ? 35
+          : 50;
+    // 动态计算bullets和metrics显示数量：内容多时精简，但至少显示关键信息
+    const bulletsToShow = isVeryCompactCards
+      ? 1
+      : isCompactCards
+        ? 2
+        : isWideScreen
+          ? 2
+          : 3;
+    // metrics是核心数据，尽量完整显示
+    const metricsToShow = isVeryCompactCards
+      ? 2
+      : isCompactCards
+        ? 3
+        : isWideScreen
+          ? 2
+          : 3;
 
     // 动态背景样式（支持暗黑模式的遮罩颜色）
     const overlayColor = isDarkMode
@@ -2148,12 +2181,53 @@ export class InfographicTemplateService {
       ? `background-image: linear-gradient(${overlayColor}, ${overlayColor}), url(${backgroundImageBase64}); background-size: cover; background-position: center;`
       : `background: ${colors.background};`;
 
-    // 收集所有指标
-    const allMetrics = content.sections
-      .flatMap((s) => s.metrics || [])
-      .slice(0, 6);
-    const mainStats = allMetrics.slice(0, 3);
-    const secondaryStats = allMetrics.slice(3, 6);
+    // 收集所有指标（动态支持最多12个，适配TOP 10等场景）
+    const allMetrics = content.sections.flatMap((s) => s.metrics || []);
+    const totalMetrics = allMetrics.length;
+
+    // 动态布局策略：根据指标数量选择最佳布局
+    let mainStats: typeof allMetrics;
+    let secondaryStats: typeof allMetrics;
+    let mainColumns: number;
+    let secondaryColumns: number;
+
+    if (totalMetrics <= 3) {
+      // 1-3个：单行大卡片
+      mainStats = allMetrics.slice(0, 3);
+      secondaryStats = [];
+      mainColumns = totalMetrics;
+      secondaryColumns = 0;
+    } else if (totalMetrics <= 6) {
+      // 4-6个：3+3布局（原有逻辑）
+      mainStats = allMetrics.slice(0, 3);
+      secondaryStats = allMetrics.slice(3, 6);
+      mainColumns = 3;
+      secondaryColumns = Math.min(secondaryStats.length, 3);
+    } else if (totalMetrics <= 9) {
+      // 7-9个：3+3+3布局（两行主卡片+一行次卡片）
+      mainStats = allMetrics.slice(0, 6);
+      secondaryStats = allMetrics.slice(6, 9);
+      mainColumns = 3;
+      secondaryColumns = Math.min(secondaryStats.length, 3);
+    } else {
+      // 10-12个：适配TOP 10场景，采用5+5或4+4+4布局
+      if (totalMetrics === 10) {
+        // TOP 10专用：5+5两行布局
+        mainStats = allMetrics.slice(0, 10);
+        secondaryStats = [];
+        mainColumns = 5;
+        secondaryColumns = 0;
+      } else {
+        // 11-12个：4+4+4三行布局
+        mainStats = allMetrics.slice(0, 12);
+        secondaryStats = [];
+        mainColumns = 4;
+        secondaryColumns = 0;
+      }
+    }
+
+    // 是否使用紧凑布局（超过6个指标时）
+    const isCompactLayout = totalMetrics > 6;
 
     return `
 <!DOCTYPE html>
@@ -2198,56 +2272,59 @@ export class InfographicTemplateService {
     .stats-grid {
       display: flex;
       flex-direction: column;
-      gap: ${Math.round(24 * scale)}px;
+      gap: ${Math.round(isCompactLayout ? 12 : 24) * scale}px;
+      flex: 1;
+      justify-content: center;
     }
     .main-stats {
       display: grid;
-      grid-template-columns: repeat(${Math.min(mainStats.length, 3)}, 1fr);
-      gap: ${Math.round(24 * scale)}px;
+      grid-template-columns: repeat(${mainColumns}, 1fr);
+      gap: ${Math.round(isCompactLayout ? 12 : 24) * scale}px;
     }
     .stat-card {
       background: ${isDarkMode ? "#1e293b" : "white"};
-      border-radius: ${Math.round(16 * scale)}px;
-      padding: ${Math.round(32 * scale)}px;
+      border-radius: ${Math.round(isCompactLayout ? 12 : 16) * scale}px;
+      padding: ${Math.round(isCompactLayout ? 16 : 32) * scale}px;
       text-align: center;
       box-shadow: 0 4px 20px ${isDarkMode ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.08)"};
     }
     .stat-value {
-      font-size: ${Math.round(48 * scale)}px;
+      font-size: ${Math.round(isCompactLayout ? 28 : 48) * scale}px;
       font-weight: 700;
       color: ${colors.primary};
-      margin-bottom: ${Math.round(8 * scale)}px;
+      margin-bottom: ${Math.round(isCompactLayout ? 4 : 8) * scale}px;
     }
     .stat-label {
-      font-size: ${Math.round(14 * scale)}px;
+      font-size: ${Math.round(isCompactLayout ? 11 : 14) * scale}px;
       color: ${colors.text};
       opacity: 0.7;
+      line-height: 1.3;
     }
     .stat-comparison {
-      font-size: ${Math.round(12 * scale)}px;
+      font-size: ${Math.round(isCompactLayout ? 10 : 12) * scale}px;
       color: ${colors.accent};
-      margin-top: ${Math.round(8 * scale)}px;
+      margin-top: ${Math.round(isCompactLayout ? 4 : 8) * scale}px;
     }
     .secondary-stats {
       display: grid;
-      grid-template-columns: repeat(${Math.min(secondaryStats.length || 1, 3)}, 1fr);
-      gap: ${Math.round(16 * scale)}px;
+      grid-template-columns: repeat(${secondaryColumns || 1}, 1fr);
+      gap: ${Math.round(isCompactLayout ? 10 : 16) * scale}px;
     }
     .secondary-stat {
       background: ${colors.primary}10;
-      border-radius: ${Math.round(12 * scale)}px;
-      padding: ${Math.round(20 * scale)}px;
+      border-radius: ${Math.round(isCompactLayout ? 8 : 12) * scale}px;
+      padding: ${Math.round(isCompactLayout ? 12 : 20) * scale}px;
       display: flex;
       align-items: center;
-      gap: ${Math.round(16 * scale)}px;
+      gap: ${Math.round(isCompactLayout ? 10 : 16) * scale}px;
     }
     .secondary-value {
-      font-size: ${Math.round(28 * scale)}px;
+      font-size: ${Math.round(isCompactLayout ? 20 : 28) * scale}px;
       font-weight: 700;
       color: ${colors.primary};
     }
     .secondary-label {
-      font-size: ${Math.round(13 * scale)}px;
+      font-size: ${Math.round(isCompactLayout ? 11 : 13) * scale}px;
       color: ${colors.text};
     }
     .cta {
@@ -2812,6 +2889,275 @@ export class InfographicTemplateService {
 </html>`;
   }
 
+  /**
+   * 排行榜/横向比较模板 - 表格式布局，支持多实体多指标的横向对比
+   * 适用场景：TOP 10排名、企业对比、产品横评等
+   */
+  generateRankingHTML(
+    content: InfographicContent,
+    backgroundImageBase64?: string,
+    width: number = 1200,
+    height: number = 800,
+  ): string {
+    const styleKey = content.styleOptions?.style || "consulting";
+    const stylePreset = STYLE_PRESETS[styleKey] || STYLE_PRESETS.consulting;
+    const colors = {
+      primary: content.colorScheme?.primary || stylePreset.colors.primary,
+      accent: content.colorScheme?.accent || stylePreset.colors.accent,
+      background:
+        content.colorScheme?.background || stylePreset.colors.background,
+      text: content.colorScheme?.text || stylePreset.colors.text,
+    };
+    const fontStyle = content.styleOptions?.fontStyle || "sans";
+    const fontFamily = FONT_STYLES[fontStyle] || FONT_STYLES.sans;
+    const isDarkMode =
+      styleKey === "dark" ||
+      styleKey === "genspark" ||
+      styleKey === "tech_gradient";
+    const scale = width / 1200;
+    const padding = Math.round(32 * scale);
+
+    const overlayColor = isDarkMode
+      ? "rgba(15, 23, 42, 0.95)"
+      : "rgba(247, 249, 252, 0.95)";
+    const backgroundStyle = backgroundImageBase64
+      ? `background-image: linear-gradient(${overlayColor}, ${overlayColor}), url(${backgroundImageBase64}); background-size: cover; background-position: center;`
+      : `background: ${colors.background};`;
+
+    // 提取所有sections作为排名项（每个section代表一个实体）
+    const rankingItems = content.sections.slice(0, 15); // 最多15个
+    const itemCount = rankingItems.length;
+
+    // 收集所有唯一的指标标签（用作表头）
+    const allMetricLabels = new Set<string>();
+    rankingItems.forEach((item) => {
+      (item.metrics || []).forEach((m) => allMetricLabels.add(m.label));
+    });
+    const metricColumns = Array.from(allMetricLabels).slice(0, 5); // 最多5列指标
+
+    // 根据数据量调整样式
+    const isCompact = itemCount > 10;
+    const rowHeight = isCompact ? 40 : 50;
+    const fontSize = isCompact ? 11 : 13;
+    const headerFontSize = isCompact ? 10 : 12;
+
+    // 计算表格区域高度
+    const headerHeight = 80 * scale; // 标题区域
+    const tableHeaderHeight = 36 * scale;
+    const availableHeight =
+      height - headerHeight - padding * 2 - tableHeaderHeight - 40;
+    const actualRowHeight = Math.min(
+      rowHeight * scale,
+      availableHeight / itemCount,
+    );
+
+    return `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: ${fontFamily};
+      ${backgroundStyle}
+      color: ${colors.text};
+      width: ${width}px;
+      height: ${height}px;
+      overflow: hidden;
+    }
+    .container {
+      padding: ${padding}px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .brand-bar {
+      display: flex;
+      align-items: center;
+      gap: ${Math.round(8 * scale)}px;
+      margin-bottom: ${Math.round(8 * scale)}px;
+    }
+    .brand-logo { width: ${Math.round(20 * scale)}px; height: ${Math.round(20 * scale)}px; color: ${colors.primary}; }
+    .brand-name { font-size: ${Math.round(11 * scale)}px; font-weight: 600; color: ${colors.primary}; }
+    .header {
+      text-align: center;
+      margin-bottom: ${Math.round(16 * scale)}px;
+    }
+    .main-title {
+      font-size: ${Math.round(28 * scale)}px;
+      font-weight: 700;
+      color: ${colors.primary};
+      margin-bottom: ${Math.round(4 * scale)}px;
+    }
+    .subtitle {
+      font-size: ${Math.round(14 * scale)}px;
+      color: ${colors.text};
+      opacity: 0.7;
+    }
+    .ranking-table {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: ${isDarkMode ? "rgba(30, 41, 59, 0.8)" : "white"};
+      border-radius: ${Math.round(12 * scale)}px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px ${isDarkMode ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.08)"};
+    }
+    .table-header {
+      display: grid;
+      grid-template-columns: ${Math.round(40 * scale)}px 1.5fr ${metricColumns.map(() => "1fr").join(" ")};
+      background: ${colors.primary};
+      color: white;
+      font-weight: 600;
+      font-size: ${Math.round(headerFontSize * scale)}px;
+      padding: ${Math.round(10 * scale)}px ${Math.round(12 * scale)}px;
+      gap: ${Math.round(8 * scale)}px;
+    }
+    .table-header-cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .table-header-cell:nth-child(2) {
+      justify-content: flex-start;
+    }
+    .table-body {
+      flex: 1;
+      overflow: hidden;
+    }
+    .table-row {
+      display: grid;
+      grid-template-columns: ${Math.round(40 * scale)}px 1.5fr ${metricColumns.map(() => "1fr").join(" ")};
+      padding: ${Math.round(8 * scale)}px ${Math.round(12 * scale)}px;
+      gap: ${Math.round(8 * scale)}px;
+      border-bottom: 1px solid ${isDarkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)"};
+      height: ${actualRowHeight}px;
+      align-items: center;
+      transition: background 0.2s;
+    }
+    .table-row:nth-child(odd) {
+      background: ${isDarkMode ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.01)"};
+    }
+    .table-row:hover {
+      background: ${isDarkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)"};
+    }
+    .rank-badge {
+      width: ${Math.round(28 * scale)}px;
+      height: ${Math.round(28 * scale)}px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: ${Math.round(12 * scale)}px;
+    }
+    .rank-1 { background: linear-gradient(135deg, #FFD700, #FFA500); color: #000; }
+    .rank-2 { background: linear-gradient(135deg, #C0C0C0, #A0A0A0); color: #000; }
+    .rank-3 { background: linear-gradient(135deg, #CD7F32, #A0522D); color: #fff; }
+    .rank-other { background: ${colors.primary}20; color: ${colors.primary}; }
+    .entity-name {
+      font-weight: 600;
+      font-size: ${Math.round(fontSize * scale)}px;
+      color: ${colors.text};
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .metric-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .metric-value {
+      font-weight: 700;
+      font-size: ${Math.round((fontSize + 2) * scale)}px;
+      color: ${colors.primary};
+    }
+    .metric-comparison {
+      font-size: ${Math.round(10 * scale)}px;
+      color: ${colors.accent};
+      margin-top: ${Math.round(2 * scale)}px;
+    }
+    .positive { color: #10b981; }
+    .negative { color: #ef4444; }
+    .cta {
+      background: linear-gradient(135deg, ${colors.accent} 0%, ${this.adjustColor(colors.accent, -15)} 100%);
+      color: white;
+      text-align: center;
+      padding: ${Math.round(10 * scale)}px;
+      border-radius: ${Math.round(8 * scale)}px;
+      font-size: ${Math.round(12 * scale)}px;
+      font-weight: 600;
+      margin-top: ${Math.round(12 * scale)}px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="brand-bar">
+      <div class="brand-logo">${DEEPDIVE_LOGO}</div>
+      <span class="brand-name">DeepDive ENGINE</span>
+    </div>
+    <div class="header">
+      <h1 class="main-title">${this.escapeHtml(content.title)}</h1>
+      ${content.subtitle ? `<p class="subtitle">${this.escapeHtml(content.subtitle)}</p>` : ""}
+    </div>
+    <div class="ranking-table">
+      <div class="table-header">
+        <div class="table-header-cell">#</div>
+        <div class="table-header-cell">名称</div>
+        ${metricColumns.map((label) => `<div class="table-header-cell">${this.escapeHtml(label)}</div>`).join("")}
+      </div>
+      <div class="table-body">
+        ${rankingItems
+          .map((item, idx) => {
+            const rank = idx + 1;
+            const rankClass = rank <= 3 ? `rank-${rank}` : "rank-other";
+
+            // 获取该实体的各个指标值
+            const metricValues = metricColumns.map((label) => {
+              const metric = (item.metrics || []).find(
+                (m) => m.label === label,
+              );
+              return metric || { value: "-", comparison: "" };
+            });
+
+            return `
+              <div class="table-row">
+                <div class="rank-badge ${rankClass}">${rank}</div>
+                <div class="entity-name" title="${this.escapeHtml(item.title || "")}">${this.escapeHtml(item.title || `#${rank}`)}</div>
+                ${metricValues
+                  .map((metric) => {
+                    const compClass = metric.comparison?.startsWith("+")
+                      ? "positive"
+                      : metric.comparison?.startsWith("-")
+                        ? "negative"
+                        : "";
+                    return `
+                      <div class="metric-cell">
+                        <span class="metric-value">${this.escapeHtml(metric.value)}</span>
+                        ${metric.comparison ? `<span class="metric-comparison ${compClass}">${this.escapeHtml(metric.comparison)}</span>` : ""}
+                      </div>
+                    `;
+                  })
+                  .join("")}
+              </div>
+            `;
+          })
+          .join("")}
+      </div>
+    </div>
+    ${content.callToAction ? `<div class="cta">${this.escapeHtml(content.callToAction)}</div>` : ""}
+  </div>
+</body>
+</html>`;
+  }
+
   async generateInfographic(
     content: InfographicContent,
     options?: {
@@ -2882,6 +3228,14 @@ export class InfographicTemplateService {
         break;
       case "matrix":
         html = this.generateMatrixHTML(
+          content,
+          options?.backgroundImageBase64,
+          width,
+          height,
+        );
+        break;
+      case "ranking":
+        html = this.generateRankingHTML(
           content,
           options?.backgroundImageBase64,
           width,
