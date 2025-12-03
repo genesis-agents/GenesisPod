@@ -1425,10 +1425,17 @@ export class AiImageService {
       // 步骤1.5: 智能数据获取 (Data Fetching)
       // ============================================================
       this.logger.log("========== STREAM STEP 1.5: Data Fetching ==========");
+      this.logger.log(
+        `[STREAM STEP 1.5] Input content for detection: "${inputContent.slice(0, 100)}..."`,
+      );
 
       try {
         const detection =
           this.dataFetchingService.detectDataFetchingNeed(inputContent);
+
+        this.logger.log(
+          `[STREAM STEP 1.5] Detection result: needsFetching=${detection.needsFetching}, intent=${detection.intent}, queries=${detection.queries?.join(", ") || "none"}`,
+        );
 
         if (detection.needsFetching) {
           emitStep(
@@ -2096,12 +2103,19 @@ export class AiImageService {
     // 步骤1.5: 智能数据获取 (Data Fetching)
     // ============================================================
     this.logger.log("========== STEP 1.5: Data Fetching ==========");
+    this.logger.log(
+      `[STEP 1.5] Input content for detection: "${inputContent.slice(0, 100)}..."`,
+    );
     let dataFetchingResult: DataFetchingResult | null = null;
 
     try {
       // 检测是否需要数据获取
       const detection =
         this.dataFetchingService.detectDataFetchingNeed(inputContent);
+
+      this.logger.log(
+        `[STEP 1.5] Detection result: needsFetching=${detection.needsFetching}, intent=${detection.intent}, queries=${detection.queries?.join(", ") || "none"}`,
+      );
 
       if (detection.needsFetching) {
         updateStep(
