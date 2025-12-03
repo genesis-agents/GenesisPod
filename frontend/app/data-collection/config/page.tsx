@@ -38,6 +38,12 @@ import {
 } from '@/lib/api/data-collection';
 import BatchCollectionDrawer from '@/components/data-collection/BatchCollectionDrawer';
 
+// Extended type for edit form with schedule fields
+interface EditFormData extends Partial<DataSource> {
+  scheduleFrequency?: string;
+  scheduleTime?: string;
+}
+
 interface RunNowConfig {
   keywords?: string;
   dateFrom?: string;
@@ -116,68 +122,121 @@ const CATEGORIES = [
   },
 ] as const;
 
-// Predefined source templates - ALIGNED WITH EXPLORE TABS
+// Predefined source templates - VERIFIED RSS FEEDS ONLY
 const SOURCE_TEMPLATES: Record<
   string,
   Array<{ name: string; url: string; type: string }>
 > = {
   PAPER: [
-    { name: 'arXiv', url: 'http://export.arxiv.org/api/query', type: 'ARXIV' },
     {
-      name: 'Semantic Scholar',
-      url: 'https://api.semanticscholar.org/graph/v1/paper/search',
-      type: 'CUSTOM',
+      name: 'arXiv cs.AI',
+      url: 'https://rss.arxiv.org/rss/cs.AI',
+      type: 'ARXIV',
+    },
+    {
+      name: 'arXiv cs.LG',
+      url: 'https://rss.arxiv.org/rss/cs.LG',
+      type: 'ARXIV',
+    },
+    {
+      name: 'arXiv cs.CL',
+      url: 'https://rss.arxiv.org/rss/cs.CL',
+      type: 'ARXIV',
     },
   ],
   BLOG: [
+    // 已验证有效的RSS源
     {
-      name: 'Google AI Blog',
-      url: 'https://blog.google/technology/ai/rss/',
+      name: 'NVIDIA Technical Blog',
+      url: 'https://developer.nvidia.com/blog/feed',
       type: 'RSS',
     },
-    { name: 'OpenAI Blog', url: 'https://openai.com/blog/rss/', type: 'RSS' },
-    { name: 'Meta AI Blog', url: 'https://ai.meta.com/blog/rss/', type: 'RSS' },
+    {
+      name: 'Google AI Blog',
+      url: 'https://ai.googleblog.com/feeds/posts/default',
+      type: 'RSS',
+    },
+    {
+      name: 'OpenAI Blog',
+      url: 'https://openai.com/blog/rss/',
+      type: 'RSS',
+    },
+    {
+      name: 'Hugging Face Blog',
+      url: 'https://huggingface.co/blog/feed.xml',
+      type: 'RSS',
+    },
+    {
+      name: 'Weights & Biases',
+      url: 'https://wandb.ai/fully-connected/rss.xml',
+      type: 'RSS',
+    },
+    {
+      name: 'One Useful Thing',
+      url: 'https://www.oneusefulthing.org/feed',
+      type: 'RSS',
+    },
   ],
   REPORT: [
     {
-      name: 'OpenAI Research',
-      url: 'https://openai.com/research',
-      type: 'CUSTOM',
+      name: 'SemiAnalysis',
+      url: 'https://semianalysis.substack.com/feed',
+      type: 'RSS',
     },
     {
-      name: 'Google AI Research',
-      url: 'https://ai.google/research/pubs',
-      type: 'CUSTOM',
+      name: 'Epoch AI Research',
+      url: 'https://epochai.substack.com/feed',
+      type: 'RSS',
     },
   ],
   YOUTUBE_VIDEO: [
     {
-      name: 'Lex Fridman Podcast',
-      url: 'https://www.youtube.com/@lexfridman',
-      type: 'CUSTOM',
+      name: 'Y Combinator',
+      url: 'https://www.youtube.com/feeds/videos.xml?channel_id=UCcefcZRL2oaA_uBNeo5UOWg',
+      type: 'YOUTUBE',
+    },
+    {
+      name: 'BG2Pod',
+      url: 'https://www.youtube.com/feeds/videos.xml?channel_id=UC-yRDvpR99LUc5l7i7jLzew',
+      type: 'YOUTUBE',
+    },
+    {
+      name: 'Bloomberg Technology',
+      url: 'https://www.youtube.com/feeds/videos.xml?channel_id=UCrM7B7SL_g1edFOnmj-SDKg',
+      type: 'YOUTUBE',
+    },
+    {
+      name: 'Valley 101',
+      url: 'https://www.youtube.com/feeds/videos.xml?channel_id=UChnNjLyx_5rk_iDPQ2BQDQA',
+      type: 'YOUTUBE',
     },
   ],
   POLICY: [
     {
-      name: 'White House OSTP',
-      url: 'https://www.whitehouse.gov/ostp/news-updates/',
-      type: 'CUSTOM',
+      name: 'AI Now Institute',
+      url: 'https://ainowinstitute.org/category/news/feed',
+      type: 'RSS',
     },
     {
-      name: 'Congress Tech Policy',
-      url: 'https://www.congress.gov',
-      type: 'CUSTOM',
+      name: 'EU AI Act Newsletter',
+      url: 'https://artificialintelligenceact.substack.com/feed',
+      type: 'RSS',
     },
   ],
   NEWS: [
     {
-      name: 'TechCrunch AI',
-      url: 'https://techcrunch.com/category/artificial-intelligence/feed/',
+      name: 'Ars Technica',
+      url: 'https://feeds.arstechnica.com/arstechnica/index',
       type: 'RSS',
     },
     {
-      name: 'The Verge AI',
-      url: 'https://www.theverge.com/ai-artificial-intelligence/rss/index.xml',
+      name: 'Hacker News',
+      url: 'https://news.ycombinator.com/rss',
+      type: 'RSS',
+    },
+    {
+      name: '404 Media',
+      url: 'https://www.404media.co/rss',
       type: 'RSS',
     },
   ],
@@ -189,7 +248,7 @@ export default function ConfigPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingSource, setEditingSource] = useState<DataSource | null>(null);
-  const [editForm, setEditForm] = useState<Partial<DataSource>>({});
+  const [editForm, setEditForm] = useState<EditFormData>({});
   const [runNowSource, setRunNowSource] = useState<DataSource | null>(null);
   const [runNowConfig, setRunNowConfig] = useState<RunNowConfig>({
     maxResults: 10,
@@ -206,6 +265,8 @@ export default function ConfigPage() {
     apiEndpoint: '',
     type: 'RSS',
     template: '',
+    scheduleFrequency: 'daily', // manual | hourly | daily | weekly
+    scheduleTime: '06:00', // HH:mm format for daily/weekly
   });
   const [runningTasks, setRunningTasks] = useState<Map<string, CollectionTask>>(
     new Map()
@@ -321,6 +382,17 @@ export default function ConfigPage() {
 
   const handleEdit = (source: DataSource) => {
     setEditingSource(source);
+    // Extract schedule from crawlerConfig if it exists
+    const crawlerConfig = source.crawlerConfig as Record<
+      string,
+      unknown
+    > | null;
+    const schedule = crawlerConfig?.schedule as {
+      frequency?: string;
+      time?: string;
+      enabled?: boolean;
+    } | null;
+
     setEditForm({
       name: source.name,
       description: source.description,
@@ -330,6 +402,9 @@ export default function ConfigPage() {
       categories: source.categories,
       languages: source.languages,
       minQualityScore: source.minQualityScore,
+      crawlerConfig: crawlerConfig || {},
+      scheduleFrequency: schedule?.frequency || 'manual',
+      scheduleTime: schedule?.time || '06:00',
     });
   };
 
@@ -337,7 +412,25 @@ export default function ConfigPage() {
     if (!editingSource) return;
 
     try {
-      await updateDataSource(editingSource.id, editForm);
+      // Build updated crawler config with schedule
+      const existingConfig =
+        (editForm.crawlerConfig as Record<string, unknown>) || {};
+      const updatedCrawlerConfig = {
+        ...existingConfig,
+        schedule: {
+          frequency: editForm.scheduleFrequency || 'manual',
+          time: editForm.scheduleTime || '06:00',
+          enabled: editForm.scheduleFrequency !== 'manual',
+        },
+      };
+
+      // Extract schedule fields from editForm (they're not part of DataSource)
+      const { scheduleFrequency, scheduleTime, ...dataSourceFields } = editForm;
+
+      await updateDataSource(editingSource.id, {
+        ...dataSourceFields,
+        crawlerConfig: updatedCrawlerConfig,
+      });
       const response = await getDataSources();
       setSources(response.data);
       setEditingSource(null);
@@ -454,6 +547,23 @@ export default function ConfigPage() {
     if (!showAddSourceModal) return;
 
     try {
+      // Build crawler config with schedule settings
+      const crawlerConfig: Record<string, unknown> = {
+        schedule: {
+          frequency: newSourceForm.scheduleFrequency,
+          time: newSourceForm.scheduleTime,
+          enabled: newSourceForm.scheduleFrequency !== 'manual',
+        },
+      };
+
+      // Determine crawler type based on source type
+      const crawlerType =
+        newSourceForm.type === 'RSS'
+          ? 'RSS'
+          : newSourceForm.type === 'YOUTUBE'
+            ? 'RSS' // YouTube uses RSS feeds
+            : 'API';
+
       await createDataSource({
         name: newSourceForm.name,
         description: newSourceForm.description,
@@ -461,10 +571,11 @@ export default function ConfigPage() {
         category: showAddSourceModal as any,
         baseUrl: newSourceForm.baseUrl,
         apiEndpoint: newSourceForm.apiEndpoint,
-        crawlerType: newSourceForm.type === 'RSS' ? 'RSS' : 'API',
-        crawlerConfig: {},
+        crawlerType,
+        crawlerConfig,
         minQualityScore: 7.0,
-        status: 'PAUSED',
+        status:
+          newSourceForm.scheduleFrequency === 'manual' ? 'PAUSED' : 'ACTIVE',
         isVerified: false,
       });
 
@@ -478,6 +589,8 @@ export default function ConfigPage() {
         apiEndpoint: '',
         type: 'RSS',
         template: '',
+        scheduleFrequency: 'daily',
+        scheduleTime: '06:00',
       });
       alert('Data source added successfully!');
     } catch (err) {
@@ -861,6 +974,8 @@ export default function ConfigPage() {
                     apiEndpoint: '',
                     type: 'RSS',
                     template: '',
+                    scheduleFrequency: 'daily',
+                    scheduleTime: '06:00',
                   });
                 }}
                 className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
@@ -951,6 +1066,7 @@ export default function ConfigPage() {
                     className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     <option value="RSS">RSS Feed</option>
+                    <option value="YOUTUBE">YouTube Channel</option>
                     <option value="CUSTOM">Custom API</option>
                     <option value="ARXIV">arXiv API</option>
                     <option value="GITHUB">GitHub</option>
@@ -993,6 +1109,64 @@ export default function ConfigPage() {
                     className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
+
+                {/* Schedule Configuration */}
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm font-medium text-gray-700">
+                      Collection Schedule
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="mb-2 block text-xs font-medium text-gray-600">
+                        Frequency
+                      </label>
+                      <select
+                        value={newSourceForm.scheduleFrequency}
+                        onChange={(e) =>
+                          setNewSourceForm({
+                            ...newSourceForm,
+                            scheduleFrequency: e.target.value,
+                          })
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      >
+                        <option value="manual">Manual Only</option>
+                        <option value="hourly">Every Hour</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                      </select>
+                    </div>
+                    {(newSourceForm.scheduleFrequency === 'daily' ||
+                      newSourceForm.scheduleFrequency === 'weekly') && (
+                      <div>
+                        <label className="mb-2 block text-xs font-medium text-gray-600">
+                          Time (UTC+8)
+                        </label>
+                        <input
+                          type="time"
+                          value={newSourceForm.scheduleTime}
+                          onChange={(e) =>
+                            setNewSourceForm({
+                              ...newSourceForm,
+                              scheduleTime: e.target.value,
+                            })
+                          }
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <p className="mt-2 text-xs text-gray-500">
+                    {newSourceForm.scheduleFrequency === 'manual'
+                      ? 'You will need to manually trigger collection'
+                      : newSourceForm.scheduleFrequency === 'hourly'
+                        ? 'Collection will run every hour automatically'
+                        : `Collection will run ${newSourceForm.scheduleFrequency} at ${newSourceForm.scheduleTime}`}
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -1007,6 +1181,8 @@ export default function ConfigPage() {
                     apiEndpoint: '',
                     type: 'RSS',
                     template: '',
+                    scheduleFrequency: 'daily',
+                    scheduleTime: '06:00',
                   });
                 }}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
@@ -1143,6 +1319,65 @@ export default function ConfigPage() {
                     }
                     className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
+                </div>
+
+                {/* Schedule Configuration */}
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm font-medium text-gray-700">
+                      Collection Schedule
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="mb-2 block text-xs font-medium text-gray-600">
+                        Frequency
+                      </label>
+                      <select
+                        value={(editForm as any).scheduleFrequency || 'manual'}
+                        onChange={(e) =>
+                          setEditForm({
+                            ...editForm,
+                            scheduleFrequency: e.target.value,
+                          })
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      >
+                        <option value="manual">Manual Only</option>
+                        <option value="hourly">Every Hour</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                      </select>
+                    </div>
+                    {(editForm.scheduleFrequency === 'daily' ||
+                      editForm.scheduleFrequency === 'weekly') && (
+                      <div>
+                        <label className="mb-2 block text-xs font-medium text-gray-600">
+                          Time (UTC+8)
+                        </label>
+                        <input
+                          type="time"
+                          value={editForm.scheduleTime || '06:00'}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              scheduleTime: e.target.value,
+                            })
+                          }
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <p className="mt-2 text-xs text-gray-500">
+                    {editForm.scheduleFrequency === 'manual' ||
+                    !editForm.scheduleFrequency
+                      ? 'You will need to manually trigger collection'
+                      : editForm.scheduleFrequency === 'hourly'
+                        ? 'Collection will run every hour automatically'
+                        : `Collection will run ${editForm.scheduleFrequency} at ${editForm.scheduleTime || '06:00'}`}
+                  </p>
                 </div>
               </div>
             </div>

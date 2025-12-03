@@ -10,6 +10,7 @@ import { DashboardService } from "./dashboard.service";
 import { MonitorService } from "./monitor.service";
 import { QualityService } from "./quality.service";
 import { HistoryService } from "./history.service";
+import { DataSourceSeederService } from "./data-source-seeder.service";
 
 // Controllers
 import { DataSourceController } from "./data-source.controller";
@@ -36,6 +37,7 @@ import { HistoryController } from "./history.controller";
     MonitorService,
     QualityService,
     HistoryService,
+    DataSourceSeederService, // Auto-seeds validated data sources on startup
   ],
   exports: [
     DataSourceService,
