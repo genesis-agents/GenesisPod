@@ -50,7 +50,10 @@ export class CollectionTaskService {
     private hackernewsService: HackernewsService,
     private rssService: RssService,
     private webScraperService: WebScraperService,
-  ) {}
+  ) {
+    // Keep reference to arxivService for future arXiv API queries
+    void this.arxivService;
+  }
 
   /**
    * 创建采集任务
@@ -226,7 +229,8 @@ export class CollectionTaskService {
       const sourceType = dataSource.type;
       const sourceConfig = task.sourceConfig as any;
       const maxResults = sourceConfig?.maxResults || 10;
-      const category = sourceConfig?.category;
+      // Category from source config or data source (used for filtering)
+      void (sourceConfig?.category || dataSource.category);
 
       this.logger.log(
         `Starting collection from ${sourceType} (max: ${maxResults})`,
@@ -243,9 +247,13 @@ export class CollectionTaskService {
       // - 执行去重检查
       switch (sourceType) {
         case "ARXIV":
-          collectedCount = await this.arxivService.fetchLatestPapers(
+          // arXiv 使用 RSS feed (https://rss.arxiv.org/rss/cs.AI 等)
+          const arxivRssUrl = dataSource.baseUrl;
+          this.logger.log(`Fetching arXiv RSS feed from: ${arxivRssUrl}`);
+          collectedCount = await this.rssService.fetchRssFeed(
+            arxivRssUrl,
             maxResults,
-            category,
+            dataSource.category,
           );
           break;
 
@@ -262,11 +270,18 @@ export class CollectionTaskService {
           break;
 
         case "RSS":
-          // RSS订阅源采集
+        case "YOUTUBE":
+        case "SUBSTACK":
+        case "MEDIUM":
+        case "DEVTO":
+        case "HASHNODE":
+        case "TECHCRUNCH":
+        case "THE_VERGE":
+          // RSS/Atom订阅源采集 (包括YouTube频道、Substack、各类博客)
+          // YouTube RSS格式: https://www.youtube.com/feeds/videos.xml?channel_id=XXX
           const crawlerConfigRss = dataSource.crawlerConfig as any;
-          const rssUrl =
-            crawlerConfigRss?.rssUrl ||
-            dataSource.baseUrl + dataSource.apiEndpoint;
+          const rssUrl = crawlerConfigRss?.rssUrl || dataSource.baseUrl;
+          this.logger.log(`Fetching RSS feed from: ${rssUrl}`);
           collectedCount = await this.rssService.fetchRssFeed(
             rssUrl,
             maxResults,
@@ -290,14 +305,7 @@ export class CollectionTaskService {
         case "PUBMED":
         case "IEEE":
         case "ACL_ANTHOLOGY":
-        case "MEDIUM":
-        case "DEVTO":
-        case "SUBSTACK":
-        case "HASHNODE":
-        case "YOUTUBE":
         case "BILIBILI":
-        case "TECHCRUNCH":
-        case "THE_VERGE":
         case "PRODUCTHUNT":
         case "POLICY_US":
         case "POLICY_EU":
