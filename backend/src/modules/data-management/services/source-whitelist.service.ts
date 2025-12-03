@@ -713,6 +713,12 @@ export class SourceWhitelistService {
             "congress.gov",
             "senate.gov",
             "house.gov",
+            "federalregister.gov", // 联邦公报
+            "*.federalregister.gov",
+            "gao.gov", // 政府问责办公室
+            "*.gao.gov",
+            "cbo.gov", // 国会预算办公室
+            "crsreports.congress.gov", // 国会研究服务
             // 联邦机构
             "commerce.gov",
             "*.commerce.gov",
@@ -721,8 +727,19 @@ export class SourceWhitelistService {
             "treasury.gov",
             "state.gov",
             "defense.gov",
+            "*.defense.gov",
+            "darpa.mil", // DARPA
+            "*.darpa.mil",
+            "ai.mil", // DOD AI Office
             "energy.gov",
+            "*.energy.gov",
             "nist.gov",
+            "*.nist.gov",
+            "nsf.gov", // 国家科学基金会
+            "*.nsf.gov",
+            "ai.gov", // 国家AI倡议
+            "ftc.gov", // 联邦贸易委员会
+            "*.ftc.gov",
             // 智库和研究机构
             "brookings.edu",
             "*.brookings.edu",
