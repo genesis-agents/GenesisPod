@@ -1210,11 +1210,10 @@ export class InfographicTemplateService {
 
     // 轨道半径：确保卡片不与中心圆和边界重叠
     // 水平方向：(可用宽度 - 卡片宽度) / 2 - 边距
-    // 垂直方向：(可用高度 - 卡片估算高度) / 2 - 边距
-    const cardEstimatedHeight =
-      cardPadding * 2 + numberSize + cardFontSize * 2.5;
-    const horizontalMargin = Math.round(15 * scale);
-    const verticalMargin = Math.round(10 * scale);
+    // 垂直方向：(可用高度 - 卡片估算高度) / 2 - 边距（增加垂直边距防止与标题重叠）
+    const cardEstimatedHeight = cardPadding * 2 + numberSize + cardFontSize * 3;
+    const horizontalMargin = Math.round(20 * scale);
+    const verticalMargin = Math.round(25 * scale);
     const horizontalRadius =
       (visualAreaWidth - cardWidth) / 2 - horizontalMargin;
     const verticalRadius =
@@ -1454,9 +1453,11 @@ export class InfographicTemplateService {
 
       ${centerItems
         .map((item, idx) => {
-          // 从顶部开始（-90度），顺时针均匀分布
+          // 从右侧开始（0度），顺时针均匀分布，避免正上方和正下方有卡片
           const angleStep = (2 * Math.PI) / itemCount;
-          const angle = -Math.PI / 2 + angleStep * idx;
+          // 偏移半个步长，使卡片分布在对角线位置
+          const startAngle = angleStep / 2 - Math.PI / 2;
+          const angle = startAngle + angleStep * idx;
           // 计算卡片中心位置（百分比）
           const xPercent =
             50 + ((Math.cos(angle) * horizontalRadius) / visualAreaWidth) * 100;
