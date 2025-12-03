@@ -31,7 +31,12 @@ export class FeedService {
       sortBy = "publishedAt",
     } = params;
 
-    const where: Prisma.ResourceWhereInput = {};
+    // 始终过滤掉空标题的资源
+    const where: Prisma.ResourceWhereInput = {
+      NOT: {
+        title: "",
+      },
+    };
 
     if (type) {
       where.type = type as any;

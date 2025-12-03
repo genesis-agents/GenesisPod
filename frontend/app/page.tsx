@@ -2003,6 +2003,9 @@ function HomeContent() {
                 <div className="space-y-5">
                   {resources
                     .filter((resource) => {
+                      // Filter out invalid resources (no title or empty title)
+                      if (!resource.title || resource.title.trim() === '')
+                        return false;
                       // Apply source filter if any sources are selected
                       if (selectedSources.length === 0) return true;
                       const sourceName = getSourceName(resource);

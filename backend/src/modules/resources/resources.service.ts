@@ -45,8 +45,12 @@ export class ResourcesService {
       sortOrder = "desc",
     } = params;
 
-    // 构建查询条件
-    const where: Prisma.ResourceWhereInput = {};
+    // 构建查询条件 - 始终过滤掉空标题的资源
+    const where: Prisma.ResourceWhereInput = {
+      NOT: {
+        title: "",
+      },
+    };
 
     if (type) {
       where.type = type as any;
