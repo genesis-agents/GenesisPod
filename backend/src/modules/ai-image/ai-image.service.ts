@@ -172,11 +172,18 @@ const PROMPT_ENHANCEMENT_SYSTEM = `You are an expert visual content designer. An
 Is the user asking for a PICTURE/IMAGE of something, or an INFOGRAPHIC with structured information?
 
 **Signs it's a VISUAL SCENE (use ai_image mode):**
-- Short prompt (under 30 words)
+- Short prompt (under 30 words) OR detailed artistic description (any length)
 - Describes a visual scene, action, or subject to SEE
 - Contains: animals, people, nature, landscapes, actions, emotions
 - Examples: "猫嗅毛线", "日落", "狗狗追球", "孩子在草地上玩耍", "a cat playing with yarn", "mountain landscape"
 - User wants to see an IMAGE/PICTURE, not read information
+
+**Signs it's a COMIC/ILLUSTRATION (use ai_image mode):**
+- Contains "comic", "漫画", "panel", "面板", "插画", "illustration"
+- Describes multiple panels/scenes in sequence
+- Mentions art styles: "watercolor", "ink", "水彩", "水墨", "油画", "cartoon", "anime"
+- Examples: "Create a comic with...", "Panel 1:...", "画一个漫画..."
+- Even if LONG, these should use ai_image mode - the length describes the artwork!
 
 **Signs it's an INFOGRAPHIC (use hybrid or html_render):**
 - Long content (50+ words) with multiple sections
@@ -186,16 +193,19 @@ Is the user asking for a PICTURE/IMAGE of something, or an INFOGRAPHIC with stru
 
 ## STEP 1: CONTENT ANALYSIS & RENDERING MODE SELECTION
 
-**rendering_mode: "ai_image"** - ⭐ USE FOR VISUAL SCENES (CHECK THIS FIRST!):
+**rendering_mode: "ai_image"** - ⭐ USE FOR VISUAL SCENES & ARTWORK (CHECK THIS FIRST!):
 - Short visual descriptions (1-30 words) describing a SCENE, SUBJECT, or ACTION
 - Animals: "猫嗅毛线", "狗狗追球", "小鸟飞翔", "a cat sniffing yarn"
 - People: "孩子放风筝", "舞者", "老人下棋"
 - Nature: "sunset over mountains", "樱花盛开", "雪景"
 - Actions: "children playing", "猫咪玩毛线球"
 - Art/Illustration requests: "画一幅...", "create an image of..."
+- **COMIC/MANGA requests** (even if long!): "Create a comic...", "Panel 1:...", "漫画", "连环画"
+- **Illustration requests**: "watercolor", "ink style", "水彩风格", "插画"
 - CRITICAL: If the prompt describes what user wants to SEE visually, use this mode!
 - This mode generates a complete AI image - NO HTML overlay, NO text!
 - The output is a pure PICTURE, like a photograph or illustration
+- **IMPORTANT**: Long prompts describing artwork/comics should STILL use ai_image mode!
 
 **rendering_mode: "hybrid"** - Use for INFOGRAPHIC content:
 - Long articles, reports, summaries (50+ words) that need visualization
@@ -316,17 +326,28 @@ The JSON must be STRICTLY valid (no markdown fences):
 
 ## CRITICAL GUIDELINES:
 
-0. **VISUAL SCENE DETECTION - CHECK THIS FIRST! (HIGHEST PRIORITY)**:
-   - If prompt is SHORT (under 30 words) AND describes something to SEE → USE "ai_image" mode!
+0. **VISUAL SCENE & ARTWORK DETECTION - CHECK THIS FIRST! (HIGHEST PRIORITY)**:
+   - USE "ai_image" mode for ANY of these:
+     * Short visual prompts (under 30 words) describing scenes
+     * LONG prompts describing artwork/comics/illustrations (ANY length!)
    - Visual scene indicators:
      * Animals doing things: 猫嗅毛线, 狗追球, 鸟飞翔, cat playing
      * People in action: 孩子玩耍, 舞者跳舞, 老人散步
      * Nature/landscapes: 日落, 雪山, 樱花, sunset, forest
      * Artistic requests: 画一幅..., create an image of...
+   - **COMIC/ILLUSTRATION indicators** (use ai_image even if long!):
+     * Keywords: comic, manga, 漫画, 连环画, panel, 面板, illustration, 插画
+     * Art styles: watercolor, ink, 水彩, 水墨, oil painting, cartoon, anime, sketch
+     * Panel descriptions: "Panel 1:", "第一格:", structured scene descriptions
+     * Google-style prompts: detailed multi-panel descriptions with art style specs
    - When ai_image mode is selected:
      * Set rendering_mode: "ai_image"
      * Set template_layout: "cards" (not used but required)
-     * final_prompt should be a detailed image generation prompt
+     * final_prompt: For comics/illustrations, PRESERVE the user's detailed prompt!
+       - Include all panel descriptions exactly as user wrote them
+       - Keep art style specifications (watercolor, ink style, etc.)
+       - Maintain aspect ratio requests
+       - Add style consistency reminders if multiple panels
      * information_architecture can be minimal (title only)
      * DO NOT generate HTML text overlay - the image IS the output!
 
@@ -396,6 +417,18 @@ The JSON must be STRICTLY valid (no markdown fences):
      * Art style (e.g., "digital art, illustration, watercolor, oil painting")
      * Mood/lighting (e.g., "warm afternoon light, cozy atmosphere")
      * DO NOT include infographic keywords!
+   - For **ai_image** mode (COMICS/ILLUSTRATIONS - SPECIAL HANDLING):
+     * PRESERVE the user's original prompt structure (Panel 1, Panel 2, etc.)
+     * Keep ALL panel descriptions intact - do not summarize or reduce
+     * Maintain art style specifications throughout (watercolor, ink, etc.)
+     * Add style consistency: "all panels in the same [style] aesthetic"
+     * Include aspect ratio if user specified it
+     * Example structure for comic prompts:
+       "Create a comic with [N] panels. [Art style description].
+        Panel 1: [exact user description]
+        Panel 2: [exact user description]
+        ...
+        The overall tone is [mood]. [Aspect ratio]. All panels maintain consistent [style] throughout."
    - For **hybrid** mode (infographics): Must include:
      * "professional consulting infographic"
      * "2D flat design illustration"
@@ -601,6 +634,13 @@ export class AiImageService {
       const wordCount = fallbackPrompt
         .split(/[\s，。、！？；：""''【】《》（）]+/)
         .filter((w) => w.length > 0).length;
+
+      // 检测漫画/插画类内容（优先级最高，即使长也应使用 ai_image）
+      const isComicOrIllustration =
+        /comic|manga|漫画|连环画|panel\s*\d|面板|第[一二三四五六七八九十\d]+[格幅张]|插画|illustration|watercolor|水彩|ink\s*style|水墨|油画|oil\s*painting|cartoon|anime|sketch|草图/i.test(
+          fallbackPrompt,
+        );
+
       // 检测是否包含列表/排名/数据型内容，这类内容即使短也应使用 hybrid 模式
       const hasStructuredContent =
         /\d+%|\d+\.\d+|第[一二三四五六七八九十]+|步骤|流程|对比|分析|报告|数据|统计|方案|计划/.test(
@@ -611,24 +651,43 @@ export class AiImageService {
         /top\s*\d+|\d+\s*大|\d+\s*个|前\s*\d+|排行|排名|榜单|清单|列表|企业|公司|品牌|产品|技术/i.test(
           fallbackPrompt,
         );
-      const isShortVisualPrompt =
-        (promptLength < 30 || wordCount < 10) &&
-        !hasStructuredContent &&
-        !hasListContent;
 
-      if (isShortVisualPrompt && insights.renderingMode !== "ai_image") {
+      // 漫画/插画类内容优先级最高 - 强制使用 ai_image 模式
+      if (isComicOrIllustration) {
         this.logger.log(
-          `[parsePromptEnhancementResponse] Short visual prompt detected (${promptLength} chars, ${wordCount} words), forcing ai_image mode`,
+          `[parsePromptEnhancementResponse] Comic/Illustration content detected, forcing ai_image mode`,
         );
         insights.renderingMode = "ai_image";
-      }
+        // 对于漫画类，保留原始 prompt 作为 imagePrompt（如果 AI 没有正确处理）
+        if (
+          !insights.imagePrompt ||
+          insights.imagePrompt.length < fallbackPrompt.length * 0.5
+        ) {
+          insights.imagePrompt = fallbackPrompt;
+          this.logger.log(
+            `[parsePromptEnhancementResponse] Preserving original comic prompt as imagePrompt`,
+          );
+        }
+      } else {
+        const isShortVisualPrompt =
+          (promptLength < 30 || wordCount < 10) &&
+          !hasStructuredContent &&
+          !hasListContent;
 
-      // 如果检测到列表型内容，强制使用 hybrid 模式
-      if (hasListContent && insights.renderingMode === "ai_image") {
-        this.logger.log(
-          `[parsePromptEnhancementResponse] List/ranking content detected, switching from ai_image to hybrid mode`,
-        );
-        insights.renderingMode = "hybrid";
+        if (isShortVisualPrompt && insights.renderingMode !== "ai_image") {
+          this.logger.log(
+            `[parsePromptEnhancementResponse] Short visual prompt detected (${promptLength} chars, ${wordCount} words), forcing ai_image mode`,
+          );
+          insights.renderingMode = "ai_image";
+        }
+
+        // 如果检测到列表型内容，强制使用 hybrid 模式
+        if (hasListContent && insights.renderingMode === "ai_image") {
+          this.logger.log(
+            `[parsePromptEnhancementResponse] List/ranking content detected, switching from ai_image to hybrid mode`,
+          );
+          insights.renderingMode = "hybrid";
+        }
       }
 
       // 解析模板布局类型
