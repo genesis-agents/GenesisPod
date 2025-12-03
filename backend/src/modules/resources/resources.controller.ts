@@ -151,10 +151,17 @@ export class ResourcesController {
       );
     }
 
-    const validTypes = ["PAPER", "BLOG", "REPORT", "NEWS", "YOUTUBE_VIDEO"];
+    const validTypes = [
+      "PAPER",
+      "BLOG",
+      "REPORT",
+      "NEWS",
+      "YOUTUBE_VIDEO",
+      "POLICY",
+    ];
     if (!validTypes.includes(type)) {
       throw new HttpException(
-        `Invalid resource type. Supported types are: PAPER, BLOG, REPORT, NEWS, YOUTUBE_VIDEO. Received: ${type}`,
+        `Invalid resource type. Supported types are: PAPER, BLOG, REPORT, NEWS, YOUTUBE_VIDEO, POLICY. Received: ${type}`,
         HttpStatus.BAD_REQUEST,
       );
     }
