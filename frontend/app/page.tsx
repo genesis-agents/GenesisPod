@@ -2694,6 +2694,7 @@ function HomeContent() {
                       url={selectedResource.sourceUrl}
                       title={selectedResource.title}
                       category={selectedResource.type}
+                      isImportedResource={true}
                       className="h-full w-full"
                       onArticleLoaded={handleArticleLoaded}
                     />

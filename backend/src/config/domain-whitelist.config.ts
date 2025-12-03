@@ -88,6 +88,7 @@ export const WHITELISTED_DOMAINS = [
   "cyber.harvard.edu",
   "carnegieendowment.org",
   "www.carnegieendowment.org",
+  "cset.georgetown.edu", // Center for Security and Emerging Technology
 
   // 主流媒体 (Mainstream Media)
   "forbes.com",

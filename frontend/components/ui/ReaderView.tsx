@@ -8,6 +8,7 @@ interface ReaderViewProps {
   title?: string;
   className?: string;
   category?: string; // 资源类别，用于选择合适的API端点
+  isImportedResource?: boolean; // 是否为已导入的资源（来自数据库），如果是则不限制域名
   onArticleLoaded?: (article: Article) => void;
 }
 
@@ -38,6 +39,7 @@ export default function ReaderView({
   title: propTitle,
   className = '',
   category,
+  isImportedResource = false,
   onArticleLoaded,
 }: ReaderViewProps) {
   const [loading, setLoading] = useState(true);
@@ -56,7 +58,10 @@ export default function ReaderView({
         // News类型使用html-reader-news（无域名限制），其他类型使用html-reader（有域名白名单）
         console.log('[ReaderView] Category:', category, 'URL:', url);
 
-        // 检查是否是新闻：通过category或URL域名判断
+        // 决定使用哪个端点：
+        // 1. 已导入的资源（来自数据库）：使用无域名限制的 html-reader-news 端点
+        // 2. 新闻类别或新闻域名：使用无域名限制的 html-reader-news 端点
+        // 3. 其他情况：使用有白名单限制的 html-reader 端点
         const newsDomains = [
           'reuters.com',
           'bbc.com',
@@ -79,10 +84,14 @@ export default function ReaderView({
         const isNewsByCategory = category?.toLowerCase() === 'news';
         const isNews = isNewsByCategory || isNewsByDomain;
 
-        const endpoint = isNews ? 'html-reader-news' : 'html-reader';
+        // 关键逻辑：已导入资源使用无限制端点，确保用户可以打开所有已收录的内容
+        const useUnrestrictedEndpoint = isImportedResource || isNews;
+        const endpoint = useUnrestrictedEndpoint
+          ? 'html-reader-news'
+          : 'html-reader';
         const readerUrl = `${config.apiUrl}/proxy/${endpoint}?url=${encodeURIComponent(url)}`;
         console.log(
-          `[ReaderView] Using endpoint: ${endpoint} (category: ${isNewsByCategory}, domain: ${isNewsByDomain})`
+          `[ReaderView] Using endpoint: ${endpoint} (imported: ${isImportedResource}, category: ${isNewsByCategory}, domain: ${isNewsByDomain})`
         );
         console.log(`[ReaderView] Fetching: ${readerUrl}`);
 
