@@ -2380,76 +2380,99 @@ function HomeContent() {
 
           {/* Detail View */}
           {viewMode === 'detail' && selectedResource && (
-            <div className="flex min-h-0 flex-1 flex-col space-y-2">
-              {/* Collapsible Header - 紧凑优化 */}
-              <div className="flex-shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-white">
-                {/* Collapsed View - Always Visible */}
-                <div className="px-3 py-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      {/* Title - 单行显示，自动省略号 */}
-                      <h1
-                        className="truncate text-base font-semibold text-gray-900"
+            <div className="flex min-h-0 flex-1 flex-col">
+              {/* Modern Header - 参考 Notion/Linear 设计风格 */}
+              <div className="flex-shrink-0 border-b border-gray-200 bg-white">
+                {/* 顶部工具栏 */}
+                <div className="flex h-12 items-center justify-between px-4">
+                  {/* 左侧：返回按钮 + 面包屑 */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={handleBackToList}
+                      className="flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                      title="返回列表"
+                    >
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 19l-7-7 7-7"
+                        />
+                      </svg>
+                    </button>
+
+                    {/* 面包屑导航 */}
+                    <nav className="flex items-center text-sm">
+                      <span className="text-gray-400">
+                        {selectedResource.type === 'POLICY'
+                          ? 'Policy'
+                          : selectedResource.type === 'PAPER'
+                            ? 'Papers'
+                            : selectedResource.type}
+                      </span>
+                      <svg
+                        className="mx-2 h-4 w-4 text-gray-300"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                      <span
+                        className="max-w-[300px] truncate font-medium text-gray-700"
                         title={selectedResource.title}
                       >
-                        {selectedResource.title}
-                      </h1>
+                        {selectedResource.title.length > 40
+                          ? selectedResource.title.substring(0, 40) + '...'
+                          : selectedResource.title}
+                      </span>
+                    </nav>
+                  </div>
 
-                      {/* Back to list link - 紧凑排版 */}
-                      <button
-                        onClick={handleBackToList}
-                        className="mt-0.5 inline-flex items-center gap-0.5 text-xs text-gray-600 transition-colors hover:text-gray-900"
-                      >
-                        <svg
-                          className="h-3 w-3"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M15 19l-7-7 7-7"
-                          />
-                        </svg>
-                        返回列表
-                      </button>
-                    </div>
-
-                    {/* View Mode Toggle - Only show for HTML content */}
+                  {/* 右侧：视图切换 + 操作按钮 */}
+                  <div className="flex items-center gap-2">
+                    {/* View Mode Toggle - 简洁的 Segmented Control */}
                     {selectedResource.type !== 'PAPER' &&
                       selectedResource.sourceUrl && (
-                        <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-0.5">
+                        <div className="flex h-8 items-center rounded-md border border-gray-200 bg-gray-50 p-0.5">
                           <button
                             onClick={() => setHtmlViewMode('reader')}
-                            className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
+                            className={`flex h-7 items-center gap-1.5 rounded px-3 text-xs font-medium transition-all ${
                               htmlViewMode === 'reader'
                                 ? 'bg-white text-gray-900 shadow-sm'
-                                : 'text-gray-600 hover:text-gray-900'
+                                : 'text-gray-500 hover:text-gray-700'
                             }`}
-                            title="阅读模式 - 清洁、易读的内容展示"
                           >
                             <svg
-                              className="mr-1 inline h-3.5 w-3.5"
+                              className="h-3.5 w-3.5"
                               fill="currentColor"
                               viewBox="0 0 20 20"
                             >
                               <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
                             </svg>
-                            阅读
+                            Reader
                           </button>
                           <button
                             onClick={() => setHtmlViewMode('original')}
-                            className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
+                            className={`flex h-7 items-center gap-1.5 rounded px-3 text-xs font-medium transition-all ${
                               htmlViewMode === 'original'
                                 ? 'bg-white text-gray-900 shadow-sm'
-                                : 'text-gray-600 hover:text-gray-900'
+                                : 'text-gray-500 hover:text-gray-700'
                             }`}
-                            title="原始模式 - 完整的网页显示"
                           >
                             <svg
-                              className="mr-1 inline h-3.5 w-3.5"
+                              className="h-3.5 w-3.5"
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -2461,21 +2484,23 @@ function HomeContent() {
                                 d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
                               />
                             </svg>
-                            原始
+                            Original
                           </button>
                         </div>
                       )}
 
-                    {/* Header Toggle Button */}
+                    {/* 展开/收起详情 */}
                     <button
                       onClick={() => setIsHeaderCollapsed(!isHeaderCollapsed)}
-                      className="flex-shrink-0 rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
-                      title={isHeaderCollapsed ? '展开详情' : '收起详情'}
+                      className={`flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors ${
+                        isHeaderCollapsed
+                          ? 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+                          : 'bg-gray-100 text-gray-700'
+                      }`}
+                      title={isHeaderCollapsed ? '显示详情' : '隐藏详情'}
                     >
                       <svg
-                        className={`h-5 w-5 transition-transform duration-200 ${
-                          isHeaderCollapsed ? 'rotate-0' : 'rotate-180'
-                        }`}
+                        className="h-3.5 w-3.5"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -2484,176 +2509,86 @@ function HomeContent() {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                         />
                       </svg>
+                      {isHeaderCollapsed ? 'Info' : 'Info'}
                     </button>
                   </div>
                 </div>
 
-                {/* Expanded Content */}
+                {/* Expanded Content - 精简的信息面板 */}
                 {!isHeaderCollapsed && (
-                  <div className="border-t border-gray-200 px-6 pb-6">
-                    {/* Metadata */}
-                    <div className="mb-4 flex items-center gap-4 pt-4 text-xs text-gray-600">
-                      <span>
-                        {new Date(
-                          selectedResource.publishedAt
-                        ).toLocaleDateString('en-US', {
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric',
-                        })}
-                      </span>
-                      {selectedResource.categories &&
-                        selectedResource.categories
-                          .slice(0, 3)
-                          .map((cat, i) => (
-                            <span
-                              key={i}
-                              className="rounded bg-gray-100 px-2 py-1"
-                            >
-                              {cat}
-                            </span>
-                          ))}
-                    </div>
-
-                    {/* Authors */}
-                    {selectedResource.authors &&
-                      selectedResource.authors.length > 0 && (
-                        <div className="mb-4">
-                          <h3 className="mb-1 text-xs font-semibold text-gray-700">
-                            Authors
-                          </h3>
-                          <div className="flex flex-wrap gap-2">
-                            {selectedResource.authors.map((author, i) => (
-                              <span key={i} className="text-xs text-gray-600">
-                                {author.username}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-3 border-t border-gray-200 pt-4">
-                      <button
-                        onClick={() => toggleBookmark(selectedResource.id)}
-                        className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                          isBookmarked(selectedResource.id)
-                            ? 'bg-red-600 text-white hover:bg-red-700'
-                            : 'border border-red-600 text-red-600 hover:bg-red-50'
-                        }`}
-                      >
-                        <svg
-                          className="h-4 w-4"
-                          fill={
-                            isBookmarked(selectedResource.id)
-                              ? 'currentColor'
-                              : 'none'
-                          }
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                          />
-                        </svg>
-                        {isBookmarked(selectedResource.id)
-                          ? 'Bookmarked'
-                          : 'Bookmark'}
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const aiResource =
-                            convertToAIOfficeResource(selectedResource);
-                          aiOfficeStore.addResource(aiResource as any);
-                        }}
-                        disabled={aiOfficeStore.resources.some(
-                          (r) => r._id === selectedResource.id
-                        )}
-                        className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                          aiOfficeStore.resources.some(
-                            (r) => r._id === selectedResource.id
-                          )
-                            ? 'cursor-not-allowed border border-green-600 bg-green-50 text-green-600'
-                            : 'border border-blue-600 text-blue-600 hover:bg-blue-50'
-                        }`}
-                        title={
-                          aiOfficeStore.resources.some(
-                            (r) => r._id === selectedResource.id
-                          )
-                            ? '已添加到 AI Office'
-                            : '添加到 AI Office'
-                        }
-                      >
-                        <svg
-                          className="h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                          />
-                        </svg>
-                        {aiOfficeStore.resources.some(
-                          (r) => r._id === selectedResource.id
-                        )
-                          ? 'Added'
-                          : 'AI Office'}
-                      </button>
-                      <a
-                        href={selectedResource.sourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
-                      >
-                        <svg
-                          className="h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                          />
-                        </svg>
-                        Open in new tab
-                      </a>
-                      <div className="ml-auto flex items-center gap-3 text-xs text-gray-600">
-                        {selectedResource.upvoteCount !== undefined && (
-                          <button
-                            onClick={(e) =>
-                              toggleUpvote(selectedResource.id, e)
-                            }
-                            className={`flex items-center gap-1 rounded-lg px-2 py-1 transition-colors ${
-                              hasUpvoted(selectedResource.id)
-                                ? 'bg-blue-50 font-medium text-blue-600'
-                                : 'hover:bg-gray-100'
-                            }`}
-                            title="点赞"
+                  <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-3">
+                    <div className="flex items-center justify-between gap-4">
+                      {/* 左侧：元信息 */}
+                      <div className="flex items-center gap-4 text-sm text-gray-500">
+                        {/* 日期 */}
+                        <span className="flex items-center gap-1.5">
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
                           >
-                            <ThumbsUp
-                              className={`h-4 w-4 ${
-                                hasUpvoted(selectedResource.id)
-                                  ? 'fill-current'
-                                  : ''
-                              }`}
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={1.5}
+                              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                             />
-                            {selectedResource.upvoteCount}
-                          </button>
-                        )}
+                          </svg>
+                          {new Date(
+                            selectedResource.publishedAt
+                          ).toLocaleDateString('en-US', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </span>
+
+                        {/* 分类标签 */}
+                        {selectedResource.categories &&
+                          selectedResource.categories.length > 0 && (
+                            <div className="flex items-center gap-1.5">
+                              {selectedResource.categories
+                                .slice(0, 2)
+                                .map((cat, i) => (
+                                  <span
+                                    key={i}
+                                    className="rounded-full bg-gray-200/80 px-2 py-0.5 text-xs font-medium text-gray-600"
+                                  >
+                                    {cat}
+                                  </span>
+                                ))}
+                            </div>
+                          )}
+
+                        {/* 作者 */}
+                        {selectedResource.authors &&
+                          selectedResource.authors.length > 0 && (
+                            <span className="flex items-center gap-1.5">
+                              <svg
+                                className="h-4 w-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={1.5}
+                                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                                />
+                              </svg>
+                              {selectedResource.authors
+                                .slice(0, 2)
+                                .map((a) => a.username)
+                                .join(', ')}
+                            </span>
+                          )}
+
+                        {/* 统计 */}
                         {selectedResource.viewCount !== undefined && (
                           <span className="flex items-center gap-1">
                             <svg
@@ -2665,13 +2600,132 @@ function HomeContent() {
                               <path
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
-                                strokeWidth={2}
+                                strokeWidth={1.5}
                                 d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                              />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={1.5}
+                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
                               />
                             </svg>
                             {selectedResource.viewCount}
                           </span>
                         )}
+                      </div>
+
+                      {/* 右侧：操作按钮 */}
+                      <div className="flex items-center gap-2">
+                        {/* 点赞 */}
+                        {selectedResource.upvoteCount !== undefined && (
+                          <button
+                            onClick={(e) =>
+                              toggleUpvote(selectedResource.id, e)
+                            }
+                            className={`flex h-8 items-center gap-1.5 rounded-md px-3 text-sm transition-colors ${
+                              hasUpvoted(selectedResource.id)
+                                ? 'bg-blue-100 font-medium text-blue-600'
+                                : 'bg-white text-gray-600 hover:bg-gray-100'
+                            }`}
+                          >
+                            <ThumbsUp
+                              className={`h-4 w-4 ${hasUpvoted(selectedResource.id) ? 'fill-current' : ''}`}
+                            />
+                            {selectedResource.upvoteCount}
+                          </button>
+                        )}
+
+                        {/* 收藏 */}
+                        <button
+                          onClick={() => toggleBookmark(selectedResource.id)}
+                          className={`flex h-8 items-center gap-1.5 rounded-md px-3 text-sm transition-colors ${
+                            isBookmarked(selectedResource.id)
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-white text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill={
+                              isBookmarked(selectedResource.id)
+                                ? 'currentColor'
+                                : 'none'
+                            }
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                            />
+                          </svg>
+                          Save
+                        </button>
+
+                        {/* AI Office */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const aiResource =
+                              convertToAIOfficeResource(selectedResource);
+                            aiOfficeStore.addResource(aiResource as any);
+                          }}
+                          disabled={aiOfficeStore.resources.some(
+                            (r) => r._id === selectedResource.id
+                          )}
+                          className={`flex h-8 items-center gap-1.5 rounded-md px-3 text-sm transition-colors ${
+                            aiOfficeStore.resources.some(
+                              (r) => r._id === selectedResource.id
+                            )
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-white text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                            />
+                          </svg>
+                          {aiOfficeStore.resources.some(
+                            (r) => r._id === selectedResource.id
+                          )
+                            ? 'Added'
+                            : 'Add to AI'}
+                        </button>
+
+                        {/* 外部链接 */}
+                        <a
+                          href={selectedResource.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex h-8 items-center gap-1.5 rounded-md bg-white px-3 text-sm text-gray-600 transition-colors hover:bg-gray-100"
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                            />
+                          </svg>
+                          Open
+                        </a>
                       </div>
                     </div>
                   </div>
