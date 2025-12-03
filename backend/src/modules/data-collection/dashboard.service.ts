@@ -22,6 +22,11 @@ export interface DashboardStats {
     duplicates: number;
     successRate: number;
     avgQuality: number;
+    // 对比数据
+    collectedVsYesterday: number; // 与昨天相比的百分比变化
+    qualityVsLastWeek: number; // 与上周相比的百分比变化
+    yesterdayCollected: number;
+    lastWeekAvgQuality: number;
   };
   qualityMetrics: {
     avgCompleteness: number;
@@ -91,6 +96,11 @@ export class DashboardService {
       duplicates: todayDuplicates,
       successRate: todayTotal > 0 ? (todaySuccess / todayTotal) * 100 : 0,
       avgQuality: 87.5, // 可以从实际数据计算
+      // 对比数据 - 暂时使用占位值
+      collectedVsYesterday: 0,
+      qualityVsLastWeek: 0,
+      yesterdayCollected: 0,
+      lastWeekAvgQuality: 0,
     };
 
     // 质量统计

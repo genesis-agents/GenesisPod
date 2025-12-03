@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma/prisma.service";
+import * as os from "os";
 
 export interface TaskMonitor {
   id: string;
@@ -17,8 +18,18 @@ export interface TaskMonitor {
 }
 
 export interface SystemMetrics {
-  cpu: number;
-  memory: number;
+  cpu: {
+    usage: number;
+    cores: number;
+    model: string;
+  };
+  memory: {
+    total: number;
+    used: number;
+    free: number;
+    percentage: number;
+  };
+  uptime: number;
   activeTasks: number;
   queuedTasks: number;
   collectionsPerMinute: number;
@@ -71,7 +82,7 @@ export class MonitorService {
   }
 
   /**
-   * 获取系统指标
+   * 获取系统指标 - 使用真实的系统数据
    */
   async getSystemMetrics(): Promise<SystemMetrics> {
     const tasks = await this.prisma.collectionTask.findMany();
@@ -98,13 +109,75 @@ export class MonitorService {
           100
         : 0;
 
+    // 获取真实的 CPU 使用率
+    const cpuUsage = await this.getCpuUsage();
+    const cpus = os.cpus();
+
+    // 获取真实的内存使用情况
+    const totalMemory = os.totalmem();
+    const freeMemory = os.freemem();
+    const usedMemory = totalMemory - freeMemory;
+
     return {
-      cpu: Math.random() * 100, // 模拟数据，实际需要从系统获取
-      memory: Math.random() * 100,
+      cpu: {
+        usage: cpuUsage,
+        cores: cpus.length,
+        model: cpus.length > 0 ? cpus[0].model : "Unknown",
+      },
+      memory: {
+        total: totalMemory,
+        used: usedMemory,
+        free: freeMemory,
+        percentage: (usedMemory / totalMemory) * 100,
+      },
+      uptime: os.uptime(),
       activeTasks,
       queuedTasks,
       collectionsPerMinute,
       errorRate,
+    };
+  }
+
+  /**
+   * 获取 CPU 使用率（采样方式）
+   */
+  private async getCpuUsage(): Promise<number> {
+    const startMeasure = this.cpuAverage();
+
+    // 等待 100ms 进行采样
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    const endMeasure = this.cpuAverage();
+
+    const idleDifference = endMeasure.idle - startMeasure.idle;
+    const totalDifference = endMeasure.total - startMeasure.total;
+
+    const cpuPercentage =
+      totalDifference > 0
+        ? ((totalDifference - idleDifference) / totalDifference) * 100
+        : 0;
+
+    return Math.round(cpuPercentage * 10) / 10;
+  }
+
+  /**
+   * 计算 CPU 平均值
+   */
+  private cpuAverage(): { idle: number; total: number } {
+    const cpus = os.cpus();
+    let totalIdle = 0;
+    let totalTick = 0;
+
+    cpus.forEach((cpu) => {
+      for (const type in cpu.times) {
+        totalTick += cpu.times[type as keyof typeof cpu.times];
+      }
+      totalIdle += cpu.times.idle;
+    });
+
+    return {
+      idle: totalIdle / cpus.length,
+      total: totalTick / cpus.length,
     };
   }
 

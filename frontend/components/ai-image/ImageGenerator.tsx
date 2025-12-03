@@ -1844,7 +1844,7 @@ export default function ImageGenerator({
         )}
 
         {/* CENTER: Main Canvas */}
-        <div className="flex flex-1 flex-col overflow-hidden bg-gray-100">
+        <div className="flex flex-1 flex-col overflow-hidden bg-white">
           {/* Canvas Area */}
           <div className="relative flex flex-1 items-center justify-center overflow-auto p-4">
             {selectedImage ? (
@@ -1945,95 +1945,10 @@ export default function ImageGenerator({
                   </p>
                 </div>
 
-                {/* 功能提示卡片 */}
-                <div className="grid w-full max-w-sm grid-cols-2 gap-3">
-                  <div className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100">
-                      <svg
-                        className="h-4 w-4 text-purple-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                        />
-                      </svg>
-                    </div>
-                    <span className="text-xs font-medium text-gray-700">
-                      Prompt
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100">
-                      <svg
-                        className="h-4 w-4 text-red-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                    </div>
-                    <span className="text-xs font-medium text-gray-700">
-                      YouTube
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
-                      <svg
-                        className="h-4 w-4 text-blue-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                        />
-                      </svg>
-                    </div>
-                    <span className="text-xs font-medium text-gray-700">
-                      URL
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-100">
-                      <svg
-                        className="h-4 w-4 text-green-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                        />
-                      </svg>
-                    </div>
-                    <span className="text-xs font-medium text-gray-700">
-                      Files
-                    </span>
-                  </div>
-                </div>
+                {/* 简洁的操作提示 */}
+                <p className="text-sm text-gray-400">
+                  Use the input panel on the right to get started →
+                </p>
               </div>
             )}
           </div>
@@ -2194,18 +2109,18 @@ export default function ImageGenerator({
 
           {/* Input Area */}
           <div className={`flex-shrink-0 ${selectedImage ? '' : ''}`}>
-            {/* Control Bar - Compact Single Row */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-gray-200 bg-gray-50 px-3 py-2">
+            {/* Control Bar - Clean Design */}
+            <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 bg-white px-4 py-3">
               {/* Model Selector */}
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] text-gray-500">Model:</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-600">Model</span>
                 {isLoadingModels ? (
-                  <div className="h-5 w-16 animate-pulse rounded bg-gray-200" />
+                  <div className="h-7 w-20 animate-pulse rounded-md bg-gray-100" />
                 ) : models.imageModels.length > 0 ? (
                   <select
                     value={selectedImageModelId}
                     onChange={(e) => setSelectedImageModelId(e.target.value)}
-                    className="h-5 rounded border border-gray-300 bg-white px-1 text-[10px] text-gray-700 focus:border-purple-500 focus:outline-none"
+                    className="h-7 rounded-md border border-gray-200 bg-gray-50 px-2 text-xs text-gray-700 transition-colors hover:border-gray-300 focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-100"
                     disabled={isGenerating}
                   >
                     {models.imageModels.map((model) => (
@@ -2215,19 +2130,24 @@ export default function ImageGenerator({
                     ))}
                   </select>
                 ) : (
-                  <span className="text-[10px] text-yellow-600">N/A</span>
+                  <span className="text-xs text-amber-600">N/A</span>
                 )}
               </div>
 
+              {/* Divider */}
+              <div className="h-4 w-px bg-gray-200" />
+
               {/* Template Layout */}
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] text-gray-500">Layout:</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-600">
+                  Layout
+                </span>
                 <select
                   value={templateLayout}
                   onChange={(e) =>
                     setTemplateLayout(e.target.value as typeof templateLayout)
                   }
-                  className="h-5 rounded border border-gray-300 bg-white px-1 text-[10px] text-gray-700 focus:border-purple-500 focus:outline-none"
+                  className="h-7 rounded-md border border-gray-200 bg-gray-50 px-2 text-xs text-gray-700 transition-colors hover:border-gray-300 focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-100"
                   disabled={isGenerating}
                   title="Template layout"
                 >
@@ -2246,19 +2166,22 @@ export default function ImageGenerator({
                 </select>
               </div>
 
+              {/* Divider */}
+              <div className="h-4 w-px bg-gray-200" />
+
               {/* Aspect Ratio */}
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] text-gray-500">Ratio:</span>
-                <div className="flex gap-0.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-600">Ratio</span>
+                <div className="flex rounded-md border border-gray-200 bg-gray-50 p-0.5">
                   {(['1:1', '16:9', '9:16', '4:3'] as const).map((ratio) => (
                     <button
                       key={ratio}
                       onClick={() => setAspectRatio(ratio)}
                       disabled={isGenerating}
-                      className={`h-5 rounded px-1.5 text-[10px] transition-colors ${
+                      className={`rounded px-2 py-1 text-xs font-medium transition-all ${
                         aspectRatio === ratio
-                          ? 'bg-purple-600 text-white'
-                          : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                          ? 'bg-purple-600 text-white shadow-sm'
+                          : 'text-gray-600 hover:bg-gray-100'
                       }`}
                     >
                       {ratio}
@@ -2267,44 +2190,45 @@ export default function ImageGenerator({
                 </div>
               </div>
 
-              {/* Skip AI & Refresh */}
-              <div className="flex items-center gap-2">
-                <label
-                  className="flex cursor-pointer items-center gap-1"
-                  title="Skip AI enhancement"
+              {/* Spacer */}
+              <div className="flex-1" />
+
+              {/* Skip AI Toggle */}
+              <label
+                className="flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-xs text-gray-500 transition-colors hover:bg-gray-50"
+                title="Skip AI enhancement for faster generation"
+              >
+                <input
+                  type="checkbox"
+                  checked={skipEnhancement}
+                  onChange={(e) => setSkipEnhancement(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                  disabled={isGenerating}
+                />
+                <span>Skip AI</span>
+              </label>
+
+              {/* Refresh Models */}
+              <button
+                onClick={fetchModels}
+                disabled={isLoadingModels}
+                className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                title="Refresh models"
+              >
+                <svg
+                  className={`h-4 w-4 ${isLoadingModels ? 'animate-spin' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  <input
-                    type="checkbox"
-                    checked={skipEnhancement}
-                    onChange={(e) => setSkipEnhancement(e.target.checked)}
-                    className="h-3 w-3 rounded border-gray-300 text-purple-500 focus:ring-purple-500"
-                    disabled={isGenerating}
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                   />
-                  <span className="whitespace-nowrap text-[10px] text-gray-500">
-                    Skip AI
-                  </span>
-                </label>
-                <button
-                  onClick={fetchModels}
-                  disabled={isLoadingModels}
-                  className="rounded p-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
-                  title="Refresh models"
-                >
-                  <svg
-                    className={`h-3.5 w-3.5 ${isLoadingModels ? 'animate-spin' : ''}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                    />
-                  </svg>
-                </button>
-              </div>
+                </svg>
+              </button>
             </div>
 
             {/* Source Pool */}
@@ -2321,7 +2245,7 @@ export default function ImageGenerator({
 
             {/* Input Mode Tabs */}
             {inputMode !== 'refine' && (
-              <div className="flex gap-0.5 px-3 pt-1">
+              <div className="flex border-b border-gray-100 px-4">
                 {[
                   {
                     mode: 'prompt' as InputMode,
@@ -2347,14 +2271,14 @@ export default function ImageGenerator({
                   <button
                     key={mode}
                     onClick={() => setInputMode(mode)}
-                    className={`flex items-center gap-1 rounded-t-md px-2 py-1.5 text-[10px] font-medium transition-all ${
+                    className={`relative flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-all ${
                       inputMode === mode
-                        ? 'bg-gray-100 text-gray-800'
+                        ? 'text-purple-600'
                         : 'text-gray-500 hover:text-gray-700'
                     }`}
                   >
                     <svg
-                      className="h-3 w-3"
+                      className="h-4 w-4"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -2367,6 +2291,10 @@ export default function ImageGenerator({
                       />
                     </svg>
                     {label}
+                    {/* Active indicator */}
+                    {inputMode === mode && (
+                      <span className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full bg-purple-600" />
+                    )}
                   </button>
                 ))}
               </div>
