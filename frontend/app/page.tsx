@@ -289,6 +289,84 @@ function HomeContent() {
     }
   }, [toast]);
 
+  // Helper function to extract source name from resource
+  const getSourceName = (resource: Resource): string | null => {
+    // Try metadata fields first
+    if (resource.metadata?.feedTitle) {
+      return resource.metadata.feedTitle;
+    }
+    if (resource.metadata?.channelName) {
+      return resource.metadata.channelName;
+    }
+    if (resource.metadata?.sourceName) {
+      return resource.metadata.sourceName;
+    }
+    // Try authors (RSS feeds store channel name in author)
+    if (resource.authors && resource.authors.length > 0) {
+      const author = resource.authors[0];
+      if (author.name) return author.name;
+      if (author.username) return author.username;
+    }
+    // Try to extract from sourceUrl domain
+    if (resource.sourceUrl) {
+      try {
+        const url = new URL(resource.sourceUrl);
+        const hostname = url.hostname.replace('www.', '');
+        // Known source domain mappings
+        const domainMap: Record<string, string> = {
+          'youtube.com': 'YouTube',
+          'arxiv.org': 'arXiv',
+          'github.com': 'GitHub',
+          'medium.com': 'Medium',
+          'news.ycombinator.com': 'Hacker News',
+          'substack.com': 'Substack',
+        };
+        if (domainMap[hostname]) {
+          return domainMap[hostname];
+        }
+        // Return cleaned domain name
+        return hostname.split('.')[0];
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  };
+
+  // Get source badge color based on source type or name
+  const getSourceBadgeColor = (
+    sourceName: string,
+    resourceType: string
+  ): string => {
+    const name = sourceName.toLowerCase();
+    if (
+      name.includes('youtube') ||
+      resourceType === 'YOUTUBE_VIDEO' ||
+      resourceType === 'YOUTUBE'
+    ) {
+      return 'bg-red-100 text-red-700';
+    }
+    if (name.includes('arxiv') || resourceType === 'PAPER') {
+      return 'bg-orange-100 text-orange-700';
+    }
+    if (name.includes('github') || resourceType === 'PROJECT') {
+      return 'bg-gray-100 text-gray-700';
+    }
+    if (name.includes('hacker') || resourceType === 'NEWS') {
+      return 'bg-amber-100 text-amber-700';
+    }
+    if (resourceType === 'POLICY') {
+      return 'bg-blue-100 text-blue-700';
+    }
+    if (resourceType === 'REPORT') {
+      return 'bg-purple-100 text-purple-700';
+    }
+    if (resourceType === 'BLOG') {
+      return 'bg-green-100 text-green-700';
+    }
+    return 'bg-gray-100 text-gray-600';
+  };
+
   const { models: allAiModels } = useAIModels();
   // 只显示 CHAT 类型的模型（或 MULTIMODAL，因为它们也支持文本聊天）
   const aiModels = allAiModels.filter(
@@ -1970,8 +2048,8 @@ function HomeContent() {
 
                         {/* Content */}
                         <div className="min-w-0 flex-1">
-                          {/* Date, Tags, and Stats */}
-                          <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                          {/* Date, Source Badge, Tags, and Stats */}
+                          <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                             <span>
                               {new Date(
                                 resource.publishedAt
@@ -1981,6 +2059,20 @@ function HomeContent() {
                                 year: 'numeric',
                               })}
                             </span>
+                            {/* Source Badge */}
+                            {(() => {
+                              const sourceName = getSourceName(resource);
+                              return sourceName ? (
+                                <span
+                                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${getSourceBadgeColor(sourceName, resource.type)}`}
+                                  title={`Source: ${sourceName}`}
+                                >
+                                  <span className="max-w-[120px] truncate">
+                                    {sourceName}
+                                  </span>
+                                </span>
+                              ) : null;
+                            })()}
                             {resource.upvoteCount !== undefined && (
                               <span className="flex items-center gap-1 text-gray-600">
                                 <svg
@@ -2000,7 +2092,7 @@ function HomeContent() {
                               </span>
                             )}
                             {resource.categories &&
-                              resource.categories.slice(0, 3).map((cat, i) => (
+                              resource.categories.slice(0, 2).map((cat, i) => (
                                 <span key={i} className="text-gray-600">
                                   {cat}
                                 </span>
