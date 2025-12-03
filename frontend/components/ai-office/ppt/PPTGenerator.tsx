@@ -75,176 +75,176 @@ const ThemeSelector: React.FC<{
   );
 };
 
-// 进度阶段配置
+// 进度阶段配置 - 统一使用蓝色系渐变
 const PROGRESS_PHASES = {
-  outline: { label: '生成大纲', color: 'bg-blue-500', icon: '📝' },
-  planning: { label: '规划布局', color: 'bg-purple-500', icon: '🎨' },
-  content: { label: '生成内容', color: 'bg-green-500', icon: '✍️' },
-  rendering: { label: '渲染页面', color: 'bg-orange-500', icon: '🖼️' },
-  complete: { label: '完成', color: 'bg-emerald-500', icon: '✅' },
+  outline: { label: '大纲', shortLabel: '1', percentage: 15 },
+  planning: { label: '规划', shortLabel: '2', percentage: 20 },
+  content: { label: '内容', shortLabel: '3', percentage: 60 },
+  rendering: { label: '渲染', shortLabel: '4', percentage: 95 },
+  complete: { label: '完成', shortLabel: '5', percentage: 100 },
 };
 
-// 进度头部组件 - 紧凑的头部样式
+// 进度组件 - 紧凑单行设计，无需滚动
 const GenerationProgress: React.FC<{
   progress: PPTStreamEvent['progress'];
   outline?: PPTOutline;
 }> = ({ progress }) => {
   if (!progress) return null;
 
-  const currentPhase =
-    PROGRESS_PHASES[progress.phase as keyof typeof PROGRESS_PHASES] ||
-    PROGRESS_PHASES.outline;
+  const phaseKeys = Object.keys(PROGRESS_PHASES);
+  const currentPhaseIndex = phaseKeys.indexOf(progress.phase);
 
   return (
-    <div className="space-y-4">
-      {/* 顶部状态栏 */}
+    <div className="space-y-3">
+      {/* 顶部：阶段 + 百分比 + 幻灯片进度（单行） */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <span className="text-2xl">{currentPhase.icon}</span>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                {currentPhase.label}
-              </h3>
-              <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-            </div>
-            <p className="text-sm text-gray-500">{progress.message}</p>
-          </div>
+        {/* 左侧：阶段步骤 */}
+        <div className="flex items-center gap-1">
+          {phaseKeys.map((key, index) => {
+            const phase = PROGRESS_PHASES[key as keyof typeof PROGRESS_PHASES];
+            const isCompleted = index < currentPhaseIndex;
+            const isCurrent = index === currentPhaseIndex;
+
+            return (
+              <div key={key} className="flex items-center">
+                {/* 步骤圆点 */}
+                <div
+                  className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium transition-all ${
+                    isCompleted
+                      ? 'bg-blue-500 text-white'
+                      : isCurrent
+                        ? 'bg-blue-500 text-white ring-2 ring-blue-200 dark:ring-blue-800'
+                        : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                  }`}
+                >
+                  {isCompleted ? (
+                    <Check className="h-3.5 w-3.5" />
+                  ) : (
+                    phase.shortLabel
+                  )}
+                </div>
+                {/* 连接线 */}
+                {index < phaseKeys.length - 1 && (
+                  <div
+                    className={`mx-1 h-0.5 w-4 rounded transition-all ${
+                      isCompleted
+                        ? 'bg-blue-500'
+                        : 'bg-gray-200 dark:bg-gray-700'
+                    }`}
+                  />
+                )}
+              </div>
+            );
+          })}
+          {/* 当前阶段标签 */}
+          <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+            {PROGRESS_PHASES[progress.phase as keyof typeof PROGRESS_PHASES]
+              ?.label || '处理中'}
+          </span>
+          <Loader2 className="ml-1 h-3.5 w-3.5 animate-spin text-blue-500" />
         </div>
-        <div className="flex items-center gap-4">
-          {/* 幻灯片进度 */}
+
+        {/* 右侧：幻灯片进度 + 百分比 */}
+        <div className="flex items-center gap-3">
           {progress.currentSlide !== undefined && progress.totalSlides && (
-            <span className="text-sm text-gray-500">
-              幻灯片 {progress.currentSlide + 1} / {progress.totalSlides}
+            <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+              {progress.currentSlide + 1} / {progress.totalSlides} 页
             </span>
           )}
-          <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-bold text-gray-900 dark:text-white">
-              {progress.percentage}
-            </span>
-            <span className="text-lg text-gray-400">%</span>
-          </div>
+          <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
+            {progress.percentage}%
+          </span>
         </div>
       </div>
 
-      {/* 主进度条 - 加宽 */}
-      <div className="h-3 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
+      {/* 进度条 - 渐变蓝色 */}
+      <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
         <div
-          className={`h-full rounded-full ${currentPhase.color} transition-all duration-500 ease-out`}
+          className="h-full rounded-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-500 ease-out"
           style={{ width: `${progress.percentage}%` }}
         />
       </div>
 
-      {/* 阶段指示器 - 水平排列 */}
-      <div className="flex items-center justify-between">
-        {Object.entries(PROGRESS_PHASES).map(([key, phase], index) => {
-          const phaseProgress = index * 25;
-          const isActive = progress.percentage >= phaseProgress;
-          const isCurrent = progress.phase === key;
-
-          return (
-            <div key={key} className="flex items-center gap-2">
-              <div
-                className={`flex h-8 w-8 items-center justify-center rounded-full text-sm transition-all ${
-                  isCurrent
-                    ? `${phase.color} text-white shadow-md`
-                    : isActive
-                      ? 'bg-gray-200 dark:bg-gray-600'
-                      : 'bg-gray-100 dark:bg-gray-700'
-                }`}
-              >
-                {phase.icon}
-              </div>
-              <span
-                className={`hidden text-xs font-medium sm:inline ${isCurrent ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}
-              >
-                {phase.label}
-              </span>
-              {index < Object.keys(PROGRESS_PHASES).length - 1 && (
-                <div
-                  className={`mx-2 h-0.5 w-8 rounded ${isActive ? 'bg-gray-300 dark:bg-gray-600' : 'bg-gray-100 dark:bg-gray-700'}`}
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* 幻灯片进度条 */}
+      {/* 幻灯片进度格子（仅在有幻灯片时显示，紧凑） */}
       {progress.currentSlide !== undefined && progress.totalSlides && (
-        <div className="flex gap-1">
+        <div className="flex gap-0.5">
           {Array.from({ length: progress.totalSlides }).map((_, i) => (
             <div
               key={i}
-              className={`h-1.5 flex-1 rounded-full transition-all ${
+              className={`h-1 flex-1 rounded-sm transition-all ${
                 i < (progress.currentSlide ?? 0)
-                  ? 'bg-green-500'
+                  ? 'bg-blue-500'
                   : i === (progress.currentSlide ?? 0)
-                    ? 'animate-pulse bg-blue-500'
+                    ? 'animate-pulse bg-blue-400'
                     : 'bg-gray-200 dark:bg-gray-700'
               }`}
             />
           ))}
         </div>
       )}
+
+      {/* 状态消息 */}
+      <p className="text-xs text-gray-500">{progress.message}</p>
     </div>
   );
 };
 
-// 大纲预览组件 - 网格布局
+// 大纲预览组件 - 紧凑水平布局
 const OutlinePreview: React.FC<{
   outline: PPTOutline;
   currentSlide?: number;
 }> = ({ outline, currentSlide }) => {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      {/* 标题行 */}
+      <div className="mb-3 flex items-center gap-3">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white">
           {outline.title}
         </h3>
-        <span className="rounded-full bg-blue-100 px-4 py-1.5 text-sm font-medium text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
-          {outline.slides.length} 页
-        </span>
+        {outline.subtitle && (
+          <span className="text-sm text-gray-500">— {outline.subtitle}</span>
+        )}
       </div>
-      {outline.subtitle && (
-        <p className="mb-4 text-gray-500">{outline.subtitle}</p>
-      )}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-        {outline.slides.map((slide, i) => (
-          <div
-            key={i}
-            className={`rounded-xl border p-3 transition-all ${
-              currentSlide !== undefined && i < currentSlide
-                ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20'
-                : currentSlide !== undefined && i === currentSlide
-                  ? 'border-blue-300 bg-blue-50 ring-2 ring-blue-200 dark:border-blue-700 dark:bg-blue-900/20 dark:ring-blue-800'
-                  : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900'
-            }`}
-          >
-            <div className="mb-2 flex items-center gap-2">
-              <span
-                className={`flex h-6 w-6 items-center justify-center rounded text-xs font-bold ${
-                  currentSlide !== undefined && i < currentSlide
-                    ? 'bg-green-500 text-white'
-                    : currentSlide !== undefined && i === currentSlide
+      {/* 幻灯片卡片 - 水平滚动，更紧凑 */}
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {outline.slides.map((slide, i) => {
+          const isCompleted = currentSlide !== undefined && i < currentSlide;
+          const isCurrent = currentSlide !== undefined && i === currentSlide;
+
+          return (
+            <div
+              key={i}
+              className={`flex-shrink-0 rounded-lg border p-2 transition-all ${
+                isCompleted
+                  ? 'border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20'
+                  : isCurrent
+                    ? 'border-blue-400 bg-blue-50 ring-1 ring-blue-300 dark:border-blue-600 dark:bg-blue-900/30 dark:ring-blue-700'
+                    : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800'
+              }`}
+              style={{ minWidth: '140px', maxWidth: '180px' }}
+            >
+              <div className="mb-1 flex items-center gap-1.5">
+                <span
+                  className={`flex h-5 w-5 items-center justify-center rounded text-xs font-medium ${
+                    isCompleted
                       ? 'bg-blue-500 text-white'
-                      : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                }`}
-              >
-                {i + 1}
-              </span>
-              <span className="text-xs text-gray-400">{slide.purpose}</span>
-            </div>
-            <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
-              {slide.title}
-            </p>
-            {slide.keyPoints && slide.keyPoints.length > 0 && (
-              <p className="mt-1 truncate text-xs text-gray-500">
-                {slide.keyPoints[0]}
+                      : isCurrent
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                  }`}
+                >
+                  {isCompleted ? <Check className="h-3 w-3" /> : i + 1}
+                </span>
+                <span className="truncate text-xs text-gray-400">
+                  {slide.purpose}
+                </span>
+              </div>
+              <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">
+                {slide.title}
               </p>
-            )}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -738,19 +738,19 @@ export const PPTGenerator: React.FC = () => {
         </div>
       )}
 
-      {/* 生成进度 - 全宽头部样式 */}
+      {/* 生成进度 - 紧凑布局，单屏可见 */}
       {isGenerating && progress && (
-        <div className="flex-1 overflow-auto">
-          {/* 进度头部 - 固定在顶部 */}
-          <div className="sticky top-0 z-10 border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-700 dark:bg-gray-800">
+        <div className="flex flex-1 flex-col">
+          {/* 进度区域 - 紧凑 padding */}
+          <div className="border-b border-gray-200 bg-white px-6 py-3 dark:border-gray-700 dark:bg-gray-800">
             <div className="mx-auto max-w-6xl">
               <GenerationProgress progress={progress} outline={outline} />
             </div>
           </div>
 
-          {/* 大纲预览区域 */}
+          {/* 大纲预览区域 - 填充剩余空间 */}
           {outline && (
-            <div className="p-6">
+            <div className="flex-1 overflow-auto bg-gray-50 p-4 dark:bg-gray-900">
               <div className="mx-auto max-w-6xl">
                 <OutlinePreview
                   outline={outline}
