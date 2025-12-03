@@ -1442,9 +1442,8 @@ export default function ImageGenerator({
           if (urlPrompt.trim()) params.set('prompt', urlPrompt.trim());
           break;
         case 'refine':
-          // Refine mode still uses regular POST (needs imageBase64)
+          // Refine mode: send referenceImageUrl to backend (avoids CORS issues)
           if (refineImage) {
-            const imageBase64 = await imageUrlToBase64(refineImage.imageUrl);
             const response = await fetch(
               `${config.apiBaseUrl}/api/v1/ai-image/generate`,
               {
@@ -1454,7 +1453,7 @@ export default function ImageGenerator({
                   ...getAuthHeader(),
                 },
                 body: JSON.stringify({
-                  imageBase64,
+                  referenceImageUrl: refineImage.imageUrl,
                   prompt: refinePrompt.trim(),
                   skipEnhancement: true,
                   imageModelId: selectedImageModelId,

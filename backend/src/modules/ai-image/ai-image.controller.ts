@@ -25,6 +25,7 @@ interface GenerateImageDto {
   urls?: string[]; // 多个URL (文章、视频等)
   content?: string; // 大块文本 (论文、字幕等)
   imageBase64?: string; // 参考图片的 Base64
+  referenceImageUrl?: string; // 参考图片的 URL (后端代理获取)
 
   // 模型选择
   textModelId?: string; // 文本模型ID (用于分析内容生成提示词)
@@ -55,11 +56,32 @@ export class AiImageController {
   @UseGuards(JwtAuthGuard)
   async generateImage(@Body() dto: GenerateImageDto, @Request() req: any) {
     this.logger.log(`Generating image for user ${req.user?.id}`);
+
+    // 如果提供了 referenceImageUrl，后端代理获取并转换为 base64
+    let imageBase64 = dto.imageBase64;
+    if (!imageBase64 && dto.referenceImageUrl) {
+      try {
+        this.logger.log(
+          `Fetching reference image from: ${dto.referenceImageUrl}`,
+        );
+        const response = await fetch(dto.referenceImageUrl);
+        if (response.ok) {
+          const buffer = await response.arrayBuffer();
+          imageBase64 = Buffer.from(buffer).toString("base64");
+          this.logger.log(
+            `Reference image fetched, size: ${buffer.byteLength}`,
+          );
+        }
+      } catch (error) {
+        this.logger.warn(`Failed to fetch reference image: ${error}`);
+      }
+    }
+
     return this.aiImageService.generateImage({
       prompt: dto.prompt,
       urls: dto.urls,
       content: dto.content,
-      imageBase64: dto.imageBase64,
+      imageBase64,
       textModelId: dto.textModelId,
       imageModelId: dto.imageModelId,
       style: dto.style,
