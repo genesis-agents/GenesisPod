@@ -780,6 +780,7 @@ export class ImportManagerService {
           await this.prisma.resource.update({
             where: { id: resourceId },
             data: {
+              type: resourceType, // ⚠️ 关键：更新资源类型
               title,
               abstract,
               pdfUrl: pdfUrl || existingResource.pdfUrl,
@@ -809,6 +810,7 @@ export class ImportManagerService {
           await this.prisma.resource.update({
             where: { id: resourceId },
             data: {
+              type: resourceType, // ⚠️ 关键：更新资源类型
               title,
               abstract,
               pdfUrl: pdfUrl || existingResource.pdfUrl,
@@ -819,7 +821,7 @@ export class ImportManagerService {
           });
 
           this.logger.log(
-            `✅ Updated existing resource ${resourceId} with new metadata`,
+            `✅ Updated existing resource ${resourceId} with new metadata (type: ${resourceType})`,
           );
         }
       } else {
