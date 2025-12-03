@@ -13,12 +13,17 @@ interface FilterPanelProps {
   setDateRange: (range: 'all' | '24h' | '7d' | '30d' | '90d') => void;
   minQualityScore: number;
   setMinQualityScore: (score: number) => void;
+  selectedSources: string[];
+  setSelectedSources: (sources: string[]) => void;
   onApply: () => void;
   onReset: () => void;
 }
 
 // 每个Tab的筛选配置
-const FILTER_CONFIGS: Record<TabType, { categories: string[] }> = {
+const FILTER_CONFIGS: Record<
+  TabType,
+  { categories: string[]; sources: string[] }
+> = {
   papers: {
     categories: [
       'AI',
@@ -27,6 +32,14 @@ const FILTER_CONFIGS: Record<TabType, { categories: string[] }> = {
       'NLP',
       'Robotics',
       'Theory',
+    ],
+    sources: [
+      'arXiv cs.AI',
+      'arXiv cs.LG',
+      'arXiv cs.CL',
+      'arXiv cs.CV',
+      'PubMed',
+      'IEEE',
     ],
   },
   blogs: {
@@ -38,6 +51,15 @@ const FILTER_CONFIGS: Record<TabType, { categories: string[] }> = {
       'Case Study',
       'Tutorial',
     ],
+    sources: [
+      'Medium',
+      'Substack',
+      'Dev.to',
+      'Hashnode',
+      'NVIDIA Blog',
+      'Google AI Blog',
+      'OpenAI Blog',
+    ],
   },
   news: {
     categories: [
@@ -47,6 +69,13 @@ const FILTER_CONFIGS: Record<TabType, { categories: string[] }> = {
       'Security',
       'Open Source',
       'Research',
+    ],
+    sources: [
+      'Hacker News',
+      'TechCrunch',
+      'The Verge',
+      'Wired',
+      'MIT Technology Review',
     ],
   },
   youtube: {
@@ -58,6 +87,14 @@ const FILTER_CONFIGS: Record<TabType, { categories: string[] }> = {
       'Review',
       'Lecture',
     ],
+    sources: [
+      'BG2 w/ Bill Gurley',
+      'Y Combinator',
+      'Valley 101',
+      'Bloomberg Technology',
+      'Lex Fridman',
+      'Two Minute Papers',
+    ],
   },
   policy: {
     categories: [
@@ -67,6 +104,12 @@ const FILTER_CONFIGS: Record<TabType, { categories: string[] }> = {
       'Trade Policy',
       'Innovation Policy',
       'Privacy & Data',
+    ],
+    sources: [
+      'White House',
+      'European Commission',
+      'UK Government',
+      'China Government',
     ],
   },
   reports: {
@@ -78,6 +121,7 @@ const FILTER_CONFIGS: Record<TabType, { categories: string[] }> = {
       'Software',
       'Enterprise',
     ],
+    sources: ['Gartner', 'IDC', 'SemiAnalysis', 'Epoch AI', 'McKinsey'],
   },
 };
 
@@ -91,6 +135,8 @@ export default function FilterPanel({
   setDateRange,
   minQualityScore,
   setMinQualityScore,
+  selectedSources,
+  setSelectedSources,
   onApply,
   onReset,
 }: FilterPanelProps) {
@@ -106,8 +152,17 @@ export default function FilterPanel({
     }
   };
 
+  const toggleSource = (source: string) => {
+    if (selectedSources.includes(source)) {
+      setSelectedSources(selectedSources.filter((s) => s !== source));
+    } else {
+      setSelectedSources([...selectedSources, source]);
+    }
+  };
+
   const handleReset = () => {
     setSelectedCategories([]);
+    setSelectedSources([]);
     setDateRange('all');
     setMinQualityScore(0);
     onReset();
@@ -150,6 +205,26 @@ export default function FilterPanel({
                 />
               </svg>
             </button>
+          </div>
+
+          {/* Sources */}
+          <div className="mb-6">
+            <h3 className="mb-3 text-sm font-medium text-gray-700">数据来源</h3>
+            <div className="flex flex-wrap gap-2">
+              {config.sources.map((source) => (
+                <button
+                  key={source}
+                  onClick={() => toggleSource(source)}
+                  className={`rounded-full px-3 py-1.5 text-sm transition-colors ${
+                    selectedSources.includes(source)
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                  }`}
+                >
+                  {source}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Categories */}

@@ -403,6 +403,7 @@ function HomeContent() {
   // Advanced filter states
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [dateRange, setDateRange] = useState<
     'all' | '24h' | '7d' | '30d' | '90d'
   >('all');
@@ -856,6 +857,7 @@ function HomeContent() {
 
   const handleResetFilters = () => {
     setSelectedCategories([]);
+    setSelectedSources([]);
     setDateRange('all');
     setMinQualityScore(0);
     fetchResources();
@@ -1958,6 +1960,7 @@ function HomeContent() {
                 onFilterClick={() => setShowFilterPanel(true)}
                 filterActive={
                   selectedCategories.length > 0 ||
+                  selectedSources.length > 0 ||
                   dateRange !== 'all' ||
                   minQualityScore > 0
                 }
@@ -1998,321 +2001,248 @@ function HomeContent() {
               {/* Resource Cards - Horizontal Layout */}
               {!loading && resources.length > 0 && (
                 <div className="space-y-5">
-                  {resources.map((resource) => (
-                    <article
-                      key={resource.id}
-                      onClick={() => handleResourceClick(resource)}
-                      className="cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-white transition-all hover:shadow-lg"
-                    >
-                      <div className="flex items-start gap-4 p-6">
-                        {/* Icon */}
-                        <div className="flex-shrink-0 pt-1">
-                          {resource.type === 'PAPER' && (
-                            <svg
-                              className="h-6 w-6 text-blue-600"
-                              fill="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 15.5h8v1H8v-1zm0-3h8v1H8v-1zm0-3h5v1H8v-1z" />
-                            </svg>
-                          )}
-                          {resource.type === 'PROJECT' && (
-                            <svg
-                              className="h-6 w-6 text-purple-600"
-                              fill="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
-                            </svg>
-                          )}
-                          {resource.type === 'NEWS' && (
-                            <svg
-                              className="h-6 w-6 text-orange-600"
-                              fill="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path d="M19 3H5c-1.11 0-2 .89-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.11-.9-2-2-2zm-1 16H6c-.55 0-1-.45-1-1V6c0-.55.45-1 1-1h12c.55 0 1 .45 1 1v12c0 .55-.45 1-1 1zM7 12h2v2H7zm0-3h2v2H7zm0-3h2v2H7zm4 6h6v2h-6zm0-3h6v2h-6zm0-3h6v2h-6z" />
-                            </svg>
-                          )}
-                          {(resource.type === 'YOUTUBE' ||
-                            resource.type === 'YOUTUBE_VIDEO') && (
-                            <svg
-                              className="h-6 w-6 text-red-600"
-                              fill="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                            </svg>
-                          )}
-                        </div>
-
-                        {/* Content */}
-                        <div className="min-w-0 flex-1">
-                          {/* Date, Source Badge, Tags, and Stats */}
-                          <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                            <span>
-                              {new Date(
-                                resource.publishedAt
-                              ).toLocaleDateString('en-US', {
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric',
-                              })}
-                            </span>
-                            {/* Source Badge */}
-                            {(() => {
-                              const sourceName = getSourceName(resource);
-                              return sourceName ? (
-                                <span
-                                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${getSourceBadgeColor(sourceName, resource.type)}`}
-                                  title={`Source: ${sourceName}`}
-                                >
-                                  <span className="max-w-[120px] truncate">
-                                    {sourceName}
-                                  </span>
-                                </span>
-                              ) : null;
-                            })()}
-                            {resource.upvoteCount !== undefined && (
-                              <span className="flex items-center gap-1 text-gray-600">
-                                <svg
-                                  className="h-3 w-3"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M5 10l7-7m0 0l7 7m-7-7v18"
-                                  />
-                                </svg>
-                                {resource.upvoteCount}
-                              </span>
-                            )}
-                            {resource.categories &&
-                              resource.categories.slice(0, 2).map((cat, i) => (
-                                <span key={i} className="text-gray-600">
-                                  {cat}
-                                </span>
-                              ))}
-                          </div>
-
-                          {/* Title */}
-                          <h2 className="mb-3 text-xl font-semibold text-red-600 hover:underline">
-                            {resource.title}
-                          </h2>
-
-                          {/* Abstract */}
-                          {(resource.aiSummary || resource.abstract) && (
-                            <p className="mb-4 line-clamp-3 text-sm leading-relaxed text-gray-700">
-                              {resource.aiSummary || resource.abstract}
-                            </p>
-                          )}
-
-                          {/* Bottom Actions */}
-                          <div className="flex items-center gap-6 border-t border-gray-100 pt-3">
-                            {/* Bookmark Button - Simple version */}
-                            <button
-                              onClick={(e) => toggleBookmark(resource.id, e)}
-                              className={`flex items-center gap-2 text-sm transition-colors ${
-                                isBookmarked(resource.id)
-                                  ? 'text-blue-600 hover:text-blue-700'
-                                  : 'text-gray-600 hover:text-blue-600'
-                              }`}
-                            >
+                  {resources
+                    .filter((resource) => {
+                      // Apply source filter if any sources are selected
+                      if (selectedSources.length === 0) return true;
+                      const sourceName = getSourceName(resource);
+                      if (!sourceName) return false;
+                      // Check if any selected source matches (case-insensitive partial match)
+                      return selectedSources.some(
+                        (selected) =>
+                          sourceName
+                            .toLowerCase()
+                            .includes(selected.toLowerCase()) ||
+                          selected
+                            .toLowerCase()
+                            .includes(sourceName.toLowerCase())
+                      );
+                    })
+                    .map((resource) => (
+                      <article
+                        key={resource.id}
+                        onClick={() => handleResourceClick(resource)}
+                        className="cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-white transition-all hover:shadow-lg"
+                      >
+                        <div className="flex items-start gap-4 p-6">
+                          {/* Icon */}
+                          <div className="flex-shrink-0 pt-1">
+                            {resource.type === 'PAPER' && (
                               <svg
-                                className="h-4 w-4"
-                                fill={
-                                  isBookmarked(resource.id)
-                                    ? 'currentColor'
-                                    : 'none'
-                                }
-                                stroke="currentColor"
+                                className="h-6 w-6 text-blue-600"
+                                fill="currentColor"
                                 viewBox="0 0 24 24"
                               >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                                />
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 15.5h8v1H8v-1zm0-3h8v1H8v-1zm0-3h5v1H8v-1z" />
                               </svg>
-                              {isBookmarked(resource.id)
-                                ? 'Bookmarked'
-                                : 'Bookmark'}
-                            </button>
-                            {/* Upvote Button */}
-                            {resource.upvoteCount !== undefined && (
+                            )}
+                            {resource.type === 'PROJECT' && (
+                              <svg
+                                className="h-6 w-6 text-purple-600"
+                                fill="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+                              </svg>
+                            )}
+                            {resource.type === 'NEWS' && (
+                              <svg
+                                className="h-6 w-6 text-orange-600"
+                                fill="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path d="M19 3H5c-1.11 0-2 .89-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.11-.9-2-2-2zm-1 16H6c-.55 0-1-.45-1-1V6c0-.55.45-1 1-1h12c.55 0 1 .45 1 1v12c0 .55-.45 1-1 1zM7 12h2v2H7zm0-3h2v2H7zm0-3h2v2H7zm4 6h6v2h-6zm0-3h6v2h-6zm0-3h6v2h-6z" />
+                              </svg>
+                            )}
+                            {(resource.type === 'YOUTUBE' ||
+                              resource.type === 'YOUTUBE_VIDEO') && (
+                              <svg
+                                className="h-6 w-6 text-red-600"
+                                fill="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                              </svg>
+                            )}
+                          </div>
+
+                          {/* Content */}
+                          <div className="min-w-0 flex-1">
+                            {/* Date, Source Badge, Tags, and Stats */}
+                            <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                              <span>
+                                {new Date(
+                                  resource.publishedAt
+                                ).toLocaleDateString('en-US', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric',
+                                })}
+                              </span>
+                              {/* Source Badge */}
+                              {(() => {
+                                const sourceName = getSourceName(resource);
+                                return sourceName ? (
+                                  <span
+                                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${getSourceBadgeColor(sourceName, resource.type)}`}
+                                    title={`Source: ${sourceName}`}
+                                  >
+                                    <span className="max-w-[120px] truncate">
+                                      {sourceName}
+                                    </span>
+                                  </span>
+                                ) : null;
+                              })()}
+                              {resource.upvoteCount !== undefined && (
+                                <span className="flex items-center gap-1 text-gray-600">
+                                  <svg
+                                    className="h-3 w-3"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M5 10l7-7m0 0l7 7m-7-7v18"
+                                    />
+                                  </svg>
+                                  {resource.upvoteCount}
+                                </span>
+                              )}
+                              {resource.categories &&
+                                resource.categories
+                                  .slice(0, 2)
+                                  .map((cat, i) => (
+                                    <span key={i} className="text-gray-600">
+                                      {cat}
+                                    </span>
+                                  ))}
+                            </div>
+
+                            {/* Title */}
+                            <h2 className="mb-3 text-xl font-semibold text-red-600 hover:underline">
+                              {resource.title}
+                            </h2>
+
+                            {/* Abstract */}
+                            {(resource.aiSummary || resource.abstract) && (
+                              <p className="mb-4 line-clamp-3 text-sm leading-relaxed text-gray-700">
+                                {resource.aiSummary || resource.abstract}
+                              </p>
+                            )}
+
+                            {/* Bottom Actions */}
+                            <div className="flex items-center gap-6 border-t border-gray-100 pt-3">
+                              {/* Bookmark Button - Simple version */}
                               <button
+                                onClick={(e) => toggleBookmark(resource.id, e)}
                                 className={`flex items-center gap-2 text-sm transition-colors ${
-                                  hasUpvoted(resource.id)
-                                    ? 'font-medium text-blue-600'
+                                  isBookmarked(resource.id)
+                                    ? 'text-blue-600 hover:text-blue-700'
                                     : 'text-gray-600 hover:text-blue-600'
                                 }`}
-                                onClick={(e) => toggleUpvote(resource.id, e)}
-                                title="点赞"
                               >
-                                <ThumbsUp
-                                  className={`h-4 w-4 ${
+                                <svg
+                                  className="h-4 w-4"
+                                  fill={
+                                    isBookmarked(resource.id)
+                                      ? 'currentColor'
+                                      : 'none'
+                                  }
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                                  />
+                                </svg>
+                                {isBookmarked(resource.id)
+                                  ? 'Bookmarked'
+                                  : 'Bookmark'}
+                              </button>
+                              {/* Upvote Button */}
+                              {resource.upvoteCount !== undefined && (
+                                <button
+                                  className={`flex items-center gap-2 text-sm transition-colors ${
                                     hasUpvoted(resource.id)
-                                      ? 'fill-current'
-                                      : ''
+                                      ? 'font-medium text-blue-600'
+                                      : 'text-gray-600 hover:text-blue-600'
                                   }`}
-                                />
-                                {resource.upvoteCount}
-                              </button>
-                            )}
-                            {/* Comment Button */}
-                            {resource.commentCount !== undefined && (
-                              <button
-                                className="flex items-center gap-2 text-sm text-gray-600 transition-colors hover:text-green-600"
-                                onClick={(e) => handleCommentClick(resource, e)}
-                                title="评论"
-                              >
-                                <svg
-                                  className="h-4 w-4"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
+                                  onClick={(e) => toggleUpvote(resource.id, e)}
+                                  title="点赞"
                                 >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                                  <ThumbsUp
+                                    className={`h-4 w-4 ${
+                                      hasUpvoted(resource.id)
+                                        ? 'fill-current'
+                                        : ''
+                                    }`}
                                   />
-                                </svg>
-                                {resource.commentCount}
-                              </button>
-                            )}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const isAdded = aiOfficeStore.resources.some(
-                                  (r) => r._id === resource.id
-                                );
-                                if (isAdded) {
-                                  // 移除资源
-                                  aiOfficeStore.removeResource(resource.id);
-                                } else {
-                                  // 添加资源
-                                  const aiResource =
-                                    convertToAIOfficeResource(resource);
-                                  aiOfficeStore.addResource(aiResource as any);
-                                }
-                              }}
-                              className={`flex items-center gap-2 text-sm transition-colors ${
-                                aiOfficeStore.resources.some(
-                                  (r) => r._id === resource.id
-                                )
-                                  ? 'cursor-pointer text-green-600 hover:text-red-600'
-                                  : 'text-gray-600 hover:text-blue-600'
-                              }`}
-                              title={
-                                aiOfficeStore.resources.some(
-                                  (r) => r._id === resource.id
-                                )
-                                  ? '点击移除 AI Office'
-                                  : '添加到 AI Office'
-                              }
-                            >
-                              <svg
-                                className="h-4 w-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                />
-                              </svg>
-                              {aiOfficeStore.resources.some(
-                                (r) => r._id === resource.id
-                              )
-                                ? 'Added'
-                                : 'AI Office'}
-                            </button>
-
-                            {/* To Image Button */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const isAlreadyAdded = imageSources.some(
-                                  (s) => s.id === resource.id
-                                );
-                                if (!isAlreadyAdded) {
-                                  addSource({
-                                    id: resource.id,
-                                    type: resource.type.toLowerCase() as any,
-                                    title: resource.title,
-                                    url:
-                                      resource.sourceUrl ||
-                                      resource.pdfUrl ||
-                                      '',
-                                    thumbnailUrl: resource.thumbnailUrl,
-                                    addedAt: new Date(),
-                                  });
-                                  setToast({
-                                    message: `Added "${resource.title}" to Image Source Pool`,
-                                    type: 'success',
-                                  });
-                                }
-                              }}
-                              className={`flex items-center gap-2 text-sm transition-colors ${
-                                imageSources.some((s) => s.id === resource.id)
-                                  ? 'cursor-default font-medium text-purple-600'
-                                  : 'text-gray-600 hover:text-purple-600'
-                              }`}
-                              title={
-                                imageSources.some((s) => s.id === resource.id)
-                                  ? 'Already in Image Source Pool'
-                                  : 'Add to Image Source Pool'
-                              }
-                              disabled={imageSources.some(
-                                (s) => s.id === resource.id
+                                  {resource.upvoteCount}
+                                </button>
                               )}
-                            >
-                              <svg
-                                className="h-4 w-4"
-                                fill={
-                                  imageSources.some((s) => s.id === resource.id)
-                                    ? 'currentColor'
-                                    : 'none'
-                                }
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                                />
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-                                />
-                              </svg>
-                              {imageSources.some((s) => s.id === resource.id)
-                                ? 'Added'
-                                : 'Image'}
-                            </button>
-
-                            {/* Admin Delete Button */}
-                            {isAdmin && (
+                              {/* Comment Button */}
+                              {resource.commentCount !== undefined && (
+                                <button
+                                  className="flex items-center gap-2 text-sm text-gray-600 transition-colors hover:text-green-600"
+                                  onClick={(e) =>
+                                    handleCommentClick(resource, e)
+                                  }
+                                  title="评论"
+                                >
+                                  <svg
+                                    className="h-4 w-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                                    />
+                                  </svg>
+                                  {resource.commentCount}
+                                </button>
+                              )}
                               <button
-                                onClick={(e) =>
-                                  handleDeleteResource(resource.id, e)
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const isAdded = aiOfficeStore.resources.some(
+                                    (r) => r._id === resource.id
+                                  );
+                                  if (isAdded) {
+                                    // 移除资源
+                                    aiOfficeStore.removeResource(resource.id);
+                                  } else {
+                                    // 添加资源
+                                    const aiResource =
+                                      convertToAIOfficeResource(resource);
+                                    aiOfficeStore.addResource(
+                                      aiResource as any
+                                    );
+                                  }
+                                }}
+                                className={`flex items-center gap-2 text-sm transition-colors ${
+                                  aiOfficeStore.resources.some(
+                                    (r) => r._id === resource.id
+                                  )
+                                    ? 'cursor-pointer text-green-600 hover:text-red-600'
+                                    : 'text-gray-600 hover:text-blue-600'
+                                }`}
+                                title={
+                                  aiOfficeStore.resources.some(
+                                    (r) => r._id === resource.id
+                                  )
+                                    ? '点击移除 AI Office'
+                                    : '添加到 AI Office'
                                 }
-                                className="flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-red-600"
-                                title="Delete resource (Admin)"
                               >
                                 <svg
                                   className="h-4 w-4"
@@ -2324,17 +2254,115 @@ function HomeContent() {
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
                                     strokeWidth={2}
-                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                                   />
                                 </svg>
-                                Delete
+                                {aiOfficeStore.resources.some(
+                                  (r) => r._id === resource.id
+                                )
+                                  ? 'Added'
+                                  : 'AI Office'}
                               </button>
-                            )}
+
+                              {/* To Image Button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const isAlreadyAdded = imageSources.some(
+                                    (s) => s.id === resource.id
+                                  );
+                                  if (!isAlreadyAdded) {
+                                    addSource({
+                                      id: resource.id,
+                                      type: resource.type.toLowerCase() as any,
+                                      title: resource.title,
+                                      url:
+                                        resource.sourceUrl ||
+                                        resource.pdfUrl ||
+                                        '',
+                                      thumbnailUrl: resource.thumbnailUrl,
+                                      addedAt: new Date(),
+                                    });
+                                    setToast({
+                                      message: `Added "${resource.title}" to Image Source Pool`,
+                                      type: 'success',
+                                    });
+                                  }
+                                }}
+                                className={`flex items-center gap-2 text-sm transition-colors ${
+                                  imageSources.some((s) => s.id === resource.id)
+                                    ? 'cursor-default font-medium text-purple-600'
+                                    : 'text-gray-600 hover:text-purple-600'
+                                }`}
+                                title={
+                                  imageSources.some((s) => s.id === resource.id)
+                                    ? 'Already in Image Source Pool'
+                                    : 'Add to Image Source Pool'
+                                }
+                                disabled={imageSources.some(
+                                  (s) => s.id === resource.id
+                                )}
+                              >
+                                <svg
+                                  className="h-4 w-4"
+                                  fill={
+                                    imageSources.some(
+                                      (s) => s.id === resource.id
+                                    )
+                                      ? 'currentColor'
+                                      : 'none'
+                                  }
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                                  />
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                                  />
+                                </svg>
+                                {imageSources.some((s) => s.id === resource.id)
+                                  ? 'Added'
+                                  : 'Image'}
+                              </button>
+
+                              {/* Admin Delete Button */}
+                              {isAdmin && (
+                                <button
+                                  onClick={(e) =>
+                                    handleDeleteResource(resource.id, e)
+                                  }
+                                  className="flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-red-600"
+                                  title="Delete resource (Admin)"
+                                >
+                                  <svg
+                                    className="h-4 w-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                    />
+                                  </svg>
+                                  Delete
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </article>
-                  ))}
+                      </article>
+                    ))}
                 </div>
               )}
 
@@ -3668,6 +3696,8 @@ function HomeContent() {
         setDateRange={setDateRange}
         minQualityScore={minQualityScore}
         setMinQualityScore={setMinQualityScore}
+        selectedSources={selectedSources}
+        setSelectedSources={setSelectedSources}
         onApply={handleApplyFilters}
         onReset={handleResetFilters}
       />
