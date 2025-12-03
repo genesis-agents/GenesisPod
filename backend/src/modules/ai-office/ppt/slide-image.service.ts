@@ -12,6 +12,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { AiImageService } from "../../ai-image/ai-image.service";
+import { R2StorageService } from "../../storage/r2-storage.service";
 
 export interface GeneratedImage {
   url: string;
@@ -50,7 +51,10 @@ const ASPECT_RATIO_DIMENSIONS: Record<
 export class SlideImageService {
   private readonly logger = new Logger(SlideImageService.name);
 
-  constructor(private readonly aiImageService: AiImageService) {}
+  constructor(
+    private readonly aiImageService: AiImageService,
+    private readonly r2Storage: R2StorageService,
+  ) {}
 
   /**
    * 生成图像
@@ -97,12 +101,30 @@ export class SlideImageService {
         return null;
       }
 
+      // 确保图片上传到 R2，避免 base64 存入数据库
+      let finalUrl = result.imageUrl;
+      if (finalUrl.startsWith("data:image") && this.r2Storage.isEnabled()) {
+        this.logger.log("[generateImage] Uploading base64 image to R2...");
+        const uploadResult = await this.r2Storage.uploadBase64Image(
+          finalUrl,
+          "ppt/slides",
+        );
+        if (uploadResult.success && uploadResult.url) {
+          finalUrl = uploadResult.url;
+          this.logger.log(`[generateImage] Uploaded to R2: ${finalUrl}`);
+        } else {
+          this.logger.warn(
+            `[generateImage] R2 upload failed: ${uploadResult.error}`,
+          );
+        }
+      }
+
       this.logger.log(
-        `[generateImage] Image generated successfully: ${result.imageUrl.slice(0, 100)}...`,
+        `[generateImage] Image generated successfully: ${finalUrl.slice(0, 100)}...`,
       );
 
       return {
-        url: result.imageUrl,
+        url: finalUrl,
         width: result.width || dimensions.width,
         height: result.height || dimensions.height,
         prompt: enhancedPrompt,
