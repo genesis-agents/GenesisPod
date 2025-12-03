@@ -101,22 +101,35 @@ export class SlideImageService {
         return null;
       }
 
-      // 确保图片上传到 R2，避免 base64 存入数据库
+      // 强制上传到 B2/R2，禁止存储 base64
       let finalUrl = result.imageUrl;
-      if (finalUrl.startsWith("data:image") && this.r2Storage.isEnabled()) {
-        this.logger.log("[generateImage] Uploading base64 image to R2...");
+      if (finalUrl.startsWith("data:image")) {
+        if (!this.r2Storage.isEnabled()) {
+          this.logger.error(
+            "[generateImage] B2/R2 storage not configured! Cannot store base64 in database.",
+          );
+          throw new Error(
+            "Object storage (B2/R2) not configured. PPT images must be stored in cloud storage.",
+          );
+        }
+
+        this.logger.log("[generateImage] Uploading image to B2/R2...");
         const uploadResult = await this.r2Storage.uploadBase64Image(
           finalUrl,
           "ppt/slides",
         );
-        if (uploadResult.success && uploadResult.url) {
-          finalUrl = uploadResult.url;
-          this.logger.log(`[generateImage] Uploaded to R2: ${finalUrl}`);
-        } else {
-          this.logger.warn(
-            `[generateImage] R2 upload failed: ${uploadResult.error}`,
+
+        if (!uploadResult.success || !uploadResult.url) {
+          this.logger.error(
+            `[generateImage] B2/R2 upload failed: ${uploadResult.error}`,
+          );
+          throw new Error(
+            `Failed to upload image to storage: ${uploadResult.error}`,
           );
         }
+
+        finalUrl = uploadResult.url;
+        this.logger.log(`[generateImage] Uploaded to B2/R2: ${finalUrl}`);
       }
 
       this.logger.log(
