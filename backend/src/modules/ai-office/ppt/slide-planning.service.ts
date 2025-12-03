@@ -424,8 +424,14 @@ export class SlidePlanningService {
     model: { apiEndpoint: string; apiKey: string; modelId: string },
     prompt: string,
   ): Promise<string> {
-    const endpoint = model.apiEndpoint || "https://api.openai.com/v1";
-    const url = `${endpoint}/chat/completions`;
+    // apiEndpoint 可能已经包含完整路径 (如 https://api.openai.com/v1/chat/completions)
+    // 或者只是基础URL (如 https://api.openai.com/v1)
+    let url = model.apiEndpoint || "https://api.openai.com/v1/chat/completions";
+
+    // 如果 endpoint 不以 /chat/completions 结尾，则追加
+    if (!url.endsWith("/chat/completions")) {
+      url = url.replace(/\/$/, "") + "/chat/completions";
+    }
 
     const response = await firstValueFrom(
       this.httpService.post(
