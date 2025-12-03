@@ -206,6 +206,17 @@ export class HackernewsService {
       }
     }
 
+    // 层级5验证：URL 可访问性检查（只对有外部 URL 的故事检查）
+    if (storyUrl) {
+      const isAccessible = await this.checkUrlAccessibility(storyUrl);
+      if (!isAccessible) {
+        this.logger.warn(
+          `Skipping story ${itemId}: URL is not accessible (${storyUrl})`,
+        );
+        return;
+      }
+    }
+
     // 解析完整的原始数据
     const rawData = this.parseRawData(storyData, externalId);
 
@@ -525,6 +536,87 @@ export class HackernewsService {
       this.logger.warn(
         `AI enrichment failed for resource ${resourceId}: ${getErrorMessage(error)}`,
       );
+    }
+  }
+
+  /**
+   * 检查 URL 是否可访问
+   *
+   * 使用 HEAD 请求检查 URL 是否返回成功状态码
+   * 这可以过滤掉被 Cloudflare 等保护的网站
+   *
+   * @param url 要检查的 URL
+   * @returns true 如果可访问，false 如果不可访问
+   */
+  private async checkUrlAccessibility(url: string): Promise<boolean> {
+    try {
+      // 使用 HEAD 请求，比 GET 更快更轻量
+      const response = await axios.head(url, {
+        timeout: 10000, // 10 秒超时
+        maxRedirects: 5,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+          Accept:
+            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+        },
+        // 不验证 SSL（某些网站可能有证书问题）
+        httpsAgent: new (require("https").Agent)({
+          rejectUnauthorized: false,
+        }),
+      });
+
+      // 200-399 都视为可访问
+      const isAccessible = response.status >= 200 && response.status < 400;
+
+      if (isAccessible) {
+        this.logger.debug(
+          `URL accessible: ${url} (status: ${response.status})`,
+        );
+      } else {
+        this.logger.debug(
+          `URL not accessible: ${url} (status: ${response.status})`,
+        );
+      }
+
+      return isAccessible;
+    } catch (error: any) {
+      // 如果 HEAD 请求被拒绝，尝试 GET 请求（某些服务器不支持 HEAD）
+      if (error.response?.status === 405) {
+        try {
+          const getResponse = await axios.get(url, {
+            timeout: 10000,
+            maxRedirects: 5,
+            headers: {
+              "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            },
+            // 只获取头部信息，不下载全部内容
+            responseType: "stream",
+            httpsAgent: new (require("https").Agent)({
+              rejectUnauthorized: false,
+            }),
+          });
+
+          // 立即关闭流
+          getResponse.data.destroy();
+
+          return getResponse.status >= 200 && getResponse.status < 400;
+        } catch {
+          // GET 也失败了
+        }
+      }
+
+      // 记录失败原因
+      const status = error.response?.status;
+      const message = error.message || "Unknown error";
+
+      this.logger.debug(
+        `URL accessibility check failed: ${url} (status: ${status}, error: ${message})`,
+      );
+
+      return false;
     }
   }
 }
