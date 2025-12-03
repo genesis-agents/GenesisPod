@@ -210,7 +210,7 @@ export default function StoragePage() {
       const res = await fetch(
         `${API_BASE}/api/v1/storage/${endpoint}?key=${ADMIN_KEY}`,
         {
-          method: endpoint.includes('images/all') ? 'DELETE' : 'POST',
+          method: endpoint.includes('/all') ? 'DELETE' : 'POST',
         }
       );
       const result: CleanupResult = await res.json();
