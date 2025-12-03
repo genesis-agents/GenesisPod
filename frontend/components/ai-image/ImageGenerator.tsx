@@ -184,8 +184,8 @@ function ThumbnailGallery({
       className={`
         ${
           isVertical
-            ? 'flex flex-col gap-2 overflow-y-auto px-2 py-2'
-            : 'flex flex-row gap-2 overflow-x-auto px-2 py-2'
+            ? 'flex flex-col items-center gap-2 overflow-y-auto overflow-x-hidden px-2 py-2'
+            : 'flex flex-row gap-2 overflow-x-auto overflow-y-hidden px-2 py-2'
         }
         scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400
       `}
@@ -2946,13 +2946,13 @@ export default function ImageGenerator({
             </svg>
           </button>
           <div
-            className="mb-12 flex max-w-[95vw] flex-col items-center"
+            className="flex max-h-[90vh] max-w-[95vw] flex-col items-center"
             onClick={(e) => e.stopPropagation()}
           >
             <img
               src={lightboxImage.imageUrl}
               alt={lightboxImage.prompt}
-              className="max-h-[65vh] max-w-[95vw] rounded-t-lg object-contain shadow-2xl"
+              className="max-h-[70vh] max-w-[95vw] rounded-t-lg object-contain shadow-2xl"
               onContextMenu={(e) => handleContextMenu(e, lightboxImage)}
             />
             <div className="w-full max-w-[95vw] rounded-b-lg bg-gray-900/95 px-4 py-3">
@@ -2961,15 +2961,15 @@ export default function ImageGenerator({
                   {lightboxImage.enhancedPrompt}
                 </p>
               )}
-              <p className="mt-1 text-xs text-gray-500">
-                {lightboxImage.width} x {lightboxImage.height} -{' '}
-                {new Date(lightboxImage.createdAt).toLocaleString()}
-              </p>
+              <div className="mt-1 flex items-center justify-between">
+                <p className="text-xs text-gray-500">
+                  {lightboxImage.width} x {lightboxImage.height} -{' '}
+                  {new Date(lightboxImage.createdAt).toLocaleString()}
+                </p>
+                <p className="text-xs text-gray-600">ESC to close</p>
+              </div>
             </div>
           </div>
-          <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-gray-500">
-            Click outside or press ESC to close
-          </p>
         </div>
       )}
 
