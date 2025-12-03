@@ -313,8 +313,10 @@ export const PPTGenerator: React.FC = () => {
     const eventSource = new EventSource(url);
     eventSourceRef.current = eventSource;
 
-    eventSource.onmessage = (event) => {
+    // 处理 SSE 事件的通用函数
+    const handleEvent = (event: MessageEvent) => {
       try {
+        console.log('[PPT SSE] Received event:', event.type, event.data);
         const data: PPTStreamEvent = JSON.parse(event.data);
 
         switch (data.type) {
@@ -358,15 +360,31 @@ export const PPTGenerator: React.FC = () => {
             break;
         }
       } catch (e) {
-        console.error('Failed to parse SSE event:', e);
+        console.error('Failed to parse SSE event:', e, event.data);
       }
     };
 
+    // 监听所有可能的事件类型
+    // NestJS SSE 会发送带有 event: 字段的事件
+    eventSource.addEventListener('progress', handleEvent);
+    eventSource.addEventListener('outline_complete', handleEvent);
+    eventSource.addEventListener('slide_planned', handleEvent);
+    eventSource.addEventListener('slide_content_complete', handleEvent);
+    eventSource.addEventListener('slide_image_complete', handleEvent);
+    eventSource.addEventListener('slide_complete', handleEvent);
+    eventSource.addEventListener('complete', handleEvent);
+    eventSource.addEventListener('error', handleEvent);
+
+    // 同时监听默认 message 事件（以防后端改为不指定 event 类型）
+    eventSource.onmessage = handleEvent;
+
     eventSource.onerror = (event) => {
-      console.error('SSE error:', event);
-      setError('连接中断，请重试');
-      setIsGenerating(false);
-      eventSource.close();
+      console.error('SSE connection error:', event);
+      // 只有在 CLOSED 状态时才显示错误
+      if (eventSource.readyState === EventSource.CLOSED) {
+        setError('连接中断，请重试');
+        setIsGenerating(false);
+      }
     };
   }, [prompt, urls, themeId, includeImages]);
 
