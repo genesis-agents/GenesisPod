@@ -592,10 +592,27 @@ export class PPTOrchestratorService {
     // Map PPT document status to Prisma enum
     const prismaStatus = this.mapStatusToPrisma(document.status);
 
+    // 处理 userId - 如果是 "anonymous" 或无效，尝试找一个系统用户
+    let validUserId = document.userId;
+    if (validUserId === "anonymous" || !validUserId) {
+      // 查找任意有效用户作为临时所有者（生产环境应该使用真实用户认证）
+      const systemUser = await this.prisma.user.findFirst({
+        select: { id: true },
+      });
+      if (systemUser) {
+        validUserId = systemUser.id;
+      } else {
+        this.logger.warn(
+          "[savePPTDocument] No users found, skipping database save",
+        );
+        return; // 无法保存，但不阻断生成流程
+      }
+    }
+
     await this.prisma.officeDocument.create({
       data: {
         id: document.id,
-        userId: document.userId,
+        userId: validUserId,
         type: "PPT",
         title: document.title,
         status: prismaStatus,
