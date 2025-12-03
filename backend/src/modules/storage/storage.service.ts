@@ -544,9 +544,13 @@ export class StorageService {
 
       for (const userGroup of userImages) {
         // Get unbookmarked images for this user (or null user), oldest first
+        // Prisma requires special handling for null values
+        const userIdFilter =
+          userGroup.userId === null ? { equals: null } : userGroup.userId;
+
         const unbookmarked = await this.prisma.generatedImage.findMany({
           where: {
-            userId: userGroup.userId, // This handles null userId correctly
+            userId: userIdFilter,
             isBookmarked: false,
           },
           orderBy: { createdAt: "asc" },
