@@ -70,7 +70,7 @@ class ExportPPTDto {
   quality?: "standard" | "high";
 }
 
-@Controller("api/ai-office/ppt")
+@Controller("ai-office/ppt")
 export class PPTGenerationController {
   private readonly logger = new Logger(PPTGenerationController.name);
 
