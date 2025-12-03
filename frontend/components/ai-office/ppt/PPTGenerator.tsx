@@ -75,6 +75,15 @@ const ThemeSelector: React.FC<{
   );
 };
 
+// 进度阶段配置
+const PROGRESS_PHASES = {
+  outline: { label: '生成大纲', color: 'bg-blue-500', icon: '📝' },
+  planning: { label: '规划布局', color: 'bg-purple-500', icon: '🎨' },
+  content: { label: '生成内容', color: 'bg-green-500', icon: '✍️' },
+  rendering: { label: '渲染页面', color: 'bg-orange-500', icon: '🖼️' },
+  complete: { label: '完成', color: 'bg-emerald-500', icon: '✅' },
+};
+
 // 进度显示
 const GenerationProgress: React.FC<{
   progress: PPTStreamEvent['progress'];
@@ -82,59 +91,142 @@ const GenerationProgress: React.FC<{
 }> = ({ progress, outline }) => {
   if (!progress) return null;
 
+  const currentPhase =
+    PROGRESS_PHASES[progress.phase as keyof typeof PROGRESS_PHASES] ||
+    PROGRESS_PHASES.outline;
+
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-semibold text-gray-900 dark:text-white">
-          生成进度
-        </h3>
-        <span className="text-sm text-gray-500">{progress.percentage}%</span>
+    <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+      {/* 标题和百分比 */}
+      <div className="mb-6 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-3xl">{currentPhase.icon}</span>
+          <div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+              {currentPhase.label}
+            </h3>
+            <p className="text-sm text-gray-500">正在为您生成演示文稿...</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-3xl font-bold text-gray-900 dark:text-white">
+            {progress.percentage}
+          </span>
+          <span className="text-lg text-gray-400">%</span>
+        </div>
       </div>
 
       {/* 进度条 */}
-      <div className="mb-4 h-2 w-full rounded-full bg-gray-100 dark:bg-gray-700">
+      <div className="mb-6 h-4 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
         <div
-          className="h-full rounded-full bg-blue-500 transition-all duration-300"
+          className={`h-full rounded-full ${currentPhase.color} transition-all duration-500 ease-out`}
           style={{ width: `${progress.percentage}%` }}
         />
       </div>
 
-      {/* 当前步骤 */}
-      <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        <span>{progress.message}</span>
+      {/* 阶段指示器 */}
+      <div className="mb-6 flex justify-between">
+        {Object.entries(PROGRESS_PHASES).map(([key, phase], index) => {
+          const phaseProgress = index * 25;
+          const isActive = progress.percentage >= phaseProgress;
+          const isCurrent = progress.phase === key;
+
+          return (
+            <div key={key} className="flex flex-col items-center gap-1">
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-full text-lg transition-all ${
+                  isCurrent
+                    ? `${phase.color} text-white shadow-lg ring-4 ring-opacity-30 ${phase.color.replace('bg-', 'ring-')}`
+                    : isActive
+                      ? 'bg-gray-200 dark:bg-gray-600'
+                      : 'bg-gray-100 dark:bg-gray-700'
+                }`}
+              >
+                {phase.icon}
+              </div>
+              <span
+                className={`text-xs font-medium ${isCurrent ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}
+              >
+                {phase.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 当前步骤详情 */}
+      <div className="mb-6 flex items-center gap-3 rounded-xl bg-gray-50 p-4 dark:bg-gray-900">
+        <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+        <span className="text-base text-gray-700 dark:text-gray-300">
+          {progress.message}
+        </span>
       </div>
 
       {/* 幻灯片进度 */}
       {progress.currentSlide !== undefined && progress.totalSlides && (
-        <div className="mt-3 text-sm text-gray-500">
-          幻灯片 {progress.currentSlide} / {progress.totalSlides}
+        <div className="mb-6 flex items-center gap-4">
+          <div className="flex-1">
+            <div className="mb-2 flex justify-between text-sm">
+              <span className="text-gray-600 dark:text-gray-400">
+                幻灯片进度
+              </span>
+              <span className="font-medium text-gray-900 dark:text-white">
+                {progress.currentSlide} / {progress.totalSlides}
+              </span>
+            </div>
+            <div className="flex gap-1">
+              {Array.from({ length: progress.totalSlides }).map((_, i) => (
+                <div
+                  key={i}
+                  className={`h-2 flex-1 rounded-full transition-all ${
+                    i < (progress.currentSlide ?? 0)
+                      ? 'bg-green-500'
+                      : i === (progress.currentSlide ?? 0)
+                        ? 'animate-pulse bg-blue-500'
+                        : 'bg-gray-200 dark:bg-gray-700'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
       {/* 大纲预览 */}
       {outline && (
-        <div className="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
-          <h4 className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-            {outline.title}
-          </h4>
-          <div className="space-y-1">
-            {outline.slides.slice(0, 5).map((slide, i) => (
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
+          <div className="mb-3 flex items-center justify-between">
+            <h4 className="font-semibold text-gray-900 dark:text-white">
+              {outline.title}
+            </h4>
+            <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+              {outline.slides.length} 页
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {outline.slides.map((slide, i) => (
               <div
                 key={i}
-                className="flex items-center gap-2 text-xs text-gray-500"
+                className="flex items-center gap-2 rounded-lg bg-white p-2 dark:bg-gray-800"
               >
-                <span className="flex h-5 w-5 items-center justify-center rounded bg-gray-100 dark:bg-gray-700">
+                <span
+                  className={`flex h-6 w-6 items-center justify-center rounded text-xs font-medium ${
+                    progress.currentSlide !== undefined &&
+                    i < progress.currentSlide
+                      ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+                      : progress.currentSlide !== undefined &&
+                          i === progress.currentSlide
+                        ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+                        : 'bg-gray-100 text-gray-500 dark:bg-gray-700'
+                  }`}
+                >
                   {i + 1}
                 </span>
-                <span className="truncate">{slide.title}</span>
+                <span className="truncate text-sm text-gray-700 dark:text-gray-300">
+                  {slide.title}
+                </span>
               </div>
             ))}
-            {outline.slides.length > 5 && (
-              <div className="text-xs text-gray-400">
-                +{outline.slides.length - 5} 更多...
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -627,8 +719,8 @@ export const PPTGenerator: React.FC = () => {
 
       {/* 生成进度 */}
       {isGenerating && (
-        <div className="p-6">
-          <div className="mx-auto max-w-xl">
+        <div className="flex-1 overflow-auto p-8">
+          <div className="mx-auto max-w-3xl">
             <GenerationProgress progress={progress} outline={outline} />
           </div>
         </div>
