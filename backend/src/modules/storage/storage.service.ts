@@ -61,6 +61,8 @@ export class StorageService {
     dataQualityMetrics: 1, // 1KB per metric
     userActivities: 0.5, // 0.5KB per activity
     topicMessages: 2, // 2KB per message
+    officeDocuments: 100, // 100KB per PPT document (JSON content)
+    officeDocumentVersions: 150, // 150KB per version (full snapshot)
   };
 
   constructor(private readonly prisma: PrismaService) {}
@@ -137,6 +139,13 @@ export class StorageService {
     // 12. Topic Messages
     const messageStats = await this.getTopicMessageStats();
     categories.push(messageStats);
+
+    // 13. Office Documents (PPT)
+    const officeDocStats = await this.getOfficeDocumentStats();
+    categories.push(officeDocStats);
+    if (officeDocStats.cleanupRecommendation) {
+      recommendations.push(officeDocStats.cleanupRecommendation);
+    }
 
     // Calculate totals
     const totalRecords = categories.reduce((sum, cat) => sum + cat.count, 0);
@@ -473,6 +482,50 @@ export class StorageService {
     };
   }
 
+  private async getOfficeDocumentStats(): Promise<StorageCategory> {
+    const totalDocs = await this.prisma.officeDocument.count();
+    const totalVersions = await this.prisma.officeDocumentVersion.count();
+
+    // Get by type breakdown
+    const byType = await this.prisma.officeDocument.groupBy({
+      by: ["type"],
+      _count: true,
+    });
+
+    const typeBreakdown = byType
+      .map((t) => `${t.type}: ${t._count}`)
+      .join(", ");
+
+    const estimatedSizeMB =
+      (totalDocs * this.SIZE_ESTIMATES.officeDocuments +
+        totalVersions * this.SIZE_ESTIMATES.officeDocumentVersions) /
+      1024;
+
+    // Old documents (>7 days) can be cleaned
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const oldDocs = await this.prisma.officeDocument.count({
+      where: {
+        createdAt: { lt: sevenDaysAgo },
+      },
+    });
+
+    let cleanupRecommendation: string | undefined;
+    if (oldDocs > 10) {
+      cleanupRecommendation = `${oldDocs} PPT documents older than 7 days can be cleaned`;
+    }
+
+    return {
+      name: "officeDocuments",
+      displayName: "Office Documents (PPT)",
+      count: totalDocs,
+      estimatedSizeMB: Math.round(estimatedSizeMB * 100) / 100,
+      description: `${totalDocs} documents, ${totalVersions} versions. Types: ${typeBreakdown || "none"}`,
+      cleanupRecommendation,
+      canCleanup: totalDocs > 0,
+    };
+  }
+
   // ========== Cleanup Methods ==========
 
   /**
@@ -749,6 +802,109 @@ export class StorageService {
   }
 
   /**
+   * Cleanup old office documents (PPT)
+   */
+  async cleanupOldOfficeDocuments(daysOld: number = 7): Promise<CleanupResult> {
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+      // Get count before deletion
+      const docsToDelete = await this.prisma.officeDocument.count({
+        where: {
+          createdAt: { lt: cutoffDate },
+        },
+      });
+
+      const versionsToDelete = await this.prisma.officeDocumentVersion.count({
+        where: {
+          createdAt: { lt: cutoffDate },
+        },
+      });
+
+      // Delete resource refs first (due to foreign keys)
+      await this.prisma.officeDocumentResourceRef.deleteMany({
+        where: {
+          document: {
+            createdAt: { lt: cutoffDate },
+          },
+        },
+      });
+
+      // Delete versions
+      await this.prisma.officeDocumentVersion.deleteMany({
+        where: {
+          createdAt: { lt: cutoffDate },
+        },
+      });
+
+      // Delete documents
+      await this.prisma.officeDocument.deleteMany({
+        where: {
+          createdAt: { lt: cutoffDate },
+        },
+      });
+
+      const freedKB =
+        docsToDelete * this.SIZE_ESTIMATES.officeDocuments +
+        versionsToDelete * this.SIZE_ESTIMATES.officeDocumentVersions;
+
+      return {
+        success: true,
+        category: "officeDocuments",
+        deletedCount: docsToDelete,
+        freedSizeMB: Math.round((freedKB / 1024) * 100) / 100,
+        message: `Cleaned up ${docsToDelete} documents and ${versionsToDelete} versions older than ${daysOld} days`,
+      };
+    } catch (error) {
+      this.logger.error("Failed to cleanup office documents:", error);
+      return {
+        success: false,
+        category: "officeDocuments",
+        deletedCount: 0,
+        freedSizeMB: 0,
+        message: `Cleanup failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      };
+    }
+  }
+
+  /**
+   * Delete ALL office documents
+   */
+  async deleteAllOfficeDocuments(): Promise<CleanupResult> {
+    try {
+      const docsCount = await this.prisma.officeDocument.count();
+      const versionsCount = await this.prisma.officeDocumentVersion.count();
+
+      // Delete in correct order due to foreign keys
+      await this.prisma.officeDocumentResourceRef.deleteMany();
+      await this.prisma.officeDocumentVersion.deleteMany();
+      await this.prisma.officeDocument.deleteMany();
+
+      const freedKB =
+        docsCount * this.SIZE_ESTIMATES.officeDocuments +
+        versionsCount * this.SIZE_ESTIMATES.officeDocumentVersions;
+
+      return {
+        success: true,
+        category: "officeDocuments",
+        deletedCount: docsCount,
+        freedSizeMB: Math.round((freedKB / 1024) * 100) / 100,
+        message: `Deleted all ${docsCount} documents and ${versionsCount} versions`,
+      };
+    } catch (error) {
+      this.logger.error("Failed to delete all office documents:", error);
+      return {
+        success: false,
+        category: "officeDocuments",
+        deletedCount: 0,
+        freedSizeMB: 0,
+        message: `Delete failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      };
+    }
+  }
+
+  /**
    * Get REAL database table sizes using PostgreSQL system views
    * This shows actual disk usage, not estimates
    */
@@ -911,6 +1067,9 @@ export class StorageService {
         "collection_tasks",
         "import_tasks",
         "user_activities",
+        "office_documents",
+        "office_document_versions",
+        "office_document_resource_refs",
       ];
 
       if (!validTables.includes(tableName)) {
@@ -1091,6 +1250,7 @@ export class StorageService {
     results.push(await this.cleanupOldImportTasks(7));
     results.push(await this.cleanupExpiredMetadata());
     results.push(await this.cleanupOldUserActivities(30));
+    results.push(await this.cleanupOldOfficeDocuments(7));
 
     const totalDeleted = results.reduce((sum, r) => sum + r.deletedCount, 0);
     const totalFreedMB = results.reduce((sum, r) => sum + r.freedSizeMB, 0);

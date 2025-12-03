@@ -132,6 +132,32 @@ export class StorageController {
   }
 
   /**
+   * Cleanup old office documents (PPT)
+   */
+  @Post("cleanup/office-documents")
+  async cleanupOfficeDocuments(
+    @Query("key") key: string,
+    @Query("daysOld") daysOld?: string,
+  ): Promise<CleanupResult> {
+    this.validateKey(key);
+    const days = daysOld ? parseInt(daysOld, 10) : 7;
+    this.logger.log(`Cleaning up office documents older than ${days} days`);
+    return this.storageService.cleanupOldOfficeDocuments(days);
+  }
+
+  /**
+   * Delete ALL office documents (PPT)
+   */
+  @Delete("office-documents/all")
+  async deleteAllOfficeDocuments(
+    @Query("key") key: string,
+  ): Promise<CleanupResult> {
+    this.validateKey(key);
+    this.logger.log("Deleting all office documents");
+    return this.storageService.deleteAllOfficeDocuments();
+  }
+
+  /**
    * Run full cleanup (all categories)
    */
   @Post("cleanup/all")

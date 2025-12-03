@@ -22,6 +22,7 @@ import {
   Shield,
   BarChart3,
   Sparkles,
+  Presentation,
 } from 'lucide-react';
 
 interface StorageCategory {
@@ -83,6 +84,7 @@ const categoryIcons: Record<string, React.ReactNode> = {
   dataQualityMetrics: <TrendingDown className="h-5 w-5 text-red-600" />,
   userActivities: <Activity className="h-5 w-5 text-teal-600" />,
   topicMessages: <MessageSquare className="h-5 w-5 text-violet-600" />,
+  officeDocuments: <Presentation className="h-5 w-5 text-rose-600" />,
 };
 
 // Icon background colors
@@ -99,6 +101,7 @@ const categoryBgColors: Record<string, string> = {
   dataQualityMetrics: 'bg-red-100',
   userActivities: 'bg-teal-100',
   topicMessages: 'bg-violet-100',
+  officeDocuments: 'bg-rose-100',
 };
 
 export default function StoragePage() {
@@ -664,6 +667,24 @@ export default function StoragePage() {
                 <Trash2 className="h-4 w-4" />
               )}
               Delete All Images
+            </button>
+            <button
+              onClick={() =>
+                handleCleanup(
+                  'office-documents/all',
+                  'deleteAllPPT',
+                  'WARNING: This will permanently delete ALL PPT documents from ALL users. This action cannot be undone! Are you sure?'
+                )
+              }
+              disabled={cleaning !== null}
+              className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-red-700 disabled:opacity-50"
+            >
+              {cleaning === 'deleteAllPPT' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Presentation className="h-4 w-4" />
+              )}
+              Delete All PPT
             </button>
           </div>
         </div>
