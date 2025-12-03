@@ -512,4 +512,21 @@ export class AdminController {
     this.logger.log(`Admin: Setting model ${id} as default for its type`);
     return this.adminService.setDefaultAIModelForType(id);
   }
+
+  // ============ Data Collection Management ============
+
+  /**
+   * 重置所有采集数据
+   * POST /api/v1/admin/collection/reset
+   *
+   * ⚠️ 危险操作：会删除所有 raw_data、resources 和 deduplication_records
+   * 用于清空去重缓存，允许重新采集
+   */
+  @Post("collection/reset")
+  async resetCollectionData() {
+    this.logger.warn(
+      "Admin: Resetting ALL collection data (raw_data, resources, deduplication_records)",
+    );
+    return this.adminService.resetCollectionData();
+  }
 }

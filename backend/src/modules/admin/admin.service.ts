@@ -997,4 +997,80 @@ export class AdminService {
 
     return result;
   }
+
+  // ============ Data Collection Management ============
+
+  /**
+   * 重置所有采集数据
+   * 用于清空去重缓存，允许重新采集
+   *
+   * ⚠️ 危险操作：删除所有 raw_data、resources、deduplication_records
+   */
+  async resetCollectionData() {
+    this.logger.warn("Resetting ALL collection data...");
+
+    // 1. 统计当前数据量
+    const beforeCounts = {
+      rawData: await this.prisma.rawData.count(),
+      resources: await this.prisma.resource.count(),
+      deduplicationRecords: await this.prisma.deduplicationRecord.count(),
+    };
+
+    this.logger.log(
+      `Before reset: raw_data=${beforeCounts.rawData}, resources=${beforeCounts.resources}, deduplication=${beforeCounts.deduplicationRecords}`,
+    );
+
+    // 2. 按顺序删除（考虑外键约束）
+
+    // 删除去重记录
+    const deletedDedup = await this.prisma.deduplicationRecord.deleteMany({});
+
+    // 删除笔记、评论（资源相关）
+    const deletedNotes = await this.prisma.note.deleteMany({});
+    const deletedComments = await this.prisma.comment.deleteMany({});
+
+    // 删除资源
+    const deletedResources = await this.prisma.resource.deleteMany({});
+
+    // 删除原始数据（去重的依据）
+    const deletedRawData = await this.prisma.rawData.deleteMany({});
+
+    // 3. 重置采集任务统计
+    await this.prisma.collectionTask.updateMany({
+      data: {
+        totalItems: 0,
+        processedItems: 0,
+        successItems: 0,
+        failedItems: 0,
+        duplicateItems: 0,
+        skippedItems: 0,
+      },
+    });
+
+    // 4. 重置数据源统计
+    await this.prisma.dataSource.updateMany({
+      data: {
+        totalCollected: 0,
+      },
+    });
+
+    const result = {
+      success: true,
+      message: "All collection data has been reset",
+      deleted: {
+        rawData: deletedRawData.count,
+        resources: deletedResources.count,
+        deduplicationRecords: deletedDedup.count,
+        notes: deletedNotes.count,
+        comments: deletedComments.count,
+      },
+      before: beforeCounts,
+    };
+
+    this.logger.warn(
+      `Collection data reset completed: ${JSON.stringify(result.deleted)}`,
+    );
+
+    return result;
+  }
 }

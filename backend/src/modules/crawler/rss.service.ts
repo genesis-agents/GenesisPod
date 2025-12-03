@@ -82,16 +82,24 @@ export class RssService {
 
           // URL去重检查（使用MongoDB）
           const normalizedUrl = this.deduplication.normalizeUrl(item.link);
+          this.logger.log(
+            `Checking deduplication for: ${item.title?.substring(0, 50)}... URL: ${normalizedUrl}`,
+          );
+
           const urlDuplicate =
             await this.mongodb.findRawDataByUrlAcrossAllSources(normalizedUrl);
 
           if (urlDuplicate) {
-            this.logger.debug(
-              `RSS item already exists: ${item.title} (source: ${urlDuplicate.source})`,
+            this.logger.log(
+              `⚠️ Duplicate found: ${item.title?.substring(0, 50)}... (source: ${urlDuplicate.source})`,
             );
             duplicateCount++;
             continue;
           }
+
+          this.logger.log(
+            `✅ New item, proceeding to save: ${item.title?.substring(0, 50)}...`,
+          );
 
           // 准备完整原始数据（存储到 MongoDB）
           const rawData = {
@@ -161,8 +169,15 @@ export class RssService {
       }
 
       this.logger.log(
-        `RSS collection completed: ${successCount} success, ${duplicateCount} duplicates, ${failedCount} failed`,
+        `📊 RSS collection completed: ${successCount} new items, ${duplicateCount} duplicates skipped, ${failedCount} failed`,
       );
+
+      // 如果全是重复的，记录更详细的信息
+      if (successCount === 0 && duplicateCount > 0) {
+        this.logger.warn(
+          `All ${duplicateCount} items were duplicates. This is expected if you've recently collected from this feed.`,
+        );
+      }
 
       return successCount;
     } catch (error) {
