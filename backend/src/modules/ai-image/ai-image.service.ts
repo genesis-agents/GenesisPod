@@ -250,6 +250,14 @@ Is the user asking for a PICTURE/IMAGE of something, or an INFOGRAPHIC with stru
 - Each entity has 2-5 numerical metrics (e.g., market cap, growth rate, revenue)
 - User wants to see all entities side-by-side in a TABLE format
 
+## CRITICAL: For time-series comparison (e.g., "近10年变化", "2015-2025"):
+- When user asks for historical comparison, MUST include BOTH time points as separate metrics
+- Example for "TOP 10企业近10年市值变化":
+  - Metric 1: "2015市值" (starting point)
+  - Metric 2: "2025市值" (ending point)
+  - Metric 3: "增长率" (with comparison field showing +XX%)
+- This allows users to see the CHANGE over time, not just current values
+
 ## STEP 1.5: DEEP CONTENT STRUCTURE ANALYSIS (CRITICAL!)
 
 Before selecting a template, you MUST deeply analyze the content's logical structure AND data quantity:
