@@ -148,12 +148,26 @@ export class DataFetchingService {
     const hasData = dataIndicators.some((pattern) => pattern.test(content));
     const hasEntity = entityIndicators.some((pattern) => pattern.test(content));
 
-    // 需要满足：(动作词 + 数据词) 或 (实时词 + 实体词)
-    const needsFetching = (hasAction && hasData) || (hasTime && hasEntity);
+    // TOP N / 排行榜类型的查询始终需要实时数据
+    const isTopNQuery =
+      /TOP\s*\d+|前\s*\d+|\d+\s*大|\d+\s*强|排行榜|排名/i.test(content);
+
+    // 需要满足以下任一条件：
+    // 1. (动作词 + 数据词)
+    // 2. (实时词 + 实体词)
+    // 3. (TOP N查询 + 实体词) - 新增：排行榜类查询必须用实时数据
+    const needsFetching =
+      (hasAction && hasData) ||
+      (hasTime && hasEntity) ||
+      (isTopNQuery && hasEntity);
 
     if (!needsFetching) {
       return { needsFetching: false, queries: [] };
     }
+
+    this.logger.log(
+      `[detectDataFetchingNeed] Detection result: action=${hasAction}, time=${hasTime}, data=${hasData}, entity=${hasEntity}, topN=${isTopNQuery}`,
+    );
 
     // 提取查询意图
     const intent = this.extractIntent(content);
@@ -200,6 +214,7 @@ export class DataFetchingService {
    */
   private generateQueries(content: string, intent: string): string[] {
     const queries: string[] = [];
+    const currentYear = new Date().getFullYear();
 
     // 清理内容，提取核心查询词
     const cleanContent = content
@@ -207,29 +222,48 @@ export class DataFetchingService {
       .replace(/\s+/g, " ")
       .trim();
 
-    // 基础查询
-    queries.push(cleanContent);
+    // 提取行业/领域关键词
+    const industryMatch = content.match(
+      /科技|金融|医疗|互联网|电商|汽车|能源|制造|tech|finance|healthcare/i,
+    );
+    const regionMatch = content.match(
+      /北美|中国|全球|美国|欧洲|亚洲|日本|韩国|US|America|China|Global/i,
+    );
 
     // 根据意图添加额外查询
     if (intent === "top_ranking" || intent.startsWith("top_")) {
-      // 提取行业/领域关键词
-      const industryMatch = content.match(
-        /科技|金融|医疗|互联网|电商|汽车|能源|制造/,
-      );
-      const regionMatch = content.match(
-        /北美|中国|全球|美国|欧洲|亚洲|日本|韩国/,
-      );
+      // TOP N 查询：优先使用精确的英文查询获取最新数据
+      const topNMatch = content.match(/TOP\s*(\d+)|前\s*(\d+)|(\d+)\s*大/i);
+      const n = topNMatch ? topNMatch[1] || topNMatch[2] || topNMatch[3] : "10";
 
-      if (industryMatch && regionMatch) {
-        queries.push(`${regionMatch[0]} ${industryMatch[0]} 企业排名 2024`);
+      if (industryMatch) {
+        const industry =
+          industryMatch[0] === "科技" ? "technology" : industryMatch[0];
+        const region = regionMatch
+          ? regionMatch[0] === "北美"
+            ? "US"
+            : regionMatch[0] === "中国"
+              ? "China"
+              : regionMatch[0]
+          : "global";
+
+        // 优先英文查询获取更准确的数据
         queries.push(
-          `${regionMatch[0]} top ${industryMatch[0]} companies revenue 2024`,
+          `top ${n} ${region} ${industry} companies by market cap ${currentYear}`,
         );
+        queries.push(
+          `largest ${industry} companies ${region} market capitalization ${currentYear}`,
+        );
+      } else {
+        queries.push(`${cleanContent} ${currentYear} 最新排名`);
       }
+    } else {
+      // 基础查询 + 年份
+      queries.push(`${cleanContent} ${currentYear}`);
     }
 
     if (intent === "comparison") {
-      queries.push(`${cleanContent} 数据对比 最新`);
+      queries.push(`${cleanContent} 数据对比 ${currentYear}`);
     }
 
     if (intent === "trend_analysis") {
