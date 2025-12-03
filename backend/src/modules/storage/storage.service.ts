@@ -533,7 +533,7 @@ export class StorageService {
    */
   async cleanupImages(keepPerUser: number = 20): Promise<CleanupResult> {
     try {
-      // Get all users with images
+      // Get all users with images (including null userId)
       const userImages = await this.prisma.generatedImage.groupBy({
         by: ["userId"],
         _count: true,
@@ -543,12 +543,10 @@ export class StorageService {
       let totalFreedKB = 0;
 
       for (const userGroup of userImages) {
-        if (!userGroup.userId) continue;
-
-        // Get unbookmarked images for this user, oldest first
+        // Get unbookmarked images for this user (or null user), oldest first
         const unbookmarked = await this.prisma.generatedImage.findMany({
           where: {
-            userId: userGroup.userId,
+            userId: userGroup.userId, // This handles null userId correctly
             isBookmarked: false,
           },
           orderBy: { createdAt: "asc" },
