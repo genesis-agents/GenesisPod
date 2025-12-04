@@ -23,15 +23,15 @@ interface MixtureResponse {
   isCollapsed: boolean;
 }
 
-// Provider emoji mapping
-const PROVIDER_EMOJIS: Record<string, string> = {
-  openai: '🧠',
-  google: '💎',
-  anthropic: '🎭',
-  xai: '🤖',
+// Provider to local icon path mapping
+const PROVIDER_ICONS: Record<string, string> = {
+  openai: '/icons/ai/openai.svg',
+  google: '/icons/ai/gemini.svg',
+  anthropic: '/icons/ai/claude.svg',
+  xai: '/icons/ai/grok.svg',
 };
 
-// Helper: render model icon (emoji or fallback based on provider)
+// Helper: render model icon using local SVG files
 function ModelIcon({
   model,
   size = 20,
@@ -41,15 +41,31 @@ function ModelIcon({
 }) {
   const icon = model.icon || '';
   const iconUrl = 'iconUrl' in model ? model.iconUrl : undefined;
+  const provider = (
+    'provider' in model ? model.provider || '' : ''
+  ).toLowerCase();
 
-  // Check if icon is emoji (has emoji unicode characters and doesn't start with /)
-  const isEmoji = icon && /\p{Emoji}/u.test(icon) && !icon.startsWith('/');
-
-  if (isEmoji) {
-    return <span style={{ fontSize: size }}>{icon}</span>;
+  // Priority 1: Use iconUrl if it starts with /icons/ (local path)
+  if (iconUrl && iconUrl.startsWith('/icons/')) {
+    return (
+      <Image
+        src={iconUrl}
+        alt=""
+        width={size}
+        height={size}
+        className="rounded"
+      />
+    );
   }
 
-  // Use iconUrl if it's a valid URL (starts with http)
+  // Priority 2: Use icon if it starts with /icons/ (local path)
+  if (icon && icon.startsWith('/icons/')) {
+    return (
+      <Image src={icon} alt="" width={size} height={size} className="rounded" />
+    );
+  }
+
+  // Priority 3: Use iconUrl if it's a valid URL (starts with http)
   if (iconUrl && iconUrl.startsWith('http')) {
     return (
       <Image
@@ -62,13 +78,35 @@ function ModelIcon({
     );
   }
 
-  // Fallback to provider-based emoji
-  const provider = (
-    'provider' in model ? model.provider || '' : ''
-  ).toLowerCase();
-  const fallbackEmoji = PROVIDER_EMOJIS[provider] || '🤖';
+  // Priority 4: Map provider to local icon
+  const providerIcon = PROVIDER_ICONS[provider];
+  if (providerIcon) {
+    return (
+      <Image
+        src={providerIcon}
+        alt=""
+        width={size}
+        height={size}
+        className="rounded"
+      />
+    );
+  }
 
-  return <span style={{ fontSize: size }}>{fallbackEmoji}</span>;
+  // Priority 5: Check if icon is emoji
+  const isEmoji = icon && /\p{Emoji}/u.test(icon) && !icon.startsWith('/');
+  if (isEmoji) {
+    return <span style={{ fontSize: size }}>{icon}</span>;
+  }
+
+  // Fallback: default icon
+  return (
+    <span
+      style={{ fontSize: size }}
+      className="flex items-center justify-center"
+    >
+      🤖
+    </span>
+  );
 }
 
 export default function AskPage() {
