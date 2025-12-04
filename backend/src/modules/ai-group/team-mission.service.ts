@@ -45,6 +45,63 @@ export class TeamMissionService {
     private aiGroupGateway: AiGroupGateway,
   ) {}
 
+  /**
+   * Get AI model config from database by model identifier
+   */
+  private async getModelConfig(aiModel: string) {
+    const modelConfig = await this.prisma.aIModel.findFirst({
+      where: {
+        OR: [
+          { modelId: { equals: aiModel, mode: "insensitive" } },
+          { name: { equals: aiModel, mode: "insensitive" } },
+        ],
+        isEnabled: true,
+      },
+    });
+
+    if (!modelConfig) {
+      this.logger.warn(`Model config not found for: ${aiModel}`);
+      return null;
+    }
+
+    return modelConfig;
+  }
+
+  /**
+   * Call AI with database API key
+   */
+  private async callAIWithConfig(
+    aiModel: string,
+    messages: { role: string; content: string }[],
+    systemPrompt: string,
+    options?: { maxTokens?: number; temperature?: number },
+  ) {
+    const modelConfig = await this.getModelConfig(aiModel);
+
+    if (modelConfig && modelConfig.apiKey) {
+      // Use database API key
+      return this.aiChatService.generateChatCompletionWithKey({
+        provider: modelConfig.provider,
+        modelId: modelConfig.modelId,
+        apiKey: modelConfig.apiKey,
+        apiEndpoint: modelConfig.apiEndpoint ?? undefined,
+        systemPrompt,
+        messages: messages as any,
+        maxTokens: options?.maxTokens ?? 4000,
+        temperature: options?.temperature ?? 0.7,
+      });
+    }
+
+    // Fallback to environment variable based method
+    return this.aiChatService.generateChatCompletion({
+      model: aiModel,
+      messages: messages as any,
+      systemPrompt,
+      maxTokens: options?.maxTokens ?? 4000,
+      temperature: options?.temperature ?? 0.7,
+    });
+  }
+
   // ==================== 创建团队任务 ====================
 
   async createMission(topicId: string, userId: string, dto: CreateMissionDto) {
@@ -188,14 +245,13 @@ export class TeamMissionService {
         teamMembers,
       );
 
-      // 调用 AI 生成任务分解
-      const aiResponse = await this.aiChatService.generateChatCompletion({
-        model: leader.aiModel,
-        messages: [{ role: "user", content: planningPrompt }],
-        systemPrompt: this.getLeaderSystemPrompt(leader),
-        temperature: 0.7,
-        maxTokens: 4000,
-      });
+      // 调用 AI 生成任务分解 (使用数据库 API Key)
+      const aiResponse = await this.callAIWithConfig(
+        leader.aiModel,
+        [{ role: "user", content: planningPrompt }],
+        this.getLeaderSystemPrompt(leader),
+        { maxTokens: 4000, temperature: 0.7 },
+      );
 
       // 解析任务分解结果
       const breakdown = this.parseTaskBreakdown(
@@ -382,14 +438,13 @@ export class TeamMissionService {
       // 构建任务执行提示词
       const taskPrompt = this.buildTaskExecutionPrompt(mission, task);
 
-      // 调用 AI 执行任务
-      const aiResponse = await this.aiChatService.generateChatCompletion({
-        model: assignedTo.aiModel,
-        messages: [{ role: "user", content: taskPrompt }],
-        systemPrompt: this.getAgentSystemPrompt(assignedTo, task),
-        temperature: 0.7,
-        maxTokens: 4000,
-      });
+      // 调用 AI 执行任务 (使用数据库 API Key)
+      const aiResponse = await this.callAIWithConfig(
+        assignedTo.aiModel,
+        [{ role: "user", content: taskPrompt }],
+        this.getAgentSystemPrompt(assignedTo, task),
+        { maxTokens: 4000, temperature: 0.7 },
+      );
 
       // 发送工作汇报消息
       const leaderName = mission.leader.agentName || mission.leader.displayName;
@@ -459,14 +514,13 @@ export class TeamMissionService {
         taskResult,
       );
 
-      // 调用 AI 进行审核
-      const aiResponse = await this.aiChatService.generateChatCompletion({
-        model: leader.aiModel,
-        messages: [{ role: "user", content: reviewPrompt }],
-        systemPrompt: this.getLeaderSystemPrompt(leader),
-        temperature: 0.5,
-        maxTokens: 1500,
-      });
+      // 调用 AI 进行审核 (使用数据库 API Key)
+      const aiResponse = await this.callAIWithConfig(
+        leader.aiModel,
+        [{ role: "user", content: reviewPrompt }],
+        this.getLeaderSystemPrompt(leader),
+        { maxTokens: 1500, temperature: 0.5 },
+      );
 
       // 解析审核结果
       const isApproved = this.parseReviewResult(aiResponse.content);
@@ -594,14 +648,13 @@ export class TeamMissionService {
         feedback,
       );
 
-      // 调用 AI 执行修改
-      const aiResponse = await this.aiChatService.generateChatCompletion({
-        model: assignedTo.aiModel,
-        messages: [{ role: "user", content: revisionPrompt }],
-        systemPrompt: this.getAgentSystemPrompt(assignedTo, latestTask),
-        temperature: 0.7,
-        maxTokens: 4000,
-      });
+      // 调用 AI 执行修改 (使用数据库 API Key)
+      const aiResponse = await this.callAIWithConfig(
+        assignedTo.aiModel,
+        [{ role: "user", content: revisionPrompt }],
+        this.getAgentSystemPrompt(assignedTo, latestTask),
+        { maxTokens: 4000, temperature: 0.7 },
+      );
 
       // 发送修改后的汇报
       const leaderName = mission.leader.agentName || mission.leader.displayName;
@@ -685,14 +738,13 @@ export class TeamMissionService {
       // 构建整合提示词
       const synthesisPrompt = this.buildLeaderSynthesisPrompt(mission);
 
-      // 调用 AI 生成最终结果
-      const aiResponse = await this.aiChatService.generateChatCompletion({
-        model: mission.leader.aiModel,
-        messages: [{ role: "user", content: synthesisPrompt }],
-        systemPrompt: this.getLeaderSystemPrompt(mission.leader),
-        temperature: 0.7,
-        maxTokens: 6000,
-      });
+      // 调用 AI 生成最终结果 (使用数据库 API Key)
+      const aiResponse = await this.callAIWithConfig(
+        mission.leader.aiModel,
+        [{ role: "user", content: synthesisPrompt }],
+        this.getLeaderSystemPrompt(mission.leader),
+        { maxTokens: 6000, temperature: 0.7 },
+      );
 
       // 发送最终交付消息
       const finalMessage = await this.sendMessageToTopic(
