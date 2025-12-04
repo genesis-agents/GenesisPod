@@ -691,7 +691,7 @@ function YouTubeTLDWContent() {
         >
           {/* Back Button */}
           <button
-            onClick={() => router.push('/?tab=youtube')}
+            onClick={() => router.push('/explore?tab=youtube')}
             className="mb-4 flex items-center gap-2 text-sm text-gray-600 transition-colors hover:text-gray-900"
           >
             <svg

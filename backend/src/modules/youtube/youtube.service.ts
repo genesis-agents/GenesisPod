@@ -318,7 +318,34 @@ export class YoutubeService {
           continue;
         }
 
-        const raw = await response.json();
+        // Check first character to determine format
+        const text = await response.text();
+
+        // Skip if response is XML (starts with <?xml or <)
+        if (text.trim().startsWith("<?xml") || text.trim().startsWith("<")) {
+          this.logger.debug(
+            `Fallback service returned XML instead of JSON for ${videoId} (lang: ${lang}), trying XML parse`,
+          );
+          // Try to parse as transcript XML
+          const xmlSegments = this.parseTranscriptXml(text);
+          if (xmlSegments.length > 0) {
+            this.logger.log(
+              `Successfully parsed XML transcript from fallback (lang: ${lang}) for ${videoId}`,
+            );
+            return { segments: xmlSegments, title: null };
+          }
+          continue;
+        }
+
+        let raw: any;
+        try {
+          raw = JSON.parse(text);
+        } catch {
+          this.logger.debug(
+            `Failed to parse JSON from fallback service for ${videoId} (lang: ${lang})`,
+          );
+          continue;
+        }
         const items: Array<Record<string, any>> = Array.isArray(raw)
           ? raw
           : Array.isArray(raw?.transcripts)

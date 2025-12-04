@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { config } from '@/lib/config';
 import NoteEditor from '@/components/features/NoteEditor';
@@ -59,6 +59,7 @@ interface Resource {
 
 export default function ResourcePage() {
   const params = useParams();
+  const router = useRouter();
   const id = params.id as string;
 
   const [resource, setResource] = useState<Resource | null>(null);
@@ -132,8 +133,8 @@ export default function ResourcePage() {
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-4xl px-8 py-8">
           {/* Back Button */}
-          <Link
-            href="/library"
+          <button
+            onClick={() => router.back()}
             className="mb-6 inline-flex items-center text-sm text-gray-600 hover:text-gray-900"
           >
             <svg
@@ -149,8 +150,8 @@ export default function ResourcePage() {
                 d="M15 19l-7-7 7-7"
               />
             </svg>
-            Back to Library
-          </Link>
+            Back
+          </button>
 
           {/* Resource Header */}
           <div className="mb-6 rounded-lg bg-white p-8 shadow-sm">
