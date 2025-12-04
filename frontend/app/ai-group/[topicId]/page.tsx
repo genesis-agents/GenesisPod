@@ -845,7 +845,7 @@ const MessageBubble = memo(function MessageBubble({
 
       {/* Content */}
       <div
-        className={`max-w-[70%] overflow-hidden ${isOwnMessage ? 'items-end' : 'items-start'}`}
+        className={`max-w-[85%] overflow-hidden ${isOwnMessage ? 'items-end' : 'items-start'}`}
       >
         {/* Header */}
         <div
@@ -2190,7 +2190,7 @@ export default function TopicPage() {
 
       {/* Mission Progress Panel - Right side panel */}
       {showMissionPanel && (
-        <div className="h-full w-80 flex-shrink-0 border-l border-gray-200 bg-white">
+        <div className="h-full w-72 flex-shrink-0 border-l border-gray-200 bg-white">
           <MissionProgressPanel
             topicId={topicId}
             onCreateMission={() => setShowMissionDialog(true)}
