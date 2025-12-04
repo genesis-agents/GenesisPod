@@ -1910,8 +1910,22 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
           : m.aiMember?.displayName || "AI";
         const isAI = !!m.aiMemberId;
 
-        // Truncate content if too long
+        // Build content with reply context if present
         let content = m.content;
+
+        // Include quoted/replied message context
+        if (m.replyTo && m.replyTo.content) {
+          const replyToSender = m.replyTo.sender
+            ? m.replyTo.sender.fullName || m.replyTo.sender.username || "User"
+            : m.replyTo.aiMember?.displayName || "AI";
+          const quotedContent =
+            m.replyTo.content.length > 500
+              ? m.replyTo.content.substring(0, 500) + "..."
+              : m.replyTo.content;
+          content = `[引用 ${replyToSender} 的消息: "${quotedContent}"]\n\n${m.content}`;
+        }
+
+        // Truncate content if too long
         if (content.length > MAX_MESSAGE_LENGTH) {
           content =
             content.substring(0, MAX_MESSAGE_LENGTH) +
