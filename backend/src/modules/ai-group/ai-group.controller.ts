@@ -28,8 +28,11 @@ import {
   GenerateSummaryDto,
   ForwardMessagesDto,
   BookmarkMessageDto,
+  CreateMissionDto,
+  UpdateAIMemberTeamRoleDto,
 } from "./dto";
 import { TopicType, MentionType } from "@prisma/client";
+import { TeamMissionService } from "./team-mission.service";
 
 @Controller("topics")
 @UseGuards(JwtAuthGuard)
@@ -40,6 +43,7 @@ export class AiGroupController {
     private readonly aiGroupService: AiGroupService,
     private readonly aiGroupGateway: AiGroupGateway,
     private readonly debateService: DebateService,
+    private readonly teamMissionService: TeamMissionService,
   ) {}
 
   // ==================== Topic CRUD ====================
@@ -910,6 +914,87 @@ export class AiGroupController {
       req.user.id,
       messageId,
     );
+  }
+
+  // ==================== Team Mission API ====================
+
+  @Post(":topicId/missions")
+  async createMission(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Body() dto: CreateMissionDto,
+  ) {
+    return this.teamMissionService.createMission(topicId, req.user.id, dto);
+  }
+
+  @Get(":topicId/missions")
+  async getMissions(
+    @Param("topicId") topicId: string,
+    @Query("status") status?: string,
+  ) {
+    return this.teamMissionService.getMissions(topicId, {
+      status: status as any,
+    });
+  }
+
+  @Get(":topicId/missions/:missionId")
+  async getMissionById(
+    @Param("topicId") _topicId: string,
+    @Param("missionId") missionId: string,
+  ) {
+    return this.teamMissionService.getMissionById(missionId);
+  }
+
+  @Post(":topicId/missions/:missionId/cancel")
+  async cancelMission(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("missionId") missionId: string,
+  ) {
+    return this.teamMissionService.cancelMission(missionId, req.user.id);
+  }
+
+  @Get(":topicId/missions/:missionId/logs")
+  async getMissionLogs(
+    @Param("topicId") _topicId: string,
+    @Param("missionId") missionId: string,
+    @Query("limit") limit?: string,
+    @Query("cursor") cursor?: string,
+  ) {
+    return this.teamMissionService.getMissionLogs(missionId, {
+      limit: limit ? parseInt(limit) : undefined,
+      cursor,
+    });
+  }
+
+  // ==================== Team Role API ====================
+
+  @Post(":topicId/ai-members/:aiMemberId/set-leader")
+  async setLeader(
+    @Param("topicId") topicId: string,
+    @Param("aiMemberId") aiMemberId: string,
+  ) {
+    return this.teamMissionService.setLeader(topicId, aiMemberId);
+  }
+
+  @Patch(":topicId/ai-members/:aiMemberId/team-role")
+  async updateTeamRole(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Param("aiMemberId") aiMemberId: string,
+    @Body() dto: UpdateAIMemberTeamRoleDto,
+  ) {
+    return this.aiGroupService.updateAIMemberTeamRole(
+      topicId,
+      req.user.id,
+      aiMemberId,
+      dto,
+    );
+  }
+
+  @Get(":topicId/team")
+  async getTeamMembers(@Param("topicId") topicId: string) {
+    return this.teamMissionService.getTeamMembers(topicId);
   }
 }
 

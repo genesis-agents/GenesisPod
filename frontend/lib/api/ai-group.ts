@@ -3,6 +3,7 @@ import {
   Topic,
   TopicMember,
   TopicAIMember,
+  TopicAIMemberWithTeamRole,
   TopicMessage,
   TopicResource,
   TopicSummary,
@@ -17,6 +18,12 @@ import {
   MessagesResponse,
   TopicType,
   TopicRole,
+  // Team Mission types
+  TeamMission,
+  MissionLog,
+  CreateMissionDto,
+  UpdateAIMemberTeamRoleDto,
+  MissionStatus,
 } from '@/types/ai-group';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -334,4 +341,125 @@ export async function deleteSummary(
   return fetchWithAuth(`/api/v1/topics/${topicId}/summaries/${summaryId}`, {
     method: 'DELETE',
   });
+}
+
+// ==================== Team Mission API ====================
+
+/**
+ * 创建团队任务
+ */
+export async function createMission(
+  topicId: string,
+  dto: CreateMissionDto
+): Promise<TeamMission> {
+  return fetchWithAuth(`/api/v1/topics/${topicId}/missions`, {
+    method: 'POST',
+    body: JSON.stringify(dto),
+  });
+}
+
+/**
+ * 获取任务列表
+ */
+export async function getMissions(
+  topicId: string,
+  options?: {
+    status?: MissionStatus;
+    limit?: number;
+    offset?: number;
+  }
+): Promise<{ missions: TeamMission[]; total: number }> {
+  const params = new URLSearchParams();
+  if (options?.status) params.set('status', options.status);
+  if (options?.limit) params.set('limit', options.limit.toString());
+  if (options?.offset) params.set('offset', options.offset.toString());
+
+  const query = params.toString();
+  return fetchWithAuth(
+    `/api/v1/topics/${topicId}/missions${query ? `?${query}` : ''}`
+  );
+}
+
+/**
+ * 获取任务详情
+ */
+export async function getMissionById(
+  topicId: string,
+  missionId: string
+): Promise<TeamMission> {
+  return fetchWithAuth(`/api/v1/topics/${topicId}/missions/${missionId}`);
+}
+
+/**
+ * 取消任务
+ */
+export async function cancelMission(
+  topicId: string,
+  missionId: string
+): Promise<TeamMission> {
+  return fetchWithAuth(
+    `/api/v1/topics/${topicId}/missions/${missionId}/cancel`,
+    {
+      method: 'POST',
+    }
+  );
+}
+
+/**
+ * 获取任务执行日志
+ */
+export async function getMissionLogs(
+  topicId: string,
+  missionId: string,
+  options?: { limit?: number; offset?: number }
+): Promise<{ logs: MissionLog[]; total: number }> {
+  const params = new URLSearchParams();
+  if (options?.limit) params.set('limit', options.limit.toString());
+  if (options?.offset) params.set('offset', options.offset.toString());
+
+  const query = params.toString();
+  return fetchWithAuth(
+    `/api/v1/topics/${topicId}/missions/${missionId}/logs${query ? `?${query}` : ''}`
+  );
+}
+
+// ==================== Team Role API ====================
+
+/**
+ * 设置团队领导
+ */
+export async function setTeamLeader(
+  topicId: string,
+  aiMemberId: string
+): Promise<TopicAIMemberWithTeamRole> {
+  return fetchWithAuth(`/api/v1/topics/${topicId}/team/leader`, {
+    method: 'POST',
+    body: JSON.stringify({ aiMemberId }),
+  });
+}
+
+/**
+ * 更新AI成员的团队角色配置
+ */
+export async function updateTeamRole(
+  topicId: string,
+  aiMemberId: string,
+  dto: UpdateAIMemberTeamRoleDto
+): Promise<TopicAIMemberWithTeamRole> {
+  return fetchWithAuth(
+    `/api/v1/topics/${topicId}/ai-members/${aiMemberId}/team-role`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(dto),
+    }
+  );
+}
+
+/**
+ * 获取团队成员（包含团队角色信息）
+ */
+export async function getTeamMembers(
+  topicId: string
+): Promise<TopicAIMemberWithTeamRole[]> {
+  return fetchWithAuth(`/api/v1/topics/${topicId}/team`);
 }

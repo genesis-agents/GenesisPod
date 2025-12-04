@@ -84,6 +84,9 @@ model User {
   // DeepDive Engine 品牌套件
   brandKits BrandKit[]
 
+  // Team Mission 团队任务
+  createdMissions TeamMission[] @relation("MissionCreator")
+
   @@map("users")
 }
 
@@ -1290,6 +1293,74 @@ enum TopicResourceType {
   LIBRARY_RESOURCE
 }
 
+// ============ Team Mission Enums ============
+
+enum AgentWorkStyle {
+  AUTONOMOUS // 自主型：独立完成任务，主动汇报
+  COLLABORATIVE // 协作型：频繁与其他Agent交流
+  SUPPORTIVE // 支持型：主要协助其他Agent
+  ANALYTICAL // 分析型：深度分析，谨慎输出
+  CREATIVE // 创意型：发散思维，提供创新方案
+}
+
+enum MissionStatus {
+  PENDING // 待开始
+  PLANNING // 规划中（Leader正在分解任务）
+  IN_PROGRESS // 执行中
+  REVIEW // 审核中（Leader整合结果）
+  COMPLETED // 已完成
+  FAILED // 失败
+  CANCELLED // 已取消
+}
+
+enum TaskPriority {
+  CRITICAL // 关键（阻塞其他任务）
+  HIGH // 高优先级
+  MEDIUM // 中等优先级
+  LOW // 低优先级
+}
+
+enum TaskType {
+  RESEARCH // 调研分析
+  DESIGN // 设计规划
+  IMPLEMENTATION // 执行实现
+  REVIEW // 审查检验
+  DOCUMENTATION // 文档编写
+  COORDINATION // 协调沟通
+  CREATIVE // 创意发想
+  SYNTHESIS // 综合整理
+}
+
+enum AgentTaskStatus {
+  PENDING // 待开始（等待依赖）
+  IN_PROGRESS // 进行中
+  BLOCKED // 被阻塞
+  AWAITING_REVIEW // 等待Leader审核
+  REVISION_NEEDED // 需要修改
+  COMPLETED // 已完成
+  CANCELLED // 已取消
+}
+
+enum MissionLogType {
+  MISSION_CREATED // 任务创建
+  MISSION_STARTED // 任务启动
+  PLANNING_STARTED // 开始规划
+  PLANNING_COMPLETED // 规划完成
+  TASK_ASSIGNED // 任务分配
+  TASK_STARTED // 任务开始
+  TASK_PROGRESS // 任务进度更新
+  TASK_COMPLETED // 任务完成
+  TASK_FAILED // 任务失败
+  TASK_REVISION // 任务修改
+  AGENT_COLLABORATION // Agent协作
+  AGENT_QUESTION // Agent提问
+  LEADER_FEEDBACK // Leader反馈
+  LEADER_DECISION // Leader决策
+  RESULT_INTEGRATION // 结果整合
+  MISSION_COMPLETED // 任务完成
+  MISSION_FAILED // 任务失败
+}
+
 // Topic 群组
 model Topic {
   id          String    @id @default(uuid())
@@ -1313,6 +1384,7 @@ model Topic {
   messages  TopicMessage[]
   resources TopicResource[]
   summaries TopicSummary[]
+  missions  TeamMission[]
 
   @@index([createdById])
   @@index([type])
@@ -1364,17 +1436,27 @@ model TopicAIMember {
   canMentionOtherAI  Boolean        @default(false) @map("can_mention_other_ai") // 是否可以@其他AI
   collaborationStyle String?        @map("collaboration_style") @db.VarChar(50) // independent, collaborative, supportive
 
+  // 团队角色配置
+  agentName      String?         @map("agent_name") @db.VarChar(100) // Agent名称（如"架构师张三"）
+  agentIdentity  String?         @map("agent_identity") @db.VarChar(500) // 身份描述
+  isLeader       Boolean         @default(false) @map("is_leader") // 是否为团队Leader
+  expertiseAreas String[]        @default([]) @map("expertise_areas") // 擅长领域列表
+  workStyle      AgentWorkStyle? @map("work_style") // 工作风格
+
   addedById String @map("added_by_id")
   addedBy   User   @relation("TopicAIAdder", fields: [addedById], references: [id])
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  messages TopicMessage[]
-  mentions TopicMessageMention[]
+  messages      TopicMessage[]
+  mentions      TopicMessageMention[]
+  ledMissions   TeamMission[]         @relation("MissionLeader")
+  assignedTasks AgentTask[]           @relation("TaskAssignee")
 
   @@unique([topicId, aiModel, displayName])
   @@index([topicId])
+  @@index([isLeader])
   @@map("topic_ai_members")
 }
 
@@ -1595,6 +1677,129 @@ model TopicMessageBookmark {
   @@index([userId])
   @@index([category])
   @@map("topic_message_bookmarks")
+}
+
+// ============ Team Mission System - AI团队协作 ============
+
+// 团队任务
+model TeamMission {
+  id String @id @default(uuid())
+
+  topicId String @map("topic_id")
+  topic   Topic  @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  // 任务信息
+  title        String   @db.VarChar(500)
+  description  String   @db.Text
+  objectives   String[] @default([]) // 任务目标列表
+  constraints  String[] @default([]) // 约束条件
+  deliverables String[] @default([]) // 期望交付物
+
+  // 执行信息
+  status   MissionStatus @default(PENDING)
+  leaderId String        @map("leader_id")
+  leader   TopicAIMember @relation("MissionLeader", fields: [leaderId], references: [id])
+
+  // 任务分解（Leader生成的分解方案，JSON格式）
+  taskBreakdown Json? @map("task_breakdown")
+
+  // 进度统计
+  totalTasks      Int @default(0) @map("total_tasks")
+  completedTasks  Int @default(0) @map("completed_tasks")
+  progressPercent Int @default(0) @map("progress_percent")
+
+  // 时间线
+  createdById String    @map("created_by_id")
+  createdBy   User      @relation("MissionCreator", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now()) @map("created_at")
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+
+  // 结果
+  finalResult String? @map("final_result") @db.Text // 最终交付成果
+  summary     String? @db.Text // 执行总结
+
+  // 关系
+  tasks AgentTask[]
+  logs  MissionLog[]
+
+  @@index([topicId, status])
+  @@index([leaderId])
+  @@index([createdById])
+  @@index([createdAt(sort: Desc)])
+  @@map("team_missions")
+}
+
+// Agent任务（子任务）
+model AgentTask {
+  id String @id @default(uuid())
+
+  missionId String      @map("mission_id")
+  mission   TeamMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  // 任务信息
+  title       String       @db.VarChar(500)
+  description String       @db.Text
+  priority    TaskPriority @default(MEDIUM)
+  taskType    TaskType     @map("task_type")
+
+  // 分配信息
+  assignedToId   String        @map("assigned_to_id")
+  assignedTo     TopicAIMember @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  assignedAt     DateTime      @default(now()) @map("assigned_at")
+  assignedReason String?       @map("assigned_reason") @db.Text // 分配原因
+
+  // 依赖关系（存储依赖的任务ID列表）
+  dependsOnIds String[] @default([]) @map("depends_on_ids")
+
+  // 执行状态
+  status      AgentTaskStatus @default(PENDING)
+  startedAt   DateTime?       @map("started_at")
+  completedAt DateTime?       @map("completed_at")
+
+  // 产出
+  result          String? @db.Text // 任务产出内容
+  resultMessageId String? @map("result_message_id") // 产出消息ID（关联到群聊消息）
+
+  // Leader反馈
+  leaderFeedback    String? @map("leader_feedback") @db.Text
+  feedbackMessageId String? @map("feedback_message_id")
+  needsRevision     Boolean @default(false) @map("needs_revision")
+  revisionCount     Int     @default(0) @map("revision_count")
+  maxRevisions      Int     @default(3) @map("max_revisions")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([missionId, status])
+  @@index([assignedToId])
+  @@index([priority])
+  @@map("agent_tasks")
+}
+
+// 任务执行日志
+model MissionLog {
+  id String @id @default(uuid())
+
+  missionId String      @map("mission_id")
+  mission   TeamMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  // 日志信息
+  type      MissionLogType
+  agentId   String?        @map("agent_id") // 相关Agent ID
+  agentName String?        @map("agent_name") @db.VarChar(100) // Agent名称（快照）
+  taskId    String?        @map("task_id") // 相关任务ID
+  taskTitle String?        @map("task_title") @db.VarChar(500) // 任务标题（快照）
+  content   String         @db.Text // 日志内容
+  messageId String?        @map("message_id") // 关联的群聊消息ID
+  metadata  Json? // 额外元数据
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([missionId, createdAt(sort: Desc)])
+  @@index([agentId])
+  @@index([taskId])
+  @@map("mission_logs")
 }
 
 // ============ AI Studio - 研究项目 ============
@@ -2069,26 +2274,26 @@ model GeneratedImage {
 // ============================================================================
 
 model BrandKit {
-  id          String  @id @default(uuid())
-  userId      String  @map("user_id")
-  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // 基础信息
   name        String  @db.VarChar(100)
   description String? @db.VarChar(500)
 
   // 品牌配置 (JSON)
-  colors      Json    // BrandColor[]
-  fonts       Json    // BrandFont[]
-  logos       Json    // { primary?, secondary?, icon? }
-  voice       Json?   // { tone, keywords }
+  colors Json // BrandColor[]
+  fonts  Json // BrandFont[]
+  logos  Json // { primary?, secondary?, icon? }
+  voice  Json? // { tone, keywords }
 
   // 默认设计风格
   defaultStyle String @default("consulting") @map("default_style") @db.VarChar(50)
 
   // 时间戳
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([userId])
   @@map("brand_kits")

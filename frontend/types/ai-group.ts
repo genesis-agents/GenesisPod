@@ -121,6 +121,12 @@ export interface TopicAIMember {
   capabilities?: AICapability[];
   canMentionOtherAI?: boolean;
   collaborationStyle?: string | null;
+  // Team role fields
+  agentName?: string | null;
+  agentIdentity?: string | null;
+  isLeader?: boolean;
+  expertiseAreas?: string[];
+  workStyle?: string | null;
   addedById: string;
   createdAt: string;
   updatedAt: string;
@@ -420,3 +426,178 @@ export const AI_MODELS = [
 ] as const;
 
 export type AIModelId = (typeof AI_MODELS)[number]['id'];
+
+// ==================== Team Mission Types ====================
+
+export enum AgentWorkStyle {
+  AUTONOMOUS = 'AUTONOMOUS',
+  COLLABORATIVE = 'COLLABORATIVE',
+  SUPPORTIVE = 'SUPPORTIVE',
+  ANALYTICAL = 'ANALYTICAL',
+  CREATIVE = 'CREATIVE',
+}
+
+export enum MissionStatus {
+  PENDING = 'PENDING',
+  PLANNING = 'PLANNING',
+  IN_PROGRESS = 'IN_PROGRESS',
+  REVIEW = 'REVIEW',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum AgentTaskStatus {
+  PENDING = 'PENDING',
+  IN_PROGRESS = 'IN_PROGRESS',
+  BLOCKED = 'BLOCKED',
+  AWAITING_REVIEW = 'AWAITING_REVIEW',
+  REVISION_NEEDED = 'REVISION_NEEDED',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
+
+// Alias for backwards compatibility
+export const TaskStatus = AgentTaskStatus;
+export type TaskStatus = AgentTaskStatus;
+
+export enum TaskPriority {
+  CRITICAL = 'CRITICAL',
+  HIGH = 'HIGH',
+  MEDIUM = 'MEDIUM',
+  LOW = 'LOW',
+}
+
+export enum TaskType {
+  RESEARCH = 'RESEARCH',
+  DESIGN = 'DESIGN',
+  IMPLEMENTATION = 'IMPLEMENTATION',
+  REVIEW = 'REVIEW',
+  DOCUMENTATION = 'DOCUMENTATION',
+  COORDINATION = 'COORDINATION',
+  CREATIVE = 'CREATIVE',
+  SYNTHESIS = 'SYNTHESIS',
+}
+
+export enum MissionLogType {
+  MISSION_CREATED = 'MISSION_CREATED',
+  MISSION_STARTED = 'MISSION_STARTED',
+  PLANNING_STARTED = 'PLANNING_STARTED',
+  PLANNING_COMPLETED = 'PLANNING_COMPLETED',
+  TASK_ASSIGNED = 'TASK_ASSIGNED',
+  TASK_STARTED = 'TASK_STARTED',
+  TASK_PROGRESS = 'TASK_PROGRESS',
+  TASK_COMPLETED = 'TASK_COMPLETED',
+  TASK_FAILED = 'TASK_FAILED',
+  TASK_REVISION = 'TASK_REVISION',
+  AGENT_COLLABORATION = 'AGENT_COLLABORATION',
+  AGENT_QUESTION = 'AGENT_QUESTION',
+  LEADER_FEEDBACK = 'LEADER_FEEDBACK',
+  LEADER_DECISION = 'LEADER_DECISION',
+  RESULT_INTEGRATION = 'RESULT_INTEGRATION',
+  MISSION_COMPLETED = 'MISSION_COMPLETED',
+  MISSION_FAILED = 'MISSION_FAILED',
+}
+
+export interface TeamMission {
+  id: string;
+  topicId: string;
+  title: string;
+  description: string;
+  objectives: string[];
+  constraints: string[];
+  deliverables: string[];
+  status: MissionStatus;
+  leaderId: string;
+  leader: Pick<
+    TopicAIMember,
+    'id' | 'displayName' | 'agentName' | 'avatar' | 'aiModel'
+  >;
+  taskBreakdown?: any;
+  totalTasks: number;
+  completedTasks: number;
+  progressPercent: number;
+  createdById: string;
+  createdBy: Pick<TopicUser, 'id' | 'username' | 'fullName'>;
+  createdAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  finalResult: string | null;
+  summary: string | null;
+  tasks?: AgentTask[];
+  logs?: MissionLog[];
+  _count?: {
+    tasks: number;
+    logs: number;
+  };
+}
+
+export interface AgentTask {
+  id: string;
+  missionId: string;
+  title: string;
+  description: string;
+  priority: TaskPriority;
+  taskType: TaskType;
+  assignedToId: string;
+  assignedTo: Pick<
+    TopicAIMember,
+    'id' | 'displayName' | 'agentName' | 'avatar' | 'aiModel'
+  >;
+  assignedAt: string;
+  assignedReason: string | null;
+  dependsOnIds: string[];
+  status: TaskStatus;
+  startedAt: string | null;
+  completedAt: string | null;
+  result: string | null;
+  resultMessageId: string | null;
+  leaderFeedback: string | null;
+  feedbackMessageId: string | null;
+  needsRevision: boolean;
+  revisionCount: number;
+  maxRevisions: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MissionLog {
+  id: string;
+  missionId: string;
+  type: MissionLogType;
+  agentId: string | null;
+  agentName: string | null;
+  taskId: string | null;
+  taskTitle: string | null;
+  content: string;
+  messageId: string | null;
+  metadata: any;
+  createdAt: string;
+}
+
+export interface CreateMissionDto {
+  title: string;
+  description: string;
+  leaderId: string;
+  objectives?: string[];
+  constraints?: string[];
+  deliverables?: string[];
+  autoStart?: boolean;
+}
+
+export interface UpdateAIMemberTeamRoleDto {
+  agentName?: string;
+  agentIdentity?: string;
+  isLeader?: boolean;
+  expertiseAreas?: string[];
+  workStyle?: AgentWorkStyle;
+}
+
+// Extended TopicAIMember with team role fields
+export interface TopicAIMemberWithTeamRole extends TopicAIMember {
+  agentName?: string | null;
+  agentIdentity?: string | null;
+  isLeader?: boolean;
+  expertiseAreas?: string[];
+  workStyle?: AgentWorkStyle | null;
+}

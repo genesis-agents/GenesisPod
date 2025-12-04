@@ -87,6 +87,8 @@ import TopicSettingsDialog from '@/components/ai-group/TopicSettingsDialog';
 import ResourcesPanel from '@/components/ai-group/ResourcesPanel';
 import SummaryDialog from '@/components/ai-group/SummaryDialog';
 import MessageSelectionToolbar from '@/components/ai-group/MessageSelectionToolbar';
+import CreateMissionDialog from '@/components/ai-group/CreateMissionDialog';
+import MissionProgressPanel from '@/components/ai-group/MissionProgressPanel';
 import Sidebar from '@/components/layout/Sidebar';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -1723,6 +1725,8 @@ export default function TopicPage() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [isInviting, setIsInviting] = useState(false);
   const [inviteError, setInviteError] = useState('');
+  const [showMissionDialog, setShowMissionDialog] = useState(false);
+  const [showMissionPanel, setShowMissionPanel] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastMessageCountRef = useRef(0);
@@ -2002,6 +2006,31 @@ export default function TopicPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Team Mission Button */}
+            <button
+              onClick={() => setShowMissionPanel(!showMissionPanel)}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                showMissionPanel
+                  ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
+                  : 'bg-gradient-to-r from-blue-50 to-purple-50 text-purple-700 hover:from-blue-100 hover:to-purple-100'
+              }`}
+              title="Team Missions"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                />
+              </svg>
+              Team
+            </button>
             <button
               onClick={() => setShowResources(true)}
               className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
@@ -2155,6 +2184,16 @@ export default function TopicPage() {
         />
       </main>
 
+      {/* Mission Progress Panel - Right side panel */}
+      {showMissionPanel && (
+        <div className="h-full w-80 flex-shrink-0 border-l border-gray-200 bg-white">
+          <MissionProgressPanel
+            topicId={topicId}
+            onCreateMission={() => setShowMissionDialog(true)}
+          />
+        </div>
+      )}
+
       {/* Message Selection Toolbar */}
       <MessageSelectionToolbar
         selectedMessages={selectedMessages}
@@ -2185,6 +2224,17 @@ export default function TopicPage() {
         <SummaryDialog
           topic={currentTopic}
           onClose={() => setShowSummary(false)}
+        />
+      )}
+
+      {/* Create Mission Dialog */}
+      {showMissionDialog && (
+        <CreateMissionDialog
+          topicId={topicId}
+          onClose={() => setShowMissionDialog(false)}
+          onSuccess={() => {
+            // Mission created successfully
+          }}
         />
       )}
 

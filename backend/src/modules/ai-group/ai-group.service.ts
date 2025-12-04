@@ -573,6 +573,51 @@ export class AiGroupService {
     });
   }
 
+  async updateAIMemberTeamRole(
+    topicId: string,
+    userId: string,
+    aiMemberId: string,
+    dto: {
+      agentName?: string;
+      agentIdentity?: string;
+      isLeader?: boolean;
+      expertiseAreas?: string[];
+      workStyle?: string;
+    },
+  ) {
+    await this.checkTopicPermission(topicId, userId, [
+      TopicRole.OWNER,
+      TopicRole.ADMIN,
+    ]);
+
+    const aiMember = await this.prisma.topicAIMember.findFirst({
+      where: { id: aiMemberId, topicId },
+    });
+
+    if (!aiMember) {
+      throw new NotFoundException("AI member not found");
+    }
+
+    // 如果设置为 Leader，先取消其他 Leader
+    if (dto.isLeader === true) {
+      await this.prisma.topicAIMember.updateMany({
+        where: { topicId, isLeader: true, id: { not: aiMemberId } },
+        data: { isLeader: false },
+      });
+    }
+
+    return this.prisma.topicAIMember.update({
+      where: { id: aiMemberId },
+      data: {
+        agentName: dto.agentName,
+        agentIdentity: dto.agentIdentity,
+        isLeader: dto.isLeader,
+        expertiseAreas: dto.expertiseAreas,
+        workStyle: dto.workStyle as any,
+      },
+    });
+  }
+
   /**
    * 红蓝思辨快捷设置
    * 一键创建两个 AI 成员进行辩论
@@ -2056,7 +2101,10 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
           aiMember.displayName.toLowerCase().includes("image") &&
           !effectiveCapabilities.includes("IMAGE_GENERATION")
         ) {
-          effectiveCapabilities = [...effectiveCapabilities, "IMAGE_GENERATION"];
+          effectiveCapabilities = [
+            ...effectiveCapabilities,
+            "IMAGE_GENERATION",
+          ];
           this.logger.log(
             `[AI Capabilities] Inferred IMAGE_GENERATION for ${aiMember.displayName}`,
           );

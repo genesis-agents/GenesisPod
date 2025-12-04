@@ -9,6 +9,15 @@ import {
   AddAIMemberDto,
   UpdateAIMemberDto,
   AddResourceDto,
+  // Team Mission types
+  TeamMission,
+  MissionLog,
+  CreateMissionDto,
+  UpdateAIMemberTeamRoleDto,
+  TopicAIMemberWithTeamRole,
+  MissionStatus,
+  AgentTaskStatus,
+  AgentTask,
 } from '@/types/ai-group';
 import * as api from '@/lib/api/ai-group';
 import { getAuthTokens } from '@/lib/auth';
@@ -41,6 +50,13 @@ interface AiGroupState {
   onlineUsers: Set<string>;
   typingUsers: Set<string>;
   typingAIs: Set<string>;
+
+  // Team Mission
+  missions: TeamMission[];
+  currentMission: TeamMission | null;
+  isLoadingMissions: boolean;
+  teamMembers: TopicAIMemberWithTeamRole[];
+  isLoadingTeamMembers: boolean;
 
   // Actions - Topics
   fetchTopics: (options?: { type?: string; search?: string }) => Promise<void>;
@@ -95,6 +111,28 @@ interface AiGroupState {
   leaveTopicRoom: (topicId: string) => void;
   sendTyping: (topicId: string) => void;
 
+  // Actions - Team Mission
+  fetchMissions: (
+    topicId: string,
+    options?: { status?: MissionStatus }
+  ) => Promise<void>;
+  fetchMission: (topicId: string, missionId: string) => Promise<void>;
+  createMission: (
+    topicId: string,
+    dto: CreateMissionDto
+  ) => Promise<TeamMission>;
+  cancelMission: (topicId: string, missionId: string) => Promise<void>;
+  setCurrentMission: (mission: TeamMission | null) => void;
+
+  // Actions - Team Role
+  fetchTeamMembers: (topicId: string) => Promise<void>;
+  setTeamLeader: (topicId: string, aiMemberId: string) => Promise<void>;
+  updateTeamRole: (
+    topicId: string,
+    aiMemberId: string,
+    dto: UpdateAIMemberTeamRoleDto
+  ) => Promise<void>;
+
   // Actions - UI
   clearMessages: () => void;
   resetStore: () => void;
@@ -119,6 +157,12 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
   onlineUsers: new Set(),
   typingUsers: new Set(),
   typingAIs: new Set(),
+  // Team Mission initial state
+  missions: [],
+  currentMission: null,
+  isLoadingMissions: false,
+  teamMembers: [],
+  isLoadingTeamMembers: false,
 
   // ==================== Topics ====================
 
@@ -573,6 +617,193 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
       }
     );
 
+    // ==================== Team Mission Events ====================
+
+    // 任务状态更新
+    newSocket.on(
+      'mission:status',
+      ({
+        missionId,
+        status,
+        progressPercent,
+        completedTasks,
+        totalTasks,
+      }: {
+        missionId: string;
+        status: MissionStatus;
+        progressPercent: number;
+        completedTasks: number;
+        totalTasks: number;
+      }) => {
+        console.log('[WS] Mission status update:', {
+          missionId,
+          status,
+          progressPercent,
+        });
+        set((state) => ({
+          missions: state.missions.map((m) =>
+            m.id === missionId
+              ? { ...m, status, progressPercent, completedTasks, totalTasks }
+              : m
+          ),
+          currentMission:
+            state.currentMission?.id === missionId
+              ? {
+                  ...state.currentMission,
+                  status,
+                  progressPercent,
+                  completedTasks,
+                  totalTasks,
+                }
+              : state.currentMission,
+        }));
+      }
+    );
+
+    // 子任务状态更新
+    newSocket.on(
+      'task:status',
+      ({
+        missionId,
+        taskId,
+        status,
+        result,
+        leaderFeedback,
+      }: {
+        missionId: string;
+        taskId: string;
+        status: AgentTaskStatus;
+        result?: string;
+        leaderFeedback?: string;
+      }) => {
+        console.log('[WS] Task status update:', { missionId, taskId, status });
+        set((state) => {
+          const updateTasks = (tasks?: AgentTask[]) =>
+            tasks?.map((t) =>
+              t.id === taskId
+                ? {
+                    ...t,
+                    status,
+                    result: result ?? t.result,
+                    leaderFeedback: leaderFeedback ?? t.leaderFeedback,
+                  }
+                : t
+            );
+
+          return {
+            missions: state.missions.map((m) =>
+              m.id === missionId ? { ...m, tasks: updateTasks(m.tasks) } : m
+            ),
+            currentMission:
+              state.currentMission?.id === missionId
+                ? {
+                    ...state.currentMission,
+                    tasks: updateTasks(state.currentMission.tasks),
+                  }
+                : state.currentMission,
+          };
+        });
+      }
+    );
+
+    // Agent工作中
+    newSocket.on(
+      'agent:working',
+      ({
+        missionId,
+        agentId,
+        taskId,
+      }: {
+        missionId: string;
+        agentId: string;
+        taskId: string;
+      }) => {
+        console.log('[WS] Agent working:', { missionId, agentId, taskId });
+        set((state) => {
+          const newSet = new Set(state.typingAIs);
+          newSet.add(agentId);
+          return { typingAIs: newSet };
+        });
+      }
+    );
+
+    // Agent完成工作
+    newSocket.on(
+      'agent:done',
+      ({
+        missionId,
+        agentId,
+        taskId,
+      }: {
+        missionId: string;
+        agentId: string;
+        taskId: string;
+      }) => {
+        console.log('[WS] Agent done:', { missionId, agentId, taskId });
+        set((state) => {
+          const newSet = new Set(state.typingAIs);
+          newSet.delete(agentId);
+          return { typingAIs: newSet };
+        });
+      }
+    );
+
+    // 任务完成
+    newSocket.on(
+      'mission:completed',
+      ({
+        missionId,
+        finalResult,
+        summary,
+      }: {
+        missionId: string;
+        finalResult: string;
+        summary: string;
+      }) => {
+        console.log('[WS] Mission completed:', { missionId });
+        set((state) => ({
+          missions: state.missions.map((m) =>
+            m.id === missionId
+              ? {
+                  ...m,
+                  status: 'COMPLETED' as MissionStatus,
+                  finalResult,
+                  summary,
+                  completedAt: new Date().toISOString(),
+                }
+              : m
+          ),
+          currentMission:
+            state.currentMission?.id === missionId
+              ? {
+                  ...state.currentMission,
+                  status: 'COMPLETED' as MissionStatus,
+                  finalResult,
+                  summary,
+                  completedAt: new Date().toISOString(),
+                }
+              : state.currentMission,
+        }));
+      }
+    );
+
+    // 任务失败
+    newSocket.on(
+      'mission:failed',
+      ({ missionId, error }: { missionId: string; error: string }) => {
+        console.error('[WS] Mission failed:', { missionId, error });
+        set((state) => ({
+          missions: state.missions.map((m) =>
+            m.id === missionId ? { ...m, status: 'FAILED' as MissionStatus } : m
+          ),
+          currentMission:
+            state.currentMission?.id === missionId
+              ? { ...state.currentMission, status: 'FAILED' as MissionStatus }
+              : state.currentMission,
+        }));
+      }
+    );
+
     set({ socket: newSocket });
   },
 
@@ -668,6 +899,83 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
     }
   },
 
+  // ==================== Team Mission ====================
+
+  fetchMissions: async (topicId, options) => {
+    set({ isLoadingMissions: true });
+    try {
+      const response = await api.getMissions(topicId, options);
+      set({ missions: response.missions, isLoadingMissions: false });
+    } catch (error) {
+      console.error('Failed to fetch missions:', error);
+      set({ isLoadingMissions: false });
+    }
+  },
+
+  fetchMission: async (topicId, missionId) => {
+    try {
+      const mission = await api.getMissionById(topicId, missionId);
+      set({ currentMission: mission });
+      // 更新missions列表中的对应项
+      set((state) => ({
+        missions: state.missions.map((m) => (m.id === missionId ? mission : m)),
+      }));
+    } catch (error) {
+      console.error('Failed to fetch mission:', error);
+    }
+  },
+
+  createMission: async (topicId, dto) => {
+    const mission = await api.createMission(topicId, dto);
+    set((state) => ({
+      missions: [mission, ...state.missions],
+      currentMission: mission,
+    }));
+    return mission;
+  },
+
+  cancelMission: async (topicId, missionId) => {
+    const mission = await api.cancelMission(topicId, missionId);
+    set((state) => ({
+      missions: state.missions.map((m) => (m.id === missionId ? mission : m)),
+      currentMission:
+        state.currentMission?.id === missionId ? mission : state.currentMission,
+    }));
+  },
+
+  setCurrentMission: (mission) => {
+    set({ currentMission: mission });
+  },
+
+  // ==================== Team Role ====================
+
+  fetchTeamMembers: async (topicId) => {
+    set({ isLoadingTeamMembers: true });
+    try {
+      const teamMembers = await api.getTeamMembers(topicId);
+      set({ teamMembers, isLoadingTeamMembers: false });
+    } catch (error) {
+      console.error('Failed to fetch team members:', error);
+      set({ isLoadingTeamMembers: false });
+    }
+  },
+
+  setTeamLeader: async (topicId, aiMemberId) => {
+    await api.setTeamLeader(topicId, aiMemberId);
+    // 刷新团队成员列表
+    await get().fetchTeamMembers(topicId);
+    // 刷新Topic以更新aiMembers
+    await get().fetchTopic(topicId);
+  },
+
+  updateTeamRole: async (topicId, aiMemberId, dto) => {
+    await api.updateTeamRole(topicId, aiMemberId, dto);
+    // 刷新团队成员列表
+    await get().fetchTeamMembers(topicId);
+    // 刷新Topic以更新aiMembers
+    await get().fetchTopic(topicId);
+  },
+
   // ==================== UI ====================
 
   clearMessages: () => {
@@ -694,6 +1002,12 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
       onlineUsers: new Set(),
       typingUsers: new Set(),
       typingAIs: new Set(),
+      // Team Mission reset
+      missions: [],
+      currentMission: null,
+      isLoadingMissions: false,
+      teamMembers: [],
+      isLoadingTeamMembers: false,
     });
   },
 }));

@@ -9,6 +9,7 @@ export * from "./update-member.dto";
 // AI Member DTOs
 export * from "./add-ai-member.dto";
 export * from "./update-ai-member.dto";
+export * from "./update-ai-member-team-role.dto";
 
 // Message DTOs
 export * from "./send-message.dto";
@@ -21,3 +22,6 @@ export * from "./generate-summary.dto";
 
 // Forward & Bookmark DTOs
 export * from "./forward-messages.dto";
+
+// Team Mission DTOs
+export * from "./create-mission.dto";
