@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIModels, AIModel } from '@/hooks/useAIModels';
 import ReactMarkdown from 'react-markdown';
@@ -19,6 +20,41 @@ interface MixtureResponse {
   modelId: string;
   content: string;
   isCollapsed: boolean;
+}
+
+// Helper: render model icon (emoji or image)
+function ModelIcon({
+  model,
+  size = 20,
+}: {
+  model: AIModel | { icon: string; iconUrl?: string };
+  size?: number;
+}) {
+  const icon = model.icon;
+  const iconUrl = 'iconUrl' in model ? model.iconUrl : undefined;
+
+  // Check if icon is emoji (single character or emoji sequence)
+  const isEmoji = icon && (icon.length <= 2 || /\p{Emoji}/u.test(icon));
+
+  if (isEmoji && icon) {
+    return <span style={{ fontSize: size }}>{icon}</span>;
+  }
+
+  if (iconUrl && !iconUrl.startsWith('/icons/')) {
+    // It's a real URL, use Image
+    return (
+      <Image
+        src={iconUrl}
+        alt=""
+        width={size}
+        height={size}
+        className="rounded"
+      />
+    );
+  }
+
+  // Fallback to default emoji
+  return <span style={{ fontSize: size }}>🤖</span>;
 }
 
 export default function AskPage() {
@@ -264,11 +300,16 @@ export default function AskPage() {
                             <span className="text-gray-400">Loading...</span>
                           ) : (
                             <>
-                              <span className="text-base">
-                                {isMixtureMode
-                                  ? '🔀'
-                                  : selectedModelInfo?.icon || '🤖'}
-                              </span>
+                              {isMixtureMode ? (
+                                <span className="text-base">🔀</span>
+                              ) : selectedModelInfo ? (
+                                <ModelIcon
+                                  model={selectedModelInfo}
+                                  size={18}
+                                />
+                              ) : (
+                                <span className="text-base">🤖</span>
+                              )}
                               <span>
                                 {isMixtureMode
                                   ? 'Mixture'
@@ -311,7 +352,7 @@ export default function AskPage() {
                                     : ''
                                 }`}
                               >
-                                <span className="text-xl">{model.icon}</span>
+                                <ModelIcon model={model} size={20} />
                                 <div className="min-w-0 flex-1">
                                   <div className="flex items-center gap-2">
                                     <span className="truncate font-medium text-gray-900">
@@ -418,20 +459,27 @@ export default function AskPage() {
                           : 'bg-white shadow-sm ring-1 ring-gray-100'
                       }`}
                     >
-                      {message.role === 'assistant' && message.model && (
-                        <div className="mb-2 flex items-center gap-2 text-xs text-gray-500">
-                          <span className="text-sm">
-                            {message.model === 'mixture'
-                              ? '🔀'
-                              : models.find((m) => m.id === message.model)
-                                  ?.icon || '🤖'}
-                          </span>
-                          {message.model === 'mixture'
-                            ? 'Mixture'
-                            : models.find((m) => m.id === message.model)
-                                ?.name || message.model}
-                        </div>
-                      )}
+                      {message.role === 'assistant' &&
+                        message.model &&
+                        (() => {
+                          const msgModel = models.find(
+                            (m) => m.id === message.model
+                          );
+                          return (
+                            <div className="mb-2 flex items-center gap-2 text-xs text-gray-500">
+                              {message.model === 'mixture' ? (
+                                <span className="text-sm">🔀</span>
+                              ) : msgModel ? (
+                                <ModelIcon model={msgModel} size={14} />
+                              ) : (
+                                <span className="text-sm">🤖</span>
+                              )}
+                              {message.model === 'mixture'
+                                ? 'Mixture'
+                                : msgModel?.name || message.model}
+                            </div>
+                          );
+                        })()}
                       <div
                         className={`prose prose-sm max-w-none ${message.role === 'user' ? 'prose-invert' : ''}`}
                       >
@@ -460,9 +508,11 @@ export default function AskPage() {
                             className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-gray-50"
                           >
                             <div className="flex items-center gap-2">
-                              <span className="text-lg">
-                                {modelInfo?.icon || '🤖'}
-                              </span>
+                              {modelInfo ? (
+                                <ModelIcon model={modelInfo} size={18} />
+                              ) : (
+                                <span className="text-lg">🤖</span>
+                              )}
                               <span className="font-medium text-gray-900">
                                 {response.model}
                               </span>
@@ -557,11 +607,13 @@ export default function AskPage() {
                           }
                           className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
                         >
-                          <span className="text-base">
-                            {isMixtureMode
-                              ? '🔀'
-                              : selectedModelInfo?.icon || '🤖'}
-                          </span>
+                          {isMixtureMode ? (
+                            <span className="text-base">🔀</span>
+                          ) : selectedModelInfo ? (
+                            <ModelIcon model={selectedModelInfo} size={18} />
+                          ) : (
+                            <span className="text-base">🤖</span>
+                          )}
                           <span>
                             {isMixtureMode
                               ? 'Mixture'
