@@ -285,8 +285,84 @@ export class AiGroupService {
   async deleteTopic(topicId: string, userId: string) {
     await this.checkTopicPermission(topicId, userId, [TopicRole.OWNER]);
 
-    return this.prisma.topic.delete({
-      where: { id: topicId },
+    // Use transaction to delete all related data in correct order
+    // This handles foreign key constraints properly
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Delete mission logs first (references missions)
+      await tx.missionLog.deleteMany({
+        where: { mission: { topicId } },
+      });
+
+      // 2. Delete agent tasks (references missions and AI members)
+      await tx.agentTask.deleteMany({
+        where: { mission: { topicId } },
+      });
+
+      // 3. Delete team missions (references topic and AI members)
+      await tx.teamMission.deleteMany({
+        where: { topicId },
+      });
+
+      // 4. Delete message-related data
+      await tx.topicMessageReaction.deleteMany({
+        where: { message: { topicId } },
+      });
+
+      await tx.topicMessageMention.deleteMany({
+        where: { message: { topicId } },
+      });
+
+      await tx.topicMessageAttachment.deleteMany({
+        where: { message: { topicId } },
+      });
+
+      // 5. Delete bookmarks for messages in this topic
+      const messageIds = await tx.topicMessage.findMany({
+        where: { topicId },
+        select: { id: true },
+      });
+      if (messageIds.length > 0) {
+        await tx.topicMessageBookmark.deleteMany({
+          where: { messageId: { in: messageIds.map((m) => m.id) } },
+        });
+      }
+
+      // 6. Delete forwards related to this topic
+      await tx.topicMessageForward.deleteMany({
+        where: {
+          OR: [{ sourceTopicId: topicId }, { targetTopicId: topicId }],
+        },
+      });
+
+      // 7. Delete summaries (references topic)
+      await tx.topicSummary.deleteMany({
+        where: { topicId },
+      });
+
+      // 8. Delete resources (references topic)
+      await tx.topicResource.deleteMany({
+        where: { topicId },
+      });
+
+      // 9. Delete messages (references topic)
+      await tx.topicMessage.deleteMany({
+        where: { topicId },
+      });
+
+      // 10. Delete AI members (references topic)
+      await tx.topicAIMember.deleteMany({
+        where: { topicId },
+      });
+
+      // 11. Delete human members (references topic)
+      await tx.topicMember.deleteMany({
+        where: { topicId },
+      });
+
+      // 12. Finally delete the topic itself
+      return tx.topic.delete({
+        where: { id: topicId },
+      });
     });
   }
 
