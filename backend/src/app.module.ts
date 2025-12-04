@@ -35,6 +35,7 @@ import { WechatWorkModule } from "./modules/wechat-work/wechat-work.module";
 import { AiStudioModule } from "./modules/ai-studio/ai-studio.module";
 import { AiImageModule } from "./modules/ai-image/ai-image.module";
 import { StorageModule } from "./modules/storage/storage.module";
+import { AskSessionModule } from "./modules/ask-session/ask-session.module";
 
 @Module({
   imports: [
@@ -94,6 +95,7 @@ import { StorageModule } from "./modules/storage/storage.module";
     AiStudioModule,
     AiImageModule,
     StorageModule,
+    AskSessionModule,
   ],
   controllers: [AppController],
   providers: [

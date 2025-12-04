@@ -87,6 +87,9 @@ model User {
   // Team Mission 团队任务
   createdMissions TeamMission[] @relation("MissionCreator")
 
+  // ASK AI 会话
+  askSessions AskSession[]
+
   @@map("users")
 }
 
@@ -2487,4 +2490,43 @@ model OfficeDocumentTemplate {
   @@index([category])
   @@index([isBuiltin, isPublic])
   @@map("office_document_templates")
+}
+
+// ============ ASK AI 会话管理 ============
+
+model AskSession {
+  id      String @id @default(uuid())
+  userId  String @map("user_id")
+  title   String @db.VarChar(200)
+  summary String? @db.Text // AI 生成的会话摘要
+  modelId String? @map("model_id") // 默认使用的模型
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages AskMessage[]
+
+  @@index([userId, updatedAt])
+  @@map("ask_sessions")
+}
+
+model AskMessage {
+  id        String @id @default(uuid())
+  sessionId String @map("session_id")
+  role      String @db.VarChar(20) // user, assistant, system
+  content   String @db.Text
+  modelId   String? @map("model_id") // 使用的模型 ID
+  modelName String? @map("model_name") @db.VarChar(100) // 使用的模型名称
+
+  // 元数据
+  tokens    Int?    // token 使用量
+  webSearch Boolean @default(false) @map("web_search") // 是否启用网页搜索
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  session AskSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@map("ask_messages")
 }

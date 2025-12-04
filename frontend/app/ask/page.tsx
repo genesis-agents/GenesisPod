@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIModels, AIModel } from '@/hooks/useAIModels';
 import { config } from '@/lib/config';
 import Sidebar from '@/components/layout/Sidebar';
+import SessionSidebar from '@/components/ask/SessionSidebar';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -14,8 +15,9 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  model?: string;
-  timestamp: Date;
+  modelId?: string;
+  modelName?: string;
+  createdAt: string;
 }
 
 interface MixtureResponse {
@@ -113,7 +115,7 @@ function ModelIcon({
 
 export default function AskPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, accessToken: token } = useAuth();
   const { models, loading: modelsLoading } = useAIModels();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -121,10 +123,12 @@ export default function AskPage() {
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [showTools, setShowTools] = useState(false);
-  const [webSearchEnabled, setWebSearchEnabled] = useState(false); // Default disabled
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [mixtureResponses, setMixtureResponses] = useState<MixtureResponse[]>(
     []
   );
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const modelSelectorRef = useRef<HTMLDivElement>(null);
@@ -132,8 +136,6 @@ export default function AskPage() {
 
   // Filter only CHAT models for the selector
   const chatModels = models.filter((m) => m.modelType === 'CHAT');
-  // Get IMAGE models for Tools
-  const imageModels = models.filter((m) => m.modelType === 'IMAGE_GENERATION');
 
   // Set default model when models load
   useEffect(() => {
@@ -177,7 +179,113 @@ export default function AskPage() {
     e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
   };
 
-  // Call real backend AI API
+  // Create a new session
+  const createSession = useCallback(async (): Promise<string | null> => {
+    if (!token) return null;
+
+    try {
+      const response = await fetch(`${config.apiUrl}/ask/sessions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          modelId: selectedModel !== 'mixture' ? selectedModel : undefined,
+        }),
+      });
+
+      if (response.ok) {
+        const session = await response.json();
+        return session.id;
+      }
+    } catch (error) {
+      console.error('Failed to create session:', error);
+    }
+    return null;
+  }, [token, selectedModel]);
+
+  // Send message to session
+  const sendMessageToSession = useCallback(
+    async (sessionId: string, content: string, modelId?: string) => {
+      if (!token) return null;
+
+      try {
+        const response = await fetch(
+          `${config.apiUrl}/ask/sessions/${sessionId}/messages`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              content,
+              modelId:
+                modelId ||
+                (selectedModel !== 'mixture' ? selectedModel : undefined),
+              webSearch: webSearchEnabled,
+            }),
+          }
+        );
+
+        if (response.ok) {
+          return await response.json();
+        }
+      } catch (error) {
+        console.error('Failed to send message:', error);
+      }
+      return null;
+    },
+    [token, selectedModel, webSearchEnabled]
+  );
+
+  // Load session messages
+  const loadSession = useCallback(
+    async (sessionId: string) => {
+      if (!token) return;
+
+      try {
+        const response = await fetch(
+          `${config.apiUrl}/ask/sessions/${sessionId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setCurrentSessionId(sessionId);
+          setMessages(
+            data.messages.map((m: any) => ({
+              id: m.id,
+              role: m.role,
+              content: m.content,
+              modelId: m.modelId,
+              modelName: m.modelName,
+              createdAt: m.createdAt,
+            }))
+          );
+          setMixtureResponses([]);
+        }
+      } catch (error) {
+        console.error('Failed to load session:', error);
+      }
+    },
+    [token]
+  );
+
+  // Handle new session
+  const handleNewSession = useCallback(() => {
+    setCurrentSessionId(null);
+    setMessages([]);
+    setMixtureResponses([]);
+    setInput('');
+  }, []);
+
+  // Call real backend AI API (for mixture mode - legacy)
   const callAIChat = async (
     modelName: string,
     message: string,
@@ -209,14 +317,7 @@ export default function AskPage() {
     e?.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: input.trim(),
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
+    const userContent = input.trim();
     setInput('');
     setIsLoading(true);
     setMixtureResponses([]);
@@ -227,7 +328,15 @@ export default function AskPage() {
 
     try {
       if (isMixtureMode) {
-        // Mixture mode: call multiple models in parallel
+        // Mixture mode: call multiple models in parallel (legacy behavior)
+        const userMessage: Message = {
+          id: Date.now().toString(),
+          role: 'user',
+          content: userContent,
+          createdAt: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, userMessage]);
+
         const modelsToCall = chatModels.slice(0, 4);
         const responses: MixtureResponse[] = modelsToCall.map((m) => ({
           model: m.name,
@@ -242,7 +351,7 @@ export default function AskPage() {
             try {
               const content = await callAIChat(
                 model.modelName,
-                userMessage.content,
+                userContent,
                 webSearchEnabled
               );
               setMixtureResponses((prev) => {
@@ -266,24 +375,83 @@ export default function AskPage() {
           })
         );
       } else {
-        // Single model mode: call selected model
-        const modelName = selectedModelInfo?.modelName || 'gemini';
-        const content = await callAIChat(
-          modelName,
-          userMessage.content,
-          webSearchEnabled
-        );
+        // Single model mode with session
+        let sessionId = currentSessionId;
 
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: (Date.now() + 1).toString(),
-            role: 'assistant',
-            content,
-            model: selectedModel,
-            timestamp: new Date(),
-          },
-        ]);
+        // Create session if needed
+        if (!sessionId) {
+          sessionId = await createSession();
+          if (sessionId) {
+            setCurrentSessionId(sessionId);
+          }
+        }
+
+        if (sessionId) {
+          // Optimistically add user message
+          const tempUserMessage: Message = {
+            id: 'temp-user-' + Date.now(),
+            role: 'user',
+            content: userContent,
+            createdAt: new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, tempUserMessage]);
+
+          // Send message and get response
+          const result = await sendMessageToSession(sessionId, userContent);
+
+          if (result) {
+            // Replace temp message with real messages
+            setMessages((prev) => {
+              const withoutTemp = prev.filter((m) => !m.id.startsWith('temp-'));
+              return [
+                ...withoutTemp,
+                {
+                  id: result.userMessage.id,
+                  role: 'user',
+                  content: result.userMessage.content,
+                  modelId: result.userMessage.modelId,
+                  modelName: result.userMessage.modelName,
+                  createdAt: result.userMessage.createdAt,
+                },
+                {
+                  id: result.assistantMessage.id,
+                  role: 'assistant',
+                  content: result.assistantMessage.content,
+                  modelId: result.assistantMessage.modelId,
+                  modelName: result.assistantMessage.modelName,
+                  createdAt: result.assistantMessage.createdAt,
+                },
+              ];
+            });
+          }
+        } else {
+          // Fallback to simple chat if session creation fails
+          const userMessage: Message = {
+            id: Date.now().toString(),
+            role: 'user',
+            content: userContent,
+            createdAt: new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, userMessage]);
+
+          const modelName = selectedModelInfo?.modelName || 'gemini';
+          const content = await callAIChat(
+            modelName,
+            userContent,
+            webSearchEnabled
+          );
+
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: (Date.now() + 1).toString(),
+              role: 'assistant',
+              content,
+              modelId: selectedModel,
+              createdAt: new Date().toISOString(),
+            },
+          ]);
+        }
       }
     } catch (error) {
       console.error('Error:', error);
@@ -293,8 +461,8 @@ export default function AskPage() {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
           content: `Error: ${error instanceof Error ? error.message : 'An error occurred'}`,
-          model: selectedModel,
-          timestamp: new Date(),
+          modelId: selectedModel,
+          createdAt: new Date().toISOString(),
         },
       ]);
     } finally {
@@ -343,6 +511,17 @@ export default function AskPage() {
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
+
+      {/* Session Sidebar */}
+      {token && (
+        <SessionSidebar
+          currentSessionId={currentSessionId || undefined}
+          onSelectSession={loadSession}
+          onNewSession={handleNewSession}
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(!sidebarOpen)}
+        />
+      )}
 
       {/* Main Content */}
       <main className="flex flex-1 flex-col overflow-hidden">
@@ -686,61 +865,48 @@ export default function AskPage() {
           <>
             <div className="flex-1 overflow-y-auto px-4 py-6">
               <div className="mx-auto max-w-4xl space-y-6">
-                {messages
-                  .filter((message) => {
-                    // Filter out mixture placeholder messages
-                    if (
-                      message.model === 'mixture' &&
-                      message.content ===
-                        'Multiple model responses shown above.'
-                    ) {
-                      return false;
-                    }
-                    return true;
-                  })
-                  .map((message) => {
-                    const messageModel = chatModels.find(
-                      (m) => m.id === message.model
-                    );
-                    return (
+                {messages.map((message) => {
+                  const messageModel = chatModels.find(
+                    (m) => m.id === message.modelId
+                  );
+                  return (
+                    <div
+                      key={message.id}
+                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
                       <div
-                        key={message.id}
-                        className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                        className={`max-w-[90%] rounded-2xl px-4 py-3 ${
+                          message.role === 'user'
+                            ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white'
+                            : 'bg-white shadow-sm ring-1 ring-gray-100'
+                        }`}
                       >
-                        <div
-                          className={`max-w-[90%] rounded-2xl px-4 py-3 ${
-                            message.role === 'user'
-                              ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white'
-                              : 'bg-white shadow-sm ring-1 ring-gray-100'
-                          }`}
-                        >
-                          {message.role === 'assistant' && message.model && (
+                        {message.role === 'assistant' &&
+                          (message.modelId || message.modelName) && (
                             <div className="mb-2 flex items-center gap-2 text-xs text-gray-500">
-                              {message.model === 'mixture' ? (
-                                <span>🔀</span>
-                              ) : messageModel ? (
+                              {messageModel ? (
                                 <ModelIcon model={messageModel} size={14} />
                               ) : (
                                 <span>🤖</span>
                               )}
                               <span>
-                                {message.model === 'mixture'
-                                  ? 'Mixture'
-                                  : messageModel?.name || message.model}
+                                {message.modelName ||
+                                  messageModel?.name ||
+                                  'AI'}
                               </span>
                             </div>
                           )}
-                          <div
-                            className={`prose prose-sm max-w-none ${message.role === 'user' ? 'prose-invert' : ''}`}
-                          >
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                              {message.content}
-                            </ReactMarkdown>
-                          </div>
+                        <div
+                          className={`prose prose-sm max-w-none ${message.role === 'user' ? 'prose-invert' : ''}`}
+                        >
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {message.content}
+                          </ReactMarkdown>
                         </div>
                       </div>
-                    );
-                  })}
+                    </div>
+                  );
+                })}
 
                 {/* Mixture Responses - show when there are responses (loading or completed) */}
                 {mixtureResponses.length > 0 && (

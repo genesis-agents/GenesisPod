@@ -1054,15 +1054,48 @@ export class AdminService {
 
       if (response.ok) {
         const data = await response.json();
-        const remaining = data.remaining_credits ?? data.credits_remaining;
-        const used = data.credits_used ?? 0;
-        const limit = data.credits_limit ?? remaining + used;
+        this.logger.debug(
+          `Firecrawl balance response: ${JSON.stringify(data)}`,
+        );
+
+        // Firecrawl API 可能返回不同的字段结构
+        // 尝试多种可能的字段名
+        const remaining =
+          data.remaining_credits ??
+          data.credits_remaining ??
+          data.credits ??
+          data.balance ??
+          data.data?.remaining_credits ??
+          data.data?.credits;
+        const used =
+          data.credits_used ??
+          data.used_credits ??
+          data.usage ??
+          data.data?.credits_used ??
+          0;
+        const total =
+          data.credits_limit ??
+          data.total_credits ??
+          data.limit ??
+          data.data?.credits_limit;
+
+        // 如果无法获取具体数值，尝试返回可用状态
+        if (remaining === undefined) {
+          // API 响应成功但没有余额信息，标记为可用
+          return {
+            provider: "firecrawl",
+            hasBalance: true,
+            balance: "Active",
+          };
+        }
+
+        const limit = total ?? (remaining + used || remaining);
 
         return {
           provider: "firecrawl",
           hasBalance: remaining > 0,
           balance: `${remaining} credits`,
-          quota: { used, limit },
+          quota: { used: used || 0, limit: limit || 0 },
         };
       } else if (response.status === 401) {
         return {
