@@ -903,12 +903,12 @@ function StudioPageContent() {
       <div
         className={
           activeTab === 'create'
-            ? 'h-[calc(100vh-200px)]'
+            ? 'mx-auto h-[calc(100vh-200px)] max-w-7xl px-6 py-4'
             : 'mx-auto max-w-7xl px-6 py-8'
         }
       >
         {activeTab === 'create' ? (
-          <div className="h-full px-6">
+          <div className="h-full">
             <ImageGenerator />
           </div>
         ) : activeTab === 'gallery' ? (
