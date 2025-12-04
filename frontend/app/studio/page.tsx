@@ -6,8 +6,9 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { getAuthTokens } from '@/lib/auth';
+import ImageGenerator from '@/components/ai-image/ImageGenerator';
 
 // ==================== 自定义图标组件 ====================
 const PlusIcon = ({ className }: { className?: string }) => (
@@ -674,14 +675,33 @@ function GalleryTab() {
 // ==================== 主页面 ====================
 export default function StudioPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'projects' | 'gallery'>(
-    'projects'
+  const searchParams = useSearchParams();
+  const tabParam = searchParams?.get('tab');
+
+  const [activeTab, setActiveTab] = useState<'projects' | 'create' | 'gallery'>(
+    () => {
+      if (tabParam === 'create' || tabParam === 'gallery') {
+        return tabParam;
+      }
+      return 'projects';
+    }
   );
   const [projects, setProjects] = useState<ResearchProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+
+  // Update activeTab when URL parameter changes
+  useEffect(() => {
+    if (
+      tabParam === 'create' ||
+      tabParam === 'gallery' ||
+      tabParam === 'projects'
+    ) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
 
   // 加载项目
   const loadProjects = useCallback(async () => {
@@ -804,6 +824,34 @@ export default function StudioPage() {
               )}
             </button>
             <button
+              onClick={() => setActiveTab('create')}
+              className={`relative pb-3 text-sm font-medium transition-colors ${
+                activeTab === 'create'
+                  ? 'text-purple-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+                Create Image
+              </div>
+              {activeTab === 'create' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600" />
+              )}
+            </button>
+            <button
               onClick={() => setActiveTab('gallery')}
               className={`relative pb-3 text-sm font-medium transition-colors ${
                 activeTab === 'gallery'
@@ -822,7 +870,7 @@ export default function StudioPage() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
                   />
                 </svg>
                 Gallery
@@ -852,8 +900,18 @@ export default function StudioPage() {
       </div>
 
       {/* Content */}
-      <div className="mx-auto max-w-7xl px-6 py-8">
-        {activeTab === 'gallery' ? (
+      <div
+        className={
+          activeTab === 'create'
+            ? 'h-[calc(100vh-200px)]'
+            : 'mx-auto max-w-7xl px-6 py-8'
+        }
+      >
+        {activeTab === 'create' ? (
+          <div className="h-full px-6">
+            <ImageGenerator />
+          </div>
+        ) : activeTab === 'gallery' ? (
           <GalleryTab />
         ) : (
           /* Projects Grid */
