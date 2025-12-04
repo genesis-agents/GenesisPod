@@ -18,7 +18,7 @@ export default function SettingsNav({
       description: 'Configure domain whitelists for each resource type',
       icon: (active: boolean) => (
         <svg
-          className={`h-5 w-5 transition-colors ${active ? 'text-blue-600' : 'text-gray-500'}`}
+          className={`h-5 w-5 transition-colors ${active ? 'text-violet-600' : 'text-gray-500'}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -38,7 +38,7 @@ export default function SettingsNav({
       description: 'Configure quality scoring and filtering rules',
       icon: (active: boolean) => (
         <svg
-          className={`h-5 w-5 transition-colors ${active ? 'text-blue-600' : 'text-gray-500'}`}
+          className={`h-5 w-5 transition-colors ${active ? 'text-violet-600' : 'text-gray-500'}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -58,7 +58,7 @@ export default function SettingsNav({
       description: 'Configure AI models and API settings',
       icon: (active: boolean) => (
         <svg
-          className={`h-5 w-5 transition-colors ${active ? 'text-blue-600' : 'text-gray-500'}`}
+          className={`h-5 w-5 transition-colors ${active ? 'text-violet-600' : 'text-gray-500'}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -78,7 +78,7 @@ export default function SettingsNav({
       description: 'General system settings and configurations',
       icon: (active: boolean) => (
         <svg
-          className={`h-5 w-5 transition-colors ${active ? 'text-blue-600' : 'text-gray-500'}`}
+          className={`h-5 w-5 transition-colors ${active ? 'text-violet-600' : 'text-gray-500'}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -129,7 +129,7 @@ export default function SettingsNav({
                 {/* Active indicator - bottom border */}
                 <div
                   className={`absolute bottom-0 left-0 right-0 h-0.5 transition-all ${
-                    isActive ? 'bg-blue-600' : 'bg-transparent'
+                    isActive ? 'bg-violet-600' : 'bg-transparent'
                   }`}
                   style={{
                     opacity: isActive ? 1 : 0,

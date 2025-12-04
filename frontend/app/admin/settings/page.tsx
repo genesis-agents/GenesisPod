@@ -21,9 +21,9 @@ export default function SettingsPage() {
           {/* Header */}
           <div className="border-b border-gray-100 bg-white/50 px-8 py-6 backdrop-blur-sm">
             <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600/10">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-600/10">
                 <svg
-                  className="h-5 w-5 text-blue-600"
+                  className="h-5 w-5 text-violet-600"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"

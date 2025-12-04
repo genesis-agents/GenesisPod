@@ -419,7 +419,7 @@ function ProjectCard({
   return (
     <div
       onClick={onClick}
-      className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 transition-all hover:border-amber-300 hover:shadow-lg"
+      className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 transition-all hover:border-violet-300 hover:shadow-lg"
     >
       {/* Menu Button */}
       <button
@@ -462,7 +462,7 @@ function ProjectCard({
       )}
 
       {/* Project Icon - 使用统一风格的渐变图标 */}
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-md">
+      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-md">
         <svg
           className="h-6 w-6 text-white"
           fill="none"
@@ -588,10 +588,10 @@ function StudioPageContent() {
     <div className="h-full overflow-auto bg-gray-50">
       {/* Header */}
       <div className="sticky top-0 z-10 border-b border-gray-200 bg-white/80 backdrop-blur-sm">
-        <div className="mx-auto max-w-7xl px-6 py-8">
+        <div className="mx-auto max-w-7xl px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/25">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/25">
                 <svg
                   className="h-7 w-7 text-white"
                   fill="none"
@@ -616,7 +616,7 @@ function StudioPageContent() {
             {activeTab === 'projects' && (
               <button
                 onClick={() => setShowCreateDialog(true)}
-                className="flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-amber-700"
+                className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-violet-700"
               >
                 <PlusIcon className="h-5 w-5" />
                 New Project
@@ -630,7 +630,7 @@ function StudioPageContent() {
               onClick={() => setActiveTab('projects')}
               className={`relative pb-3 text-sm font-medium transition-colors ${
                 activeTab === 'projects'
-                  ? 'text-amber-600'
+                  ? 'text-violet-600'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -651,7 +651,7 @@ function StudioPageContent() {
                 Projects
               </div>
               {activeTab === 'projects' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-600" />
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-600" />
               )}
             </button>
             <button
@@ -694,7 +694,7 @@ function StudioPageContent() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="搜索项目..."
-                  className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                  className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
                 />
               </div>
             </div>
@@ -707,7 +707,7 @@ function StudioPageContent() {
         className={
           activeTab === 'create'
             ? 'h-[calc(100vh-200px)] py-4 pl-6 pr-4'
-            : 'mx-auto max-w-7xl px-6 py-8'
+            : 'mx-auto max-w-7xl px-8 py-6'
         }
       >
         {activeTab === 'create' ? (
@@ -719,7 +719,7 @@ function StudioPageContent() {
           <>
             {loading ? (
               <div className="flex items-center justify-center py-20">
-                <LoaderIcon className="h-8 w-8 animate-spin text-amber-600" />
+                <LoaderIcon className="h-8 w-8 animate-spin text-violet-600" />
               </div>
             ) : error ? (
               <div className="rounded-xl bg-red-50 p-6 text-center">
@@ -781,7 +781,7 @@ export default function StudioPage() {
     <Suspense
       fallback={
         <div className="flex h-full items-center justify-center bg-gray-50">
-          <LoaderIcon className="h-8 w-8 animate-spin text-amber-600" />
+          <LoaderIcon className="h-8 w-8 animate-spin text-violet-600" />
         </div>
       }
     >

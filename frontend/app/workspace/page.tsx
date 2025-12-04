@@ -563,7 +563,7 @@ export default function WorkspacePage() {
       <Sidebar />
       <div className="flex-1 overflow-y-auto pb-16">
         <header className="border-b border-gray-200 bg-white">
-          <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-8 lg:flex-row lg:items-center lg:justify-between">
+          <div className="mx-auto flex max-w-7xl flex-col gap-4 px-8 py-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h1 className="text-2xl font-semibold text-gray-900">
                 Workspace 多资源分析
@@ -587,7 +587,7 @@ export default function WorkspacePage() {
           </div>
         </header>
 
-        <main className="mx-auto mt-10 grid max-w-7xl gap-8 px-6 xl:grid-cols-[320px,1fr,360px]">
+        <main className="mx-auto mt-10 grid max-w-7xl gap-8 px-8 xl:grid-cols-[320px,1fr,360px]">
           <section className="space-y-6">
             <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
               <div className="flex items-center justify-between">
@@ -648,10 +648,10 @@ export default function WorkspacePage() {
                         type="checkbox"
                         checked={selectedResourceIds.has(resource.id)}
                         onChange={() => toggleResourceSelection(resource.id)}
-                        className="mt-1 h-4 w-4 rounded border-gray-300 text-red-500 focus:ring-red-500"
+                        className="mt-1 h-4 w-4 rounded border-gray-300 text-violet-500 focus:ring-violet-500"
                         aria-label={`选择资源 ${resource.title}`}
                       />
-                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-red-500/10 text-sm font-medium text-red-600">
+                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-sm font-medium text-violet-600">
                         {resource.type.slice(0, 2).toUpperCase()}
                       </div>
                       <div className="flex-1">
@@ -759,7 +759,7 @@ export default function WorkspacePage() {
                         className={clsx(
                           'rounded-xl border p-4 text-left transition-shadow',
                           selectedTemplateId === template.id
-                            ? 'border-red-500 bg-red-50 shadow-sm'
+                            ? 'border-violet-500 bg-violet-50 shadow-sm'
                             : 'border-gray-200 bg-white hover:border-red-300 hover:shadow'
                         )}
                       >
@@ -785,7 +785,7 @@ export default function WorkspacePage() {
                     <select
                       value={model}
                       onChange={(event) => setModel(event.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200"
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
                     >
                       {aiModels.map((m) => (
                         <option key={m.id} value={m.modelId}>
@@ -802,7 +802,7 @@ export default function WorkspacePage() {
                       value={question}
                       onChange={(event) => setQuestion(event.target.value)}
                       placeholder="明确希望 AI 聚焦的分析问题"
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200"
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
                     />
                   </label>
                 </div>
@@ -821,8 +821,8 @@ export default function WorkspacePage() {
                   className={clsx(
                     'w-full rounded-xl px-4 py-3 text-sm font-semibold transition-colors',
                     creatingTask || selectedCount < 2 || templates.length === 0
-                      ? 'cursor-not-allowed bg-red-200 text-white'
-                      : 'bg-red-500 text-white hover:bg-red-600'
+                      ? 'cursor-not-allowed bg-violet-200 text-white'
+                      : 'bg-violet-500 text-white hover:bg-violet-600'
                   )}
                 >
                   {creatingTask ? '创建任务中...' : '启动 AI 分析'}
@@ -857,7 +857,7 @@ export default function WorkspacePage() {
                           className={clsx(
                             'w-full rounded-xl border p-4 text-left transition-shadow',
                             selectedTaskId === task.id
-                              ? 'border-red-500 bg-red-50 shadow-sm'
+                              ? 'border-violet-500 bg-violet-50 shadow-sm'
                               : 'border-gray-200 bg-white hover:border-red-300 hover:shadow'
                           )}
                         >
@@ -893,7 +893,7 @@ export default function WorkspacePage() {
                               className={clsx(
                                 'h-5 w-5 text-gray-300 transition-transform',
                                 selectedTaskId === task.id &&
-                                  'rotate-90 text-red-500'
+                                  'rotate-90 text-violet-500'
                               )}
                               fill="none"
                               stroke="currentColor"
@@ -943,7 +943,7 @@ export default function WorkspacePage() {
                     value={reportTitle}
                     onChange={(event) => setReportTitle(event.target.value)}
                     placeholder="如：AI 多资源对比分析报告"
-                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200"
+                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
                   />
                 </label>
 
@@ -956,7 +956,7 @@ export default function WorkspacePage() {
                     onChange={(event) => setReportNotes(event.target.value)}
                     rows={3}
                     placeholder="记录本次任务的分析背景、重点关注点等"
-                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200"
+                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
                   />
                 </label>
 

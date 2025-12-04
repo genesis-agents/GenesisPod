@@ -18,7 +18,7 @@ export default function AIOfficePage() {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
           <p className="text-gray-500">加载中...</p>
         </div>
       </div>
@@ -33,7 +33,7 @@ export default function AIOfficePage() {
         <main className="flex flex-1 items-center justify-center">
           <div className="mx-auto max-w-md text-center">
             <div className="mb-6 flex justify-center">
-              <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/25">
+              <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/25">
                 <svg
                   className="h-10 w-10 text-white"
                   fill="none"
@@ -55,7 +55,7 @@ export default function AIOfficePage() {
             </p>
             <button
               onClick={loginWithGoogle}
-              className="inline-flex items-center gap-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-8 py-4 text-lg font-semibold text-white shadow-lg shadow-emerald-500/25 transition-all hover:shadow-xl hover:shadow-emerald-500/30"
+              className="inline-flex items-center gap-3 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-8 py-4 text-lg font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-xl hover:shadow-violet-500/30"
             >
               <LogIn className="h-5 w-5" />
               使用 Google 登录
@@ -73,10 +73,10 @@ export default function AIOfficePage() {
       <main className="flex-1 overflow-auto">
         {/* Header */}
         <div className="sticky top-0 z-10 border-b border-gray-200 bg-white/80 backdrop-blur-sm">
-          <div className="mx-auto max-w-7xl px-6 py-8">
+          <div className="mx-auto max-w-7xl px-8 py-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/25">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/25">
                   <svg
                     className="h-7 w-7 text-white"
                     fill="none"

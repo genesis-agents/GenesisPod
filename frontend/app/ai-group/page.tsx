@@ -57,7 +57,7 @@ export default function AIGroupPage() {
       <div className="flex h-screen">
         <Sidebar />
         <div className="flex flex-1 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
         </div>
       </div>
     );
@@ -99,7 +99,7 @@ export default function AIGroupPage() {
       <main className="flex-1 overflow-auto">
         {/* Header */}
         <div className="sticky top-0 z-10 border-b border-gray-200 bg-white/80 backdrop-blur-sm">
-          <div className="mx-auto max-w-7xl px-6 py-8">
+          <div className="mx-auto max-w-7xl px-8 py-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/25">
@@ -172,10 +172,10 @@ export default function AIGroupPage() {
         </div>
 
         {/* Topic Grid */}
-        <div className="mx-auto max-w-7xl px-6 py-8">
+        <div className="mx-auto max-w-7xl px-8 py-6">
           {isLoadingTopics ? (
             <div className="flex items-center justify-center py-12">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
             </div>
           ) : filteredTopics.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
