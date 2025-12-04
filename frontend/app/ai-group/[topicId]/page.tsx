@@ -1063,7 +1063,7 @@ function SimpleMessageList({
 
   return (
     <div className="flex flex-col gap-1 px-4 py-4">
-      {messages.map((message) => (
+      {(messages || []).map((message) => (
         <MessageBubble
           key={message.id}
           message={message}
@@ -1819,7 +1819,7 @@ export default function TopicPage() {
     async (messageId: string, emoji: string) => {
       if (!topicId || !user?.id) return;
 
-      const message = messages.find((m) => m.id === messageId);
+      const message = (messages || []).find((m) => m.id === messageId);
       const hasReaction = message?.reactions?.some(
         (r) => r.userId === user.id && r.emoji === emoji
       );
@@ -2120,7 +2120,7 @@ export default function TopicPage() {
           )}
 
           {/* Messages - Virtualized */}
-          {messages.length === 0 && !isLoadingMessages ? (
+          {(messages || []).length === 0 && !isLoadingMessages ? (
             <div className="flex h-full flex-col items-center justify-center text-gray-400">
               <svg
                 className="mb-4 h-16 w-16"

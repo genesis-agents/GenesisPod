@@ -44,7 +44,7 @@ export default function AIGroupPage() {
   }, [authLoading, isAuthenticated, fetchTopics]);
 
   // 过滤topics
-  const filteredTopics = topics.filter((topic) => {
+  const filteredTopics = (topics || []).filter((topic) => {
     if (!searchQuery) return true;
     return (
       topic.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -470,7 +470,7 @@ function TopicCard({
         {/* Member Avatars */}
         <div className="mt-3 flex items-center">
           <div className="flex -space-x-2">
-            {topic.members.slice(0, 4).map((member, idx) => (
+            {(topic.members || []).slice(0, 4).map((member, idx) => (
               <div
                 key={member.id}
                 className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-gray-200 text-xs font-medium text-gray-600"
@@ -497,11 +497,11 @@ function TopicCard({
           </div>
 
           {/* AI Avatars */}
-          {topic.aiMembers.length > 0 && (
+          {(topic.aiMembers || []).length > 0 && (
             <>
               <div className="mx-2 h-4 w-px bg-gray-200" />
               <div className="flex -space-x-2">
-                {topic.aiMembers.slice(0, 2).map((ai) => {
+                {(topic.aiMembers || []).slice(0, 2).map((ai) => {
                   const model = findModel(ai.aiModel);
                   return (
                     <div
@@ -718,7 +718,7 @@ function CreateTopicDialog({
               Add AI Assistants
             </label>
             <div className="mt-2 grid grid-cols-2 gap-2">
-              {aiModels.map((model) => (
+              {(aiModels || []).map((model) => (
                 <button
                   key={model.id}
                   onClick={() => {
