@@ -28,6 +28,9 @@ export default function CreateMissionDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Ensure teamMembers is always an array
+  const membersList = teamMembers || [];
+
   // Load team members on mount
   useEffect(() => {
     fetchTeamMembers(topicId);
@@ -35,11 +38,12 @@ export default function CreateMissionDialog({
 
   // Auto-select current leader if exists
   useEffect(() => {
-    const currentLeader = teamMembers.find((m) => m.isLeader);
+    if (membersList.length === 0) return;
+    const currentLeader = membersList.find((m) => m.isLeader);
     if (currentLeader && !selectedLeaderId) {
       setSelectedLeaderId(currentLeader.id);
     }
-  }, [teamMembers, selectedLeaderId]);
+  }, [membersList, selectedLeaderId]);
 
   const handleSubmit = async () => {
     if (!selectedLeaderId || !taskDescription.trim()) return;
@@ -49,7 +53,7 @@ export default function CreateMissionDialog({
 
     try {
       // Set the leader first if changed
-      const currentLeader = teamMembers.find((m) => m.isLeader);
+      const currentLeader = membersList.find((m) => m.isLeader);
       if (!currentLeader || currentLeader.id !== selectedLeaderId) {
         await setTeamLeader(topicId, selectedLeaderId);
       }
@@ -72,7 +76,7 @@ export default function CreateMissionDialog({
     }
   };
 
-  const selectedLeader = teamMembers.find((m) => m.id === selectedLeaderId);
+  const selectedLeader = membersList.find((m) => m.id === selectedLeaderId);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -118,7 +122,7 @@ export default function CreateMissionDialog({
               <div className="flex items-center justify-center py-8">
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
               </div>
-            ) : teamMembers.length === 0 ? (
+            ) : membersList.length === 0 ? (
               <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center">
                 <p className="text-sm text-gray-500">
                   No AI members in this topic. Please add AI members first.
@@ -126,7 +130,7 @@ export default function CreateMissionDialog({
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
-                {teamMembers.map((member) => (
+                {membersList.map((member) => (
                   <button
                     key={member.id}
                     onClick={() => setSelectedLeaderId(member.id)}
