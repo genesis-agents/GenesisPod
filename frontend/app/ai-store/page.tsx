@@ -275,8 +275,8 @@ export default function AIStorePage() {
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 z-10 border-b border-gray-200 bg-white/80 backdrop-blur-sm">
-          <div className="mx-auto max-w-7xl px-6 py-8">
+        <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
+          <div className="px-8 py-6">
             <div className="flex items-center gap-4">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/25">
                 <svg
@@ -340,7 +340,7 @@ export default function AIStorePage() {
           </div>
         </div>
 
-        <div className="mx-auto max-w-7xl px-6 py-8">
+        <div className="px-8 py-6">
           {/* Featured Section */}
           {selectedCategory === 'all' && !searchQuery && (
             <section className="mb-10">

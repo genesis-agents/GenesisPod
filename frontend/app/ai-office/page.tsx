@@ -72,8 +72,8 @@ export default function AIOfficePage() {
       <Sidebar />
       <main className="flex-1 overflow-auto">
         {/* Header */}
-        <div className="sticky top-0 z-10 border-b border-gray-200 bg-white/80 backdrop-blur-sm">
-          <div className="mx-auto max-w-7xl px-8 py-6">
+        <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
+          <div className="px-8 py-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/25">

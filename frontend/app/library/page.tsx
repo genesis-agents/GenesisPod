@@ -987,7 +987,7 @@ function LibraryPageContent() {
       <main className="flex-1 overflow-y-auto bg-gray-50">
         {/* Sticky Search Bar Container */}
         <div className="sticky top-0 z-10 bg-gray-50 pb-4 pt-6">
-          <div className="mx-auto max-w-7xl px-8">
+          <div className="px-8">
             {/* Large Search Bar */}
             <div className="mb-6">
               <div className="relative rounded-lg border border-gray-300 bg-white shadow-sm">
@@ -1129,218 +1129,19 @@ function LibraryPageContent() {
 
         {/* Main content area */}
         <div className="px-8 py-6">
-          <div className="mx-auto max-w-7xl">
-            {/* Bookmarks and All Content View */}
-            {activeTab === 'bookmarks' &&
-              (loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
-                </div>
-              ) : !paginatedItems || paginatedItems.items.length === 0 ? (
-                <div>
-                  {/* Empty state for regular bookmarks */}
-                  {bookmarkedImages.length === 0 && (
-                    <div className="py-12 text-center">
-                      <svg
-                        className="mx-auto h-12 w-12 text-gray-400"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                        />
-                      </svg>
-                      <h3 className="mt-2 text-sm font-medium text-gray-900">
-                        No bookmarks yet
-                      </h3>
-                      <p className="mt-1 text-sm text-gray-500">
-                        Browse resources and click the bookmark button to save
-                        your favorites
-                      </p>
-                      <Link
-                        href="/"
-                        className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                      >
-                        <span>Browse Resources</span>
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div>
-                  {/* Selection info bar */}
-                  {selectionMode && (
-                    <div className="mb-4 flex items-center justify-between rounded-lg bg-blue-50 px-4 py-2">
-                      <span className="text-sm text-blue-700">
-                        {selectedCount} of {paginatedItems.items.length}{' '}
-                        selected
-                      </span>
-                      <button
-                        onClick={() =>
-                          selectAll(paginatedItems.items.map((i) => i.id))
-                        }
-                        className="text-sm font-medium text-blue-600 hover:text-blue-700"
-                      >
-                        Select all on this page
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Categorized Bookmarks */}
-                  {(() => {
-                    // Categorize items by type
-                    const videoTypes = ['YOUTUBE', 'YOUTUBE_VIDEO'];
-                    const documentTypes = ['PAPER', 'BLOG', 'NEWS', 'REPORT'];
-
-                    const videoItems = paginatedItems.items.filter((item) =>
-                      videoTypes.includes(item.resource.type)
-                    );
-                    const documentItems = paginatedItems.items.filter((item) =>
-                      documentTypes.includes(item.resource.type)
-                    );
-                    const otherItems = paginatedItems.items.filter(
-                      (item) =>
-                        !videoTypes.includes(item.resource.type) &&
-                        !documentTypes.includes(item.resource.type)
-                    );
-
-                    return (
-                      <div className="space-y-8">
-                        {/* Videos Section */}
-                        {videoItems.length > 0 && (
-                          <div>
-                            <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
-                              <svg
-                                className="h-5 w-5 text-red-600"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                                />
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                />
-                              </svg>
-                              Videos ({videoItems.length})
-                            </h3>
-                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                              {videoItems.map((item) => (
-                                <ResourceCard key={item.id} item={item} />
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Documents Section */}
-                        {documentItems.length > 0 && (
-                          <div>
-                            <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
-                              <svg
-                                className="h-5 w-5 text-blue-600"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                />
-                              </svg>
-                              Documents ({documentItems.length})
-                            </h3>
-                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                              {documentItems.map((item) => (
-                                <ResourceCard key={item.id} item={item} />
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Other Items Section */}
-                        {otherItems.length > 0 && (
-                          <div>
-                            <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
-                              <svg
-                                className="h-5 w-5 text-gray-600"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                                />
-                              </svg>
-                              Other ({otherItems.length})
-                            </h3>
-                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                              {otherItems.map((item) => (
-                                <ResourceCard key={item.id} item={item} />
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-
-                  {/* Load more indicator */}
-                  <div ref={loadMoreRef} className="py-8 text-center">
-                    {loadingMore && (
-                      <div className="flex items-center justify-center gap-2">
-                        <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-blue-600"></div>
-                        <span className="text-sm text-gray-500">
-                          Loading more...
-                        </span>
-                      </div>
-                    )}
-                    {!loadingMore && !paginatedItems.pagination.hasMore && (
-                      <span className="text-sm text-gray-400">
-                        {paginatedItems.pagination.total} items total
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-
-            {/* Notes Tab */}
-            {activeTab === 'notes' && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    My Notes
-                  </h2>
-                  <p className="text-sm text-gray-500">
-                    All your notes organized by resource
-                  </p>
-                </div>
-                <NotesList searchQuery={searchQuery} showActions />
+          {/* Bookmarks and All Content View */}
+          {activeTab === 'bookmarks' &&
+            (loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
               </div>
-            )}
-
-            {/* Images Tab - Bookmarked AI Images Gallery */}
-            {activeTab === 'images' && (
+            ) : !paginatedItems || paginatedItems.items.length === 0 ? (
               <div>
-                {bookmarkedImages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-20">
+                {/* Empty state for regular bookmarks */}
+                {bookmarkedImages.length === 0 && (
+                  <div className="py-12 text-center">
                     <svg
-                      className="h-16 w-16 text-gray-300"
+                      className="mx-auto h-12 w-12 text-gray-400"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -1348,41 +1149,237 @@ function LibraryPageContent() {
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        strokeWidth={2}
+                        d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
                       />
                     </svg>
-                    <h3 className="mt-4 text-lg font-medium text-gray-900">
-                      No saved images
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">
+                      No bookmarks yet
                     </h3>
-                    <p className="mt-1 text-gray-500">
-                      AI-generated images you save will appear here
+                    <p className="mt-1 text-sm text-gray-500">
+                      Browse resources and click the bookmark button to save
+                      your favorites
                     </p>
-                  </div>
-                ) : (
-                  <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                    {bookmarkedImages.map((image) => (
-                      <div
-                        key={image.id}
-                        className="group relative aspect-square cursor-pointer overflow-hidden rounded-xl bg-gray-100"
-                        onClick={() => handleImageClick(image)}
-                      >
-                        <img
-                          src={image.imageUrl}
-                          alt={image.prompt}
-                          className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-                        <div className="absolute bottom-0 left-0 right-0 p-3 text-white opacity-0 transition-opacity group-hover:opacity-100">
-                          <p className="line-clamp-2 text-sm">{image.prompt}</p>
-                        </div>
-                      </div>
-                    ))}
+                    <Link
+                      href="/"
+                      className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                    >
+                      <span>Browse Resources</span>
+                    </Link>
                   </div>
                 )}
               </div>
-            )}
-          </div>
+            ) : (
+              <div>
+                {/* Selection info bar */}
+                {selectionMode && (
+                  <div className="mb-4 flex items-center justify-between rounded-lg bg-blue-50 px-4 py-2">
+                    <span className="text-sm text-blue-700">
+                      {selectedCount} of {paginatedItems.items.length} selected
+                    </span>
+                    <button
+                      onClick={() =>
+                        selectAll(paginatedItems.items.map((i) => i.id))
+                      }
+                      className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                    >
+                      Select all on this page
+                    </button>
+                  </div>
+                )}
+
+                {/* Categorized Bookmarks */}
+                {(() => {
+                  // Categorize items by type
+                  const videoTypes = ['YOUTUBE', 'YOUTUBE_VIDEO'];
+                  const documentTypes = ['PAPER', 'BLOG', 'NEWS', 'REPORT'];
+
+                  const videoItems = paginatedItems.items.filter((item) =>
+                    videoTypes.includes(item.resource.type)
+                  );
+                  const documentItems = paginatedItems.items.filter((item) =>
+                    documentTypes.includes(item.resource.type)
+                  );
+                  const otherItems = paginatedItems.items.filter(
+                    (item) =>
+                      !videoTypes.includes(item.resource.type) &&
+                      !documentTypes.includes(item.resource.type)
+                  );
+
+                  return (
+                    <div className="space-y-8">
+                      {/* Videos Section */}
+                      {videoItems.length > 0 && (
+                        <div>
+                          <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+                            <svg
+                              className="h-5 w-5 text-red-600"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                              />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
+                            </svg>
+                            Videos ({videoItems.length})
+                          </h3>
+                          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            {videoItems.map((item) => (
+                              <ResourceCard key={item.id} item={item} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Documents Section */}
+                      {documentItems.length > 0 && (
+                        <div>
+                          <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+                            <svg
+                              className="h-5 w-5 text-blue-600"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                              />
+                            </svg>
+                            Documents ({documentItems.length})
+                          </h3>
+                          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            {documentItems.map((item) => (
+                              <ResourceCard key={item.id} item={item} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Other Items Section */}
+                      {otherItems.length > 0 && (
+                        <div>
+                          <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+                            <svg
+                              className="h-5 w-5 text-gray-600"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                              />
+                            </svg>
+                            Other ({otherItems.length})
+                          </h3>
+                          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            {otherItems.map((item) => (
+                              <ResourceCard key={item.id} item={item} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Load more indicator */}
+                <div ref={loadMoreRef} className="py-8 text-center">
+                  {loadingMore && (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-blue-600"></div>
+                      <span className="text-sm text-gray-500">
+                        Loading more...
+                      </span>
+                    </div>
+                  )}
+                  {!loadingMore && !paginatedItems.pagination.hasMore && (
+                    <span className="text-sm text-gray-400">
+                      {paginatedItems.pagination.total} items total
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+
+          {/* Notes Tab */}
+          {activeTab === 'notes' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  My Notes
+                </h2>
+                <p className="text-sm text-gray-500">
+                  All your notes organized by resource
+                </p>
+              </div>
+              <NotesList searchQuery={searchQuery} showActions />
+            </div>
+          )}
+
+          {/* Images Tab - Bookmarked AI Images Gallery */}
+          {activeTab === 'images' && (
+            <div>
+              {bookmarkedImages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-20">
+                  <svg
+                    className="h-16 w-16 text-gray-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                  <h3 className="mt-4 text-lg font-medium text-gray-900">
+                    No saved images
+                  </h3>
+                  <p className="mt-1 text-gray-500">
+                    AI-generated images you save will appear here
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                  {bookmarkedImages.map((image) => (
+                    <div
+                      key={image.id}
+                      className="group relative aspect-square cursor-pointer overflow-hidden rounded-xl bg-gray-100"
+                      onClick={() => handleImageClick(image)}
+                    >
+                      <img
+                        src={image.imageUrl}
+                        alt={image.prompt}
+                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+                      <div className="absolute bottom-0 left-0 right-0 p-3 text-white opacity-0 transition-opacity group-hover:opacity-100">
+                        <p className="line-clamp-2 text-sm">{image.prompt}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </main>
 
