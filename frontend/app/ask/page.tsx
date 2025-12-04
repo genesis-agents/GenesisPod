@@ -410,10 +410,14 @@ export default function AskPage() {
                                 {imageModels.map((model) => (
                                   <button
                                     key={model.id}
+                                    type="button"
                                     className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
                                       setInput(`[Image: ${model.name}] `);
                                       setShowTools(false);
+                                      inputRef.current?.focus();
                                     }}
                                   >
                                     <ModelIcon model={model} size={16} />
@@ -838,9 +842,12 @@ export default function AskPage() {
                                       key={model.id}
                                       type="button"
                                       className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                                      onClick={() => {
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
                                         setInput(`[Image: ${model.name}] `);
                                         setShowTools(false);
+                                        inputRef.current?.focus();
                                       }}
                                     >
                                       <ModelIcon model={model} size={16} />
