@@ -906,10 +906,15 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
     set({ isLoadingMissions: true });
     try {
       const response = await api.getMissions(topicId, options);
-      set({ missions: response.missions, isLoadingMissions: false });
+      // Backend returns array directly, not { missions: [...] }
+      // Handle both cases for safety
+      const missions = Array.isArray(response)
+        ? response
+        : response?.missions || [];
+      set({ missions, isLoadingMissions: false });
     } catch (error) {
       console.error('Failed to fetch missions:', error);
-      set({ isLoadingMissions: false });
+      set({ missions: [], isLoadingMissions: false });
     }
   },
 
