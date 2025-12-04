@@ -1197,237 +1197,189 @@ function QuantitativePerformanceSummary({
     return '不合格';
   };
 
+  // 计算团队整体评分
+  const teamScore =
+    agentPerformances.length > 0
+      ? Math.round(
+          agentPerformances.reduce((sum, p) => sum + p.efficiencyScore, 0) /
+            agentPerformances.length
+        )
+      : 0;
+
   return (
     <div className="border-t border-gray-100 p-4">
-      <h3 className="mb-4 text-sm font-semibold text-gray-700">
+      <h3 className="mb-3 text-sm font-semibold text-gray-700">
         📊 量化绩效报告
       </h3>
 
-      {/* 总体指标卡片 */}
-      <div className="mb-4 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 p-4">
-        <div className="mb-3 text-xs font-medium text-gray-600">任务总览</div>
-        <div className="grid grid-cols-4 gap-3">
-          <div className="rounded-lg bg-white p-3 shadow-sm">
-            <div className="text-2xl font-bold text-gray-900">{totalTasks}</div>
-            <div className="text-xs text-gray-500">总任务数</div>
+      {/* 核心指标 - 横向列表布局 */}
+      <div className="mb-3 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 p-3">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-600">任务完成</span>
+            <span className="text-sm font-semibold">
+              <span className="text-green-600">{completedCount}</span>
+              <span className="text-gray-400">/{totalTasks}</span>
+              <span className="ml-1 text-green-600">
+                ({completionRate.toFixed(0)}%)
+              </span>
+            </span>
           </div>
-          <div className="rounded-lg bg-white p-3 shadow-sm">
-            <div className="text-2xl font-bold text-green-600">
-              {completionRate.toFixed(0)}%
-            </div>
-            <div className="text-xs text-gray-500">完成率</div>
-          </div>
-          <div className="rounded-lg bg-white p-3 shadow-sm">
-            <div className="text-2xl font-bold text-blue-600">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-600">一次通过率</span>
+            <span className="text-sm font-semibold text-blue-600">
               {firstPassRate.toFixed(0)}%
-            </div>
-            <div className="text-xs text-gray-500">一次通过率</div>
+              <span className="ml-1 font-normal text-gray-400">
+                ({firstPassTasks}/{completedCount})
+              </span>
+            </span>
           </div>
-          <div className="rounded-lg bg-white p-3 shadow-sm">
-            <div className="text-2xl font-bold text-purple-600">
-              {avgRevisions.toFixed(1)}
-            </div>
-            <div className="text-xs text-gray-500">平均修订次数</div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-600">修订统计</span>
+            <span className="text-sm font-semibold">
+              共<span className="mx-0.5 text-orange-600">{totalRevisions}</span>
+              次
+              <span className="ml-1 font-normal text-gray-400">
+                (平均 {avgRevisions.toFixed(1)}次/任务)
+              </span>
+            </span>
           </div>
-        </div>
-      </div>
-
-      {/* 时间效率指标 */}
-      <div className="mb-4 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 p-4">
-        <div className="mb-3 text-xs font-medium text-gray-600">时间效率</div>
-        <div className="grid grid-cols-4 gap-3">
-          <div className="rounded-lg bg-white p-3 shadow-sm">
-            <div className="text-lg font-bold text-gray-900">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-600">总耗时</span>
+            <span className="text-sm font-semibold text-gray-900">
               {formatDuration(missionDuration)}
-            </div>
-            <div className="text-xs text-gray-500">任务总耗时</div>
-          </div>
-          <div className="rounded-lg bg-white p-3 shadow-sm">
-            <div className="text-lg font-bold text-blue-600">
-              {formatDuration(avgDuration)}
-            </div>
-            <div className="text-xs text-gray-500">平均子任务耗时</div>
-          </div>
-          <div className="rounded-lg bg-white p-3 shadow-sm">
-            <div className="text-lg font-bold text-green-600">
-              {formatDuration(minDuration)}
-            </div>
-            <div className="text-xs text-gray-500">最快完成</div>
-          </div>
-          <div className="rounded-lg bg-white p-3 shadow-sm">
-            <div className="text-lg font-bold text-orange-600">
-              {formatDuration(maxDuration)}
-            </div>
-            <div className="text-xs text-gray-500">最慢完成</div>
+            </span>
           </div>
         </div>
       </div>
 
-      {/* 任务分布 */}
-      <div className="mb-4 grid grid-cols-2 gap-3">
-        {/* 优先级分布 */}
-        <div className="rounded-lg bg-gray-50 p-3">
-          <div className="mb-2 text-xs font-medium text-gray-600">
-            优先级分布
-          </div>
-          <div className="space-y-1">
-            {priorityDistribution.CRITICAL > 0 && (
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-red-600">紧急</span>
-                <span className="font-medium">
-                  {priorityDistribution.CRITICAL} (
-                  {((priorityDistribution.CRITICAL / totalTasks) * 100).toFixed(
-                    0
-                  )}
-                  %)
-                </span>
-              </div>
-            )}
-            {priorityDistribution.HIGH > 0 && (
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-orange-600">高</span>
-                <span className="font-medium">
-                  {priorityDistribution.HIGH} (
-                  {((priorityDistribution.HIGH / totalTasks) * 100).toFixed(0)}
-                  %)
-                </span>
-              </div>
-            )}
-            {priorityDistribution.MEDIUM > 0 && (
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-yellow-600">中</span>
-                <span className="font-medium">
-                  {priorityDistribution.MEDIUM} (
-                  {((priorityDistribution.MEDIUM / totalTasks) * 100).toFixed(
-                    0
-                  )}
-                  %)
-                </span>
-              </div>
-            )}
-            {priorityDistribution.LOW > 0 && (
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-600">低</span>
-                <span className="font-medium">
-                  {priorityDistribution.LOW} (
-                  {((priorityDistribution.LOW / totalTasks) * 100).toFixed(0)}%)
-                </span>
-              </div>
-            )}
+      {/* 团队综合评分 */}
+      <div className="mb-3 flex items-center justify-between rounded-lg bg-gradient-to-r from-purple-50 to-pink-50 p-3">
+        <div>
+          <div className="text-xs text-gray-600">团队综合评分</div>
+          <div className="mt-0.5 text-xs text-gray-400">
+            基于完成率、一次通过率、修订次数
           </div>
         </div>
-
-        {/* 任务类型分布 */}
-        <div className="rounded-lg bg-gray-50 p-3">
-          <div className="mb-2 text-xs font-medium text-gray-600">
-            任务类型分布
+        <div className="text-right">
+          <div className={`text-2xl font-bold ${getScoreColor(teamScore)}`}>
+            {teamScore}
+            <span className="text-sm font-normal text-gray-400">/100</span>
           </div>
-          <div className="space-y-1">
-            {Object.entries(typeDistribution).map(([type, count]) => (
-              <div
-                key={type}
-                className="flex items-center justify-between text-xs"
-              >
-                <span className="text-gray-700">{type}</span>
-                <span className="font-medium">
-                  {count} ({((count / totalTasks) * 100).toFixed(0)}%)
-                </span>
-              </div>
-            ))}
+          <div className={`text-xs ${getScoreColor(teamScore)}`}>
+            {getScoreLabel(teamScore)}
           </div>
         </div>
       </div>
 
-      {/* 成员详细绩效表格 */}
+      {/* 成员绩效排行 - 简洁列表 */}
       <div className="rounded-lg border border-gray-200 bg-white">
-        <div className="border-b border-gray-200 bg-gray-50 px-4 py-2">
-          <div className="text-xs font-medium text-gray-600">成员绩效排名</div>
+        <div className="border-b border-gray-100 bg-gray-50 px-3 py-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-gray-600">
+              成员绩效排行
+            </span>
+            <span className="text-xs text-gray-400">完成 | 通过率 | 评分</span>
+          </div>
         </div>
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-gray-50">
           {agentPerformances.map((perf, index) => (
-            <div key={perf.agent.id} className="px-4 py-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  {/* 排名徽章 */}
-                  <div
-                    className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
-                      index === 0
-                        ? 'bg-yellow-100 text-yellow-700'
-                        : index === 1
-                          ? 'bg-gray-100 text-gray-600'
-                          : index === 2
-                            ? 'bg-orange-100 text-orange-700'
-                            : 'bg-gray-50 text-gray-500'
-                    }`}
-                  >
-                    {index + 1}
-                  </div>
-                  {/* 头像和名称 */}
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-blue-400 text-sm text-white">
-                      {perf.agent.displayName?.charAt(0) || 'A'}
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">
-                        {perf.agent.displayName}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {perf.agent.agentName || perf.agent.aiModel}
-                      </div>
-                    </div>
-                  </div>
+            <div
+              key={perf.agent.id}
+              className="flex items-center justify-between px-3 py-2"
+            >
+              <div className="flex items-center gap-2">
+                {/* 排名 */}
+                <div
+                  className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${
+                    index === 0
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : index === 1
+                        ? 'bg-gray-100 text-gray-600'
+                        : index === 2
+                          ? 'bg-orange-100 text-orange-700'
+                          : 'bg-gray-50 text-gray-400'
+                  }`}
+                >
+                  {index + 1}
                 </div>
-                {/* 效率评分 */}
-                <div className="text-right">
-                  <div
-                    className={`text-xl font-bold ${getScoreColor(perf.efficiencyScore)}`}
-                  >
-                    {perf.efficiencyScore}
-                  </div>
-                  <div
-                    className={`text-xs ${getScoreColor(perf.efficiencyScore)}`}
-                  >
-                    {getScoreLabel(perf.efficiencyScore)}
-                  </div>
+                {/* 头像和名称 */}
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-blue-400 text-xs text-white">
+                  {perf.agent.displayName?.charAt(0) || 'A'}
                 </div>
+                <span className="max-w-[80px] truncate text-sm font-medium text-gray-900">
+                  {perf.agent.displayName}
+                </span>
               </div>
-              {/* 详细指标 */}
-              <div className="mt-2 grid grid-cols-5 gap-2 text-center">
-                <div className="rounded bg-gray-50 px-2 py-1">
-                  <div className="text-sm font-semibold text-gray-900">
-                    {perf.completedTasks}/{perf.totalTasks}
-                  </div>
-                  <div className="text-xs text-gray-500">完成数</div>
-                </div>
-                <div className="rounded bg-gray-50 px-2 py-1">
-                  <div className="text-sm font-semibold text-green-600">
-                    {perf.completionRate.toFixed(0)}%
-                  </div>
-                  <div className="text-xs text-gray-500">完成率</div>
-                </div>
-                <div className="rounded bg-gray-50 px-2 py-1">
-                  <div className="text-sm font-semibold text-blue-600">
-                    {perf.firstPassRate.toFixed(0)}%
-                  </div>
-                  <div className="text-xs text-gray-500">一次通过</div>
-                </div>
-                <div className="rounded bg-gray-50 px-2 py-1">
-                  <div className="text-sm font-semibold text-orange-600">
-                    {perf.totalRevisions}
-                  </div>
-                  <div className="text-xs text-gray-500">修订次数</div>
-                </div>
-                <div className="rounded bg-gray-50 px-2 py-1">
-                  <div className="text-sm font-semibold text-purple-600">
-                    {formatDuration(perf.avgDuration)}
-                  </div>
-                  <div className="text-xs text-gray-500">平均耗时</div>
-                </div>
+              {/* 指标 */}
+              <div className="flex items-center gap-3 text-xs">
+                <span className="text-gray-600">
+                  {perf.completedTasks}/{perf.totalTasks}
+                </span>
+                <span className="w-10 text-right text-blue-600">
+                  {perf.firstPassRate.toFixed(0)}%
+                </span>
+                <span
+                  className={`w-8 text-right font-semibold ${getScoreColor(perf.efficiencyScore)}`}
+                >
+                  {perf.efficiencyScore}
+                </span>
               </div>
             </div>
           ))}
         </div>
       </div>
+
+      {/* 任务分布 - 可折叠详情 */}
+      <details className="mt-3">
+        <summary className="cursor-pointer text-xs text-gray-500 hover:text-gray-700">
+          查看任务分布详情 ▾
+        </summary>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {/* 优先级分布 */}
+          <div className="rounded bg-gray-50 p-2">
+            <div className="mb-1 text-xs font-medium text-gray-600">优先级</div>
+            <div className="space-y-0.5 text-xs">
+              {priorityDistribution.CRITICAL > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-red-600">紧急</span>
+                  <span>{priorityDistribution.CRITICAL}</span>
+                </div>
+              )}
+              {priorityDistribution.HIGH > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-orange-600">高</span>
+                  <span>{priorityDistribution.HIGH}</span>
+                </div>
+              )}
+              {priorityDistribution.MEDIUM > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-yellow-600">中</span>
+                  <span>{priorityDistribution.MEDIUM}</span>
+                </div>
+              )}
+              {priorityDistribution.LOW > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">低</span>
+                  <span>{priorityDistribution.LOW}</span>
+                </div>
+              )}
+            </div>
+          </div>
+          {/* 类型分布 */}
+          <div className="rounded bg-gray-50 p-2">
+            <div className="mb-1 text-xs font-medium text-gray-600">类型</div>
+            <div className="space-y-0.5 text-xs">
+              {Object.entries(typeDistribution).map(([type, count]) => (
+                <div key={type} className="flex justify-between">
+                  <span className="text-gray-600">{type}</span>
+                  <span>{count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </details>
     </div>
   );
 }
