@@ -564,14 +564,15 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
         set((state) => ({
           messages: state.messages.map((m) => {
             if (m.id === messageId) {
-              const existingReaction = m.reactions.find(
+              const reactions = m.reactions || [];
+              const existingReaction = reactions.find(
                 (r) => r.userId === reactionUserId && r.emoji === emoji
               );
               if (!existingReaction) {
                 return {
                   ...m,
                   reactions: [
-                    ...m.reactions,
+                    ...reactions,
                     {
                       id: '',
                       messageId,
@@ -606,7 +607,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
             if (m.id === messageId) {
               return {
                 ...m,
-                reactions: m.reactions.filter(
+                reactions: (m.reactions || []).filter(
                   (r) => !(r.userId === removeUserId && r.emoji === emoji)
                 ),
               };

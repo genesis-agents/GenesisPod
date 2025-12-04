@@ -28,10 +28,14 @@ export default function AIGroupPage() {
   const isAuthenticated = !!accessToken;
 
   // 查找模型：优先用 modelId 匹配（新方式），兼容旧数据
-  const findModel = (aiModel: string) =>
-    aiModels.find((m) => m.modelId === aiModel) ||
-    aiModels.find((m) => m.modelName === aiModel) ||
-    aiModels.find((m) => m.id === aiModel);
+  const findModel = (aiModel: string) => {
+    const models = aiModels || [];
+    return (
+      models.find((m) => m.modelId === aiModel) ||
+      models.find((m) => m.modelName === aiModel) ||
+      models.find((m) => m.id === aiModel)
+    );
+  };
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
@@ -578,7 +582,7 @@ function CreateTopicDialog({
         metadata: tags.length > 0 ? { tags } : undefined,
         aiMembers: selectedAI.map((aiId) => {
           // aiId 是 model.id（数据库唯一 ID），需要找到对应的 modelId
-          const model = aiModels.find((m) => m.id === aiId);
+          const model = (aiModels || []).find((m) => m.id === aiId);
           return {
             aiModel: model?.modelId || aiId, // 使用 modelId（唯一）而不是旧的 id
             displayName: `AI-${model?.name || aiId}`,

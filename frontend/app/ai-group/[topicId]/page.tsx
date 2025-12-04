@@ -328,7 +328,7 @@ function MemberPanel({
             )}
           </div>
           <div className="space-y-1">
-            {topic.members.map((member) => {
+            {(topic.members || []).map((member) => {
               const isOnline = onlineUsers.has(member.userId);
               const isTyping = typingUsers.has(member.userId);
 
@@ -408,7 +408,7 @@ function MemberPanel({
               AI Assistants ({topic.aiMemberCount})
             </h3>
             <div className="space-y-1">
-              {topic.aiMembers.map((ai) => {
+              {(topic.aiMembers || []).map((ai) => {
                 const model = findModel(ai.aiModel);
                 const isTyping = typingAIs.has(ai.id);
 
@@ -1166,7 +1166,7 @@ function MessageInput({
       mention: 'AllAIs',
       icon: 'cpu', // SVG icon type
     },
-    ...topic.members.map((m) => {
+    ...(topic.members || []).map((m) => {
       const displayName =
         m.nickname || m.user.fullName || m.user.username || 'User';
       return {
@@ -1178,7 +1178,7 @@ function MessageInput({
         avatar: m.user.avatarUrl,
       };
     }),
-    ...topic.aiMembers.map((ai) => {
+    ...(topic.aiMembers || []).map((ai) => {
       const model = findModel(ai.aiModel);
       // Keep full display name for @mention to distinguish AI members with similar names
       // "AI-Gemini (Google)" and "AI-Gemini (Image)" need to be distinguishable
@@ -1589,7 +1589,7 @@ function MessageInput({
 
         {/* Quick AI Mention Buttons */}
         <div className="flex gap-1">
-          {topic.aiMembers.slice(0, 2).map((ai) => {
+          {(topic.aiMembers || []).slice(0, 2).map((ai) => {
             const model = findModel(ai.aiModel);
             // Keep full display name for @mention to distinguish AI members
             const mentionName = ai.displayName.replace(/\s+/g, '-');
@@ -1710,10 +1710,14 @@ export default function TopicPage() {
 
   // 查找模型：优先用 modelId 匹配（新方式），兼容旧数据
   const findModel = useCallback(
-    (aiModel: string) =>
-      aiModels.find((m) => m.modelId === aiModel) ||
-      aiModels.find((m) => m.modelName === aiModel) ||
-      aiModels.find((m) => m.id === aiModel),
+    (aiModel: string) => {
+      const models = aiModels || [];
+      return (
+        models.find((m) => m.modelId === aiModel) ||
+        models.find((m) => m.modelName === aiModel) ||
+        models.find((m) => m.id === aiModel)
+      );
+    },
     [aiModels]
   );
 

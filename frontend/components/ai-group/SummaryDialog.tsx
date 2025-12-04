@@ -20,10 +20,14 @@ export default function SummaryDialog({ topic, onClose }: SummaryDialogProps) {
   const { models: aiModels } = useAIModels();
 
   // 查找模型：优先用 modelId 匹配，兼容旧数据
-  const findModel = (aiModel: string) =>
-    aiModels.find((m) => m.modelId === aiModel) ||
-    aiModels.find((m) => m.modelName === aiModel) ||
-    aiModels.find((m) => m.id === aiModel);
+  const findModel = (aiModel: string) => {
+    const models = aiModels || [];
+    return (
+      models.find((m) => m.modelId === aiModel) ||
+      models.find((m) => m.modelName === aiModel) ||
+      models.find((m) => m.id === aiModel)
+    );
+  };
 
   useEffect(() => {
     loadSummaries();
@@ -320,7 +324,7 @@ function GenerateSummaryDialog({
               AI Model
             </label>
             <div className="grid grid-cols-2 gap-2">
-              {aiModels.map((model) => (
+              {(aiModels || []).map((model) => (
                 <button
                   key={model.id}
                   onClick={() => setSelectedModel(model.modelId)}

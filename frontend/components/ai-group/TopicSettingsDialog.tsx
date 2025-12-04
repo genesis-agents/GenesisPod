@@ -215,13 +215,13 @@ function AISettings({
         </button>
       </div>
 
-      {topic.aiMembers.length === 0 ? (
+      {(topic.aiMembers || []).length === 0 ? (
         <div className="rounded-lg border border-dashed border-gray-300 p-8 text-center">
           <p className="text-sm text-gray-500">No AI assistants added yet</p>
         </div>
       ) : (
         <div className="space-y-2">
-          {topic.aiMembers.map((ai) => {
+          {(topic.aiMembers || []).map((ai) => {
             const model = findModel(ai.aiModel);
             return (
               <div
@@ -647,7 +647,7 @@ function MemberSettings({
       </div>
 
       <div className="space-y-2">
-        {topic.members.map((member) => (
+        {(topic.members || []).map((member) => (
           <div
             key={member.id}
             className="flex items-center justify-between rounded-lg border border-gray-200 p-3"
@@ -719,7 +719,7 @@ function MemberSettings({
       {showAddDialog && (
         <AddMemberDialog
           topicId={topic.id}
-          existingMemberIds={topic.members.map((m) => m.user.id)}
+          existingMemberIds={(topic.members || []).map((m) => m.user.id)}
           onAdd={onAdd}
           onClose={() => setShowAddDialog(false)}
         />
