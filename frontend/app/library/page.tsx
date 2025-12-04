@@ -1528,7 +1528,7 @@ function LibraryPageContent() {
                       No saved images
                     </h3>
                     <p className="mt-1 text-gray-500">
-                      AI-generated images you bookmark will appear here
+                      AI-generated images you save will appear here
                     </p>
                   </div>
                 ) : (
