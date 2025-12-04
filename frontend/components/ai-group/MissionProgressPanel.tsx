@@ -884,6 +884,15 @@ function TaskDetailCard({
   const hasResult = !!task.result;
   const hasFeedback = !!task.leaderFeedback;
 
+  // 【关键修复】只有当任务处于活动状态且正在执行时才显示 working 状态
+  // 已完成、已取消或失败的任务不应显示 "正在思考和处理中"
+  const isTaskActive =
+    task.status === 'IN_PROGRESS' ||
+    task.status === 'PENDING' ||
+    task.status === 'AWAITING_REVIEW' ||
+    task.status === 'REVISION_NEEDED';
+  const showWorking = isWorking && isTaskActive;
+
   return (
     <div
       className={`rounded-xl border transition-all ${
@@ -900,7 +909,7 @@ function TaskDetailCard({
           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600">
             {taskNumber}
           </div>
-          {isWorking ? (
+          {showWorking ? (
             <svg
               className="h-4 w-4 animate-spin text-blue-600"
               fill="none"
@@ -968,8 +977,8 @@ function TaskDetailCard({
             </svg>
           </div>
 
-          {/* Working Status */}
-          {isWorking && (
+          {/* Working Status - 仅在任务活动且正在处理时显示 */}
+          {showWorking && (
             <div className="mt-2 flex items-center gap-2 text-xs text-blue-600">
               <span className="flex gap-0.5">
                 <span

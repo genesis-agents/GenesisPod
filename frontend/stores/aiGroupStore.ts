@@ -873,29 +873,47 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
         summary: string;
       }) => {
         console.log('[WS] Mission completed:', { missionId });
-        set((state) => ({
-          missions: state.missions.map((m) =>
-            m.id === missionId
-              ? {
-                  ...m,
-                  status: 'COMPLETED' as MissionStatus,
-                  finalResult,
-                  summary,
-                  completedAt: new Date().toISOString(),
-                }
-              : m
-          ),
-          currentMission:
-            state.currentMission?.id === missionId
-              ? {
-                  ...state.currentMission,
-                  status: 'COMPLETED' as MissionStatus,
-                  finalResult,
-                  summary,
-                  completedAt: new Date().toISOString(),
-                }
-              : state.currentMission,
-        }));
+        set((state) => {
+          // 【关键修复】Mission 完成时，清除所有相关 AI 的 typing 状态
+          // 找到该 Mission 的所有参与 AI
+          const mission = state.missions.find((m) => m.id === missionId);
+          const participantAIs = new Set<string>();
+          if (mission?.tasks) {
+            mission.tasks.forEach((task) => {
+              if (task.assignedToId) {
+                participantAIs.add(task.assignedToId);
+              }
+            });
+          }
+          // 从 typingAIs 中移除所有参与者
+          const newTypingAIs = new Set(state.typingAIs);
+          participantAIs.forEach((aiId) => newTypingAIs.delete(aiId));
+
+          return {
+            typingAIs: newTypingAIs,
+            missions: state.missions.map((m) =>
+              m.id === missionId
+                ? {
+                    ...m,
+                    status: 'COMPLETED' as MissionStatus,
+                    finalResult,
+                    summary,
+                    completedAt: new Date().toISOString(),
+                  }
+                : m
+            ),
+            currentMission:
+              state.currentMission?.id === missionId
+                ? {
+                    ...state.currentMission,
+                    status: 'COMPLETED' as MissionStatus,
+                    finalResult,
+                    summary,
+                    completedAt: new Date().toISOString(),
+                  }
+                : state.currentMission,
+          };
+        });
       }
     );
 
@@ -904,15 +922,33 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
       'mission:failed',
       ({ missionId, error }: { missionId: string; error: string }) => {
         console.error('[WS] Mission failed:', { missionId, error });
-        set((state) => ({
-          missions: state.missions.map((m) =>
-            m.id === missionId ? { ...m, status: 'FAILED' as MissionStatus } : m
-          ),
-          currentMission:
-            state.currentMission?.id === missionId
-              ? { ...state.currentMission, status: 'FAILED' as MissionStatus }
-              : state.currentMission,
-        }));
+        set((state) => {
+          // 【关键修复】Mission 失败时，也要清除所有相关 AI 的 typing 状态
+          const mission = state.missions.find((m) => m.id === missionId);
+          const participantAIs = new Set<string>();
+          if (mission?.tasks) {
+            mission.tasks.forEach((task) => {
+              if (task.assignedToId) {
+                participantAIs.add(task.assignedToId);
+              }
+            });
+          }
+          const newTypingAIs = new Set(state.typingAIs);
+          participantAIs.forEach((aiId) => newTypingAIs.delete(aiId));
+
+          return {
+            typingAIs: newTypingAIs,
+            missions: state.missions.map((m) =>
+              m.id === missionId
+                ? { ...m, status: 'FAILED' as MissionStatus }
+                : m
+            ),
+            currentMission:
+              state.currentMission?.id === missionId
+                ? { ...state.currentMission, status: 'FAILED' as MissionStatus }
+                : state.currentMission,
+          };
+        });
       }
     );
 
