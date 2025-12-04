@@ -843,8 +843,8 @@ export default function AskPage() {
                       onChange={handleInputChange}
                       onKeyDown={handleKeyDown}
                       placeholder="Ask anything..."
-                      rows={1}
-                      className="w-full resize-none rounded-t-2xl bg-transparent px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none"
+                      rows={2}
+                      className="w-full resize-none rounded-t-2xl bg-transparent px-4 py-4 text-gray-900 placeholder-gray-400 focus:outline-none"
                       disabled={isLoading}
                     />
                     <div className="flex items-center justify-between border-t border-gray-100 px-3 py-2">
