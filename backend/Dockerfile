@@ -89,6 +89,10 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/scripts ./scripts
+
+# Make entrypoint executable
+RUN chmod +x ./scripts/docker-entrypoint.sh
 
 # Note: Running as root for Chromium compatibility in containers
 # Chromium requires certain permissions that non-root users may not have
@@ -100,5 +104,5 @@ EXPOSE 4000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD curl -f http://localhost:4000/health || exit 1
 
-# Start command - resolve failed migration as applied (since objects exist), run migrations, then start the app
-CMD ["sh", "-c", "echo 'Resolving failed migration...' && npx prisma migrate resolve --applied 20251204000000_add_team_collaboration; echo 'Running migrations...' && npx prisma migrate deploy && node dist/main"]
+# Start command
+CMD ["./scripts/docker-entrypoint.sh"]
