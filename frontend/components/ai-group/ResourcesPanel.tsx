@@ -149,7 +149,7 @@ export default function ResourcesPanel({
             <div className="flex items-center justify-center py-12">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
             </div>
-          ) : resources.length === 0 ? (
+          ) : (resources || []).length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
               <svg
                 className="h-16 w-16 text-gray-300"
@@ -173,7 +173,7 @@ export default function ResourcesPanel({
             </div>
           ) : (
             <div className="space-y-3">
-              {resources.map((resource) => (
+              {(resources || []).map((resource) => (
                 <div
                   key={resource.id}
                   className="flex items-center justify-between rounded-lg border border-gray-200 p-4 transition-colors hover:bg-gray-50"

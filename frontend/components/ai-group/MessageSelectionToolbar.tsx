@@ -34,10 +34,12 @@ export default function MessageSelectionToolbar({
   const [isForwarding, setIsForwarding] = useState(false);
 
   const selectedCount = selectedMessages.size;
-  const selectedMsgs = messages.filter((m) => selectedMessages.has(m.id));
+  const selectedMsgs = (messages || []).filter((m) =>
+    selectedMessages.has(m.id)
+  );
 
   // Filter out current topic from forward targets
-  const availableTopics = topics.filter((t) => t.id !== currentTopicId);
+  const availableTopics = (topics || []).filter((t) => t.id !== currentTopicId);
 
   const handleCopyToClipboard = async () => {
     const content = selectedMsgs

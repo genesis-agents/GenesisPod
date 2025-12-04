@@ -200,8 +200,8 @@ function AISettings({
 
   // 查找模型：优先用 modelId 匹配（新方式），兼容 modelName 匹配（旧数据）
   const findModel = (aiModel: string) =>
-    models.find((m) => m.modelId === aiModel) ||
-    models.find((m) => m.modelName === aiModel);
+    (models || []).find((m) => m.modelId === aiModel) ||
+    (models || []).find((m) => m.modelName === aiModel);
 
   return (
     <div className="space-y-4">
@@ -336,7 +336,9 @@ function AddAIDialog({
     // 找到选中的模型，获取 modelId 用于 aiModel 字段
     // 重要：使用 modelId（唯一）而不是 modelName（非唯一）
     // 这样后端可以精确匹配到用户选择的具体模型
-    const selectedModelData = models.find((m) => m.id === selectedModel);
+    const selectedModelData = (models || []).find(
+      (m) => m.id === selectedModel
+    );
     if (!selectedModelData) return;
 
     setIsAdding(true);
@@ -372,7 +374,7 @@ function AddAIDialog({
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
-                {models.map((model) => (
+                {(models || []).map((model) => (
                   <button
                     key={model.id}
                     onClick={() => {
@@ -512,8 +514,8 @@ function EditAIDialog({
 
   // 查找模型：优先用 modelId 匹配（新方式），兼容 modelName 匹配（旧数据）
   const model =
-    models.find((m) => m.modelId === ai.aiModel) ||
-    models.find((m) => m.modelName === ai.aiModel);
+    (models || []).find((m) => m.modelId === ai.aiModel) ||
+    (models || []).find((m) => m.modelName === ai.aiModel);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
