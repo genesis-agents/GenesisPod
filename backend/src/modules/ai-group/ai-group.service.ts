@@ -2297,13 +2297,15 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
           aiModelConfig?.apiEndpoint ||
           this.getDefaultEndpoint(aiMember.aiModel);
 
-        // For reasoning models (GPT-5.x, o1, o3), need more tokens for reasoning + output
+        // For reasoning models (GPT-5.x, o1, o3, gemini-3-pro-preview), need more tokens
+        // These models use internal "thinking" tokens that count against the limit
         // Regular models: 1024 is fine
-        // Reasoning models: need 4096+ (reasoning_tokens + output_tokens)
+        // Reasoning models: need 4096+ (reasoning/thinking_tokens + output_tokens)
         const isReasoningModel =
           modelId.includes("gpt-5") ||
           modelId.startsWith("o1") ||
-          modelId.startsWith("o3");
+          modelId.startsWith("o3") ||
+          modelId.includes("gemini-3-pro"); // Gemini 3 Pro uses "thinking" tokens
         const effectiveMaxTokens = isReasoningModel ? 4096 : 1024;
 
         this.logger.log(
