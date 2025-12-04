@@ -2029,23 +2029,51 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
 
     // 【最佳实践】过滤 Team Mission 系统消息
     // Team Mission 产生的格式化消息不应影响普通对话
+    // 完整列表来自 team-mission.service.ts 中的所有消息类型
     const missionMessagePatterns = [
+      // Mission 流程消息
       /^\[任务规划\]/,
+      /^\[任务分解\]/,
       /^\[任务分配\]/,
       /^\[任务进度\]/,
+      /^\[开始工作\]/,
+      /^\[工作汇报\]/,
+      /^\[任务修改\]/,
       /^\[结果整合\]/,
       /^\[最终交付\]/,
       /^\[Leader反馈\]/,
       /^\[Mission\]/i,
       /^\[AgentTask\]/i,
+      // 系统生成的报告标识
       /\(本报告由.*共同完成.*\)/,
       /\*\(系统提示[：:].*任务流.*\)\*/,
+      // Mission 系统消息
+      /^🚀\s*\*\*团队任务已创建\*\*/,
+      /^📋\s*\[任务分配\]/,
+      // 错误消息
+      /^❌\s*任务.*失败/,
+      /^❌\s*任务执行出错/,
     ];
 
     const isMissionSystemMessage = (content: string): boolean => {
-      return missionMessagePatterns.some((pattern) =>
-        pattern.test(content.trim()),
-      );
+      const trimmedContent = content.trim();
+      // 检查是否匹配任何 Mission 消息模式
+      if (
+        missionMessagePatterns.some((pattern) => pattern.test(trimmedContent))
+      ) {
+        return true;
+      }
+      // 额外检查：消息包含明确的 Mission 系统标记（可能在消息中间）
+      if (
+        trimmedContent.includes("[任务分解]") ||
+        trimmedContent.includes("[工作汇报]") ||
+        trimmedContent.includes("[最终交付]") ||
+        trimmedContent.includes("[Leader反馈]") ||
+        trimmedContent.includes("[结果整合]")
+      ) {
+        return true;
+      }
+      return false;
     };
 
     // 过滤掉 Mission 系统消息
