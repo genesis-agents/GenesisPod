@@ -953,11 +953,13 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
   fetchTeamMembers: async (topicId) => {
     set({ isLoadingTeamMembers: true });
     try {
-      const teamMembers = await api.getTeamMembers(topicId);
+      const response = await api.getTeamMembers(topicId);
+      // API returns { leader, members, all } - we need the 'all' array
+      const teamMembers = response?.all || [];
       set({ teamMembers, isLoadingTeamMembers: false });
     } catch (error) {
       console.error('Failed to fetch team members:', error);
-      set({ isLoadingTeamMembers: false });
+      set({ teamMembers: [], isLoadingTeamMembers: false });
     }
   },
 

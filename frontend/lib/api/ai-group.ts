@@ -458,8 +458,10 @@ export async function updateTeamRole(
 /**
  * 获取团队成员（包含团队角色信息）
  */
-export async function getTeamMembers(
-  topicId: string
-): Promise<TopicAIMemberWithTeamRole[]> {
+export async function getTeamMembers(topicId: string): Promise<{
+  leader?: TopicAIMemberWithTeamRole;
+  members: TopicAIMemberWithTeamRole[];
+  all: TopicAIMemberWithTeamRole[];
+}> {
   return fetchWithAuth(`/api/v1/topics/${topicId}/team`);
 }
