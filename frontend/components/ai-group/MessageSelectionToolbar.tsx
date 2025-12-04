@@ -38,8 +38,12 @@ export default function MessageSelectionToolbar({
     selectedMessages.has(m.id)
   );
 
-  // Filter out current topic from forward targets
-  const availableTopics = (topics || []).filter((t) => t.id !== currentTopicId);
+  // Include all topics (including current topic) for forward targets
+  // User may want to forward messages within the same topic (e.g., to reorganize or emphasize)
+  const availableTopics = topics || [];
+
+  // Find current topic for display purposes
+  const currentTopic = (topics || []).find((t) => t.id === currentTopicId);
 
   const handleCopyToClipboard = async () => {
     const content = selectedMsgs
@@ -57,7 +61,102 @@ export default function MessageSelectionToolbar({
     alert('Messages copied to clipboard');
   };
 
+  const handleExport = async () => {
+    // Generate export content based on merge mode
+    let content = '';
+    const timestamp = new Date().toISOString().split('T')[0];
+    const topicName = currentTopic?.name || 'Topic';
+
+    if (mergeMode === 'MERGED') {
+      // Combine all messages into one block
+      content = `# ${topicName} - Exported Messages\n`;
+      content += `Date: ${timestamp}\n\n`;
+      if (forwardNote) {
+        content += `> Note: ${forwardNote}\n\n`;
+      }
+      content += '---\n\n';
+      selectedMsgs.forEach((m) => {
+        const sender =
+          m.sender?.fullName ||
+          m.sender?.username ||
+          m.aiMember?.displayName ||
+          'Unknown';
+        const time = new Date(m.createdAt).toLocaleString();
+        content += `**${sender}** (${time}):\n${m.content}\n\n`;
+      });
+    } else if (mergeMode === 'SUMMARY') {
+      // Generate a brief summary format
+      content = `# ${topicName} - Message Summary\n`;
+      content += `Date: ${timestamp}\n`;
+      content += `Total Messages: ${selectedMsgs.length}\n\n`;
+      if (forwardNote) {
+        content += `> Note: ${forwardNote}\n\n`;
+      }
+      content += '## Participants\n';
+      const participants = new Set<string>();
+      selectedMsgs.forEach((m) => {
+        const sender =
+          m.sender?.fullName ||
+          m.sender?.username ||
+          m.aiMember?.displayName ||
+          'Unknown';
+        participants.add(sender);
+      });
+      content += Array.from(participants)
+        .map((p) => `- ${p}`)
+        .join('\n');
+      content += '\n\n## Messages\n\n';
+      selectedMsgs.forEach((m, i) => {
+        const sender =
+          m.sender?.fullName ||
+          m.sender?.username ||
+          m.aiMember?.displayName ||
+          'Unknown';
+        content += `${i + 1}. **${sender}**: ${m.content.substring(0, 200)}${m.content.length > 200 ? '...' : ''}\n\n`;
+      });
+    } else {
+      // SEPARATE - keep original format
+      content = `# ${topicName} - Exported Messages\n`;
+      content += `Date: ${timestamp}\n\n`;
+      if (forwardNote) {
+        content += `> Note: ${forwardNote}\n\n`;
+      }
+      selectedMsgs.forEach((m) => {
+        const sender =
+          m.sender?.fullName ||
+          m.sender?.username ||
+          m.aiMember?.displayName ||
+          'Unknown';
+        const time = new Date(m.createdAt).toLocaleString();
+        content += `---\n\n`;
+        content += `### ${sender}\n`;
+        content += `*${time}*\n\n`;
+        content += `${m.content}\n\n`;
+      });
+    }
+
+    // Create and download the file
+    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${topicName.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_')}_${timestamp}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    setShowForwardDialog(false);
+    onClearSelection();
+  };
+
   const handleForward = async () => {
+    // If export mode, handle export instead
+    if (forwardTargetType === 'EXTERNAL') {
+      handleExport();
+      return;
+    }
+
     if (forwardTargetType === 'TOPIC' && !targetTopicId) {
       alert('Please select a target topic');
       return;
@@ -278,6 +377,7 @@ export default function MessageSelectionToolbar({
                   {availableTopics.map((topic) => (
                     <option key={topic.id} value={topic.id}>
                       {topic.name}
+                      {topic.id === currentTopicId ? ' (current)' : ''}
                     </option>
                   ))}
                 </select>
@@ -287,7 +387,9 @@ export default function MessageSelectionToolbar({
             {/* Merge Mode */}
             <div className="mb-4">
               <label className="mb-2 block text-sm font-medium text-gray-700">
-                Forward Mode
+                {forwardTargetType === 'EXTERNAL'
+                  ? 'Export Format'
+                  : 'Forward Mode'}
               </label>
               <div className="space-y-2">
                 <label className="flex items-center gap-2">
@@ -374,7 +476,11 @@ export default function MessageSelectionToolbar({
                 }
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
               >
-                {isForwarding ? 'Forwarding...' : 'Forward'}
+                {isForwarding
+                  ? 'Processing...'
+                  : forwardTargetType === 'EXTERNAL'
+                    ? 'Export'
+                    : 'Forward'}
               </button>
             </div>
           </div>
