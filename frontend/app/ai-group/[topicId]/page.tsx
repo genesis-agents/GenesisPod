@@ -251,6 +251,29 @@ function MemberPanel({
 }) {
   return (
     <div className="flex h-full w-64 flex-col border-r border-gray-200 bg-white">
+      {/* Back to Topics - Top */}
+      <div className="border-b border-gray-200 px-3 py-2">
+        <Link
+          href="/ai-group"
+          className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+        >
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
+          Back to Topics
+        </Link>
+      </div>
+
       {/* Topic Header */}
       <div className="border-b border-gray-200 p-4">
         <div className="flex items-center gap-3">
@@ -499,29 +522,6 @@ function MemberPanel({
             </div>
           </div>
         )}
-      </div>
-
-      {/* Back to Topics Link */}
-      <div className="border-t border-gray-200 p-3">
-        <Link
-          href="/ai-group"
-          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-100"
-        >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
-          Back to Topics
-        </Link>
       </div>
     </div>
   );
