@@ -505,7 +505,10 @@ export class AiGroupController {
       this.aiGroupGateway.emitToTopic(topicId, "message:new", aiMessage);
 
       // AI-AI协作：检测AI回复中是否@了其他AI
-      if (depth < MAX_AI_CHAIN_DEPTH && aiMessage.content) {
+      // 【关键修复】仅在辩论模式下才触发 AI-AI 协作链
+      // 普通对话中，即使 AI 回复中 @ 了其他 AI，也不自动触发
+      // 这避免了简单问候被 AI 误解为需要邀请其他 AI 参与的情况
+      if (debateRole && depth < MAX_AI_CHAIN_DEPTH && aiMessage.content) {
         const mentionedAIs =
           await this.aiGroupService.parseAIMentionsFromContent(
             topicId,
@@ -519,7 +522,7 @@ export class AiGroupController {
           );
 
           // 检查是否超过辩论轮次限制
-          if (debateRole && depth >= MAX_DEBATE_ROUNDS) {
+          if (depth >= MAX_DEBATE_ROUNDS) {
             this.logger.log(
               `[Debate] Max rounds (${MAX_DEBATE_ROUNDS}) reached, stopping debate`,
             );
