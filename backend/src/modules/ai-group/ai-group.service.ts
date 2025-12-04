@@ -1601,7 +1601,8 @@ ${messagesForSummary
 
     // 使用智能上下文管理器获取消息
     // 辩论模式下传入对手ID，确保能看到对手的最新发言
-    const MAX_CONTEXT_MESSAGES = 15;
+    // 增加上下文窗口以支持更深度的内容理解
+    const MAX_CONTEXT_MESSAGES = 30;
     const debateOpponentId = debateRole?.opponent?.id;
     const smartContext = await this.buildSmartContext(
       topicId,

@@ -374,7 +374,23 @@ export class TeamMissionService {
 
       if (allCompleted) {
         await this.completeMission(missionId);
+        return;
       }
+
+      // 检查是否有卡住的任务需要重新处理
+      const stuckTasks = mission.tasks.filter(
+        (t) =>
+          t.status === AgentTaskStatus.REVISION_NEEDED ||
+          t.status === AgentTaskStatus.AWAITING_REVIEW,
+      );
+
+      if (stuckTasks.length > 0) {
+        this.logger.warn(
+          `[Mission ${missionId}] Found ${stuckTasks.length} stuck tasks: ${stuckTasks.map((t) => `${t.title}(${t.status})`).join(", ")}`,
+        );
+        // 任务正在等待审核或修改中，不需要额外处理，等待异步流程完成
+      }
+
       return;
     }
 
@@ -686,8 +702,19 @@ export class TeamMissionService {
         messageId: resultMessage?.id,
       });
 
-      // 再次审核
-      await this.leaderReviewTask(mission, latestTask, aiResponse.content);
+      // 重新获取最新的任务数据（包含正确的 revisionCount）
+      const updatedTask = await this.prisma.agentTask.findUnique({
+        where: { id: task.id },
+        include: { assignedTo: true },
+      });
+
+      if (!updatedTask) {
+        this.logger.error(`Task ${task.id} not found after revision`);
+        return;
+      }
+
+      // 再次审核（使用最新的任务数据）
+      await this.leaderReviewTask(mission, updatedTask, aiResponse.content);
     } catch (error) {
       this.logger.error(`Task revision failed: ${error}`);
 

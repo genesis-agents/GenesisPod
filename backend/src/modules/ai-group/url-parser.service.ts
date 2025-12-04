@@ -1,4 +1,5 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
+import { ContentExtractionService } from "./content-extraction.service";
 
 /**
  * URL 解析类型
@@ -113,7 +114,10 @@ export class UrlParserService {
     /^fe80:/i,
   ];
 
-  constructor() {}
+  constructor(
+    @Inject(forwardRef(() => ContentExtractionService))
+    private contentExtractionService: ContentExtractionService,
+  ) {}
 
   /**
    * 从文本中检测所有 URL
@@ -294,8 +298,63 @@ export class UrlParserService {
 
   /**
    * 解析普通网页
+   * 优先使用 Jina AI Reader / Firecrawl 提取高质量内容
    */
   private async parseWebpage(url: string, result: ParsedUrl): Promise<void> {
+    try {
+      // 优先使用 ContentExtractionService（Jina AI / Firecrawl）
+      const extracted = await this.contentExtractionService.extractContent(url);
+
+      if (!extracted.error && extracted.content) {
+        // 使用高质量提取结果
+        result.preview.title = extracted.title;
+        result.preview.description = extracted.description;
+        result.preview.siteName = extracted.siteName;
+        result.preview.author = extracted.author;
+        result.preview.publishedAt = extracted.publishedDate;
+        result.preview.favicon = extracted.favicon;
+        result.preview.image = extracted.image;
+
+        // 内容摘要（取前 2000 字作为摘要，完整内容用于 AI 上下文）
+        const contentSummary =
+          extracted.content.length > 2000
+            ? extracted.content.slice(0, 2000) + "..."
+            : extracted.content;
+
+        result.extractedContent = {
+          fullText: extracted.content, // 完整内容
+          summary: contentSummary,
+          metadata: {
+            source: extracted.source,
+            contentLength: extracted.contentLength,
+            links: extracted.links,
+          },
+        };
+
+        this.logger.log(
+          `[${extracted.source}] Extracted ${extracted.contentLength} chars from ${url}`,
+        );
+        return;
+      }
+
+      // 回退到原始方法
+      this.logger.warn(
+        `Content extraction failed, falling back to basic parsing: ${extracted.error}`,
+      );
+      await this.parseWebpageFallback(url, result);
+    } catch (error) {
+      this.logger.warn(`parseWebpage error, using fallback: ${error}`);
+      await this.parseWebpageFallback(url, result);
+    }
+  }
+
+  /**
+   * 原始网页解析方法（回退用）
+   */
+  private async parseWebpageFallback(
+    url: string,
+    result: ParsedUrl,
+  ): Promise<void> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 秒超时
 
