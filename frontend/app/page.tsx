@@ -3764,22 +3764,21 @@ function HomeContent() {
 }
 
 export default function Home() {
-  const [isMounted, setIsMounted] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
-    setIsMounted(true);
-  }, []);
+    // Redirect to Ask AI page by default
+    router.replace('/ask');
+  }, [router]);
 
-  // On server, render nothing to avoid hydration mismatch
-  // On client, render the actual content immediately
-  if (!isMounted) {
-    return null;
-  }
-
+  // Show loading while redirecting
   return (
-    <Suspense fallback={<HomeLoadingFallback />}>
-      <HomeContent />
-    </Suspense>
+    <div className="flex h-screen items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-purple-200 border-t-purple-600" />
+        <p className="text-gray-500">Redirecting...</p>
+      </div>
+    </div>
   );
 }
 
