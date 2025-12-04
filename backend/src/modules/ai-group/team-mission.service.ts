@@ -773,10 +773,16 @@ export class TeamMissionService {
         messageId: finalMessage?.id,
       });
 
-      // 广播任务完成
+      // 广播任务完成 - 包含参与者 AI ID 列表，用于前端清除 typing 状态
+      const participantAIIds = [
+        mission.leaderId,
+        ...mission.tasks.map((t) => t.assignedToId),
+      ].filter((id, index, arr) => arr.indexOf(id) === index); // 去重
+
       this.aiGroupGateway.emitToTopic(mission.topicId, "mission:completed", {
         missionId,
         finalResult: aiResponse.content,
+        participantAIIds,
       });
     } catch (error) {
       this.logger.error(`Mission completion failed: ${error}`);

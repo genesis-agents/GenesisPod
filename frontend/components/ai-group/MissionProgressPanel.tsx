@@ -185,6 +185,20 @@ export default function MissionProgressPanel({
     }
   }, [missions]);
 
+  // 【关键修复】当 missions 更新时，同步更新 detailMission
+  // 解决详情视图状态不及时更新的问题
+  useEffect(() => {
+    if (detailMission && missions) {
+      const updatedMission = missions.find((m) => m.id === detailMission.id);
+      if (
+        updatedMission &&
+        JSON.stringify(updatedMission) !== JSON.stringify(detailMission)
+      ) {
+        setDetailMission(updatedMission);
+      }
+    }
+  }, [missions, detailMission]);
+
   const handleCancelMission = async (missionId: string) => {
     if (confirm('确定要取消此任务吗？')) {
       await cancelMission(topicId, missionId);
@@ -738,15 +752,31 @@ function MissionDetailView({
           )}
         </div>
 
-        {/* Final Result (for completed missions) */}
+        {/* Final Result Summary Card (for completed missions) */}
         {mission.status === 'COMPLETED' && mission.finalResult && (
-          <div className="border-t border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50 p-4">
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-green-800">
-              🏆 最终成果
-            </h3>
-            <div className="rounded-lg bg-white/60 p-4">
-              <div className="whitespace-pre-wrap text-sm text-gray-700">
-                {mission.finalResult}
+          <div className="border-t border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50 p-3">
+            <div className="flex items-start gap-2">
+              <span className="text-lg">🏆</span>
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 text-xs font-medium text-green-800">
+                  任务已完成
+                </div>
+                <div className="line-clamp-2 text-xs text-gray-600">
+                  {(() => {
+                    // 提取第一句话或前80个字符作为摘要
+                    const text = mission.finalResult
+                      .replace(/^#+\s*[^\n]*\n*/g, '')
+                      .trim();
+                    const firstSentence = text.split(/[。！？\n]/)[0];
+                    return firstSentence.length > 80
+                      ? firstSentence.substring(0, 80) + '...'
+                      : firstSentence +
+                          (text.length > firstSentence.length ? '...' : '');
+                  })()}
+                </div>
+                <div className="mt-1 text-xs text-green-600">
+                  详见聊天区最终交付消息
+                </div>
               </div>
             </div>
           </div>

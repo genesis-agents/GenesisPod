@@ -867,24 +867,31 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
         missionId,
         finalResult,
         summary,
+        participantAIIds,
       }: {
         missionId: string;
         finalResult: string;
         summary: string;
+        participantAIIds?: string[];
       }) => {
-        console.log('[WS] Mission completed:', { missionId });
+        console.log('[WS] Mission completed:', { missionId, participantAIIds });
         set((state) => {
           // 【关键修复】Mission 完成时，清除所有相关 AI 的 typing 状态
-          // 找到该 Mission 的所有参与 AI
-          const mission = state.missions.find((m) => m.id === missionId);
-          const participantAIs = new Set<string>();
-          if (mission?.tasks) {
-            mission.tasks.forEach((task) => {
-              if (task.assignedToId) {
-                participantAIs.add(task.assignedToId);
-              }
-            });
+          // 优先使用后端传递的 participantAIIds，否则从本地 mission 中提取
+          const participantAIs = new Set<string>(participantAIIds || []);
+
+          // 如果后端没有传递，则从本地 mission 中提取（兼容旧版本）
+          if (participantAIs.size === 0) {
+            const mission = state.missions.find((m) => m.id === missionId);
+            if (mission?.tasks) {
+              mission.tasks.forEach((task) => {
+                if (task.assignedToId) {
+                  participantAIs.add(task.assignedToId);
+                }
+              });
+            }
           }
+
           // 从 typingAIs 中移除所有参与者
           const newTypingAIs = new Set(state.typingAIs);
           participantAIs.forEach((aiId) => newTypingAIs.delete(aiId));
