@@ -1091,10 +1091,10 @@ function highlightMentions(
     return content;
   }
 
-  // Mention pattern @name (supports hyphens and underscores like "AI-Grok")
+  // Mention pattern @name (supports Unicode letters like Chinese, hyphens and underscores)
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
-  const regex = /@([\w-]+)/g;
+  const regex = /@([\p{L}\p{N}_-]+)/gu;
   let match;
 
   while ((match = regex.exec(content)) !== null) {
@@ -1285,10 +1285,10 @@ function MessageInput({
       mentionType: MentionType;
     }[] = [];
     // Match @name patterns including optional parenthetical suffix
-    // Examples: @AI-Grok, @AI-Grok-(xAI), @AI-Gemini-(Google), @John-Doe
-    // Regex: [\w-]+ matches base name, (?:\([^)]+\))? matches optional (provider)
-    // Note: NO hyphen before parentheses in the optional group - the hyphen is part of [\w-]+
-    const mentionRegex = /@([\w-]+(?:\([^)]+\))?)/g;
+    // Examples: @AI-Grok, @AI-Grok-(xAI), @AI-Gemini-(Google), @John-Doe, @小C, @小明
+    // Regex: Support Unicode letters (Chinese, Japanese, etc.), numbers, hyphens, underscores
+    // \p{L} matches any Unicode letter, \p{N} matches any Unicode number
+    const mentionRegex = /@([\p{L}\p{N}_-]+(?:\([^)]+\))?)/gu;
     let match;
 
     while ((match = mentionRegex.exec(content)) !== null) {

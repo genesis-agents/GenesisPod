@@ -1288,6 +1288,14 @@ ${messagesForSummary
       aiMember: { displayName: string } | null;
       createdAt: Date;
       score: number;
+      replyTo?: {
+        id: string;
+        senderId: string | null;
+        aiMemberId: string | null;
+        content: string;
+        sender: { username: string | null; fullName: string | null } | null;
+        aiMember: { displayName: string } | null;
+      } | null;
     }>;
     summary: string | null;
   }> {
@@ -1300,7 +1308,16 @@ ${messagesForSummary
         mentions: {
           select: { aiMemberId: true, userId: true, mentionType: true },
         },
-        replyTo: { select: { id: true, senderId: true, aiMemberId: true } },
+        replyTo: {
+          select: {
+            id: true,
+            senderId: true,
+            aiMemberId: true,
+            content: true,
+            sender: { select: { username: true, fullName: true } },
+            aiMember: { select: { displayName: true } },
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
       take: 50,
@@ -1427,6 +1444,7 @@ ${messagesForSummary
         aiMember: m.aiMember,
         createdAt: m.createdAt,
         score: m.score,
+        replyTo: m.replyTo,
       })),
       summary,
     };
