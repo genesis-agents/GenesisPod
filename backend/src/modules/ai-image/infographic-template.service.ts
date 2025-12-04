@@ -1200,31 +1200,20 @@ export class InfographicTemplateService {
       itemCount <= 4 ? 0.2 : itemCount <= 6 ? 0.17 : 0.15;
     const centerRadius = Math.round(minDimension * centerRadiusRatio);
 
-    // 卡片尺寸：根据元素数量动态计算
-    // 增大卡片以容纳关键点
-    const cardWidthBase = itemCount <= 4 ? 180 : itemCount <= 6 ? 160 : 145;
-    const cardWidth = Math.round(cardWidthBase * scale);
-    const cardPadding = Math.round((itemCount <= 6 ? 12 : 10) * scale);
-    const cardFontSize = Math.round(
-      (itemCount <= 4 ? 13 : itemCount <= 6 ? 12 : 11) * scale,
-    );
-    const bulletFontSize = Math.round(
-      (itemCount <= 4 ? 10 : itemCount <= 6 ? 9 : 8) * scale,
-    );
-    const numberSize = Math.round((itemCount <= 6 ? 22 : 20) * scale);
+    // 卡片尺寸：统一固定尺寸，确保所有卡片大小一致
+    const cardWidth = Math.round(155 * scale);
+    const cardHeight = Math.round(100 * scale); // 固定高度
+    const cardPadding = Math.round(10 * scale);
+    const cardFontSize = Math.round(11 * scale);
+    const bulletFontSize = Math.round(8 * scale);
+    const numberSize = Math.round(20 * scale);
 
     // 轨道半径：确保卡片不与中心圆和边界重叠
-    // 水平方向：(可用宽度 - 卡片宽度) / 2 - 边距
-    // 垂直方向：(可用高度 - 卡片估算高度) / 2 - 边距（增加垂直边距防止与标题重叠）
-    // 卡片高度估算：padding + number + title + bullets(2行)
-    const cardEstimatedHeight =
-      cardPadding * 2 + numberSize + cardFontSize * 2 + bulletFontSize * 4;
     const horizontalMargin = Math.round(15 * scale);
     const verticalMargin = Math.round(18 * scale);
     const horizontalRadius =
       (visualAreaWidth - cardWidth) / 2 - horizontalMargin;
-    const verticalRadius =
-      (visualAreaHeight - cardEstimatedHeight) / 2 - verticalMargin;
+    const verticalRadius = (visualAreaHeight - cardHeight) / 2 - verticalMargin;
 
     return `
 <!DOCTYPE html>
@@ -1348,10 +1337,11 @@ export class InfographicTemplateService {
       line-height: 1.3;
     }
 
-    /* 周围卡片 - 精确尺寸 */
+    /* 周围卡片 - 固定尺寸确保一致性 */
     .orbit-item {
       position: absolute;
       width: ${cardWidth}px;
+      height: ${cardHeight}px;
       background: ${isGlassmorphism ? "rgba(255, 255, 255, 0.08)" : isDarkMode ? "#1e293b" : "white"};
       border-radius: ${Math.round(8 * scale)}px;
       padding: ${cardPadding}px;
@@ -1360,6 +1350,11 @@ export class InfographicTemplateService {
       text-align: center;
       transform: translate(-50%, -50%);
       z-index: 15;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      overflow: hidden;
       ${glassmorphismStyles}
     }
 
@@ -1382,26 +1377,32 @@ export class InfographicTemplateService {
       font-size: ${cardFontSize}px;
       color: ${colors.text};
       font-weight: 600;
-      line-height: 1.3;
+      line-height: 1.2;
       word-break: break-word;
-      margin-bottom: ${Math.round(4 * scale)}px;
+      margin-bottom: ${Math.round(3 * scale)}px;
+      max-height: ${Math.round(26 * scale)}px;
+      overflow: hidden;
+      width: 100%;
     }
 
     .orbit-item .bullets {
       text-align: left;
-      margin-top: ${Math.round(4 * scale)}px;
-      padding-top: ${Math.round(4 * scale)}px;
-      border-top: 1px solid ${isDarkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)"};
+      width: 100%;
+      flex: 1;
+      overflow: hidden;
     }
 
     .orbit-item .bullet {
       font-size: ${bulletFontSize}px;
       color: ${isDarkMode ? "#94a3b8" : "#64748b"};
-      line-height: 1.4;
-      margin-bottom: ${Math.round(2 * scale)}px;
+      line-height: 1.3;
+      margin-bottom: ${Math.round(1 * scale)}px;
       display: flex;
       align-items: flex-start;
-      gap: ${Math.round(4 * scale)}px;
+      gap: ${Math.round(3 * scale)}px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
     }
 
     .orbit-item .bullet::before {
@@ -1497,17 +1498,21 @@ export class InfographicTemplateService {
             50 + ((Math.sin(angle) * verticalRadius) / visualAreaHeight) * 100;
           // 为每个节点分配不同的渐变色
           const nodeGradient = nodeGradients[idx % nodeGradients.length];
-          // 获取该section的关键点（最多显示2个）
+          // 获取该section的关键点（最多显示2个，严格截断）
           const section = centerSections[idx];
           const bullets = section?.bullets?.slice(0, 2) || [];
+          // 截断标题（最多15个字符）
+          const truncatedTitle =
+            item.length > 15 ? item.substring(0, 13) + "..." : item;
+          // 截断bullet（最多12个字符）
           const bulletsHtml =
             bullets.length > 0
-              ? `<div class="bullets">${bullets.map((b) => `<div class="bullet">${this.escapeHtml(b.length > 20 ? b.substring(0, 18) + "..." : b)}</div>`).join("")}</div>`
+              ? `<div class="bullets">${bullets.map((b) => `<div class="bullet">${this.escapeHtml(b.length > 12 ? b.substring(0, 10) + "..." : b)}</div>`).join("")}</div>`
               : "";
           return `
           <div class="orbit-item" style="left: ${xPercent.toFixed(2)}%; top: ${yPercent.toFixed(2)}%; --node-gradient: ${nodeGradient}">
             <div class="number">${idx + 1}</div>
-            <div class="text">${this.escapeHtml(item)}</div>
+            <div class="text">${this.escapeHtml(truncatedTitle)}</div>
             ${bulletsHtml}
           </div>
         `;
