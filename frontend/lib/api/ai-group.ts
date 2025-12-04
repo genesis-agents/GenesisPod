@@ -432,10 +432,12 @@ export async function setTeamLeader(
   topicId: string,
   aiMemberId: string
 ): Promise<TopicAIMemberWithTeamRole> {
-  return fetchWithAuth(`/api/v1/topics/${topicId}/team/leader`, {
-    method: 'POST',
-    body: JSON.stringify({ aiMemberId }),
-  });
+  return fetchWithAuth(
+    `/api/v1/topics/${topicId}/ai-members/${aiMemberId}/set-leader`,
+    {
+      method: 'POST',
+    }
+  );
 }
 
 /**
