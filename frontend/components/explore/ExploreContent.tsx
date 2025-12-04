@@ -3763,28 +3763,4 @@ function HomeContent() {
   );
 }
 
-export default function Home() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.replace('/ask');
-  }, [router]);
-
-  return (
-    <div className="flex h-screen items-center justify-center bg-gray-50">
-      <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-purple-200 border-t-purple-600" />
-    </div>
-  );
-}
-
-function HomeLoadingFallback() {
-  return (
-    <div className="flex h-screen bg-gray-50">
-      <div className="flex w-full items-center justify-center">
-        <div className="text-center">
-          <p className="text-lg text-gray-600">加载中...</p>
-        </div>
-      </div>
-    </div>
-  );
-}
+export default HomeContent;

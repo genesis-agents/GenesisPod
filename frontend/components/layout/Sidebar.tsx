@@ -327,16 +327,16 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           <div className="my-2 border-t border-gray-200/60" />
 
           <Link
-            href="/"
+            href="/explore"
             onClick={(e) => {
-              // Force navigation even if already on homepage
-              if (pathname === '/') {
+              // Force navigation even if already on explore page
+              if (pathname === '/explore') {
                 e.preventDefault();
-                window.location.href = '/';
+                window.location.href = '/explore';
               }
             }}
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium ${
-              isActive('/')
+              isActive('/explore')
                 ? 'bg-pink-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}

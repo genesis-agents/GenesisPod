@@ -1,54 +1,45 @@
 'use client';
 
-import { Suspense, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import ExploreContent from '@/components/explore/ExploreContent';
 
-/**
- * Inner component that uses useSearchParams
- */
-function ExploreRedirect() {
-  const router = useRouter();
+function ExplorePageContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const id = searchParams.get('id');
 
   useEffect(() => {
+    // Legacy URL with id parameter - redirect to resource page
     if (id) {
-      // Legacy URL with id parameter - redirect to resource page
       router.replace(`/resource/${id}`);
-    } else {
-      // No id - redirect to homepage (which is now the Explore page)
-      router.replace('/');
     }
   }, [id, router]);
 
-  return (
-    <div className="flex h-screen items-center justify-center">
-      <div className="text-center">
-        <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
-        <p className="text-gray-500">Redirecting...</p>
+  // If has id, show loading while redirecting
+  if (id) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
       </div>
-    </div>
-  );
+    );
+  }
+
+  // Otherwise show the Explore page content
+  return <ExploreContent />;
 }
 
-/**
- * Redirect page for /explore URLs
- * - /explore?id=xxx -> /resource/xxx
- * - /explore -> / (homepage)
- */
 export default function ExplorePage() {
   return (
     <Suspense
       fallback={
         <div className="flex h-screen items-center justify-center">
-          <div className="text-center">
-            <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
-            <p className="text-gray-500">Loading...</p>
-          </div>
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
         </div>
       }
     >
-      <ExploreRedirect />
+      <ExplorePageContent />
     </Suspense>
   );
 }
