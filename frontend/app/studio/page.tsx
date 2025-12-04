@@ -5,7 +5,7 @@
  * 对标 NotebookLM 设计
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getAuthTokens } from '@/lib/auth';
 import ImageGenerator from '@/components/ai-image/ImageGenerator';
@@ -672,8 +672,8 @@ function GalleryTab() {
   );
 }
 
-// ==================== 主页面 ====================
-export default function StudioPage() {
+// ==================== 主页面内容 ====================
+function StudioPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams?.get('tab');
@@ -971,5 +971,20 @@ export default function StudioPage() {
         onCreated={handleProjectCreated}
       />
     </div>
+  );
+}
+
+// ==================== 主页面 ====================
+export default function StudioPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-full items-center justify-center bg-gray-50">
+          <LoaderIcon className="h-8 w-8 animate-spin text-amber-600" />
+        </div>
+      }
+    >
+      <StudioPageContent />
+    </Suspense>
   );
 }
