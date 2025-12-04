@@ -1587,9 +1587,9 @@ function MessageInput({
           />
         </div>
 
-        {/* Quick AI Mention Buttons */}
-        <div className="flex gap-1">
-          {(topic.aiMembers || []).slice(0, 2).map((ai) => {
+        {/* Quick AI Mention Buttons - 显示所有 AI 成员（最多6个），超过则显示更多按钮 */}
+        <div className="flex items-center gap-1">
+          {(topic.aiMembers || []).slice(0, 6).map((ai) => {
             const model = findModel(ai.aiModel);
             // Keep full display name for @mention to distinguish AI members
             const mentionName = ai.displayName.replace(/\s+/g, '-');
@@ -1597,8 +1597,8 @@ function MessageInput({
               <button
                 key={ai.id}
                 onClick={() => setContent((prev) => `${prev}@${mentionName} `)}
-                className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 transition-colors hover:bg-gray-200"
-                title={`Mention ${ai.displayName}`}
+                className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 transition-colors hover:bg-purple-100 hover:ring-2 hover:ring-purple-300"
+                title={`@${ai.displayName}`}
               >
                 {model?.iconUrl ? (
                   <img
@@ -1607,23 +1607,23 @@ function MessageInput({
                     className="h-5 w-5"
                   />
                 ) : (
-                  <svg
-                    className="h-5 w-5 text-blue-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                    />
-                  </svg>
+                  <span className="text-xs font-medium text-purple-600">
+                    {ai.displayName.charAt(0)}
+                  </span>
                 )}
               </button>
             );
           })}
+          {/* 如果 AI 超过 6 个，显示 @All AIs 按钮 */}
+          {(topic.aiMembers || []).length > 6 && (
+            <button
+              onClick={() => setContent((prev) => `${prev}@AllAIs `)}
+              className="flex h-9 items-center gap-1 rounded-lg bg-purple-100 px-2 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-200"
+              title="Mention all AIs"
+            >
+              +{(topic.aiMembers || []).length - 6}
+            </button>
+          )}
         </div>
 
         {/* Send Button */}
