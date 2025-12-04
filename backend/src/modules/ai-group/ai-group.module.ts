@@ -9,6 +9,7 @@ import { AiGroupGateway } from "./ai-group.gateway";
 import { DebateService } from "./debate.service";
 import { ContextRouterService } from "./context-router.service";
 import { TeamMissionService } from "./team-mission.service";
+import { UrlParserService } from "./url-parser.service";
 import { PrismaModule } from "../../common/prisma/prisma.module";
 import { AiModule } from "../ai/ai.module";
 
@@ -21,12 +22,14 @@ import { AiModule } from "../ai/ai.module";
     DebateService,
     ContextRouterService,
     TeamMissionService,
+    UrlParserService,
   ],
   exports: [
     AiGroupService,
     DebateService,
     ContextRouterService,
     TeamMissionService,
+    UrlParserService,
   ],
 })
 export class AiGroupModule {}

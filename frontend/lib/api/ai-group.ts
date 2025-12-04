@@ -467,3 +467,112 @@ export async function getTeamMembers(topicId: string): Promise<{
 }> {
   return fetchWithAuth(`/api/v1/topics/${topicId}/team`);
 }
+
+// ==================== URL Parsing API ====================
+
+/**
+ * URL 解析类型
+ */
+export type ParsedUrlType =
+  | 'WEBPAGE'
+  | 'IMAGE'
+  | 'VIDEO'
+  | 'DOCUMENT'
+  | 'CODE_REPO'
+  | 'SOCIAL';
+
+/**
+ * 解析状态
+ */
+export type ParseStatus = 'pending' | 'parsing' | 'success' | 'failed';
+
+/**
+ * 链接预览数据
+ */
+export interface LinkPreview {
+  title?: string;
+  description?: string;
+  image?: string;
+  favicon?: string;
+  siteName?: string;
+  author?: string;
+  publishedAt?: string;
+}
+
+/**
+ * 提取的内容
+ */
+export interface ExtractedContent {
+  fullText?: string;
+  summary?: string;
+  keyPoints?: string[];
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * 解析结果
+ */
+export interface ParsedUrl {
+  type: ParsedUrlType;
+  originalText: string;
+  url: string;
+  platform?: string;
+  preview: LinkPreview;
+  extractedContent?: ExtractedContent;
+  status: ParseStatus;
+  error?: string;
+}
+
+/**
+ * URL 检测结果
+ */
+export interface DetectedUrl {
+  url: string;
+  startIndex: number;
+  endIndex: number;
+  type: ParsedUrlType;
+  platform?: string;
+}
+
+/**
+ * 解析单个 URL
+ */
+export async function parseUrl(url: string): Promise<ParsedUrl> {
+  return fetchWithAuth('/api/v1/topics/parse-url', {
+    method: 'POST',
+    body: JSON.stringify({ url }),
+  });
+}
+
+/**
+ * 批量解析 URL
+ */
+export async function parseUrls(urls: string[]): Promise<ParsedUrl[]> {
+  return fetchWithAuth('/api/v1/topics/parse-urls', {
+    method: 'POST',
+    body: JSON.stringify({ urls }),
+  });
+}
+
+/**
+ * 从文本中检测 URL（不解析内容，仅检测）
+ */
+export async function detectUrls(text: string): Promise<DetectedUrl[]> {
+  return fetchWithAuth('/api/v1/topics/detect-urls', {
+    method: 'POST',
+    body: JSON.stringify({ text }),
+  });
+}
+
+/**
+ * 从文本中检测并解析所有 URL
+ */
+export async function detectAndParseUrls(text: string): Promise<{
+  detectedUrls: DetectedUrl[];
+  parsedUrls: ParsedUrl[];
+}> {
+  return fetchWithAuth('/api/v1/topics/detect-and-parse-urls', {
+    method: 'POST',
+    body: JSON.stringify({ text }),
+  });
+}

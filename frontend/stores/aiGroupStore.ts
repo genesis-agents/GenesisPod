@@ -406,11 +406,30 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
     const newSocket = io(`${API_URL}/ai-group`, {
       auth: { userId, token: tokens?.accessToken },
       query: { userId },
+      // 代理环境兼容性配置
       transports: ['websocket', 'polling'],
+      upgrade: true, // 允许从 polling 升级到 websocket
+      rememberUpgrade: true, // 记住升级状态
+      // 重连策略
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      randomizationFactor: 0.5,
+      // 超时配置
+      timeout: 20000,
+      // 代理相关配置
+      forceNew: false,
+      multiplex: true,
     });
 
     newSocket.on('connect', () => {
-      console.log('[WS] Connected, socket id:', newSocket.id);
+      console.log(
+        '[WS] Connected, socket id:',
+        newSocket.id,
+        'transport:',
+        newSocket.io.engine?.transport?.name
+      );
       set({ isConnected: true });
     });
 
@@ -421,11 +440,44 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
         'socket id:',
         newSocket.id
       );
-      set({ isConnected: false });
+      set({
+        isConnected: false,
+        onlineUsers: new Set(),
+        typingUsers: new Set(),
+        typingAIs: new Set(),
+      });
     });
 
     newSocket.on('connect_error', (error) => {
-      console.error('WebSocket connection error:', error);
+      console.error('[WS] Connection error:', error.message);
+      // 如果是代理导致的 WebSocket 连接失败，Socket.IO 会自动降级到 polling
+    });
+
+    // 重连事件
+    newSocket.io.on('reconnect', (attempt) => {
+      console.log(
+        '[WS] Reconnected after',
+        attempt,
+        'attempts, transport:',
+        newSocket.io.engine?.transport?.name
+      );
+    });
+
+    newSocket.io.on('reconnect_attempt', (attempt) => {
+      console.log('[WS] Reconnection attempt', attempt);
+    });
+
+    newSocket.io.on('reconnect_error', (error) => {
+      console.error('[WS] Reconnection error:', error.message);
+    });
+
+    newSocket.io.on('reconnect_failed', () => {
+      console.error('[WS] Reconnection failed after all attempts');
+    });
+
+    // 传输层升级事件（从 polling 升级到 websocket）
+    newSocket.io.engine?.on('upgrade', (transport: { name: string }) => {
+      console.log('[WS] Transport upgraded to:', transport.name);
     });
 
     // 新消息

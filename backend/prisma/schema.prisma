@@ -1492,6 +1492,9 @@ model TopicMessage {
   reactions       TopicMessageReaction[]
   sourceResources TopicResource[]          @relation("TopicResourceSource")
 
+  // 解析的 URL 内容（用于 AI 上下文增强）
+  parsedUrls Json? @map("parsed_urls") // ParsedUrl[] - 检测到的 URL 及其解析结果
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")

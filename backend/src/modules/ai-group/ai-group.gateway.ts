@@ -31,6 +31,11 @@ interface AuthenticatedSocket extends Socket {
   },
   // 增加最大消息大小限制，支持大型图片数据 (默认1MB，增加到10MB)
   maxHttpBufferSize: 10 * 1024 * 1024,
+  // 代理环境兼容性配置
+  transports: ["websocket", "polling"], // 支持 websocket 和 polling
+  allowEIO3: true, // 兼容 Engine.IO v3 客户端
+  pingTimeout: 60000, // 增加 ping 超时时间（代理环境下可能需要更长）
+  pingInterval: 25000, // ping 间隔
 })
 export class AiGroupGateway
   implements OnGatewayConnection, OnGatewayDisconnect

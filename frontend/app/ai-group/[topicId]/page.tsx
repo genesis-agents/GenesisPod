@@ -14,6 +14,9 @@ import {
   TopicRole,
   AICapability,
 } from '@/types/ai-group';
+import { useUrlDetection } from '@/hooks/useUrlDetection';
+import { LinkPreviewList } from '@/components/ai-group/LinkPreviewCard';
+import type { ParsedUrl } from '@/lib/api/ai-group';
 
 // Helper to get short capability labels and colors
 const CAPABILITY_CONFIG: Record<
@@ -238,6 +241,7 @@ function MemberPanel({
   onInviteMember,
   isOwnerOrAdmin,
   findModel,
+  isConnected,
 }: {
   topic: Topic;
   onlineUsers: Set<string>;
@@ -248,6 +252,7 @@ function MemberPanel({
   onInviteMember: () => void;
   isOwnerOrAdmin: boolean;
   findModel: (aiModel: string) => AIModel | undefined;
+  isConnected: boolean;
 }) {
   return (
     <div className="flex h-full w-64 flex-col border-r border-gray-200 bg-white">
@@ -326,7 +331,11 @@ function MemberPanel({
                   d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                 />
               </svg>
-              Members ({topic.memberCount})
+              Members ({topic.memberCount}){/* Connection status indicator */}
+              <span
+                className={`ml-auto h-2 w-2 rounded-full ${isConnected ? 'bg-green-500' : 'animate-pulse bg-yellow-500'}`}
+                title={isConnected ? 'Connected' : 'Connecting...'}
+              />
             </h3>
             {isOwnerOrAdmin && (
               <button
@@ -1008,6 +1017,21 @@ const MessageBubble = memo(function MessageBubble({
               ))}
             </div>
           )}
+
+          {/* Parsed URL Previews */}
+          {message.parsedUrls && message.parsedUrls.length > 0 && (
+            <div className="mt-2">
+              <LinkPreviewList
+                previews={
+                  message.parsedUrls.filter(
+                    (p) => p.status === 'success'
+                  ) as ParsedUrl[]
+                }
+                compact={true}
+                maxVisible={2}
+              />
+            </div>
+          )}
         </div>
 
         {/* Reactions */}
@@ -1148,6 +1172,19 @@ function MessageInput({
   const [mentionPosition, setMentionPosition] = useState({ top: 0, left: 0 });
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // URL 检测和预览
+  const {
+    detectedUrls,
+    parsedUrls,
+    isParsing: isParsingUrls,
+    removeUrl: removeUrlPreview,
+  } = useUrlDetection(content, {
+    debounceMs: 500,
+    autoParseUrls: true,
+    maxUrls: 5,
+  });
+  const [showUrlPreviews, setShowUrlPreviews] = useState(true);
 
   // All mentionable entities
   // Note: 'mention' is what gets inserted (no spaces), 'name' is for display
@@ -1632,6 +1669,65 @@ function MessageInput({
               target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
             }}
           />
+
+          {/* URL Preview Section */}
+          {showUrlPreviews && (parsedUrls.length > 0 || isParsingUrls) && (
+            <div className="mt-2">
+              {isParsingUrls && parsedUrls.length === 0 && (
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <svg
+                    className="h-3 w-3 animate-spin"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  <span>Detecting links...</span>
+                </div>
+              )}
+              {parsedUrls.length > 0 && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span>{parsedUrls.length} link(s) detected</span>
+                    <button
+                      onClick={() => setShowUrlPreviews(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      Hide previews
+                    </button>
+                  </div>
+                  <LinkPreviewList
+                    previews={parsedUrls}
+                    onRemove={removeUrlPreview}
+                    compact={true}
+                    maxVisible={3}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Show URL preview toggle when hidden */}
+          {!showUrlPreviews && detectedUrls.length > 0 && (
+            <button
+              onClick={() => setShowUrlPreviews(true)}
+              className="mt-1 text-xs text-blue-500 hover:text-blue-600"
+            >
+              Show {detectedUrls.length} link preview(s)
+            </button>
+          )}
         </div>
 
         {/* Send Button */}
@@ -1799,6 +1895,20 @@ export default function TopicPage() {
 
     return () => clearInterval(intervalId);
   }, [topicId, isAuthenticated, fetchMessages]);
+
+  // Fallback: Re-sync online status when WebSocket reconnects or periodically
+  // This helps in proxy environments where WebSocket events might be lost
+  useEffect(() => {
+    if (!topicId || !isConnected) return;
+
+    // Re-join room periodically to sync online status (every 30 seconds)
+    // This helps recover from missed member:online/offline events
+    const syncInterval = setInterval(() => {
+      joinTopicRoom(topicId);
+    }, 30000);
+
+    return () => clearInterval(syncInterval);
+  }, [topicId, isConnected, joinTopicRoom]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -1994,6 +2104,7 @@ export default function TopicPage() {
           onInviteMember={() => setShowInviteDialog(true)}
           isOwnerOrAdmin={isOwnerOrAdmin}
           findModel={findModel}
+          isConnected={isConnected}
         />
       </div>
 

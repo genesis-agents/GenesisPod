@@ -159,12 +159,37 @@ export interface TopicMessage {
   mentions: TopicMessageMention[];
   attachments: TopicMessageAttachment[];
   reactions: TopicMessageReaction[];
+  parsedUrls?: ParsedUrlPreview[];
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
   _count?: {
     replies: number;
   };
+}
+
+export interface ParsedUrlPreview {
+  type: 'WEBPAGE' | 'IMAGE' | 'VIDEO' | 'DOCUMENT' | 'CODE_REPO' | 'SOCIAL';
+  originalText: string;
+  url: string;
+  platform?: string;
+  preview: {
+    title?: string;
+    description?: string;
+    image?: string;
+    favicon?: string;
+    siteName?: string;
+    author?: string;
+    publishedAt?: string;
+  };
+  extractedContent?: {
+    fullText?: string;
+    summary?: string;
+    keyPoints?: string[];
+    metadata?: Record<string, unknown>;
+  };
+  status: 'pending' | 'parsing' | 'success' | 'failed';
+  error?: string;
 }
 
 export interface TopicMessageMention {

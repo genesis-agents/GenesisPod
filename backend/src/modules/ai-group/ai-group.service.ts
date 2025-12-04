@@ -32,6 +32,7 @@ import {
   ContextRouterService,
   ContextStrategy,
 } from "./context-router.service";
+import { UrlParserService, ParsedUrl } from "./url-parser.service";
 
 @Injectable()
 export class AiGroupService {
@@ -42,6 +43,7 @@ export class AiGroupService {
     private aiChatService: AiChatService,
     private searchService: SearchService,
     private contextRouter: ContextRouterService,
+    private urlParserService: UrlParserService,
   ) {}
 
   // ==================== Topic CRUD ====================
@@ -915,6 +917,22 @@ export class AiGroupService {
   async sendMessage(topicId: string, userId: string, dto: SendMessageDto) {
     await this.checkTopicMembership(topicId, userId);
 
+    // 检测并解析消息中的 URL
+    let parsedUrls: ParsedUrl[] = [];
+    try {
+      const { parsedUrls: urls } =
+        await this.urlParserService.detectAndParseUrls(dto.content);
+      parsedUrls = urls;
+      if (urls.length > 0) {
+        this.logger.log(
+          `Detected and parsed ${urls.length} URLs in message for topic ${topicId}`,
+        );
+      }
+    } catch (error) {
+      this.logger.warn(`Failed to parse URLs in message: ${error}`);
+      // URL 解析失败不影响消息发送
+    }
+
     const message = await this.prisma.$transaction(async (tx) => {
       // 创建消息
       const msg = await tx.topicMessage.create({
@@ -924,6 +942,7 @@ export class AiGroupService {
           content: dto.content,
           contentType: dto.contentType || MessageContentType.TEXT,
           replyToId: dto.replyToId,
+          parsedUrls: parsedUrls.length > 0 ? (parsedUrls as any) : undefined,
         },
         include: {
           sender: {
@@ -1364,6 +1383,7 @@ ${messagesForSummary
       aiMember: { displayName: string } | null;
       createdAt: Date;
       score: number;
+      parsedUrls?: ParsedUrl[] | null;
       replyTo?: {
         id: string;
         senderId: string | null;
@@ -1374,6 +1394,7 @@ ${messagesForSummary
       } | null;
     }>;
     summary: string | null;
+    parsedUrlsContext: string;
   }> {
     // 1. 获取最近50条消息用于评分（比最终输出多，用于智能筛选）
     const recentMessages = await this.prisma.topicMessage.findMany({
@@ -1400,7 +1421,7 @@ ${messagesForSummary
     });
 
     if (recentMessages.length === 0) {
-      return { messages: [], summary: null };
+      return { messages: [], summary: null, parsedUrlsContext: "" };
     }
 
     // 2. 为每条消息计算重要性分数
@@ -1510,6 +1531,23 @@ ${messagesForSummary
       }
     }
 
+    // 5. 收集所有消息中的 parsedUrls，生成 AI 上下文
+    const allParsedUrls: ParsedUrl[] = [];
+    for (const msg of topMessages) {
+      // parsedUrls 存储在数据库中作为 JSON
+      const msgParsedUrls = (msg as any).parsedUrls as ParsedUrl[] | null;
+      if (msgParsedUrls && Array.isArray(msgParsedUrls)) {
+        allParsedUrls.push(...msgParsedUrls);
+      }
+    }
+
+    // 使用 UrlParserService 生成上下文（去重）
+    const uniqueParsedUrls = allParsedUrls.filter(
+      (url, index, self) => index === self.findIndex((u) => u.url === url.url),
+    );
+    const parsedUrlsContext =
+      this.urlParserService.generateAiContextFromParsedUrls(uniqueParsedUrls);
+
     return {
       messages: topMessages.map((m) => ({
         id: m.id,
@@ -1520,9 +1558,11 @@ ${messagesForSummary
         aiMember: m.aiMember,
         createdAt: m.createdAt,
         score: m.score,
+        parsedUrls: (m as any).parsedUrls as ParsedUrl[] | null,
         replyTo: m.replyTo,
       })),
       summary,
+      parsedUrlsContext,
     };
   }
 
@@ -1572,6 +1612,7 @@ ${messagesForSummary
 
     const contextMessages = smartContext.messages;
     const contextSummary = smartContext.summary;
+    const parsedUrlsContext = smartContext.parsedUrlsContext;
 
     // 构建Prompt
     const topic = await this.prisma.topic.findUnique({
@@ -1834,15 +1875,18 @@ ${aiList}
     }
 
     // 如果有辩论模式，辩论prompt优先级最高
+    // parsedUrlsContext 包含消息中预解析的 URL 内容，优先级高于实时抓取的 urlContext
+    const combinedUrlContext = parsedUrlsContext || urlContext;
+
     const systemPrompt = debatePrompt
       ? `You are ${aiMember.displayName}.
 ${debatePrompt}
-${contextSummarySection}${resourceContext}${urlContext}${searchContext}`
+${contextSummarySection}${resourceContext}${combinedUrlContext}${searchContext}`
       : aiMember.systemPrompt ||
         `You are ${aiMember.displayName}, an AI assistant participating in a group discussion.
 ${aiMember.roleDescription ? `Your role: ${aiMember.roleDescription}` : ""}
 You are in a discussion group called "${topic?.name}".
-${topic?.description ? `Group description: ${topic.description}` : ""}${contextSummarySection}${resourceContext}${urlContext}${searchContext}${aiCollaborationPrompt}
+${topic?.description ? `Group description: ${topic.description}` : ""}${contextSummarySection}${resourceContext}${combinedUrlContext}${searchContext}${aiCollaborationPrompt}
 
 Respond naturally and helpfully to the discussion. When relevant, reference the shared materials, fetched web content, and search results to provide accurate, up-to-date information. Keep your responses concise but informative.`;
 

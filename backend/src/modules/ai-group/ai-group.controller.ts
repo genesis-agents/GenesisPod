@@ -15,6 +15,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { AiGroupService } from "./ai-group.service";
 import { AiGroupGateway } from "./ai-group.gateway";
 import { DebateService } from "./debate.service";
+import { UrlParserService } from "./url-parser.service";
 import {
   CreateTopicDto,
   UpdateTopicDto,
@@ -44,6 +45,7 @@ export class AiGroupController {
     private readonly aiGroupGateway: AiGroupGateway,
     private readonly debateService: DebateService,
     private readonly teamMissionService: TeamMissionService,
+    private readonly urlParserService: UrlParserService,
   ) {}
 
   // ==================== Topic CRUD ====================
@@ -998,6 +1000,40 @@ export class AiGroupController {
   @Get(":topicId/team")
   async getTeamMembers(@Param("topicId") topicId: string) {
     return this.teamMissionService.getTeamMembers(topicId);
+  }
+
+  // ==================== URL Parsing ====================
+
+  /**
+   * 解析单个 URL
+   */
+  @Post("parse-url")
+  async parseUrl(@Body() dto: { url: string }) {
+    return this.urlParserService.parseUrl(dto.url);
+  }
+
+  /**
+   * 批量解析 URL
+   */
+  @Post("parse-urls")
+  async parseUrls(@Body() dto: { urls: string[] }) {
+    return this.urlParserService.parseUrls(dto.urls);
+  }
+
+  /**
+   * 从文本中检测 URL（不解析内容，仅检测）
+   */
+  @Post("detect-urls")
+  async detectUrls(@Body() dto: { text: string }) {
+    return this.urlParserService.detectUrls(dto.text);
+  }
+
+  /**
+   * 从文本中检测并解析所有 URL
+   */
+  @Post("detect-and-parse-urls")
+  async detectAndParseUrls(@Body() dto: { text: string }) {
+    return this.urlParserService.detectAndParseUrls(dto.text);
   }
 }
 
