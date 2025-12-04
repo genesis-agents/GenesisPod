@@ -176,16 +176,8 @@ export default function AskPage() {
           })
         );
 
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: (Date.now() + 1).toString(),
-            role: 'assistant',
-            content: 'Multiple model responses shown above.',
-            model: 'mixture',
-            timestamp: new Date(),
-          },
-        ]);
+        // Don't add a placeholder message for mixture mode
+        // The mixture responses are displayed inline
       } else {
         await new Promise((resolve) => setTimeout(resolve, 1500));
         const simulatedResponse = `Response from **${selectedModelInfo?.name || 'AI'}**.\n\nQuestion: "${userMessage.content}"\n\n_Connect to API for real responses._`;
@@ -507,47 +499,64 @@ export default function AskPage() {
           <>
             <div className="flex-1 overflow-y-auto px-4 py-6">
               <div className="mx-auto max-w-3xl space-y-6">
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-[85%] rounded-2xl px-4 py-3 ${
-                        message.role === 'user'
-                          ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white'
-                          : 'bg-white shadow-sm ring-1 ring-gray-100'
-                      }`}
-                    >
-                      {message.role === 'assistant' && message.model && (
-                        <div className="mb-2 flex items-center gap-2 text-xs text-gray-500">
-                          <span>
-                            {message.model === 'mixture'
-                              ? '🔀'
-                              : chatModels.find((m) => m.id === message.model)
-                                  ?.icon || '🤖'}
-                          </span>
-                          <span>
-                            {message.model === 'mixture'
-                              ? 'Mixture'
-                              : chatModels.find((m) => m.id === message.model)
-                                  ?.name || message.model}
-                          </span>
-                        </div>
-                      )}
+                {messages
+                  .filter((message) => {
+                    // Filter out mixture placeholder messages
+                    if (
+                      message.model === 'mixture' &&
+                      message.content ===
+                        'Multiple model responses shown above.'
+                    ) {
+                      return false;
+                    }
+                    return true;
+                  })
+                  .map((message) => {
+                    const messageModel = chatModels.find(
+                      (m) => m.id === message.model
+                    );
+                    return (
                       <div
-                        className={`prose prose-sm max-w-none ${message.role === 'user' ? 'prose-invert' : ''}`}
+                        key={message.id}
+                        className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                       >
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {message.content}
-                        </ReactMarkdown>
+                        <div
+                          className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+                            message.role === 'user'
+                              ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white'
+                              : 'bg-white shadow-sm ring-1 ring-gray-100'
+                          }`}
+                        >
+                          {message.role === 'assistant' && message.model && (
+                            <div className="mb-2 flex items-center gap-2 text-xs text-gray-500">
+                              {message.model === 'mixture' ? (
+                                <span>🔀</span>
+                              ) : messageModel ? (
+                                <ModelIcon model={messageModel} size={14} />
+                              ) : (
+                                <span>🤖</span>
+                              )}
+                              <span>
+                                {message.model === 'mixture'
+                                  ? 'Mixture'
+                                  : messageModel?.name || message.model}
+                              </span>
+                            </div>
+                          )}
+                          <div
+                            className={`prose prose-sm max-w-none ${message.role === 'user' ? 'prose-invert' : ''}`}
+                          >
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {message.content}
+                            </ReactMarkdown>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })}
 
-                {/* Mixture Responses */}
-                {isLoading && isMixtureMode && mixtureResponses.length > 0 && (
+                {/* Mixture Responses - show when there are responses (loading or completed) */}
+                {mixtureResponses.length > 0 && (
                   <div className="space-y-3">
                     {mixtureResponses.map((response, index) => {
                       const modelInfo = chatModels.find(
@@ -563,9 +572,11 @@ export default function AskPage() {
                             className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-gray-50"
                           >
                             <div className="flex items-center gap-2">
-                              <span className="text-lg">
-                                {modelInfo?.icon || '🤖'}
-                              </span>
+                              {modelInfo ? (
+                                <ModelIcon model={modelInfo} size={20} />
+                              ) : (
+                                <span className="text-lg">🤖</span>
+                              )}
                               <span className="font-medium text-gray-900">
                                 {response.model}
                               </span>
