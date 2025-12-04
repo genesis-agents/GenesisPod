@@ -1568,26 +1568,8 @@ function MessageInput({
       )}
 
       {/* Input Area */}
-      <div className="flex items-end gap-3">
-        <div className="flex-1">
-          <textarea
-            ref={inputRef}
-            value={content}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            placeholder="Type a message... Use @ to mention"
-            rows={1}
-            className="max-h-32 min-h-[44px] w-full resize-none rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            style={{ height: 'auto' }}
-            onInput={(e) => {
-              const target = e.target as HTMLTextAreaElement;
-              target.style.height = 'auto';
-              target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
-            }}
-          />
-        </div>
-
-        {/* Quick AI Mention Buttons - 显示所有 AI 成员（最多6个），超过则显示更多按钮 */}
+      <div className="flex items-end gap-2">
+        {/* Quick AI Mention Buttons - 放在左边，符合操作流程：选AI -> 输入 -> 发送 */}
         <div className="flex items-center gap-1">
           {(topic.aiMembers || []).slice(0, 6).map((ai) => {
             const model = findModel(ai.aiModel);
@@ -1596,7 +1578,11 @@ function MessageInput({
             return (
               <button
                 key={ai.id}
-                onClick={() => setContent((prev) => `${prev}@${mentionName} `)}
+                onClick={() => {
+                  setContent((prev) => `${prev}@${mentionName} `);
+                  // 点击后聚焦输入框
+                  setTimeout(() => inputRef.current?.focus(), 0);
+                }}
                 className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 transition-colors hover:bg-purple-100 hover:ring-2 hover:ring-purple-300"
                 title={`@${ai.displayName}`}
               >
@@ -1617,13 +1603,35 @@ function MessageInput({
           {/* 如果 AI 超过 6 个，显示 @All AIs 按钮 */}
           {(topic.aiMembers || []).length > 6 && (
             <button
-              onClick={() => setContent((prev) => `${prev}@AllAIs `)}
+              onClick={() => {
+                setContent((prev) => `${prev}@AllAIs `);
+                setTimeout(() => inputRef.current?.focus(), 0);
+              }}
               className="flex h-9 items-center gap-1 rounded-lg bg-purple-100 px-2 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-200"
               title="Mention all AIs"
             >
               +{(topic.aiMembers || []).length - 6}
             </button>
           )}
+        </div>
+
+        {/* Input Field */}
+        <div className="flex-1">
+          <textarea
+            ref={inputRef}
+            value={content}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            placeholder="Type a message... Use @ to mention"
+            rows={1}
+            className="max-h-32 min-h-[44px] w-full resize-none rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            style={{ height: 'auto' }}
+            onInput={(e) => {
+              const target = e.target as HTMLTextAreaElement;
+              target.style.height = 'auto';
+              target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
+            }}
+          />
         </div>
 
         {/* Send Button */}
