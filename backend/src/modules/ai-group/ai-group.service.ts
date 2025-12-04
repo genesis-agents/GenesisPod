@@ -1944,9 +1944,13 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
 
         case ContextStrategy.STANDARD:
         default:
-          // 普通对话：过滤掉辩论格式的消息
+          // 【最佳实践】普通对话上下文管理
+          // 1. 过滤辩论格式消息
+          // 2. 限制上下文大小，但确保最新用户消息始终包含
           this.logger.log(`[ContextRouter] Using STANDARD strategy`);
-          filteredContextMessages = contextMessages.filter((msg) => {
+
+          // 先过滤辩论消息
+          let standardFiltered = contextMessages.filter((msg) => {
             if (msg.senderId) return true;
             if (msg.aiMemberId && isDebateMessage(msg.content)) {
               this.logger.log(
@@ -1956,11 +1960,55 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
             }
             return true;
           });
-          const MAX_NORMAL_CONTEXT = 8;
-          if (filteredContextMessages.length > MAX_NORMAL_CONTEXT) {
-            filteredContextMessages =
-              filteredContextMessages.slice(-MAX_NORMAL_CONTEXT);
+
+          // 找到最新的用户消息
+          // 由于 smartContext 不包含 mentions 信息，直接取最新用户消息
+          const userMessagesInContext = standardFiltered.filter(
+            (m) => m.senderId,
+          );
+          const latestUserMsgForContext =
+            userMessagesInContext[userMessagesInContext.length - 1];
+
+          // 限制上下文大小，但确保最新用户消息始终在末尾
+          const MAX_NORMAL_CONTEXT = 6; // 减少到6条，确保聚焦
+          if (standardFiltered.length > MAX_NORMAL_CONTEXT) {
+            // 取最近的消息，确保包含最新用户消息
+            const recentMessages = standardFiltered.slice(-MAX_NORMAL_CONTEXT);
+
+            // 如果最新用户消息不在其中，强制添加
+            if (
+              latestUserMsgForContext &&
+              !recentMessages.find((m) => m.id === latestUserMsgForContext.id)
+            ) {
+              // 移除最旧的消息，添加最新用户消息
+              recentMessages.shift();
+              recentMessages.push(latestUserMsgForContext);
+              // 重新按时间排序
+              recentMessages.sort(
+                (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+              );
+            }
+            standardFiltered = recentMessages;
           }
+
+          // 【关键】确保最新用户消息在末尾（上下文最后）
+          // 这对于 AI 理解"当前请求"至关重要
+          if (latestUserMsgForContext) {
+            const lastMsg = standardFiltered[standardFiltered.length - 1];
+            if (lastMsg && lastMsg.id !== latestUserMsgForContext.id) {
+              // 移动最新用户消息到末尾
+              standardFiltered = standardFiltered.filter(
+                (m) => m.id !== latestUserMsgForContext.id,
+              );
+              standardFiltered.push(latestUserMsgForContext);
+            }
+          }
+
+          filteredContextMessages = standardFiltered;
+
+          this.logger.log(
+            `[STANDARD] Latest user msg: "${latestUserMsgForContext?.content.substring(0, 50)}..."`,
+          );
           break;
       }
 
@@ -1978,45 +2026,82 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
     // Build chat messages for AI service
     // CRITICAL FIX: Truncate message content to prevent context overflow
     const MAX_MESSAGE_LENGTH = 4000; // Max chars per message (~1000 tokens)
-    const chatMessages: ChatMessage[] = filteredContextMessages
-      .reverse()
-      .map((m) => {
-        const senderName = m.sender
-          ? m.sender.fullName || m.sender.username || "User"
-          : m.aiMember?.displayName || "AI";
-        const isAI = !!m.aiMemberId;
 
-        // Build content with reply context if present
-        let content = m.content;
+    // 【最佳实践】过滤 Team Mission 系统消息
+    // Team Mission 产生的格式化消息不应影响普通对话
+    const missionMessagePatterns = [
+      /^\[任务规划\]/,
+      /^\[任务分配\]/,
+      /^\[任务进度\]/,
+      /^\[结果整合\]/,
+      /^\[最终交付\]/,
+      /^\[Leader反馈\]/,
+      /^\[Mission\]/i,
+      /^\[AgentTask\]/i,
+      /\(本报告由.*共同完成.*\)/,
+      /\*\(系统提示[：:].*任务流.*\)\*/,
+    ];
 
-        // Include quoted/replied message context
-        if (m.replyTo && m.replyTo.content) {
-          const replyToSender = m.replyTo.sender
-            ? m.replyTo.sender.fullName || m.replyTo.sender.username || "User"
-            : m.replyTo.aiMember?.displayName || "AI";
-          const quotedContent =
-            m.replyTo.content.length > 500
-              ? m.replyTo.content.substring(0, 500) + "..."
-              : m.replyTo.content;
-          content = `[引用 ${replyToSender} 的消息: "${quotedContent}"]\n\n${m.content}`;
-        }
+    const isMissionSystemMessage = (content: string): boolean => {
+      return missionMessagePatterns.some((pattern) =>
+        pattern.test(content.trim()),
+      );
+    };
 
-        // Truncate content if too long
-        if (content.length > MAX_MESSAGE_LENGTH) {
-          content =
-            content.substring(0, MAX_MESSAGE_LENGTH) +
-            "\n\n[Message truncated due to length...]";
-          this.logger.warn(
-            `Message ${m.id} truncated from ${m.content.length} to ${MAX_MESSAGE_LENGTH} chars`,
-          );
-        }
+    // 过滤掉 Mission 系统消息
+    const normalContextMessages = filteredContextMessages.filter((msg) => {
+      if (isMissionSystemMessage(msg.content)) {
+        this.logger.log(
+          `[Context Filter] Removing mission message: "${msg.content.substring(0, 50)}..."`,
+        );
+        return false;
+      }
+      return true;
+    });
 
-        return {
-          role: isAI ? "assistant" : "user",
-          content,
-          name: senderName,
-        } as ChatMessage;
-      });
+    this.logger.log(
+      `[Context Filter] After mission filter: ${filteredContextMessages.length} -> ${normalContextMessages.length} messages`,
+    );
+
+    // 【重要】消息已按时间升序排列（oldest first），不需要 reverse
+    // OpenAI/Claude API 期望消息按时间升序排列
+    const chatMessages: ChatMessage[] = normalContextMessages.map((m) => {
+      const senderName = m.sender
+        ? m.sender.fullName || m.sender.username || "User"
+        : m.aiMember?.displayName || "AI";
+      const isAI = !!m.aiMemberId;
+
+      // Build content with reply context if present
+      let content = m.content;
+
+      // Include quoted/replied message context
+      if (m.replyTo && m.replyTo.content) {
+        const replyToSender = m.replyTo.sender
+          ? m.replyTo.sender.fullName || m.replyTo.sender.username || "User"
+          : m.replyTo.aiMember?.displayName || "AI";
+        const quotedContent =
+          m.replyTo.content.length > 500
+            ? m.replyTo.content.substring(0, 500) + "..."
+            : m.replyTo.content;
+        content = `[引用 ${replyToSender} 的消息: "${quotedContent}"]\n\n${m.content}`;
+      }
+
+      // Truncate content if too long
+      if (content.length > MAX_MESSAGE_LENGTH) {
+        content =
+          content.substring(0, MAX_MESSAGE_LENGTH) +
+          "\n\n[Message truncated due to length...]";
+        this.logger.warn(
+          `Message ${m.id} truncated from ${m.content.length} to ${MAX_MESSAGE_LENGTH} chars`,
+        );
+      }
+
+      return {
+        role: isAI ? "assistant" : "user",
+        content,
+        name: senderName,
+      } as ChatMessage;
+    });
 
     // Get AI model configuration from database
     // 重要：aiMember.aiModel 现在存储的是 modelId（唯一），而不是 name（非唯一）
