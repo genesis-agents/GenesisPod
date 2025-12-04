@@ -180,6 +180,39 @@ async function recordMigration(migrationName: string): Promise<void> {
 }
 
 /**
+ * 修复失败的migration记录
+ */
+async function fixFailedMigrations(): Promise<void> {
+  try {
+    // 查找失败的migration
+    const failedMigrations = await prisma.$queryRaw<
+      Array<{ migration_name: string }>
+    >`
+      SELECT migration_name
+      FROM "_prisma_migrations"
+      WHERE finished_at IS NULL
+      AND rolled_back_at IS NULL
+    `;
+
+    for (const migration of failedMigrations) {
+      console.log(`   🔧 Fixing failed migration: ${migration.migration_name}`);
+
+      // 直接删除失败的migration记录
+      await prisma.$executeRaw`
+        DELETE FROM "_prisma_migrations"
+        WHERE migration_name = ${migration.migration_name}
+        AND finished_at IS NULL
+      `;
+      console.log(
+        `   ✅ Removed failed migration record: ${migration.migration_name}`,
+      );
+    }
+  } catch (error: any) {
+    console.log(`   ⚠️ Could not fix failed migrations: ${error.message}`);
+  }
+}
+
+/**
  * 主部署流程
  */
 async function deploy() {
@@ -195,6 +228,11 @@ async function deploy() {
     console.error("   ❌ Database connection failed:", error);
     process.exit(1);
   }
+
+  // Step 1.5: 修复失败的migration记录
+  console.log("🔧 Step 1.5: Fixing failed migrations...");
+  await fixFailedMigrations();
+  console.log("");
 
   // Step 2: 运行 Prisma migrate deploy（标准迁移）
   console.log("📦 Step 2: Running Prisma migrate deploy...");
