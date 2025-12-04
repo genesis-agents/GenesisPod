@@ -119,7 +119,7 @@ export default function AskPage() {
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [showTools, setShowTools] = useState(false);
-  const [webSearchEnabled, setWebSearchEnabled] = useState(true); // Default enabled
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false); // Default disabled
   const [mixtureResponses, setMixtureResponses] = useState<MixtureResponse[]>(
     []
   );
