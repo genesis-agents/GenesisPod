@@ -706,7 +706,7 @@ function StudioPageContent() {
       <div
         className={
           activeTab === 'create'
-            ? 'mx-auto h-[calc(100vh-200px)] max-w-[1600px] px-8 py-4'
+            ? 'ml-8 h-[calc(100vh-200px)] py-4 pr-4'
             : 'mx-auto max-w-7xl px-6 py-8'
         }
       >
