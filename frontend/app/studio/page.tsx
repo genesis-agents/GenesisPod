@@ -508,9 +508,175 @@ function ProjectCard({
   );
 }
 
+// ==================== Gallery 组件 ====================
+interface BookmarkedImage {
+  id: string;
+  prompt: string;
+  enhancedPrompt?: string;
+  imageUrl: string;
+  width: number;
+  height: number;
+  createdAt: string;
+  isBookmarked: boolean;
+}
+
+function GalleryTab() {
+  const [images, setImages] = useState<BookmarkedImage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedImage, setSelectedImage] = useState<BookmarkedImage | null>(
+    null
+  );
+
+  useEffect(() => {
+    const fetchImages = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/ai-image/bookmarked`, {
+          headers: getAuthHeaders(),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setImages(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch images:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchImages();
+  }, []);
+
+  const handleUnbookmark = async (imageId: string) => {
+    try {
+      await fetch(`${API_BASE}/api/v1/ai-image/${imageId}/bookmark`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      setImages((prev) => prev.filter((img) => img.id !== imageId));
+      if (selectedImage?.id === imageId) {
+        setSelectedImage(null);
+      }
+    } catch (err) {
+      console.error('Failed to unbookmark:', err);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <LoaderIcon className="h-8 w-8 animate-spin text-amber-600" />
+      </div>
+    );
+  }
+
+  if (images.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-20">
+        <svg
+          className="h-16 w-16 text-gray-300"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+          />
+        </svg>
+        <h3 className="mt-4 text-lg font-medium text-gray-900">
+          No saved images
+        </h3>
+        <p className="mt-1 text-gray-500">
+          Images you bookmark will appear here
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        {images.map((image) => (
+          <div
+            key={image.id}
+            className="group relative aspect-square cursor-pointer overflow-hidden rounded-xl bg-gray-100"
+            onClick={() => setSelectedImage(image)}
+          >
+            <img
+              src={image.imageUrl}
+              alt={image.prompt}
+              className="h-full w-full object-cover transition-transform group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+            <div className="absolute bottom-0 left-0 right-0 p-3 text-white opacity-0 transition-opacity group-hover:opacity-100">
+              <p className="line-clamp-2 text-sm">{image.prompt}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Image Modal */}
+      {selectedImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setSelectedImage(null)}
+        >
+          <div
+            className="relative max-h-[90vh] max-w-4xl overflow-hidden rounded-xl bg-white"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={selectedImage.imageUrl}
+              alt={selectedImage.prompt}
+              className="max-h-[70vh] w-auto object-contain"
+            />
+            <div className="p-4">
+              <p className="text-sm text-gray-600">{selectedImage.prompt}</p>
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-xs text-gray-400">
+                  {new Date(selectedImage.createdAt).toLocaleDateString()}
+                </span>
+                <button
+                  onClick={() => handleUnbookmark(selectedImage.id)}
+                  className="text-sm text-red-500 hover:text-red-600"
+                >
+                  Remove from Gallery
+                </button>
+              </div>
+            </div>
+            <button
+              onClick={() => setSelectedImage(null)}
+              className="absolute right-3 top-3 rounded-full bg-black/50 p-2 text-white hover:bg-black/70"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ==================== 主页面 ====================
 export default function StudioPage() {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<'projects' | 'gallery'>(
+    'projects'
+  );
   const [projects, setProjects] = useState<ResearchProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -596,77 +762,147 @@ export default function StudioPage() {
                 </p>
               </div>
             </div>
+            {activeTab === 'projects' && (
+              <button
+                onClick={() => setShowCreateDialog(true)}
+                className="flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-amber-700"
+              >
+                <PlusIcon className="h-5 w-5" />
+                New Project
+              </button>
+            )}
+          </div>
+
+          {/* Tabs */}
+          <div className="mt-6 flex items-center gap-6 border-b border-gray-200">
             <button
-              onClick={() => setShowCreateDialog(true)}
-              className="flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-amber-700"
+              onClick={() => setActiveTab('projects')}
+              className={`relative pb-3 text-sm font-medium transition-colors ${
+                activeTab === 'projects'
+                  ? 'text-amber-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
             >
-              <PlusIcon className="h-5 w-5" />
-              New Project
+              <div className="flex items-center gap-2">
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                  />
+                </svg>
+                Projects
+              </div>
+              {activeTab === 'projects' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-600" />
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('gallery')}
+              className={`relative pb-3 text-sm font-medium transition-colors ${
+                activeTab === 'gallery'
+                  ? 'text-amber-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+                Gallery
+              </div>
+              {activeTab === 'gallery' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-600" />
+              )}
             </button>
           </div>
 
-          {/* Search Bar */}
-          <div className="mt-6">
-            <div className="relative">
-              <SearchIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="搜索项目..."
-                className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
-              />
+          {/* Search Bar - Only for Projects */}
+          {activeTab === 'projects' && (
+            <div className="mt-6">
+              <div className="relative">
+                <SearchIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="搜索项目..."
+                  className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
       {/* Content */}
       <div className="mx-auto max-w-7xl px-6 py-8">
-        {/* Projects Grid */}
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <LoaderIcon className="h-8 w-8 animate-spin text-amber-600" />
-          </div>
-        ) : error ? (
-          <div className="rounded-xl bg-red-50 p-6 text-center">
-            <p className="text-red-600">{error}</p>
-            <button
-              onClick={loadProjects}
-              className="mt-4 text-sm text-purple-600 hover:underline"
-            >
-              Try again
-            </button>
-          </div>
-        ) : projects.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-20">
-            <FolderOpenIcon className="h-16 w-16 text-gray-300" />
-            <h3 className="mt-4 text-lg font-medium text-gray-900">
-              No projects yet
-            </h3>
-            <p className="mt-1 text-gray-500">
-              Create your first research project to get started
-            </p>
-            <button
-              onClick={() => setShowCreateDialog(true)}
-              className="mt-6 flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2.5 font-medium text-white hover:bg-purple-700"
-            >
-              <PlusIcon className="h-5 w-5" />
-              Create Project
-            </button>
-          </div>
+        {activeTab === 'gallery' ? (
+          <GalleryTab />
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {projects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                onClick={() => router.push(`/studio/${project.id}`)}
-                onArchive={() => handleArchive(project.id)}
-                onDelete={() => handleDelete(project.id)}
-              />
-            ))}
-          </div>
+          /* Projects Grid */
+          <>
+            {loading ? (
+              <div className="flex items-center justify-center py-20">
+                <LoaderIcon className="h-8 w-8 animate-spin text-amber-600" />
+              </div>
+            ) : error ? (
+              <div className="rounded-xl bg-red-50 p-6 text-center">
+                <p className="text-red-600">{error}</p>
+                <button
+                  onClick={loadProjects}
+                  className="mt-4 text-sm text-purple-600 hover:underline"
+                >
+                  Try again
+                </button>
+              </div>
+            ) : projects.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-20">
+                <FolderOpenIcon className="h-16 w-16 text-gray-300" />
+                <h3 className="mt-4 text-lg font-medium text-gray-900">
+                  No projects yet
+                </h3>
+                <p className="mt-1 text-gray-500">
+                  Create your first research project to get started
+                </p>
+                <button
+                  onClick={() => setShowCreateDialog(true)}
+                  className="mt-6 flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2.5 font-medium text-white hover:bg-purple-700"
+                >
+                  <PlusIcon className="h-5 w-5" />
+                  Create Project
+                </button>
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {projects.map((project) => (
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    onClick={() => router.push(`/studio/${project.id}`)}
+                    onArchive={() => handleArchive(project.id)}
+                    onDelete={() => handleDelete(project.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 
