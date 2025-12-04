@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIModels, AIModel } from '@/hooks/useAIModels';
+import Sidebar from '@/components/layout/Sidebar';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -22,40 +22,15 @@ interface MixtureResponse {
   isCollapsed: boolean;
 }
 
-// Helper: render model icon (emoji or image)
-function ModelIcon({
-  model,
-  size = 20,
-}: {
-  model: AIModel | { icon: string; iconUrl?: string };
-  size?: number;
-}) {
-  const icon = model.icon;
-  const iconUrl = 'iconUrl' in model ? model.iconUrl : undefined;
-
-  // Check if icon is emoji (single character or emoji sequence)
-  const isEmoji = icon && (icon.length <= 2 || /\p{Emoji}/u.test(icon));
-
-  if (isEmoji && icon) {
-    return <span style={{ fontSize: size }}>{icon}</span>;
-  }
-
-  if (iconUrl && !iconUrl.startsWith('/icons/')) {
-    // It's a real URL, use Image
-    return (
-      <Image
-        src={iconUrl}
-        alt=""
-        width={size}
-        height={size}
-        className="rounded"
-      />
-    );
-  }
-
-  // Fallback to default emoji
-  return <span style={{ fontSize: size }}>🤖</span>;
-}
+// Tool definitions
+const TOOLS = [
+  {
+    id: 'image',
+    name: 'Create Image',
+    icon: '🎨',
+    description: 'Generate images with AI',
+  },
+];
 
 export default function AskPage() {
   const { user } = useAuth();
@@ -65,6 +40,7 @@ export default function AskPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [showModelSelector, setShowModelSelector] = useState(false);
+  const [showTools, setShowTools] = useState(false);
   const [mixtureResponses, setMixtureResponses] = useState<MixtureResponse[]>(
     []
   );
@@ -72,15 +48,20 @@ export default function AskPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const modelSelectorRef = useRef<HTMLDivElement>(null);
 
+  // Filter only CHAT models for the selector
+  const chatModels = models.filter((m) => m.modelType === 'CHAT');
+  // Get IMAGE models for Tools
+  const imageModels = models.filter((m) => m.modelType === 'IMAGE_GENERATION');
+
   // Set default model when models load
   useEffect(() => {
-    if (models.length > 0 && !selectedModel) {
-      const defaultModel = models.find((m) => m.isDefault) || models[0];
+    if (chatModels.length > 0 && !selectedModel) {
+      const defaultModel = chatModels.find((m) => m.isDefault) || chatModels[0];
       setSelectedModel(defaultModel.id);
     }
-  }, [models, selectedModel]);
+  }, [chatModels, selectedModel]);
 
-  const selectedModelInfo = models.find((m) => m.id === selectedModel);
+  const selectedModelInfo = chatModels.find((m) => m.id === selectedModel);
   const isMixtureMode = selectedModel === 'mixture';
 
   // Auto-scroll to bottom
@@ -88,7 +69,7 @@ export default function AskPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, mixtureResponses]);
 
-  // Close model selector when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -102,7 +83,6 @@ export default function AskPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Auto-resize textarea
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     e.target.style.height = 'auto';
@@ -131,11 +111,8 @@ export default function AskPage() {
 
     try {
       if (isMixtureMode) {
-        // Mixture mode: call multiple models in parallel
-        const chatModels = models
-          .filter((m) => m.modelType === 'CHAT')
-          .slice(0, 4);
-        const responses: MixtureResponse[] = chatModels.map((m) => ({
+        const modelsToCall = chatModels.slice(0, 4);
+        const responses: MixtureResponse[] = modelsToCall.map((m) => ({
           model: m.name,
           modelId: m.id,
           content: '',
@@ -143,14 +120,12 @@ export default function AskPage() {
         }));
         setMixtureResponses(responses);
 
-        // Simulate parallel API calls (replace with actual API calls)
         await Promise.all(
-          chatModels.map(async (model, index) => {
+          modelsToCall.map(async (model, index) => {
             await new Promise((resolve) =>
               setTimeout(resolve, 1000 + Math.random() * 2000)
             );
-            const simulatedResponse = `This is a response from **${model.name}**.\n\nYour question: "${userMessage.content}"\n\n_Connect to actual AI API for real responses._`;
-
+            const simulatedResponse = `Response from **${model.name}**.\n\nQuestion: "${userMessage.content}"\n\n_Connect to API for real responses._`;
             setMixtureResponses((prev) => {
               const newResponses = [...prev];
               newResponses[index] = {
@@ -162,27 +137,19 @@ export default function AskPage() {
           })
         );
 
-        const mixtureContent = chatModels
-          .map(
-            (m, i) => `### ${m.name}\n${responses[i]?.content || 'No response'}`
-          )
-          .join('\n\n---\n\n');
-
         setMessages((prev) => [
           ...prev,
           {
             id: (Date.now() + 1).toString(),
             role: 'assistant',
-            content: mixtureContent,
+            content: 'Multiple model responses shown above.',
             model: 'mixture',
             timestamp: new Date(),
           },
         ]);
       } else {
-        // Single model mode
         await new Promise((resolve) => setTimeout(resolve, 1500));
-        const simulatedResponse = `This is a response from **${selectedModelInfo?.name || 'AI'}**.\n\nYour question: "${userMessage.content}"\n\n_Connect to actual AI API for real responses._`;
-
+        const simulatedResponse = `Response from **${selectedModelInfo?.name || 'AI'}**.\n\nQuestion: "${userMessage.content}"\n\n_Connect to API for real responses._`;
         setMessages((prev) => [
           ...prev,
           {
@@ -201,7 +168,7 @@ export default function AskPage() {
         {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: 'Sorry, an error occurred. Please try again.',
+          content: 'Sorry, an error occurred.',
           model: selectedModel,
           timestamp: new Date(),
         },
@@ -229,7 +196,6 @@ export default function AskPage() {
     }
   };
 
-  // Get greeting based on time
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good morning';
@@ -237,14 +203,13 @@ export default function AskPage() {
     return 'Good evening';
   };
 
-  // Build model list with Mixture option
+  // Build model options: only CHAT models + Mixture
   const modelOptions = [
-    ...models.filter((m) => m.modelType === 'CHAT'),
+    ...chatModels,
     {
       id: 'mixture',
       name: 'Mixture',
       provider: 'Multi-Model',
-      color: 'from-violet-500 to-fuchsia-500',
       icon: '🔀',
       modelType: 'CHAT' as const,
       isMixture: true,
@@ -252,14 +217,15 @@ export default function AskPage() {
   ];
 
   return (
-    <div className="flex h-full flex-col bg-gradient-to-b from-gray-50/50 to-white">
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar />
+
       {/* Main Content */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <main className="flex flex-1 flex-col overflow-hidden">
         {messages.length === 0 ? (
-          /* Welcome Screen - Centered with input */
+          /* Welcome Screen */
           <div className="flex flex-1 flex-col items-center justify-center px-4">
             <div className="w-full max-w-2xl">
-              {/* Greeting Only */}
               <h1 className="mb-12 text-center text-4xl font-light text-gray-800 md:text-5xl">
                 <span className="bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 bg-clip-text text-transparent">
                   {getGreeting()}
@@ -269,7 +235,7 @@ export default function AskPage() {
                 )}
               </h1>
 
-              {/* Input Box - Centered */}
+              {/* Input Box */}
               <div className="relative">
                 <div className="rounded-2xl border border-gray-200 bg-white shadow-sm transition-all focus-within:border-purple-300 focus-within:shadow-md">
                   <textarea
@@ -283,9 +249,66 @@ export default function AskPage() {
                     disabled={isLoading || modelsLoading}
                   />
 
-                  {/* Bottom Bar */}
                   <div className="flex items-center justify-between border-t border-gray-100 px-3 py-2">
                     <div className="flex items-center gap-2">
+                      {/* Tools Button */}
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setShowTools(!showTools)}
+                          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                            showTools
+                              ? 'bg-purple-100 text-purple-700'
+                              : 'text-gray-500 hover:bg-gray-100'
+                          }`}
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+                            />
+                          </svg>
+                          Tools
+                        </button>
+
+                        {showTools && (
+                          <div className="absolute bottom-full left-0 mb-2 w-48 rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
+                            {imageModels.length > 0 && (
+                              <>
+                                <div className="px-3 pb-1 text-xs font-medium text-gray-400">
+                                  Image Generation
+                                </div>
+                                {imageModels.map((model) => (
+                                  <button
+                                    key={model.id}
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                                    onClick={() => {
+                                      setInput(`[Image: ${model.name}] `);
+                                      setShowTools(false);
+                                    }}
+                                  >
+                                    <span>{model.icon}</span>
+                                    <span>{model.name}</span>
+                                  </button>
+                                ))}
+                              </>
+                            )}
+                            {imageModels.length === 0 && (
+                              <div className="px-3 py-2 text-sm text-gray-500">
+                                No image models available
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
                       {/* Model Selector */}
                       <div className="relative" ref={modelSelectorRef}>
                         <button
@@ -300,20 +323,15 @@ export default function AskPage() {
                             <span className="text-gray-400">Loading...</span>
                           ) : (
                             <>
-                              {isMixtureMode ? (
-                                <span className="text-base">🔀</span>
-                              ) : selectedModelInfo ? (
-                                <ModelIcon
-                                  model={selectedModelInfo}
-                                  size={18}
-                                />
-                              ) : (
-                                <span className="text-base">🤖</span>
-                              )}
+                              <span>
+                                {isMixtureMode
+                                  ? '🔀'
+                                  : selectedModelInfo?.icon || '🤖'}
+                              </span>
                               <span>
                                 {isMixtureMode
                                   ? 'Mixture'
-                                  : selectedModelInfo?.name || 'Select Model'}
+                                  : selectedModelInfo?.name || 'Select'}
                               </span>
                               <svg
                                 className="h-4 w-4 text-gray-400"
@@ -332,11 +350,10 @@ export default function AskPage() {
                           )}
                         </button>
 
-                        {/* Model Dropdown */}
                         {showModelSelector && (
-                          <div className="absolute bottom-full left-0 mb-2 max-h-80 w-72 overflow-y-auto rounded-xl border border-gray-200 bg-white py-2 shadow-xl">
+                          <div className="absolute bottom-full left-0 mb-2 max-h-80 w-64 overflow-y-auto rounded-xl border border-gray-200 bg-white py-2 shadow-xl">
                             <div className="px-3 pb-2 text-xs font-medium uppercase tracking-wider text-gray-400">
-                              Select Model
+                              Chat Models
                             </div>
                             {modelOptions.map((model) => (
                               <button
@@ -346,13 +363,13 @@ export default function AskPage() {
                                   setSelectedModel(model.id);
                                   setShowModelSelector(false);
                                 }}
-                                className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-gray-50 ${
+                                className={`flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-gray-50 ${
                                   selectedModel === model.id
                                     ? 'bg-purple-50'
                                     : ''
                                 }`}
                               >
-                                <ModelIcon model={model} size={20} />
+                                <span className="text-lg">{model.icon}</span>
                                 <div className="min-w-0 flex-1">
                                   <div className="flex items-center gap-2">
                                     <span className="truncate font-medium text-gray-900">
@@ -398,7 +415,7 @@ export default function AskPage() {
                     >
                       {isLoading ? (
                         <svg
-                          className="animate-spin\ h-5 w-5"
+                          className="h-5 w-5 animate-spin"
                           fill="none"
                           viewBox="0 0 24 24"
                         >
@@ -435,7 +452,6 @@ export default function AskPage() {
                   </div>
                 </div>
 
-                {/* Hint */}
                 <p className="mt-3 text-center text-xs text-gray-400">
                   Press Enter to send, Shift+Enter for new line
                 </p>
@@ -459,27 +475,22 @@ export default function AskPage() {
                           : 'bg-white shadow-sm ring-1 ring-gray-100'
                       }`}
                     >
-                      {message.role === 'assistant' &&
-                        message.model &&
-                        (() => {
-                          const msgModel = models.find(
-                            (m) => m.id === message.model
-                          );
-                          return (
-                            <div className="mb-2 flex items-center gap-2 text-xs text-gray-500">
-                              {message.model === 'mixture' ? (
-                                <span className="text-sm">🔀</span>
-                              ) : msgModel ? (
-                                <ModelIcon model={msgModel} size={14} />
-                              ) : (
-                                <span className="text-sm">🤖</span>
-                              )}
-                              {message.model === 'mixture'
-                                ? 'Mixture'
-                                : msgModel?.name || message.model}
-                            </div>
-                          );
-                        })()}
+                      {message.role === 'assistant' && message.model && (
+                        <div className="mb-2 flex items-center gap-2 text-xs text-gray-500">
+                          <span>
+                            {message.model === 'mixture'
+                              ? '🔀'
+                              : chatModels.find((m) => m.id === message.model)
+                                  ?.icon || '🤖'}
+                          </span>
+                          <span>
+                            {message.model === 'mixture'
+                              ? 'Mixture'
+                              : chatModels.find((m) => m.id === message.model)
+                                  ?.name || message.model}
+                          </span>
+                        </div>
+                      )}
                       <div
                         className={`prose prose-sm max-w-none ${message.role === 'user' ? 'prose-invert' : ''}`}
                       >
@@ -495,7 +506,7 @@ export default function AskPage() {
                 {isLoading && isMixtureMode && mixtureResponses.length > 0 && (
                   <div className="space-y-3">
                     {mixtureResponses.map((response, index) => {
-                      const modelInfo = models.find(
+                      const modelInfo = chatModels.find(
                         (m) => m.id === response.modelId
                       );
                       return (
@@ -508,11 +519,9 @@ export default function AskPage() {
                             className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-gray-50"
                           >
                             <div className="flex items-center gap-2">
-                              {modelInfo ? (
-                                <ModelIcon model={modelInfo} size={18} />
-                              ) : (
-                                <span className="text-lg">🤖</span>
-                              )}
+                              <span className="text-lg">
+                                {modelInfo?.icon || '🤖'}
+                              </span>
                               <span className="font-medium text-gray-900">
                                 {response.model}
                               </span>
@@ -552,7 +561,7 @@ export default function AskPage() {
                   </div>
                 )}
 
-                {/* Loading for single model */}
+                {/* Single model loading */}
                 {isLoading && !isMixtureMode && (
                   <div className="flex justify-start">
                     <div className="rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-gray-100">
@@ -583,7 +592,7 @@ export default function AskPage() {
               </div>
             </div>
 
-            {/* Input Area - Fixed at Bottom */}
+            {/* Bottom Input */}
             <div className="border-t border-gray-200 bg-white px-4 py-4">
               <div className="mx-auto max-w-3xl">
                 <form onSubmit={handleSubmit}>
@@ -599,7 +608,27 @@ export default function AskPage() {
                       disabled={isLoading}
                     />
                     <div className="flex items-center justify-between border-t border-gray-100 px-3 py-2">
-                      <div className="relative" ref={modelSelectorRef}>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowTools(!showTools)}
+                          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100"
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+                            />
+                          </svg>
+                          Tools
+                        </button>
                         <button
                           type="button"
                           onClick={() =>
@@ -607,13 +636,11 @@ export default function AskPage() {
                           }
                           className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
                         >
-                          {isMixtureMode ? (
-                            <span className="text-base">🔀</span>
-                          ) : selectedModelInfo ? (
-                            <ModelIcon model={selectedModelInfo} size={18} />
-                          ) : (
-                            <span className="text-base">🤖</span>
-                          )}
+                          <span>
+                            {isMixtureMode
+                              ? '🔀'
+                              : selectedModelInfo?.icon || '🤖'}
+                          </span>
                           <span>
                             {isMixtureMode
                               ? 'Mixture'
@@ -682,7 +709,7 @@ export default function AskPage() {
             </div>
           </>
         )}
-      </div>
+      </main>
     </div>
   );
 }
