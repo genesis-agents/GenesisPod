@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIModels, AIModel } from '@/hooks/useAIModels';
 import Sidebar from '@/components/layout/Sidebar';
@@ -22,15 +23,53 @@ interface MixtureResponse {
   isCollapsed: boolean;
 }
 
-// Tool definitions
-const TOOLS = [
-  {
-    id: 'image',
-    name: 'Create Image',
-    icon: '🎨',
-    description: 'Generate images with AI',
-  },
-];
+// Provider emoji mapping
+const PROVIDER_EMOJIS: Record<string, string> = {
+  openai: '🧠',
+  google: '💎',
+  anthropic: '🎭',
+  xai: '🤖',
+};
+
+// Helper: render model icon (emoji or fallback based on provider)
+function ModelIcon({
+  model,
+  size = 20,
+}: {
+  model: AIModel | { icon?: string; iconUrl?: string; provider?: string };
+  size?: number;
+}) {
+  const icon = model.icon || '';
+  const iconUrl = 'iconUrl' in model ? model.iconUrl : undefined;
+
+  // Check if icon is emoji (has emoji unicode characters and doesn't start with /)
+  const isEmoji = icon && /\p{Emoji}/u.test(icon) && !icon.startsWith('/');
+
+  if (isEmoji) {
+    return <span style={{ fontSize: size }}>{icon}</span>;
+  }
+
+  // Use iconUrl if it's a valid URL (starts with http)
+  if (iconUrl && iconUrl.startsWith('http')) {
+    return (
+      <Image
+        src={iconUrl}
+        alt=""
+        width={size}
+        height={size}
+        className="rounded"
+      />
+    );
+  }
+
+  // Fallback to provider-based emoji
+  const provider = (
+    'provider' in model ? model.provider || '' : ''
+  ).toLowerCase();
+  const fallbackEmoji = PROVIDER_EMOJIS[provider] || '🤖';
+
+  return <span style={{ fontSize: size }}>{fallbackEmoji}</span>;
+}
 
 export default function AskPage() {
   const { user } = useAuth();
@@ -294,7 +333,7 @@ export default function AskPage() {
                                       setShowTools(false);
                                     }}
                                   >
-                                    <span>{model.icon}</span>
+                                    <ModelIcon model={model} size={16} />
                                     <span>{model.name}</span>
                                   </button>
                                 ))}
@@ -323,11 +362,16 @@ export default function AskPage() {
                             <span className="text-gray-400">Loading...</span>
                           ) : (
                             <>
-                              <span>
-                                {isMixtureMode
-                                  ? '🔀'
-                                  : selectedModelInfo?.icon || '🤖'}
-                              </span>
+                              {isMixtureMode ? (
+                                <span>🔀</span>
+                              ) : selectedModelInfo ? (
+                                <ModelIcon
+                                  model={selectedModelInfo}
+                                  size={16}
+                                />
+                              ) : (
+                                <span>🤖</span>
+                              )}
                               <span>
                                 {isMixtureMode
                                   ? 'Mixture'
@@ -369,7 +413,7 @@ export default function AskPage() {
                                     : ''
                                 }`}
                               >
-                                <span className="text-lg">{model.icon}</span>
+                                <ModelIcon model={model} size={20} />
                                 <div className="min-w-0 flex-1">
                                   <div className="flex items-center gap-2">
                                     <span className="truncate font-medium text-gray-900">
@@ -636,11 +680,13 @@ export default function AskPage() {
                           }
                           className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
                         >
-                          <span>
-                            {isMixtureMode
-                              ? '🔀'
-                              : selectedModelInfo?.icon || '🤖'}
-                          </span>
+                          {isMixtureMode ? (
+                            <span>🔀</span>
+                          ) : selectedModelInfo ? (
+                            <ModelIcon model={selectedModelInfo} size={16} />
+                          ) : (
+                            <span>🤖</span>
+                          )}
                           <span>
                             {isMixtureMode
                               ? 'Mixture'
