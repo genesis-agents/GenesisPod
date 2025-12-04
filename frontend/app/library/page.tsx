@@ -7,7 +7,6 @@ import { config } from '@/lib/config';
 import NotesList from '@/components/features/NotesList';
 import Sidebar from '@/components/layout/Sidebar';
 import { Tag, UserStats } from '@/components/library/CollectionNav';
-import ImageGenerator from '@/components/ai-image/ImageGenerator';
 import CollectionModal from '@/components/library/CollectionModal';
 import BatchActionBar from '@/components/library/BatchActionBar';
 import ReadStatusBadge from '@/components/library/ReadStatusBadge';
@@ -138,6 +137,12 @@ function LibraryPageContent() {
   // Selected image ID for navigation from bookmarks to Images tab
   const [selectedImageId, setSelectedImageId] = useState<string | undefined>(
     undefined
+  );
+
+  // Image modal state
+  const [viewImageModalOpen, setViewImageModalOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<BookmarkedImage | null>(
+    null
   );
 
   // API hooks
@@ -278,6 +283,8 @@ function LibraryPageContent() {
   useEffect(() => {
     if (activeTab === 'bookmarks') {
       loadItems(1, false);
+      loadBookmarkedImages();
+    } else if (activeTab === 'images') {
       loadBookmarkedImages();
     }
   }, [
@@ -530,6 +537,12 @@ function LibraryPageContent() {
   const handleBookmarkedImageClick = (imageId: string) => {
     setSelectedImageId(imageId);
     setActiveTab('images');
+  };
+
+  // Handle clicking an image in Images tab to view full size
+  const handleImageClick = (image: BookmarkedImage) => {
+    setSelectedImage(image);
+    setViewImageModalOpen(true);
   };
 
   // Handle removing bookmark from AI image
@@ -1493,10 +1506,52 @@ function LibraryPageContent() {
               </div>
             )}
 
-            {/* Images Tab - AI Image Generator */}
+            {/* Images Tab - Bookmarked AI Images Gallery */}
             {activeTab === 'images' && (
-              <div className="h-[calc(100vh-180px)]">
-                <ImageGenerator initialImageId={selectedImageId} />
+              <div>
+                {bookmarkedImages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-20">
+                    <svg
+                      className="h-16 w-16 text-gray-300"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
+                    </svg>
+                    <h3 className="mt-4 text-lg font-medium text-gray-900">
+                      No saved images
+                    </h3>
+                    <p className="mt-1 text-gray-500">
+                      AI-generated images you bookmark will appear here
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                    {bookmarkedImages.map((image) => (
+                      <div
+                        key={image.id}
+                        className="group relative aspect-square cursor-pointer overflow-hidden rounded-xl bg-gray-100"
+                        onClick={() => handleImageClick(image)}
+                      >
+                        <img
+                          src={image.imageUrl}
+                          alt={image.prompt}
+                          className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+                        <div className="absolute bottom-0 left-0 right-0 p-3 text-white opacity-0 transition-opacity group-hover:opacity-100">
+                          <p className="line-clamp-2 text-sm">{image.prompt}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1826,6 +1881,109 @@ function LibraryPageContent() {
         collection={editingCollection}
         mode={collectionModalMode}
       />
+
+      {/* Image Viewing Modal */}
+      {viewImageModalOpen && selectedImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+          onClick={() => setViewImageModalOpen(false)}
+        >
+          <div
+            className="relative max-h-[90vh] max-w-[90vw]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setViewImageModalOpen(false)}
+              className="absolute -right-4 -top-4 z-10 rounded-full bg-white p-2 text-gray-600 shadow-lg transition-colors hover:bg-gray-100 hover:text-gray-900"
+            >
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+
+            {/* Image */}
+            <img
+              src={selectedImage.imageUrl}
+              alt={selectedImage.prompt}
+              className="max-h-[80vh] max-w-full rounded-lg object-contain"
+            />
+
+            {/* Image info */}
+            <div className="mt-4 rounded-lg bg-white/10 p-4 backdrop-blur-sm">
+              <p className="text-sm text-white/90">
+                {selectedImage.enhancedPrompt || selectedImage.prompt}
+              </p>
+              <div className="mt-2 flex items-center justify-between text-xs text-white/60">
+                <span>
+                  {selectedImage.width} × {selectedImage.height}
+                </span>
+                <span>
+                  {new Date(selectedImage.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="mt-3 flex justify-center gap-3">
+              <a
+                href={selectedImage.imageUrl}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
+                </svg>
+                Download
+              </a>
+              <button
+                onClick={(e) => {
+                  handleRemoveImageBookmark(selectedImage.id, e);
+                  setViewImageModalOpen(false);
+                }}
+                className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+                Remove from Library
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
