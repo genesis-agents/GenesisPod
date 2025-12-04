@@ -181,7 +181,10 @@ export default function AskPage() {
 
   // Create a new session
   const createSession = useCallback(async (): Promise<string | null> => {
-    if (!token) return null;
+    if (!token) {
+      console.warn('Cannot create session: no auth token');
+      return null;
+    }
 
     try {
       const response = await fetch(`${config.apiUrl}/ask/sessions`, {
@@ -198,6 +201,9 @@ export default function AskPage() {
       if (response.ok) {
         const session = await response.json();
         return session.id;
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to create session:', response.status, errorData);
       }
     } catch (error) {
       console.error('Failed to create session:', error);
@@ -208,7 +214,10 @@ export default function AskPage() {
   // Send message to session
   const sendMessageToSession = useCallback(
     async (sessionId: string, content: string, modelId?: string) => {
-      if (!token) return null;
+      if (!token) {
+        console.warn('Cannot send message: no auth token');
+        return null;
+      }
 
       try {
         const response = await fetch(
@@ -231,6 +240,9 @@ export default function AskPage() {
 
         if (response.ok) {
           return await response.json();
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Failed to send message:', response.status, errorData);
         }
       } catch (error) {
         console.error('Failed to send message:', error);
@@ -285,12 +297,24 @@ export default function AskPage() {
     setInput('');
   }, []);
 
-  // Call real backend AI API (for mixture mode - legacy)
+  // Call real backend AI API with optional context (for mixture mode and fallback)
   const callAIChat = async (
     modelName: string,
     message: string,
-    enableWebSearch: boolean = false
+    enableWebSearch: boolean = false,
+    contextMessages?: Message[]
   ): Promise<string> => {
+    // Build messages array with context
+    const apiMessages = contextMessages
+      ? [
+          ...contextMessages.map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+          { role: 'user' as const, content: message },
+        ]
+      : undefined;
+
     const response = await fetch(`${config.apiUrl}/ai/simple-chat`, {
       method: 'POST',
       headers: {
@@ -298,6 +322,7 @@ export default function AskPage() {
       },
       body: JSON.stringify({
         message,
+        messages: apiMessages,
         model: modelName,
         stream: false,
         webSearch: enableWebSearch,
@@ -426,19 +451,26 @@ export default function AskPage() {
           }
         } else {
           // Fallback to simple chat if session creation fails
+          // Still maintain context from current conversation
           const userMessage: Message = {
             id: Date.now().toString(),
             role: 'user',
             content: userContent,
             createdAt: new Date().toISOString(),
           };
+
+          // Get current messages for context before adding new user message
+          const currentMessages = messages;
           setMessages((prev) => [...prev, userMessage]);
 
           const modelName = selectedModelInfo?.modelName || 'gemini';
+          // Pass context messages (last 20) for memory
+          const contextForAI = currentMessages.slice(-20);
           const content = await callAIChat(
             modelName,
             userContent,
-            webSearchEnabled
+            webSearchEnabled,
+            contextForAI
           );
 
           setMessages((prev) => [

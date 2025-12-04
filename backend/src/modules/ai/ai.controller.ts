@@ -23,6 +23,7 @@ interface TranslateSingleRequest {
 
 interface SimpleChatRequest {
   message: string;
+  messages?: { role: "user" | "assistant" | "system"; content: string }[]; // Multi-turn context
   context?: string;
   model?: string;
   stream?: boolean;
@@ -422,10 +423,16 @@ export class AiController {
    */
   @Post("simple-chat")
   async simpleChat(@Body() body: SimpleChatRequest, @Res() res: Response) {
-    const { message, context, model = "gemini", stream = true } = body;
+    const {
+      message,
+      messages: contextMessages,
+      context,
+      model = "gemini",
+      stream = true,
+    } = body;
 
     this.logger.log(
-      `Simple chat request: model=${model}, stream=${stream}, message_len=${message?.length || 0}`,
+      `Simple chat request: model=${model}, stream=${stream}, message_len=${message?.length || 0}, context_messages=${contextMessages?.length || 0}`,
     );
 
     if (!message || message.trim().length === 0) {
@@ -449,10 +456,26 @@ export class AiController {
         throw new BadRequestException(`Model ${model} is not available`);
       }
 
-      // Build prompt with context
-      let fullPrompt = message;
-      if (context) {
-        fullPrompt = `Context:\n${context}\n\nUser Question:\n${message}`;
+      // Build messages array - support multi-turn context
+      let chatMessages: {
+        role: "user" | "assistant" | "system";
+        content: string;
+      }[];
+
+      if (contextMessages && contextMessages.length > 0) {
+        // Use provided messages array (already includes current message)
+        chatMessages = contextMessages;
+      } else if (context) {
+        // Legacy context string support
+        chatMessages = [
+          {
+            role: "user",
+            content: `Context:\n${context}\n\nUser Question:\n${message}`,
+          },
+        ];
+      } else {
+        // Single message
+        chatMessages = [{ role: "user", content: message }];
       }
 
       if (stream) {
@@ -471,8 +494,8 @@ export class AiController {
               modelId: modelConfig.modelId,
               apiKey: modelConfig.apiKey ?? "",
               apiEndpoint: modelConfig.apiEndpoint ?? undefined,
-              messages: [{ role: "user", content: fullPrompt }],
-              maxTokens: 2000,
+              messages: chatMessages,
+              maxTokens: 4000,
               temperature: 0.7,
             },
           );
@@ -500,8 +523,8 @@ export class AiController {
           modelId: modelConfig.modelId,
           apiKey: modelConfig.apiKey ?? "",
           apiEndpoint: modelConfig.apiEndpoint ?? undefined,
-          messages: [{ role: "user", content: fullPrompt }],
-          maxTokens: 2000,
+          messages: chatMessages,
+          maxTokens: 4000,
           temperature: 0.7,
         });
 
