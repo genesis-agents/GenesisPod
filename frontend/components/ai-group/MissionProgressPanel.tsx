@@ -91,7 +91,7 @@ export default function MissionProgressPanel({
 
   // Auto-select the most recent active mission
   useEffect(() => {
-    if (!currentMission && missions.length > 0) {
+    if (!currentMission && missions && missions.length > 0) {
       const activeMission = missions.find(
         (m) =>
           m.status === 'IN_PROGRESS' ||
@@ -110,7 +110,10 @@ export default function MissionProgressPanel({
     }
   };
 
-  const activeMissions = missions.filter(
+  // Ensure missions is always an array
+  const missionsList = missions || [];
+
+  const activeMissions = missionsList.filter(
     (m) =>
       m.status === 'IN_PROGRESS' ||
       m.status === 'PLANNING' ||
@@ -200,7 +203,7 @@ export default function MissionProgressPanel({
         )}
 
         {/* Completed missions section */}
-        {missions.some(
+        {missionsList.some(
           (m) => m.status === 'COMPLETED' || m.status === 'FAILED'
         ) && (
           <div className="border-t border-gray-200 pt-4">
@@ -208,7 +211,7 @@ export default function MissionProgressPanel({
               Completed
             </h4>
             <div className="space-y-2">
-              {missions
+              {missionsList
                 .filter(
                   (m) => m.status === 'COMPLETED' || m.status === 'FAILED'
                 )
