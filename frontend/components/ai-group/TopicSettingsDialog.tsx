@@ -328,6 +328,7 @@ function AddAIDialog({
   const [systemPrompt, setSystemPrompt] = useState('');
   const [autoRespond, setAutoRespond] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { models, loading } = useAIModels();
 
   const handleAdd = async () => {
@@ -342,6 +343,7 @@ function AddAIDialog({
     if (!selectedModelData) return;
 
     setIsAdding(true);
+    setError(null);
     try {
       await onAdd(topicId, {
         aiModel: selectedModelData.modelId, // 使用 modelId（唯一）而不是 modelName（可能重复）
@@ -351,6 +353,8 @@ function AddAIDialog({
         autoRespond,
       });
       onClose();
+    } catch (err: any) {
+      setError(err.message || 'Failed to add AI assistant');
     } finally {
       setIsAdding(false);
     }
@@ -445,6 +449,13 @@ function AddAIDialog({
             </span>
           </label>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
         <div className="mt-6 flex justify-end gap-3">
           <button
