@@ -1776,6 +1776,19 @@ export default function TopicPage() {
     }
   }, [topicId, joinTopicRoom, leaveTopicRoom]);
 
+  // Fallback polling for messages when WebSocket might not be connected
+  // This ensures messages are refreshed even if WebSocket fails
+  useEffect(() => {
+    if (!topicId || !isAuthenticated) return;
+
+    // Poll for new messages every 10 seconds as a fallback
+    const intervalId = setInterval(() => {
+      fetchMessages(topicId);
+    }, 10000);
+
+    return () => clearInterval(intervalId);
+  }, [topicId, isAuthenticated, fetchMessages]);
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (messages.length > lastMessageCountRef.current && messages.length > 0) {

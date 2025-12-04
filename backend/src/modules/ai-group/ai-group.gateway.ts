@@ -23,8 +23,10 @@ interface AuthenticatedSocket extends Socket {
     origin: [
       "http://localhost:3000",
       "http://localhost:3001",
-      process.env.FRONTEND_URL,
-    ],
+      "https://deepdive-engine.up.railway.app",
+      "https://deepdive-frontend.up.railway.app",
+      ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
+    ].filter(Boolean),
     credentials: true,
   },
   // 增加最大消息大小限制，支持大型图片数据 (默认1MB，增加到10MB)

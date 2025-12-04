@@ -620,7 +620,92 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
 
     // ==================== Team Mission Events ====================
 
-    // 任务状态更新
+    // Helper function for updating mission state
+    const updateMissionState = (
+      missionId: string,
+      updates: Partial<TeamMission>
+    ) => {
+      set((state) => ({
+        missions: state.missions.map((m) =>
+          m.id === missionId ? { ...m, ...updates } : m
+        ),
+        currentMission:
+          state.currentMission?.id === missionId
+            ? { ...state.currentMission, ...updates }
+            : state.currentMission,
+      }));
+    };
+
+    // 任务创建事件
+    newSocket.on(
+      'mission:created',
+      ({ mission }: { mission: TeamMission; messageId?: string }) => {
+        console.log('[WS] Mission created:', mission.id);
+        set((state) => ({
+          missions: [
+            mission,
+            ...state.missions.filter((m) => m.id !== mission.id),
+          ],
+        }));
+      }
+    );
+
+    // 任务状态变更 (后端使用 mission:status_changed)
+    newSocket.on(
+      'mission:status_changed',
+      ({
+        missionId,
+        status,
+        previousStatus,
+        totalTasks,
+      }: {
+        missionId: string;
+        status: MissionStatus;
+        previousStatus: MissionStatus;
+        totalTasks?: number;
+      }) => {
+        console.log('[WS] Mission status changed:', {
+          missionId,
+          status,
+          previousStatus,
+          totalTasks,
+        });
+        updateMissionState(missionId, {
+          status,
+          ...(totalTasks !== undefined && { totalTasks }),
+        });
+      }
+    );
+
+    // 任务进度更新 (后端使用 mission:progress_updated)
+    newSocket.on(
+      'mission:progress_updated',
+      ({
+        missionId,
+        completedTasks,
+        totalTasks,
+        progressPercent,
+      }: {
+        missionId: string;
+        completedTasks: number;
+        totalTasks: number;
+        progressPercent: number;
+      }) => {
+        console.log('[WS] Mission progress updated:', {
+          missionId,
+          completedTasks,
+          totalTasks,
+          progressPercent,
+        });
+        updateMissionState(missionId, {
+          completedTasks,
+          totalTasks,
+          progressPercent,
+        });
+      }
+    );
+
+    // 任务状态更新 (保留旧事件名兼容)
     newSocket.on(
       'mission:status',
       ({
@@ -641,27 +726,53 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
           status,
           progressPercent,
         });
-        set((state) => ({
-          missions: state.missions.map((m) =>
-            m.id === missionId
-              ? { ...m, status, progressPercent, completedTasks, totalTasks }
-              : m
-          ),
-          currentMission:
-            state.currentMission?.id === missionId
-              ? {
-                  ...state.currentMission,
-                  status,
-                  progressPercent,
-                  completedTasks,
-                  totalTasks,
-                }
-              : state.currentMission,
-        }));
+        updateMissionState(missionId, {
+          status,
+          progressPercent,
+          completedTasks,
+          totalTasks,
+        });
       }
     );
 
-    // 子任务状态更新
+    // 子任务完成 (后端使用 task:completed)
+    newSocket.on(
+      'task:completed',
+      ({
+        missionId,
+        taskId,
+        agentId,
+      }: {
+        missionId: string;
+        taskId: string;
+        agentId: string;
+      }) => {
+        console.log('[WS] Task completed:', { missionId, taskId, agentId });
+        set((state) => {
+          const updateTasks = (tasks?: AgentTask[]) =>
+            tasks?.map((t) =>
+              t.id === taskId
+                ? { ...t, status: 'AWAITING_REVIEW' as AgentTaskStatus }
+                : t
+            );
+
+          return {
+            missions: state.missions.map((m) =>
+              m.id === missionId ? { ...m, tasks: updateTasks(m.tasks) } : m
+            ),
+            currentMission:
+              state.currentMission?.id === missionId
+                ? {
+                    ...state.currentMission,
+                    tasks: updateTasks(state.currentMission.tasks),
+                  }
+                : state.currentMission,
+          };
+        });
+      }
+    );
+
+    // 子任务状态更新 (保留旧事件名兼容)
     newSocket.on(
       'task:status',
       ({

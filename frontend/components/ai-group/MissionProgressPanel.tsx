@@ -147,6 +147,27 @@ export default function MissionProgressPanel({
     fetchMissions(topicId);
   }, [topicId, fetchMissions]);
 
+  // Polling for active missions - refresh every 5 seconds when there are active missions
+  useEffect(() => {
+    const hasActiveMissions =
+      missions &&
+      missions.some(
+        (m) =>
+          m.status === 'IN_PROGRESS' ||
+          m.status === 'PLANNING' ||
+          m.status === 'REVIEW' ||
+          m.status === 'PENDING'
+      );
+
+    if (hasActiveMissions) {
+      const intervalId = setInterval(() => {
+        fetchMissions(topicId);
+      }, 5000); // Poll every 5 seconds
+
+      return () => clearInterval(intervalId);
+    }
+  }, [missions, topicId, fetchMissions]);
+
   // Auto-expand active missions
   useEffect(() => {
     if (missions && missions.length > 0) {
