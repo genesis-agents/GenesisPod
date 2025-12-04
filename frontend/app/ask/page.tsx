@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIModels, AIModel } from '@/hooks/useAIModels';
+import { config } from '@/lib/config';
 import Sidebar from '@/components/layout/Sidebar';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -173,6 +174,32 @@ export default function AskPage() {
     e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
   };
 
+  // Call real backend AI API
+  const callAIChat = async (
+    modelName: string,
+    message: string
+  ): Promise<string> => {
+    const response = await fetch(`${config.apiUrl}/ai/simple-chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message,
+        model: modelName,
+        stream: false,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || `API Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.content || 'No response';
+  };
+
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim() || isLoading) return;
@@ -195,6 +222,7 @@ export default function AskPage() {
 
     try {
       if (isMixtureMode) {
+        // Mixture mode: call multiple models in parallel
         const modelsToCall = chatModels.slice(0, 4);
         const responses: MixtureResponse[] = modelsToCall.map((m) => ({
           model: m.name,
@@ -206,32 +234,42 @@ export default function AskPage() {
 
         await Promise.all(
           modelsToCall.map(async (model, index) => {
-            await new Promise((resolve) =>
-              setTimeout(resolve, 1000 + Math.random() * 2000)
-            );
-            const simulatedResponse = `Response from **${model.name}**.\n\nQuestion: "${userMessage.content}"\n\n_Connect to API for real responses._`;
-            setMixtureResponses((prev) => {
-              const newResponses = [...prev];
-              newResponses[index] = {
-                ...newResponses[index],
-                content: simulatedResponse,
-              };
-              return newResponses;
-            });
+            try {
+              const content = await callAIChat(
+                model.modelName,
+                userMessage.content
+              );
+              setMixtureResponses((prev) => {
+                const newResponses = [...prev];
+                newResponses[index] = {
+                  ...newResponses[index],
+                  content,
+                };
+                return newResponses;
+              });
+            } catch (error) {
+              setMixtureResponses((prev) => {
+                const newResponses = [...prev];
+                newResponses[index] = {
+                  ...newResponses[index],
+                  content: `Error: ${error instanceof Error ? error.message : 'Failed to get response'}`,
+                };
+                return newResponses;
+              });
+            }
           })
         );
-
-        // Don't add a placeholder message for mixture mode
-        // The mixture responses are displayed inline
       } else {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        const simulatedResponse = `Response from **${selectedModelInfo?.name || 'AI'}**.\n\nQuestion: "${userMessage.content}"\n\n_Connect to API for real responses._`;
+        // Single model mode: call selected model
+        const modelName = selectedModelInfo?.modelName || 'gemini';
+        const content = await callAIChat(modelName, userMessage.content);
+
         setMessages((prev) => [
           ...prev,
           {
             id: (Date.now() + 1).toString(),
             role: 'assistant',
-            content: simulatedResponse,
+            content,
             model: selectedModel,
             timestamp: new Date(),
           },
@@ -244,7 +282,7 @@ export default function AskPage() {
         {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: 'Sorry, an error occurred.',
+          content: `Error: ${error instanceof Error ? error.message : 'An error occurred'}`,
           model: selectedModel,
           timestamp: new Date(),
         },
@@ -709,59 +747,155 @@ export default function AskPage() {
                     />
                     <div className="flex items-center justify-between border-t border-gray-100 px-3 py-2">
                       <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setShowTools(!showTools)}
-                          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100"
-                        >
-                          <svg
-                            className="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+                        {/* Tools with dropdown */}
+                        <div className="relative" ref={toolsRef}>
+                          <button
+                            type="button"
+                            onClick={() => setShowTools(!showTools)}
+                            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                              showTools
+                                ? 'bg-purple-100 text-purple-700'
+                                : 'text-gray-500 hover:bg-gray-100'
+                            }`}
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
-                            />
-                          </svg>
-                          Tools
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setShowModelSelector(!showModelSelector)
-                          }
-                          className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
-                        >
-                          {isMixtureMode ? (
-                            <span>🔀</span>
-                          ) : selectedModelInfo ? (
-                            <ModelIcon model={selectedModelInfo} size={16} />
-                          ) : (
-                            <span>🤖</span>
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+                              />
+                            </svg>
+                            Tools
+                          </button>
+
+                          {showTools && (
+                            <div className="absolute bottom-full left-0 z-50 mb-2 w-48 rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
+                              {imageModels.length > 0 && (
+                                <>
+                                  <div className="px-3 pb-1 text-xs font-medium text-gray-400">
+                                    Image Generation
+                                  </div>
+                                  {imageModels.map((model) => (
+                                    <button
+                                      key={model.id}
+                                      type="button"
+                                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                                      onClick={() => {
+                                        setInput(`[Image: ${model.name}] `);
+                                        setShowTools(false);
+                                      }}
+                                    >
+                                      <ModelIcon model={model} size={16} />
+                                      <span>{model.name}</span>
+                                    </button>
+                                  ))}
+                                </>
+                              )}
+                              {imageModels.length === 0 && (
+                                <div className="px-3 py-2 text-sm text-gray-500">
+                                  No image models available
+                                </div>
+                              )}
+                            </div>
                           )}
-                          <span>
-                            {isMixtureMode
-                              ? 'Mixture'
-                              : selectedModelInfo?.name || 'Model'}
-                          </span>
-                          <svg
-                            className="h-4 w-4 text-gray-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+                        </div>
+
+                        {/* Model selector with dropdown */}
+                        <div className="relative" ref={modelSelectorRef}>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShowModelSelector(!showModelSelector)
+                            }
+                            className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 9l-7 7-7-7"
-                            />
-                          </svg>
-                        </button>
+                            {isMixtureMode ? (
+                              <span>🔀</span>
+                            ) : selectedModelInfo ? (
+                              <ModelIcon model={selectedModelInfo} size={16} />
+                            ) : (
+                              <span>🤖</span>
+                            )}
+                            <span>
+                              {isMixtureMode
+                                ? 'Mixture'
+                                : selectedModelInfo?.name || 'Model'}
+                            </span>
+                            <svg
+                              className="h-4 w-4 text-gray-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 9l-7 7-7-7"
+                              />
+                            </svg>
+                          </button>
+
+                          {showModelSelector && (
+                            <div className="absolute bottom-full left-0 z-50 mb-2 max-h-80 w-64 overflow-y-auto rounded-xl border border-gray-200 bg-white py-2 shadow-xl">
+                              <div className="px-3 pb-2 text-xs font-medium uppercase tracking-wider text-gray-400">
+                                Chat Models
+                              </div>
+                              {modelOptions.map((model) => (
+                                <button
+                                  key={model.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedModel(model.id);
+                                    setShowModelSelector(false);
+                                  }}
+                                  className={`flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-gray-50 ${
+                                    selectedModel === model.id
+                                      ? 'bg-purple-50'
+                                      : ''
+                                  }`}
+                                >
+                                  <ModelIcon model={model} size={20} />
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="truncate font-medium text-gray-900">
+                                        {model.name}
+                                      </span>
+                                      {'isMixture' in model &&
+                                        model.isMixture && (
+                                          <span className="shrink-0 rounded bg-gradient-to-r from-violet-500 to-fuchsia-500 px-1.5 py-0.5 text-xs text-white">
+                                            Multi
+                                          </span>
+                                        )}
+                                    </div>
+                                    <span className="text-xs text-gray-500">
+                                      {model.provider}
+                                    </span>
+                                  </div>
+                                  {selectedModel === model.id && (
+                                    <svg
+                                      className="h-5 w-5 shrink-0 text-purple-600"
+                                      fill="currentColor"
+                                      viewBox="0 0 20 20"
+                                    >
+                                      <path
+                                        fillRule="evenodd"
+                                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                        clipRule="evenodd"
+                                      />
+                                    </svg>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <button
                         type="submit"
