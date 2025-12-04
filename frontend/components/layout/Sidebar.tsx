@@ -290,6 +290,66 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       {/* Main Navigation */}
       <nav className="flex-1 px-3 py-2">
         <div className="space-y-1">
+          {/* Ask - Primary AI Chat Entry (Similar to Gemini) */}
+          <Link
+            href="/ask"
+            onClick={(e) => {
+              if (pathname === '/ask') {
+                e.preventDefault();
+                window.location.href = '/ask';
+              }
+            }}
+            className={`group relative flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-xl px-3 py-3 text-sm font-semibold transition-all duration-200 ${
+              isActive('/ask') || pathname?.startsWith('/ask')
+                ? 'bg-gradient-to-r from-violet-100 via-purple-100 to-fuchsia-100 text-gray-900 shadow-sm ring-1 ring-purple-200/50'
+                : 'bg-gradient-to-r from-violet-50/80 via-purple-50/80 to-fuchsia-50/80 text-gray-800 hover:from-violet-100 hover:via-purple-100 hover:to-fuchsia-100 hover:shadow-sm'
+            }`}
+            title="Ask DeepDive AI"
+          >
+            {/* Ask Icon - Chat bubble with sparkle */}
+            <div className="relative flex-shrink-0">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24">
+                {/* Chat bubble */}
+                <path
+                  stroke="url(#askGradient)"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                />
+                {/* Sparkle accent */}
+                <path
+                  fill="#8B5CF6"
+                  d="M19 3l.5 1.5L21 5l-1.5.5L19 7l-.5-1.5L17 5l1.5-.5L19 3z"
+                  className="origin-center transition-transform duration-300 group-hover:scale-110"
+                />
+                <defs>
+                  <linearGradient
+                    id="askGradient"
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="100%"
+                  >
+                    <stop offset="0%" stopColor="#8B5CF6" />
+                    <stop offset="50%" stopColor="#A855F7" />
+                    <stop offset="100%" stopColor="#D946EF" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+            {showExpanded && (
+              <span className="bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 bg-clip-text text-transparent">
+                Ask
+              </span>
+            )}
+            {/* Subtle glow effect on hover */}
+            <div className="absolute inset-0 -z-10 rounded-xl bg-gradient-to-r from-violet-400/0 via-purple-400/0 to-fuchsia-400/0 opacity-0 blur-xl transition-opacity duration-300 group-hover:from-violet-400/20 group-hover:via-purple-400/20 group-hover:to-fuchsia-400/20 group-hover:opacity-100" />
+          </Link>
+
+          {/* Divider */}
+          <div className="my-2 border-t border-gray-200/60" />
+
           <Link
             href="/"
             onClick={(e) => {
@@ -336,8 +396,9 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 ? 'bg-amber-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
-            title="Sparkle"
+            title="Library"
           >
+            {/* Library icon - book/collection */}
             <svg
               className="h-5 w-5 flex-shrink-0"
               fill="none"
@@ -348,10 +409,10 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
               />
             </svg>
-            {showExpanded && <span>Sparkle</span>}
+            {showExpanded && <span>Library</span>}
           </Link>
 
           <Link
