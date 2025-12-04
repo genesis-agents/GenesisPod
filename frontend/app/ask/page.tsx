@@ -119,6 +119,7 @@ export default function AskPage() {
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [showTools, setShowTools] = useState(false);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(true); // Default enabled
   const [mixtureResponses, setMixtureResponses] = useState<MixtureResponse[]>(
     []
   );
@@ -177,7 +178,8 @@ export default function AskPage() {
   // Call real backend AI API
   const callAIChat = async (
     modelName: string,
-    message: string
+    message: string,
+    enableWebSearch: boolean = false
   ): Promise<string> => {
     const response = await fetch(`${config.apiUrl}/ai/simple-chat`, {
       method: 'POST',
@@ -188,6 +190,7 @@ export default function AskPage() {
         message,
         model: modelName,
         stream: false,
+        webSearch: enableWebSearch,
       }),
     });
 
@@ -237,7 +240,8 @@ export default function AskPage() {
             try {
               const content = await callAIChat(
                 model.modelName,
-                userMessage.content
+                userMessage.content,
+                webSearchEnabled
               );
               setMixtureResponses((prev) => {
                 const newResponses = [...prev];
@@ -262,7 +266,11 @@ export default function AskPage() {
       } else {
         // Single model mode: call selected model
         const modelName = selectedModelInfo?.modelName || 'gemini';
-        const content = await callAIChat(modelName, userMessage.content);
+        const content = await callAIChat(
+          modelName,
+          userMessage.content,
+          webSearchEnabled
+        );
 
         setMessages((prev) => [
           ...prev,
@@ -523,6 +531,50 @@ export default function AskPage() {
                           </div>
                         )}
                       </div>
+
+                      {/* Web Search Toggle */}
+                      <button
+                        type="button"
+                        onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+                        className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                          webSearchEnabled
+                            ? 'bg-blue-50 text-blue-600'
+                            : 'text-gray-400 hover:bg-gray-100'
+                        }`}
+                        title={
+                          webSearchEnabled
+                            ? 'Web search enabled'
+                            : 'Web search disabled'
+                        }
+                      >
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+                          />
+                        </svg>
+                        <span>Search</span>
+                        {webSearchEnabled && (
+                          <svg
+                            className="h-3.5 w-3.5"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        )}
+                      </button>
                     </div>
 
                     {/* Send Button */}
@@ -896,6 +948,50 @@ export default function AskPage() {
                             </div>
                           )}
                         </div>
+
+                        {/* Web Search Toggle */}
+                        <button
+                          type="button"
+                          onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+                          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                            webSearchEnabled
+                              ? 'bg-blue-50 text-blue-600'
+                              : 'text-gray-400 hover:bg-gray-100'
+                          }`}
+                          title={
+                            webSearchEnabled
+                              ? 'Web search enabled'
+                              : 'Web search disabled'
+                          }
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+                            />
+                          </svg>
+                          <span>Search</span>
+                          {webSearchEnabled && (
+                            <svg
+                              className="h-3.5 w-3.5"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          )}
+                        </button>
                       </div>
                       <button
                         type="submit"
