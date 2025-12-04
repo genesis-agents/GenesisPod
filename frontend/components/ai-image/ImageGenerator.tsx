@@ -209,15 +209,21 @@ function ThumbnailGallery({
           <div className="absolute left-0.5 top-0.5 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-[9px] font-medium text-white">
             {images.length - index}
           </div>
-          {/* Bookmark indicator */}
+          {/* Library indicator */}
           {bookmarkedImages.has(img.id) && (
             <div className="absolute right-0.5 top-0.5 z-10">
               <svg
-                className="h-3 w-3 text-yellow-500 drop-shadow"
-                fill="currentColor"
+                className="h-3 w-3 text-amber-500 drop-shadow"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.5}
                 viewBox="0 0 24 24"
               >
-                <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
               </svg>
             </div>
           )}
@@ -1830,7 +1836,7 @@ export default function ImageGenerator({
       <div className="flex flex-1 overflow-hidden">
         {/* LEFT: Vertical Thumbnail Gallery (Desktop Only) */}
         {!isMobile && (
-          <div className="scrollbar-thin w-20 flex-shrink-0 overflow-y-auto border-r border-gray-200 bg-gray-50">
+          <div className="scrollbar-thin ml-8 w-20 flex-shrink-0 overflow-y-auto border-r border-gray-200 bg-gray-50">
             <ThumbnailGallery
               images={generatedImages}
               selectedImage={selectedImage}
@@ -2988,12 +2994,8 @@ export default function ImageGenerator({
             className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
           >
             <svg
-              className={`h-3.5 w-3.5 ${bookmarkedImages.has(contextMenu.image.id) ? 'text-yellow-500' : 'text-gray-400'}`}
-              fill={
-                bookmarkedImages.has(contextMenu.image.id)
-                  ? 'currentColor'
-                  : 'none'
-              }
+              className={`h-3.5 w-3.5 ${bookmarkedImages.has(contextMenu.image.id) ? 'text-amber-500' : 'text-gray-400'}`}
+              fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
@@ -3001,12 +3003,12 @@ export default function ImageGenerator({
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
               />
             </svg>
             {bookmarkedImages.has(contextMenu.image.id)
-              ? 'Remove Bookmark'
-              : 'Add Bookmark'}
+              ? 'Remove from Library'
+              : 'Add to Library'}
           </button>
           <button
             onClick={() => handleRefineImage(contextMenu.image)}
