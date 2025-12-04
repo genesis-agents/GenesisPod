@@ -1900,7 +1900,7 @@ export default function TopicPage() {
   }, [inviteEmail, topicId, accessToken, fetchTopic]);
 
   // Check if current user is owner or admin
-  const currentUserMember = currentTopic?.members.find(
+  const currentUserMember = currentTopic?.members?.find(
     (m) => m.userId === user?.id
   );
   const isOwnerOrAdmin =
@@ -2152,7 +2152,7 @@ export default function TopicPage() {
             <div className="px-4 pb-2 text-sm italic text-gray-400">
               {Array.from(typingUsers)
                 .map((userId) => {
-                  const member = currentTopic.members.find(
+                  const member = (currentTopic?.members || []).find(
                     (m) => m.userId === userId
                   );
                   return (
@@ -2161,7 +2161,7 @@ export default function TopicPage() {
                 })
                 .concat(
                   Array.from(typingAIs).map((aiId) => {
-                    const ai = currentTopic.aiMembers.find(
+                    const ai = (currentTopic?.aiMembers || []).find(
                       (a) => a.id === aiId
                     );
                     return ai?.displayName || 'AI';
