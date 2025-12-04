@@ -1675,6 +1675,7 @@ export default function TopicPage() {
     messages,
     isLoadingMessages,
     hasMoreMessages,
+    isConnected,
     onlineUsers,
     typingUsers,
     typingAIs,
@@ -1773,16 +1774,18 @@ export default function TopicPage() {
     };
   }, [isAuthenticated, user?.id, connectSocket, disconnectSocket]);
 
-  // Join topic room
+  // Join topic room - 关键：必须在 isConnected 变化时重新执行
+  // 因为 WebSocket 连接是异步的，可能在 useEffect 第一次执行时还未连接
   useEffect(() => {
-    if (topicId) {
+    if (topicId && isConnected) {
+      console.log('[Page] WebSocket connected, joining topic room:', topicId);
       joinTopicRoom(topicId);
 
       return () => {
         leaveTopicRoom(topicId);
       };
     }
-  }, [topicId, joinTopicRoom, leaveTopicRoom]);
+  }, [topicId, isConnected, joinTopicRoom, leaveTopicRoom]);
 
   // Fallback polling for messages when WebSocket might not be connected
   // This ensures messages are refreshed even if WebSocket fails
