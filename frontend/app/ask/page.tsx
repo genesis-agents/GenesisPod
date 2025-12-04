@@ -124,6 +124,7 @@ export default function AskPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const modelSelectorRef = useRef<HTMLDivElement>(null);
+  const toolsRef = useRef<HTMLDivElement>(null);
 
   // Filter only CHAT models for the selector
   const chatModels = models.filter((m) => m.modelType === 'CHAT');
@@ -154,6 +155,12 @@ export default function AskPage() {
         !modelSelectorRef.current.contains(event.target as Node)
       ) {
         setShowModelSelector(false);
+      }
+      if (
+        toolsRef.current &&
+        !toolsRef.current.contains(event.target as Node)
+      ) {
+        setShowTools(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -321,7 +328,7 @@ export default function AskPage() {
                   <div className="flex items-center justify-between border-t border-gray-100 px-3 py-2">
                     <div className="flex items-center gap-2">
                       {/* Tools Button */}
-                      <div className="relative">
+                      <div className="relative" ref={toolsRef}>
                         <button
                           type="button"
                           onClick={() => setShowTools(!showTools)}
@@ -348,7 +355,7 @@ export default function AskPage() {
                         </button>
 
                         {showTools && (
-                          <div className="absolute bottom-full left-0 mb-2 w-48 rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
+                          <div className="absolute bottom-full left-0 z-50 mb-2 w-48 rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
                             {imageModels.length > 0 && (
                               <>
                                 <div className="px-3 pb-1 text-xs font-medium text-gray-400">
@@ -425,7 +432,7 @@ export default function AskPage() {
                         </button>
 
                         {showModelSelector && (
-                          <div className="absolute bottom-full left-0 mb-2 max-h-80 w-64 overflow-y-auto rounded-xl border border-gray-200 bg-white py-2 shadow-xl">
+                          <div className="absolute bottom-full left-0 z-50 mb-2 max-h-80 w-64 overflow-y-auto rounded-xl border border-gray-200 bg-white py-2 shadow-xl">
                             <div className="px-3 pb-2 text-xs font-medium uppercase tracking-wider text-gray-400">
                               Chat Models
                             </div>
