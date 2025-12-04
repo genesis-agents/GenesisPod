@@ -321,6 +321,56 @@ export class ResourcesService {
   }
 
   /**
+   * 规范化URL - 移除尾部斜杠、统一使用https、移除www前缀、移除无关的查询参数
+   */
+  private normalizeUrl(url: string): string {
+    try {
+      const urlObj = new URL(url);
+
+      // 统一使用 https
+      urlObj.protocol = "https:";
+
+      // 移除 www. 前缀
+      urlObj.hostname = urlObj.hostname.replace(/^www\./, "");
+
+      // 移除尾部斜杠（除了根路径）
+      if (urlObj.pathname !== "/" && urlObj.pathname.endsWith("/")) {
+        urlObj.pathname = urlObj.pathname.slice(0, -1);
+      }
+
+      // 对于特定网站，保留必要的查询参数
+      const keepParams = new Set<string>();
+      if (urlObj.hostname === "youtube.com" || urlObj.hostname === "youtu.be") {
+        keepParams.add("v");
+      } else if (urlObj.hostname === "openreview.net") {
+        keepParams.add("id");
+      }
+
+      // 清理查询参数
+      if (keepParams.size > 0) {
+        const newSearchParams = new URLSearchParams();
+        urlObj.searchParams.forEach((value, key) => {
+          if (keepParams.has(key)) {
+            newSearchParams.set(key, value);
+          }
+        });
+        urlObj.search = newSearchParams.toString();
+      } else {
+        // 移除所有查询参数（对于大多数网站）
+        urlObj.search = "";
+      }
+
+      // 移除哈希片段
+      urlObj.hash = "";
+
+      return urlObj.toString();
+    } catch {
+      // 如果URL无效，返回原始URL
+      return url;
+    }
+  }
+
+  /**
    * 从URL导入资源
    */
   async importFromUrl(url: string, type: string) {
@@ -358,9 +408,20 @@ export class ResourcesService {
         this.logger.log(`Converting AlphaXiv URL to arXiv: ${finalUrl}`);
       }
 
-      // 检查URL是否已存在（使用转换后的URL检查）
+      // 规范化URL用于去重检查
+      const normalizedUrl = this.normalizeUrl(finalUrl);
+      this.logger.log(`Normalized URL for deduplication: ${normalizedUrl}`);
+
+      // 检查URL是否已存在（使用规范化后的URL检查）
+      // 同时检查 sourceUrl 精确匹配和 normalizedUrl 匹配
       const existing = await this.prisma.resource.findFirst({
-        where: { sourceUrl: finalUrl },
+        where: {
+          OR: [
+            { sourceUrl: finalUrl },
+            { sourceUrl: normalizedUrl },
+            { normalizedUrl: normalizedUrl },
+          ],
+        },
       });
 
       // 获取真实标题和摘要
@@ -430,6 +491,7 @@ export class ResourcesService {
             title: title,
             abstract: abstract || `从URL导入: ${finalUrl}`,
             pdfUrl: pdfUrl,
+            normalizedUrl: normalizedUrl, // 确保规范化URL已保存
             // 保留原有的统计数据
           },
         });
@@ -446,6 +508,7 @@ export class ResourcesService {
         title: title,
         abstract: abstract || `从URL导入: ${finalUrl}`,
         sourceUrl: finalUrl, // 使用转换后的URL
+        normalizedUrl: normalizedUrl, // 保存规范化URL用于去重
         pdfUrl: pdfUrl, // 添加 PDF URL
         publishedAt: new Date(),
         // 默认值

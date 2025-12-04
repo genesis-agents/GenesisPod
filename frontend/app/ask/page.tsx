@@ -355,7 +355,9 @@ export default function AskPage() {
                   {getGreeting()}
                 </span>
                 {user?.username && (
-                  <span className="text-gray-700">, {user.username}</span>
+                  <span className="text-gray-700">
+                    , {user.username.split(' ')[0]}
+                  </span>
                 )}
               </h1>
 
