@@ -810,6 +810,475 @@ export class AdminService {
     return null;
   }
 
+  // ============ Content Extraction API Configuration ============
+
+  /**
+   * 获取内容提取API配置
+   */
+  async getContentExtractionConfig() {
+    const jinaKey = await this.getSetting("extraction.jina.apiKey");
+    const firecrawlKey = await this.getSetting("extraction.firecrawl.apiKey");
+    const tavilyKey = await this.getSetting("extraction.tavily.apiKey");
+    const enabled = await this.getSetting("extraction.enabled");
+
+    return {
+      enabled: enabled !== false,
+      jina: {
+        apiKey: jinaKey ? this.maskApiKey(jinaKey) : null,
+        hasApiKey: !!jinaKey,
+      },
+      firecrawl: {
+        apiKey: firecrawlKey ? this.maskApiKey(firecrawlKey) : null,
+        hasApiKey: !!firecrawlKey,
+      },
+      tavily: {
+        apiKey: tavilyKey ? this.maskApiKey(tavilyKey) : null,
+        hasApiKey: !!tavilyKey,
+      },
+    };
+  }
+
+  /**
+   * 更新内容提取API配置
+   */
+  async updateContentExtractionConfig(config: {
+    enabled?: boolean;
+    jinaApiKey?: string;
+    firecrawlApiKey?: string;
+    tavilyApiKey?: string;
+  }) {
+    const updates: Array<{
+      key: string;
+      value: any;
+      description?: string;
+      category: string;
+    }> = [];
+
+    if (config.enabled !== undefined) {
+      updates.push({
+        key: "extraction.enabled",
+        value: config.enabled,
+        description: "Enable or disable content extraction",
+        category: "extraction",
+      });
+    }
+
+    // Only update API keys if they are provided and not the masked value
+    if (
+      config.jinaApiKey &&
+      !config.jinaApiKey.includes("****") &&
+      config.jinaApiKey.trim() !== ""
+    ) {
+      updates.push({
+        key: "extraction.jina.apiKey",
+        value: config.jinaApiKey.trim(),
+        description: "Jina AI Reader API Key",
+        category: "extraction",
+      });
+    }
+
+    if (
+      config.firecrawlApiKey &&
+      !config.firecrawlApiKey.includes("****") &&
+      config.firecrawlApiKey.trim() !== ""
+    ) {
+      updates.push({
+        key: "extraction.firecrawl.apiKey",
+        value: config.firecrawlApiKey.trim(),
+        description: "Firecrawl API Key",
+        category: "extraction",
+      });
+    }
+
+    if (
+      config.tavilyApiKey &&
+      !config.tavilyApiKey.includes("****") &&
+      config.tavilyApiKey.trim() !== ""
+    ) {
+      updates.push({
+        key: "extraction.tavily.apiKey",
+        value: config.tavilyApiKey.trim(),
+        description: "Tavily API Key (for deep research)",
+        category: "extraction",
+      });
+    }
+
+    if (updates.length > 0) {
+      await this.setSettings(updates);
+    }
+
+    return this.getContentExtractionConfig();
+  }
+
+  /**
+   * 获取内容提取API Key（内部使用，返回实际值）
+   */
+  async getContentExtractionApiKey(
+    provider: "jina" | "firecrawl" | "tavily",
+  ): Promise<string | null> {
+    return this.getSetting(`extraction.${provider}.apiKey`);
+  }
+
+  /**
+   * 检查API余额/配额
+   */
+  async checkApiBalance(
+    type: "search" | "extraction",
+    provider: string,
+  ): Promise<{
+    provider: string;
+    hasBalance: boolean;
+    balance?: string;
+    quota?: { used: number; limit: number };
+    error?: string;
+  }> {
+    try {
+      let apiKey: string | null = null;
+
+      if (type === "search") {
+        apiKey = await this.getSearchApiKey(provider);
+      } else if (type === "extraction") {
+        apiKey = await this.getContentExtractionApiKey(
+          provider as "jina" | "firecrawl" | "tavily",
+        );
+      }
+
+      if (!apiKey) {
+        return {
+          provider,
+          hasBalance: false,
+          error: "API Key not configured",
+        };
+      }
+
+      // 根据不同提供商查询余额
+      switch (provider) {
+        case "tavily":
+          return await this.checkTavilyBalance(apiKey);
+        case "firecrawl":
+          return await this.checkFirecrawlBalance(apiKey);
+        case "jina":
+          return await this.checkJinaBalance(apiKey);
+        case "serper":
+          return await this.checkSerperBalance(apiKey);
+        case "perplexity":
+          return await this.checkPerplexityBalance(apiKey);
+        default:
+          return {
+            provider,
+            hasBalance: true,
+            balance: "Unknown",
+          };
+      }
+    } catch (error) {
+      this.logger.error(`Failed to check ${provider} balance: ${error}`);
+      return {
+        provider,
+        hasBalance: false,
+        error: error instanceof Error ? error.message : "Check failed",
+      };
+    }
+  }
+
+  private async checkTavilyBalance(apiKey: string): Promise<{
+    provider: string;
+    hasBalance: boolean;
+    balance?: string;
+    quota?: { used: number; limit: number };
+    error?: string;
+  }> {
+    try {
+      // Tavily doesn't have a public balance API, we can only test if the key works
+      const response = await fetch("https://api.tavily.com/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: apiKey,
+          query: "test",
+          max_results: 1,
+        }),
+      });
+
+      if (response.ok) {
+        return {
+          provider: "tavily",
+          hasBalance: true,
+          balance: "Active",
+        };
+      } else if (response.status === 401) {
+        return {
+          provider: "tavily",
+          hasBalance: false,
+          error: "Invalid API key",
+        };
+      } else if (response.status === 429) {
+        return {
+          provider: "tavily",
+          hasBalance: false,
+          error: "Rate limit exceeded / Quota exhausted",
+        };
+      }
+
+      return {
+        provider: "tavily",
+        hasBalance: false,
+        error: `HTTP ${response.status}`,
+      };
+    } catch (error) {
+      return {
+        provider: "tavily",
+        hasBalance: false,
+        error: error instanceof Error ? error.message : "Connection failed",
+      };
+    }
+  }
+
+  private async checkFirecrawlBalance(apiKey: string): Promise<{
+    provider: string;
+    hasBalance: boolean;
+    balance?: string;
+    quota?: { used: number; limit: number };
+    error?: string;
+  }> {
+    try {
+      // Firecrawl has a credit balance API
+      const response = await fetch(
+        "https://api.firecrawl.dev/v1/team/credit-usage",
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+          },
+        },
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const remaining = data.remaining_credits ?? data.credits_remaining;
+        const used = data.credits_used ?? 0;
+        const limit = data.credits_limit ?? remaining + used;
+
+        return {
+          provider: "firecrawl",
+          hasBalance: remaining > 0,
+          balance: `${remaining} credits`,
+          quota: { used, limit },
+        };
+      } else if (response.status === 401) {
+        return {
+          provider: "firecrawl",
+          hasBalance: false,
+          error: "Invalid API key",
+        };
+      }
+
+      return {
+        provider: "firecrawl",
+        hasBalance: false,
+        error: `HTTP ${response.status}`,
+      };
+    } catch (error) {
+      return {
+        provider: "firecrawl",
+        hasBalance: false,
+        error: error instanceof Error ? error.message : "Connection failed",
+      };
+    }
+  }
+
+  private async checkJinaBalance(apiKey: string): Promise<{
+    provider: string;
+    hasBalance: boolean;
+    balance?: string;
+    quota?: { used: number; limit: number };
+    error?: string;
+  }> {
+    try {
+      // Jina has a balance API
+      const response = await fetch("https://api.jina.ai/v1/billing/balance", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const balance = data.balance ?? data.credits ?? data.remaining;
+
+        if (balance !== undefined) {
+          return {
+            provider: "jina",
+            hasBalance: balance > 0,
+            balance:
+              typeof balance === "number"
+                ? `$${balance.toFixed(2)}`
+                : String(balance),
+          };
+        }
+
+        return {
+          provider: "jina",
+          hasBalance: true,
+          balance: "Active",
+        };
+      } else if (response.status === 401) {
+        return {
+          provider: "jina",
+          hasBalance: false,
+          error: "Invalid API key",
+        };
+      }
+
+      // If balance API doesn't exist, test the reader API
+      const testResponse = await fetch(
+        "https://r.jina.ai/https://example.com",
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            Accept: "application/json",
+          },
+        },
+      );
+
+      if (testResponse.ok) {
+        return {
+          provider: "jina",
+          hasBalance: true,
+          balance: "Active (free tier or paid)",
+        };
+      }
+
+      return {
+        provider: "jina",
+        hasBalance: false,
+        error: `HTTP ${testResponse.status}`,
+      };
+    } catch (error) {
+      return {
+        provider: "jina",
+        hasBalance: false,
+        error: error instanceof Error ? error.message : "Connection failed",
+      };
+    }
+  }
+
+  private async checkSerperBalance(apiKey: string): Promise<{
+    provider: string;
+    hasBalance: boolean;
+    balance?: string;
+    quota?: { used: number; limit: number };
+    error?: string;
+  }> {
+    try {
+      // Serper has an account API
+      const response = await fetch("https://google.serper.dev/account", {
+        method: "GET",
+        headers: {
+          "X-API-KEY": apiKey,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const credits = data.credits ?? data.remaining;
+        const used = data.requests ?? data.used ?? 0;
+
+        if (credits !== undefined) {
+          return {
+            provider: "serper",
+            hasBalance: credits > 0,
+            balance: `${credits} credits`,
+            quota: { used, limit: credits + used },
+          };
+        }
+
+        return {
+          provider: "serper",
+          hasBalance: true,
+          balance: "Active",
+        };
+      } else if (response.status === 401) {
+        return {
+          provider: "serper",
+          hasBalance: false,
+          error: "Invalid API key",
+        };
+      }
+
+      return {
+        provider: "serper",
+        hasBalance: false,
+        error: `HTTP ${response.status}`,
+      };
+    } catch (error) {
+      return {
+        provider: "serper",
+        hasBalance: false,
+        error: error instanceof Error ? error.message : "Connection failed",
+      };
+    }
+  }
+
+  private async checkPerplexityBalance(apiKey: string): Promise<{
+    provider: string;
+    hasBalance: boolean;
+    balance?: string;
+    error?: string;
+  }> {
+    try {
+      // Perplexity doesn't have a public balance API, test with a minimal request
+      const response = await fetch(
+        "https://api.perplexity.ai/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "llama-3.1-sonar-small-128k-online",
+            messages: [{ role: "user", content: "hi" }],
+            max_tokens: 1,
+          }),
+        },
+      );
+
+      if (response.ok) {
+        return {
+          provider: "perplexity",
+          hasBalance: true,
+          balance: "Active",
+        };
+      } else if (response.status === 401) {
+        return {
+          provider: "perplexity",
+          hasBalance: false,
+          error: "Invalid API key",
+        };
+      } else if (response.status === 429) {
+        return {
+          provider: "perplexity",
+          hasBalance: false,
+          error: "Rate limit exceeded",
+        };
+      }
+
+      return {
+        provider: "perplexity",
+        hasBalance: false,
+        error: `HTTP ${response.status}`,
+      };
+    } catch (error) {
+      return {
+        provider: "perplexity",
+        hasBalance: false,
+        error: error instanceof Error ? error.message : "Connection failed",
+      };
+    }
+  }
+
   /**
    * 诊断AI模型配置
    * 返回所有模型的配置状态，用于调试

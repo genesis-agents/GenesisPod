@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { PrismaService } from "../../common/prisma/prisma.service";
 
 /**
  * 内容提取结果
@@ -56,10 +57,14 @@ export class ContentExtractionService {
   // Tavily API (付费，专业搜索)
   private readonly TAVILY_API_URL = "https://api.tavily.com";
 
-  // API Keys (从环境变量获取)
-  private readonly JINA_API_KEY = process.env.JINA_API_KEY;
-  private readonly FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY;
-  private readonly TAVILY_API_KEY = process.env.TAVILY_API_KEY;
+  // API Keys 缓存（避免频繁查询数据库）
+  private apiKeyCache: {
+    jina?: string;
+    firecrawl?: string;
+    tavily?: string;
+    cachedAt: number;
+  } = { cachedAt: 0 };
+  private readonly API_KEY_CACHE_TTL = 60000; // 1分钟
 
   // 内容缓存
   private contentCache = new Map<
@@ -67,6 +72,83 @@ export class ContentExtractionService {
     { data: ExtractedContent; expiresAt: number }
   >();
   private readonly CACHE_TTL = 3600 * 1000; // 1小时
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * 从数据库获取 API Key（带缓存）
+   */
+  private async getApiKey(
+    provider: "jina" | "firecrawl" | "tavily",
+  ): Promise<string | undefined> {
+    const now = Date.now();
+
+    // 检查缓存是否有效
+    if (now - this.apiKeyCache.cachedAt < this.API_KEY_CACHE_TTL) {
+      return this.apiKeyCache[provider];
+    }
+
+    // 从数据库加载所有 API Key
+    try {
+      const settings = await this.prisma.systemSetting.findMany({
+        where: {
+          key: {
+            in: [
+              "extraction.jina.apiKey",
+              "extraction.firecrawl.apiKey",
+              "extraction.tavily.apiKey",
+            ],
+          },
+        },
+      });
+
+      this.apiKeyCache = {
+        cachedAt: now,
+      };
+
+      for (const setting of settings) {
+        try {
+          const value = JSON.parse(setting.value);
+          if (setting.key === "extraction.jina.apiKey") {
+            this.apiKeyCache.jina = value;
+          } else if (setting.key === "extraction.firecrawl.apiKey") {
+            this.apiKeyCache.firecrawl = value;
+          } else if (setting.key === "extraction.tavily.apiKey") {
+            this.apiKeyCache.tavily = value;
+          }
+        } catch {
+          // 如果不是 JSON，直接使用值
+          if (setting.key === "extraction.jina.apiKey") {
+            this.apiKeyCache.jina = setting.value;
+          } else if (setting.key === "extraction.firecrawl.apiKey") {
+            this.apiKeyCache.firecrawl = setting.value;
+          } else if (setting.key === "extraction.tavily.apiKey") {
+            this.apiKeyCache.tavily = setting.value;
+          }
+        }
+      }
+
+      // 如果数据库没有配置，回退到环境变量
+      if (!this.apiKeyCache.jina) {
+        this.apiKeyCache.jina = process.env.JINA_API_KEY;
+      }
+      if (!this.apiKeyCache.firecrawl) {
+        this.apiKeyCache.firecrawl = process.env.FIRECRAWL_API_KEY;
+      }
+      if (!this.apiKeyCache.tavily) {
+        this.apiKeyCache.tavily = process.env.TAVILY_API_KEY;
+      }
+
+      return this.apiKeyCache[provider];
+    } catch (error) {
+      this.logger.error(`Failed to load API keys from database: ${error}`);
+      // 回退到环境变量
+      if (provider === "jina") return process.env.JINA_API_KEY;
+      if (provider === "firecrawl") return process.env.FIRECRAWL_API_KEY;
+      if (provider === "tavily") return process.env.TAVILY_API_KEY;
+      return undefined;
+    }
+  }
 
   /**
    * 提取 URL 内容（智能选择最佳方式）
@@ -80,17 +162,14 @@ export class ContentExtractionService {
     }
 
     let result: ExtractedContent;
+    const firecrawlKey = await this.getApiKey("firecrawl");
 
     try {
       // 优先使用 Jina AI Reader（免费且高质量）
       result = await this.extractWithJina(url);
 
       // 如果 Jina 返回内容太短，尝试 Firecrawl
-      if (
-        result.contentLength < 500 &&
-        this.FIRECRAWL_API_KEY &&
-        !result.error
-      ) {
+      if (result.contentLength < 500 && firecrawlKey && !result.error) {
         this.logger.log(`Jina content too short, trying Firecrawl for: ${url}`);
         const firecrawlResult = await this.extractWithFirecrawl(url);
         if (
@@ -104,7 +183,7 @@ export class ContentExtractionService {
       this.logger.error(`Primary extraction failed for ${url}: ${error}`);
 
       // 回退到 Firecrawl
-      if (this.FIRECRAWL_API_KEY) {
+      if (firecrawlKey) {
         try {
           result = await this.extractWithFirecrawl(url);
         } catch (firecrawlError) {
@@ -131,6 +210,7 @@ export class ContentExtractionService {
    */
   private async extractWithJina(url: string): Promise<ExtractedContent> {
     const jinaUrl = `${this.JINA_READER_URL}${url}`;
+    const jinaApiKey = await this.getApiKey("jina");
 
     const headers: Record<string, string> = {
       Accept: "application/json",
@@ -140,8 +220,8 @@ export class ContentExtractionService {
     };
 
     // 如果有 API Key，添加到请求头
-    if (this.JINA_API_KEY) {
-      headers["Authorization"] = `Bearer ${this.JINA_API_KEY}`;
+    if (jinaApiKey) {
+      headers["Authorization"] = `Bearer ${jinaApiKey}`;
     }
 
     const controller = new AbortController();
@@ -191,7 +271,8 @@ export class ContentExtractionService {
    * 文档: https://docs.firecrawl.dev/
    */
   private async extractWithFirecrawl(url: string): Promise<ExtractedContent> {
-    if (!this.FIRECRAWL_API_KEY) {
+    const firecrawlApiKey = await this.getApiKey("firecrawl");
+    if (!firecrawlApiKey) {
       throw new Error("Firecrawl API key not configured");
     }
 
@@ -203,7 +284,7 @@ export class ContentExtractionService {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${this.FIRECRAWL_API_KEY}`,
+          Authorization: `Bearer ${firecrawlApiKey}`,
         },
         body: JSON.stringify({
           url,
@@ -277,7 +358,8 @@ export class ContentExtractionService {
       includeRawContent?: boolean;
     },
   ): Promise<DeepResearchResult> {
-    if (!this.TAVILY_API_KEY) {
+    const tavilyApiKey = await this.getApiKey("tavily");
+    if (!tavilyApiKey) {
       return {
         query,
         sources: [],
@@ -301,7 +383,7 @@ export class ContentExtractionService {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          api_key: this.TAVILY_API_KEY,
+          api_key: tavilyApiKey,
           query,
           search_depth: searchDepth,
           max_results: maxResults,

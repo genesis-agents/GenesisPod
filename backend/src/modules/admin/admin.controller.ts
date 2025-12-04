@@ -470,6 +470,153 @@ export class AdminController {
     }
   }
 
+  // ============ Content Extraction API Configuration ============
+
+  /**
+   * 获取内容提取API配置
+   * GET /api/v1/admin/extraction-config
+   */
+  @Get("extraction-config")
+  async getContentExtractionConfig() {
+    this.logger.log("Admin: Fetching content extraction config");
+    return this.adminService.getContentExtractionConfig();
+  }
+
+  /**
+   * 更新内容提取API配置
+   * PATCH /api/v1/admin/extraction-config
+   */
+  @Patch("extraction-config")
+  async updateContentExtractionConfig(
+    @Body()
+    body: {
+      enabled?: boolean;
+      jinaApiKey?: string;
+      firecrawlApiKey?: string;
+      tavilyApiKey?: string;
+    },
+  ) {
+    this.logger.log("Admin: Updating content extraction config");
+    return this.adminService.updateContentExtractionConfig(body);
+  }
+
+  /**
+   * 测试内容提取API连接
+   * POST /api/v1/admin/extraction-config/test
+   */
+  @Post("extraction-config/test")
+  async testExtractionConnection(
+    @Body()
+    body: {
+      provider: "jina" | "firecrawl" | "tavily";
+      apiKey: string;
+    },
+  ) {
+    this.logger.log(
+      `Admin: Testing extraction connection for ${body.provider}`,
+    );
+
+    try {
+      if (body.provider === "jina") {
+        // Test Jina AI Reader
+        const response = await fetch("https://r.jina.ai/https://example.com", {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${body.apiKey}`,
+            Accept: "application/json",
+          },
+        });
+
+        if (response.ok) {
+          return {
+            success: true,
+            message: "Jina AI Reader connection successful",
+          };
+        } else {
+          return {
+            success: false,
+            message: `Jina API error: HTTP ${response.status}`,
+          };
+        }
+      } else if (body.provider === "firecrawl") {
+        // Test Firecrawl
+        const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${body.apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            url: "https://example.com",
+            formats: ["markdown"],
+          }),
+        });
+
+        if (response.ok) {
+          return {
+            success: true,
+            message: "Firecrawl connection successful",
+          };
+        } else {
+          const errorData = await response.text();
+          return {
+            success: false,
+            message: `Firecrawl API error: ${response.status} - ${errorData.slice(0, 100)}`,
+          };
+        }
+      } else if (body.provider === "tavily") {
+        // Test Tavily
+        const response = await fetch("https://api.tavily.com/search", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            api_key: body.apiKey,
+            query: "test",
+            max_results: 1,
+          }),
+        });
+
+        if (response.ok) {
+          return {
+            success: true,
+            message: "Tavily connection successful",
+          };
+        } else {
+          return {
+            success: false,
+            message: `Tavily API error: HTTP ${response.status}`,
+          };
+        }
+      }
+
+      return {
+        success: false,
+        message: `Unknown provider: ${body.provider}`,
+      };
+    } catch (error: any) {
+      this.logger.error(`Extraction API test failed: ${error.message}`);
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+  /**
+   * 检查API余额/配额
+   * GET /api/v1/admin/api-balance/:type/:provider
+   */
+  @Get("api-balance/:type/:provider")
+  async checkApiBalance(
+    @Param("type") type: "search" | "extraction",
+    @Param("provider") provider: string,
+  ) {
+    this.logger.log(`Admin: Checking ${type} API balance for ${provider}`);
+    return this.adminService.checkApiBalance(type, provider);
+  }
+
   // ============ AI Model Type-based Selection ============
 
   /**
