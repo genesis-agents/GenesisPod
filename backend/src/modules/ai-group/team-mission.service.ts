@@ -1242,6 +1242,20 @@ ${taskResults}
         createdBy: {
           select: { id: true, username: true, fullName: true },
         },
+        tasks: {
+          include: {
+            assignedTo: {
+              select: {
+                id: true,
+                displayName: true,
+                agentName: true,
+                avatar: true,
+                aiModel: true,
+              },
+            },
+          },
+          orderBy: { createdAt: "asc" },
+        },
         _count: {
           select: { tasks: true, logs: true },
         },
