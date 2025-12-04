@@ -637,7 +637,7 @@ export default function AskPage() {
           /* Chat Messages */
           <>
             <div className="flex-1 overflow-y-auto px-4 py-6">
-              <div className="mx-auto max-w-3xl space-y-6">
+              <div className="mx-auto max-w-4xl space-y-6">
                 {messages
                   .filter((message) => {
                     // Filter out mixture placeholder messages
@@ -660,7 +660,7 @@ export default function AskPage() {
                         className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                       >
                         <div
-                          className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+                          className={`max-w-[90%] rounded-2xl px-4 py-3 ${
                             message.role === 'user'
                               ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white'
                               : 'bg-white shadow-sm ring-1 ring-gray-100'
@@ -788,7 +788,7 @@ export default function AskPage() {
 
             {/* Bottom Input */}
             <div className="border-t border-gray-200 bg-white px-4 py-4">
-              <div className="mx-auto max-w-3xl">
+              <div className="mx-auto max-w-4xl">
                 <form onSubmit={handleSubmit}>
                   <div className="rounded-2xl border border-gray-200 bg-white shadow-sm transition-all focus-within:border-purple-300">
                     <textarea
