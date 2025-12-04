@@ -13,9 +13,11 @@ function ExploreRedirect() {
 
   useEffect(() => {
     if (id) {
+      // Legacy URL with id parameter - redirect to resource page
       router.replace(`/resource/${id}`);
     } else {
-      router.replace('/library');
+      // No id - redirect to homepage (which is now the Explore page)
+      router.replace('/');
     }
   }, [id, router]);
 
@@ -30,8 +32,9 @@ function ExploreRedirect() {
 }
 
 /**
- * Redirect page for legacy /explore?id= URLs
- * Redirects to /resource/[id]
+ * Redirect page for /explore URLs
+ * - /explore?id=xxx -> /resource/xxx
+ * - /explore -> / (homepage)
  */
 export default function ExplorePage() {
   return (
