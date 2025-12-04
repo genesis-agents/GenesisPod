@@ -528,8 +528,8 @@ export default function AskPage() {
                         </button>
 
                         {showModelSelector && (
-                          <div className="absolute bottom-full left-0 z-50 mb-2 max-h-80 w-64 overflow-y-auto rounded-xl border border-gray-200 bg-white py-2 shadow-xl">
-                            <div className="px-3 pb-2 text-xs font-medium uppercase tracking-wider text-gray-400">
+                          <div className="absolute bottom-full left-0 z-50 mb-2 max-h-80 w-56 overflow-y-auto rounded-xl border border-gray-200 bg-white py-1.5 shadow-xl">
+                            <div className="px-3 pb-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400">
                               Chat Models
                             </div>
                             {modelOptions.map((model) => (
@@ -540,32 +540,32 @@ export default function AskPage() {
                                   setSelectedModel(model.id);
                                   setShowModelSelector(false);
                                 }}
-                                className={`flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-gray-50 ${
+                                className={`flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-gray-50 ${
                                   selectedModel === model.id
                                     ? 'bg-purple-50'
                                     : ''
                                 }`}
                               >
-                                <ModelIcon model={model} size={20} />
+                                <ModelIcon model={model} size={16} />
                                 <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="truncate font-medium text-gray-900">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="truncate text-sm font-medium text-gray-900">
                                       {model.name}
                                     </span>
                                     {'isMixture' in model &&
                                       model.isMixture && (
-                                        <span className="shrink-0 rounded bg-gradient-to-r from-violet-500 to-fuchsia-500 px-1.5 py-0.5 text-xs text-white">
+                                        <span className="shrink-0 rounded bg-gradient-to-r from-violet-500 to-fuchsia-500 px-1 py-0.5 text-[10px] text-white">
                                           Multi
                                         </span>
                                       )}
                                   </div>
-                                  <span className="text-xs text-gray-500">
+                                  <span className="text-[11px] text-gray-500">
                                     {model.provider}
                                   </span>
                                 </div>
                                 {selectedModel === model.id && (
                                   <svg
-                                    className="h-5 w-5 shrink-0 text-purple-600"
+                                    className="h-4 w-4 shrink-0 text-purple-600"
                                     fill="currentColor"
                                     viewBox="0 0 20 20"
                                   >
@@ -992,8 +992,8 @@ export default function AskPage() {
                           </button>
 
                           {showModelSelector && (
-                            <div className="absolute bottom-full left-0 z-50 mb-2 max-h-80 w-64 overflow-y-auto rounded-xl border border-gray-200 bg-white py-2 shadow-xl">
-                              <div className="px-3 pb-2 text-xs font-medium uppercase tracking-wider text-gray-400">
+                            <div className="absolute bottom-full left-0 z-50 mb-2 max-h-80 w-56 overflow-y-auto rounded-xl border border-gray-200 bg-white py-1.5 shadow-xl">
+                              <div className="px-3 pb-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400">
                                 Chat Models
                               </div>
                               {modelOptions.map((model) => (
@@ -1004,32 +1004,32 @@ export default function AskPage() {
                                     setSelectedModel(model.id);
                                     setShowModelSelector(false);
                                   }}
-                                  className={`flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-gray-50 ${
+                                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-gray-50 ${
                                     selectedModel === model.id
                                       ? 'bg-purple-50'
                                       : ''
                                   }`}
                                 >
-                                  <ModelIcon model={model} size={20} />
+                                  <ModelIcon model={model} size={16} />
                                   <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2">
-                                      <span className="truncate font-medium text-gray-900">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="truncate text-sm font-medium text-gray-900">
                                         {model.name}
                                       </span>
                                       {'isMixture' in model &&
                                         model.isMixture && (
-                                          <span className="shrink-0 rounded bg-gradient-to-r from-violet-500 to-fuchsia-500 px-1.5 py-0.5 text-xs text-white">
+                                          <span className="shrink-0 rounded bg-gradient-to-r from-violet-500 to-fuchsia-500 px-1 py-0.5 text-[10px] text-white">
                                             Multi
                                           </span>
                                         )}
                                     </div>
-                                    <span className="text-xs text-gray-500">
+                                    <span className="text-[11px] text-gray-500">
                                       {model.provider}
                                     </span>
                                   </div>
                                   {selectedModel === model.id && (
                                     <svg
-                                      className="h-5 w-5 shrink-0 text-purple-600"
+                                      className="h-4 w-4 shrink-0 text-purple-600"
                                       fill="currentColor"
                                       viewBox="0 0 20 20"
                                     >
