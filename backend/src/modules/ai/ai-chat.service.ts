@@ -601,7 +601,7 @@ Format the summary in a clear, structured manner using markdown.`;
           headers: {
             "Content-Type": "application/json",
           },
-          timeout: 60000, // 60 second timeout
+          timeout: 120000, // 120 second timeout for complex AI tasks
         }),
       );
 
@@ -856,7 +856,7 @@ Format the summary in a clear, structured manner using markdown.`;
                       "x-goog-api-key": apiKey,
                       "Content-Type": "application/json",
                     },
-                    timeout: 60000,
+                    timeout: 120000,
                   },
                 ),
               );
@@ -1286,7 +1286,7 @@ Format the summary in a clear, structured manner using markdown.`;
           "Content-Type": "application/json",
           ...headers,
         },
-        timeout: 60000,
+        timeout: 120000,
       }),
     );
 
@@ -1357,7 +1357,7 @@ Format the summary in a clear, structured manner using markdown.`;
             "anthropic-version": "2023-06-01",
             "Content-Type": "application/json",
           },
-          timeout: 60000,
+          timeout: 120000,
         },
       ),
     );
