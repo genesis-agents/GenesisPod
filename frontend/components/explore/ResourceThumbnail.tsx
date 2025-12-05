@@ -157,15 +157,21 @@ export default function ResourceThumbnail({
         return;
       }
 
-      // 4. arXiv论文 - 暂时使用null，让它显示PAPER图标
-      // TODO: 实现可靠的PDF缩略图方案
+      // 4. arXiv论文 - 使用alphaXiv的公开CDN缩略图
       if (
         resource.type === 'PAPER' &&
         resource.sourceUrl?.includes('arxiv.org')
       ) {
-        setThumbnailUrl(null);
-        setIsLoading(false);
-        return;
+        const match = resource.sourceUrl.match(/(\d+\.\d+)(v\d+)?/);
+        if (match) {
+          const arxivId = match[1];
+          const version = match[2] || 'v1';
+          // 使用alphaXiv的公开CDN (Amazon S3 + CloudFront)
+          const thumbnailUrl = `https://paper-assets.alphaxiv.org/image/${arxivId}${version}.png`;
+          setThumbnailUrl(thumbnailUrl);
+          setIsLoading(false);
+          return;
+        }
       }
 
       // 5. 对于 Blogs/News/Reports/Policy，调用后端API动态提取（使用队列和缓存）
