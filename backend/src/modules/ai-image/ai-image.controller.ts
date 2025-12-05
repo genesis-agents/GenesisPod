@@ -13,9 +13,11 @@ import {
   Sse,
   Query,
   MessageEvent,
+  Res,
 } from "@nestjs/common";
 import { FilesInterceptor } from "@nestjs/platform-express";
 import { Observable } from "rxjs";
+import { Response } from "express";
 import { AiImageService } from "./ai-image.service";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 
@@ -129,6 +131,7 @@ export class AiImageController {
   /**
    * SSE 流式生成图片 - POST方式，支持长prompt
    * 解决GET请求URL长度限制问题
+   * 手动设置SSE响应头，因为@Sse装饰器只支持GET
    */
   @Post("generate/stream")
   @UseGuards(JwtAuthGuard)
@@ -147,10 +150,40 @@ export class AiImageController {
       templateLayout?: string;
     },
     @Request() req: any,
-  ): Observable<MessageEvent> {
-    return this.handleStreamGeneration({
+    @Res() res: Response,
+  ): void {
+    // 设置SSE响应头
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders();
+
+    const observable = this.handleStreamGeneration({
       ...body,
       userId: req.user?.id,
+    });
+
+    // 订阅Observable并发送SSE事件
+    const subscription = observable.subscribe({
+      next: (event: MessageEvent) => {
+        res.write(`data: ${event.data}\n\n`);
+      },
+      error: (err) => {
+        this.logger.error(`SSE POST error: ${err.message}`);
+        res.write(
+          `data: ${JSON.stringify({ type: "error", error: err.message })}\n\n`,
+        );
+        res.end();
+      },
+      complete: () => {
+        res.end();
+      },
+    });
+
+    // 客户端断开时取消订阅
+    res.on("close", () => {
+      subscription.unsubscribe();
     });
   }
 
