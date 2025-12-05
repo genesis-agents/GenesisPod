@@ -320,22 +320,18 @@ export default function ResourceThumbnail({
   // 有缩略图且未出错，显示图片（过滤占位图）
   if (thumbnailUrl && !hasError && !isPlaceholderImage(thumbnailUrl)) {
     return (
-      <div className={`${className} relative overflow-hidden bg-gray-100`}>
-        <img
-          src={thumbnailUrl}
-          alt={resource.title}
-          className="h-full w-full object-cover"
-          onError={handleImageError}
-        />
-      </div>
+      <img
+        src={thumbnailUrl}
+        alt={resource.title}
+        className="h-full w-full object-cover"
+        onError={handleImageError}
+      />
     );
   }
 
   // 无缩略图或出错，显示类型图标
   return (
-    <div
-      className={`${className} flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100`}
-    >
+    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
       <TypeIcon />
     </div>
   );

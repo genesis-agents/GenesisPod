@@ -2129,121 +2129,13 @@ function HomeContent() {
                         onClick={() => handleResourceClick(resource)}
                         className="group cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-white transition-all hover:shadow-lg"
                       >
-                        <div className="flex">
-                          {/* Thumbnail - 左侧占据整个卡片高度 */}
-                          <div className="relative h-full min-h-[180px] w-52 flex-shrink-0 overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
-                            {(() => {
-                              // 获取缩略图URL
-                              const getThumbnailUrl = () => {
-                                // 跳过arXiv logo等占位图
-                                const isPlaceholder = (url: string) =>
-                                  url.includes('arxiv-logo') ||
-                                  url.includes('placeholder') ||
-                                  url.includes('default-image');
-
-                                // 1. 如果有有效的thumbnailUrl，使用它
-                                if (
-                                  resource.thumbnailUrl &&
-                                  !isPlaceholder(resource.thumbnailUrl)
-                                ) {
-                                  return resource.thumbnailUrl;
-                                }
-
-                                // 2. YouTube视频 - 构建缩略图
-                                if (
-                                  resource.type === 'YOUTUBE' ||
-                                  resource.type === 'YOUTUBE_VIDEO'
-                                ) {
-                                  const videoId = extractYouTubeVideoId(
-                                    resource.sourceUrl
-                                  );
-                                  if (videoId) {
-                                    return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
-                                  }
-                                }
-
-                                // 3. arXiv论文 - 尝试使用预览服务
-                                if (
-                                  resource.type === 'PAPER' &&
-                                  resource.sourceUrl?.includes('arxiv.org')
-                                ) {
-                                  const match =
-                                    resource.sourceUrl.match(/(\d+\.\d+)/);
-                                  if (match) {
-                                    const arxivId = match[1];
-                                    // 尝试arXiv HTML预览图
-                                    return `https://browse.arxiv.org/html/${arxivId}/x-png/page_001.png`;
-                                  }
-                                }
-
-                                // 4. metadata中的imageUrl
-                                if (resource.metadata?.imageUrl) {
-                                  return resource.metadata.imageUrl as string;
-                                }
-
-                                return null;
-                              };
-
-                              const thumbnailUrl = getThumbnailUrl();
-
-                              // 渲染缩略图或图标
-                              if (thumbnailUrl) {
-                                return (
-                                  <img
-                                    src={thumbnailUrl}
-                                    alt={resource.title}
-                                    className="h-full w-full object-cover"
-                                    onError={(e) => {
-                                      // 图片加载失败时，隐藏图片并显示图标
-                                      e.currentTarget.style.display = 'none';
-                                    }}
-                                  />
-                                );
-                              }
-
-                              // 显示类型图标
-                              const getTypeIcon = () => {
-                                const iconClass = 'h-12 w-12';
-                                switch (resource.type) {
-                                  case 'PAPER':
-                                    return (
-                                      <svg
-                                        className={`${iconClass} text-blue-600`}
-                                        fill="currentColor"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 15.5h8v1H8v-1zm0-3h8v1H8v-1zm0-3h5v1H8v-1z" />
-                                      </svg>
-                                    );
-                                  case 'BLOG':
-                                    return (
-                                      <svg
-                                        className={`${iconClass} text-green-600`}
-                                        fill="currentColor"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" />
-                                      </svg>
-                                    );
-                                  default:
-                                    return (
-                                      <svg
-                                        className={`${iconClass} text-gray-400`}
-                                        fill="currentColor"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z" />
-                                      </svg>
-                                    );
-                                }
-                              };
-
-                              return (
-                                <div className="flex h-full w-full items-center justify-center">
-                                  {getTypeIcon()}
-                                </div>
-                              );
-                            })()}
+                        <div className="flex h-48">
+                          {/* Thumbnail - 左侧固定宽度256px(w-64)，高度192px(h-48) */}
+                          <div className="relative h-48 w-64 flex-shrink-0 overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
+                            <ResourceThumbnail
+                              resource={resource}
+                              className="h-full w-full"
+                            />
                           </div>
 
                           {/* Content - 右侧内容区 */}
