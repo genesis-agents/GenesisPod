@@ -3,6 +3,76 @@
 import { useState, useEffect } from 'react';
 import { config } from '@/lib/config';
 
+// 简单的内存缓存，用于存储已提取的缩略图
+const thumbnailCache = new Map<string, string | null>();
+
+// 请求队列，限制并发请求数
+const pendingRequests = new Map<string, Promise<string | null>>();
+const MAX_CONCURRENT_REQUESTS = 3;
+let activeRequests = 0;
+const requestQueue: Array<() => void> = [];
+
+async function processQueue() {
+  while (requestQueue.length > 0 && activeRequests < MAX_CONCURRENT_REQUESTS) {
+    const next = requestQueue.shift();
+    if (next) next();
+  }
+}
+
+async function fetchThumbnailWithQueue(
+  url: string,
+  type: string
+): Promise<string | null> {
+  const cacheKey = `${url}:${type}`;
+
+  // 检查缓存
+  if (thumbnailCache.has(cacheKey)) {
+    return thumbnailCache.get(cacheKey) || null;
+  }
+
+  // 检查是否已有相同请求在进行中
+  if (pendingRequests.has(cacheKey)) {
+    return pendingRequests.get(cacheKey)!;
+  }
+
+  // 创建新请求
+  const requestPromise = new Promise<string | null>((resolve) => {
+    const execute = async () => {
+      activeRequests++;
+      try {
+        const response = await fetch(
+          `${config.apiUrl}/resources/thumbnail/extract?url=${encodeURIComponent(url)}&type=${type}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const result = data.thumbnailUrl || null;
+          thumbnailCache.set(cacheKey, result);
+          resolve(result);
+        } else {
+          thumbnailCache.set(cacheKey, null);
+          resolve(null);
+        }
+      } catch {
+        thumbnailCache.set(cacheKey, null);
+        resolve(null);
+      } finally {
+        activeRequests--;
+        pendingRequests.delete(cacheKey);
+        processQueue();
+      }
+    };
+
+    if (activeRequests < MAX_CONCURRENT_REQUESTS) {
+      execute();
+    } else {
+      requestQueue.push(execute);
+    }
+  });
+
+  pendingRequests.set(cacheKey, requestPromise);
+  return requestPromise;
+}
+
 interface ResourceThumbnailProps {
   resource: {
     id: string;
@@ -83,22 +153,20 @@ export default function ResourceThumbnail({
         return;
       }
 
-      // 4. 对于 Blogs/News，调用后端API动态提取
+      // 4. 对于 Blogs/News，调用后端API动态提取（使用队列和缓存）
       if (
         (resource.type === 'BLOG' || resource.type === 'NEWS') &&
         resource.sourceUrl
       ) {
         try {
-          const response = await fetch(
-            `${config.apiUrl}/resources/thumbnail/extract?url=${encodeURIComponent(resource.sourceUrl)}&type=${resource.type}`
+          const result = await fetchThumbnailWithQueue(
+            resource.sourceUrl,
+            resource.type
           );
-          if (response.ok) {
-            const data = await response.json();
-            if (isMounted && data.thumbnailUrl) {
-              setThumbnailUrl(data.thumbnailUrl);
-              setIsLoading(false);
-              return;
-            }
+          if (isMounted && result) {
+            setThumbnailUrl(result);
+            setIsLoading(false);
+            return;
           }
         } catch (error) {
           console.error('Failed to fetch thumbnail:', error);

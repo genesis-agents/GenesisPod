@@ -15,6 +15,7 @@ import {
   UploadedFile,
   UseInterceptors,
 } from "@nestjs/common";
+import { SkipThrottle } from "@nestjs/throttler";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { diskStorage } from "multer";
 import * as path from "path";
@@ -128,7 +129,9 @@ export class ResourcesController {
    *
    * 实时从网页提取og:image等缩略图
    * 注意：此路由必须在 @Get(':id') 之前
+   * 跳过速率限制，因为前端会批量请求缩略图
    */
+  @SkipThrottle()
   @Get("thumbnail/extract")
   async extractThumbnail(
     @Query("url") url: string,

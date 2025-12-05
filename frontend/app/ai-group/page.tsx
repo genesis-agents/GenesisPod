@@ -161,7 +161,7 @@ export default function AIGroupPage() {
                 </svg>
                 <input
                   type="text"
-                  placeholder="搜索话题..."
+                  placeholder="Search teams..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
