@@ -272,10 +272,10 @@ export default function SessionSidebar({
 
   if (!isOpen) {
     return (
-      <div className="flex h-full w-10 flex-col items-center border-r border-gray-200 bg-white pt-3">
+      <div className="flex h-full w-10 flex-col items-center bg-gray-50 pt-3">
         <button
           onClick={onToggle}
-          className="flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100"
+          className="flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:bg-gray-200"
           title="Show chat history"
         >
           <svg
@@ -285,7 +285,7 @@ export default function SessionSidebar({
             viewBox="0 0 24 24"
             strokeWidth={2}
           >
-            <path strokeLinecap="round" d="M4 12h16" />
+            <path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
       </div>
