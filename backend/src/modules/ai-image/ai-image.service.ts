@@ -292,10 +292,14 @@ Before selecting a template, you MUST deeply analyze the content's logical struc
    - **NEVER truncate data** - choose a template that fits ALL items!
 
 4. **CRITICAL: comparison template restrictions**:
-   - ONLY use when content explicitly compares TWO distinct options
+   - ONLY use when content explicitly compares EXACTLY TWO distinct options
    - Examples: "React vs Vue", "Before vs After", "Pros vs Cons"
    - NEVER use for 3+ parallel topics - use "cards" instead!
+   - **COMMON MISTAKE**: "三大学派对比" is NOT a comparison template case!
+     * "三大" = 3 items = use "cards" with 3 sections
+     * "对比" does NOT mean "comparison template" when there are 3+ items!
    - Steve Jobs' 3 stories = "cards" NOT "comparison"!
+   - When in doubt: count the items first, if 3+, use "cards"
 
 5. **Identify content groupings**:
    - **Main content**: The primary parallel points (should be 2-4 items of EQUAL importance)
@@ -429,7 +433,14 @@ The JSON must be STRICTLY valid (no markdown fences):
 4. **DESIGN JOURNAL**: 3-5 entries documenting your design reasoning process.
 
 5. **INFORMATION ARCHITECTURE**:
-   - **CRITICAL**: If user specifies a quantity (TOP 10, 5个, 前8名, etc.), you MUST create EXACTLY that many sections!
+   - **CRITICAL**: If user specifies a quantity (TOP 10, 5个, 前8名, 三大学派, etc.), you MUST create EXACTLY that many sections!
+   - **CRITICAL FOR 对比/比较 CONTENT**:
+     * If comparing 3+ items (e.g., "三大学派对比", "四家公司比较"), create ONE section per item
+     * "三大AI学派对比" = 3 sections (one for each school)
+     * "四大科技公司比较" = 4 sections (one for each company)
+     * NEVER reduce 3+ items to 2 sections just because it's a "comparison"!
+     * "comparison" template is ONLY for exactly 2 items (A vs B)
+     * For 3+ items, use "cards" template with full content for EACH item
    - If no quantity specified, extract 4-6 key sections from the content
    - Each section needs:
      * Clear title (short, impactful) - DO NOT truncate, use complete text
@@ -847,6 +858,27 @@ export class AiImageService {
             ? "summary"
             : "main",
       }));
+
+      // 检测用户输入中的数量关键词，验证 sections 数量是否匹配
+      const quantityPatterns = [
+        { pattern: /三大|3大|三个|3个|三种|3种/, expected: 3 },
+        { pattern: /四大|4大|四个|4个|四种|4种/, expected: 4 },
+        { pattern: /五大|5大|五个|5个|五种|5种/, expected: 5 },
+        { pattern: /六大|6大|六个|6个|六种|6种/, expected: 6 },
+        { pattern: /七大|7大|七个|7个|七种|7种/, expected: 7 },
+        { pattern: /八大|8大|八个|8个|八种|8种/, expected: 8 },
+        { pattern: /九大|9大|九个|9个|九种|9种/, expected: 9 },
+        { pattern: /十大|10大|十个|10个|十种|10种|TOP\s*10/i, expected: 10 },
+      ];
+
+      for (const { pattern, expected } of quantityPatterns) {
+        if (pattern.test(fallbackPrompt) && sections.length < expected) {
+          this.logger.warn(
+            `[parsePromptEnhancementResponse] SECTION COUNT MISMATCH: User requested ${expected} items but AI only generated ${sections.length} sections. This may indicate AI mistakenly used comparison template for multi-item content.`,
+          );
+          break;
+        }
+      }
 
       insights.informationArchitecture = {
         title: this.normalizeString(infoRaw.title),
