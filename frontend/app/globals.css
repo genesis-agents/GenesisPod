@@ -292,3 +292,49 @@ body {
   background-color: rgba(59, 130, 246, 0.3);
   color: inherit;
 }
+
+/* Markdown Table Styles for prose class */
+.prose table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+  font-size: 0.875em;
+}
+
+.prose table th,
+.prose table td {
+  border: 1px solid #d1d5db;
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
+
+.prose table th {
+  background-color: #f3f4f6;
+  font-weight: 600;
+}
+
+.prose table tr:nth-child(even) {
+  background-color: #f9fafb;
+}
+
+.prose table tr:hover {
+  background-color: #f3f4f6;
+}
+
+/* Dark mode / inverted prose table styles */
+.prose-invert table th,
+.prose-invert table td {
+  border-color: #4b5563;
+}
+
+.prose-invert table th {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.prose-invert table tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.prose-invert table tr:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
