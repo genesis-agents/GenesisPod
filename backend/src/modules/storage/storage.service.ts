@@ -63,6 +63,15 @@ export class StorageService {
     topicMessages: 2, // 2KB per message
     officeDocuments: 100, // 100KB per PPT document (JSON content)
     officeDocumentVersions: 150, // 150KB per version (full snapshot)
+    users: 2, // 2KB per user
+    comments: 1, // 1KB per comment
+    askSessions: 1, // 1KB per session
+    askMessages: 2, // 2KB per message
+    topics: 3, // 3KB per topic
+    workspaces: 5, // 5KB per workspace
+    reports: 10, // 10KB per report
+    debateSessions: 5, // 5KB per debate
+    brandKits: 20, // 20KB per brand kit
   };
 
   constructor(private readonly prisma: PrismaService) {}
@@ -146,6 +155,41 @@ export class StorageService {
     if (officeDocStats.cleanupRecommendation) {
       recommendations.push(officeDocStats.cleanupRecommendation);
     }
+
+    // 14. Users
+    const userStats = await this.getUserStats();
+    categories.push(userStats);
+
+    // 15. Comments
+    const commentStats = await this.getCommentStats();
+    categories.push(commentStats);
+
+    // 16. Ask Sessions
+    const askSessionStats = await this.getAskSessionStats();
+    categories.push(askSessionStats);
+    if (askSessionStats.cleanupRecommendation) {
+      recommendations.push(askSessionStats.cleanupRecommendation);
+    }
+
+    // 17. Topics (AI Groups)
+    const topicStats = await this.getTopicStats();
+    categories.push(topicStats);
+
+    // 18. Workspaces
+    const workspaceStats = await this.getWorkspaceStats();
+    categories.push(workspaceStats);
+
+    // 19. Reports
+    const reportStats = await this.getReportStats();
+    categories.push(reportStats);
+
+    // 20. Debate Sessions
+    const debateStats = await this.getDebateStats();
+    categories.push(debateStats);
+
+    // 21. Brand Kits
+    const brandKitStats = await this.getBrandKitStats();
+    categories.push(brandKitStats);
 
     // Calculate totals
     const totalRecords = categories.reduce((sum, cat) => sum + cat.count, 0);
@@ -526,6 +570,135 @@ export class StorageService {
     };
   }
 
+  private async getUserStats(): Promise<StorageCategory> {
+    const total = await this.prisma.user.count();
+    const estimatedSizeMB = (total * this.SIZE_ESTIMATES.users) / 1024;
+
+    return {
+      name: "users",
+      displayName: "Users",
+      count: total,
+      estimatedSizeMB: Math.round(estimatedSizeMB * 100) / 100,
+      description: `${total} registered users`,
+      canCleanup: false,
+    };
+  }
+
+  private async getCommentStats(): Promise<StorageCategory> {
+    const total = await this.prisma.comment.count();
+    const estimatedSizeMB = (total * this.SIZE_ESTIMATES.comments) / 1024;
+
+    return {
+      name: "comments",
+      displayName: "Comments",
+      count: total,
+      estimatedSizeMB: Math.round(estimatedSizeMB * 100) / 100,
+      description: `${total} comments on resources`,
+      canCleanup: false,
+    };
+  }
+
+  private async getAskSessionStats(): Promise<StorageCategory> {
+    const totalSessions = await this.prisma.askSession.count();
+    const totalMessages = await this.prisma.askMessage.count();
+    const estimatedSizeMB =
+      (totalSessions * this.SIZE_ESTIMATES.askSessions +
+        totalMessages * this.SIZE_ESTIMATES.askMessages) /
+      1024;
+
+    // Old sessions (>30 days) can be cleaned
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const oldSessions = await this.prisma.askSession.count({
+      where: { updatedAt: { lt: thirtyDaysAgo } },
+    });
+
+    let cleanupRecommendation: string | undefined;
+    if (oldSessions > 50) {
+      cleanupRecommendation = `${oldSessions} AI chat sessions older than 30 days can be cleaned`;
+    }
+
+    return {
+      name: "askSessions",
+      displayName: "Ask AI Sessions",
+      count: totalSessions,
+      estimatedSizeMB: Math.round(estimatedSizeMB * 100) / 100,
+      description: `${totalSessions} sessions, ${totalMessages} messages`,
+      cleanupRecommendation,
+      canCleanup: oldSessions > 0,
+    };
+  }
+
+  private async getTopicStats(): Promise<StorageCategory> {
+    const total = await this.prisma.topic.count();
+    const estimatedSizeMB = (total * this.SIZE_ESTIMATES.topics) / 1024;
+
+    return {
+      name: "topics",
+      displayName: "AI Groups (Topics)",
+      count: total,
+      estimatedSizeMB: Math.round(estimatedSizeMB * 100) / 100,
+      description: `${total} AI group conversations`,
+      canCleanup: false,
+    };
+  }
+
+  private async getWorkspaceStats(): Promise<StorageCategory> {
+    const total = await this.prisma.workspace.count();
+    const estimatedSizeMB = (total * this.SIZE_ESTIMATES.workspaces) / 1024;
+
+    return {
+      name: "workspaces",
+      displayName: "Workspaces",
+      count: total,
+      estimatedSizeMB: Math.round(estimatedSizeMB * 100) / 100,
+      description: `${total} user workspaces`,
+      canCleanup: false,
+    };
+  }
+
+  private async getReportStats(): Promise<StorageCategory> {
+    const total = await this.prisma.report.count();
+    const estimatedSizeMB = (total * this.SIZE_ESTIMATES.reports) / 1024;
+
+    return {
+      name: "reports",
+      displayName: "Reports",
+      count: total,
+      estimatedSizeMB: Math.round(estimatedSizeMB * 100) / 100,
+      description: `${total} generated reports`,
+      canCleanup: false,
+    };
+  }
+
+  private async getDebateStats(): Promise<StorageCategory> {
+    const total = await this.prisma.debateSession.count();
+    const estimatedSizeMB = (total * this.SIZE_ESTIMATES.debateSessions) / 1024;
+
+    return {
+      name: "debateSessions",
+      displayName: "Debate Sessions",
+      count: total,
+      estimatedSizeMB: Math.round(estimatedSizeMB * 100) / 100,
+      description: `${total} AI debate sessions`,
+      canCleanup: false,
+    };
+  }
+
+  private async getBrandKitStats(): Promise<StorageCategory> {
+    const total = await this.prisma.brandKit.count();
+    const estimatedSizeMB = (total * this.SIZE_ESTIMATES.brandKits) / 1024;
+
+    return {
+      name: "brandKits",
+      displayName: "Brand Kits",
+      count: total,
+      estimatedSizeMB: Math.round(estimatedSizeMB * 100) / 100,
+      description: `${total} brand kits`,
+      canCleanup: false,
+    };
+  }
+
   // ========== Cleanup Methods ==========
 
   /**
@@ -796,6 +969,54 @@ export class StorageService {
       return {
         success: false,
         category: "userActivities",
+        deletedCount: 0,
+        freedSizeMB: 0,
+        message: `Cleanup failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      };
+    }
+  }
+
+  /**
+   * Cleanup old Ask AI sessions
+   */
+  async cleanupOldAskSessions(daysOld: number = 30): Promise<CleanupResult> {
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+      // First delete messages from old sessions
+      const messagesToDelete = await this.prisma.askMessage.deleteMany({
+        where: {
+          session: {
+            updatedAt: { lt: cutoffDate },
+          },
+        },
+      });
+
+      // Then delete the sessions
+      const result = await this.prisma.askSession.deleteMany({
+        where: {
+          updatedAt: { lt: cutoffDate },
+        },
+      });
+
+      const freedSizeMB =
+        (result.count * this.SIZE_ESTIMATES.askSessions +
+          messagesToDelete.count * this.SIZE_ESTIMATES.askMessages) /
+        1024;
+
+      return {
+        success: true,
+        category: "askSessions",
+        deletedCount: result.count,
+        freedSizeMB: Math.round(freedSizeMB * 100) / 100,
+        message: `Cleaned up ${result.count} sessions and ${messagesToDelete.count} messages older than ${daysOld} days`,
+      };
+    } catch (error) {
+      this.logger.error("Failed to cleanup Ask sessions:", error);
+      return {
+        success: false,
+        category: "askSessions",
         deletedCount: 0,
         freedSizeMB: 0,
         message: `Cleanup failed: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -1354,6 +1575,7 @@ export class StorageService {
     results.push(await this.cleanupOldImportTasks(7));
     results.push(await this.cleanupExpiredMetadata());
     results.push(await this.cleanupOldUserActivities(30));
+    results.push(await this.cleanupOldAskSessions(30));
     results.push(await this.cleanupOldOfficeDocuments(7));
 
     const totalDeleted = results.reduce((sum, r) => sum + r.deletedCount, 0);

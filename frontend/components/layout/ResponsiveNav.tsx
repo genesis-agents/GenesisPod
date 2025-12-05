@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   FileText,
   Rss,
@@ -133,6 +133,29 @@ export default function ResponsiveNav({
 }: ResponsiveNavProps) {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showImportMenu, setShowImportMenu] = useState(false);
+  const importMenuRef = useRef<HTMLDivElement>(null);
+  const sortMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close menus when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        importMenuRef.current &&
+        !importMenuRef.current.contains(event.target as Node)
+      ) {
+        setShowImportMenu(false);
+      }
+      if (
+        sortMenuRef.current &&
+        !sortMenuRef.current.contains(event.target as Node)
+      ) {
+        setShowSortMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
     <div
@@ -169,7 +192,7 @@ export default function ResponsiveNav({
       {/* Action Buttons - Icon only */}
       <div className="flex flex-shrink-0 items-center gap-1 sm:gap-2">
         {/* Import Button - Icon only with dropdown */}
-        <div className="relative">
+        <div className="relative" ref={importMenuRef}>
           <button
             onClick={() => setShowImportMenu(!showImportMenu)}
             className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 transition-colors hover:bg-gray-50 sm:h-10 sm:w-10"
@@ -237,7 +260,7 @@ export default function ResponsiveNav({
         </button>
 
         {/* Sort Button - Icon only with dropdown */}
-        <div className="relative">
+        <div className="relative" ref={sortMenuRef}>
           <button
             onClick={() => setShowSortMenu(!showSortMenu)}
             className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 transition-colors hover:bg-gray-50 sm:h-10 sm:w-10"

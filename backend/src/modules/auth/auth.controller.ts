@@ -111,4 +111,15 @@ export class AuthController {
     this.logger.log(`Profile update request for user: ${req.user.id}`);
     return this.authService.updateProfile(req.user.id, updateProfileDto);
   }
+
+  /**
+   * 获取用户统计数据
+   * GET /api/v1/auth/stats
+   */
+  @Get("stats")
+  @UseGuards(AuthGuard("jwt"))
+  async getUserStats(@Request() req: { user: { id: string } }) {
+    this.logger.log(`Stats request for user: ${req.user.id}`);
+    return this.authService.getUserStats(req.user.id);
+  }
 }

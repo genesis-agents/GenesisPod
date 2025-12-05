@@ -1,13 +1,32 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/config';
 
+interface UserStats {
+  userId: string;
+  memberSince: string;
+  stats: {
+    bookmarked: number;
+    viewed: number;
+    comments: number;
+    notes: number;
+    reports: number;
+    chatSessions: number;
+    topicsCreated: number;
+    imagesGenerated: number;
+  };
+  activity: {
+    recentActivityCount: number;
+    breakdown: Array<{ type: string; count: number }>;
+  };
+}
+
 function ProfileContent() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, accessToken } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'profile' | 'settings' | 'stats'>(
     'profile'
@@ -17,6 +36,8 @@ function ProfileContent() {
     type: 'success' | 'error';
     text: string;
   } | null>(null);
+  const [userStats, setUserStats] = useState<UserStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   // Redirect to home if not logged in
   useEffect(() => {
@@ -54,17 +75,41 @@ function ProfileContent() {
     language: 'en',
   });
 
-  // Real stats from user
-  const stats = {
-    bookmarked: 15,
-    read: 42,
-    sharedCount: 8,
-    joinedDate: user?.createdAt
-      ? new Date(user.createdAt).toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'long',
-        })
-      : 'N/A',
+  // Fetch user stats
+  const fetchUserStats = useCallback(async () => {
+    if (!accessToken) return;
+
+    setStatsLoading(true);
+    try {
+      const response = await fetch(`${config.apiUrl}/auth/stats`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUserStats(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch user stats:', error);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [accessToken]);
+
+  // Fetch stats when tab changes to stats
+  useEffect(() => {
+    if (activeTab === 'stats' && !userStats && accessToken) {
+      fetchUserStats();
+    }
+  }, [activeTab, userStats, accessToken, fetchUserStats]);
+
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+    });
   };
 
   // Add interest
@@ -487,105 +532,260 @@ function ProfileContent() {
             {/* Statistics Tab */}
             {activeTab === 'stats' && (
               <div className="space-y-6">
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-                  <div className="rounded-lg border border-gray-200 bg-white p-6">
-                    <div className="mb-2 flex items-center justify-between">
-                      <p className="text-sm font-medium text-gray-600">
-                        Bookmarked
-                      </p>
-                      <svg
-                        className="h-5 w-5 text-red-600"
-                        fill="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                      </svg>
-                    </div>
-                    <p className="text-3xl font-bold text-gray-900">
-                      {stats.bookmarked}
-                    </p>
+                {statsLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-red-600"></div>
                   </div>
-                  <div className="rounded-lg border border-gray-200 bg-white p-6">
-                    <div className="mb-2 flex items-center justify-between">
-                      <p className="text-sm font-medium text-gray-600">
-                        Papers Read
-                      </p>
-                      <svg
-                        className="h-5 w-5 text-blue-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        />
-                      </svg>
+                ) : (
+                  <>
+                    {/* Main Stats Cards */}
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                      <div className="rounded-lg border border-gray-200 bg-white p-6">
+                        <div className="mb-2 flex items-center justify-between">
+                          <p className="text-sm font-medium text-gray-600">
+                            Bookmarked
+                          </p>
+                          <svg
+                            className="h-5 w-5 text-red-600"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                          </svg>
+                        </div>
+                        <p className="text-3xl font-bold text-gray-900">
+                          {userStats?.stats.bookmarked ?? 0}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 bg-white p-6">
+                        <div className="mb-2 flex items-center justify-between">
+                          <p className="text-sm font-medium text-gray-600">
+                            Resources Viewed
+                          </p>
+                          <svg
+                            className="h-5 w-5 text-blue-600"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                            />
+                          </svg>
+                        </div>
+                        <p className="text-3xl font-bold text-gray-900">
+                          {userStats?.stats.viewed ?? 0}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 bg-white p-6">
+                        <div className="mb-2 flex items-center justify-between">
+                          <p className="text-sm font-medium text-gray-600">
+                            Comments
+                          </p>
+                          <svg
+                            className="h-5 w-5 text-green-600"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                            />
+                          </svg>
+                        </div>
+                        <p className="text-3xl font-bold text-gray-900">
+                          {userStats?.stats.comments ?? 0}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 bg-white p-6">
+                        <div className="mb-2 flex items-center justify-between">
+                          <p className="text-sm font-medium text-gray-600">
+                            Member Since
+                          </p>
+                          <svg
+                            className="h-5 w-5 text-purple-600"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            />
+                          </svg>
+                        </div>
+                        <p className="text-lg font-bold text-gray-900">
+                          {userStats?.memberSince
+                            ? formatDate(userStats.memberSince)
+                            : user?.createdAt
+                              ? formatDate(user.createdAt)
+                              : 'N/A'}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-3xl font-bold text-gray-900">
-                      {stats.read}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-gray-200 bg-white p-6">
-                    <div className="mb-2 flex items-center justify-between">
-                      <p className="text-sm font-medium text-gray-600">
-                        Shared
-                      </p>
-                      <svg
-                        className="h-5 w-5 text-green-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                        />
-                      </svg>
-                    </div>
-                    <p className="text-3xl font-bold text-gray-900">
-                      {stats.sharedCount}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-gray-200 bg-white p-6">
-                    <div className="mb-2 flex items-center justify-between">
-                      <p className="text-sm font-medium text-gray-600">
-                        Member Since
-                      </p>
-                      <svg
-                        className="h-5 w-5 text-purple-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                        />
-                      </svg>
-                    </div>
-                    <p className="text-lg font-bold text-gray-900">
-                      {stats.joinedDate}
-                    </p>
-                  </div>
-                </div>
 
-                {/* Activity Chart Placeholder */}
-                <div className="rounded-lg border border-gray-200 bg-white p-6">
-                  <h2 className="mb-4 text-lg font-semibold">
-                    Reading Activity
-                  </h2>
-                  <div className="flex h-64 items-center justify-center text-gray-400">
-                    <p>Activity chart coming soon...</p>
-                  </div>
-                </div>
+                    {/* Secondary Stats */}
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                      <div className="rounded-lg border border-gray-200 bg-white p-6">
+                        <div className="mb-2 flex items-center justify-between">
+                          <p className="text-sm font-medium text-gray-600">
+                            Notes
+                          </p>
+                          <svg
+                            className="h-5 w-5 text-yellow-600"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                            />
+                          </svg>
+                        </div>
+                        <p className="text-3xl font-bold text-gray-900">
+                          {userStats?.stats.notes ?? 0}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 bg-white p-6">
+                        <div className="mb-2 flex items-center justify-between">
+                          <p className="text-sm font-medium text-gray-600">
+                            Reports
+                          </p>
+                          <svg
+                            className="h-5 w-5 text-indigo-600"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                            />
+                          </svg>
+                        </div>
+                        <p className="text-3xl font-bold text-gray-900">
+                          {userStats?.stats.reports ?? 0}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 bg-white p-6">
+                        <div className="mb-2 flex items-center justify-between">
+                          <p className="text-sm font-medium text-gray-600">
+                            AI Chats
+                          </p>
+                          <svg
+                            className="h-5 w-5 text-cyan-600"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+                            />
+                          </svg>
+                        </div>
+                        <p className="text-3xl font-bold text-gray-900">
+                          {userStats?.stats.chatSessions ?? 0}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 bg-white p-6">
+                        <div className="mb-2 flex items-center justify-between">
+                          <p className="text-sm font-medium text-gray-600">
+                            Images Generated
+                          </p>
+                          <svg
+                            className="h-5 w-5 text-pink-600"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            />
+                          </svg>
+                        </div>
+                        <p className="text-3xl font-bold text-gray-900">
+                          {userStats?.stats.imagesGenerated ?? 0}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Recent Activity */}
+                    <div className="rounded-lg border border-gray-200 bg-white p-6">
+                      <h2 className="mb-4 text-lg font-semibold">
+                        Recent Activity (Last 30 Days)
+                      </h2>
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
+                          <span className="text-2xl font-bold text-blue-600">
+                            {userStats?.activity.recentActivityCount ?? 0}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">
+                            Total activities in the last 30 days
+                          </p>
+                          {userStats?.activity.breakdown &&
+                            userStats.activity.breakdown.length > 0 && (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {userStats.activity.breakdown.map((item) => (
+                                  <span
+                                    key={item.type}
+                                    className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600"
+                                  >
+                                    {item.type}: {item.count}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* AI Groups Created */}
+                    <div className="rounded-lg border border-gray-200 bg-white p-6">
+                      <h2 className="mb-4 text-lg font-semibold">
+                        AI Groups Created
+                      </h2>
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-purple-100">
+                          <span className="text-2xl font-bold text-purple-600">
+                            {userStats?.stats.topicsCreated ?? 0}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">
+                            AI Group topics you have created
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>

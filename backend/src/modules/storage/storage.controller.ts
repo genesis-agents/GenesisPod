@@ -132,6 +132,20 @@ export class StorageController {
   }
 
   /**
+   * Cleanup old Ask AI sessions
+   */
+  @Post("cleanup/ask-sessions")
+  async cleanupAskSessions(
+    @Query("key") key: string,
+    @Query("daysOld") daysOld?: string,
+  ): Promise<CleanupResult> {
+    this.validateKey(key);
+    const days = daysOld ? parseInt(daysOld, 10) : 30;
+    this.logger.log(`Cleaning up Ask AI sessions older than ${days} days`);
+    return this.storageService.cleanupOldAskSessions(days);
+  }
+
+  /**
    * Cleanup old office documents (PPT)
    */
   @Post("cleanup/office-documents")
