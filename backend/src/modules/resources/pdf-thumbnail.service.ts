@@ -71,7 +71,9 @@ export class PdfThumbnailService {
 
       // 2. 加载PDF文档
       this.logger.debug(`Step 2: Loading PDF document`);
-      const loadingTask = pdfjsLib.getDocument({ data: pdfData });
+      // Convert Buffer to Uint8Array for pdfjs-dist
+      const uint8Array = new Uint8Array(pdfData);
+      const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
       const pdfDocument = await loadingTask.promise;
       this.logger.debug(
         `Step 2: PDF loaded with ${pdfDocument.numPages} pages`,
