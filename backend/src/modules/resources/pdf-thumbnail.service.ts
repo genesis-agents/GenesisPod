@@ -3,10 +3,12 @@ import { getErrorMessage } from "../../common/utils/error.utils";
 import * as fs from "fs/promises";
 import * as path from "path";
 import axios from "axios";
-import sharp from "sharp";
 // 使用 legacy 版本，兼容 Node.js 环境（无需 DOMMatrix）
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import { createCanvas } from "canvas";
+
+// 动态导入sharp以兼容生产环境
+const sharp = require("sharp");
 
 /**
  * PDF缩略图生成服务
