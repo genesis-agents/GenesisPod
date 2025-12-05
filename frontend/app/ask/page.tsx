@@ -8,6 +8,7 @@ import { useAIModels, AIModel } from '@/hooks/useAIModels';
 import { config } from '@/lib/config';
 import Sidebar from '@/components/layout/Sidebar';
 import SessionSidebar from '@/components/ask/SessionSidebar';
+import MessageContextMenu from '@/components/ask/MessageContextMenu';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -129,6 +130,10 @@ export default function AskPage() {
   );
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{
+    message: Message;
+    position: { x: number; y: number };
+  } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const modelSelectorRef = useRef<HTMLDivElement>(null);
@@ -932,6 +937,15 @@ export default function AskPage() {
                             ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white'
                             : 'bg-white shadow-sm ring-1 ring-gray-100'
                         }`}
+                        onContextMenu={(e) => {
+                          if (message.role === 'assistant') {
+                            e.preventDefault();
+                            setContextMenu({
+                              message,
+                              position: { x: e.clientX, y: e.clientY },
+                            });
+                          }
+                        }}
                       >
                         {message.role === 'assistant' &&
                           (message.modelId || message.modelName) && (
@@ -955,6 +969,58 @@ export default function AskPage() {
                             {message.content}
                           </ReactMarkdown>
                         </div>
+                        {/* Action buttons for assistant messages */}
+                        {message.role === 'assistant' && (
+                          <div className="mt-3 flex items-center gap-2 border-t border-gray-100 pt-2">
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(message.content);
+                                alert('已复制到剪贴板');
+                              }}
+                              className="flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                              title="复制内容"
+                            >
+                              <svg
+                                className="h-3.5 w-3.5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                />
+                              </svg>
+                              复制
+                            </button>
+                            <button
+                              onClick={() => {
+                                const quotedText = `> ${message.content.split('\n').slice(0, 3).join('\n> ')}${message.content.split('\n').length > 3 ? '\n> ...' : ''}\n\n`;
+                                setInput(quotedText);
+                                inputRef.current?.focus();
+                              }}
+                              className="flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                              title="引用回复"
+                            >
+                              <svg
+                                className="h-3.5 w-3.5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+                                />
+                              </svg>
+                              引用
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -1360,6 +1426,33 @@ export default function AskPage() {
           </div>
         )}
       </main>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <MessageContextMenu
+          message={contextMenu.message}
+          position={contextMenu.position}
+          onClose={() => setContextMenu(null)}
+          onCopy={() => {
+            navigator.clipboard.writeText(contextMenu.message.content);
+            alert('已复制到剪贴板');
+          }}
+          onQuote={() => {
+            const quotedText = `> ${contextMenu.message.content.split('\n').slice(0, 3).join('\n> ')}${contextMenu.message.content.split('\n').length > 3 ? '\n> ...' : ''}\n\n`;
+            setInput(quotedText);
+            inputRef.current?.focus();
+          }}
+          onSave={async () => {
+            try {
+              // TODO: Implement save to favorites functionality
+              alert('收藏功能即将推出');
+            } catch (error) {
+              console.error('Failed to save:', error);
+              alert('保存失败');
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

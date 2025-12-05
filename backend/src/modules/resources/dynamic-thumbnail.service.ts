@@ -46,17 +46,7 @@ export class DynamicThumbnailService {
           return await this.extractOgImage(sourceUrl);
 
         case "PAPER":
-          // 检查是否是 arXiv
-          if (sourceUrl?.includes("arxiv.org")) {
-            const arxivThumbnail = await this.getArxivThumbnail(sourceUrl);
-            if (arxivThumbnail) return arxivThumbnail;
-          }
-
-          // 尝试从网页提取 og:image
-          const ogImage = await this.extractOgImage(sourceUrl);
-          if (ogImage) return ogImage;
-
-          // 如果有PDF URL和资源ID，尝试生成PDF缩略图
+          // 策略1: 如果有PDF URL和资源ID，优先生成PDF缩略图（最可靠）
           if (pdfUrl && resourceId && this.pdfThumbnailService) {
             this.logger.log(`Generating PDF thumbnail for paper ${resourceId}`);
             const pdfThumbnail =
@@ -64,9 +54,28 @@ export class DynamicThumbnailService {
                 pdfUrl,
                 resourceId,
               );
-            if (pdfThumbnail) return pdfThumbnail;
+            if (pdfThumbnail) {
+              this.logger.log(
+                `Successfully generated PDF thumbnail: ${pdfThumbnail}`,
+              );
+              return pdfThumbnail;
+            }
           }
 
+          // 策略2: 检查是否是 arXiv，尝试获取预览图
+          if (sourceUrl?.includes("arxiv.org")) {
+            const arxivThumbnail = await this.getArxivThumbnail(sourceUrl);
+            if (arxivThumbnail) return arxivThumbnail;
+          }
+
+          // 策略3: 尝试从网页提取 og:image
+          const ogImage = await this.extractOgImage(sourceUrl);
+          if (ogImage) return ogImage;
+
+          // 策略4: 如果所有方法都失败，返回null（前端会显示PAPER图标）
+          this.logger.debug(
+            `No thumbnail available for paper ${resourceId || sourceUrl}`,
+          );
           return null;
 
         case "REPORT":

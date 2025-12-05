@@ -54,6 +54,12 @@ export class PdfThumbnailService {
         `Generating thumbnail for resource ${resourceId} from ${pdfUrl}`,
       );
 
+      // 检查缩略图是否已存在
+      if (await this.thumbnailExists(resourceId)) {
+        this.logger.log(`Thumbnail already exists for resource ${resourceId}`);
+        return `/thumbnails/${resourceId}.jpg`;
+      }
+
       // 1. 下载PDF
       const pdfData = await this.downloadPdf(pdfUrl);
       if (!pdfData) {

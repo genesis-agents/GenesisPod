@@ -4,6 +4,15 @@ import { MongoDBService } from "../../common/mongodb/mongodb.service.postgres";
 import { DeduplicationService } from "./deduplication.service";
 import * as Parser from "rss-parser";
 
+/**
+ * 采集结果接口
+ */
+export interface CollectionResult {
+  success: number;
+  duplicates: number;
+  failed: number;
+}
+
 interface RssFeedItem {
   title?: string;
   link?: string;
@@ -48,7 +57,7 @@ export class RssService {
     rssUrl: string,
     maxItems: number = 10,
     category: string = "BLOG",
-  ): Promise<number> {
+  ): Promise<CollectionResult> {
     try {
       this.logger.log(`Fetching RSS feed from ${rssUrl}`);
 
@@ -57,7 +66,7 @@ export class RssService {
 
       if (!feed || !feed.items || feed.items.length === 0) {
         this.logger.warn(`No items found in RSS feed: ${rssUrl}`);
-        return 0;
+        return { success: 0, duplicates: 0, failed: 0 };
       }
 
       this.logger.log(
@@ -194,7 +203,11 @@ export class RssService {
         );
       }
 
-      return successCount;
+      return {
+        success: successCount,
+        duplicates: duplicateCount,
+        failed: failedCount,
+      };
     } catch (error) {
       // 提供更友好的错误信息
       let errorMessage = `Failed to fetch RSS feed from ${rssUrl}`;
@@ -321,26 +334,33 @@ export class RssService {
   async fetchMultipleFeeds(
     feeds: Array<{ url: string; category: string }>,
     maxItemsPerFeed: number = 10,
-  ): Promise<{ total: number; successful: number; failed: number }> {
+  ): Promise<{
+    total: number;
+    successful: number;
+    failed: number;
+    duplicates: number;
+  }> {
     let total = 0;
     let successful = 0;
     let failed = 0;
+    let duplicates = 0;
 
     for (const feed of feeds) {
       try {
-        const count = await this.fetchRssFeed(
+        const result = await this.fetchRssFeed(
           feed.url,
           maxItemsPerFeed,
           feed.category,
         );
-        total += count;
-        if (count > 0) successful++;
+        total += result.success;
+        duplicates += result.duplicates;
+        if (result.success > 0) successful++;
       } catch (error) {
         this.logger.error(`Failed to fetch feed ${feed.url}`, error);
         failed++;
       }
     }
 
-    return { total, successful, failed };
+    return { total, successful, failed, duplicates };
   }
 }

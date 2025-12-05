@@ -8,7 +8,7 @@ import {
 import { ArxivService } from "../crawler/arxiv.service";
 import { GithubService } from "../crawler/github.service";
 import { HackernewsService } from "../crawler/hackernews.service";
-import { RssService } from "../crawler/rss.service";
+import { RssService, CollectionResult } from "../crawler/rss.service";
 import { WebScraperService } from "../crawler/web-scraper.service";
 import { getErrorStack } from "../../common/utils/error.utils";
 
@@ -215,7 +215,7 @@ export class CollectionTaskService {
 
       // 开始实际采集工作
       // 1. 根据数据源类型调用相应的爬虫服务
-      let collectedCount = 0;
+      let collectedCount: number | CollectionResult = 0;
 
       // 从数据源获取类型
       const dataSource = await this.prisma.dataSource.findUnique({
@@ -325,15 +325,30 @@ export class CollectionTaskService {
           throw new Error(`Unsupported source type: ${sourceType}`);
       }
 
-      this.logger.log(`Collected ${collectedCount} items from ${sourceType}`);
+      const logCount =
+        typeof collectedCount === "object"
+          ? collectedCount.success
+          : collectedCount;
+      this.logger.log(`Collected ${logCount} items from ${sourceType}`);
 
       // 更新任务统计
       await this.updateStats(id, {
-        totalItems: collectedCount,
-        processedItems: collectedCount,
-        successItems: collectedCount,
-        failedItems: 0,
-        duplicateItems: 0,
+        totalItems:
+          typeof collectedCount === "object"
+            ? collectedCount.success
+            : collectedCount,
+        processedItems:
+          typeof collectedCount === "object"
+            ? collectedCount.success
+            : collectedCount,
+        successItems:
+          typeof collectedCount === "object"
+            ? collectedCount.success
+            : collectedCount,
+        failedItems:
+          typeof collectedCount === "object" ? collectedCount.failed : 0,
+        duplicateItems:
+          typeof collectedCount === "object" ? collectedCount.duplicates : 0,
         skippedItems: 0,
       });
 
@@ -344,7 +359,7 @@ export class CollectionTaskService {
           status: "COMPLETED",
           progress: 100,
           completedAt: new Date(),
-          currentStep: `Completed - collected ${collectedCount} items`,
+          currentStep: `Completed - collected ${typeof collectedCount === "object" ? collectedCount.success : collectedCount} items`,
         },
       });
 
@@ -352,7 +367,12 @@ export class CollectionTaskService {
       await this.prisma.dataSource.update({
         where: { id: task.sourceId },
         data: {
-          totalCollected: { increment: collectedCount },
+          totalCollected: {
+            increment:
+              typeof collectedCount === "object"
+                ? collectedCount.success
+                : collectedCount,
+          },
           lastSuccessAt: new Date(),
         },
       });
