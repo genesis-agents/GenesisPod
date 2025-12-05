@@ -1,6 +1,7 @@
 import { Injectable, Logger, HttpException, HttpStatus } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { AiChatService } from "./ai-chat.service";
+import { AIModelType } from "@prisma/client";
 
 @Injectable()
 export class AiService {
@@ -73,15 +74,33 @@ export class AiService {
     this.logger.log(`Translating text from ${sourceLang} to ${targetLang}`);
 
     try {
-      // 使用系统默认的 AI 模型进行翻译
-      const defaultModel = await this.prisma.aIModel.findFirst({
-        where: { isEnabled: true },
-        orderBy: { isDefault: "desc" },
+      // 优先使用设置为默认的 CHAT 类型模型
+      let defaultModel = await this.prisma.aIModel.findFirst({
+        where: {
+          isEnabled: true,
+          isDefault: true,
+          modelType: AIModelType.CHAT,
+        },
       });
 
+      // 如果没有默认的 CHAT 模型，查找任意可用的 CHAT 模型
       if (!defaultModel) {
-        throw new Error("No AI model available for translation");
+        defaultModel = await this.prisma.aIModel.findFirst({
+          where: {
+            isEnabled: true,
+            modelType: AIModelType.CHAT,
+          },
+          orderBy: { createdAt: "desc" },
+        });
       }
+
+      if (!defaultModel) {
+        throw new Error("No CHAT AI model available for translation");
+      }
+
+      this.logger.log(
+        `Using model for translation: ${defaultModel.name} (${defaultModel.modelId})`,
+      );
 
       const targetLangName = this.getLanguageName(targetLang);
       const prompt = `Translate the following text to ${targetLangName}. Only output the translated text, nothing else:\n\n${text}`;
