@@ -1581,15 +1581,23 @@ export default function ImageGenerator({
           break;
       }
 
-      // Use SSE for streaming generation with fetch (supports auth headers)
-      const sseUrl = `${config.apiBaseUrl}/api/v1/ai-image/generate/stream?${params.toString()}`;
+      // Use SSE for streaming generation with POST (supports long prompts)
+      const sseUrl = `${config.apiBaseUrl}/api/v1/ai-image/generate/stream`;
+
+      // Convert URLSearchParams to object for POST body
+      const bodyData: Record<string, string> = {};
+      params.forEach((value, key) => {
+        bodyData[key] = value;
+      });
 
       const response = await fetch(sseUrl, {
-        method: 'GET',
+        method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           Accept: 'text/event-stream',
           ...getAuthHeader(),
         },
+        body: JSON.stringify(bodyData),
       });
 
       if (!response.ok) {

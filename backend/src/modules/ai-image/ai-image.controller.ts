@@ -93,7 +93,7 @@ export class AiImageController {
   }
 
   /**
-   * SSE 流式生成图片 - 实时推送处理进度
+   * SSE 流式生成图片 - 实时推送处理进度 (GET方式，适用于短prompt)
    * 前端使用 EventSource 连接此端点
    */
   @Sse("generate/stream")
@@ -111,13 +111,86 @@ export class AiImageController {
     @Query("templateLayout") templateLayout: string,
     @Request() req: any,
   ): Observable<MessageEvent> {
-    this.logger.log(`SSE: Starting stream generation for user ${req.user?.id}`);
+    return this.handleStreamGeneration({
+      prompt,
+      urls,
+      content,
+      imageModelId,
+      textModelId,
+      style,
+      aspectRatio,
+      negativePrompt,
+      skipEnhancement,
+      templateLayout,
+      userId: req.user?.id,
+    });
+  }
+
+  /**
+   * SSE 流式生成图片 - POST方式，支持长prompt
+   * 解决GET请求URL长度限制问题
+   */
+  @Post("generate/stream")
+  @UseGuards(JwtAuthGuard)
+  generateImageStreamPost(
+    @Body()
+    body: {
+      prompt?: string;
+      urls?: string;
+      content?: string;
+      imageModelId?: string;
+      textModelId?: string;
+      style?: string;
+      aspectRatio?: string;
+      negativePrompt?: string;
+      skipEnhancement?: string;
+      templateLayout?: string;
+    },
+    @Request() req: any,
+  ): Observable<MessageEvent> {
+    return this.handleStreamGeneration({
+      ...body,
+      userId: req.user?.id,
+    });
+  }
+
+  /**
+   * 统一处理流式生成的内部方法
+   */
+  private handleStreamGeneration(params: {
+    prompt?: string;
+    urls?: string;
+    content?: string;
+    imageModelId?: string;
+    textModelId?: string;
+    style?: string;
+    aspectRatio?: string;
+    negativePrompt?: string;
+    skipEnhancement?: string;
+    templateLayout?: string;
+    userId?: string;
+  }): Observable<MessageEvent> {
+    const {
+      prompt,
+      urls,
+      content,
+      imageModelId,
+      textModelId,
+      style,
+      aspectRatio,
+      negativePrompt,
+      skipEnhancement,
+      templateLayout,
+      userId,
+    } = params;
+
+    this.logger.log(`SSE: Starting stream generation for user ${userId}`);
 
     const parsedUrls = urls
       ? urls.split(",").filter((u) => u.trim())
       : undefined;
     const validAspectRatio = ["1:1", "16:9", "9:16", "4:3"].includes(
-      aspectRatio,
+      aspectRatio || "",
     )
       ? (aspectRatio as "1:1" | "16:9" | "9:16" | "4:3")
       : undefined;
@@ -129,7 +202,9 @@ export class AiImageController {
       "pyramid",
       "radial",
     ];
-    const validTemplateLayout = validTemplateLayouts.includes(templateLayout)
+    const validTemplateLayout = validTemplateLayouts.includes(
+      templateLayout || "",
+    )
       ? (templateLayout as
           | "cards"
           | "center_visual"
@@ -150,7 +225,7 @@ export class AiImageController {
       negativePrompt: negativePrompt || undefined,
       skipEnhancement: skipEnhancement === "true",
       templateLayout: validTemplateLayout,
-      userId: req.user?.id,
+      userId,
     });
   }
 
