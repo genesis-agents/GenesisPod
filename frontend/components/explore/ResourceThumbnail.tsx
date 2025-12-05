@@ -21,7 +21,8 @@ async function processQueue() {
 
 async function fetchThumbnailWithQueue(
   url: string,
-  type: string
+  type: string,
+  resourceId?: string
 ): Promise<string | null> {
   const cacheKey = `${url}:${type}`;
 
@@ -40,9 +41,12 @@ async function fetchThumbnailWithQueue(
     const execute = async () => {
       activeRequests++;
       try {
-        const response = await fetch(
-          `${config.apiUrl}/resources/thumbnail/extract?url=${encodeURIComponent(url)}&type=${type}`
-        );
+        // 添加 resourceId 参数，支持服务端缓存
+        let apiUrl = `${config.apiUrl}/resources/thumbnail/extract?url=${encodeURIComponent(url)}&type=${type}`;
+        if (resourceId) {
+          apiUrl += `&resourceId=${resourceId}`;
+        }
+        const response = await fetch(apiUrl);
         if (response.ok) {
           const data = await response.json();
           const result = data.thumbnailUrl || null;
@@ -154,6 +158,7 @@ export default function ResourceThumbnail({
       }
 
       // 4. 对于 Blogs/News/Papers/Reports/Policy，调用后端API动态提取（使用队列和缓存）
+      // 传递 resourceId 以支持服务端缓存，下次请求直接从数据库获取
       const typesWithThumbnailExtraction = [
         'BLOG',
         'NEWS',
@@ -168,7 +173,8 @@ export default function ResourceThumbnail({
         try {
           const result = await fetchThumbnailWithQueue(
             resource.sourceUrl,
-            resource.type
+            resource.type,
+            resource.id // 传递 resourceId 以启用服务端缓存
           );
           if (isMounted && result) {
             setThumbnailUrl(result);

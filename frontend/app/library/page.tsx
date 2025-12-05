@@ -1319,17 +1319,7 @@ function LibraryPageContent() {
 
           {/* Notes Tab */}
           {activeTab === 'notes' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  My Notes
-                </h2>
-                <p className="text-sm text-gray-500">
-                  All your notes organized by resource
-                </p>
-              </div>
-              <NotesList searchQuery={searchQuery} showActions />
-            </div>
+            <NotesList searchQuery={searchQuery} showActions />
           )}
 
           {/* Images Tab - Bookmarked AI Images Gallery */}

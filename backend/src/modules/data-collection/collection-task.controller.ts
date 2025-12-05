@@ -125,10 +125,23 @@ export class CollectionTaskController {
   /**
    * 执行任务
    * POST /data-collection/tasks/:id/execute
+   *
+   * 注意：任务会在后台异步执行，不会阻塞响应
+   * 前端应通过轮询 GET /tasks/:id 获取任务进度
    */
   @Post(":id/execute")
   async execute(@Param("id") id: string) {
-    await this.taskService.execute(id);
+    // 先验证任务存在
+    await this.taskService.findOne(id);
+
+    // 异步执行任务，不等待完成
+    // 使用 setImmediate 确保响应先返回
+    setImmediate(() => {
+      this.taskService.execute(id).catch((error) => {
+        console.error(`Task ${id} execution failed:`, error);
+      });
+    });
+
     return {
       success: true,
       message: "Task execution started",

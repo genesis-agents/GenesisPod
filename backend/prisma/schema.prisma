@@ -90,6 +90,10 @@ model User {
   // ASK AI 会话
   askSessions AskSession[]
 
+  // Topic 加入请求
+  topicJoinRequests         TopicJoinRequest[] @relation("TopicJoinRequestUser")
+  topicJoinRequestsReviewed TopicJoinRequest[] @relation("TopicJoinRequestReviewer")
+
   @@map("users")
 }
 
@@ -1389,12 +1393,13 @@ model Topic {
   updatedAt  DateTime  @updatedAt @map("updated_at")
   archivedAt DateTime? @map("archived_at")
 
-  members   TopicMember[]
-  aiMembers TopicAIMember[]
-  messages  TopicMessage[]
-  resources TopicResource[]
-  summaries TopicSummary[]
-  missions  TeamMission[]
+  members      TopicMember[]
+  aiMembers    TopicAIMember[]
+  messages     TopicMessage[]
+  resources    TopicResource[]
+  summaries    TopicSummary[]
+  missions     TeamMission[]
+  joinRequests TopicJoinRequest[]
 
   @@index([createdById])
   @@index([type])
@@ -1690,6 +1695,41 @@ model TopicMessageBookmark {
   @@index([userId])
   @@index([category])
   @@map("topic_message_bookmarks")
+}
+
+// Topic 加入请求
+model TopicJoinRequest {
+  id String @id @default(uuid())
+
+  topicId String @map("topic_id")
+  topic   Topic  @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  userId String @map("user_id")
+  user   User   @relation("TopicJoinRequestUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  status         JoinRequestStatus @default(PENDING)
+  requestMessage String?           @map("request_message") @db.Text // 申请理由
+  responseNote   String?           @map("response_note") @db.Text // 审核备注
+
+  reviewedById String?   @map("reviewed_by_id")
+  reviewedBy   User?     @relation("TopicJoinRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt   DateTime? @map("reviewed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([topicId, userId, status])
+  @@index([topicId])
+  @@index([userId])
+  @@index([status])
+  @@map("topic_join_requests")
+}
+
+enum JoinRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
 }
 
 // ============ Team Mission System - AI团队协作 ============

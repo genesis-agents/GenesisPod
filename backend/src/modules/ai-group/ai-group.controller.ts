@@ -1035,6 +1035,91 @@ export class AiGroupController {
   async detectAndParseUrls(@Body() dto: { text: string }) {
     return this.urlParserService.detectAndParseUrls(dto.text);
   }
+
+  // ==================== 公开团队和加入请求 ====================
+
+  /**
+   * 获取所有公开团队列表
+   * GET /topics/public
+   */
+  @Get("public")
+  async getPublicTopics(
+    @Query("search") search?: string,
+    @Query("limit") limit?: string,
+  ) {
+    return this.aiGroupService.getPublicTopics({
+      search,
+      limit: limit ? parseInt(limit) : 50,
+    });
+  }
+
+  /**
+   * 获取我的加入请求列表
+   * GET /topics/my-join-requests
+   */
+  @Get("my-join-requests")
+  async getMyJoinRequests(@Request() req: any) {
+    return this.aiGroupService.getMyJoinRequests(req.user.id);
+  }
+
+  /**
+   * 审核加入请求
+   * POST /topics/join-requests/:requestId/review
+   */
+  @Post("join-requests/:requestId/review")
+  async reviewJoinRequest(
+    @Request() req: any,
+    @Param("requestId") requestId: string,
+    @Body() body: { approve: boolean; responseNote?: string },
+  ) {
+    return this.aiGroupService.reviewJoinRequest(
+      requestId,
+      req.user.id,
+      body.approve,
+      body.responseNote,
+    );
+  }
+
+  /**
+   * 取消加入请求
+   * DELETE /topics/join-requests/:requestId
+   */
+  @Delete("join-requests/:requestId")
+  async cancelJoinRequest(
+    @Request() req: any,
+    @Param("requestId") requestId: string,
+  ) {
+    return this.aiGroupService.cancelJoinRequest(requestId, req.user.id);
+  }
+
+  /**
+   * 申请加入团队
+   * POST /topics/:topicId/join-request
+   */
+  @Post(":topicId/join-request")
+  async requestToJoinTopic(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Body() body: { requestMessage?: string },
+  ) {
+    return this.aiGroupService.requestToJoinTopic(
+      topicId,
+      req.user.id,
+      body.requestMessage,
+    );
+  }
+
+  /**
+   * 获取团队的加入请求列表（管理员）
+   * GET /topics/:topicId/join-requests
+   */
+  @Get(":topicId/join-requests")
+  async getJoinRequests(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+  ) {
+    return this.aiGroupService.getJoinRequests(topicId, req.user.id);
+  }
 }
 
 // Bookmarks controller (user level)

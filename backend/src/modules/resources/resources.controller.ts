@@ -124,29 +124,75 @@ export class ResourcesController {
   }
 
   /**
+   * 清理重复资源
+   * POST /api/v1/resources/cleanup/duplicates?type=YOUTUBE_VIDEO
+   *
+   * 识别并删除重复的资源（基于 sourceUrl 和 normalizedUrl）
+   * 保留最早创建的记录，删除后续重复的记录
+   */
+  @Post("cleanup/duplicates")
+  async cleanupDuplicates(@Query("type") type?: string) {
+    this.logger.log(
+      `Cleaning up duplicate resources for type: ${type || "all"}`,
+    );
+
+    const result = await this.resourcesService.cleanupDuplicates(type);
+
+    return {
+      success: true,
+      message: `Cleaned up ${result.deleted} duplicate resources`,
+      ...result,
+    };
+  }
+
+  /**
    * 动态获取资源缩略图URL
-   * GET /api/v1/resources/thumbnail/extract?url=xxx&type=BLOG
+   * GET /api/v1/resources/thumbnail/extract?url=xxx&type=BLOG&resourceId=xxx
    *
    * 实时从网页提取og:image等缩略图
    * 注意：此路由必须在 @Get(':id') 之前
    * 跳过速率限制，因为前端会批量请求缩略图
+   *
+   * 新增缓存机制：
+   * - 如果提供 resourceId，成功提取后自动保存到数据库
+   * - 后续访问直接使用数据库中的缓存值
    */
   @SkipThrottle()
   @Get("thumbnail/extract")
   async extractThumbnail(
     @Query("url") url: string,
     @Query("type") type: string,
+    @Query("resourceId") resourceId?: string,
   ) {
     if (!url) {
       throw new HttpException("URL is required", HttpStatus.BAD_REQUEST);
     }
 
-    this.logger.log(`Extracting thumbnail for URL: ${url} (type: ${type})`);
+    this.logger.log(
+      `Extracting thumbnail for URL: ${url} (type: ${type}, resourceId: ${resourceId || "none"})`,
+    );
 
     const thumbnailUrl = await this.dynamicThumbnailService.getThumbnailUrl(
       url,
       type || "BLOG",
     );
+
+    // 如果成功提取且提供了 resourceId，缓存到数据库
+    if (thumbnailUrl && resourceId) {
+      try {
+        await this.resourcesService.update(resourceId, {
+          thumbnailUrl: thumbnailUrl,
+        });
+        this.logger.log(
+          `Cached thumbnail for resource ${resourceId}: ${thumbnailUrl}`,
+        );
+      } catch (error) {
+        // 缓存失败不影响返回结果
+        this.logger.warn(
+          `Failed to cache thumbnail for resource ${resourceId}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
 
     return {
       success: !!thumbnailUrl,

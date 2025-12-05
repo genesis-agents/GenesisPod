@@ -35,7 +35,7 @@ export class DynamicThumbnailService {
         case "PAPER":
           // 检查是否是 arXiv
           if (sourceUrl?.includes("arxiv.org")) {
-            return this.getArxivThumbnail(sourceUrl);
+            return await this.getArxivThumbnail(sourceUrl);
           }
           // 对于其他论文网站，尝试提取 og:image
           return await this.extractOgImage(sourceUrl);
@@ -70,15 +70,46 @@ export class DynamicThumbnailService {
 
   /**
    * 从arXiv URL获取缩略图
+   * 尝试从 arXiv HTML 页面提取论文的预览图
    */
-  private getArxivThumbnail(url: string): string | null {
+  private async getArxivThumbnail(url: string): Promise<string | null> {
     const arxivId = this.extractArxivId(url);
-    if (arxivId) {
-      // 使用 ar5iv HTML 渲染版本的第一张图
-      // 备选: 使用 arxiv-vanity 的缩略图
-      return `https://static.arxiv.org/static/browse/0.3.4/images/arxiv-logo-small.svg`;
+    if (!arxivId) return null;
+
+    try {
+      // 尝试从 arXiv 摘要页面提取图片
+      const absUrl = `https://arxiv.org/abs/${arxivId}`;
+      const response = await axios.get(absUrl, {
+        timeout: this.REQUEST_TIMEOUT,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          Accept: "text/html",
+        },
+      });
+
+      const $ = cheerio.load(response.data);
+
+      // arXiv 页面可能包含论文的预览图
+      const ogImage = $('meta[property="og:image"]').attr("content");
+      if (ogImage && !ogImage.includes("arxiv-logo")) {
+        return ogImage;
+      }
+
+      // 尝试获取论文中的图片（如果有的话）
+      const firstFigure = $(".ltx_figure img").first().attr("src");
+      if (firstFigure) {
+        return this.normalizeImageUrl(firstFigure, absUrl);
+      }
+
+      // 如果都没有，返回 null，前端会显示 PAPER 类型的图标
+      return null;
+    } catch (error) {
+      this.logger.debug(
+        `Failed to extract arXiv thumbnail for ${arxivId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
     }
-    return null;
   }
 
   /**

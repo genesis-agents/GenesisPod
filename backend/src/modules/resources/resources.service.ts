@@ -800,4 +800,141 @@ export class ResourcesService {
       return { title: fallbackTitle, abstract: null };
     }
   }
+
+  /**
+   * 清理指定类型的重复资源
+   * 基于 sourceUrl 或 normalizedUrl 识别重复项
+   * 保留最早创建的记录，删除后续重复的记录
+   */
+  async cleanupDuplicates(resourceType?: string): Promise<{
+    total: number;
+    duplicatesFound: number;
+    deleted: number;
+    details: { title: string; url: string; count: number }[];
+  }> {
+    this.logger.log(
+      `Starting duplicate cleanup for type: ${resourceType || "all"}`,
+    );
+
+    // 构建类型过滤条件
+    const typeFilter = resourceType ? { type: resourceType as any } : {};
+
+    // 查找所有重复的 sourceUrl
+    const duplicateUrls = await this.prisma.resource.groupBy({
+      by: ["sourceUrl"],
+      where: {
+        ...typeFilter,
+        NOT: { sourceUrl: "" },
+      },
+      _count: { id: true },
+      having: {
+        id: { _count: { gt: 1 } },
+      },
+    });
+
+    this.logger.log(`Found ${duplicateUrls.length} URLs with duplicates`);
+
+    let deletedCount = 0;
+    const details: { title: string; url: string; count: number }[] = [];
+
+    // 对每个重复的URL进行处理
+    for (const group of duplicateUrls) {
+      if (!group.sourceUrl) continue;
+
+      // 获取所有相同URL的资源，按创建时间排序（保留最早的）
+      const resources = await this.prisma.resource.findMany({
+        where: {
+          sourceUrl: group.sourceUrl,
+          ...typeFilter,
+        },
+        orderBy: { createdAt: "asc" },
+        select: { id: true, title: true, sourceUrl: true, createdAt: true },
+      });
+
+      if (resources.length <= 1) continue;
+
+      // 保留第一个（最早创建的），删除其余的
+      const toDelete = resources.slice(1);
+      const toKeep = resources[0];
+
+      this.logger.log(
+        `Keeping: ${toKeep.title} (${toKeep.id}), Deleting ${toDelete.length} duplicates`,
+      );
+
+      // 删除重复项
+      const deleteIds = toDelete.map((r) => r.id);
+      await this.prisma.resource.deleteMany({
+        where: { id: { in: deleteIds } },
+      });
+
+      deletedCount += toDelete.length;
+      details.push({
+        title: toKeep.title || "Untitled",
+        url: group.sourceUrl,
+        count: toDelete.length,
+      });
+    }
+
+    // 同样处理 normalizedUrl 的重复
+    const duplicateNormalizedUrls = await this.prisma.resource.groupBy({
+      by: ["normalizedUrl"],
+      where: {
+        ...typeFilter,
+        normalizedUrl: { not: "" },
+      },
+      _count: { id: true },
+      having: {
+        id: { _count: { gt: 1 } },
+      },
+    });
+
+    for (const group of duplicateNormalizedUrls) {
+      if (!group.normalizedUrl) continue;
+
+      const resources = await this.prisma.resource.findMany({
+        where: {
+          normalizedUrl: group.normalizedUrl,
+          ...typeFilter,
+        },
+        orderBy: { createdAt: "asc" },
+        select: { id: true, title: true, sourceUrl: true, createdAt: true },
+      });
+
+      if (resources.length <= 1) continue;
+
+      const toDelete = resources.slice(1);
+      const toKeep = resources[0];
+
+      this.logger.log(
+        `[normalizedUrl] Keeping: ${toKeep.title} (${toKeep.id}), Deleting ${toDelete.length} duplicates`,
+      );
+
+      const deleteIds = toDelete.map((r) => r.id);
+      await this.prisma.resource.deleteMany({
+        where: { id: { in: deleteIds } },
+      });
+
+      deletedCount += toDelete.length;
+
+      // 避免重复添加到details
+      if (!details.find((d) => d.url === toKeep.sourceUrl)) {
+        details.push({
+          title: toKeep.title || "Untitled",
+          url: toKeep.sourceUrl || group.normalizedUrl,
+          count: toDelete.length,
+        });
+      }
+    }
+
+    this.logger.log(
+      `Duplicate cleanup completed: ${deletedCount} duplicates deleted`,
+    );
+
+    return {
+      total: duplicateUrls.length + duplicateNormalizedUrls.length,
+      duplicatesFound: duplicateUrls.length + duplicateNormalizedUrls.length,
+      deleted: deletedCount,
+      details,
+    };
+  }
 }
