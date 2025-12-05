@@ -894,8 +894,8 @@ export default function AskPage() {
           </div>
         ) : (
           /* Chat Messages */
-          <>
-            <div className="flex-1 overflow-y-auto px-4 py-6">
+          <div className="relative flex-1 overflow-hidden">
+            <div className="h-full overflow-y-auto px-4 pb-32 pt-6">
               <div className="mx-auto max-w-4xl space-y-6">
                 {messages.map((message) => {
                   const messageModel = chatModels.find(
@@ -1032,11 +1032,11 @@ export default function AskPage() {
               </div>
             </div>
 
-            {/* Bottom Input */}
-            <div className="border-t border-gray-200 bg-white px-4 py-4">
-              <div className="mx-auto max-w-4xl">
+            {/* Floating Bottom Input */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-gray-50 via-gray-50/95 to-transparent px-4 pb-4 pt-8">
+              <div className="pointer-events-auto mx-auto max-w-4xl">
                 <form onSubmit={handleSubmit}>
-                  <div className="rounded-2xl border border-gray-200 bg-white shadow-sm transition-all focus-within:border-purple-300">
+                  <div className="rounded-2xl border border-gray-200 bg-white shadow-lg transition-all focus-within:border-purple-300 focus-within:shadow-xl">
                     <textarea
                       ref={inputRef}
                       value={input}
@@ -1336,7 +1336,7 @@ export default function AskPage() {
                 </form>
               </div>
             </div>
-          </>
+          </div>
         )}
       </main>
     </div>
