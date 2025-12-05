@@ -1,6 +1,7 @@
 [build]
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
+useMetal = false
 
 [deploy]
 healthcheckPath = "/"

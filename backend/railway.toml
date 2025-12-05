@@ -1,5 +1,6 @@
 [build]
 builder = "dockerfile"
+useMetal = false
 
 [deploy]
 startCommand = "sh -c 'set -e; export PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium; echo \"🚀 Starting deployment...\"; echo \"🔍 Running diagnostics...\"; npm run diagnose || echo \"⚠️  Diagnostics failed, continuing...\"; echo \"📦 Running migrations...\"; npm run deploy || exit 1; echo \"✅ Deploy OK, starting server...\"; exec npm run start:prod'"
