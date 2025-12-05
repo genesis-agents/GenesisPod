@@ -1341,7 +1341,7 @@ export class InfographicTemplateService {
     .orbit-item {
       position: absolute;
       width: ${cardWidth}px;
-      height: ${cardHeight}px;
+      min-height: ${cardHeight}px;
       background: ${isGlassmorphism ? "rgba(255, 255, 255, 0.08)" : isDarkMode ? "#1e293b" : "white"};
       border-radius: ${Math.round(8 * scale)}px;
       padding: ${cardPadding}px;
@@ -1354,7 +1354,6 @@ export class InfographicTemplateService {
       flex-direction: column;
       align-items: center;
       justify-content: flex-start;
-      overflow: hidden;
       ${glassmorphismStyles}
     }
 
@@ -1380,8 +1379,6 @@ export class InfographicTemplateService {
       line-height: 1.2;
       word-break: break-word;
       margin-bottom: ${Math.round(3 * scale)}px;
-      max-height: ${Math.round(26 * scale)}px;
-      overflow: hidden;
       width: 100%;
     }
 
@@ -1389,7 +1386,6 @@ export class InfographicTemplateService {
       text-align: left;
       width: 100%;
       flex: 1;
-      overflow: hidden;
     }
 
     .orbit-item .bullet {
@@ -1400,9 +1396,6 @@ export class InfographicTemplateService {
       display: flex;
       align-items: flex-start;
       gap: ${Math.round(3 * scale)}px;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
     }
 
     .orbit-item .bullet::before {
