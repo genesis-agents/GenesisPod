@@ -90,7 +90,7 @@ export default function ResourceThumbnail({
       ) {
         try {
           const response = await fetch(
-            `${config.apiBaseUrl}/resources/thumbnail/extract?url=${encodeURIComponent(resource.sourceUrl)}&type=${resource.type}`
+            `${config.apiUrl}/resources/thumbnail/extract?url=${encodeURIComponent(resource.sourceUrl)}&type=${resource.type}`
           );
           if (response.ok) {
             const data = await response.json();

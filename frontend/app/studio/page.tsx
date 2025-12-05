@@ -648,7 +648,7 @@ function StudioPageContent() {
                     d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
                   />
                 </svg>
-                Projects
+                Special Research
               </div>
               {activeTab === 'projects' && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-600" />
@@ -693,7 +693,7 @@ function StudioPageContent() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="搜索项目..."
+                  placeholder="搜索专题研究..."
                   className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
                 />
               </div>
@@ -735,17 +735,17 @@ function StudioPageContent() {
               <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-20">
                 <FolderOpenIcon className="h-16 w-16 text-gray-300" />
                 <h3 className="mt-4 text-lg font-medium text-gray-900">
-                  No projects yet
+                  No special research yet
                 </h3>
                 <p className="mt-1 text-gray-500">
-                  Create your first research project to get started
+                  Create your first special research to get started
                 </p>
                 <button
                   onClick={() => setShowCreateDialog(true)}
                   className="mt-6 flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2.5 font-medium text-white hover:bg-purple-700"
                 >
                   <PlusIcon className="h-5 w-5" />
-                  Create Project
+                  Create Special Research
                 </button>
               </div>
             ) : (

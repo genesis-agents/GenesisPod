@@ -34,6 +34,37 @@ interface NotesListProps {
   showActions?: boolean; // Always show edit/delete buttons
 }
 
+/**
+ * 判断标签是否有意义（过滤掉随机ID类标签）
+ * 过滤规则：
+ * - YouTube video ID（11位字母数字混合）
+ * - 纯数字或纯字母数字混合的随机ID
+ * - 太短的标签（少于2个字符）
+ */
+function isMeaningfulTag(tag: string): boolean {
+  if (!tag || tag.length < 2) return false;
+
+  // YouTube video ID pattern: exactly 11 chars, alphanumeric with - and _
+  const youtubeIdPattern = /^[a-zA-Z0-9_-]{11}$/;
+  if (youtubeIdPattern.test(tag)) return false;
+
+  // Random alphanumeric ID pattern: mostly numbers or looks like a hash
+  const randomIdPattern = /^[a-zA-Z0-9]{8,}$/;
+  if (randomIdPattern.test(tag) && /\d/.test(tag) && /[a-zA-Z]/.test(tag)) {
+    // Contains both letters and numbers, likely a random ID
+    const digitRatio = (tag.match(/\d/g) || []).length / tag.length;
+    // If more than 30% digits and mixed with letters, it's likely random
+    if (digitRatio > 0.3 && digitRatio < 0.9) return false;
+  }
+
+  // UUID pattern
+  const uuidPattern =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (uuidPattern.test(tag)) return false;
+
+  return true;
+}
+
 export default function NotesList({
   resourceId,
   source,
@@ -51,6 +82,8 @@ export default function NotesList({
   const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [editContent, setEditContent] = useState('');
+  const [editTags, setEditTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
 
   useEffect(() => {
     loadNotes();
@@ -118,6 +151,28 @@ export default function NotesList({
   const handleStartEdit = (note: Note) => {
     setEditingNote(note);
     setEditContent(note.content);
+    // 过滤出有意义的标签进行编辑
+    setEditTags(note.tags?.filter(isMeaningfulTag) || []);
+    setTagInput('');
+  };
+
+  const handleAddTag = () => {
+    const trimmed = tagInput.trim();
+    if (trimmed && !editTags.includes(trimmed)) {
+      setEditTags([...editTags, trimmed]);
+      setTagInput('');
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setEditTags(editTags.filter((t) => t !== tagToRemove));
+  };
+
+  const handleTagKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddTag();
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -134,6 +189,7 @@ export default function NotesList({
           },
           body: JSON.stringify({
             content: editContent,
+            tags: editTags,
           }),
         }
       );
@@ -142,12 +198,16 @@ export default function NotesList({
         const updatedNote = await response.json();
         setNotes(
           notes.map((n) =>
-            n.id === editingNote.id ? { ...n, content: editContent } : n
+            n.id === editingNote.id
+              ? { ...n, content: editContent, tags: editTags }
+              : n
           )
         );
         setEditingNote(null);
         setEditContent('');
-        onEditNote?.({ ...editingNote, content: editContent });
+        setEditTags([]);
+        setTagInput('');
+        onEditNote?.({ ...editingNote, content: editContent, tags: editTags });
       } else {
         alert('Failed to save note');
       }
@@ -160,6 +220,8 @@ export default function NotesList({
   const handleCancelEdit = () => {
     setEditingNote(null);
     setEditContent('');
+    setEditTags([]);
+    setTagInput('');
   };
 
   const handleToggleBookmark = async (noteId: string) => {
@@ -190,9 +252,9 @@ export default function NotesList({
     }
   };
 
-  // Get all unique tags
+  // Get all unique meaningful tags (filter out random IDs)
   const allTags = Array.from(
-    new Set(notes.flatMap((note) => note.tags))
+    new Set(notes.flatMap((note) => note.tags).filter(isMeaningfulTag))
   ).sort();
 
   // Filter and search notes
@@ -337,13 +399,18 @@ export default function NotesList({
               {/* Footer: Tags + Date + Actions + Expand indicator */}
               <div className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
-                  {/* Tags */}
-                  {note.tags && note.tags.length > 0 && (
-                    <span className="rounded-full bg-blue-100 px-2 py-0.5 font-medium text-blue-700">
-                      {note.tags[0]}
-                      {note.tags.length > 1 && ` +${note.tags.length - 1}`}
-                    </span>
-                  )}
+                  {/* Tags - only show meaningful tags */}
+                  {(() => {
+                    const meaningfulTags =
+                      note.tags?.filter(isMeaningfulTag) || [];
+                    return meaningfulTags.length > 0 ? (
+                      <span className="rounded-full bg-blue-100 px-2 py-0.5 font-medium text-blue-700">
+                        {meaningfulTags[0]}
+                        {meaningfulTags.length > 1 &&
+                          ` +${meaningfulTags.length - 1}`}
+                      </span>
+                    ) : null;
+                  })()}
                   {/* Date */}
                   <span className="text-gray-400">
                     {new Date(note.createdAt).toLocaleDateString('zh-CN', {
@@ -455,9 +522,46 @@ export default function NotesList({
             <textarea
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
-              className="mb-4 h-64 w-full rounded-lg border border-gray-300 p-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mb-4 h-48 w-full rounded-lg border border-gray-300 p-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               placeholder="Enter note content..."
             />
+
+            {/* Tags Section */}
+            <div className="mb-4">
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                Tags
+              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                {editTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700"
+                  >
+                    {tag}
+                    <button
+                      onClick={() => handleRemoveTag(tag)}
+                      className="ml-0.5 text-blue-500 hover:text-blue-700"
+                      type="button"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                <input
+                  type="text"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyPress={handleTagKeyPress}
+                  onBlur={handleAddTag}
+                  placeholder="Add tag..."
+                  className="min-w-[100px] flex-1 rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Press Enter to add a tag
+              </p>
+            </div>
+
             <div className="flex justify-end gap-3">
               <button
                 onClick={handleCancelEdit}
