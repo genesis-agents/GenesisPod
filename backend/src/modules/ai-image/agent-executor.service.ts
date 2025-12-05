@@ -454,6 +454,27 @@ export class AgentExecutorService {
 
       const data = this.parseJSONResponse<LayoutAgentOutput>(response);
 
+      // 硬性约束：comparison模板只能用于恰好2个sections
+      // 如果有3+个sections但AI选择了comparison，强制改为cards
+      if (data) {
+        const sectionCount = informationArchitecture.sections?.length || 0;
+        if (data.templateLayout === "comparison" && sectionCount > 2) {
+          this.logger.warn(
+            `Layout correction: comparison template invalid for ${sectionCount} sections, switching to cards`,
+          );
+          data.templateLayout = "cards";
+          data.reasoning = `[Auto-corrected] ${data.reasoning} → comparison只支持2项对比，${sectionCount}个sections必须用cards`;
+        }
+        // matrix模板需要恰好4个sections
+        if (data.templateLayout === "matrix" && sectionCount !== 4) {
+          this.logger.warn(
+            `Layout correction: matrix template requires exactly 4 sections, got ${sectionCount}, switching to cards`,
+          );
+          data.templateLayout = "cards";
+          data.reasoning = `[Auto-corrected] ${data.reasoning} → matrix需要4个sections，当前${sectionCount}个，改用cards`;
+        }
+      }
+
       return {
         success: !!data,
         data: data || undefined,
