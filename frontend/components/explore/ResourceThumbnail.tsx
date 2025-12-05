@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { config } from '@/lib/config';
+import PdfThumbnail from './PdfThumbnail';
 
 // 简单的内存缓存，用于存储已提取的缩略图
 const thumbnailCache = new Map<string, string | null>();
@@ -157,34 +158,15 @@ export default function ResourceThumbnail({
         return;
       }
 
-      // 4. arXiv论文 - 使用可靠的预览图服务
+      // 4. arXiv论文 - 使用客户端PDF渲染（设置特殊标记）
       if (
         resource.type === 'PAPER' &&
         resource.sourceUrl?.includes('arxiv.org')
       ) {
-        const match = resource.sourceUrl.match(/(\d+\.\d+)/);
-        if (match) {
-          const arxivId = match[1];
-          // 策略1: 尝试arXiv官方预览图（如果存在）
-          const arxivPreviewUrl = `https://static.arxiv.org/static/browse/0.3.4/images/icons/favicon.ico`;
-          // 策略2: 使用我们自己的后端生成PDF缩略图
-          const backendThumbnailUrl = `${config.apiUrl}/resources/thumbnail/pdf-preview?arxivId=${arxivId}`;
-
-          // 先尝试后端服务
-          try {
-            const response = await fetch(backendThumbnailUrl);
-            if (response.ok) {
-              const data = await response.json();
-              if (data.thumbnailUrl) {
-                setThumbnailUrl(data.thumbnailUrl);
-                setIsLoading(false);
-                return;
-              }
-            }
-          } catch (e) {
-            console.debug('Backend PDF preview not available, will use icon');
-          }
-        }
+        // 设置特殊标记，后面会用PdfThumbnail组件渲染
+        setThumbnailUrl('__RENDER_PDF__');
+        setIsLoading(false);
+        return;
       }
 
       // 5. 对于 Blogs/News/Reports/Policy，调用后端API动态提取（使用队列和缓存）
@@ -339,6 +321,19 @@ export default function ResourceThumbnail({
   // 显示加载状态
   if (isLoading) {
     return <div className={`${className} animate-pulse bg-gray-200`} />;
+  }
+
+  // 特殊处理：arXiv PDF客户端渲染
+  if (
+    thumbnailUrl === '__RENDER_PDF__' &&
+    resource.sourceUrl?.includes('arxiv.org')
+  ) {
+    const match = resource.sourceUrl.match(/(\d+\.\d+)/);
+    if (match) {
+      const arxivId = match[1];
+      const pdfUrl = `https://arxiv.org/pdf/${arxivId}.pdf`;
+      return <PdfThumbnail pdfUrl={pdfUrl} className="h-full w-full" />;
+    }
   }
 
   // 有缩略图且未出错，显示图片（过滤占位图）
