@@ -119,7 +119,11 @@ async function getCustomMigrations(): Promise<string[]> {
   const migrationsDir = path.join(__dirname, "migrations");
 
   // 定义需要手动执行的迁移文件模式
-  const customMigrationPatterns = ["20251202_add_office_documents"];
+  const customMigrationPatterns = [
+    "20251202_add_office_documents",
+    "20251205_add_topic_join_requests",
+    "20251205_cleanup_duplicate_resources",
+  ];
 
   const migrations: string[] = [];
 
