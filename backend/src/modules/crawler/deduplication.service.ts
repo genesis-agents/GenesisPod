@@ -85,7 +85,8 @@ export class DeduplicationService {
   }
 
   /**
-   * 规范化 URL（移除 query 参数、hash、trailing slash，转换为小写）
+   * 规范化 URL（移除无关 query 参数、hash、trailing slash，转换为小写）
+   * 特殊处理：YouTube视频URL保留视频ID参数
    */
   normalizeUrl(url: string): string {
     try {
@@ -94,7 +95,38 @@ export class DeduplicationService {
       urlObj.protocol = urlObj.protocol.toLowerCase();
       urlObj.hostname = urlObj.hostname.toLowerCase();
       urlObj.pathname = urlObj.pathname.toLowerCase();
-      // 移除 query 参数和 hash
+
+      // 特殊处理 YouTube URL - 保留视频ID
+      if (
+        urlObj.hostname.includes("youtube.com") ||
+        urlObj.hostname.includes("youtu.be")
+      ) {
+        // 提取YouTube视频ID
+        let videoId: string | null = null;
+
+        if (urlObj.hostname.includes("youtu.be")) {
+          // 短链接格式: https://youtu.be/VIDEO_ID
+          videoId = urlObj.pathname.slice(1); // 移除开头的 /
+        } else if (urlObj.pathname.includes("/watch")) {
+          // 标准格式: https://www.youtube.com/watch?v=VIDEO_ID
+          videoId = urlObj.searchParams.get("v");
+        } else if (urlObj.pathname.includes("/shorts/")) {
+          // Shorts格式: https://www.youtube.com/shorts/VIDEO_ID
+          const match = urlObj.pathname.match(/\/shorts\/([a-zA-Z0-9_-]+)/);
+          videoId = match ? match[1] : null;
+        } else if (urlObj.pathname.includes("/embed/")) {
+          // 嵌入格式: https://www.youtube.com/embed/VIDEO_ID
+          const match = urlObj.pathname.match(/\/embed\/([a-zA-Z0-9_-]+)/);
+          videoId = match ? match[1] : null;
+        }
+
+        if (videoId) {
+          // 统一规范化为标准格式
+          return `https://www.youtube.com/watch?v=${videoId}`;
+        }
+      }
+
+      // 其他URL：移除 query 参数和 hash
       urlObj.search = "";
       urlObj.hash = "";
       let normalized = urlObj.toString();

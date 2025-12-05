@@ -155,37 +155,17 @@ export default function BatchCollectionDrawer({
     setIsRunning(true);
     setIsPaused(false);
 
-    // 立即初始化进度显示
-    const initialProgress = new Map<string, TaskProgress>();
-    for (const sourceId of Array.from(selectedSources)) {
-      const source = sources.find((s) => s.id === sourceId);
-      if (!source) continue;
-
-      // 使用临时ID先显示进度
-      const tempId = `pending-${sourceId}`;
-      initialProgress.set(tempId, {
-        id: tempId,
-        sourceId: source.id,
-        sourceName: source.name,
-        status: 'PENDING',
-        progress: 0,
-        totalItems: 0,
-        successItems: 0,
-        failedItems: 0,
-        duplicateItems: 0,
-      });
-    }
-    setTaskProgress(initialProgress);
+    const newProgress = new Map<string, TaskProgress>();
 
     try {
-      const newProgress = new Map<string, TaskProgress>();
-
-      for (const sourceId of Array.from(selectedSources)) {
+      // 并行创建和执行所有任务
+      const taskPromises = Array.from(selectedSources).map(async (sourceId) => {
         const source = sources.find((s) => s.id === sourceId);
-        if (!source) continue;
+        if (!source) return null;
 
         try {
           // 创建任务
+          console.log(`Creating task for ${source.name}...`);
           const taskResponse = await createCollectionTask({
             sourceId: source.id,
             name: `Batch: ${categoryName} - ${source.name}`,
@@ -196,36 +176,55 @@ export default function BatchCollectionDrawer({
           });
 
           const taskId = taskResponse.data.id;
+          console.log(`Task created: ${taskId}, executing...`);
 
-          // 执行任务
-          await executeTask(taskId);
-
-          // 记录进度
-          newProgress.set(taskId, {
+          // 立即添加到进度显示（状态为PENDING）
+          const progressEntry: TaskProgress = {
             id: taskId,
             sourceId: source.id,
             sourceName: source.name,
-            status: 'RUNNING',
+            status: 'PENDING',
             progress: 0,
             totalItems: 0,
             successItems: 0,
             failedItems: 0,
             duplicateItems: 0,
-          });
+          };
+
+          // 执行任务（后端会异步执行）
+          await executeTask(taskId);
+          console.log(`Task ${taskId} execution started`);
+
+          // 更新状态为RUNNING
+          progressEntry.status = 'RUNNING';
+          return { taskId, progressEntry };
         } catch (taskError) {
           console.error(`Failed to start task for ${source.name}:`, taskError);
           // 单个任务失败不影响其他任务
-          newProgress.set(`failed-${sourceId}`, {
-            id: `failed-${sourceId}`,
-            sourceId: source.id,
-            sourceName: source.name,
-            status: 'FAILED',
-            progress: 0,
-            totalItems: 0,
-            successItems: 0,
-            failedItems: 0,
-            duplicateItems: 0,
-          });
+          return {
+            taskId: `failed-${sourceId}`,
+            progressEntry: {
+              id: `failed-${sourceId}`,
+              sourceId: source.id,
+              sourceName: source.name,
+              status: 'FAILED' as const,
+              progress: 0,
+              totalItems: 0,
+              successItems: 0,
+              failedItems: 0,
+              duplicateItems: 0,
+            },
+          };
+        }
+      });
+
+      // 等待所有任务创建完成
+      const results = await Promise.all(taskPromises);
+
+      // 构建进度Map
+      for (const result of results) {
+        if (result) {
+          newProgress.set(result.taskId, result.progressEntry);
         }
       }
 

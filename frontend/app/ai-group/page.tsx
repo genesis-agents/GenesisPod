@@ -7,6 +7,10 @@ import { useAiGroupStore } from '@/stores/aiGroupStore';
 import { Topic, CreateTopicDto, UpdateTopicDto } from '@/types/ai-group';
 import { useAIModels, AIModel } from '@/hooks/useAIModels';
 import Sidebar from '@/components/layout/Sidebar';
+import * as api from '@/lib/api/ai-group';
+import { PublicTopic, JoinRequest } from '@/lib/api/ai-group';
+
+type TabType = 'my-teams' | 'discover';
 
 export default function AIGroupPage() {
   const router = useRouter();
@@ -24,6 +28,17 @@ export default function AIGroupPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<TabType>('my-teams');
+
+  // Public topics state
+  const [publicTopics, setPublicTopics] = useState<PublicTopic[]>([]);
+  const [isLoadingPublicTopics, setIsLoadingPublicTopics] = useState(false);
+  const [myJoinRequests, setMyJoinRequests] = useState<JoinRequest[]>([]);
+  const [joiningTopicId, setJoiningTopicId] = useState<string | null>(null);
+  const [joinRequestMessage, setJoinRequestMessage] = useState('');
+  const [showJoinDialog, setShowJoinDialog] = useState<PublicTopic | null>(
+    null
+  );
 
   const isAuthenticated = !!accessToken;
 
@@ -40,8 +55,64 @@ export default function AIGroupPage() {
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
       fetchTopics();
+      // Also fetch my join requests
+      api.getMyJoinRequests().then(setMyJoinRequests).catch(console.error);
     }
   }, [authLoading, isAuthenticated, fetchTopics]);
+
+  // Fetch public topics when discover tab is active
+  useEffect(() => {
+    if (activeTab === 'discover' && isAuthenticated) {
+      setIsLoadingPublicTopics(true);
+      api
+        .getPublicTopics({ search: searchQuery, limit: 50 })
+        .then((publicTopicsList) => {
+          // Filter out topics user is already a member of
+          const myTopicIds = new Set((topics || []).map((t) => t.id));
+          const pendingRequestTopicIds = new Set(
+            myJoinRequests
+              .filter((r) => r.status === 'PENDING')
+              .map((r) => r.topicId)
+          );
+          const filteredTopics = publicTopicsList.filter(
+            (t) => !myTopicIds.has(t.id) && !pendingRequestTopicIds.has(t.id)
+          );
+          setPublicTopics(filteredTopics);
+        })
+        .catch(console.error)
+        .finally(() => setIsLoadingPublicTopics(false));
+    }
+  }, [activeTab, isAuthenticated, searchQuery, myJoinRequests, topics]);
+
+  // Handle join request
+  const handleJoinRequest = async (topic: PublicTopic) => {
+    setJoiningTopicId(topic.id);
+    try {
+      await api.requestToJoinTopic(topic.id, joinRequestMessage);
+      // Refresh my join requests
+      const requests = await api.getMyJoinRequests();
+      setMyJoinRequests(requests);
+      setShowJoinDialog(null);
+      setJoinRequestMessage('');
+      alert(`已发送加入申请到 "${topic.name}"，请等待管理员审核。`);
+    } catch (error: any) {
+      alert(error.message || '发送加入请求失败');
+    } finally {
+      setJoiningTopicId(null);
+    }
+  };
+
+  // Cancel join request
+  const handleCancelJoinRequest = async (requestId: string) => {
+    if (!confirm('确定要取消这个加入申请吗？')) return;
+    try {
+      await api.cancelJoinRequest(requestId);
+      const requests = await api.getMyJoinRequests();
+      setMyJoinRequests(requests);
+    } catch (error: any) {
+      alert(error.message || '取消请求失败');
+    }
+  };
 
   // 过滤topics
   const filteredTopics = (topics || []).filter((topic) => {
@@ -143,8 +214,47 @@ export default function AIGroupPage() {
               </button>
             </div>
 
+            {/* Tabs */}
+            <div className="mt-4 flex gap-1 rounded-lg bg-gray-100 p-1">
+              <button
+                onClick={() => setActiveTab('my-teams')}
+                className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                  activeTab === 'my-teams'
+                    ? 'bg-white text-violet-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                我的团队
+                {topics.length > 0 && (
+                  <span className="ml-2 rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-600">
+                    {topics.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab('discover')}
+                className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                  activeTab === 'discover'
+                    ? 'bg-white text-violet-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                发现团队
+                {myJoinRequests.filter((r) => r.status === 'PENDING').length >
+                  0 && (
+                  <span className="ml-2 rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-600">
+                    {
+                      myJoinRequests.filter((r) => r.status === 'PENDING')
+                        .length
+                    }{' '}
+                    申请中
+                  </span>
+                )}
+              </button>
+            </div>
+
             {/* Search Bar */}
-            <div className="mt-6">
+            <div className="mt-4">
               <div className="relative">
                 <svg
                   className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
@@ -161,7 +271,11 @@ export default function AIGroupPage() {
                 </svg>
                 <input
                   type="text"
-                  placeholder="Search teams..."
+                  placeholder={
+                    activeTab === 'my-teams'
+                      ? '搜索我的团队...'
+                      : '搜索公开团队...'
+                  }
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
@@ -171,72 +285,214 @@ export default function AIGroupPage() {
           </div>
         </div>
 
-        {/* Topic Grid */}
+        {/* Content based on active tab */}
         <div className="px-8 py-6">
-          {isLoadingTopics ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
-            </div>
-          ) : filteredTopics.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <svg
-                className="h-16 w-16 text-gray-300"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                />
-              </svg>
-              <h3 className="mt-4 text-lg font-medium text-gray-700">
-                No teams yet
-              </h3>
-              <p className="mt-2 text-sm text-gray-500">
-                Create your first team to start collaborating
-              </p>
-              <button
-                onClick={() => setShowCreateDialog(true)}
-                className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-              >
-                Create Team
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredTopics.map((topic) => (
-                <TopicCard
-                  key={topic.id}
-                  topic={topic}
-                  currentUserId={user?.id}
-                  onClick={() => router.push(`/ai-group/${topic.id}`)}
-                  onEdit={(topic) => {
-                    setEditingTopic(topic);
-                  }}
-                  onDelete={async (topicId) => {
-                    if (
-                      confirm(
-                        'Are you sure you want to delete this team? This action cannot be undone.'
-                      )
-                    ) {
-                      await deleteTopic(topicId);
-                      await fetchTopics();
-                    }
-                  }}
-                  findModel={findModel}
-                />
-              ))}
+          {activeTab === 'my-teams' ? (
+            // My Teams Tab
+            <>
+              {isLoadingTopics ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
+                </div>
+              ) : filteredTopics.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <svg
+                    className="h-16 w-16 text-gray-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                    />
+                  </svg>
+                  <h3 className="mt-4 text-lg font-medium text-gray-700">
+                    还没有团队
+                  </h3>
+                  <p className="mt-2 text-sm text-gray-500">
+                    创建一个新团队或者去发现公开团队加入
+                  </p>
+                  <div className="mt-4 flex gap-3">
+                    <button
+                      onClick={() => setShowCreateDialog(true)}
+                      className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+                    >
+                      创建团队
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('discover')}
+                      className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      发现团队
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {filteredTopics.map((topic) => (
+                    <TopicCard
+                      key={topic.id}
+                      topic={topic}
+                      currentUserId={user?.id}
+                      onClick={() => router.push(`/ai-group/${topic.id}`)}
+                      onEdit={(topic) => {
+                        setEditingTopic(topic);
+                      }}
+                      onDelete={async (topicId) => {
+                        if (
+                          confirm(
+                            'Are you sure you want to delete this team? This action cannot be undone.'
+                          )
+                        ) {
+                          await deleteTopic(topicId);
+                          await fetchTopics();
+                        }
+                      }}
+                      findModel={findModel}
+                    />
+                  ))}
 
-              {/* Create New Card */}
+                  {/* Create New Card */}
+                  <button
+                    onClick={() => setShowCreateDialog(true)}
+                    className="flex min-h-[180px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-violet-400 hover:bg-violet-50"
+                  >
+                    <svg
+                      className="h-10 w-10 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                    <span className="mt-2 text-sm font-medium text-gray-600">
+                      创建新团队
+                    </span>
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            // Discover Tab
+            <>
+              {/* Pending Join Requests Section */}
+              {myJoinRequests.filter((r) => r.status === 'PENDING').length >
+                0 && (
+                <div className="mb-6">
+                  <h3 className="mb-3 text-sm font-semibold text-gray-700">
+                    我的申请 (
+                    {
+                      myJoinRequests.filter((r) => r.status === 'PENDING')
+                        .length
+                    }
+                    )
+                  </h3>
+                  <div className="space-y-2">
+                    {myJoinRequests
+                      .filter((r) => r.status === 'PENDING')
+                      .map((request) => (
+                        <div
+                          key={request.id}
+                          className="flex items-center justify-between rounded-lg border border-orange-200 bg-orange-50 p-3"
+                        >
+                          <div>
+                            <span className="font-medium text-gray-900">
+                              {request.topic?.name || '未知团队'}
+                            </span>
+                            <span className="ml-2 rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-600">
+                              待审核
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => handleCancelJoinRequest(request.id)}
+                            className="text-sm text-gray-500 hover:text-red-600"
+                          >
+                            取消申请
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Public Topics Grid */}
+              {isLoadingPublicTopics ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
+                </div>
+              ) : publicTopics.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <svg
+                    className="h-16 w-16 text-gray-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                  <h3 className="mt-4 text-lg font-medium text-gray-700">
+                    暂无公开团队
+                  </h3>
+                  <p className="mt-2 text-sm text-gray-500">
+                    目前没有可加入的公开团队，可以创建自己的团队
+                  </p>
+                  <button
+                    onClick={() => {
+                      setActiveTab('my-teams');
+                      setShowCreateDialog(true);
+                    }}
+                    className="mt-4 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+                  >
+                    创建团队
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {publicTopics.map((topic) => (
+                    <PublicTopicCard
+                      key={topic.id}
+                      topic={topic}
+                      onJoinRequest={() => setShowJoinDialog(topic)}
+                      isJoining={joiningTopicId === topic.id}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </main>
+
+      {/* Join Request Dialog */}
+      {showJoinDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <h2 className="text-lg font-semibold text-gray-900">
+                申请加入团队
+              </h2>
               <button
-                onClick={() => setShowCreateDialog(true)}
-                className="flex min-h-[180px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-blue-400 hover:bg-blue-50"
+                onClick={() => {
+                  setShowJoinDialog(null);
+                  setJoinRequestMessage('');
+                }}
+                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
               >
                 <svg
-                  className="h-10 w-10 text-gray-400"
+                  className="h-6 w-6"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -245,17 +501,83 @@ export default function AIGroupPage() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M12 4v16m8-8H4"
+                    d="M6 18L18 6M6 6l12 12"
                   />
                 </svg>
-                <span className="mt-2 text-sm font-medium text-gray-600">
-                  Create New Team
-                </span>
               </button>
             </div>
-          )}
+            <div className="p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-500">
+                  {showJoinDialog.avatar ? (
+                    <span className="text-2xl">{showJoinDialog.avatar}</span>
+                  ) : (
+                    <svg
+                      className="h-6 w-6 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                      />
+                    </svg>
+                  )}
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">
+                    {showJoinDialog.name}
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    {showJoinDialog.memberCount} 成员 ·{' '}
+                    {showJoinDialog.aiMemberCount} AI
+                  </p>
+                </div>
+              </div>
+              {showJoinDialog.description && (
+                <p className="mb-4 text-sm text-gray-600">
+                  {showJoinDialog.description}
+                </p>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  申请留言 (可选)
+                </label>
+                <textarea
+                  value={joinRequestMessage}
+                  onChange={(e) => setJoinRequestMessage(e.target.value)}
+                  placeholder="向管理员介绍一下自己..."
+                  rows={3}
+                  className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <button
+                onClick={() => {
+                  setShowJoinDialog(null);
+                  setJoinRequestMessage('');
+                }}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => handleJoinRequest(showJoinDialog)}
+                disabled={joiningTopicId === showJoinDialog.id}
+                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {joiningTopicId === showJoinDialog.id
+                  ? '发送中...'
+                  : '发送申请'}
+              </button>
+            </div>
+          </div>
         </div>
-      </main>
+      )}
 
       {/* Create Topic Dialog */}
       {showCreateDialog && (
@@ -954,6 +1276,158 @@ function EditTopicDialog({
             {isUpdating ? 'Updating...' : 'Update Team'}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Public Topic Card for Discover Tab
+function PublicTopicCard({
+  topic,
+  onJoinRequest,
+  isJoining,
+}: {
+  topic: PublicTopic;
+  onJoinRequest: () => void;
+  isJoining: boolean;
+}) {
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const days = Math.floor(diff / 86400000);
+
+    if (days < 1) return '今天';
+    if (days < 7) return `${days}天前`;
+    if (days < 30) return `${Math.floor(days / 7)}周前`;
+    return date.toLocaleDateString();
+  };
+
+  return (
+    <div className="group relative rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-violet-300 hover:shadow-md">
+      {/* Card Content */}
+      <div>
+        {/* Avatar and Badge */}
+        <div className="flex items-start justify-between">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-green-500 to-teal-500">
+            {topic.avatar ? (
+              <span className="text-2xl">{topic.avatar}</span>
+            ) : (
+              <svg
+                className="h-6 w-6 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            )}
+          </div>
+          <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-600">
+            公开
+          </span>
+        </div>
+
+        {/* Title & Description */}
+        <h3 className="mt-3 truncate text-base font-semibold text-gray-900 group-hover:text-violet-600">
+          {topic.name}
+        </h3>
+        {topic.description && (
+          <p className="mt-1 line-clamp-2 text-sm text-gray-500">
+            {topic.description}
+          </p>
+        )}
+
+        {/* Tags */}
+        {topic.metadata?.tags && topic.metadata.tags.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {topic.metadata.tags.slice(0, 3).map((tag: string, idx: number) => (
+              <span
+                key={idx}
+                className="rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-600"
+              >
+                {tag}
+              </span>
+            ))}
+            {topic.metadata.tags.length > 3 && (
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+                +{topic.metadata.tags.length - 3}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Stats */}
+        <div className="mt-4 flex items-center gap-4 text-xs text-gray-500">
+          <span className="flex items-center gap-1">
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+              />
+            </svg>
+            {topic.memberCount} 成员
+          </span>
+          <span className="flex items-center gap-1">
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+              />
+            </svg>
+            {topic.aiMemberCount} AI
+          </span>
+          <span className="ml-auto">{formatTime(topic.createdAt)}</span>
+        </div>
+
+        {/* Creator */}
+        <div className="mt-3 flex items-center gap-2">
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600">
+            {topic.createdBy.avatarUrl ? (
+              <img
+                src={topic.createdBy.avatarUrl}
+                alt=""
+                className="h-full w-full rounded-full object-cover"
+              />
+            ) : (
+              (topic.createdBy.fullName ||
+                topic.createdBy.username ||
+                'U')[0].toUpperCase()
+            )}
+          </div>
+          <span className="text-xs text-gray-500">
+            由 {topic.createdBy.fullName || topic.createdBy.username || '用户'}{' '}
+            创建
+          </span>
+        </div>
+
+        {/* Join Button */}
+        <button
+          onClick={onJoinRequest}
+          disabled={isJoining}
+          className="mt-4 w-full rounded-lg bg-violet-600 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {isJoining ? '申请中...' : '申请加入'}
+        </button>
       </div>
     </div>
   );

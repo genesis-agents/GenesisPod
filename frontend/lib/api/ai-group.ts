@@ -576,3 +576,121 @@ export async function detectAndParseUrls(text: string): Promise<{
     body: JSON.stringify({ text }),
   });
 }
+
+// ==================== Public Topics & Join Requests API ====================
+
+/**
+ * 公开团队信息
+ */
+export interface PublicTopic {
+  id: string;
+  name: string;
+  description?: string;
+  avatar?: string;
+  type: TopicType;
+  metadata?: {
+    tags?: string[];
+    [key: string]: unknown;
+  };
+  memberCount: number;
+  aiMemberCount: number;
+  messageCount: number;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: {
+    id: string;
+    username?: string;
+    fullName?: string;
+    avatarUrl?: string;
+  };
+}
+
+/**
+ * 加入请求
+ */
+export interface JoinRequest {
+  id: string;
+  topicId: string;
+  userId: string;
+  requestMessage?: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  responseNote?: string;
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    id: string;
+    email: string;
+    username?: string;
+    fullName?: string;
+    avatarUrl?: string;
+  };
+  topic?: {
+    id: string;
+    name: string;
+  };
+}
+
+/**
+ * 获取所有公开团队列表
+ */
+export async function getPublicTopics(options?: {
+  search?: string;
+  limit?: number;
+}): Promise<PublicTopic[]> {
+  const params = new URLSearchParams();
+  if (options?.search) params.set('search', options.search);
+  if (options?.limit) params.set('limit', options.limit.toString());
+
+  const query = params.toString();
+  return fetchWithAuth(`/api/v1/topics/public${query ? `?${query}` : ''}`);
+}
+
+/**
+ * 申请加入团队
+ */
+export async function requestToJoinTopic(
+  topicId: string,
+  requestMessage?: string
+): Promise<JoinRequest> {
+  return fetchWithAuth(`/api/v1/topics/${topicId}/join-request`, {
+    method: 'POST',
+    body: JSON.stringify({ requestMessage }),
+  });
+}
+
+/**
+ * 获取我的加入请求列表
+ */
+export async function getMyJoinRequests(): Promise<JoinRequest[]> {
+  return fetchWithAuth('/api/v1/topics/my-join-requests');
+}
+
+/**
+ * 取消加入请求
+ */
+export async function cancelJoinRequest(requestId: string): Promise<void> {
+  return fetchWithAuth(`/api/v1/topics/join-requests/${requestId}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * 获取团队的加入请求列表（管理员）
+ */
+export async function getJoinRequests(topicId: string): Promise<JoinRequest[]> {
+  return fetchWithAuth(`/api/v1/topics/${topicId}/join-requests`);
+}
+
+/**
+ * 审核加入请求
+ */
+export async function reviewJoinRequest(
+  requestId: string,
+  approve: boolean,
+  responseNote?: string
+): Promise<JoinRequest> {
+  return fetchWithAuth(`/api/v1/topics/join-requests/${requestId}/review`, {
+    method: 'POST',
+    body: JSON.stringify({ approve, responseNote }),
+  });
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Topic,
   TopicAIMember,
@@ -9,6 +9,18 @@ import {
 } from '@/types/ai-group';
 import { useAiGroupStore } from '@/stores/aiGroupStore';
 import { useAIModels, AIModel } from '@/hooks/useAIModels';
+import { config } from '@/lib/config';
+import * as aiGroupApi from '@/lib/api/ai-group';
+import { JoinRequest } from '@/lib/api/ai-group';
+
+// User search result type
+interface SearchedUser {
+  id: string;
+  email: string;
+  username?: string;
+  fullName?: string;
+  avatarUrl?: string;
+}
 
 interface TopicSettingsDialogProps {
   topic: Topic;
@@ -20,7 +32,7 @@ export default function TopicSettingsDialog({
   onClose,
 }: TopicSettingsDialogProps) {
   const [activeTab, setActiveTab] = useState<
-    'general' | 'ai' | 'members' | 'danger'
+    'general' | 'ai' | 'members' | 'requests' | 'danger'
   >('general');
   const {
     updateTopic,
@@ -30,7 +42,37 @@ export default function TopicSettingsDialog({
     addMember,
     removeMember,
     deleteTopic,
+    fetchTopic,
   } = useAiGroupStore();
+
+  // Join requests state
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
+  const [isLoadingRequests, setIsLoadingRequests] = useState(false);
+
+  // Load join requests when requests tab is active
+  useEffect(() => {
+    if (activeTab === 'requests') {
+      setIsLoadingRequests(true);
+      aiGroupApi
+        .getJoinRequests(topic.id)
+        .then(setJoinRequests)
+        .catch(console.error)
+        .finally(() => setIsLoadingRequests(false));
+    }
+  }, [activeTab, topic.id]);
+
+  const handleReviewRequest = async (requestId: string, approve: boolean) => {
+    try {
+      await aiGroupApi.reviewJoinRequest(requestId, approve);
+      // Refresh the list
+      const requests = await aiGroupApi.getJoinRequests(topic.id);
+      setJoinRequests(requests);
+      // Refresh topic to update member count
+      await fetchTopic(topic.id);
+    } catch (error: any) {
+      alert(error.message || '处理请求失败');
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -64,18 +106,28 @@ export default function TopicSettingsDialog({
             { id: 'general', label: 'General' },
             { id: 'ai', label: 'AI Assistants' },
             { id: 'members', label: 'Members' },
+            {
+              id: 'requests',
+              label: '加入申请',
+              badge: joinRequests.length > 0 ? joinRequests.length : undefined,
+            },
             { id: 'danger', label: 'Danger Zone' },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as typeof activeTab)}
-              className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+              className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
                 activeTab === tab.id
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
               {tab.label}
+              {tab.badge && (
+                <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs text-white">
+                  {tab.badge}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -98,6 +150,14 @@ export default function TopicSettingsDialog({
               topic={topic}
               onAdd={addMember}
               onRemove={removeMember}
+            />
+          )}
+          {activeTab === 'requests' && (
+            <JoinRequestsSettings
+              requests={joinRequests}
+              isLoading={isLoadingRequests}
+              onApprove={(requestId) => handleReviewRequest(requestId, true)}
+              onReject={(requestId) => handleReviewRequest(requestId, false)}
             />
           )}
           {activeTab === 'danger' && (
@@ -739,7 +799,7 @@ function MemberSettings({
   );
 }
 
-// Add Member Dialog
+// Add Member Dialog with User Search
 function AddMemberDialog({
   topicId,
   existingMemberIds,
@@ -751,21 +811,62 @@ function AddMemberDialog({
   onAdd: (topicId: string, userId: string, role?: string) => Promise<void>;
   onClose: () => void;
 }) {
-  const [email, setEmail] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchedUser[]>([]);
+  const [selectedUser, setSelectedUser] = useState<SearchedUser | null>(null);
   const [role, setRole] = useState<'MEMBER' | 'ADMIN'>('MEMBER');
+  const [isSearching, setIsSearching] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Debounced search
+  useEffect(() => {
+    if (!searchQuery.trim() || searchQuery.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const response = await fetch(
+          `${config.apiUrl}/users/search?query=${encodeURIComponent(searchQuery)}&limit=10`,
+          { credentials: 'include' }
+        );
+        if (response.ok) {
+          const users = await response.json();
+          // Filter out existing members
+          const filtered = users.filter(
+            (u: SearchedUser) => !existingMemberIds.includes(u.id)
+          );
+          setSearchResults(filtered);
+        }
+      } catch (err) {
+        console.error('Search failed:', err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, existingMemberIds]);
+
+  const handleSelectUser = (user: SearchedUser) => {
+    setSelectedUser(user);
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
   const handleAdd = async () => {
-    if (!email.trim()) return;
+    if (!selectedUser && !searchQuery.includes('@')) return;
 
     setIsAdding(true);
     setError(null);
 
     try {
-      // Note: Backend should support adding by email
-      // For now, we'll pass the email as userId and let the backend resolve it
-      await onAdd(topicId, email.trim(), role);
+      // If a user is selected, use their ID; otherwise, use email
+      const userIdOrEmail = selectedUser ? selectedUser.id : searchQuery.trim();
+      await onAdd(topicId, userIdOrEmail, role);
       onClose();
     } catch (err: any) {
       setError(err.message || 'Failed to add member');
@@ -774,25 +875,156 @@ function AddMemberDialog({
     }
   };
 
+  const canAdd =
+    selectedUser || (searchQuery.includes('@') && searchQuery.includes('.'));
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">Add Member</h3>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">Invite Member</h3>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100"
+          >
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <p className="mb-4 text-sm text-gray-500">
+          Search for users by name, username, or email address.
+        </p>
 
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Email Address
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="user@example.com"
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            />
-          </div>
+          {/* Selected User Display */}
+          {selectedUser && (
+            <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 p-3">
+              <div className="flex items-center gap-3">
+                {selectedUser.avatarUrl ? (
+                  <img
+                    src={selectedUser.avatarUrl}
+                    alt={
+                      selectedUser.fullName || selectedUser.username || 'User'
+                    }
+                    className="h-10 w-10 rounded-full"
+                  />
+                ) : (
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                    {(selectedUser.fullName ||
+                      selectedUser.username ||
+                      selectedUser.email)[0].toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <div className="text-sm font-medium text-gray-900">
+                    {selectedUser.fullName || selectedUser.username || 'User'}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {selectedUser.email}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedUser(null)}
+                className="rounded p-1 text-gray-400 hover:bg-blue-100 hover:text-gray-600"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+          )}
 
+          {/* Search Input */}
+          {!selectedUser && (
+            <div className="relative">
+              <label className="block text-sm font-medium text-gray-700">
+                Search Users or Enter Email
+              </label>
+              <div className="relative mt-1">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by name, username, or enter email..."
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-blue-500 focus:outline-none"
+                />
+                {isSearching && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                  </div>
+                )}
+              </div>
+
+              {/* Search Results Dropdown */}
+              {searchResults.length > 0 && (
+                <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg">
+                  {searchResults.map((user) => (
+                    <button
+                      key={user.id}
+                      onClick={() => handleSelectUser(user)}
+                      className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-gray-50"
+                    >
+                      {user.avatarUrl ? (
+                        <img
+                          src={user.avatarUrl}
+                          alt={user.fullName || user.username || 'User'}
+                          className="h-8 w-8 rounded-full"
+                        />
+                      ) : (
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600">
+                          {(user.fullName ||
+                            user.username ||
+                            user.email)[0].toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium text-gray-900">
+                          {user.fullName || user.username || 'User'}
+                        </div>
+                        <div className="truncate text-xs text-gray-500">
+                          {user.email}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* No Results Message */}
+              {searchQuery.length >= 2 &&
+                !isSearching &&
+                searchResults.length === 0 && (
+                  <div className="mt-2 text-xs text-gray-500">
+                    No users found. You can still invite by email address.
+                  </div>
+                )}
+            </div>
+          )}
+
+          {/* Role Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
               Role
@@ -823,10 +1055,10 @@ function AddMemberDialog({
           </button>
           <button
             onClick={handleAdd}
-            disabled={!email.trim() || isAdding}
+            disabled={!canAdd || isAdding}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isAdding ? 'Adding...' : 'Add Member'}
+            {isAdding ? 'Inviting...' : 'Invite'}
           </button>
         </div>
       </div>
@@ -887,6 +1119,154 @@ function DangerSettings({
         >
           {isDeleting ? 'Deleting...' : 'Delete Team'}
         </button>
+      </div>
+    </div>
+  );
+}
+
+// Join Requests Settings Tab
+function JoinRequestsSettings({
+  requests,
+  isLoading,
+  onApprove,
+  onReject,
+}: {
+  requests: JoinRequest[];
+  isLoading: boolean;
+  onApprove: (requestId: string) => Promise<void>;
+  onReject: (requestId: string) => Promise<void>;
+}) {
+  const [processingId, setProcessingId] = useState<string | null>(null);
+
+  const handleAction = async (
+    requestId: string,
+    action: 'approve' | 'reject'
+  ) => {
+    setProcessingId(requestId);
+    try {
+      if (action === 'approve') {
+        await onApprove(requestId);
+      } else {
+        await onReject(requestId);
+      }
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return (
+      date.toLocaleDateString() + ' ' + date.toLocaleTimeString().slice(0, 5)
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (requests.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <svg
+          className="h-12 w-12 text-gray-300"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+        <h3 className="mt-3 text-sm font-medium text-gray-700">
+          暂无待处理的加入申请
+        </h3>
+        <p className="mt-1 text-xs text-gray-500">
+          当有用户申请加入时，会在这里显示
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="font-medium text-gray-900">待处理申请</h3>
+        <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-sm text-orange-600">
+          {requests.length} 个申请
+        </span>
+      </div>
+
+      <div className="space-y-3">
+        {requests.map((request) => (
+          <div
+            key={request.id}
+            className="rounded-lg border border-gray-200 bg-white p-4"
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-sm font-medium text-gray-600">
+                  {request.user.avatarUrl ? (
+                    <img
+                      src={request.user.avatarUrl}
+                      alt=""
+                      className="h-full w-full rounded-full object-cover"
+                    />
+                  ) : (
+                    (request.user.fullName ||
+                      request.user.username ||
+                      request.user.email)[0].toUpperCase()
+                  )}
+                </div>
+                <div>
+                  <div className="font-medium text-gray-900">
+                    {request.user.fullName ||
+                      request.user.username ||
+                      request.user.email}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {request.user.email}
+                  </div>
+                </div>
+              </div>
+              <div className="text-xs text-gray-400">
+                {formatTime(request.createdAt)}
+              </div>
+            </div>
+
+            {request.requestMessage && (
+              <div className="mt-3 rounded-lg bg-gray-50 p-3">
+                <p className="text-sm text-gray-600">
+                  {request.requestMessage}
+                </p>
+              </div>
+            )}
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => handleAction(request.id, 'reject')}
+                disabled={processingId === request.id}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                拒绝
+              </button>
+              <button
+                onClick={() => handleAction(request.id, 'approve')}
+                disabled={processingId === request.id}
+                className="rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {processingId === request.id ? '处理中...' : '同意'}
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
