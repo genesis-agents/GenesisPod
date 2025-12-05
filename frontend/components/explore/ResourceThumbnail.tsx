@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { config } from '@/lib/config';
-import PdfThumbnail from './PdfThumbnail';
 
 // 简单的内存缓存，用于存储已提取的缩略图
 const thumbnailCache = new Map<string, string | null>();
@@ -158,15 +157,21 @@ export default function ResourceThumbnail({
         return;
       }
 
-      // 4. arXiv论文 - 使用客户端PDF渲染（设置特殊标记）
+      // 4. arXiv论文 - 使用 Thumbnail.ws API生成PDF缩略图
       if (
         resource.type === 'PAPER' &&
         resource.sourceUrl?.includes('arxiv.org')
       ) {
-        // 设置特殊标记，后面会用PdfThumbnail组件渲染
-        setThumbnailUrl('__RENDER_PDF__');
-        setIsLoading(false);
-        return;
+        const match = resource.sourceUrl.match(/(\d+\.\d+)/);
+        if (match) {
+          const arxivId = match[1];
+          const pdfUrl = `https://arxiv.org/pdf/${arxivId}.pdf`;
+          // 使用 thumbnail.ws 免费API生成PDF缩略图
+          const thumbnailApiUrl = `https://api.thumbnail.ws/api/${encodeURIComponent(pdfUrl)}/viewport/400x566`;
+          setThumbnailUrl(thumbnailApiUrl);
+          setIsLoading(false);
+          return;
+        }
       }
 
       // 5. 对于 Blogs/News/Reports/Policy，调用后端API动态提取（使用队列和缓存）
@@ -321,19 +326,6 @@ export default function ResourceThumbnail({
   // 显示加载状态
   if (isLoading) {
     return <div className={`${className} animate-pulse bg-gray-200`} />;
-  }
-
-  // 特殊处理：arXiv PDF客户端渲染
-  if (
-    thumbnailUrl === '__RENDER_PDF__' &&
-    resource.sourceUrl?.includes('arxiv.org')
-  ) {
-    const match = resource.sourceUrl.match(/(\d+\.\d+)/);
-    if (match) {
-      const arxivId = match[1];
-      const pdfUrl = `https://arxiv.org/pdf/${arxivId}.pdf`;
-      return <PdfThumbnail pdfUrl={pdfUrl} className="h-full w-full" />;
-    }
   }
 
   // 有缩略图且未出错，显示图片（过滤占位图）
