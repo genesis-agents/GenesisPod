@@ -4,6 +4,7 @@ import {
   Post,
   Param,
   Body,
+  Query,
   BadRequestException,
   Logger,
   Res,
@@ -185,5 +186,35 @@ export class YoutubeController {
         `Failed to export PDF: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
     }
+  }
+
+  /**
+   * Get video comments
+   * GET /api/v1/youtube/comments/:videoId?sort=top&limit=50
+   */
+  @Get("comments/:videoId")
+  async getComments(
+    @Param("videoId") videoId: string,
+    @Query("sort") sort?: string,
+    @Query("limit") limit?: string,
+  ) {
+    this.logger.log(`Received request for video comments: ${videoId}`);
+
+    if (!videoId || videoId.trim().length === 0) {
+      throw new BadRequestException("Video ID is required");
+    }
+
+    const cleanVideoId = videoId.trim();
+    const sortBy = sort === "new" ? "new" : "top";
+    const limitNum = Math.min(
+      Math.max(parseInt(limit || "50", 10) || 50, 1),
+      100,
+    );
+
+    return await this.youtubeService.getComments(
+      cleanVideoId,
+      sortBy,
+      limitNum,
+    );
   }
 }

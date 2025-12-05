@@ -35,6 +35,21 @@ interface AIMessage {
   timestamp: Date;
 }
 
+interface CommentAuthor {
+  name: string;
+  channelId: string;
+  thumbnailUrl?: string;
+}
+
+interface Comment {
+  id: string;
+  text: string;
+  author: CommentAuthor;
+  likeCount: number;
+  publishedAt: string;
+  replyCount: number;
+}
+
 type YTPlayer = {
   destroy: () => void;
   loadVideoById: (videoId: string) => void;
@@ -79,9 +94,9 @@ function YouTubeTLDWContent() {
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'transcript' | 'chat' | 'notes'>(
-    'transcript'
-  );
+  const [activeTab, setActiveTab] = useState<
+    'transcript' | 'chat' | 'notes' | 'comments'
+  >('transcript');
   const [autoScroll, setAutoScroll] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [activeSegmentIndex, setActiveSegmentIndex] = useState(-1);
@@ -113,6 +128,12 @@ function YouTubeTLDWContent() {
 
   // Key moments states
   const [keyMoments, setKeyMoments] = useState<KeyMoment[]>([]);
+
+  // Comments states
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsTotalCount, setCommentsTotalCount] = useState(0);
+  const [commentsError, setCommentsError] = useState<string | null>(null);
 
   // Context menu states - Papers style (text selection based)
   const [contextMenu, setContextMenu] = useState<{
@@ -263,6 +284,40 @@ function YouTubeTLDWContent() {
 
     fetchTranscript();
   }, [videoId]);
+
+  // Fetch comments when tab is switched to comments
+  const fetchComments = useCallback(async () => {
+    if (!videoId) return;
+
+    setCommentsLoading(true);
+    setCommentsError(null);
+
+    try {
+      const response = await fetch(
+        `${config.apiUrl}/youtube/comments/${videoId}?limit=50`
+      );
+      const data = await response.json();
+
+      if (response.ok) {
+        setComments(data.comments || []);
+        setCommentsTotalCount(data.totalCount || 0);
+      } else {
+        setCommentsError(data.message || 'Failed to load comments');
+      }
+    } catch (error) {
+      console.error('Failed to fetch comments:', error);
+      setCommentsError('Failed to load comments. Please try again.');
+    } finally {
+      setCommentsLoading(false);
+    }
+  }, [videoId]);
+
+  // Load comments when tab changes to comments
+  useEffect(() => {
+    if (activeTab === 'comments' && comments.length === 0 && !commentsLoading) {
+      fetchComments();
+    }
+  }, [activeTab, comments.length, commentsLoading, fetchComments]);
 
   // Track active segment
   useEffect(() => {
@@ -859,7 +914,7 @@ function YouTubeTLDWContent() {
             {/* Tabs Header */}
             <div className="border-b border-gray-100 bg-gray-50 px-2 py-2">
               <div className="flex items-center justify-between">
-                <div className="grid grid-cols-3 gap-1">
+                <div className="grid grid-cols-4 gap-1">
                   <button
                     onClick={() => setActiveTab('transcript')}
                     className={`group relative flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium transition-all duration-200 ${
@@ -928,6 +983,29 @@ function YouTubeTLDWContent() {
                       />
                     </svg>
                     <span className="leading-tight">Notes</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('comments')}
+                    className={`group relative flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium transition-all duration-200 ${
+                      activeTab === 'comments'
+                        ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md shadow-red-500/20'
+                        : 'bg-white text-gray-600 shadow-sm hover:bg-gray-50 hover:shadow'
+                    }`}
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"
+                      />
+                    </svg>
+                    <span className="leading-tight">Comments</span>
                   </button>
                 </div>
 
@@ -1235,6 +1313,173 @@ function YouTubeTLDWContent() {
                     refreshKey={notesRefreshKey}
                     showActions
                   />
+                </div>
+              )}
+
+              {activeTab === 'comments' && (
+                <div className="flex h-full flex-col overflow-hidden">
+                  {/* Comments Header */}
+                  <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <svg
+                        className="h-5 w-5 text-gray-500"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"
+                        />
+                      </svg>
+                      <span className="text-sm font-medium text-gray-700">
+                        {commentsTotalCount > 0
+                          ? `${commentsTotalCount.toLocaleString()} Comments`
+                          : 'Comments'}
+                      </span>
+                    </div>
+                    <button
+                      onClick={fetchComments}
+                      disabled={commentsLoading}
+                      className="rounded-md px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 disabled:opacity-50"
+                    >
+                      {commentsLoading ? 'Loading...' : 'Refresh'}
+                    </button>
+                  </div>
+
+                  {/* Comments List */}
+                  <div className="flex-1 overflow-y-auto px-4 py-3">
+                    {commentsLoading && comments.length === 0 ? (
+                      <div className="flex items-center justify-center py-12">
+                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-red-500 border-t-transparent"></div>
+                      </div>
+                    ) : commentsError ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <svg
+                          className="mb-3 h-12 w-12 text-gray-300"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.5}
+                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        <p className="text-sm text-gray-500">{commentsError}</p>
+                        <button
+                          onClick={fetchComments}
+                          className="mt-3 text-sm text-red-500 hover:underline"
+                        >
+                          Try again
+                        </button>
+                      </div>
+                    ) : comments.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <svg
+                          className="mb-3 h-12 w-12 text-gray-300"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.5}
+                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                          />
+                        </svg>
+                        <p className="text-sm text-gray-500">
+                          No comments available for this video
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {comments.map((comment) => (
+                          <div
+                            key={comment.id}
+                            className="rounded-lg border border-gray-100 bg-white p-3 shadow-sm transition-shadow hover:shadow-md"
+                          >
+                            {/* Author Row */}
+                            <div className="mb-2 flex items-start gap-3">
+                              {comment.author.thumbnailUrl ? (
+                                <img
+                                  src={comment.author.thumbnailUrl}
+                                  alt={comment.author.name}
+                                  className="h-8 w-8 rounded-full"
+                                />
+                              ) : (
+                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600">
+                                  {comment.author.name.charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="truncate text-sm font-medium text-gray-800">
+                                    {comment.author.name}
+                                  </span>
+                                  <span className="text-xs text-gray-400">
+                                    {comment.publishedAt}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Comment Text */}
+                            <p className="mb-2 whitespace-pre-wrap text-sm text-gray-700">
+                              {comment.text}
+                            </p>
+
+                            {/* Stats Row */}
+                            <div className="flex items-center gap-4 text-xs text-gray-500">
+                              <div className="flex items-center gap-1">
+                                <svg
+                                  className="h-4 w-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
+                                  />
+                                </svg>
+                                <span>
+                                  {comment.likeCount > 0
+                                    ? comment.likeCount.toLocaleString()
+                                    : '0'}
+                                </span>
+                              </div>
+                              {comment.replyCount > 0 && (
+                                <div className="flex items-center gap-1">
+                                  <svg
+                                    className="h-4 w-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
+                                    />
+                                  </svg>
+                                  <span>{comment.replyCount} replies</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
