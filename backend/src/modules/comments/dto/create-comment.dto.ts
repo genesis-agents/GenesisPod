@@ -4,8 +4,13 @@ import { IsString, IsUUID, IsOptional } from "class-validator";
  * 创建评论DTO
  */
 export class CreateCommentDto {
+  @IsOptional()
   @IsUUID()
-  resourceId!: string;
+  resourceId?: string;
+
+  @IsOptional()
+  @IsString()
+  source?: string;
 
   @IsString()
   content!: string;

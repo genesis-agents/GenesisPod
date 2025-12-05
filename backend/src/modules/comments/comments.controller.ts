@@ -20,11 +20,13 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
  * API端点：
  * - POST /api/v1/comments - 创建评论
  * - GET /api/v1/comments/resource/:resourceId - 获取资源的评论
+ * - GET /api/v1/comments/source/:source - 获取 source 的评论 (YouTube等)
  * - GET /api/v1/comments/:id - 获取单个评论
  * - PATCH /api/v1/comments/:id - 更新评论
  * - DELETE /api/v1/comments/:id - 删除评论
  * - POST /api/v1/comments/:id/upvote - 点赞评论
  * - GET /api/v1/comments/resource/:resourceId/stats - 获取评论统计
+ * - GET /api/v1/comments/source/:source/stats - 获取 source 评论统计
  */
 @Controller("comments")
 export class CommentsController {
@@ -49,6 +51,23 @@ export class CommentsController {
   @Get("resource/:resourceId")
   async getResourceComments(@Param("resourceId") resourceId: string) {
     return this.commentsService.getResourceComments(resourceId);
+  }
+
+  /**
+   * 获取 source 的评论（树形结构）- 公开接口
+   * 用于 YouTube 视频等非 Resource 的评论
+   */
+  @Get("source/:source")
+  async getSourceComments(@Param("source") source: string) {
+    return this.commentsService.getSourceComments(source);
+  }
+
+  /**
+   * 获取 source 的评论统计 - 公开接口
+   */
+  @Get("source/:source/stats")
+  async getSourceCommentStats(@Param("source") source: string) {
+    return this.commentsService.getSourceCommentStats(source);
   }
 
   /**

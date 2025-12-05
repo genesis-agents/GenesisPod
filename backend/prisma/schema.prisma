@@ -437,12 +437,15 @@ model Note {
 // ============ 评论系统 ============
 
 model Comment {
-  id         String @id @default(uuid())
-  userId     String @map("user_id")
-  resourceId String @map("resource_id")
+  id         String  @id @default(uuid())
+  userId     String  @map("user_id")
+  resourceId String? @map("resource_id")
 
   // 评论内容
   content String @db.Text
+
+  // 评论来源 (e.g., 'youtube:VIDEO_ID', 'paper:PAPER_ID')
+  source String? @db.VarChar(100)
 
   // 嵌套回复支持
   parentId String? @map("parent_id")
@@ -460,12 +463,13 @@ model Comment {
 
   // 关系
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  resource Resource  @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  resource Resource? @relation(fields: [resourceId], references: [id], onDelete: Cascade)
   parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies  Comment[] @relation("CommentReplies")
 
   @@index([userId])
   @@index([resourceId])
+  @@index([source])
   @@index([parentId])
   @@index([createdAt(sort: Desc)])
   @@map("comments")

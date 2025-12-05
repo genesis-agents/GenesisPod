@@ -35,19 +35,22 @@ interface AIMessage {
   timestamp: Date;
 }
 
-interface CommentAuthor {
-  name: string;
-  channelId: string;
-  thumbnailUrl?: string;
+interface CommentUser {
+  id: string;
+  username: string;
+  fullName?: string;
+  avatarUrl?: string;
 }
 
 interface Comment {
   id: string;
-  text: string;
-  author: CommentAuthor;
-  likeCount: number;
-  publishedAt: string;
+  content: string;
+  user: CommentUser;
+  upvoteCount: number;
   replyCount: number;
+  isEdited: boolean;
+  createdAt: string;
+  replies?: Comment[];
 }
 
 type YTPlayer = {
@@ -134,6 +137,8 @@ function YouTubeTLDWContent() {
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentsTotalCount, setCommentsTotalCount] = useState(0);
   const [commentsError, setCommentsError] = useState<string | null>(null);
+  const [newComment, setNewComment] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
 
   // Context menu states - Papers style (text selection based)
   const [contextMenu, setContextMenu] = useState<{
@@ -293,16 +298,26 @@ function YouTubeTLDWContent() {
     setCommentsError(null);
 
     try {
-      const response = await fetch(
-        `${config.apiUrl}/youtube/comments/${videoId}?limit=50`
-      );
-      const data = await response.json();
+      const source = `youtube:${videoId}`;
+      const [commentsRes, statsRes] = await Promise.all([
+        fetch(
+          `${config.apiBaseUrl}/api/v1/comments/source/${encodeURIComponent(source)}`
+        ),
+        fetch(
+          `${config.apiBaseUrl}/api/v1/comments/source/${encodeURIComponent(source)}/stats`
+        ),
+      ]);
 
-      if (response.ok) {
-        setComments(data.comments || []);
-        setCommentsTotalCount(data.totalCount || 0);
+      if (commentsRes.ok) {
+        const data = await commentsRes.json();
+        setComments(data || []);
       } else {
-        setCommentsError(data.message || 'Failed to load comments');
+        setCommentsError('Failed to load comments');
+      }
+
+      if (statsRes.ok) {
+        const stats = await statsRes.json();
+        setCommentsTotalCount(stats.total || 0);
       }
     } catch (error) {
       console.error('Failed to fetch comments:', error);
@@ -314,10 +329,63 @@ function YouTubeTLDWContent() {
 
   // Load comments when tab changes to comments
   useEffect(() => {
-    if (activeTab === 'comments' && comments.length === 0 && !commentsLoading) {
+    if (activeTab === 'comments') {
       fetchComments();
     }
-  }, [activeTab, comments.length, commentsLoading, fetchComments]);
+  }, [activeTab, fetchComments]);
+
+  // Submit a new comment
+  const submitComment = async () => {
+    if (!newComment.trim() || !videoId || !accessToken) return;
+
+    setSubmittingComment(true);
+    try {
+      const response = await fetch(`${config.apiBaseUrl}/api/v1/comments`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          source: `youtube:${videoId}`,
+          content: newComment.trim(),
+        }),
+      });
+
+      if (response.ok) {
+        setNewComment('');
+        fetchComments(); // Refresh comments
+      } else {
+        const error = await response.json();
+        alert(error.message || 'Failed to post comment');
+      }
+    } catch (error) {
+      console.error('Failed to submit comment:', error);
+      alert('Failed to post comment');
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  // Upvote a comment
+  const upvoteComment = async (commentId: string) => {
+    try {
+      const response = await fetch(
+        `${config.apiBaseUrl}/api/v1/comments/${commentId}/upvote`,
+        { method: 'POST' }
+      );
+      if (response.ok) {
+        // Update local state
+        setComments((prev) =>
+          prev.map((c) =>
+            c.id === commentId ? { ...c, upvoteCount: c.upvoteCount + 1 } : c
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Failed to upvote:', error);
+    }
+  };
 
   // Track active segment
   useEffect(() => {
@@ -1349,6 +1417,28 @@ function YouTubeTLDWContent() {
                     </button>
                   </div>
 
+                  {/* New Comment Input */}
+                  {accessToken && (
+                    <div className="border-b border-gray-100 px-4 py-3">
+                      <div className="flex gap-2">
+                        <textarea
+                          value={newComment}
+                          onChange={(e) => setNewComment(e.target.value)}
+                          placeholder="Write a comment..."
+                          className="flex-1 resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-red-300 focus:outline-none focus:ring-1 focus:ring-red-300"
+                          rows={2}
+                        />
+                        <button
+                          onClick={submitComment}
+                          disabled={!newComment.trim() || submittingComment}
+                          className="self-end rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {submittingComment ? 'Posting...' : 'Post'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Comments List */}
                   <div className="flex-1 overflow-y-auto px-4 py-3">
                     {commentsLoading && comments.length === 0 ? (
@@ -1394,7 +1484,7 @@ function YouTubeTLDWContent() {
                           />
                         </svg>
                         <p className="text-sm text-gray-500">
-                          No comments available for this video
+                          No comments yet. Be the first to comment!
                         </p>
                       </div>
                     ) : (
@@ -1406,24 +1496,37 @@ function YouTubeTLDWContent() {
                           >
                             {/* Author Row */}
                             <div className="mb-2 flex items-start gap-3">
-                              {comment.author.thumbnailUrl ? (
+                              {comment.user.avatarUrl ? (
                                 <img
-                                  src={comment.author.thumbnailUrl}
-                                  alt={comment.author.name}
-                                  className="h-8 w-8 rounded-full"
+                                  src={comment.user.avatarUrl}
+                                  alt={comment.user.username}
+                                  className="h-8 w-8 rounded-full object-cover"
                                 />
                               ) : (
-                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600">
-                                  {comment.author.name.charAt(0).toUpperCase()}
+                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-red-400 to-red-600 text-xs font-medium text-white">
+                                  {(
+                                    comment.user.fullName ||
+                                    comment.user.username
+                                  )
+                                    .charAt(0)
+                                    .toUpperCase()}
                                 </div>
                               )}
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2">
                                   <span className="truncate text-sm font-medium text-gray-800">
-                                    {comment.author.name}
+                                    {comment.user.fullName ||
+                                      comment.user.username}
                                   </span>
+                                  {comment.isEdited && (
+                                    <span className="text-xs text-gray-400">
+                                      (edited)
+                                    </span>
+                                  )}
                                   <span className="text-xs text-gray-400">
-                                    {comment.publishedAt}
+                                    {new Date(
+                                      comment.createdAt
+                                    ).toLocaleDateString()}
                                   </span>
                                 </div>
                               </div>
@@ -1431,12 +1534,15 @@ function YouTubeTLDWContent() {
 
                             {/* Comment Text */}
                             <p className="mb-2 whitespace-pre-wrap text-sm text-gray-700">
-                              {comment.text}
+                              {comment.content}
                             </p>
 
                             {/* Stats Row */}
                             <div className="flex items-center gap-4 text-xs text-gray-500">
-                              <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => upvoteComment(comment.id)}
+                                className="flex items-center gap-1 transition-colors hover:text-red-500"
+                              >
                                 <svg
                                   className="h-4 w-4"
                                   fill="none"
@@ -1451,11 +1557,11 @@ function YouTubeTLDWContent() {
                                   />
                                 </svg>
                                 <span>
-                                  {comment.likeCount > 0
-                                    ? comment.likeCount.toLocaleString()
+                                  {comment.upvoteCount > 0
+                                    ? comment.upvoteCount.toLocaleString()
                                     : '0'}
                                 </span>
-                              </div>
+                              </button>
                               {comment.replyCount > 0 && (
                                 <div className="flex items-center gap-1">
                                   <svg

@@ -44,7 +44,8 @@ export class CommentsService {
     const comment = await this.prisma.comment.create({
       data: {
         userId,
-        resourceId: dto.resourceId,
+        resourceId: dto.resourceId || null,
+        source: dto.source || null,
         content: dto.content,
         parentId: dto.parentId,
       },
@@ -72,9 +73,8 @@ export class CommentsService {
       });
     }
 
-    this.logger.log(
-      `Comment created for resource ${dto.resourceId} by user ${userId}`,
-    );
+    const identifier = dto.source || dto.resourceId || "unknown";
+    this.logger.log(`Comment created for ${identifier} by user ${userId}`);
 
     return comment;
   }
@@ -142,6 +142,97 @@ export class CommentsService {
     });
 
     return topLevelComments;
+  }
+
+  /**
+   * 获取 source 的评论（树形结构）
+   * 用于 YouTube 视频等非 Resource 的评论
+   */
+  async getSourceComments(source: string) {
+    const topLevelComments = await this.prisma.comment.findMany({
+      where: {
+        source,
+        parentId: null,
+        isDeleted: false,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            fullName: true,
+            avatarUrl: true,
+          },
+        },
+        replies: {
+          where: {
+            isDeleted: false,
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                fullName: true,
+                avatarUrl: true,
+              },
+            },
+            replies: {
+              where: {
+                isDeleted: false,
+              },
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    username: true,
+                    fullName: true,
+                    avatarUrl: true,
+                  },
+                },
+              },
+              orderBy: {
+                createdAt: "asc",
+              },
+            },
+          },
+          orderBy: {
+            createdAt: "asc",
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return topLevelComments;
+  }
+
+  /**
+   * 获取 source 的评论统计
+   */
+  async getSourceCommentStats(source: string) {
+    const total = await this.prisma.comment.count({
+      where: {
+        source,
+        isDeleted: false,
+      },
+    });
+
+    const topLevel = await this.prisma.comment.count({
+      where: {
+        source,
+        parentId: null,
+        isDeleted: false,
+      },
+    });
+
+    return {
+      total,
+      topLevel,
+      replies: total - topLevel,
+    };
   }
 
   /**
