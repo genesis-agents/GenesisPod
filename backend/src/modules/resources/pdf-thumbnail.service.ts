@@ -61,15 +61,21 @@ export class PdfThumbnailService {
       }
 
       // 1. 下载PDF
+      this.logger.debug(`Step 1: Downloading PDF from ${pdfUrl}`);
       const pdfData = await this.downloadPdf(pdfUrl);
       if (!pdfData) {
         this.logger.warn(`Failed to download PDF for resource ${resourceId}`);
         return null;
       }
+      this.logger.debug(`Step 1: Downloaded ${pdfData.length} bytes`);
 
       // 2. 加载PDF文档
+      this.logger.debug(`Step 2: Loading PDF document`);
       const loadingTask = pdfjsLib.getDocument({ data: pdfData });
       const pdfDocument = await loadingTask.promise;
+      this.logger.debug(
+        `Step 2: PDF loaded with ${pdfDocument.numPages} pages`,
+      );
 
       // 3. 获取第一页
       const page = await pdfDocument.getPage(1);

@@ -48,18 +48,34 @@ export class DynamicThumbnailService {
         case "PAPER":
           // 策略1: 如果有PDF URL和资源ID，优先生成PDF缩略图（最可靠）
           if (pdfUrl && resourceId && this.pdfThumbnailService) {
-            this.logger.log(`Generating PDF thumbnail for paper ${resourceId}`);
-            const pdfThumbnail =
-              await this.pdfThumbnailService.generateThumbnail(
-                pdfUrl,
-                resourceId,
+            this.logger.log(
+              `Attempting PDF thumbnail generation for paper ${resourceId} from ${pdfUrl}`,
+            );
+            try {
+              const pdfThumbnail =
+                await this.pdfThumbnailService.generateThumbnail(
+                  pdfUrl,
+                  resourceId,
+                );
+              if (pdfThumbnail) {
+                this.logger.log(
+                  `✅ Successfully generated PDF thumbnail: ${pdfThumbnail}`,
+                );
+                return pdfThumbnail;
+              } else {
+                this.logger.warn(
+                  `⚠️ PDF thumbnail generation returned null for ${resourceId}`,
+                );
+              }
+            } catch (error) {
+              this.logger.error(
+                `❌ PDF thumbnail generation failed for ${resourceId}: ${error instanceof Error ? error.message : String(error)}`,
               );
-            if (pdfThumbnail) {
-              this.logger.log(
-                `Successfully generated PDF thumbnail: ${pdfThumbnail}`,
-              );
-              return pdfThumbnail;
             }
+          } else {
+            this.logger.debug(
+              `Skipping PDF thumbnail: pdfUrl=${!!pdfUrl}, resourceId=${!!resourceId}, service=${!!this.pdfThumbnailService}`,
+            );
           }
 
           // 策略2: 检查是否是 arXiv，尝试获取预览图
@@ -108,14 +124,29 @@ export class DynamicThumbnailService {
 
   /**
    * 从arXiv URL获取缩略图
-   * 尝试从 arXiv HTML 页面提取论文的预览图
+   * 尝试多种方法获取arXiv论文的缩略图
    */
   private async getArxivThumbnail(url: string): Promise<string | null> {
     const arxivId = this.extractArxivId(url);
     if (!arxivId) return null;
 
     try {
-      // 尝试从 arXiv 摘要页面提取图片
+      // 策略1: 使用 arXiv labs 的论文预览服务 (如果存在)
+      // arXiv 有一个实验性的预览图服务
+      const previewUrl = `https://browse.arxiv.org/html/${arxivId}/x-png/page_001.png`;
+      try {
+        const previewCheck = await axios.head(previewUrl, {
+          timeout: 3000,
+        });
+        if (previewCheck.status === 200) {
+          this.logger.log(`Found arXiv preview image for ${arxivId}`);
+          return previewUrl;
+        }
+      } catch {
+        // Preview doesn't exist, continue to next strategy
+      }
+
+      // 策略2: 尝试从 arXiv 摘要页面提取图片
       const absUrl = `https://arxiv.org/abs/${arxivId}`;
       const response = await axios.get(absUrl, {
         timeout: this.REQUEST_TIMEOUT,
@@ -140,7 +171,27 @@ export class DynamicThumbnailService {
         return this.normalizeImageUrl(firstFigure, absUrl);
       }
 
+      // 策略3: 使用 PDF 第一页截图服务 (公共服务)
+      // 注意：这个服务可能不稳定，仅作为最后的fallback
+      const pdfUrl = `https://arxiv.org/pdf/${arxivId}.pdf`;
+      const thumbnailServiceUrl = `https://api.pdf.to/v1/thumbnail?url=${encodeURIComponent(pdfUrl)}&width=400`;
+
+      try {
+        const thumbCheck = await axios.head(thumbnailServiceUrl, {
+          timeout: 3000,
+        });
+        if (thumbCheck.status === 200) {
+          this.logger.log(`Using PDF thumbnail service for ${arxivId}`);
+          return thumbnailServiceUrl;
+        }
+      } catch {
+        // Service not available
+      }
+
       // 如果都没有，返回 null，前端会显示 PAPER 类型的图标
+      this.logger.debug(
+        `No thumbnail methods succeeded for arXiv paper ${arxivId}`,
+      );
       return null;
     } catch (error) {
       this.logger.debug(
