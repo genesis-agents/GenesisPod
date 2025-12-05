@@ -131,8 +131,8 @@ export default function ResourceThumbnail({
       setIsLoading(true);
       setHasError(false);
 
-      // 1. 如果已有thumbnailUrl，直接使用
-      if (resource.thumbnailUrl) {
+      // 1. 如果已有thumbnailUrl且不是占位图，直接使用
+      if (resource.thumbnailUrl && !isPlaceholderImage(resource.thumbnailUrl)) {
         setThumbnailUrl(resource.thumbnailUrl);
         setIsLoading(false);
         return;
