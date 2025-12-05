@@ -847,8 +847,44 @@ function HomeContent() {
           ? resourcesData
           : resourcesData.data || [];
 
-        // Merge both sources
-        const allVideos = [...youtubeVideos, ...resourceVideos];
+        // Merge both sources and deduplicate by videoId
+        const seenVideoIds = new Set<string>();
+        const allVideos: Resource[] = [];
+
+        // Helper to extract videoId from URL or direct field
+        const getVideoId = (video: any): string | null => {
+          if (video.videoId) return video.videoId;
+          if (video.sourceUrl) {
+            const match = video.sourceUrl.match(
+              /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/
+            );
+            return match ? match[1] : null;
+          }
+          return null;
+        };
+
+        // Add youtube-videos first (user's saved videos have priority)
+        for (const video of youtubeVideos) {
+          const videoId = getVideoId(video);
+          if (videoId && !seenVideoIds.has(videoId)) {
+            seenVideoIds.add(videoId);
+            allVideos.push(video);
+          } else if (!videoId) {
+            allVideos.push(video); // Keep videos without videoId
+          }
+        }
+
+        // Add resource videos, skip duplicates
+        for (const video of resourceVideos) {
+          const videoId = getVideoId(video);
+          if (videoId && !seenVideoIds.has(videoId)) {
+            seenVideoIds.add(videoId);
+            allVideos.push(video);
+          } else if (!videoId) {
+            allVideos.push(video);
+          }
+        }
+
         setResources(allVideos);
         setLoading(false);
         return;
@@ -2098,7 +2134,7 @@ function HomeContent() {
                           <div className="relative flex-shrink-0">
                             <ResourceThumbnail
                               resource={resource}
-                              className="h-full min-h-[180px] w-40"
+                              className="h-full min-h-[180px] w-52"
                             />
                           </div>
 

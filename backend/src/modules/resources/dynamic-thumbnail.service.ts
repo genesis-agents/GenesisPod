@@ -1,6 +1,7 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import axios from "axios";
 import * as cheerio from "cheerio";
+import { PdfThumbnailService } from "./pdf-thumbnail.service";
 
 /**
  * 动态缩略图提取服务
@@ -9,18 +10,30 @@ import * as cheerio from "cheerio";
  * - YouTube: 从视频ID构建缩略图URL
  * - Blogs/News/Papers/Reports/Policy: 实时提取 og:image
  * - arXiv Papers: 使用 arxiv 缩略图服务
+ * - PDF Papers: 使用 PdfThumbnailService 生成缩略图
  */
 @Injectable()
 export class DynamicThumbnailService {
   private readonly logger = new Logger(DynamicThumbnailService.name);
   private readonly REQUEST_TIMEOUT = 8000; // 8秒超时
 
+  constructor(
+    @Inject(forwardRef(() => PdfThumbnailService))
+    private readonly pdfThumbnailService: PdfThumbnailService,
+  ) {}
+
   /**
    * 获取资源的动态缩略图URL
+   * @param sourceUrl 资源的源URL
+   * @param type 资源类型
+   * @param pdfUrl PDF URL（用于PAPER类型生成PDF缩略图）
+   * @param resourceId 资源ID（用于缓存PDF缩略图）
    */
   async getThumbnailUrl(
     sourceUrl: string,
     type: string,
+    pdfUrl?: string,
+    resourceId?: string,
   ): Promise<string | null> {
     try {
       switch (type) {
@@ -35,10 +48,26 @@ export class DynamicThumbnailService {
         case "PAPER":
           // 检查是否是 arXiv
           if (sourceUrl?.includes("arxiv.org")) {
-            return await this.getArxivThumbnail(sourceUrl);
+            const arxivThumbnail = await this.getArxivThumbnail(sourceUrl);
+            if (arxivThumbnail) return arxivThumbnail;
           }
-          // 对于其他论文网站，尝试提取 og:image
-          return await this.extractOgImage(sourceUrl);
+
+          // 尝试从网页提取 og:image
+          const ogImage = await this.extractOgImage(sourceUrl);
+          if (ogImage) return ogImage;
+
+          // 如果有PDF URL和资源ID，尝试生成PDF缩略图
+          if (pdfUrl && resourceId && this.pdfThumbnailService) {
+            this.logger.log(`Generating PDF thumbnail for paper ${resourceId}`);
+            const pdfThumbnail =
+              await this.pdfThumbnailService.generateThumbnail(
+                pdfUrl,
+                resourceId,
+              );
+            if (pdfThumbnail) return pdfThumbnail;
+          }
+
+          return null;
 
         case "REPORT":
         case "POLICY":

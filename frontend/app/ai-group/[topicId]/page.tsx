@@ -1847,6 +1847,23 @@ export default function TopicPage() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [isInviting, setIsInviting] = useState(false);
   const [inviteError, setInviteError] = useState('');
+  const [inviteSearchResults, setInviteSearchResults] = useState<
+    Array<{
+      id: string;
+      email: string;
+      username?: string;
+      fullName?: string;
+      avatarUrl?: string;
+    }>
+  >([]);
+  const [selectedInviteUser, setSelectedInviteUser] = useState<{
+    id: string;
+    email: string;
+    username?: string;
+    fullName?: string;
+    avatarUrl?: string;
+  } | null>(null);
+  const [isSearchingUsers, setIsSearchingUsers] = useState(false);
   const [showMissionDialog, setShowMissionDialog] = useState(false);
   const [showMissionPanel, setShowMissionPanel] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -1995,31 +2012,82 @@ export default function TopicPage() {
     }
   }, [hasMoreMessages, isLoadingMessages, topicId, messages, fetchMessages]);
 
+  // Debounced search for invite dialog
+  useEffect(() => {
+    if (!inviteEmail.trim() || inviteEmail.length < 2 || selectedInviteUser) {
+      setInviteSearchResults([]);
+      return;
+    }
+
+    const existingMemberIds = new Set(
+      (currentTopic?.members || []).map((m) => m.userId)
+    );
+
+    const timer = setTimeout(async () => {
+      setIsSearchingUsers(true);
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/users/search?query=${encodeURIComponent(inviteEmail)}&limit=10`,
+          {
+            headers: accessToken
+              ? { Authorization: `Bearer ${accessToken}` }
+              : {},
+            credentials: 'include',
+          }
+        );
+        if (response.ok) {
+          const users = await response.json();
+          // Filter out existing members
+          const filtered = users.filter(
+            (u: { id: string }) => !existingMemberIds.has(u.id)
+          );
+          setInviteSearchResults(filtered);
+        }
+      } catch (err) {
+        console.error('Search failed:', err);
+      } finally {
+        setIsSearchingUsers(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [inviteEmail, selectedInviteUser, currentTopic?.members, accessToken]);
+
   // Handle invite member
   const handleInviteMember = useCallback(async () => {
-    if (!inviteEmail.trim() || !topicId || !accessToken) return;
+    // Can invite either selected user or by email
+    const userId = selectedInviteUser?.id;
+    const email = inviteEmail.trim();
+
+    if (!userId && !email.includes('@')) return;
+    if (!topicId || !accessToken) return;
 
     setIsInviting(true);
     setInviteError('');
 
     try {
-      // First, search for user by email
-      const searchResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/users/search?email=${encodeURIComponent(inviteEmail.trim())}`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+      let userIdToAdd = userId;
+
+      // If no selected user but has email, search for user first
+      if (!userIdToAdd && email.includes('@')) {
+        const searchResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/users/search?email=${encodeURIComponent(email)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+
+        if (!searchResponse.ok) {
+          throw new Error('User not found');
         }
-      );
 
-      if (!searchResponse.ok) {
-        throw new Error('User not found');
-      }
-
-      const userData = await searchResponse.json();
-      if (!userData || !userData.id) {
-        throw new Error('User not found with this email');
+        const userData = await searchResponse.json();
+        if (!userData || !userData.id) {
+          throw new Error('User not found with this email');
+        }
+        userIdToAdd = userData.id;
       }
 
       // Add member to topic
@@ -2032,7 +2100,7 @@ export default function TopicPage() {
             Authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({
-            userId: userData.id,
+            userId: userIdToAdd,
             role: 'MEMBER',
           }),
         }
@@ -2049,12 +2117,14 @@ export default function TopicPage() {
       // Close dialog and reset
       setShowInviteDialog(false);
       setInviteEmail('');
+      setSelectedInviteUser(null);
+      setInviteSearchResults([]);
     } catch (error: any) {
       setInviteError(error.message || 'Failed to invite member');
     } finally {
       setIsInviting(false);
     }
-  }, [inviteEmail, topicId, accessToken, fetchTopic]);
+  }, [selectedInviteUser, inviteEmail, topicId, accessToken, fetchTopic]);
 
   // Check if current user is owner or admin
   const currentUserMember = currentTopic?.members?.find(
@@ -2398,7 +2468,7 @@ export default function TopicPage() {
 
       {/* Invite Member Dialog */}
       {showInviteDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">
@@ -2409,6 +2479,8 @@ export default function TopicPage() {
                   setShowInviteDialog(false);
                   setInviteEmail('');
                   setInviteError('');
+                  setSelectedInviteUser(null);
+                  setInviteSearchResults([]);
                 }}
                 className="rounded-full p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
               >
@@ -2428,48 +2500,172 @@ export default function TopicPage() {
               </button>
             </div>
 
-            <p className="mb-4 text-sm text-gray-600">
-              Enter the email address of the user you want to invite to this
-              group.
+            <p className="mb-4 text-sm text-gray-500">
+              Search for users by name, username, or email address.
             </p>
 
-            <div className="mb-4">
-              <label
-                htmlFor="invite-email"
-                className="mb-1 block text-sm font-medium text-gray-700"
-              >
-                Email Address
-              </label>
-              <input
-                id="invite-email"
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="user@example.com"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                disabled={isInviting}
-              />
+            <div className="space-y-4">
+              {/* Selected User Display */}
+              {selectedInviteUser && (
+                <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 p-3">
+                  <div className="flex items-center gap-3">
+                    {selectedInviteUser.avatarUrl ? (
+                      <img
+                        src={selectedInviteUser.avatarUrl}
+                        alt={
+                          selectedInviteUser.fullName ||
+                          selectedInviteUser.username ||
+                          'User'
+                        }
+                        className="h-10 w-10 rounded-full"
+                      />
+                    ) : (
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                        {(selectedInviteUser.fullName ||
+                          selectedInviteUser.username ||
+                          selectedInviteUser.email)[0].toUpperCase()}
+                      </div>
+                    )}
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">
+                        {selectedInviteUser.fullName ||
+                          selectedInviteUser.username ||
+                          'User'}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {selectedInviteUser.email}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setSelectedInviteUser(null)}
+                    className="rounded p-1 text-gray-400 hover:bg-blue-100 hover:text-gray-600"
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              )}
+
+              {/* Search Input */}
+              {!selectedInviteUser && (
+                <div className="relative">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Search Users or Enter Email
+                  </label>
+                  <div className="relative mt-1">
+                    <input
+                      type="text"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      placeholder="Search by name, username, or enter email..."
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      disabled={isInviting}
+                    />
+                    {isSearchingUsers && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Search Results Dropdown */}
+                  {inviteSearchResults.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg">
+                      {inviteSearchResults.map((searchUser) => (
+                        <button
+                          key={searchUser.id}
+                          onClick={() => {
+                            setSelectedInviteUser(searchUser);
+                            setInviteEmail('');
+                            setInviteSearchResults([]);
+                          }}
+                          className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-gray-50"
+                        >
+                          {searchUser.avatarUrl ? (
+                            <img
+                              src={searchUser.avatarUrl}
+                              alt={
+                                searchUser.fullName ||
+                                searchUser.username ||
+                                'User'
+                              }
+                              className="h-8 w-8 rounded-full"
+                            />
+                          ) : (
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600">
+                              {(searchUser.fullName ||
+                                searchUser.username ||
+                                searchUser.email)[0].toUpperCase()}
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-medium text-gray-900">
+                              {searchUser.fullName ||
+                                searchUser.username ||
+                                'User'}
+                            </div>
+                            <div className="truncate text-xs text-gray-500">
+                              {searchUser.email}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* No Results Message */}
+                  {inviteEmail.length >= 2 &&
+                    !isSearchingUsers &&
+                    inviteSearchResults.length === 0 && (
+                      <div className="mt-2 text-xs text-gray-500">
+                        No users found. You can still invite by email address.
+                      </div>
+                    )}
+                </div>
+              )}
+
               {inviteError && (
-                <p className="mt-1 text-sm text-red-500">{inviteError}</p>
+                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+                  {inviteError}
+                </div>
               )}
             </div>
 
-            <div className="flex justify-end gap-3">
+            <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => {
                   setShowInviteDialog(false);
                   setInviteEmail('');
                   setInviteError('');
+                  setSelectedInviteUser(null);
+                  setInviteSearchResults([]);
                 }}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
                 disabled={isInviting}
               >
                 Cancel
               </button>
               <button
                 onClick={handleInviteMember}
-                disabled={!inviteEmail.trim() || isInviting}
-                className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={
+                  (!selectedInviteUser &&
+                    (!inviteEmail.includes('@') ||
+                      !inviteEmail.includes('.'))) ||
+                  isInviting
+                }
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isInviting ? 'Inviting...' : 'Invite'}
               </button>

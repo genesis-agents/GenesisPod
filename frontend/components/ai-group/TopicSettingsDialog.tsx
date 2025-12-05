@@ -70,7 +70,7 @@ export default function TopicSettingsDialog({
       // Refresh topic to update member count
       await fetchTopic(topic.id);
     } catch (error: any) {
-      alert(error.message || '处理请求失败');
+      alert(error.message || 'Failed to process request');
     }
   };
 
@@ -108,7 +108,7 @@ export default function TopicSettingsDialog({
             { id: 'members', label: 'Members' },
             {
               id: 'requests',
-              label: '加入申请',
+              label: 'Join Requests',
               badge: joinRequests.length > 0 ? joinRequests.length : undefined,
             },
             { id: 'danger', label: 'Danger Zone' },
@@ -1186,10 +1186,10 @@ function JoinRequestsSettings({
           />
         </svg>
         <h3 className="mt-3 text-sm font-medium text-gray-700">
-          暂无待处理的加入申请
+          No pending join requests
         </h3>
         <p className="mt-1 text-xs text-gray-500">
-          当有用户申请加入时，会在这里显示
+          Requests will appear here when users apply to join
         </p>
       </div>
     );
@@ -1198,9 +1198,9 @@ function JoinRequestsSettings({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-medium text-gray-900">待处理申请</h3>
+        <h3 className="font-medium text-gray-900">Pending Requests</h3>
         <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-sm text-orange-600">
-          {requests.length} 个申请
+          {requests.length} {requests.length === 1 ? 'request' : 'requests'}
         </span>
       </div>
 
@@ -1255,14 +1255,14 @@ function JoinRequestsSettings({
                 disabled={processingId === request.id}
                 className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                拒绝
+                Reject
               </button>
               <button
                 onClick={() => handleAction(request.id, 'approve')}
                 disabled={processingId === request.id}
                 className="rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {processingId === request.id ? '处理中...' : '同意'}
+                {processingId === request.id ? 'Processing...' : 'Approve'}
               </button>
             </div>
           </div>

@@ -172,9 +172,27 @@ export class ResourcesController {
       `Extracting thumbnail for URL: ${url} (type: ${type}, resourceId: ${resourceId || "none"})`,
     );
 
+    // For PAPER type with resourceId, try to get pdfUrl from database
+    let pdfUrl: string | undefined;
+    if (type === "PAPER" && resourceId) {
+      try {
+        const resource = await this.resourcesService.findOne(resourceId);
+        if (resource?.pdfUrl) {
+          pdfUrl = resource.pdfUrl;
+          this.logger.log(`Found pdfUrl for resource ${resourceId}: ${pdfUrl}`);
+        }
+      } catch (error) {
+        this.logger.debug(
+          `Could not fetch resource for pdfUrl: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
     const thumbnailUrl = await this.dynamicThumbnailService.getThumbnailUrl(
       url,
       type || "BLOG",
+      pdfUrl,
+      resourceId,
     );
 
     // 如果成功提取且提供了 resourceId，缓存到数据库

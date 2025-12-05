@@ -612,6 +612,19 @@ export default function BatchCollectionDrawer({
                           </div>
                         </div>
                       </div>
+
+                      {/* Special message when all items are duplicates */}
+                      {progress.status === 'COMPLETED' &&
+                        progress.successItems === 0 &&
+                        progress.duplicateItems > 0 && (
+                          <div className="mt-2 flex items-center gap-1 rounded bg-amber-50 px-2 py-1 text-xs text-amber-700">
+                            <AlertCircle className="h-3 w-3" />
+                            <span>
+                              All {progress.duplicateItems} items already exist
+                              (deduplicated)
+                            </span>
+                          </div>
+                        )}
                     </div>
                   ))}
                 </div>

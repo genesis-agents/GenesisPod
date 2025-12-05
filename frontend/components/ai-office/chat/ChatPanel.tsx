@@ -21,6 +21,8 @@ import {
   StopCircle,
   Bot,
   Zap,
+  Copy,
+  Quote,
 } from 'lucide-react';
 import DocumentGenerationWizard, {
   type GenerationConfig,
@@ -1552,7 +1554,7 @@ ${userInput || ''}
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                className={`group flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div className="max-w-[85%]">
                   <MessageRenderer
@@ -1560,16 +1562,61 @@ ${userInput || ''}
                     role={message.role as 'user' | 'assistant'}
                   />
                   <div
-                    className={`mt-1 text-xs ${
+                    className={`mt-1 flex items-center gap-2 text-xs ${
                       message.role === 'user'
-                        ? 'text-gray-500'
+                        ? 'justify-end text-gray-500'
                         : 'text-gray-500'
                     }`}
                   >
-                    {new Date(message.timestamp).toLocaleTimeString('zh-CN', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                    <span>
+                      {new Date(message.timestamp).toLocaleTimeString('zh-CN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                    {/* Action buttons for AI messages */}
+                    {message.role === 'assistant' && (
+                      <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                        {/* Copy button */}
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(message.content);
+                            // Show a brief confirmation
+                            const btn = document.getElementById(
+                              `copy-btn-${message.id}`
+                            );
+                            if (btn) {
+                              const originalContent = btn.innerHTML;
+                              btn.innerHTML =
+                                '<span class="text-green-600">Copied!</span>';
+                              setTimeout(() => {
+                                btn.innerHTML = originalContent;
+                              }, 1500);
+                            }
+                          }}
+                          id={`copy-btn-${message.id}`}
+                          className="flex items-center gap-1 rounded px-2 py-0.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                          title="Copy to clipboard"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                          <span>Copy</span>
+                        </button>
+                        {/* Quote button - add as context for next message */}
+                        <button
+                          onClick={() => {
+                            // Add quoted text to input for follow-up discussion
+                            const quotedText = `> ${message.content.split('\n').slice(0, 3).join('\n> ')}${message.content.split('\n').length > 3 ? '\n> ...' : ''}\n\n`;
+                            setInput((prev) => quotedText + prev);
+                            inputRef.current?.focus();
+                          }}
+                          className="flex items-center gap-1 rounded px-2 py-0.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                          title="Quote this response for follow-up"
+                        >
+                          <Quote className="h-3.5 w-3.5" />
+                          <span>Quote</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
