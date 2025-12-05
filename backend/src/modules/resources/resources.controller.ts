@@ -21,7 +21,7 @@ import * as path from "path";
 import * as fs from "fs/promises";
 import { ResourcesService } from "./resources.service";
 import { AIEnrichmentService } from "./ai-enrichment.service";
-// import { PdfThumbnailService } from './pdf-thumbnail.service';
+import { PdfThumbnailService } from "./pdf-thumbnail.service";
 import { Prisma } from "@prisma/client";
 
 /**
@@ -34,7 +34,7 @@ export class ResourcesController {
   constructor(
     private resourcesService: ResourcesService,
     private aiEnrichmentService: AIEnrichmentService,
-    // private pdfThumbnailService: PdfThumbnailService,
+    private pdfThumbnailService: PdfThumbnailService,
   ) {}
 
   /**
@@ -369,6 +369,68 @@ export class ResourcesController {
 
     return {
       message: "Thumbnail uploaded successfully",
+      thumbnailUrl,
+      resource: updated,
+    };
+  }
+
+  /**
+   * 自动生成资源缩略图（从PDF）
+   * POST /api/v1/resources/:id/generate-thumbnail
+   *
+   * 仅适用于有 pdfUrl 的资源（PAPER/REPORT/POLICY）
+   */
+  @Post(":id/generate-thumbnail")
+  async generateThumbnail(@Param("id") id: string) {
+    this.logger.log(`Generating thumbnail for resource ${id}`);
+
+    // 检查资源是否存在
+    const resource = await this.resourcesService.findOne(id);
+    if (!resource) {
+      throw new HttpException(`Resource ${id} not found`, HttpStatus.NOT_FOUND);
+    }
+
+    // 检查是否有 pdfUrl
+    if (!resource.pdfUrl) {
+      throw new HttpException(
+        `Resource ${id} does not have a PDF URL`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // 检查是否已有缩略图
+    if (resource.thumbnailUrl) {
+      return {
+        message: "Thumbnail already exists",
+        thumbnailUrl: resource.thumbnailUrl,
+        resource,
+      };
+    }
+
+    // 生成缩略图
+    const thumbnailUrl = await this.pdfThumbnailService.generateThumbnail(
+      resource.pdfUrl,
+      id,
+    );
+
+    if (!thumbnailUrl) {
+      throw new HttpException(
+        `Failed to generate thumbnail for resource ${id}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+
+    // 更新资源的缩略图 URL
+    const updated = await this.resourcesService.update(id, {
+      thumbnailUrl,
+    });
+
+    this.logger.log(
+      `Thumbnail generated successfully for resource ${id}: ${thumbnailUrl}`,
+    );
+
+    return {
+      message: "Thumbnail generated successfully",
       thumbnailUrl,
       resource: updated,
     };
