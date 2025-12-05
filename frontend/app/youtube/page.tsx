@@ -1,6 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback, Suspense } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  Suspense,
+  useMemo,
+} from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { config } from '@/lib/config';
 import Sidebar from '@/components/layout/Sidebar';
@@ -22,6 +29,74 @@ interface TranscriptSegment {
   start: number;
   duration: number;
 }
+
+// 合并后的语义块
+interface MergedSegment {
+  text: string;
+  start: number;
+  duration: number;
+  originalIndices: number[]; // 原始segments的索引
+  blockIndex: number; // 语义块索引，用于背景色
+}
+
+/**
+ * 将字幕按句子边界合并成语义块
+ * 规则：遇到句末标点（.!?。！？）时结束当前块
+ */
+function mergeTranscriptBySentence(
+  segments: TranscriptSegment[]
+): MergedSegment[] {
+  if (segments.length === 0) return [];
+
+  const merged: MergedSegment[] = [];
+  let currentText = '';
+  let currentStart = 0;
+  let currentDuration = 0;
+  let currentIndices: number[] = [];
+  let blockIndex = 0;
+
+  // 句末标点正则
+  const sentenceEndPattern = /[.!?。！？][\s]*$/;
+
+  segments.forEach((segment, index) => {
+    if (currentIndices.length === 0) {
+      currentStart = segment.start;
+    }
+
+    currentText += (currentText ? ' ' : '') + segment.text.trim();
+    currentDuration = segment.start + segment.duration - currentStart;
+    currentIndices.push(index);
+
+    // 检查是否到达句末或累积文本过长（超过200字符强制换行）
+    if (sentenceEndPattern.test(segment.text) || currentText.length > 200) {
+      merged.push({
+        text: currentText,
+        start: currentStart,
+        duration: currentDuration,
+        originalIndices: [...currentIndices],
+        blockIndex: blockIndex++,
+      });
+      currentText = '';
+      currentIndices = [];
+    }
+  });
+
+  // 处理剩余内容
+  if (currentText) {
+    merged.push({
+      text: currentText,
+      start: currentStart,
+      duration: currentDuration,
+      originalIndices: [...currentIndices],
+      blockIndex: blockIndex,
+    });
+  }
+
+  return merged;
+}
+
+// 语义块背景色（柔和的交替色）
+const BLOCK_COLORS = ['bg-white', 'bg-slate-50', 'bg-gray-50', 'bg-zinc-50'];
 
 interface Topic {
   title: string;
@@ -155,6 +230,19 @@ function YouTubeTLDWContent() {
     null
   );
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // 合并字幕为语义块
+  const mergedTranscript = useMemo(() => {
+    return mergeTranscriptBySentence(transcript);
+  }, [transcript]);
+
+  // 根据当前播放时间找到活跃的合并块索引
+  const activeMergedIndex = useMemo(() => {
+    if (mergedTranscript.length === 0 || activeSegmentIndex === -1) return -1;
+    return mergedTranscript.findIndex((segment) =>
+      segment.originalIndices.includes(activeSegmentIndex)
+    );
+  }, [mergedTranscript, activeSegmentIndex]);
 
   // 设置默认 AI 模型（使用管理员配置的默认模型）
   useEffect(() => {
@@ -1154,27 +1242,29 @@ function YouTubeTLDWContent() {
             {/* Transcript Content */}
             <div className="flex-1 overflow-y-auto px-6 py-4">
               {activeTab === 'transcript' && (
-                <div className="space-y-1">
+                <div className="space-y-0">
                   {loading ? (
                     <div className="flex items-center justify-center py-12">
                       <div className="text-sm text-gray-400">加载字幕中...</div>
                     </div>
-                  ) : transcript.length === 0 ? (
+                  ) : mergedTranscript.length === 0 ? (
                     <div className="flex items-center justify-center py-12">
                       <div className="text-sm text-gray-400">暂无字幕</div>
                     </div>
                   ) : (
-                    transcript.map((segment, index) => {
-                      const isActive = index === activeSegmentIndex;
+                    mergedTranscript.map((segment, index) => {
+                      const isActive = index === activeMergedIndex;
+                      const bgColor =
+                        BLOCK_COLORS[segment.blockIndex % BLOCK_COLORS.length];
                       return (
                         <div
-                          key={`${segment.start}-${index}`}
+                          key={`merged-${segment.start}-${index}`}
                           ref={isActive ? activeSegmentRef : null}
                           onClick={() => handleSeekToSegment(segment.start)}
-                          className={`group cursor-pointer rounded-lg px-3 py-2.5 text-sm transition-all duration-200 ${
+                          className={`group cursor-pointer px-3 py-3 text-sm transition-all duration-200 ${bgColor} ${
                             isActive
-                              ? 'border-l-4 border-red-500 bg-gradient-to-r from-red-50 to-orange-50 shadow-sm'
-                              : 'border-l-4 border-transparent hover:bg-gray-50'
+                              ? 'border-l-4 border-red-500 shadow-sm'
+                              : 'border-l-4 border-transparent hover:brightness-95'
                           }`}
                         >
                           <div className="flex items-start gap-3">
@@ -1197,10 +1287,12 @@ function YouTubeTLDWContent() {
                               </div>
                               {showTranslation && (
                                 <div className="mt-1.5 text-sm leading-relaxed text-blue-600">
+                                  {/* 显示合并块中第一个原始segment的翻译 */}
                                   {translationLoading && isActive
                                     ? '翻译中...'
-                                    : translations.get(index) ||
-                                      (isActive ? '' : '')}
+                                    : translations.get(
+                                        segment.originalIndices[0]
+                                      ) || (isActive ? '' : '')}
                                 </div>
                               )}
                             </div>
