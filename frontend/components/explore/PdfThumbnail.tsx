@@ -1,12 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import * as pdfjsLib from 'pdfjs-dist';
+import dynamic from 'next/dynamic';
 
-// 配置 PDF.js worker
-if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-}
+// 动态导入 pdfjs-dist，仅在客户端加载
+const loadPdfJs = async () => {
+  if (typeof window === 'undefined') return null;
+  const pdfjs = await import('pdfjs-dist');
+  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+  return pdfjs;
+};
 
 interface PdfThumbnailProps {
   pdfUrl: string;
@@ -34,6 +37,14 @@ export default function PdfThumbnail({
       try {
         setIsLoading(true);
         setError(false);
+
+        // 动态加载 pdfjs（仅客户端）
+        const pdfjsLib = await loadPdfJs();
+        if (!pdfjsLib) {
+          setError(true);
+          setIsLoading(false);
+          return;
+        }
 
         // 加载PDF文档
         const loadingTask = pdfjsLib.getDocument(pdfUrl);
