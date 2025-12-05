@@ -2091,16 +2091,19 @@ function HomeContent() {
                       <article
                         key={resource.id}
                         onClick={() => handleResourceClick(resource)}
-                        className="cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-white transition-all hover:shadow-lg"
+                        className="group cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-white transition-all hover:shadow-lg"
                       >
-                        <div className="flex items-start gap-4 p-6">
-                          {/* Thumbnail - 使用动态缩略图组件 */}
-                          <div className="flex-shrink-0">
-                            <ResourceThumbnail resource={resource} />
+                        <div className="flex">
+                          {/* Thumbnail - 左侧占据整个卡片高度 */}
+                          <div className="relative flex-shrink-0">
+                            <ResourceThumbnail
+                              resource={resource}
+                              className="h-full min-h-[180px] w-40"
+                            />
                           </div>
 
-                          {/* Content */}
-                          <div className="min-w-0 flex-1">
+                          {/* Content - 右侧内容区 */}
+                          <div className="min-w-0 flex-1 p-5">
                             {/* Date, Source Badge, Tags, and Stats */}
                             <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                               <span>

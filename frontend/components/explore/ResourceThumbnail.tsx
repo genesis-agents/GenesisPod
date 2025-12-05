@@ -301,17 +301,13 @@ export default function ResourceThumbnail({
 
   // 显示加载状态
   if (isLoading) {
-    return (
-      <div className={`${className} animate-pulse rounded-lg bg-gray-200`} />
-    );
+    return <div className={`${className} animate-pulse bg-gray-200`} />;
   }
 
   // 有缩略图且未出错，显示图片
   if (thumbnailUrl && !hasError) {
     return (
-      <div
-        className={`${className} relative overflow-hidden rounded-lg bg-gray-100`}
-      >
+      <div className={`${className} relative overflow-hidden bg-gray-100`}>
         <img
           src={thumbnailUrl}
           alt={resource.title}
@@ -325,7 +321,7 @@ export default function ResourceThumbnail({
   // 无缩略图或出错，显示类型图标
   return (
     <div
-      className={`${className} flex items-center justify-center rounded-lg bg-gray-50`}
+      className={`${className} flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100`}
     >
       <TypeIcon />
     </div>
