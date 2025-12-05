@@ -63,12 +63,19 @@ function mergeTranscriptBySentence(
       currentStart = segment.start;
     }
 
-    currentText += (currentText ? ' ' : '') + segment.text.trim();
+    const segmentText = (segment.text || '').trim();
+    if (!segmentText) {
+      // 跳过空文本的segment，但仍然将其包含在当前块的indices中
+      currentIndices.push(index);
+      return;
+    }
+
+    currentText += (currentText ? ' ' : '') + segmentText;
     currentDuration = segment.start + segment.duration - currentStart;
     currentIndices.push(index);
 
     // 检查是否到达句末或累积文本过长（超过200字符强制换行）
-    if (sentenceEndPattern.test(segment.text) || currentText.length > 200) {
+    if (sentenceEndPattern.test(segmentText) || currentText.length > 200) {
       merged.push({
         text: currentText,
         start: currentStart,
