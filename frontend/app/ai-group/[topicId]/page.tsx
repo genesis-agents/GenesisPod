@@ -722,15 +722,23 @@ const MessageBubble = memo(function MessageBubble({
   // Check if content exceeds 5 lines (~120px at ~24px line height)
   // But don't collapse messages with images
   useEffect(() => {
-    if (contentRef.current && !hasImage) {
-      const lineHeight = 24; // Approximate line height in pixels
-      const maxLines = 5;
-      const maxHeight = lineHeight * maxLines;
-      setNeedsCollapse(contentRef.current.scrollHeight > maxHeight);
-    } else if (hasImage) {
-      // Messages with images should not be collapsed
-      setNeedsCollapse(false);
-    }
+    // Use requestAnimationFrame to ensure DOM is ready
+    const checkCollapse = () => {
+      if (contentRef.current && !hasImage) {
+        const lineHeight = 24; // Approximate line height in pixels
+        const maxLines = 5;
+        const maxHeight = lineHeight * maxLines;
+        setNeedsCollapse(contentRef.current.scrollHeight > maxHeight);
+      } else if (hasImage) {
+        // Messages with images should not be collapsed
+        setNeedsCollapse(false);
+      }
+    };
+
+    // Run immediately and also after a short delay to handle dynamic content
+    checkCollapse();
+    const timerId = setTimeout(checkCollapse, 100);
+    return () => clearTimeout(timerId);
   }, [message.content, hasImage]);
 
   const formatTime = (dateStr: string) => {
@@ -973,7 +981,12 @@ const MessageBubble = memo(function MessageBubble({
           {/* Expand/Collapse button */}
           {needsCollapse && (
             <button
-              onClick={() => setIsExpanded(!isExpanded)}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                setIsExpanded((prev) => !prev);
+              }}
               className={`mt-1 text-xs font-medium ${
                 isOwnMessage
                   ? 'text-blue-200 hover:text-white'
@@ -1839,6 +1852,7 @@ export default function TopicPage() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastMessageCountRef = useRef(0);
+  const isLoadingOlderRef = useRef(false); // Track if we're loading older messages
 
   // Load topic, messages, and topics list (for forward feature)
   useEffect(() => {
@@ -1910,11 +1924,14 @@ export default function TopicPage() {
     return () => clearInterval(syncInterval);
   }, [topicId, isConnected, joinTopicRoom]);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom when new messages arrive (but not when loading older messages)
   useEffect(() => {
     if (messages.length > lastMessageCountRef.current && messages.length > 0) {
-      // Only scroll on new messages, not initial load
-      if (lastMessageCountRef.current > 0) {
+      // Skip scrolling if we're loading older messages
+      if (isLoadingOlderRef.current) {
+        isLoadingOlderRef.current = false;
+      } else if (lastMessageCountRef.current > 0) {
+        // Only scroll on new messages, not initial load
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       } else {
         // On initial load, scroll instantly without animation
@@ -1971,6 +1988,8 @@ export default function TopicPage() {
     if (hasMoreMessages && !isLoadingMessages && topicId) {
       const oldestMessage = messages[0];
       if (oldestMessage) {
+        // Mark that we're loading older messages to prevent auto-scroll
+        isLoadingOlderRef.current = true;
         fetchMessages(topicId, oldestMessage.id);
       }
     }
@@ -2060,7 +2079,7 @@ export default function TopicPage() {
           Please sign in to access this topic
         </h2>
         <Link href="/ai-group" className="text-blue-600 hover:underline">
-          Back to AI Group
+          Back to AI Teams
         </Link>
       </div>
     );
@@ -2145,7 +2164,7 @@ export default function TopicPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Team Mission Button */}
+            {/* AI Team Mission Button */}
             <button
               onClick={() => setShowMissionPanel(!showMissionPanel)}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
@@ -2153,7 +2172,7 @@ export default function TopicPage() {
                   ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
                   : 'bg-gradient-to-r from-blue-50 to-purple-50 text-purple-700 hover:from-blue-100 hover:to-purple-100'
               }`}
-              title="Team Missions"
+              title="AI Team Mission - 启用AI团队协作任务"
             >
               <svg
                 className="h-4 w-4"
@@ -2168,7 +2187,7 @@ export default function TopicPage() {
                   d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
                 />
               </svg>
-              Team
+              AI Team
             </button>
             <button
               onClick={() => setShowResources(true)}

@@ -146,7 +146,7 @@ function ProfileContent() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           username: userData.name,
@@ -766,10 +766,10 @@ function ProfileContent() {
                       </div>
                     </div>
 
-                    {/* AI Groups Created */}
+                    {/* AI Teams Created */}
                     <div className="rounded-lg border border-gray-200 bg-white p-6">
                       <h2 className="mb-4 text-lg font-semibold">
-                        AI Groups Created
+                        AI Teams Created
                       </h2>
                       <div className="flex items-center gap-4">
                         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-purple-100">
@@ -779,7 +779,7 @@ function ProfileContent() {
                         </div>
                         <div>
                           <p className="text-sm text-gray-600">
-                            AI Group topics you have created
+                            AI Teams topics you have created
                           </p>
                         </div>
                       </div>

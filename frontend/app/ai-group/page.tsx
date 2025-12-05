@@ -82,10 +82,10 @@ export default function AIGroupPage() {
             />
           </svg>
           <h2 className="text-xl font-semibold text-gray-700">
-            Please sign in to access AI Group
+            Please sign in to access AI Teams
           </h2>
           <p className="text-gray-500">
-            Create and join discussion groups with AI assistants
+            Create and join collaborative teams with AI assistants
           </p>
         </div>
       </div>
@@ -118,7 +118,7 @@ export default function AIGroupPage() {
                   </svg>
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">AI Group</h1>
+                  <h1 className="text-2xl font-bold text-gray-900">AI Teams</h1>
                   <p className="text-sm text-gray-500">多人多AI协作讨论社区</p>
                 </div>
               </div>
