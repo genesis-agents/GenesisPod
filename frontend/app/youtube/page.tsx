@@ -63,7 +63,13 @@ function mergeTranscriptBySentence(
       currentStart = segment.start;
     }
 
-    const segmentText = (segment.text || '').trim();
+    let segmentText = (segment.text || '').trim();
+    // 移除字幕开头的 - 符号（YouTube 字幕格式问题）
+    if (segmentText.startsWith('- ')) {
+      segmentText = segmentText.substring(2);
+    } else if (segmentText.startsWith('-')) {
+      segmentText = segmentText.substring(1).trim();
+    }
     if (!segmentText) {
       // 跳过空文本的segment，但仍然将其包含在当前块的indices中
       currentIndices.push(index);
