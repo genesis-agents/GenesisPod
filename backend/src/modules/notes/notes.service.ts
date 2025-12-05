@@ -20,7 +20,7 @@ import { CreateNoteDto, UpdateNoteDto, AddHighlightDto } from "./dto";
 export class NotesService {
   private readonly logger = new Logger(NotesService.name);
 
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   /**
    * 创建笔记
@@ -64,12 +64,12 @@ export class NotesService {
       include: {
         resource: resourceId
           ? {
-            select: {
-              id: true,
-              type: true,
-              title: true,
-            },
-          }
+              select: {
+                id: true,
+                type: true,
+                title: true,
+              },
+            }
           : false,
       },
     });
@@ -433,6 +433,46 @@ export class NotesService {
     this.logger.log(`AI explanation requested for note ${noteId}`);
 
     return aiExplanation;
+  }
+
+  /**
+   * Toggle bookmark status
+   */
+  async toggleBookmark(noteId: string, userId: string) {
+    // Verify ownership
+    const note = await this.prisma.note.findUnique({
+      where: { id: noteId },
+    });
+
+    if (!note) {
+      throw new NotFoundException("Note not found");
+    }
+
+    if (note.userId !== userId) {
+      throw new ForbiddenException("You can only bookmark your own notes");
+    }
+
+    const updated = await this.prisma.note.update({
+      where: { id: noteId },
+      data: {
+        isBookmarked: !note.isBookmarked,
+      },
+      include: {
+        resource: {
+          select: {
+            id: true,
+            type: true,
+            title: true,
+          },
+        },
+      },
+    });
+
+    this.logger.log(
+      `Note ${noteId} bookmark toggled to ${updated.isBookmarked} by user ${userId}`,
+    );
+
+    return updated;
   }
 
   /**

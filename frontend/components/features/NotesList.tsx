@@ -12,6 +12,7 @@ interface Note {
   highlights: any[];
   tags: string[];
   isPublic: boolean;
+  isBookmarked: boolean;
   createdAt: string;
   updatedAt: string;
   resource: {
@@ -161,6 +162,34 @@ export default function NotesList({
     setEditContent('');
   };
 
+  const handleToggleBookmark = async (noteId: string) => {
+    try {
+      const response = await fetch(
+        `${config.apiBaseUrl}/api/v1/notes/${noteId}/bookmark`,
+        {
+          method: 'POST',
+          headers: getAuthHeader(),
+        }
+      );
+
+      if (response.ok) {
+        const updatedNote = await response.json();
+        setNotes(
+          notes.map((n) =>
+            n.id === noteId
+              ? { ...n, isBookmarked: updatedNote.isBookmarked }
+              : n
+          )
+        );
+      } else {
+        alert('Failed to update bookmark');
+      }
+    } catch (err) {
+      alert('Error updating bookmark');
+      console.error(err);
+    }
+  };
+
   // Get all unique tags
   const allTags = Array.from(
     new Set(notes.flatMap((note) => note.tags))
@@ -228,10 +257,11 @@ export default function NotesList({
           </span>
           <button
             onClick={() => setSelectedTag(null)}
-            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-all ${selectedTag === null
-              ? 'bg-blue-600 text-white'
-              : 'border border-gray-300 bg-white text-gray-700 hover:border-blue-300'
-              }`}
+            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-all ${
+              selectedTag === null
+                ? 'bg-blue-600 text-white'
+                : 'border border-gray-300 bg-white text-gray-700 hover:border-blue-300'
+            }`}
           >
             All
           </button>
@@ -239,10 +269,11 @@ export default function NotesList({
             <button
               key={tag}
               onClick={() => setSelectedTag(tag)}
-              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-all ${selectedTag === tag
-                ? 'bg-blue-600 text-white'
-                : 'border border-gray-300 bg-white text-gray-700 hover:border-blue-300'
-                }`}
+              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                selectedTag === tag
+                  ? 'bg-blue-600 text-white'
+                  : 'border border-gray-300 bg-white text-gray-700 hover:border-blue-300'
+              }`}
             >
               {tag}
             </button>
@@ -324,6 +355,34 @@ export default function NotesList({
 
                 {/* Actions + Expand indicator */}
                 <div className="flex items-center gap-2">
+                  {showActions && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleBookmark(note.id);
+                      }}
+                      className={`transition-colors ${
+                        note.isBookmarked
+                          ? 'text-yellow-500 hover:text-yellow-600'
+                          : 'text-gray-400 hover:text-yellow-500'
+                      }`}
+                      title={note.isBookmarked ? 'Remove bookmark' : 'Bookmark'}
+                    >
+                      <svg
+                        className="h-4 w-4"
+                        fill={note.isBookmarked ? 'currentColor' : 'none'}
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                        />
+                      </svg>
+                    </button>
+                  )}
                   {(showActions || onEditNote) && (
                     <button
                       onClick={(e) => {
@@ -335,8 +394,9 @@ export default function NotesList({
                         }
                       }}
                       className="text-blue-600 hover:text-blue-800"
+                      title="Edit note"
                     >
-                      编辑
+                      Edit
                     </button>
                   )}
                   {(showActions || onDeleteNote) && (
@@ -346,8 +406,9 @@ export default function NotesList({
                         handleDelete(note.id);
                       }}
                       className="text-red-500 hover:text-red-700"
+                      title="Delete note"
                     >
-                      删除
+                      Delete
                     </button>
                   )}
                   <svg
@@ -381,7 +442,7 @@ export default function NotesList({
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="mb-4 text-lg font-semibold text-gray-900">
-              编辑笔记
+              Edit Note
             </h3>
             {editingNote.resource && (
               <div className="mb-3 text-sm text-gray-500">
@@ -395,20 +456,20 @@ export default function NotesList({
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
               className="mb-4 h-64 w-full rounded-lg border border-gray-300 p-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="输入笔记内容..."
+              placeholder="Enter note content..."
             />
             <div className="flex justify-end gap-3">
               <button
                 onClick={handleCancelEdit}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
-                取消
+                Cancel
               </button>
               <button
                 onClick={handleSaveEdit}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
               >
-                保存
+                Save
               </button>
             </div>
           </div>

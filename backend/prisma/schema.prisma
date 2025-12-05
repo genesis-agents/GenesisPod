@@ -419,6 +419,9 @@ model Note {
   // 是否公开
   isPublic Boolean @default(false) @map("is_public")
 
+  // 是否收藏
+  isBookmarked Boolean @default(false) @map("is_bookmarked")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

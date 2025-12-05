@@ -26,6 +26,7 @@ import { OptionalJwtAuthGuard } from "../../common/guards/optional-jwt-auth.guar
  * - GET /api/v1/notes/:id - 获取单个笔记
  * - PATCH /api/v1/notes/:id - 更新笔记
  * - DELETE /api/v1/notes/:id - 删除笔记
+ * - POST /api/v1/notes/:id/bookmark - 切换收藏状态
  * - POST /api/v1/notes/:id/highlights - 添加高亮
  * - DELETE /api/v1/notes/:id/highlights/:highlightId - 删除高亮
  * - POST /api/v1/notes/:id/ai-explain - 请求AI解释
@@ -119,6 +120,19 @@ export class NotesController {
       throw new UnauthorizedException("User not authenticated");
     }
     return this.notesService.deleteNote(id, userId);
+  }
+
+  /**
+   * Toggle bookmark status
+   */
+  @Post(":id/bookmark")
+  @UseGuards(JwtAuthGuard)
+  async toggleBookmark(@Param("id") id: string, @Request() req: any) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.notesService.toggleBookmark(id, userId);
   }
 
   /**
