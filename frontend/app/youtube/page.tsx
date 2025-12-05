@@ -817,21 +817,21 @@ function YouTubeTLDWContent() {
     }
   };
 
-  // Translate current segment when it's played (on-demand translation)
+  // Translate current merged segment when it's played (on-demand translation)
   useEffect(() => {
-    const translateCurrentSegment = async () => {
+    const translateCurrentMergedSegment = async () => {
       if (
         !showTranslation ||
-        activeSegmentIndex === -1 ||
-        transcript.length === 0
+        activeMergedIndex === -1 ||
+        mergedTranscript.length === 0
       )
         return;
 
-      // Check if already translated
-      if (translations.has(activeSegmentIndex)) return;
+      // Check if already translated (use merged index as key)
+      if (translations.has(activeMergedIndex)) return;
 
-      const currentSegment = transcript[activeSegmentIndex];
-      if (!currentSegment || !currentSegment.text) return;
+      const currentMerged = mergedTranscript[activeMergedIndex];
+      if (!currentMerged || !currentMerged.text) return;
 
       setTranslationLoading(true);
       try {
@@ -839,9 +839,8 @@ function YouTubeTLDWContent() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            text: currentSegment.text,
+            text: currentMerged.text,
             targetLanguage: 'zh-CN',
-            model: aiModel, // 使用用户选择的 AI 模型
           }),
         });
 
@@ -851,25 +850,22 @@ function YouTubeTLDWContent() {
 
         const data = await res.json();
 
-        // Update translations map
+        // Update translations map using merged index
         setTranslations((prev) => {
           const newMap = new Map(prev);
-          newMap.set(
-            activeSegmentIndex,
-            data.translation || currentSegment.text
-          );
+          newMap.set(activeMergedIndex, data.translation || currentMerged.text);
           return newMap;
         });
 
         console.log(
-          `Translated segment ${activeSegmentIndex}: "${currentSegment.text}" -> "${data.translation}"`
+          `Translated merged segment ${activeMergedIndex}: "${currentMerged.text.substring(0, 50)}..." -> "${data.translation?.substring(0, 50)}..."`
         );
       } catch (error: any) {
         console.error('Failed to translate segment:', error?.message || error);
         // Fallback to original text on error
         setTranslations((prev) => {
           const newMap = new Map(prev);
-          newMap.set(activeSegmentIndex, currentSegment.text);
+          newMap.set(activeMergedIndex, currentMerged.text);
           return newMap;
         });
       } finally {
@@ -877,8 +873,8 @@ function YouTubeTLDWContent() {
       }
     };
 
-    translateCurrentSegment();
-  }, [showTranslation, activeSegmentIndex, transcript, translations]);
+    translateCurrentMergedSegment();
+  }, [showTranslation, activeMergedIndex, mergedTranscript, translations]);
 
   if (!videoId) {
     return (
@@ -1294,12 +1290,11 @@ function YouTubeTLDWContent() {
                               </div>
                               {showTranslation && (
                                 <div className="mt-1.5 text-sm leading-relaxed text-blue-600">
-                                  {/* 显示合并块中第一个原始segment的翻译 */}
+                                  {/* 使用合并块索引获取翻译 */}
                                   {translationLoading && isActive
                                     ? '翻译中...'
-                                    : translations.get(
-                                        segment.originalIndices[0]
-                                      ) || (isActive ? '' : '')}
+                                    : translations.get(index) ||
+                                      (isActive ? '' : '')}
                                 </div>
                               )}
                             </div>
