@@ -157,21 +157,15 @@ export default function ResourceThumbnail({
         return;
       }
 
-      // 4. arXiv论文 - 使用 Thumbnail.ws API生成PDF缩略图
+      // 4. arXiv论文 - 暂时使用null，让它显示PAPER图标
+      // TODO: 实现可靠的PDF缩略图方案
       if (
         resource.type === 'PAPER' &&
         resource.sourceUrl?.includes('arxiv.org')
       ) {
-        const match = resource.sourceUrl.match(/(\d+\.\d+)/);
-        if (match) {
-          const arxivId = match[1];
-          const pdfUrl = `https://arxiv.org/pdf/${arxivId}.pdf`;
-          // 使用 thumbnail.ws 免费API生成PDF缩略图
-          const thumbnailApiUrl = `https://api.thumbnail.ws/api/${encodeURIComponent(pdfUrl)}/viewport/400x566`;
-          setThumbnailUrl(thumbnailApiUrl);
-          setIsLoading(false);
-          return;
-        }
+        setThumbnailUrl(null);
+        setIsLoading(false);
+        return;
       }
 
       // 5. 对于 Blogs/News/Reports/Policy，调用后端API动态提取（使用队列和缓存）
