@@ -1245,6 +1245,30 @@ ${taskResults}
 
   private parseReviewResult(content: string): boolean {
     const lowerContent = content.toLowerCase();
+
+    // 先检查否定词，避免"暂不通过"被误判为"通过"
+    const rejectPatterns = [
+      "不通过",
+      "暂不通过",
+      "未通过",
+      "不合格",
+      "需要修改",
+      "需修改",
+      "请修改",
+      "rejected",
+      "not approved",
+      "needs revision",
+      "revise",
+      "❌",
+    ];
+
+    for (const pattern of rejectPatterns) {
+      if (lowerContent.includes(pattern)) {
+        return false;
+      }
+    }
+
+    // 再检查通过词
     return (
       lowerContent.includes("通过") ||
       lowerContent.includes("合格") ||
