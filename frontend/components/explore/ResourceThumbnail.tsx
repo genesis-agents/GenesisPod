@@ -157,15 +157,39 @@ export default function ResourceThumbnail({
         return;
       }
 
-      // 4. 对于 Blogs/News/Papers/Reports/Policy，调用后端API动态提取（使用队列和缓存）
+      // 4. arXiv论文 - 使用可靠的预览图服务
+      if (
+        resource.type === 'PAPER' &&
+        resource.sourceUrl?.includes('arxiv.org')
+      ) {
+        const match = resource.sourceUrl.match(/(\d+\.\d+)/);
+        if (match) {
+          const arxivId = match[1];
+          // 策略1: 尝试arXiv官方预览图（如果存在）
+          const arxivPreviewUrl = `https://static.arxiv.org/static/browse/0.3.4/images/icons/favicon.ico`;
+          // 策略2: 使用我们自己的后端生成PDF缩略图
+          const backendThumbnailUrl = `${config.apiUrl}/resources/thumbnail/pdf-preview?arxivId=${arxivId}`;
+
+          // 先尝试后端服务
+          try {
+            const response = await fetch(backendThumbnailUrl);
+            if (response.ok) {
+              const data = await response.json();
+              if (data.thumbnailUrl) {
+                setThumbnailUrl(data.thumbnailUrl);
+                setIsLoading(false);
+                return;
+              }
+            }
+          } catch (e) {
+            console.debug('Backend PDF preview not available, will use icon');
+          }
+        }
+      }
+
+      // 5. 对于 Blogs/News/Reports/Policy，调用后端API动态提取（使用队列和缓存）
       // 传递 resourceId 以支持服务端缓存，下次请求直接从数据库获取
-      const typesWithThumbnailExtraction = [
-        'BLOG',
-        'NEWS',
-        'PAPER',
-        'REPORT',
-        'POLICY',
-      ];
+      const typesWithThumbnailExtraction = ['BLOG', 'NEWS', 'REPORT', 'POLICY'];
       if (
         typesWithThumbnailExtraction.includes(resource.type) &&
         resource.sourceUrl
@@ -323,7 +347,7 @@ export default function ResourceThumbnail({
       <img
         src={thumbnailUrl}
         alt={resource.title}
-        className="h-full w-full object-cover"
+        className="h-full w-full bg-white object-contain"
         onError={handleImageError}
       />
     );

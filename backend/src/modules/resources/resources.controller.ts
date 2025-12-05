@@ -221,6 +221,52 @@ export class ResourcesController {
   }
 
   /**
+   * 为arXiv论文生成PDF预览缩略图
+   * GET /api/v1/resources/thumbnail/pdf-preview?arxivId=2301.07041
+   *
+   * 使用后端PDF渲染服务生成arXiv论文的第一页缩略图
+   * 注意：此路由必须在 @Get(':id') 之前
+   * 跳过速率限制，因为前端会批量请求缩略图
+   */
+  @SkipThrottle()
+  @Get("thumbnail/pdf-preview")
+  async generateArxivPdfPreview(@Query("arxivId") arxivId: string) {
+    if (!arxivId) {
+      throw new HttpException("arxivId is required", HttpStatus.BAD_REQUEST);
+    }
+
+    this.logger.log(`Generating PDF preview for arXiv paper: ${arxivId}`);
+
+    // 构建arXiv PDF URL
+    const pdfUrl = `https://arxiv.org/pdf/${arxivId}.pdf`;
+
+    // 使用 PdfThumbnailService 生成缩略图
+    const thumbnailUrl = await this.pdfThumbnailService.generateThumbnail(
+      pdfUrl,
+      arxivId, // 使用 arxivId 作为资源ID（用于缓存文件名）
+    );
+
+    if (!thumbnailUrl) {
+      this.logger.warn(`Failed to generate PDF preview for arXiv ${arxivId}`);
+      return {
+        success: false,
+        thumbnailUrl: null,
+        arxivId,
+      };
+    }
+
+    this.logger.log(
+      `PDF preview generated successfully for arXiv ${arxivId}: ${thumbnailUrl}`,
+    );
+
+    return {
+      success: true,
+      thumbnailUrl,
+      arxivId,
+    };
+  }
+
+  /**
    * 获取资源详情
    * GET /api/v1/resources/:id
    *
