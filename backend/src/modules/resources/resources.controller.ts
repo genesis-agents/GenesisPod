@@ -22,6 +22,7 @@ import * as fs from "fs/promises";
 import { ResourcesService } from "./resources.service";
 import { AIEnrichmentService } from "./ai-enrichment.service";
 import { PdfThumbnailService } from "./pdf-thumbnail.service";
+import { DynamicThumbnailService } from "./dynamic-thumbnail.service";
 import { Prisma } from "@prisma/client";
 
 /**
@@ -35,6 +36,7 @@ export class ResourcesController {
     private resourcesService: ResourcesService,
     private aiEnrichmentService: AIEnrichmentService,
     private pdfThumbnailService: PdfThumbnailService,
+    private dynamicThumbnailService: DynamicThumbnailService,
   ) {}
 
   /**
@@ -117,6 +119,37 @@ export class ResourcesController {
     return {
       status: isHealthy ? "ok" : "error",
       aiServiceAvailable: isHealthy,
+    };
+  }
+
+  /**
+   * 动态获取资源缩略图URL
+   * GET /api/v1/resources/thumbnail/extract?url=xxx&type=BLOG
+   *
+   * 实时从网页提取og:image等缩略图
+   * 注意：此路由必须在 @Get(':id') 之前
+   */
+  @Get("thumbnail/extract")
+  async extractThumbnail(
+    @Query("url") url: string,
+    @Query("type") type: string,
+  ) {
+    if (!url) {
+      throw new HttpException("URL is required", HttpStatus.BAD_REQUEST);
+    }
+
+    this.logger.log(`Extracting thumbnail for URL: ${url} (type: ${type})`);
+
+    const thumbnailUrl = await this.dynamicThumbnailService.getThumbnailUrl(
+      url,
+      type || "BLOG",
+    );
+
+    return {
+      success: !!thumbnailUrl,
+      thumbnailUrl,
+      sourceUrl: url,
+      type,
     };
   }
 

@@ -3,6 +3,7 @@ import { ResourcesController } from "./resources.controller";
 import { ResourcesService } from "./resources.service";
 import { AIEnrichmentService } from "./ai-enrichment.service";
 import { PdfThumbnailService } from "./pdf-thumbnail.service";
+import { DynamicThumbnailService } from "./dynamic-thumbnail.service";
 import { PrismaModule } from "../../common/prisma/prisma.module";
 import { MongoDBModule } from "../../common/mongodb/mongodb.module";
 import { DataManagementModule } from "../data-management/data-management.module";
@@ -13,7 +14,17 @@ import { DataManagementModule } from "../data-management/data-management.module"
 @Module({
   imports: [PrismaModule, MongoDBModule, DataManagementModule],
   controllers: [ResourcesController],
-  providers: [ResourcesService, AIEnrichmentService, PdfThumbnailService],
-  exports: [ResourcesService, AIEnrichmentService, PdfThumbnailService],
+  providers: [
+    ResourcesService,
+    AIEnrichmentService,
+    PdfThumbnailService,
+    DynamicThumbnailService,
+  ],
+  exports: [
+    ResourcesService,
+    AIEnrichmentService,
+    PdfThumbnailService,
+    DynamicThumbnailService,
+  ],
 })
 export class ResourcesModule {}
