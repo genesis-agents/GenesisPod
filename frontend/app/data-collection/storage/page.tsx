@@ -715,6 +715,24 @@ export default function StoragePage() {
             <button
               onClick={() =>
                 handleCleanup(
+                  'raw-data/all',
+                  'deleteAllRawData',
+                  'WARNING: This will permanently delete ALL raw collection data (both pending and processed). This action cannot be undone! Are you sure?'
+                )
+              }
+              disabled={cleaning !== null}
+              className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-red-700 disabled:opacity-50"
+            >
+              {cleaning === 'deleteAllRawData' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Database className="h-4 w-4" />
+              )}
+              Delete All Raw Data
+            </button>
+            <button
+              onClick={() =>
+                handleCleanup(
                   'office-documents/all',
                   'deleteAllPPT',
                   'WARNING: This will permanently delete ALL PPT documents from ALL users. This action cannot be undone! Are you sure?'

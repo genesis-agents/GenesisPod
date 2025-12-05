@@ -834,6 +834,35 @@ export class StorageService {
   }
 
   /**
+   * Delete ALL raw data (both processed and pending)
+   */
+  async deleteAllRawData(): Promise<CleanupResult> {
+    try {
+      const count = await this.prisma.rawData.count();
+      await this.prisma.rawData.deleteMany();
+
+      return {
+        success: true,
+        category: "rawData",
+        deletedCount: count,
+        freedSizeMB:
+          Math.round(((count * this.SIZE_ESTIMATES.rawData) / 1024) * 100) /
+          100,
+        message: `Deleted all ${count} raw data records`,
+      };
+    } catch (error) {
+      this.logger.error("Failed to delete all raw data:", error);
+      return {
+        success: false,
+        category: "rawData",
+        deletedCount: 0,
+        freedSizeMB: 0,
+        message: `Delete failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      };
+    }
+  }
+
+  /**
    * Cleanup old collection tasks
    */
   async cleanupOldCollectionTasks(daysOld: number = 7): Promise<CleanupResult> {

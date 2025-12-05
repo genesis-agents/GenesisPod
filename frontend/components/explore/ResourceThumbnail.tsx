@@ -211,6 +211,19 @@ export default function ResourceThumbnail({
     setThumbnailUrl(null);
   };
 
+  // Filter out known broken/placeholder images
+  const isPlaceholderImage = (url: string): boolean => {
+    if (!url) return true;
+    const placeholderPatterns = [
+      /arxiv-logo/i,
+      /placeholder/i,
+      /default-image/i,
+      /no-image/i,
+      /blank.(png|jpg|gif)/i,
+    ];
+    return placeholderPatterns.some((pattern) => pattern.test(url));
+  };
+
   // 获取类型对应的图标
   const TypeIcon = () => {
     const iconClass = 'h-10 w-10';
@@ -304,8 +317,8 @@ export default function ResourceThumbnail({
     return <div className={`${className} animate-pulse bg-gray-200`} />;
   }
 
-  // 有缩略图且未出错，显示图片
-  if (thumbnailUrl && !hasError) {
+  // 有缩略图且未出错，显示图片（过滤占位图）
+  if (thumbnailUrl && !hasError && !isPlaceholderImage(thumbnailUrl)) {
     return (
       <div className={`${className} relative overflow-hidden bg-gray-100`}>
         <img

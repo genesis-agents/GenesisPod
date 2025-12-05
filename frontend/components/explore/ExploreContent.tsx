@@ -2198,12 +2198,37 @@ function HomeContent() {
                               {resource.title}
                             </h2>
 
-                            {/* Abstract */}
-                            {(resource.aiSummary || resource.abstract) && (
-                              <p className="mb-4 line-clamp-3 text-sm leading-relaxed text-gray-700">
-                                {resource.aiSummary || resource.abstract}
-                              </p>
-                            )}
+                            {/* Abstract or Fallback Info */}
+                            <p className="mb-4 line-clamp-3 text-sm leading-relaxed text-gray-700">
+                              {resource.aiSummary || resource.abstract || (
+                                <span className="text-gray-500">
+                                  {resource.sourceUrl && (
+                                    <>
+                                      <span className="font-medium">
+                                        Source:
+                                      </span>{' '}
+                                      {new URL(
+                                        resource.sourceUrl
+                                      ).hostname.replace('www.', '')}
+                                    </>
+                                  )}
+                                  {resource.authors &&
+                                    resource.authors.length > 0 && (
+                                      <>
+                                        {resource.sourceUrl && ' • '}
+                                        <span className="font-medium">
+                                          By:
+                                        </span>{' '}
+                                        {resource.authors
+                                          .slice(0, 3)
+                                          .join(', ')}
+                                        {resource.authors.length > 3 &&
+                                          ' et al.'}
+                                      </>
+                                    )}
+                                </span>
+                              )}
+                            </p>
 
                             {/* Bottom Actions */}
                             <div className="flex items-center gap-6 border-t border-gray-100 pt-3">

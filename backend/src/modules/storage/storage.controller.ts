@@ -80,6 +80,16 @@ export class StorageController {
   }
 
   /**
+   * Delete ALL raw data (both processed and pending)
+   */
+  @Delete("raw-data/all")
+  async deleteAllRawData(@Query("key") key: string): Promise<CleanupResult> {
+    this.validateKey(key);
+    this.logger.log("Deleting all raw data");
+    return this.storageService.deleteAllRawData();
+  }
+
+  /**
    * Cleanup old collection tasks
    */
   @Post("cleanup/collection-tasks")
