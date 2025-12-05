@@ -154,10 +154,16 @@ export class AiImageController {
   ): void {
     // 设置SSE响应头
     res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
     res.setHeader("Connection", "keep-alive");
     res.setHeader("X-Accel-Buffering", "no");
+    // 禁用Nagle算法，确保数据立即发送
+    if (res.socket) {
+      res.socket.setNoDelay(true);
+    }
     res.flushHeaders();
+
+    this.logger.log(`SSE POST: Starting stream for user ${req.user?.id}`);
 
     const observable = this.handleStreamGeneration({
       ...body,
@@ -167,7 +173,12 @@ export class AiImageController {
     // 订阅Observable并发送SSE事件
     const subscription = observable.subscribe({
       next: (event: MessageEvent) => {
-        res.write(`data: ${event.data}\n\n`);
+        const data = `data: ${event.data}\n\n`;
+        res.write(data);
+        // 尝试立即flush（如果可用）
+        if (typeof (res as any).flush === "function") {
+          (res as any).flush();
+        }
       },
       error: (err) => {
         this.logger.error(`SSE POST error: ${err.message}`);
@@ -177,12 +188,14 @@ export class AiImageController {
         res.end();
       },
       complete: () => {
+        this.logger.log(`SSE POST: Stream completed`);
         res.end();
       },
     });
 
     // 客户端断开时取消订阅
     res.on("close", () => {
+      this.logger.log(`SSE POST: Client disconnected`);
       subscription.unsubscribe();
     });
   }
