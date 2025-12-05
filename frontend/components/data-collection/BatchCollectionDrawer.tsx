@@ -140,50 +140,104 @@ export default function BatchCollectionDrawer({
   };
 
   const handleRun = async () => {
+    // 防止重复点击
+    if (isRunning) {
+      console.log('Collection already running, ignoring click');
+      return;
+    }
+
     if (selectedSources.size === 0) {
       alert('请至少选择一个数据源');
       return;
     }
 
+    // 立即设置运行状态，防止多次点击
+    setIsRunning(true);
+    setIsPaused(false);
+
+    // 立即初始化进度显示
+    const initialProgress = new Map<string, TaskProgress>();
+    for (const sourceId of Array.from(selectedSources)) {
+      const source = sources.find((s) => s.id === sourceId);
+      if (!source) continue;
+
+      // 使用临时ID先显示进度
+      const tempId = `pending-${sourceId}`;
+      initialProgress.set(tempId, {
+        id: tempId,
+        sourceId: source.id,
+        sourceName: source.name,
+        status: 'PENDING',
+        progress: 0,
+        totalItems: 0,
+        successItems: 0,
+        failedItems: 0,
+        duplicateItems: 0,
+      });
+    }
+    setTaskProgress(initialProgress);
+
     try {
-      setIsRunning(true);
-      setIsPaused(false);
       const newProgress = new Map<string, TaskProgress>();
 
       for (const sourceId of Array.from(selectedSources)) {
         const source = sources.find((s) => s.id === sourceId);
         if (!source) continue;
 
-        // 创建任务
-        const taskResponse = await createCollectionTask({
-          sourceId: source.id,
-          name: `Batch: ${categoryName} - ${source.name}`,
-          description: `Batch collection for ${categoryName} category`,
-          type: 'MANUAL',
-          sourceConfig: { maxResults: 50 },
-          deduplicationRules: {},
-        });
+        try {
+          // 创建任务
+          const taskResponse = await createCollectionTask({
+            sourceId: source.id,
+            name: `Batch: ${categoryName} - ${source.name}`,
+            description: `Batch collection for ${categoryName} category`,
+            type: 'MANUAL',
+            sourceConfig: { maxResults: 50 },
+            deduplicationRules: {},
+          });
 
-        const taskId = taskResponse.data.id;
+          const taskId = taskResponse.data.id;
 
-        // 执行任务
-        await executeTask(taskId);
+          // 执行任务
+          await executeTask(taskId);
 
-        // 记录进度
-        newProgress.set(taskId, {
-          id: taskId,
-          sourceId: source.id,
-          sourceName: source.name,
-          status: 'RUNNING',
-          progress: 0,
-          totalItems: 0,
-          successItems: 0,
-          failedItems: 0,
-          duplicateItems: 0,
-        });
+          // 记录进度
+          newProgress.set(taskId, {
+            id: taskId,
+            sourceId: source.id,
+            sourceName: source.name,
+            status: 'RUNNING',
+            progress: 0,
+            totalItems: 0,
+            successItems: 0,
+            failedItems: 0,
+            duplicateItems: 0,
+          });
+        } catch (taskError) {
+          console.error(`Failed to start task for ${source.name}:`, taskError);
+          // 单个任务失败不影响其他任务
+          newProgress.set(`failed-${sourceId}`, {
+            id: `failed-${sourceId}`,
+            sourceId: source.id,
+            sourceName: source.name,
+            status: 'FAILED',
+            progress: 0,
+            totalItems: 0,
+            successItems: 0,
+            failedItems: 0,
+            duplicateItems: 0,
+          });
+        }
       }
 
       setTaskProgress(newProgress);
+
+      // 如果没有成功启动任何任务，停止运行状态
+      const hasRunningTasks = Array.from(newProgress.values()).some(
+        (t) => t.status === 'RUNNING' || t.status === 'PENDING'
+      );
+      if (!hasRunningTasks) {
+        setIsRunning(false);
+      }
     } catch (error) {
       console.error('Failed to start batch collection:', error);
       alert(
@@ -192,6 +246,7 @@ export default function BatchCollectionDrawer({
           : 'Failed to start batch collection'
       );
       setIsRunning(false);
+      setTaskProgress(new Map());
     }
   };
 

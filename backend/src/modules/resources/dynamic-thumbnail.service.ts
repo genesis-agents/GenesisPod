@@ -7,7 +7,7 @@ import * as cheerio from "cheerio";
  *
  * 根据资源类型动态提取或生成缩略图URL：
  * - YouTube: 从视频ID构建缩略图URL
- * - Blogs/News: 实时提取 og:image
+ * - Blogs/News/Papers/Reports/Policy: 实时提取 og:image
  * - arXiv Papers: 使用 arxiv 缩略图服务
  */
 @Injectable()
@@ -37,12 +37,13 @@ export class DynamicThumbnailService {
           if (sourceUrl?.includes("arxiv.org")) {
             return this.getArxivThumbnail(sourceUrl);
           }
-          return null;
+          // 对于其他论文网站，尝试提取 og:image
+          return await this.extractOgImage(sourceUrl);
 
         case "REPORT":
         case "POLICY":
-          // 这些类型需要PDF缩略图，由前端或其他服务处理
-          return null;
+          // 尝试从网页提取 og:image（很多报告和政策页面有封面图）
+          return await this.extractOgImage(sourceUrl);
 
         default:
           return null;

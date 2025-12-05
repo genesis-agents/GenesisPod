@@ -80,18 +80,33 @@ export class RssService {
             continue;
           }
 
-          // URL去重检查（使用MongoDB）
+          // URL去重检查 - 双重检查确保无重复
           const normalizedUrl = this.deduplication.normalizeUrl(item.link);
           this.logger.log(
             `Checking deduplication for: ${item.title?.substring(0, 50)}... URL: ${normalizedUrl}`,
           );
 
+          // 1. 首先检查 Resource 表（主要数据源）
+          const existingResource = await this.prisma.resource.findFirst({
+            where: { sourceUrl: normalizedUrl },
+            select: { id: true, title: true },
+          });
+
+          if (existingResource) {
+            this.logger.log(
+              `⚠️ Duplicate found in Resource table: ${item.title?.substring(0, 50)}... (resourceId: ${existingResource.id})`,
+            );
+            duplicateCount++;
+            continue;
+          }
+
+          // 2. 同时检查 raw_data 表（备份检查）
           const urlDuplicate =
             await this.mongodb.findRawDataByUrlAcrossAllSources(normalizedUrl);
 
           if (urlDuplicate) {
             this.logger.log(
-              `⚠️ Duplicate found: ${item.title?.substring(0, 50)}... (source: ${urlDuplicate.source})`,
+              `⚠️ Duplicate found in raw_data: ${item.title?.substring(0, 50)}... (source: ${urlDuplicate.source})`,
             );
             duplicateCount++;
             continue;

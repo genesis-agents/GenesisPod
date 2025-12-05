@@ -153,9 +153,16 @@ export default function ResourceThumbnail({
         return;
       }
 
-      // 4. 对于 Blogs/News，调用后端API动态提取（使用队列和缓存）
+      // 4. 对于 Blogs/News/Papers/Reports/Policy，调用后端API动态提取（使用队列和缓存）
+      const typesWithThumbnailExtraction = [
+        'BLOG',
+        'NEWS',
+        'PAPER',
+        'REPORT',
+        'POLICY',
+      ];
       if (
-        (resource.type === 'BLOG' || resource.type === 'NEWS') &&
+        typesWithThumbnailExtraction.includes(resource.type) &&
         resource.sourceUrl
       ) {
         try {

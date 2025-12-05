@@ -37,9 +37,7 @@ export default function TopicSettingsDialog({
       <div className="flex h-[80vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Topic Settings
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900">Team Settings</h2>
           <button
             onClick={onClose}
             className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
@@ -143,7 +141,7 @@ function GeneralSettings({
     <div className="space-y-6">
       <div>
         <label className="block text-sm font-medium text-gray-700">
-          Topic Name
+          Team Name
         </label>
         <input
           type="text"
@@ -864,7 +862,7 @@ function DangerSettings({
   return (
     <div className="space-y-6">
       <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-        <h3 className="font-medium text-red-800">Delete Topic</h3>
+        <h3 className="font-medium text-red-800">Delete Team</h3>
         <p className="mt-1 text-sm text-red-600">
           This action cannot be undone. All messages, resources, and summaries
           will be permanently deleted.
@@ -887,7 +885,7 @@ function DangerSettings({
           disabled={confirmName !== topic.name || isDeleting}
           className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isDeleting ? 'Deleting...' : 'Delete Topic'}
+          {isDeleting ? 'Deleting...' : 'Delete Team'}
         </button>
       </div>
     </div>

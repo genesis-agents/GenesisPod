@@ -749,7 +749,7 @@ function StudioPageContent() {
                 </button>
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {projects.map((project) => (
                   <ProjectCard
                     key={project.id}
@@ -759,6 +759,17 @@ function StudioPageContent() {
                     onDelete={() => handleDelete(project.id)}
                   />
                 ))}
+
+                {/* Create New Card */}
+                <button
+                  onClick={() => setShowCreateDialog(true)}
+                  className="flex min-h-[180px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-violet-400 hover:bg-violet-50"
+                >
+                  <PlusIcon className="h-10 w-10 text-gray-400" />
+                  <span className="mt-2 text-sm font-medium text-gray-600">
+                    Create New Research
+                  </span>
+                </button>
               </div>
             )}
           </>

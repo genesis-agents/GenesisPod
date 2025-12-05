@@ -139,7 +139,7 @@ export default function AIGroupPage() {
                     d="M12 4v16m8-8H4"
                   />
                 </svg>
-                New Topic
+                New Team
               </button>
             </div>
 
@@ -193,16 +193,16 @@ export default function AIGroupPage() {
                 />
               </svg>
               <h3 className="mt-4 text-lg font-medium text-gray-700">
-                No topics yet
+                No teams yet
               </h3>
               <p className="mt-2 text-sm text-gray-500">
-                Create your first topic to start collaborating
+                Create your first team to start collaborating
               </p>
               <button
                 onClick={() => setShowCreateDialog(true)}
                 className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
               >
-                Create Topic
+                Create Team
               </button>
             </div>
           ) : (
@@ -219,7 +219,7 @@ export default function AIGroupPage() {
                   onDelete={async (topicId) => {
                     if (
                       confirm(
-                        'Are you sure you want to delete this topic? This action cannot be undone.'
+                        'Are you sure you want to delete this team? This action cannot be undone.'
                       )
                     ) {
                       await deleteTopic(topicId);
@@ -249,7 +249,7 @@ export default function AIGroupPage() {
                   />
                 </svg>
                 <span className="mt-2 text-sm font-medium text-gray-600">
-                  Create New Topic
+                  Create New Team
                 </span>
               </button>
             </div>
@@ -330,7 +330,7 @@ function TopicCard({
               onEdit(topic);
             }}
             className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm hover:bg-gray-50 hover:text-blue-600"
-            title="Edit topic"
+            title="Edit team"
           >
             <svg
               className="h-4 w-4"
@@ -352,7 +352,7 @@ function TopicCard({
               onDelete(topic.id);
             }}
             className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm hover:bg-red-50 hover:text-red-600"
-            title="Delete topic"
+            title="Delete team"
           >
             <svg
               className="h-4 w-4"
@@ -600,7 +600,7 @@ function CreateTopicDialog({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <h2 className="text-lg font-semibold text-gray-900">
-            Create New Topic
+            Create New Team
           </h2>
           <button
             onClick={onClose}
@@ -627,7 +627,7 @@ function CreateTopicDialog({
           {/* Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Topic Name *
+              Team Name *
             </label>
             <input
               type="text"
@@ -646,7 +646,7 @@ function CreateTopicDialog({
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="What is this topic about?"
+              placeholder="What is this team about?"
               rows={3}
               className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
@@ -770,7 +770,7 @@ function CreateTopicDialog({
             disabled={!name.trim() || isCreating}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isCreating ? 'Creating...' : 'Create Topic'}
+            {isCreating ? 'Creating...' : 'Create Team'}
           </button>
         </div>
       </div>
@@ -828,7 +828,7 @@ function EditTopicDialog({
       <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">Edit Topic</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Edit Team</h2>
           <button
             onClick={onClose}
             className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
@@ -854,7 +854,7 @@ function EditTopicDialog({
           {/* Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Topic Name *
+              Team Name *
             </label>
             <input
               type="text"
@@ -951,7 +951,7 @@ function EditTopicDialog({
             disabled={!name.trim() || isUpdating}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isUpdating ? 'Updating...' : 'Update Topic'}
+            {isUpdating ? 'Updating...' : 'Update Team'}
           </button>
         </div>
       </div>
