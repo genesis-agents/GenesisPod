@@ -308,6 +308,10 @@ function HomeContent() {
   const { user, isAdmin, accessToken } = useAuth();
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 20;
 
   // Initialize activeTab from URL query parameter if present
   const initialTab = (searchParams?.get('tab') || 'papers') as TabType;
@@ -813,9 +817,17 @@ function HomeContent() {
     extractPdfText();
   }, [selectedResource]);
 
-  const fetchResources = async () => {
+  const fetchResources = async (loadMore = false) => {
     try {
-      setLoading(true);
+      if (loadMore) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+        setPage(0);
+        setHasMore(true);
+      }
+
+      const currentPage = loadMore ? page + 1 : 0;
 
       // Handle YouTube tab separately - fetch from both sources
       if (activeTab === 'youtube') {
@@ -840,7 +852,7 @@ function HomeContent() {
         }));
 
         // Fetch from resources table with type=YOUTUBE_VIDEO
-        const resourcesUrl = `${config.apiUrl}/resources?type=YOUTUBE_VIDEO&take=50&skip=0`;
+        const resourcesUrl = `${config.apiUrl}/resources?type=YOUTUBE_VIDEO&take=${PAGE_SIZE}&skip=${currentPage * PAGE_SIZE}`;
         const resourcesRes = await fetch(resourcesUrl);
         const resourcesData = await resourcesRes.json();
         const resourceVideos = Array.isArray(resourcesData)
@@ -885,15 +897,22 @@ function HomeContent() {
           }
         }
 
-        setResources(allVideos);
+        if (loadMore) {
+          setResources((prev) => [...prev, ...allVideos]);
+        } else {
+          setResources(allVideos);
+        }
+        setHasMore(resourceVideos.length >= PAGE_SIZE);
+        setPage(currentPage);
         setLoading(false);
+        setLoadingMore(false);
         return;
       }
 
       // Build query params
       const params = new URLSearchParams({
-        take: '50',
-        skip: '0',
+        take: PAGE_SIZE.toString(),
+        skip: (currentPage * PAGE_SIZE).toString(),
         sortBy: sortBy,
         sortOrder: sortOrder,
       });
@@ -944,12 +963,29 @@ function HomeContent() {
       const url = `${config.apiUrl}/resources?${params.toString()}`;
       const res = await fetch(url);
       const data = await res.json();
-      setResources(Array.isArray(data) ? data : data.data || []);
+      const newResources = Array.isArray(data) ? data : data.data || [];
+
+      if (loadMore) {
+        setResources((prev) => [...prev, ...newResources]);
+      } else {
+        setResources(newResources);
+      }
+      setHasMore(newResources.length >= PAGE_SIZE);
+      setPage(currentPage);
     } catch (error) {
       console.error('Failed to fetch:', error);
-      setResources([]);
+      if (!loadMore) {
+        setResources([]);
+      }
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  const loadMoreResources = () => {
+    if (!loadingMore && hasMore) {
+      fetchResources(true);
     }
   };
 
@@ -2127,9 +2163,9 @@ function HomeContent() {
                       <article
                         key={resource.id}
                         onClick={() => handleResourceClick(resource)}
-                        className="group cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-white transition-all hover:shadow-lg"
+                        className="group w-full cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-white transition-all hover:shadow-lg"
                       >
-                        <div className="flex h-48">
+                        <div className="flex h-48 w-full overflow-hidden">
                           {/* Thumbnail - 论文使用竖向比例(w-36)，其他使用横向比例(w-64) */}
                           <div
                             className={`relative h-48 flex-shrink-0 overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 ${resource.type === 'PAPER' ? 'w-36' : 'w-64'}`}
@@ -2205,7 +2241,7 @@ function HomeContent() {
 
                             {/* Abstract or Fallback Info */}
                             <p
-                              className="line-clamp-2 min-h-0 flex-1 overflow-hidden text-ellipsis text-sm leading-relaxed text-gray-700"
+                              className="line-clamp-2 min-h-0 flex-shrink overflow-hidden text-ellipsis text-sm leading-relaxed text-gray-700"
                               title={
                                 resource.aiSummary || resource.abstract || ''
                               }
@@ -2240,8 +2276,11 @@ function HomeContent() {
                               )}
                             </p>
 
+                            {/* Spacer */}
+                            <div className="flex-1"></div>
+
                             {/* Bottom Actions */}
-                            <div className="mt-auto flex flex-shrink-0 items-center gap-6 border-t border-gray-100 pt-2">
+                            <div className="flex flex-shrink-0 items-center gap-6 border-t border-gray-100 pt-2">
                               {/* Bookmark Button - Simple version */}
                               <button
                                 onClick={(e) => toggleBookmark(resource.id, e)}
@@ -2470,6 +2509,66 @@ function HomeContent() {
                         </div>
                       </article>
                     ))}
+                </div>
+              )}
+
+              {/* Load More Button */}
+              {!loading && resources.length > 0 && hasMore && (
+                <div className="mt-6 flex justify-center">
+                  <button
+                    onClick={loadMoreResources}
+                    disabled={loadingMore}
+                    className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-6 py-3 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {loadingMore ? (
+                      <>
+                        <svg
+                          className="h-4 w-4 animate-spin"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          />
+                        </svg>
+                        加载中...
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                        加载更多
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* No More Results */}
+              {!loading && resources.length > 0 && !hasMore && (
+                <div className="mt-6 text-center">
+                  <p className="text-sm text-gray-400">— 已加载全部内容 —</p>
                 </div>
               )}
 

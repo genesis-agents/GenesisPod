@@ -153,6 +153,10 @@ export default function AskPage() {
     Array<{ file: File; preview?: string }>
   >([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [quotedMessage, setQuotedMessage] = useState<{
+    content: string;
+    preview: string;
+  } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const modelSelectorRef = useRef<HTMLDivElement>(null);
@@ -453,12 +457,17 @@ export default function AskPage() {
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    // Allow sending with just files even without text
-    if ((!input.trim() && attachedFiles.length === 0) || isLoading) return;
+    // Allow sending with just files even without text, or with quoted message
+    if (
+      (!input.trim() && attachedFiles.length === 0 && !quotedMessage) ||
+      isLoading
+    )
+      return;
 
-    // Build message content with file attachments
+    // Build message content with quoted content and file attachments
     let userContent = input.trim();
     const currentFiles = [...attachedFiles];
+    const currentQuote = quotedMessage;
 
     // Read file contents and append to message
     if (currentFiles.length > 0) {
@@ -492,8 +501,17 @@ export default function AskPage() {
       }
     }
 
+    // Add quoted content at the beginning if present
+    if (currentQuote) {
+      const quotedBlock = `> 引用内容:\n> ${currentQuote.content.split('\n').join('\n> ')}\n\n`;
+      userContent = userContent
+        ? `${quotedBlock}${userContent}`
+        : `${quotedBlock}请针对以上引用内容进行回复`;
+    }
+
     setInput('');
     setAttachedFiles([]);
+    setQuotedMessage(null);
     setIsLoading(true);
     setMixtureResponses([]);
 
@@ -1020,7 +1038,9 @@ export default function AskPage() {
                       }
                       disabled={
                         !isLoading &&
-                        ((!input.trim() && attachedFiles.length === 0) ||
+                        ((!input.trim() &&
+                          attachedFiles.length === 0 &&
+                          !quotedMessage) ||
                           modelsLoading)
                       }
                       className={`flex h-9 w-9 items-center justify-center rounded-xl text-white transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
@@ -1143,12 +1163,16 @@ export default function AskPage() {
                             </button>
                             <button
                               onClick={() => {
-                                // 只取前100字符作为简短引用摘要
-                                const summary = message.content
-                                  .substring(0, 100)
-                                  .replace(/\n/g, ' ');
-                                const quotedText = `> ${summary}${message.content.length > 100 ? '...' : ''}\n\n`;
-                                setInput((prev) => prev + quotedText);
+                                // 设置引用消息显示在输入框上方
+                                const preview =
+                                  message.content
+                                    .substring(0, 100)
+                                    .replace(/\n/g, ' ') +
+                                  (message.content.length > 100 ? '...' : '');
+                                setQuotedMessage({
+                                  content: message.content,
+                                  preview,
+                                });
                                 inputRef.current?.focus();
                                 setToastMessage('已添加引用');
                               }}
@@ -1304,6 +1328,54 @@ export default function AskPage() {
                             拖放文件到此处
                           </p>
                         </div>
+                      </div>
+                    )}
+
+                    {/* Quoted message preview - displayed ABOVE the input area */}
+                    {quotedMessage && (
+                      <div className="flex items-start gap-2 border-b border-gray-100 bg-gray-50 px-4 py-2">
+                        <div className="flex-shrink-0 pt-0.5">
+                          <svg
+                            className="h-4 w-4 text-gray-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+                            />
+                          </svg>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-gray-500">
+                            引用回复
+                          </p>
+                          <p className="mt-0.5 truncate text-sm text-gray-700">
+                            {quotedMessage.preview}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setQuotedMessage(null)}
+                          className="flex-shrink-0 rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
                       </div>
                     )}
 
@@ -1708,7 +1780,8 @@ export default function AskPage() {
                         disabled={
                           !isLoading &&
                           !input.trim() &&
-                          attachedFiles.length === 0
+                          attachedFiles.length === 0 &&
+                          !quotedMessage
                         }
                         className={`flex h-9 w-9 items-center justify-center rounded-xl text-white transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
                           isLoading
@@ -1762,12 +1835,13 @@ export default function AskPage() {
             setToastMessage('已复制到剪贴板');
           }}
           onQuote={() => {
-            // 只取前100字符作为简短引用摘要
-            const summary = contextMenu.message.content
-              .substring(0, 100)
-              .replace(/\n/g, ' ');
-            const quotedText = `> ${summary}${contextMenu.message.content.length > 100 ? '...' : ''}\n\n`;
-            setInput((prev) => prev + quotedText);
+            // 设置引用消息显示在输入框上方
+            const preview =
+              contextMenu.message.content
+                .substring(0, 100)
+                .replace(/\n/g, ' ') +
+              (contextMenu.message.content.length > 100 ? '...' : '');
+            setQuotedMessage({ content: contextMenu.message.content, preview });
             setContextMenu(null);
             inputRef.current?.focus();
             setToastMessage('已添加引用');
