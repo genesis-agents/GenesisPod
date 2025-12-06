@@ -112,6 +112,7 @@ export class SimulationEngineService {
 
       const submission = {
         agentId: agent.id,
+        companyId: agent.companyId,
         team: agent.team,
         role: agent.role,
         innerMonologue: monologueParts,
@@ -170,6 +171,42 @@ export class SimulationEngineService {
     const worldDelta: Record<string, any> = {};
     const worldState = (run.worldState as Record<string, any>) || {};
     worldDelta["publicMemory"] = worldState;
+
+    // Basic resource sanity check: if a submission declares cost but公司现金不足则驳回
+    const companyCashMap: Record<string, number> = {};
+    (run.scenario.companies || []).forEach((c: any) => {
+      const cash = c.metrics?.cash;
+      if (typeof cash === "number") {
+        companyCashMap[c.id] = cash;
+      }
+    });
+
+    for (const sub of submissions) {
+      const intentCost =
+        (sub.intent && typeof sub.intent.cost === "number"
+          ? sub.intent.cost
+          : undefined) ||
+        (sub.tools && typeof sub.tools?.plannedCost === "number"
+          ? sub.tools.plannedCost
+          : undefined);
+      if (intentCost !== undefined && sub.companyId) {
+        const available = companyCashMap[sub.companyId];
+        if (typeof available === "number" && intentCost > available) {
+          evidenceRefs.push({
+            provider: "arbiter",
+            status: "rejected",
+            reason: "insufficient_funds",
+            detail: `plannedCost=${intentCost} > cash=${available}`,
+          });
+          return {
+            ruling: "rejected_insufficient_funds",
+            notes: "裁判驳回：资金不足以支撑该行动。",
+            evidenceRefs,
+            worldDelta,
+          };
+        }
+      }
+    }
 
     const providers = ["market", "finance", "news", "regulation"];
     const missing = providers.filter(
