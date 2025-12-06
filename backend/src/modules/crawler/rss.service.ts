@@ -95,21 +95,57 @@ export class RssService {
             `Checking deduplication for: ${item.title?.substring(0, 50)}... URL: ${normalizedUrl}`,
           );
 
-          // 1. 首先检查 Resource 表（主要数据源）
-          const existingResource = await this.prisma.resource.findFirst({
+          // 1. 首先检查 Resource 表 URL 精确匹配
+          const existingByUrl = await this.prisma.resource.findFirst({
             where: { sourceUrl: normalizedUrl },
             select: { id: true, title: true },
           });
 
-          if (existingResource) {
+          if (existingByUrl) {
             this.logger.log(
-              `⚠️ Duplicate found in Resource table: ${item.title?.substring(0, 50)}... (resourceId: ${existingResource.id})`,
+              `⚠️ URL duplicate in Resource table: ${item.title?.substring(0, 50)}... (resourceId: ${existingByUrl.id})`,
             );
             duplicateCount++;
             continue;
           }
 
-          // 2. 同时检查 raw_data 表（备份检查）
+          // 2. 检查标题相似度（防止不同URL但相同内容的重复）
+          // 只检查最近7天内的资源，避免性能问题
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+          const recentResources = await this.prisma.resource.findMany({
+            where: {
+              type: category as any,
+              createdAt: { gte: sevenDaysAgo },
+            },
+            select: { id: true, title: true },
+            take: 500,
+          });
+
+          let titleDuplicate = false;
+          for (const existing of recentResources) {
+            if (
+              this.deduplication.areTitlesSimilar(
+                item.title!,
+                existing.title,
+                0.9,
+              )
+            ) {
+              this.logger.log(
+                `⚠️ Title similarity duplicate: "${item.title?.substring(0, 50)}..." similar to existing "${existing.title.substring(0, 50)}..." (resourceId: ${existing.id})`,
+              );
+              titleDuplicate = true;
+              break;
+            }
+          }
+
+          if (titleDuplicate) {
+            duplicateCount++;
+            continue;
+          }
+
+          // 3. 同时检查 raw_data 表（备份检查）
           const urlDuplicate =
             await this.mongodb.findRawDataByUrlAcrossAllSources(normalizedUrl);
 

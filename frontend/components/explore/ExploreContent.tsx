@@ -2141,9 +2141,9 @@ function HomeContent() {
                           </div>
 
                           {/* Content - 右侧内容区 */}
-                          <div className="min-w-0 flex-1 p-5">
+                          <div className="flex min-w-0 flex-1 flex-col overflow-hidden p-5">
                             {/* Date, Source Badge, Tags, and Stats */}
-                            <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                            <div className="mb-2 flex flex-shrink-0 flex-wrap items-center gap-2 text-xs text-gray-500">
                               <span>
                                 {new Date(
                                   resource.publishedAt
@@ -2196,12 +2196,20 @@ function HomeContent() {
                             </div>
 
                             {/* Title */}
-                            <h2 className="mb-3 text-xl font-semibold text-red-600 hover:underline">
+                            <h2
+                              className="mb-2 flex-shrink-0 truncate text-xl font-semibold text-red-600 hover:underline"
+                              title={resource.title}
+                            >
                               {resource.title}
                             </h2>
 
                             {/* Abstract or Fallback Info */}
-                            <p className="mb-4 line-clamp-3 text-sm leading-relaxed text-gray-700">
+                            <p
+                              className="line-clamp-2 min-h-0 flex-1 overflow-hidden text-ellipsis text-sm leading-relaxed text-gray-700"
+                              title={
+                                resource.aiSummary || resource.abstract || ''
+                              }
+                            >
                               {resource.aiSummary || resource.abstract || (
                                 <span className="text-gray-500">
                                   {resource.sourceUrl && (
@@ -2233,7 +2241,7 @@ function HomeContent() {
                             </p>
 
                             {/* Bottom Actions */}
-                            <div className="flex items-center gap-6 border-t border-gray-100 pt-3">
+                            <div className="mt-auto flex flex-shrink-0 items-center gap-6 border-t border-gray-100 pt-2">
                               {/* Bookmark Button - Simple version */}
                               <button
                                 onClick={(e) => toggleBookmark(resource.id, e)}
