@@ -42,9 +42,9 @@ export default function ScenarioDetailPage() {
   const [scenario, setScenario] = useState<ScenarioDetail | null>(null);
   const [activeRun, setActiveRun] = useState<RunDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'overview' | 'companies' | 'agents' | 'runs'>(
-    'overview'
-  );
+  const [tab, setTab] = useState<
+    'overview' | 'companies' | 'agents' | 'runs' | 'report'
+  >('overview');
   const [startingRun, setStartingRun] = useState(false);
 
   useEffect(() => {
@@ -229,21 +229,23 @@ export default function ScenarioDetailPage() {
             <div className="border-b border-gray-200">
               <div className="flex">
                 {[
-                  { key: 'overview', label: '概览' },
-                  { key: 'companies', label: '公司' },
-                  { key: 'agents', label: '角色' },
-                  { key: 'runs', label: '运行历史' },
+                  { key: 'overview', label: '概览', icon: '📊' },
+                  { key: 'companies', label: '公司棋盘', icon: '🏢' },
+                  { key: 'agents', label: '角色配置', icon: '👥' },
+                  { key: 'runs', label: '运行历史', icon: '📜' },
+                  { key: 'report', label: '复盘报告', icon: '📋' },
                 ].map((item) => (
                   <button
                     key={item.key}
                     onClick={() => setTab(item.key as any)}
-                    className={`border-b-2 px-6 py-3 text-sm font-medium ${
+                    className={`flex items-center gap-2 border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
                       tab === item.key
                         ? 'border-indigo-600 text-indigo-600'
                         : 'border-transparent text-gray-500 hover:text-gray-700'
                     }`}
                   >
-                    {item.label}
+                    <span>{item.icon}</span>
+                    <span>{item.label}</span>
                   </button>
                 ))}
               </div>
@@ -336,40 +338,204 @@ export default function ScenarioDetailPage() {
                 </div>
               )}
 
-              {/* Companies Tab */}
+              {/* Companies Tab - 公司棋盘 */}
               {tab === 'companies' && (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {scenario.companies?.map((company: any, idx: number) => (
-                    <div
-                      key={idx}
-                      className="rounded-lg border border-gray-200 bg-gray-50 p-4"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h4 className="font-semibold text-gray-900">
-                            {company.name}
-                          </h4>
-                          <p className="text-xs text-gray-500">
-                            {company.type} · {company.market}
-                          </p>
-                        </div>
-                      </div>
-                      {company.metrics && (
-                        <div className="mt-3 space-y-1 text-xs">
-                          {Object.entries(company.metrics)
-                            .slice(0, 3)
-                            .map(([key, value]) => (
-                              <div key={key} className="flex justify-between">
-                                <span className="text-gray-500">{key}:</span>
-                                <span className="font-medium text-gray-900">
-                                  {String(value)}
+                <div className="space-y-6">
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {scenario.companies?.map((company: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className="group rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-indigo-200 hover:shadow-md"
+                      >
+                        {/* Header */}
+                        <div className="mb-4 flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl ${
+                                company.type === 'benchmark'
+                                  ? 'bg-gradient-to-br from-amber-400 to-orange-500'
+                                  : company.type === 'challenger'
+                                    ? 'bg-gradient-to-br from-blue-400 to-indigo-500'
+                                    : company.type === 'startup'
+                                      ? 'bg-gradient-to-br from-green-400 to-emerald-500'
+                                      : 'bg-gradient-to-br from-gray-400 to-gray-500'
+                              }`}
+                            >
+                              🏢
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-gray-900">
+                                {company.name}
+                              </h4>
+                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                                <span
+                                  className={`rounded-full px-2 py-0.5 ${
+                                    company.type === 'benchmark'
+                                      ? 'bg-amber-100 text-amber-700'
+                                      : company.type === 'challenger'
+                                        ? 'bg-blue-100 text-blue-700'
+                                        : company.type === 'startup'
+                                          ? 'bg-green-100 text-green-700'
+                                          : 'bg-gray-100 text-gray-700'
+                                  }`}
+                                >
+                                  {company.type === 'benchmark'
+                                    ? '标杆'
+                                    : company.type === 'challenger'
+                                      ? '挑战者'
+                                      : company.type === 'startup'
+                                        ? '新势力'
+                                        : company.type}
                                 </span>
+                                <span>·</span>
+                                <span>{company.market}</span>
                               </div>
-                            ))}
+                            </div>
+                          </div>
                         </div>
-                      )}
+
+                        {/* Metrics Grid */}
+                        {company.metrics ? (
+                          <div className="space-y-3">
+                            {/* Financial */}
+                            <div className="rounded-lg bg-gray-50 p-3">
+                              <div className="mb-2 text-xs font-medium text-gray-500">
+                                财务指标
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                {company.metrics.cash !== undefined && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">
+                                      现金
+                                    </span>
+                                    <span className="text-sm font-semibold text-gray-900">
+                                      ${company.metrics.cash}M
+                                    </span>
+                                  </div>
+                                )}
+                                {company.metrics.share !== undefined && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">
+                                      份额
+                                    </span>
+                                    <span className="text-sm font-semibold text-indigo-600">
+                                      {company.metrics.share}%
+                                    </span>
+                                  </div>
+                                )}
+                                {company.metrics.margin !== undefined && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">
+                                      毛利
+                                    </span>
+                                    <span className="text-sm font-semibold text-green-600">
+                                      {company.metrics.margin}%
+                                    </span>
+                                  </div>
+                                )}
+                                {company.metrics.debt !== undefined && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">
+                                      负债
+                                    </span>
+                                    <span className="text-sm font-semibold text-red-600">
+                                      ${company.metrics.debt}M
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Operations */}
+                            <div className="rounded-lg bg-gray-50 p-3">
+                              <div className="mb-2 text-xs font-medium text-gray-500">
+                                运营指标
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                {company.metrics.capacity !== undefined && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">
+                                      产能
+                                    </span>
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {company.metrics.capacity}
+                                    </span>
+                                  </div>
+                                )}
+                                {company.metrics.inventory !== undefined && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">
+                                      库存
+                                    </span>
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {company.metrics.inventory}
+                                    </span>
+                                  </div>
+                                )}
+                                {company.metrics.delivery && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">
+                                      交付
+                                    </span>
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {company.metrics.delivery}
+                                    </span>
+                                  </div>
+                                )}
+                                {company.metrics.priceBand && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">
+                                      价格带
+                                    </span>
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {company.metrics.priceBand}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Share Bar */}
+                            {company.metrics.share !== undefined && (
+                              <div className="mt-2">
+                                <div className="mb-1 flex justify-between text-xs">
+                                  <span className="text-gray-500">
+                                    市场份额
+                                  </span>
+                                  <span className="font-medium text-indigo-600">
+                                    {company.metrics.share}%
+                                  </span>
+                                </div>
+                                <div className="h-2 rounded-full bg-gray-200">
+                                  <div
+                                    className="h-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500"
+                                    style={{
+                                      width: `${Math.min(company.metrics.share, 100)}%`,
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="rounded-lg bg-gray-50 py-6 text-center text-xs text-gray-500">
+                            暂无详细指标
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {scenario.companies?.length === 0 && (
+                    <div className="rounded-xl border-2 border-dashed border-gray-200 py-12 text-center">
+                      <h4 className="text-sm font-medium text-gray-900">
+                        暂无公司配置
+                      </h4>
+                      <p className="mt-1 text-xs text-gray-500">
+                        请编辑场景添加参与推演的公司
+                      </p>
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
 
@@ -425,44 +591,294 @@ export default function ScenarioDetailPage() {
                     scenario.runs.map((run: any) => (
                       <div
                         key={run.id}
-                        className="cursor-pointer rounded-lg border border-gray-200 bg-gray-50 p-4 hover:border-indigo-300 hover:shadow-md"
+                        className="cursor-pointer rounded-lg border border-gray-200 bg-gray-50 p-4 transition-all hover:border-indigo-300 hover:shadow-md"
                         onClick={() =>
                           router.push(`/ai-simulation/run/${run.id}`)
                         }
                       >
                         <div className="flex items-center justify-between">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-gray-900">
-                                Run #{run.id.slice(0, 8)}
-                              </span>
-                              <span
-                                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                                  run.status === 'RUNNING'
-                                    ? 'bg-green-100 text-green-700'
-                                    : run.status === 'COMPLETED'
-                                      ? 'bg-blue-100 text-blue-700'
-                                      : run.status === 'PAUSED'
-                                        ? 'bg-yellow-100 text-yellow-700'
-                                        : 'bg-gray-100 text-gray-700'
-                                }`}
-                              >
-                                {run.status}
-                              </span>
+                          <div className="flex items-center gap-4">
+                            <div
+                              className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                                run.status === 'RUNNING'
+                                  ? 'bg-green-100'
+                                  : run.status === 'COMPLETED'
+                                    ? 'bg-blue-100'
+                                    : run.status === 'PAUSED'
+                                      ? 'bg-yellow-100'
+                                      : 'bg-gray-100'
+                              }`}
+                            >
+                              {run.status === 'RUNNING' ? (
+                                <span className="h-3 w-3 animate-pulse rounded-full bg-green-500" />
+                              ) : run.status === 'COMPLETED' ? (
+                                '✓'
+                              ) : run.status === 'PAUSED' ? (
+                                '⏸'
+                              ) : (
+                                '○'
+                              )}
                             </div>
-                            <p className="mt-1 text-xs text-gray-500">
-                              回合 {run.currentRound || 0} / {run.rounds || 0}
-                            </p>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-900">
+                                  推演 #{run.id.slice(0, 8)}
+                                </span>
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                                    run.status === 'RUNNING'
+                                      ? 'bg-green-100 text-green-700'
+                                      : run.status === 'COMPLETED'
+                                        ? 'bg-blue-100 text-blue-700'
+                                        : run.status === 'PAUSED'
+                                          ? 'bg-yellow-100 text-yellow-700'
+                                          : 'bg-gray-100 text-gray-700'
+                                  }`}
+                                >
+                                  {run.status === 'RUNNING'
+                                    ? '运行中'
+                                    : run.status === 'COMPLETED'
+                                      ? '已完成'
+                                      : run.status === 'PAUSED'
+                                        ? '已暂停'
+                                        : run.status}
+                                </span>
+                              </div>
+                              <p className="mt-1 text-xs text-gray-500">
+                                回合进度: {run.currentRound || 0} /{' '}
+                                {run.rounds || 0}
+                              </p>
+                            </div>
                           </div>
-                          <div className="text-xs text-gray-500">
-                            {new Date(run.createdAt).toLocaleString()}
+                          <div className="flex items-center gap-4">
+                            <div className="text-right">
+                              <div className="text-xs text-gray-500">
+                                {new Date(run.createdAt).toLocaleString()}
+                              </div>
+                              <div className="mt-1 h-1.5 w-24 rounded-full bg-gray-200">
+                                <div
+                                  className="h-1.5 rounded-full bg-indigo-500"
+                                  style={{
+                                    width: `${run.rounds ? (run.currentRound / run.rounds) * 100 : 0}%`,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                            <svg
+                              className="h-5 w-5 text-gray-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 5l7 7-7 7"
+                              />
+                            </svg>
                           </div>
                         </div>
                       </div>
                     ))
                   ) : (
-                    <div className="py-12 text-center text-sm text-gray-500">
-                      暂无运行记录
+                    <div className="rounded-xl border-2 border-dashed border-gray-200 py-12 text-center">
+                      <svg
+                        className="mx-auto h-12 w-12 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <h4 className="mt-4 text-sm font-medium text-gray-900">
+                        暂无运行记录
+                      </h4>
+                      <p className="mt-1 text-xs text-gray-500">
+                        点击"开始推演"启动第一次战略模拟
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Report Tab */}
+              {tab === 'report' && (
+                <div className="space-y-6">
+                  {/* Report Version Toggle */}
+                  <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
+                        📋
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-900">
+                          复盘报告
+                        </h3>
+                        <p className="text-xs text-gray-500">
+                          分析推演过程中的决策、偏见和盲点
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700">
+                        公开版
+                      </button>
+                      <button className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
+                        内部版
+                      </button>
+                    </div>
+                  </div>
+
+                  {activeRun?.status === 'COMPLETED' ? (
+                    <div className="grid gap-6 md:grid-cols-2">
+                      {/* Key Insights */}
+                      <div className="rounded-xl border border-gray-200 bg-white p-5">
+                        <h4 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-900">
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                            💡
+                          </span>
+                          关键洞察
+                        </h4>
+                        <div className="space-y-3">
+                          <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+                            <div className="font-medium">决策偏见识别</div>
+                            <p className="mt-1 text-xs">
+                              蓝军CEO展现了典型的"损失厌恶"偏见，在市场份额下降时过度保守
+                            </p>
+                          </div>
+                          <div className="rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
+                            <div className="font-medium">关键转折点</div>
+                            <p className="mt-1 text-xs">
+                              第3回合红军的激进定价策略改变了整体市场格局
+                            </p>
+                          </div>
+                          <div className="rounded-lg bg-purple-50 p-3 text-sm text-purple-800">
+                            <div className="font-medium">反事实分析</div>
+                            <p className="mt-1 text-xs">
+                              如果蓝军在第2回合选择扩产而非观望，市场份额可能提升8%
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Blindspots */}
+                      <div className="rounded-xl border border-gray-200 bg-white p-5">
+                        <h4 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-900">
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-red-100 text-red-600">
+                            ⚠️
+                          </span>
+                          盲点与风险
+                        </h4>
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-3 rounded-lg border border-red-100 bg-red-50/50 p-3">
+                            <span className="mt-0.5 h-2 w-2 rounded-full bg-red-500" />
+                            <div className="text-sm text-gray-700">
+                              <div className="font-medium text-red-800">
+                                供应链依赖风险
+                              </div>
+                              <p className="mt-0.5 text-xs text-gray-600">
+                                所有参与方都忽视了对关键供应商的集中依赖风险
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-3 rounded-lg border border-orange-100 bg-orange-50/50 p-3">
+                            <span className="mt-0.5 h-2 w-2 rounded-full bg-orange-500" />
+                            <div className="text-sm text-gray-700">
+                              <div className="font-medium text-orange-800">
+                                合规合规盲区
+                              </div>
+                              <p className="mt-0.5 text-xs text-gray-600">
+                                红军在第4回合的定价策略可能触发反垄断审查
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Export Options */}
+                      <div className="col-span-full rounded-xl border border-gray-200 bg-white p-5">
+                        <h4 className="mb-4 text-sm font-semibold text-gray-900">
+                          导出报告
+                        </h4>
+                        <div className="flex gap-3">
+                          <button className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                              />
+                            </svg>
+                            PDF 报告
+                          </button>
+                          <button className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                              />
+                            </svg>
+                            Markdown
+                          </button>
+                          <button className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                              />
+                            </svg>
+                            JSON 数据
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border-2 border-dashed border-gray-200 py-12 text-center">
+                      <svg
+                        className="mx-auto h-12 w-12 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                      <h4 className="mt-4 text-sm font-medium text-gray-900">
+                        暂无复盘报告
+                      </h4>
+                      <p className="mt-1 text-xs text-gray-500">
+                        完成一次完整推演后，系统将自动生成复盘分析报告
+                      </p>
                     </div>
                   )}
                 </div>

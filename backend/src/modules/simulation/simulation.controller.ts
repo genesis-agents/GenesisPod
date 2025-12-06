@@ -12,6 +12,7 @@ import { AdminGuard } from "../../common/guards/admin.guard";
 import { SimulationService } from "./simulation.service";
 import { SimulationTeam } from "@prisma/client";
 import { ExternalDataService } from "./external-data.service";
+import { AIAssistService } from "./ai-assist.service";
 
 @Controller("simulation")
 @UseGuards(JwtAuthGuard, AdminGuard)
@@ -19,6 +20,7 @@ export class SimulationController {
   constructor(
     private readonly simulationService: SimulationService,
     private readonly externalData: ExternalDataService,
+    private readonly aiAssist: AIAssistService,
   ) {}
 
   @Post("scenarios")
@@ -103,7 +105,54 @@ export class SimulationController {
   }
 
   @Get("external/snapshot")
-  async getExternalSnapshot() {
+  async getExternalSnapshot(): Promise<any> {
     return this.externalData.getSnapshot();
+  }
+
+  // ========== AI Assist APIs ==========
+
+  /**
+   * AI辅助分析行业竞争格局，推荐公司和角色配置
+   */
+  @Post("ai-assist/analyze")
+  async analyzeIndustry(
+    @Body()
+    body: {
+      industry: string;
+      region?: string;
+      existingCompanies?: string[];
+    },
+  ): Promise<any> {
+    return this.aiAssist.analyzeIndustry(body);
+  }
+
+  /**
+   * AI辅助推荐角色配置
+   */
+  @Post("ai-assist/suggest-agents")
+  async suggestAgents(
+    @Body()
+    body: {
+      industry: string;
+      companies: Array<{ name: string; type: string }>;
+      existingAgents?: Array<{ role: string; team: string }>;
+    },
+  ): Promise<any> {
+    return this.aiAssist.suggestAgents(body);
+  }
+
+  /**
+   * AI辅助生成推演场景建议
+   */
+  @Post("ai-assist/suggest-scenario")
+  async suggestScenario(
+    @Body()
+    body: {
+      industry: string;
+      region?: string;
+      goals?: string;
+    },
+  ): Promise<any> {
+    return this.aiAssist.generateScenarioSuggestions(body);
   }
 }

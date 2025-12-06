@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/config';
@@ -81,6 +82,7 @@ interface ExternalSnapshot {
 }
 
 export default function AISimulationPage() {
+  const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
   const [scenarios, setScenarios] = useState<ScenarioCard[]>([]);
@@ -160,7 +162,14 @@ export default function AISimulationPage() {
     setShowEditor(true);
   };
 
-  const handleOpen = (scenario: ScenarioCard) => {
+  // 点击卡片 -> 进入详情页查看推演过程
+  const handleViewDetail = (scenario: ScenarioCard) => {
+    router.push(`/ai-simulation/${scenario.id}`);
+  };
+
+  // 编辑按钮 -> 打开编辑器修改配置
+  const handleEdit = (scenario: ScenarioCard, e: React.MouseEvent) => {
+    e.stopPropagation(); // 阻止冒泡到卡片点击
     setEditing(scenario);
     setSeed(null);
     setShowEditor(true);
@@ -349,16 +358,53 @@ export default function AISimulationPage() {
                     <div
                       key={s.id}
                       className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md"
-                      onClick={() => handleOpen(s)}
+                      onClick={() => handleViewDetail(s)}
                     >
+                      {/* Edit Button - 悬浮显示 */}
+                      <button
+                        onClick={(e) => handleEdit(s, e)}
+                        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-lg bg-white/80 opacity-0 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:shadow-md group-hover:opacity-100"
+                        title="编辑场景配置"
+                      >
+                        <svg
+                          className="h-4 w-4 text-gray-600"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                          />
+                        </svg>
+                      </button>
+
                       {/* Icon & Status */}
                       <div className="mb-3 flex items-start justify-between">
                         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 text-2xl">
                           ⚔️
                         </div>
                         {run ? (
-                          <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
-                            {run.status}
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                              run.status === 'RUNNING'
+                                ? 'bg-green-100 text-green-700'
+                                : run.status === 'COMPLETED'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : run.status === 'PAUSED'
+                                    ? 'bg-yellow-100 text-yellow-700'
+                                    : 'bg-purple-100 text-purple-700'
+                            }`}
+                          >
+                            {run.status === 'RUNNING'
+                              ? '运行中'
+                              : run.status === 'COMPLETED'
+                                ? '已完成'
+                                : run.status === 'PAUSED'
+                                  ? '已暂停'
+                                  : run.status}
                           </span>
                         ) : (
                           <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
@@ -390,9 +436,12 @@ export default function AISimulationPage() {
                         )}
                       </div>
 
-                      {/* Updated Time */}
-                      <div className="mt-3 text-xs text-gray-500">
-                        {new Date(s.updatedAt).toLocaleString()}
+                      {/* Updated Time & Hint */}
+                      <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
+                        <span>{new Date(s.updatedAt).toLocaleString()}</span>
+                        <span className="text-indigo-500 opacity-0 transition-opacity group-hover:opacity-100">
+                          点击查看详情 →
+                        </span>
                       </div>
                     </div>
                   );

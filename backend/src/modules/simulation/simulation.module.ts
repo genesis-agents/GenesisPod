@@ -5,10 +5,16 @@ import { SimulationService } from "./simulation.service";
 import { SimulationController } from "./simulation.controller";
 import { SimulationEngineService } from "./simulation.engine";
 import { ExternalDataService } from "./external-data.service";
+import { AIAssistService } from "./ai-assist.service";
 
 @Module({
   imports: [PrismaModule, AiModule],
   controllers: [SimulationController],
-  providers: [SimulationService, SimulationEngineService, ExternalDataService],
+  providers: [
+    SimulationService,
+    SimulationEngineService,
+    ExternalDataService,
+    AIAssistService,
+  ],
 })
 export class SimulationModule {}
