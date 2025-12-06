@@ -134,6 +134,8 @@ interface Resource {
   title: string;
   abstract?: string;
   aiSummary?: string;
+  keyInsights?: AIInsight[];
+  methodology?: string;
   publishedAt: string;
   sourceUrl: string;
   pdfUrl?: string;
@@ -1264,9 +1266,39 @@ function HomeContent() {
     }
   };
 
-  // AI Functions
+  // Helper function to save AI analysis to database
+  const saveAIAnalysisToDatabase = async (
+    resourceId: string,
+    data: {
+      aiSummary?: string;
+      keyInsights?: AIInsight[];
+      methodology?: string;
+    }
+  ) => {
+    try {
+      const res = await fetch(`${config.apiUrl}/resources/${resourceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (res.ok) {
+        console.log('AI analysis saved to database for resource:', resourceId);
+      }
+    } catch (error) {
+      console.error('Failed to save AI analysis to database:', error);
+    }
+  };
+
+  // AI Functions - with database caching
   const generateSummary = async (resource: Resource) => {
     if (!resource) return;
+
+    // Check if we already have summary in database
+    if (resource.aiSummary) {
+      console.log('Using cached summary from database');
+      setAiSummary(resource.aiSummary);
+      return;
+    }
 
     try {
       setAiLoading(true);
@@ -1304,6 +1336,11 @@ function HomeContent() {
 
       const data = await res.json();
       setAiSummary(data.summary);
+
+      // Save to database for future use
+      if (data.summary) {
+        saveAIAnalysisToDatabase(resource.id, { aiSummary: data.summary });
+      }
     } catch (error) {
       console.error('Failed to generate summary:', error);
       setAiSummary(
@@ -1316,6 +1353,13 @@ function HomeContent() {
 
   const generateInsights = async (resource: Resource) => {
     if (!resource) return;
+
+    // Check if we already have insights in database
+    if (resource.keyInsights && resource.keyInsights.length > 0) {
+      console.log('Using cached insights from database');
+      setAiInsights(resource.keyInsights);
+      return;
+    }
 
     try {
       // Use extracted article content if available, otherwise fallback to abstract/title
@@ -1332,7 +1376,13 @@ function HomeContent() {
       });
 
       const data = await res.json();
-      setAiInsights(data.insights || []);
+      const insights = data.insights || [];
+      setAiInsights(insights);
+
+      // Save to database for future use
+      if (insights.length > 0) {
+        saveAIAnalysisToDatabase(resource.id, { keyInsights: insights });
+      }
     } catch (error) {
       console.error('Failed to generate insights:', error);
     }
@@ -1648,6 +1698,38 @@ function HomeContent() {
   ) => {
     if (!selectedResource) return;
 
+    // Check if we already have cached data in database
+    if (action === 'summary' && selectedResource.aiSummary) {
+      console.log('Using cached summary from database');
+      setAiSummary(selectedResource.aiSummary);
+      const assistantMessage: AIMessage = {
+        role: 'assistant',
+        content: selectedResource.aiSummary,
+        timestamp: new Date(),
+      };
+      setAiMessages((prev) => [...prev, assistantMessage]);
+      return;
+    }
+
+    if (
+      action === 'insights' &&
+      selectedResource.keyInsights &&
+      selectedResource.keyInsights.length > 0
+    ) {
+      console.log('Using cached insights from database');
+      setAiInsights(selectedResource.keyInsights);
+      return;
+    }
+
+    if (action === 'methodology' && selectedResource.methodology) {
+      console.log('Using cached methodology from database');
+      const parsedMethodology = parseMarkdownToInsights(
+        selectedResource.methodology
+      );
+      setAiMethodology(parsedMethodology);
+      return;
+    }
+
     setAiLoading(true);
 
     try {
@@ -1679,51 +1761,66 @@ function HomeContent() {
       // Parse and set the appropriate state based on action type
       if (action === 'summary') {
         setAiSummary(data.content);
+        // Save to database
+        if (data.content) {
+          saveAIAnalysisToDatabase(selectedResource.id, {
+            aiSummary: data.content,
+          });
+        }
       } else if (action === 'insights') {
         // Handle insights response - content may be array (pre-parsed) or string
+        let parsedInsights: AIInsight[] = [];
         if (Array.isArray(data.content)) {
-          setAiInsights(data.content);
+          parsedInsights = data.content;
         } else if (typeof data.content === 'string') {
           try {
             const insights = JSON.parse(data.content);
             if (Array.isArray(insights)) {
-              setAiInsights(insights);
-            } else {
-              setAiInsights([]);
+              parsedInsights = insights;
             }
           } catch {
             // If not valid JSON, try to parse markdown format
             console.log(
               'JSON parsing failed, trying markdown parsing for insights'
             );
-            const parsedInsights = parseMarkdownToInsights(data.content);
-            setAiInsights(parsedInsights);
+            parsedInsights = parseMarkdownToInsights(data.content);
           }
-        } else {
-          setAiInsights([]);
+        }
+        setAiInsights(parsedInsights);
+        // Save to database
+        if (parsedInsights.length > 0) {
+          saveAIAnalysisToDatabase(selectedResource.id, {
+            keyInsights: parsedInsights,
+          });
         }
       } else if (action === 'methodology') {
         // Handle methodology response - content may be array (pre-parsed) or string
+        let parsedMethodology: AIInsight[] = [];
+        let methodologyText = '';
         if (Array.isArray(data.content)) {
-          setAiMethodology(data.content);
+          parsedMethodology = data.content;
+          methodologyText = JSON.stringify(data.content);
         } else if (typeof data.content === 'string') {
+          methodologyText = data.content;
           try {
             const methodology = JSON.parse(data.content);
             if (Array.isArray(methodology)) {
-              setAiMethodology(methodology);
-            } else {
-              setAiMethodology([]);
+              parsedMethodology = methodology;
             }
           } catch {
             // If not valid JSON, try to parse markdown format
             console.log(
               'JSON parsing failed, trying markdown parsing for methodology'
             );
-            const parsedMethodology = parseMarkdownToInsights(data.content);
-            setAiMethodology(parsedMethodology);
+            parsedMethodology = parseMarkdownToInsights(data.content);
           }
-        } else {
-          setAiMethodology([]);
+        }
+        setAiMethodology(parsedMethodology);
+        // Save to database
+        if (methodologyText) {
+          saveAIAnalysisToDatabase(selectedResource.id, {
+            methodology: methodologyText,
+          });
         }
       }
 

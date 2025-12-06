@@ -133,6 +133,8 @@ interface Resource {
   title: string;
   abstract?: string;
   aiSummary?: string;
+  keyInsights?: AIInsight[];
+  methodology?: string;
   publishedAt: string;
   sourceUrl: string;
   pdfUrl?: string;
@@ -1126,9 +1128,39 @@ function HomeContent() {
     }
   };
 
-  // AI Functions
+  // Helper function to save AI analysis to database
+  const saveAIAnalysisToDatabase = async (
+    resourceId: string,
+    data: {
+      aiSummary?: string;
+      keyInsights?: AIInsight[];
+      methodology?: string;
+    }
+  ) => {
+    try {
+      const res = await fetch(`${config.apiUrl}/resources/${resourceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (res.ok) {
+        console.log('AI analysis saved to database for resource:', resourceId);
+      }
+    } catch (error) {
+      console.error('Failed to save AI analysis to database:', error);
+    }
+  };
+
+  // AI Functions - with database caching
   const generateSummary = async (resource: Resource) => {
     if (!resource) return;
+
+    // Check if we already have summary in database
+    if (resource.aiSummary) {
+      console.log('Using cached summary from database');
+      setAiSummary(resource.aiSummary);
+      return;
+    }
 
     try {
       setAiLoading(true);
@@ -1166,6 +1198,11 @@ function HomeContent() {
 
       const data = await res.json();
       setAiSummary(data.summary);
+
+      // Save to database for future use
+      if (data.summary) {
+        saveAIAnalysisToDatabase(resource.id, { aiSummary: data.summary });
+      }
     } catch (error) {
       console.error('Failed to generate summary:', error);
       setAiSummary(
@@ -1178,6 +1215,13 @@ function HomeContent() {
 
   const generateInsights = async (resource: Resource) => {
     if (!resource) return;
+
+    // Check if we already have insights in database
+    if (resource.keyInsights && resource.keyInsights.length > 0) {
+      console.log('Using cached insights from database');
+      setAiInsights(resource.keyInsights);
+      return;
+    }
 
     try {
       // Use extracted article content if available, otherwise fallback to abstract/title
@@ -1194,7 +1238,13 @@ function HomeContent() {
       });
 
       const data = await res.json();
-      setAiInsights(data.insights || []);
+      const insights = data.insights || [];
+      setAiInsights(insights);
+
+      // Save to database for future use
+      if (insights.length > 0) {
+        saveAIAnalysisToDatabase(resource.id, { keyInsights: insights });
+      }
     } catch (error) {
       console.error('Failed to generate insights:', error);
     }
