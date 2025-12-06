@@ -123,8 +123,8 @@ const EXTRACTION_PROVIDERS = [
   },
 ] as const;
 
-// Data API Categories with Provider support
-interface DataAPIProvider {
+// Simulation API Categories with Provider support
+interface SimulationAPIProvider {
   id: string;
   name: string;
   baseUrl: string;
@@ -134,7 +134,7 @@ interface DataAPIProvider {
   isDefault: boolean;
 }
 
-interface DataAPICategory {
+interface SimulationAPICategory {
   id: string;
   name: string;
   nameZh: string;
@@ -142,10 +142,10 @@ interface DataAPICategory {
   icon: string;
   gradientFrom: string;
   gradientTo: string;
-  providers: DataAPIProvider[];
+  providers: SimulationAPIProvider[];
 }
 
-const DEFAULT_DATA_API_CATEGORIES: DataAPICategory[] = [
+const DEFAULT_SIMULATION_API_CATEGORIES: SimulationAPICategory[] = [
   {
     id: 'market',
     name: 'Market & Pricing',
@@ -218,10 +218,10 @@ export default function ExternalAPISettings() {
     tavily: '',
   });
 
-  // Data APIs state
-  const [dataAPICategories, setDataAPICategories] = useState<DataAPICategory[]>(
-    DEFAULT_DATA_API_CATEGORIES
-  );
+  // Simulation APIs state
+  const [simulationAPICategories, setSimulationAPICategories] = useState<
+    SimulationAPICategory[]
+  >(DEFAULT_SIMULATION_API_CATEGORIES);
 
   // Balance info state
   const [balances, setBalances] = useState<Record<string, BalanceInfo>>({});
@@ -245,12 +245,16 @@ export default function ExternalAPISettings() {
   const loadConfigs = useCallback(async () => {
     setLoading(true);
     try {
-      const [searchRes, extractionRes] = await Promise.all([
+      const [searchRes, extractionRes, providersRes] = await Promise.all([
         fetch(`${config.apiUrl}/admin/search-config`, {
           headers: { ...getAuthHeader() },
           credentials: 'include',
         }),
         fetch(`${config.apiUrl}/admin/extraction-config`, {
+          headers: { ...getAuthHeader() },
+          credentials: 'include',
+        }),
+        fetch(`${config.apiUrl}/admin/external-providers`, {
           headers: { ...getAuthHeader() },
           credentials: 'include',
         }),
@@ -264,6 +268,28 @@ export default function ExternalAPISettings() {
       if (extractionRes.ok) {
         const data = await extractionRes.json();
         setExtractionConfig(data);
+      }
+
+      if (providersRes.ok) {
+        const providers = await providersRes.json();
+        // Group providers by category
+        if (Array.isArray(providers) && providers.length > 0) {
+          const categorized = DEFAULT_SIMULATION_API_CATEGORIES.map((cat) => ({
+            ...cat,
+            providers: providers
+              .filter((p: any) => p.category === cat.id)
+              .map((p: any) => ({
+                id: p.id.replace(`${cat.id}-`, ''),
+                name: p.name,
+                baseUrl: p.baseUrl || '',
+                apiKey: p.apiKey ? '***masked***' : '',
+                headers: p.headers || '',
+                enabled: p.enabled ?? false,
+                isDefault: p.isDefault ?? false,
+              })),
+          }));
+          setSimulationAPICategories(categorized);
+        }
       }
     } catch (err) {
       console.error('Failed to load configs:', err);
@@ -352,15 +378,15 @@ export default function ExternalAPISettings() {
     }
   };
 
-  // Data APIs Management Functions
-  const handleSaveDataAPIs = async () => {
+  // Simulation APIs Management Functions
+  const handleSaveSimulationAPIs = async () => {
     setSaving(true);
     setMessage(null);
 
     try {
       // Flatten all providers from all categories
       const allProviders: any[] = [];
-      dataAPICategories.forEach((category) => {
+      simulationAPICategories.forEach((category) => {
         category.providers.forEach((provider) => {
           allProviders.push({
             id: `${category.id}-${provider.id}`,
@@ -390,21 +416,27 @@ export default function ExternalAPISettings() {
       });
 
       if (res.ok) {
-        setMessage({ type: 'success', text: 'Data APIs 配置保存成功' });
+        setMessage({ type: 'success', text: 'Simulation APIs 配置保存成功' });
+        // Reload configs to show saved data
+        await loadConfigs();
         setTimeout(() => setMessage(null), 3000);
       } else {
-        setMessage({ type: 'error', text: '保存配置失败' });
+        const errorData = await res.json().catch(() => ({}));
+        setMessage({
+          type: 'error',
+          text: `保存配置失败: ${errorData.message || res.statusText}`,
+        });
       }
     } catch (err) {
-      console.error('Failed to save Data APIs config:', err);
+      console.error('Failed to save Simulation APIs config:', err);
       setMessage({ type: 'error', text: '保存配置失败' });
     } finally {
       setSaving(false);
     }
   };
 
-  const addDataAPIProvider = (categoryId: string) => {
-    setDataAPICategories((prev) =>
+  const addSimulationAPIProvider = (categoryId: string) => {
+    setSimulationAPICategories((prev) =>
       prev.map((cat) => {
         if (cat.id === categoryId) {
           const newProviderId = `provider-${Date.now()}`;
@@ -428,12 +460,12 @@ export default function ExternalAPISettings() {
     );
   };
 
-  const updateDataAPIProvider = (
+  const updateSimulationAPIProvider = (
     categoryId: string,
     providerId: string,
-    updates: Partial<DataAPIProvider>
+    updates: Partial<SimulationAPIProvider>
   ) => {
-    setDataAPICategories((prev) =>
+    setSimulationAPICategories((prev) =>
       prev.map((cat) => {
         if (cat.id === categoryId) {
           return {
@@ -455,8 +487,11 @@ export default function ExternalAPISettings() {
     );
   };
 
-  const removeDataAPIProvider = (categoryId: string, providerId: string) => {
-    setDataAPICategories((prev) =>
+  const removeSimulationAPIProvider = (
+    categoryId: string,
+    providerId: string
+  ) => {
+    setSimulationAPICategories((prev) =>
       prev.map((cat) => {
         if (cat.id === categoryId) {
           const newProviders = cat.providers.filter((p) => p.id !== providerId);
@@ -786,7 +821,7 @@ export default function ExternalAPISettings() {
           }`}
         >
           <TrendingUp className="h-4 w-4" />
-          战略推演 API
+          推演数据源 API
         </button>
       </div>
 
@@ -1239,7 +1274,7 @@ export default function ExternalAPISettings() {
         </div>
       )}
 
-      {/* Strategic Simulation APIs Tab - Card-Based Design */}
+      {/* Simulation APIs Tab - Card-Based Design */}
       {activeTab === 'simulation' && (
         <div className="space-y-6">
           <div className="rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50 p-5">
@@ -1249,7 +1284,9 @@ export default function ExternalAPISettings() {
                   <TrendingUp className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">战略推演 API</h3>
+                  <h3 className="font-semibold text-gray-900">
+                    推演数据源 API
+                  </h3>
                   <p className="text-sm text-gray-600">
                     为 AI Simulation 配置真实数据源，支持多 Provider
                     并设置默认值
@@ -1265,7 +1302,7 @@ export default function ExternalAPISettings() {
 
           {/* Category Cards */}
           <div className="grid gap-6 md:grid-cols-2">
-            {dataAPICategories.map((category) => (
+            {simulationAPICategories.map((category) => (
               <div
                 key={category.id}
                 className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
@@ -1307,9 +1344,13 @@ export default function ExternalAPISettings() {
                           type="text"
                           value={provider.name}
                           onChange={(e) =>
-                            updateDataAPIProvider(category.id, provider.id, {
-                              name: e.target.value,
-                            })
+                            updateSimulationAPIProvider(
+                              category.id,
+                              provider.id,
+                              {
+                                name: e.target.value,
+                              }
+                            )
                           }
                           className="flex-1 rounded border-0 bg-transparent text-sm font-medium text-gray-700 focus:outline-none focus:ring-0"
                           placeholder="Provider 名称"
@@ -1333,7 +1374,10 @@ export default function ExternalAPISettings() {
                           </span>
                           <button
                             onClick={() =>
-                              removeDataAPIProvider(category.id, provider.id)
+                              removeSimulationAPIProvider(
+                                category.id,
+                                provider.id
+                              )
                             }
                             className="text-red-500 hover:text-red-700"
                             title="删除"
@@ -1346,9 +1390,13 @@ export default function ExternalAPISettings() {
                         type="text"
                         value={provider.baseUrl}
                         onChange={(e) =>
-                          updateDataAPIProvider(category.id, provider.id, {
-                            baseUrl: e.target.value,
-                          })
+                          updateSimulationAPIProvider(
+                            category.id,
+                            provider.id,
+                            {
+                              baseUrl: e.target.value,
+                            }
+                          )
                         }
                         placeholder="Base URL (https://api.example.com)"
                         className="mb-2 w-full rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
@@ -1357,9 +1405,13 @@ export default function ExternalAPISettings() {
                         type="password"
                         value={provider.apiKey}
                         onChange={(e) =>
-                          updateDataAPIProvider(category.id, provider.id, {
-                            apiKey: e.target.value,
-                          })
+                          updateSimulationAPIProvider(
+                            category.id,
+                            provider.id,
+                            {
+                              apiKey: e.target.value,
+                            }
+                          )
                         }
                         placeholder="API Key"
                         className="mb-2 w-full rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
@@ -1367,9 +1419,13 @@ export default function ExternalAPISettings() {
                       <textarea
                         value={provider.headers || ''}
                         onChange={(e) =>
-                          updateDataAPIProvider(category.id, provider.id, {
-                            headers: e.target.value,
-                          })
+                          updateSimulationAPIProvider(
+                            category.id,
+                            provider.id,
+                            {
+                              headers: e.target.value,
+                            }
+                          )
                         }
                         placeholder='Headers (JSON): {"X-API-KEY": "..."}'
                         rows={2}
@@ -1381,9 +1437,13 @@ export default function ExternalAPISettings() {
                             type="checkbox"
                             checked={provider.enabled}
                             onChange={(e) =>
-                              updateDataAPIProvider(category.id, provider.id, {
-                                enabled: e.target.checked,
-                              })
+                              updateSimulationAPIProvider(
+                                category.id,
+                                provider.id,
+                                {
+                                  enabled: e.target.checked,
+                                }
+                              )
                             }
                             className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                           />
@@ -1392,9 +1452,13 @@ export default function ExternalAPISettings() {
                         {!provider.isDefault && (
                           <button
                             onClick={() =>
-                              updateDataAPIProvider(category.id, provider.id, {
-                                isDefault: true,
-                              })
+                              updateSimulationAPIProvider(
+                                category.id,
+                                provider.id,
+                                {
+                                  isDefault: true,
+                                }
+                              )
                             }
                             className="text-xs text-indigo-600 hover:text-indigo-700"
                           >
@@ -1406,7 +1470,7 @@ export default function ExternalAPISettings() {
                   ))}
 
                   <button
-                    onClick={() => addDataAPIProvider(category.id)}
+                    onClick={() => addSimulationAPIProvider(category.id)}
                     className="w-full rounded-lg border-2 border-dashed border-gray-300 py-2 text-sm text-gray-500 hover:border-indigo-300 hover:text-indigo-600"
                   >
                     + 添加 Provider
@@ -1419,7 +1483,7 @@ export default function ExternalAPISettings() {
           {/* Save Button */}
           <div className="flex justify-end">
             <button
-              onClick={() => void handleSaveDataAPIs()}
+              onClick={() => void handleSaveSimulationAPIs()}
               disabled={saving}
               className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-500/20 hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50"
             >
@@ -1428,7 +1492,7 @@ export default function ExternalAPISettings() {
               ) : (
                 <Save className="h-4 w-4" />
               )}
-              保存 Data APIs 配置
+              保存推演数据源配置
             </button>
           </div>
         </div>

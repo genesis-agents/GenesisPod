@@ -346,12 +346,10 @@ export class SimulationEngineService {
           note: "依据不足",
         });
       });
-      return {
-        ruling: "insufficient_evidence",
-        notes: "部分外部数据缺失，需补充后再判定。",
-        evidenceRefs,
-        worldDelta: worldState,
-      };
+      // Warning: 允许推演继续，但标记数据不完整
+      this.logger.warn(
+        `[Adjudication] Missing external data: ${missing.join(", ")} - continuing with limited evidence`,
+      );
     }
 
     // Minimal heuristic: mirror current state + submissions count
@@ -434,7 +432,9 @@ export class SimulationEngineService {
     // 生成裁判结论
     let ruling = "proceed";
     let notes =
-      "数据齐备，所有行动可行性已验证，可继续下一回合或等待人类干预。";
+      missing.length > 0
+        ? `部分外部数据缺失 [${missing.join(", ")}]，推演继续但依据有限。所有行动可行性已验证，可继续下一回合或等待人类干预。`
+        : "数据齐备，所有行动可行性已验证，可继续下一回合或等待人类干预。";
 
     if (chaosTriggered && blackSwanEvent) {
       ruling = "black_swan";

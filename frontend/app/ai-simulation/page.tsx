@@ -1511,7 +1511,7 @@ function EditorModal({
               )}
 
               {/* 公司列表 */}
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {companies.map((c, idx) => (
                   <CompanyCard
                     key={idx}
@@ -1820,7 +1820,7 @@ function EditorModal({
               </div>
 
               {/* 角色列表 */}
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {agents.map((a, idx) => (
                   <AgentCard
                     key={idx}
