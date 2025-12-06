@@ -2130,8 +2130,10 @@ function HomeContent() {
                         className="group cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-white transition-all hover:shadow-lg"
                       >
                         <div className="flex h-48">
-                          {/* Thumbnail - 左侧固定宽度256px(w-64)，高度192px(h-48) */}
-                          <div className="relative h-48 w-64 flex-shrink-0 overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
+                          {/* Thumbnail - 论文使用竖向比例(w-36)，其他使用横向比例(w-64) */}
+                          <div
+                            className={`relative h-48 flex-shrink-0 overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 ${resource.type === 'PAPER' ? 'w-36' : 'w-64'}`}
+                          >
                             <ResourceThumbnail
                               resource={resource}
                               className="h-full w-full"
