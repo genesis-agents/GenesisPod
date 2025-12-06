@@ -2085,11 +2085,17 @@ model SystemSetting {
 
 // ============ AI模型配置 ============
 
-// AI模型类型枚举
+// AI模型类型枚举 - 支持 Tier 分级
 enum AIModelType {
-  CHAT // 文本聊天模型 (GPT-4, Claude, Gemini Pro)
+  // === 文本聊天 Tier ===
+  CHAT // 标准聊天模型 (GPT-4, Claude, Gemini Pro) - 用于复杂对话和分析
+  CHAT_FAST // 快速/低成本聊天模型 (GPT-4o-mini, Claude Haiku, Gemini Flash) - 用于简单任务：分类、翻译、摘要提取
+
+  // === 图片处理 Tier ===
   IMAGE_GENERATION // 图片生成模型 (DALL-E 3, Imagen 4, Midjourney)
   IMAGE_EDITING // 图片编辑模型 (Imagen 3, DALL-E 2 edit)
+
+  // === 多模态 Tier ===
   MULTIMODAL // 多模态模型 (Gemini 2.0 Flash - 同时支持文本和图片)
 }
 

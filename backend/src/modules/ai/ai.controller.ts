@@ -643,6 +643,7 @@ JSON output:`;
   /**
    * 摘要接口
    * POST /api/v1/ai/summary
+   * 使用 CHAT_FAST tier 进行快速摘要生成
    */
   @Post("summary")
   async summary(@Body() body: SummaryRequest) {
@@ -653,7 +654,8 @@ JSON output:`;
     }
 
     try {
-      const modelConfig = await this.getDefaultModelConfig();
+      // 使用 CHAT_FAST tier（低成本快速模型）
+      const modelConfig = await this.getFastModelConfig();
       const prompt =
         language === "zh"
           ? `请为以下内容生成简洁的摘要：\n\n${content}\n\n要求：简明扼要，突出重点。`
@@ -687,6 +689,7 @@ JSON output:`;
   /**
    * 洞察接口
    * POST /api/v1/ai/insights
+   * 使用 CHAT_FAST tier 进行结构化信息提取
    */
   @Post("insights")
   async insights(@Body() body: InsightsRequest) {
@@ -697,7 +700,8 @@ JSON output:`;
     }
 
     try {
-      const modelConfig = await this.getDefaultModelConfig();
+      // 使用 CHAT_FAST tier（低成本快速模型）
+      const modelConfig = await this.getFastModelConfig();
       const prompt = `You are a JSON-only API. Extract key insights from the following content.
 
 Content:
@@ -803,16 +807,30 @@ JSON output:`;
   }
 
   /**
-   * Helper: Get default CHAT model config
-   * 使用 modelType = CHAT 进行筛选
+   * Helper: Get model config by type with fallback support
+   * 支持 Tier 分级，如果指定类型没有模型，会自动降级到 CHAT
+   * @param modelType - 模型类型
+   * @param allowFallback - 是否允许降级到 CHAT（默认 true）
    */
-  private async getDefaultModelConfig() {
-    // 首先尝试获取设置为默认的聊天模型
+  private async getModelByType(
+    modelType: AIModelType,
+    allowFallback: boolean = true,
+  ): Promise<{
+    id: string;
+    name: string;
+    provider: string;
+    modelId: string;
+    apiKey: string | null;
+    apiEndpoint: string;
+    maxTokens: number;
+    temperature: number;
+  }> {
+    // 首先尝试获取指定类型的默认模型
     const defaultModel = await this.prisma.aIModel.findFirst({
       where: {
         isEnabled: true,
         isDefault: true,
-        modelType: AIModelType.CHAT,
+        modelType: modelType,
       },
     });
 
@@ -820,20 +838,35 @@ JSON output:`;
       return defaultModel;
     }
 
-    // 如果没有默认的聊天模型，查找任意可用的聊天模型
-    const anyModel = await this.prisma.aIModel.findFirst({
+    // 如果没有默认模型，查找任意该类型的可用模型
+    const anyModelOfType = await this.prisma.aIModel.findFirst({
       where: {
         isEnabled: true,
-        modelType: AIModelType.CHAT,
+        modelType: modelType,
       },
       orderBy: { createdAt: "desc" },
     });
 
-    if (!anyModel) {
-      throw new BadRequestException("No CHAT AI model is available");
+    if (anyModelOfType) {
+      return anyModelOfType;
     }
 
-    return anyModel;
+    // 如果允许降级且不是 CHAT 类型，降级到 CHAT
+    if (allowFallback && modelType !== AIModelType.CHAT) {
+      this.logger.warn(`No ${modelType} model available, falling back to CHAT`);
+      return this.getModelByType(AIModelType.CHAT, false);
+    }
+
+    throw new BadRequestException(`No ${modelType} AI model is available`);
+  }
+
+  /**
+   * Helper: Get fast/cheap model for simple tasks
+   * 用于分类、翻译、摘要提取等简单任务
+   * 如果没有配置 CHAT_FAST，会自动降级到 CHAT
+   */
+  private async getFastModelConfig() {
+    return this.getModelByType(AIModelType.CHAT_FAST);
   }
 
   /**

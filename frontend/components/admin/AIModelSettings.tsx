@@ -4,30 +4,49 @@ import { useState, useEffect } from 'react';
 import { config } from '@/lib/config';
 import { getAuthHeader } from '@/lib/auth';
 
-// AI模型类型枚举
-type AIModelType = 'CHAT' | 'IMAGE_GENERATION' | 'IMAGE_EDITING' | 'MULTIMODAL';
+// AI模型类型枚举 - 支持 Tier 分级
+type AIModelType =
+  | 'CHAT'
+  | 'CHAT_FAST'
+  | 'IMAGE_GENERATION'
+  | 'IMAGE_EDITING'
+  | 'MULTIMODAL';
 
-// 模型类型选项
+// 模型类型选项 - 按 Tier 分组
 const MODEL_TYPE_OPTIONS = [
+  // === 文本聊天 Tier ===
   {
     value: 'CHAT',
-    label: '文本聊天',
-    description: 'GPT-4, Claude, Gemini Pro 等',
+    label: '标准聊天',
+    description: 'GPT-4, Claude, Gemini Pro 等 - 用于复杂对话和深度分析',
+    tier: 'text',
   },
+  {
+    value: 'CHAT_FAST',
+    label: '快速聊天',
+    description:
+      'GPT-4o-mini, Claude Haiku, Gemini Flash 等 - 用于分类、翻译、摘要等低成本任务',
+    tier: 'text',
+  },
+  // === 图片处理 Tier ===
   {
     value: 'IMAGE_GENERATION',
     label: '图片生成',
     description: 'DALL-E 3, Imagen 4, Midjourney 等',
+    tier: 'image',
   },
   {
     value: 'IMAGE_EDITING',
     label: '图片编辑',
     description: 'Imagen 3, DALL-E 2 edit 等',
+    tier: 'image',
   },
+  // === 多模态 Tier ===
   {
     value: 'MULTIMODAL',
     label: '多模态',
     description: 'Gemini 2.0 Flash - 同时支持文本和图片',
+    tier: 'multimodal',
   },
 ];
 

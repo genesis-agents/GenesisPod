@@ -74,28 +74,50 @@ export class AiService {
     this.logger.log(`Translating text from ${sourceLang} to ${targetLang}`);
 
     try {
-      // 优先使用设置为默认的 CHAT 类型模型
+      // 优先使用 CHAT_FAST tier（低成本快速模型）
       let defaultModel = await this.prisma.aIModel.findFirst({
         where: {
           isEnabled: true,
           isDefault: true,
-          modelType: AIModelType.CHAT,
+          modelType: AIModelType.CHAT_FAST,
         },
       });
 
-      // 如果没有默认的 CHAT 模型，查找任意可用的 CHAT 模型
+      // 如果没有默认的 CHAT_FAST 模型，查找任意可用的 CHAT_FAST 模型
       if (!defaultModel) {
         defaultModel = await this.prisma.aIModel.findFirst({
           where: {
             isEnabled: true,
-            modelType: AIModelType.CHAT,
+            modelType: AIModelType.CHAT_FAST,
           },
           orderBy: { createdAt: "desc" },
         });
       }
 
+      // Fallback: 如果没有 CHAT_FAST 模型，使用标准 CHAT 模型
       if (!defaultModel) {
-        throw new Error("No CHAT AI model available for translation");
+        this.logger.warn("No CHAT_FAST model available, falling back to CHAT");
+        defaultModel = await this.prisma.aIModel.findFirst({
+          where: {
+            isEnabled: true,
+            isDefault: true,
+            modelType: AIModelType.CHAT,
+          },
+        });
+
+        if (!defaultModel) {
+          defaultModel = await this.prisma.aIModel.findFirst({
+            where: {
+              isEnabled: true,
+              modelType: AIModelType.CHAT,
+            },
+            orderBy: { createdAt: "desc" },
+          });
+        }
+      }
+
+      if (!defaultModel) {
+        throw new Error("No AI model available for translation");
       }
 
       this.logger.log(
