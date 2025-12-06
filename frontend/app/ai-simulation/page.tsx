@@ -502,6 +502,62 @@ export default function AISimulationPage() {
               </div>
             </div>
           )}
+
+          {runData?.summary && (
+            <div className="space-y-3 rounded-xl border border-gray-200 bg-white p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-900">
+                  复盘与归因
+                </h3>
+                <span className="text-xs text-gray-500">
+                  聚焦内心独白与判定
+                </span>
+              </div>
+              <div className="space-y-2">
+                <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                  <h4 className="text-xs font-medium text-gray-600">
+                    关键发现
+                  </h4>
+                  <ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-gray-800">
+                    {runData.summary.keyFindings?.length ? (
+                      runData.summary.keyFindings.map(
+                        (f: string, i: number) => <li key={i}>{f}</li>
+                      )
+                    ) : (
+                      <li>暂无</li>
+                    )}
+                  </ul>
+                </div>
+                <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                  <h4 className="text-xs font-medium text-gray-600">
+                    内心独白日志
+                  </h4>
+                  <div className="max-h-48 space-y-2 overflow-auto">
+                    {runData.summary.monologueLog?.length ? (
+                      runData.summary.monologueLog.map((m: any, i: number) => (
+                        <div
+                          key={i}
+                          className="rounded-md bg-white p-2 text-[11px] shadow-sm"
+                        >
+                          <div className="flex items-center justify-between text-gray-600">
+                            <span>
+                              R{m.round} · {m.team} · {m.role}
+                            </span>
+                            <span className="text-gray-400">{m.timestamp}</span>
+                          </div>
+                          <div className="mt-1 break-words text-gray-800">
+                            {m.innerMonologue}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-xs text-gray-500">暂无日志</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

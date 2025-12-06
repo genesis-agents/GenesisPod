@@ -63,11 +63,14 @@ export class SimulationEngineService {
       );
     }
 
+    const debrief = await this.computeDebrief(run.id);
+
     await this.prisma.simulationRun.update({
       where: { id: run.id },
       data: {
         status: SimulationRunStatus.COMPLETED,
         currentRound: rounds,
+        summary: debrief as Prisma.InputJsonValue,
         completedAt: new Date(),
       },
     });
@@ -265,6 +268,76 @@ export class SimulationEngineService {
         : "数据齐备，可继续下一回合或人类干预。",
       evidenceRefs,
       worldDelta,
+    };
+  }
+
+  private async computeDebrief(runId: string) {
+    const run = await this.prisma.simulationRun.findUnique({
+      where: { id: runId },
+      include: {
+        turns: true,
+        scenario: { include: { agents: true, companies: true } },
+      },
+    });
+    if (!run) return {};
+
+    const keyFindings: string[] = [];
+    const monologueLog: any[] = [];
+
+    // Missing data
+    const worldState = (run.worldState as Record<string, any>) || {};
+    const missing = ["market", "finance", "news", "regulation"].filter(
+      (p) => !worldState[p] || (worldState[p] as any)?.error,
+    );
+    if (missing.length > 0) {
+      keyFindings.push(`外部数据缺失：${missing.join(",")}，裁判标记依据不足`);
+    }
+
+    // Black swan
+    if (worldState["blackSwan"]) {
+      keyFindings.push(
+        `黑天鹅触发：${JSON.stringify(worldState["blackSwan"])}`,
+      );
+    }
+
+    // Scan turns
+    for (const turn of run.turns) {
+      const adjudication = turn.adjudication as any;
+      if (adjudication?.ruling === "rejected_insufficient_funds") {
+        keyFindings.push(
+          `回合${turn.roundNumber} 裁判驳回：资金不足 (${adjudication?.notes || ""})`,
+        );
+      }
+      if (adjudication?.ruling === "insufficient_evidence") {
+        keyFindings.push(`回合${turn.roundNumber} 数据不足，需补充外部证据`);
+      }
+      if (adjudication?.ruling === "black_swan") {
+        keyFindings.push(
+          `回合${turn.roundNumber} 黑天鹅事件：${adjudication?.notes || ""}`,
+        );
+      }
+
+      const submissions = (turn.submissions as any[]) || [];
+      submissions.forEach((s) => {
+        const agent = run.scenario.agents.find((a) => a.id === s.agentId);
+        monologueLog.push({
+          round: turn.roundNumber,
+          team: s.team,
+          role: s.role,
+          agentId: s.agentId,
+          companyId: s.companyId,
+          innerMonologue: s.innerMonologue,
+          visibility: s.visibility,
+          timestamp: s.timestamp,
+          agentName: agent?.role || s.role,
+        });
+      });
+    }
+
+    return {
+      keyFindings: Array.from(new Set(keyFindings)), // 去重
+      monologueLog,
+      worldState,
     };
   }
 }
