@@ -89,6 +89,15 @@ export class AuthService {
     // 生成 tokens
     const tokens = this.generateTokens(user.id, user.email);
 
+    // 更新最后登录时间
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        lastLoginAt: new Date(),
+        isActive: true,
+      },
+    });
+
     this.logger.log(`User logged in: ${user.username}`);
 
     return {
@@ -201,6 +210,15 @@ export class AuthService {
 
       this.logger.log(`Existing user linked with Google: ${user.username}`);
     }
+
+    // 更新最后登录时间
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        lastLoginAt: new Date(),
+        isActive: true,
+      },
+    });
 
     // 生成tokens
     if (!user.email) {
