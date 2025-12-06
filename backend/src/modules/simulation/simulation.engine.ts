@@ -96,14 +96,18 @@ export class SimulationEngineService {
       (run.params as any)?.irrationalProb !== undefined
         ? (run.params as any)?.irrationalProb
         : 0.2;
+    const chaosInjectedTeam =
+      run.scenario.agents.some((a) => a.team === SimulationTeam.CHAOS) || false;
     for (const agent of run.scenario.agents) {
+      const isChaos = agent.team === SimulationTeam.CHAOS;
       const baseVisibility =
-        agent.team === SimulationTeam.CHAOS ||
-        agent.team === SimulationTeam.ARBITER
-          ? "global"
-          : "team";
+        isChaos || agent.team === SimulationTeam.ARBITER ? "global" : "team";
 
       const irrationalTriggered = Math.random() < irrationalProb;
+      const chaosInjected =
+        chaosInjectedTeam &&
+        isChaos &&
+        Math.random() < ((run.params as any)?.chaosProb ?? 0.3);
       const irrationalNote = irrationalTriggered
         ? "非理性波动：情绪化/短视/误判。"
         : "";
@@ -119,6 +123,7 @@ export class SimulationEngineService {
           : "",
         `外部态势: market=${!!worldState.market}, finance=${!!worldState.finance}, news=${!!worldState.news}, regulation=${!!worldState.regulation}`,
         irrationalNote,
+        chaosInjected ? "Chaos Agent: 模拟市场恐慌/突发随机行动" : "",
       ]
         .filter(Boolean)
         .join(" | ");
@@ -136,6 +141,7 @@ export class SimulationEngineService {
         systemPrompt:
           "You represent opposing interests. Consensus is NOT the goal. Your goal is to maximize YOUR utility even at the expense of others. Act with your own team's bias and constraints.",
         irrational: irrationalTriggered,
+        chaosInjected,
       };
       submissions.push(submission);
     }
