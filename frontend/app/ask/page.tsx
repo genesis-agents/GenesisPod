@@ -12,6 +12,20 @@ import MessageContextMenu from '@/components/ask/MessageContextMenu';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+// Toast notification component
+function Toast({ message, onClose }: { message: string; onClose: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 2000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div className="fixed bottom-20 left-1/2 z-50 -translate-x-1/2 transform rounded-lg bg-gray-800 px-4 py-2 text-sm text-white shadow-lg">
+      {message}
+    </div>
+  );
+}
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -134,11 +148,102 @@ export default function AskPage() {
     message: Message;
     position: { x: number; y: number };
   } | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<
+    Array<{ file: File; preview?: string }>
+  >([]);
+  const [isDragging, setIsDragging] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const modelSelectorRef = useRef<HTMLDivElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Create preview URLs for image files
+  const addFilesWithPreviews = useCallback((files: File[]) => {
+    const filesWithPreviews = files.map((file) => {
+      if (file.type.startsWith('image/')) {
+        return { file, preview: URL.createObjectURL(file) };
+      }
+      return { file };
+    });
+    setAttachedFiles((prev) => [...prev, ...filesWithPreviews].slice(0, 5));
+  }, []);
+
+  // Cleanup preview URLs when files are removed
+  useEffect(() => {
+    return () => {
+      attachedFiles.forEach((item) => {
+        if (item.preview) {
+          URL.revokeObjectURL(item.preview);
+        }
+      });
+    };
+  }, [attachedFiles]);
+
+  // Handle file drop
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+
+      const files = Array.from(e.dataTransfer.files);
+      const validFiles = files.filter((file) => {
+        const validTypes = [
+          'image/',
+          'application/pdf',
+          'text/',
+          'application/json',
+        ];
+        return validTypes.some((type) => file.type.startsWith(type));
+      });
+
+      if (validFiles.length > 0) {
+        addFilesWithPreviews(validFiles);
+        setToastMessage(`已添加 ${validFiles.length} 个文件`);
+      } else if (files.length > 0) {
+        setToastMessage('不支持的文件类型');
+      }
+    },
+    [addFilesWithPreviews]
+  );
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const removeFile = useCallback((index: number) => {
+    setAttachedFiles((prev) => {
+      const item = prev[index];
+      if (item?.preview) {
+        URL.revokeObjectURL(item.preview);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  }, []);
+
+  // Read file content as base64 or text
+  const readFileContent = useCallback(async (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      if (file.type.startsWith('image/')) {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      } else {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsText(file);
+      }
+    });
+  }, []);
 
   // Filter only CHAT models for the selector
   const chatModels = models.filter((m) => m.modelType === 'CHAT');
@@ -348,10 +453,47 @@ export default function AskPage() {
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!input.trim() || isLoading) return;
+    // Allow sending with just files even without text
+    if ((!input.trim() && attachedFiles.length === 0) || isLoading) return;
 
-    const userContent = input.trim();
+    // Build message content with file attachments
+    let userContent = input.trim();
+    const currentFiles = [...attachedFiles];
+
+    // Read file contents and append to message
+    if (currentFiles.length > 0) {
+      const fileDescriptions: string[] = [];
+      for (const item of currentFiles) {
+        try {
+          const content = await readFileContent(item.file);
+          if (item.file.type.startsWith('image/')) {
+            // For images, include base64 data
+            fileDescriptions.push(`[图片: ${item.file.name}]\n${content}`);
+          } else {
+            // For text files, include content
+            const truncatedContent =
+              content.length > 5000
+                ? content.substring(0, 5000) + '...(内容已截断)'
+                : content;
+            fileDescriptions.push(
+              `[文件: ${item.file.name}]\n\`\`\`\n${truncatedContent}\n\`\`\``
+            );
+          }
+        } catch (err) {
+          console.error(`Failed to read file ${item.file.name}:`, err);
+          fileDescriptions.push(`[文件: ${item.file.name}] (读取失败)`);
+        }
+      }
+
+      if (fileDescriptions.length > 0) {
+        userContent = userContent
+          ? `${userContent}\n\n---\n附件内容:\n${fileDescriptions.join('\n\n')}`
+          : `请分析以下内容:\n${fileDescriptions.join('\n\n')}`;
+      }
+    }
+
     setInput('');
+    setAttachedFiles([]);
     setIsLoading(true);
     setMixtureResponses([]);
 
@@ -876,7 +1018,11 @@ export default function AskPage() {
                       onClick={() =>
                         isLoading ? handleStopGeneration() : handleSubmit()
                       }
-                      disabled={!isLoading && (!input.trim() || modelsLoading)}
+                      disabled={
+                        !isLoading &&
+                        ((!input.trim() && attachedFiles.length === 0) ||
+                          modelsLoading)
+                      }
                       className={`flex h-9 w-9 items-center justify-center rounded-xl text-white transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
                         isLoading
                           ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700'
@@ -975,7 +1121,7 @@ export default function AskPage() {
                             <button
                               onClick={() => {
                                 navigator.clipboard.writeText(message.content);
-                                alert('已复制到剪贴板');
+                                setToastMessage('已复制到剪贴板');
                               }}
                               className="flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700"
                               title="复制内容"
@@ -997,9 +1143,14 @@ export default function AskPage() {
                             </button>
                             <button
                               onClick={() => {
-                                const quotedText = `> ${message.content.split('\n').slice(0, 3).join('\n> ')}${message.content.split('\n').length > 3 ? '\n> ...' : ''}\n\n`;
-                                setInput(quotedText);
+                                // 只取前100字符作为简短引用摘要
+                                const summary = message.content
+                                  .substring(0, 100)
+                                  .replace(/\n/g, ' ');
+                                const quotedText = `> ${summary}${message.content.length > 100 ? '...' : ''}\n\n`;
+                                setInput((prev) => prev + quotedText);
                                 inputRef.current?.focus();
+                                setToastMessage('已添加引用');
                               }}
                               className="flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700"
                               title="引用回复"
@@ -1122,16 +1273,153 @@ export default function AskPage() {
             <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-gray-50 via-gray-50/95 to-transparent px-4 pb-4 pt-8">
               <div className="pointer-events-auto mx-auto max-w-4xl">
                 <form onSubmit={handleSubmit}>
-                  <div className="rounded-2xl border border-gray-200 bg-white shadow-lg transition-all focus-within:border-purple-300 focus-within:shadow-xl">
+                  <div
+                    className={`rounded-2xl border bg-white shadow-lg transition-all focus-within:border-purple-300 focus-within:shadow-xl ${
+                      isDragging
+                        ? 'border-purple-500 ring-2 ring-purple-200'
+                        : 'border-gray-200'
+                    }`}
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                  >
+                    {/* Drag overlay */}
+                    {isDragging && (
+                      <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-purple-50/90">
+                        <div className="text-center">
+                          <svg
+                            className="mx-auto h-10 w-10 text-purple-500"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                            />
+                          </svg>
+                          <p className="mt-2 text-sm font-medium text-purple-600">
+                            拖放文件到此处
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Attached files preview */}
+                    {attachedFiles.length > 0 && (
+                      <div className="flex flex-wrap gap-2 px-4 pt-3">
+                        {attachedFiles.map((item, index) => (
+                          <div key={index} className="group relative">
+                            {item.preview ? (
+                              /* Image thumbnail */
+                              <div className="relative h-16 w-16 overflow-hidden rounded-lg border border-gray-200">
+                                <img
+                                  src={item.preview}
+                                  alt={item.file.name}
+                                  className="h-full w-full object-cover"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeFile(index)}
+                                  className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-gray-800 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                                >
+                                  <svg
+                                    className="h-3 w-3"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M6 18L18 6M6 6l12 12"
+                                    />
+                                  </svg>
+                                </button>
+                              </div>
+                            ) : (
+                              /* Non-image file */
+                              <div className="flex h-16 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3">
+                                <svg
+                                  className="h-6 w-6 text-blue-500"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                  />
+                                </svg>
+                                <div className="min-w-0 flex-1">
+                                  <p className="max-w-[100px] truncate text-xs font-medium text-gray-700">
+                                    {item.file.name}
+                                  </p>
+                                  <p className="text-[10px] text-gray-400">
+                                    {(item.file.size / 1024).toFixed(1)} KB
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => removeFile(index)}
+                                  className="text-gray-400 hover:text-gray-600"
+                                >
+                                  <svg
+                                    className="h-4 w-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M6 18L18 6M6 6l12 12"
+                                    />
+                                  </svg>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     <textarea
                       ref={inputRef}
                       value={input}
                       onChange={handleInputChange}
                       onKeyDown={handleKeyDown}
-                      placeholder="Ask anything..."
+                      placeholder={
+                        attachedFiles.length > 0
+                          ? '添加消息描述这些文件...'
+                          : 'Ask anything...'
+                      }
                       rows={2}
                       className="w-full resize-none rounded-t-2xl bg-transparent px-4 py-4 text-gray-900 placeholder-gray-400 focus:outline-none"
                       disabled={isLoading}
+                    />
+
+                    {/* Hidden file input */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*,.pdf,.txt,.json,.md"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        if (files.length > 0) {
+                          addFilesWithPreviews(files);
+                          setToastMessage(`已添加 ${files.length} 个文件`);
+                        }
+                        e.target.value = '';
+                      }}
+                      className="hidden"
                     />
                     <div className="flex items-center justify-between border-t border-gray-100 px-3 py-2">
                       <div className="flex items-center gap-2">
@@ -1332,6 +1620,37 @@ export default function AskPage() {
                           )}
                         </div>
 
+                        {/* File Upload Button */}
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                            attachedFiles.length > 0
+                              ? 'bg-green-50 text-green-600'
+                              : 'text-gray-400 hover:bg-gray-100'
+                          }`}
+                          title="上传文件或图片"
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                            />
+                          </svg>
+                          {attachedFiles.length > 0 && (
+                            <span className="rounded-full bg-green-100 px-1.5 text-xs">
+                              {attachedFiles.length}
+                            </span>
+                          )}
+                        </button>
+
                         {/* Web Search Toggle */}
                         <button
                           type="button"
@@ -1386,7 +1705,11 @@ export default function AskPage() {
                             handleSubmit();
                           }
                         }}
-                        disabled={!isLoading && !input.trim()}
+                        disabled={
+                          !isLoading &&
+                          !input.trim() &&
+                          attachedFiles.length === 0
+                        }
                         className={`flex h-9 w-9 items-center justify-center rounded-xl text-white transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
                           isLoading
                             ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700'
@@ -1435,23 +1758,30 @@ export default function AskPage() {
           onClose={() => setContextMenu(null)}
           onCopy={() => {
             navigator.clipboard.writeText(contextMenu.message.content);
-            alert('已复制到剪贴板');
+            setContextMenu(null);
+            setToastMessage('已复制到剪贴板');
           }}
           onQuote={() => {
-            const quotedText = `> ${contextMenu.message.content.split('\n').slice(0, 3).join('\n> ')}${contextMenu.message.content.split('\n').length > 3 ? '\n> ...' : ''}\n\n`;
-            setInput(quotedText);
+            // 只取前100字符作为简短引用摘要
+            const summary = contextMenu.message.content
+              .substring(0, 100)
+              .replace(/\n/g, ' ');
+            const quotedText = `> ${summary}${contextMenu.message.content.length > 100 ? '...' : ''}\n\n`;
+            setInput((prev) => prev + quotedText);
+            setContextMenu(null);
             inputRef.current?.focus();
+            setToastMessage('已添加引用');
           }}
-          onSave={async () => {
-            try {
-              // TODO: Implement save to favorites functionality
-              alert('收藏功能即将推出');
-            } catch (error) {
-              console.error('Failed to save:', error);
-              alert('保存失败');
-            }
+          onSave={() => {
+            setContextMenu(null);
+            setToastMessage('收藏功能即将推出');
           }}
         />
+      )}
+
+      {/* Toast notification */}
+      {toastMessage && (
+        <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
       )}
     </div>
   );
