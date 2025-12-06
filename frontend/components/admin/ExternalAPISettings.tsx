@@ -178,6 +178,71 @@ const DEFAULT_EXTERNAL_PROVIDERS: ExternalProviderConfig[] = [
   },
 ];
 
+// Data API Categories with Provider support
+interface DataAPIProvider {
+  id: string;
+  name: string;
+  baseUrl: string;
+  apiKey: string;
+  headers?: string;
+  enabled: boolean;
+  isDefault: boolean;
+}
+
+interface DataAPICategory {
+  id: string;
+  name: string;
+  nameZh: string;
+  description: string;
+  icon: string;
+  gradientFrom: string;
+  gradientTo: string;
+  providers: DataAPIProvider[];
+}
+
+const DEFAULT_DATA_API_CATEGORIES: DataAPICategory[] = [
+  {
+    id: 'market',
+    name: 'Market & Pricing',
+    nameZh: '市场与定价',
+    description: 'GPU/芯片/云算力价格、供需关系、交付周期',
+    icon: 'TrendingUp',
+    gradientFrom: 'blue-500',
+    gradientTo: 'cyan-500',
+    providers: [],
+  },
+  {
+    id: 'finance',
+    name: 'Finance & Filings',
+    nameZh: '财经与公告',
+    description: '财报、投融资、公告、专利/备案等公司公开信息',
+    icon: 'Wallet',
+    gradientFrom: 'green-500',
+    gradientTo: 'emerald-500',
+    providers: [],
+  },
+  {
+    id: 'news',
+    name: 'News & Sentiment',
+    nameZh: '新闻与舆情',
+    description: '行业新闻、媒体报道、社交媒体情绪',
+    icon: 'Sparkles',
+    gradientFrom: 'orange-500',
+    gradientTo: 'amber-500',
+    providers: [],
+  },
+  {
+    id: 'regulation',
+    name: 'Regulation & Policy',
+    nameZh: '监管与政策',
+    description: '政策法规、出口管制、能耗标准、合规要求',
+    icon: 'AlertTriangle',
+    gradientFrom: 'red-500',
+    gradientTo: 'pink-500',
+    providers: [],
+  },
+];
+
 export default function ExternalAPISettings() {
   // Search config state
   const [searchConfig, setSearchConfig] = useState<SearchConfig>({
@@ -211,6 +276,11 @@ export default function ExternalAPISettings() {
     ExternalProviderConfig[]
   >(DEFAULT_EXTERNAL_PROVIDERS);
 
+  // Data APIs state
+  const [dataAPICategories, setDataAPICategories] = useState<DataAPICategory[]>(
+    DEFAULT_DATA_API_CATEGORIES
+  );
+
   // Balance info state
   const [balances, setBalances] = useState<Record<string, BalanceInfo>>({});
   const [checkingBalance, setCheckingBalance] = useState<string | null>(null);
@@ -227,7 +297,7 @@ export default function ExternalAPISettings() {
     text: string;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<
-    'search' | 'extraction' | 'external'
+    'search' | 'extraction' | 'external' | 'data'
   >('search');
 
   const loadConfigs = useCallback(async () => {
@@ -408,6 +478,128 @@ export default function ExternalAPISettings() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // Data APIs Management Functions
+  const handleSaveDataAPIs = async () => {
+    setSaving(true);
+    setMessage(null);
+
+    try {
+      // Flatten all providers from all categories
+      const allProviders: any[] = [];
+      dataAPICategories.forEach((category) => {
+        category.providers.forEach((provider) => {
+          allProviders.push({
+            id: `${category.id}-${provider.id}`,
+            name: provider.name,
+            description: category.description,
+            category: category.id,
+            enabled: provider.enabled,
+            baseUrl: provider.baseUrl?.trim() || '',
+            headers: provider.headers?.trim() || undefined,
+            apiKey:
+              provider.apiKey && !provider.apiKey.includes('***')
+                ? provider.apiKey.trim()
+                : undefined,
+            isDefault: provider.isDefault,
+          });
+        });
+      });
+
+      const res = await fetch(`${config.apiUrl}/admin/external-providers`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
+        credentials: 'include',
+        body: JSON.stringify({ providers: allProviders }),
+      });
+
+      if (res.ok) {
+        setMessage({ type: 'success', text: 'Data APIs 配置保存成功' });
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        setMessage({ type: 'error', text: '保存配置失败' });
+      }
+    } catch (err) {
+      console.error('Failed to save Data APIs config:', err);
+      setMessage({ type: 'error', text: '保存配置失败' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const addDataAPIProvider = (categoryId: string) => {
+    setDataAPICategories((prev) =>
+      prev.map((cat) => {
+        if (cat.id === categoryId) {
+          const newProviderId = `provider-${Date.now()}`;
+          return {
+            ...cat,
+            providers: [
+              ...cat.providers,
+              {
+                id: newProviderId,
+                name: `Provider ${cat.providers.length + 1}`,
+                baseUrl: '',
+                apiKey: '',
+                enabled: false,
+                isDefault: cat.providers.length === 0,
+              },
+            ],
+          };
+        }
+        return cat;
+      })
+    );
+  };
+
+  const updateDataAPIProvider = (
+    categoryId: string,
+    providerId: string,
+    updates: Partial<DataAPIProvider>
+  ) => {
+    setDataAPICategories((prev) =>
+      prev.map((cat) => {
+        if (cat.id === categoryId) {
+          return {
+            ...cat,
+            providers: cat.providers.map((provider) => {
+              if (provider.id === providerId) {
+                // If setting as default, unset others
+                if (updates.isDefault) {
+                  cat.providers.forEach((p) => (p.isDefault = false));
+                }
+                return { ...provider, ...updates };
+              }
+              return provider;
+            }),
+          };
+        }
+        return cat;
+      })
+    );
+  };
+
+  const removeDataAPIProvider = (categoryId: string, providerId: string) => {
+    setDataAPICategories((prev) =>
+      prev.map((cat) => {
+        if (cat.id === categoryId) {
+          const newProviders = cat.providers.filter((p) => p.id !== providerId);
+          // If removed provider was default, set first provider as default
+          if (
+            newProviders.length > 0 &&
+            !newProviders.some((p) => p.isDefault)
+          ) {
+            newProviders[0].isDefault = true;
+          }
+          return { ...cat, providers: newProviders };
+        }
+        return cat;
+      })
+    );
   };
 
   const handleTestSearch = async (providerId: string) => {
@@ -734,6 +926,17 @@ export default function ExternalAPISettings() {
         >
           <Globe className="h-4 w-4" />
           外部数据源
+        </button>
+        <button
+          onClick={() => setActiveTab('data')}
+          className={`flex items-center gap-2 border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
+            activeTab === 'data'
+              ? 'border-purple-600 text-purple-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <TrendingUp className="h-4 w-4" />
+          Data APIs
         </button>
       </div>
 
@@ -1329,8 +1532,207 @@ export default function ExternalAPISettings() {
               disabled={saving}
               className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 px-6 py-2.5 text-sm font-medium text-white shadow-lg shadow-blue-500/20 hover:from-blue-700 hover:to-cyan-700 disabled:opacity-50"
             >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
               保存外部数据源配置
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Data APIs Tab - New Card-Based Design */}
+      {activeTab === 'data' && (
+        <div className="space-y-6">
+          <div className="rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50 p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg">
+                  <TrendingUp className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Data APIs</h3>
+                  <p className="text-sm text-gray-600">
+                    为 AI Simulation 配置真实数据源，支持多 Provider
+                    并设置默认值
+                  </p>
+                  <p className="mt-1 text-xs text-indigo-600">
+                    每个类别可配置多个 Provider，设置默认
+                    Provider，默认不可用时自动切换备用
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Category Cards */}
+          <div className="grid gap-6 md:grid-cols-2">
+            {dataAPICategories.map((category) => (
+              <div
+                key={category.id}
+                className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
+              >
+                <div className="mb-4 flex items-start gap-3">
+                  <div
+                    className={`flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-${category.gradientFrom} to-${category.gradientTo} text-white`}
+                  >
+                    {category.id === 'market' && (
+                      <TrendingUp className="h-5 w-5" />
+                    )}
+                    {category.id === 'finance' && (
+                      <Wallet className="h-5 w-5" />
+                    )}
+                    {category.id === 'news' && <Sparkles className="h-5 w-5" />}
+                    {category.id === 'regulation' && (
+                      <AlertTriangle className="h-5 w-5" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900">
+                      {category.name}
+                    </h4>
+                    <p className="text-xs text-gray-600">{category.nameZh}</p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {category.description}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {category.providers.map((provider) => (
+                    <div
+                      key={provider.id}
+                      className="rounded-lg border border-gray-100 bg-gray-50 p-3"
+                    >
+                      <div className="mb-2 flex items-center justify-between">
+                        <input
+                          type="text"
+                          value={provider.name}
+                          onChange={(e) =>
+                            updateDataAPIProvider(category.id, provider.id, {
+                              name: e.target.value,
+                            })
+                          }
+                          className="flex-1 rounded border-0 bg-transparent text-sm font-medium text-gray-700 focus:outline-none focus:ring-0"
+                          placeholder="Provider 名称"
+                        />
+                        <div className="flex gap-2">
+                          {provider.isDefault && (
+                            <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                              默认
+                            </span>
+                          )}
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                              provider.enabled && provider.baseUrl
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-gray-100 text-gray-600'
+                            }`}
+                          >
+                            {provider.enabled && provider.baseUrl
+                              ? '已配置'
+                              : '未配置'}
+                          </span>
+                          <button
+                            onClick={() =>
+                              removeDataAPIProvider(category.id, provider.id)
+                            }
+                            className="text-red-500 hover:text-red-700"
+                            title="删除"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                      <input
+                        type="text"
+                        value={provider.baseUrl}
+                        onChange={(e) =>
+                          updateDataAPIProvider(category.id, provider.id, {
+                            baseUrl: e.target.value,
+                          })
+                        }
+                        placeholder="Base URL (https://api.example.com)"
+                        className="mb-2 w-full rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                      <input
+                        type="password"
+                        value={provider.apiKey}
+                        onChange={(e) =>
+                          updateDataAPIProvider(category.id, provider.id, {
+                            apiKey: e.target.value,
+                          })
+                        }
+                        placeholder="API Key"
+                        className="mb-2 w-full rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                      <textarea
+                        value={provider.headers || ''}
+                        onChange={(e) =>
+                          updateDataAPIProvider(category.id, provider.id, {
+                            headers: e.target.value,
+                          })
+                        }
+                        placeholder='Headers (JSON): {"X-API-KEY": "..."}'
+                        rows={2}
+                        className="mb-2 w-full rounded-md border border-gray-200 px-3 py-1.5 font-mono text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-2 text-xs text-gray-600">
+                          <input
+                            type="checkbox"
+                            checked={provider.enabled}
+                            onChange={(e) =>
+                              updateDataAPIProvider(category.id, provider.id, {
+                                enabled: e.target.checked,
+                              })
+                            }
+                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          启用
+                        </label>
+                        {!provider.isDefault && (
+                          <button
+                            onClick={() =>
+                              updateDataAPIProvider(category.id, provider.id, {
+                                isDefault: true,
+                              })
+                            }
+                            className="text-xs text-indigo-600 hover:text-indigo-700"
+                          >
+                            设为默认
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  <button
+                    onClick={() => addDataAPIProvider(category.id)}
+                    className="w-full rounded-lg border-2 border-dashed border-gray-300 py-2 text-sm text-gray-500 hover:border-indigo-300 hover:text-indigo-600"
+                  >
+                    + 添加 Provider
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Save Button */}
+          <div className="flex justify-end">
+            <button
+              onClick={() => void handleSaveDataAPIs()}
+              disabled={saving}
+              className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-500/20 hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              保存 Data APIs 配置
             </button>
           </div>
         </div>

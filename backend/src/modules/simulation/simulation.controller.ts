@@ -89,6 +89,19 @@ export class SimulationController {
     return this.simulationService.resumeRun(id);
   }
 
+  @Patch("runs/:id/pause")
+  async pauseRun(@Param("id") id: string) {
+    return this.simulationService.pauseRun(id);
+  }
+
+  @Post("runs/:id/intervene")
+  async interveneRun(
+    @Param("id") id: string,
+    @Body() body: { message: string; injectEvent?: any },
+  ) {
+    return this.simulationService.interveneRun(id, body);
+  }
+
   @Get("external/snapshot")
   async getExternalSnapshot() {
     return this.externalData.getSnapshot();

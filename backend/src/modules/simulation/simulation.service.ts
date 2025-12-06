@@ -155,6 +155,42 @@ export class SimulationService {
     return this.getRunById(runId);
   }
 
+  async pauseRun(runId: string) {
+    const run = await this.getRunById(runId);
+    if (run.status !== SimulationRunStatus.RUNNING) {
+      return run;
+    }
+    await this.prisma.simulationRun.update({
+      where: { id: runId },
+      data: { status: SimulationRunStatus.PAUSED },
+    });
+    return this.getRunById(runId);
+  }
+
+  async interveneRun(
+    runId: string,
+    intervention: { message: string; injectEvent?: any },
+  ) {
+    const run = await this.getRunById(runId);
+    // Store intervention in run params or create a turn record
+    const updatedParams = {
+      ...(run.params as any),
+      interventions: [
+        ...((run.params as any)?.interventions || []),
+        {
+          timestamp: new Date().toISOString(),
+          message: intervention.message,
+          injectEvent: intervention.injectEvent,
+        },
+      ],
+    };
+    await this.prisma.simulationRun.update({
+      where: { id: runId },
+      data: { params: updatedParams },
+    });
+    return this.getRunById(runId);
+  }
+
   async getRunById(id: string) {
     const run = await this.prisma.simulationRun.findUnique({
       where: { id },
