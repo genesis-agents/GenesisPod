@@ -521,17 +521,64 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             }`}
             title="AI Simulation"
           >
+            {/* 战略推演图标 - 棋盘/对弈风格 */}
             <svg
               className="h-5 w-5 flex-shrink-0"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 6l7 4-7 4-7-4 7-4zm0 8l7 4-7 4-7-4 7-4z"
+              {/* 棋盘格子 */}
+              <rect
+                x="3"
+                y="3"
+                width="7"
+                height="7"
+                rx="1"
+                strokeWidth={1.5}
+                fill={
+                  pathname?.startsWith('/ai-simulation')
+                    ? 'rgba(99, 102, 241, 0.15)'
+                    : 'none'
+                }
+              />
+              <rect
+                x="14"
+                y="3"
+                width="7"
+                height="7"
+                rx="1"
+                strokeWidth={1.5}
+              />
+              <rect
+                x="3"
+                y="14"
+                width="7"
+                height="7"
+                rx="1"
+                strokeWidth={1.5}
+              />
+              <rect
+                x="14"
+                y="14"
+                width="7"
+                height="7"
+                rx="1"
+                strokeWidth={1.5}
+                fill={
+                  pathname?.startsWith('/ai-simulation')
+                    ? 'rgba(99, 102, 241, 0.15)'
+                    : 'none'
+                }
+              />
+              {/* 对弈棋子 */}
+              <circle cx="6.5" cy="6.5" r="2" strokeWidth={1.5} />
+              <circle
+                cx="17.5"
+                cy="17.5"
+                r="2"
+                strokeWidth={1.5}
+                fill="currentColor"
               />
             </svg>
             {showExpanded && <span>AI Simulation</span>}

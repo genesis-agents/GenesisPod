@@ -153,6 +153,19 @@ export default function AISimulationPage() {
     if (user) void fetchScenarios();
   }, [user]);
 
+  // 检查是否有从edit页面跳转过来的编辑请求
+  useEffect(() => {
+    const editId = sessionStorage.getItem('editScenarioId');
+    if (editId && scenarios.length > 0) {
+      const scenarioToEdit = scenarios.find((s) => s.id === editId);
+      if (scenarioToEdit) {
+        setEditing(scenarioToEdit);
+        setShowEditor(true);
+        sessionStorage.removeItem('editScenarioId');
+      }
+    }
+  }, [scenarios]);
+
   const latestRun = (s: ScenarioCard) =>
     s.runs && s.runs.length > 0 ? s.runs[0] : null;
 
