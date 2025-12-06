@@ -111,6 +111,20 @@ export class SimulationService {
     return scenario;
   }
 
+  async listScenarios() {
+    return this.prisma.simulationScenario.findMany({
+      orderBy: { updatedAt: "desc" },
+      include: {
+        companies: true,
+        agents: true,
+        runs: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+      },
+    });
+  }
+
   async startRun(input: StartRunInput) {
     const scenario = await this.getScenarioById(input.scenarioId);
     const run = await this.prisma.simulationRun.create({

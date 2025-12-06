@@ -49,6 +49,11 @@ export class SimulationController {
     return this.simulationService.createScenario(body);
   }
 
+  @Get("scenarios")
+  async listScenarios() {
+    return this.simulationService.listScenarios();
+  }
+
   @Get("scenarios/:id")
   async getScenario(@Param("id") id: string) {
     return this.simulationService.getScenarioById(id);

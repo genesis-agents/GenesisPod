@@ -1,9 +1,22 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
+import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/config';
 import { getAuthHeader } from '@/lib/auth';
+
+interface ScenarioCard {
+  id: string;
+  name: string;
+  industry: string;
+  region?: string;
+  companies?: any[];
+  agents?: any[];
+  runs?: any[];
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface ScenarioFormCompany {
   name: string;
@@ -21,145 +34,66 @@ interface ScenarioFormAgent {
 }
 
 export default function AISimulationPage() {
+  const { user, isLoading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [scenarioId, setScenarioId] = useState<string | null>(null);
-  const [runId, setRunId] = useState<string | null>(null);
-  const [runData, setRunData] = useState<any>(null);
+  const [scenarios, setScenarios] = useState<ScenarioCard[]>([]);
+  const [showEditor, setShowEditor] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
-  const [companies, setCompanies] = useState<ScenarioFormCompany[]>([
-    { name: 'Benchmark Cloud GPU', type: 'benchmark', market: 'Global' },
-    { name: 'Startup AI Infra', type: 'startup', market: 'US' },
-  ]);
-  const [agents, setAgents] = useState<ScenarioFormAgent[]>([
-    { role: 'CEO - 蓝军', team: 'BLUE', companyName: 'Benchmark Cloud GPU' },
-    { role: 'CEO - 红军', team: 'RED', companyName: 'Startup AI Infra' },
-    { role: '监管观察', team: 'GREEN' },
-  ]);
-
-  const [form, setForm] = useState({
-    name: 'AI算力基础设施推演',
-    industry: 'AI Compute Infrastructure',
-    region: 'Global',
-    goals: {
-      targetShare: '守住份额并提升交付速度',
-      risk: '控制合规与供应链黑天鹅',
-    },
-    constraints: {
-      blindMove: true,
-      cot: true,
-      chaosProb: 0.3,
-      irrationalProb: 0.2,
-      humanBreakEvery: 2,
-    },
-  });
-
-  const addCompany = () => {
-    setCompanies((prev) => [
-      ...prev,
-      { name: `Company ${prev.length + 1}`, type: 'startup', market: 'Global' },
-    ]);
-  };
-
-  const updateCompany = (index: number, value: ScenarioFormCompany) => {
-    setCompanies((prev) => prev.map((c, i) => (i === index ? value : c)));
-  };
-
-  const addAgent = () => {
-    setAgents((prev) => [
-      ...prev,
-      { role: `Agent ${prev.length + 1}`, team: 'BLUE' },
-    ]);
-  };
-
-  const updateAgent = (index: number, value: ScenarioFormAgent) => {
-    setAgents((prev) => prev.map((a, i) => (i === index ? value : a)));
-  };
-
-  const submitScenario = async () => {
+  const fetchScenarios = async () => {
     setLoading(true);
     try {
       const res = await fetch(`${config.apiUrl}/simulation/scenarios`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeader(),
-        },
+        headers: { ...getAuthHeader() },
         credentials: 'include',
-        body: JSON.stringify({
-          ...form,
-          companies,
-          agents: agents.map((a) => ({
-            ...a,
-            persona: a.persona ? safeJson(a.persona, a.persona) : undefined,
-            memoryPublic: a.memoryPublic
-              ? safeJson(a.memoryPublic, a.memoryPublic)
-              : undefined,
-            memoryPrivate: a.memoryPrivate
-              ? safeJson(a.memoryPrivate, a.memoryPrivate)
-              : undefined,
-          })),
-        }),
       });
-      const data = await res.json();
       if (res.ok) {
-        setScenarioId(data.id);
+        setScenarios(await res.json());
       } else {
-        alert(data?.message || '创建失败');
+        setMessage('加载场景失败，请确认已登录且有权限');
       }
     } catch (err: any) {
-      alert(err.message || '创建失败');
+      setMessage(err.message || '加载场景失败');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const startRun = async () => {
-    if (!scenarioId) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`${config.apiUrl}/simulation/runs`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeader(),
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          scenarioId,
-          rounds: 4,
-          params: form.constraints,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setRunId(data.id);
-        setRunData(data);
-      } else {
-        alert(data?.message || '启动失败');
-      }
-    } catch (err: any) {
-      alert(err.message || '启动失败');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchRun = async () => {
-    if (!runId) return;
-    const res = await fetch(`${config.apiUrl}/simulation/runs/${runId}`, {
-      headers: { ...getAuthHeader() },
-      credentials: 'include',
-    });
-    if (res.ok) {
-      setRunData(await res.json());
     }
   };
 
   useEffect(() => {
-    if (runId) {
-      fetchRun();
-    }
-  }, [runId]);
+    if (user) fetchScenarios();
+  }, [user]);
+
+  const latestRun = (s: ScenarioCard) =>
+    s.runs && s.runs.length > 0 ? s.runs[0] : null;
+
+  const handleCreate = () => {
+    setEditing(null);
+    setShowEditor(true);
+  };
+
+  const handleOpen = (scenario: ScenarioCard) => {
+    setEditing(scenario);
+    setShowEditor(true);
+  };
+
+  if (authLoading) return null;
+
+  if (!user) {
+    return (
+      <div className="flex min-h-screen bg-gray-50">
+        <Sidebar />
+        <main className="flex-1 p-12">
+          <div className="mx-auto max-w-3xl rounded-2xl border border-gray-100 bg-white p-10 text-center shadow-sm">
+            <h2 className="text-2xl font-semibold text-gray-800">请先登录</h2>
+            <p className="mt-2 text-sm text-gray-500">
+              进入 AI Simulation 需要登录并拥有管理员权限。
+            </p>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -186,449 +120,605 @@ export default function AISimulationPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
-                  AI Simulation · AI算力基础设施
+                  AI Simulation
                 </h1>
                 <p className="text-sm text-gray-600">
-                  裁判(外部真实数据) / Agent群(蓝/红/绿/Chaos) / 人类干预。默认
-                  2 轮暂停，盲注+对立提示+非理性/黑天鹅。
+                  多红军/绿军/Chaos + 盲注 +
+                  非理性/黑天鹅，裁判用真实外部数据；默认2轮暂停等待人类介入。
                 </p>
               </div>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={submitScenario}
-                disabled={loading}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {scenarioId ? '重新创建场景' : '创建场景'}
-              </button>
-              <button
-                onClick={startRun}
-                disabled={!scenarioId || loading}
-                className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-purple-700 disabled:opacity-50"
-              >
-                开始推演
-              </button>
-            </div>
+            <button
+              onClick={handleCreate}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
+            >
+              新建推演
+            </button>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="space-y-4 lg:col-span-2">
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-900">
-                      场景配置
-                    </h3>
-                    <p className="text-xs text-gray-500">
-                      行业模板：AI算力基础设施，可自定义目标与约束
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  <div className="col-span-2">
-                    <label className="text-xs text-gray-600">名称</label>
-                    <input
-                      value={form.name}
-                      onChange={(e) =>
-                        setForm({ ...form, name: e.target.value })
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-600">行业</label>
-                    <input
-                      value={form.industry}
-                      onChange={(e) =>
-                        setForm({ ...form, industry: e.target.value })
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-600">区域</label>
-                    <input
-                      value={form.region}
-                      onChange={(e) =>
-                        setForm({ ...form, region: e.target.value })
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="text-xs text-gray-600">目标</label>
-                    <textarea
-                      value={JSON.stringify(form.goals, null, 2)}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          goals: safeJson(e.target.value, form.goals),
-                        })
-                      }
-                      rows={3}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="text-xs text-gray-600">
-                      约束 / Chaos / 盲注
-                    </label>
-                    <textarea
-                      value={JSON.stringify(form.constraints, null, 2)}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          constraints: safeJson(
-                            e.target.value,
-                            form.constraints
-                          ),
-                        })
-                      }
-                      rows={3}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                <div className="mb-3 flex items-center justify-between">
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-900">
-                      角色卡（AI生成/手工）
-                    </h3>
-                    <p className="text-xs text-gray-500">
-                      蓝军(你) / 多红军 / 绿军 / Chaos，可填
-                      persona、公共/私有记忆
-                    </p>
-                  </div>
-                  <button
-                    onClick={addAgent}
-                    className="text-xs text-indigo-600 hover:text-indigo-700"
-                  >
-                    + 添加角色
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  {agents.map((a, idx) => (
-                    <div
-                      key={idx}
-                      className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
-                    >
-                      <div className="flex flex-col gap-2 md:flex-row md:items-center">
-                        <select
-                          value={a.team}
-                          onChange={(e) =>
-                            updateAgent(idx, {
-                              ...a,
-                              team: e.target.value as ScenarioFormAgent['team'],
-                            })
-                          }
-                          className="w-full rounded-md border border-gray-200 px-2 py-1 text-sm md:w-24"
-                        >
-                          <option value="BLUE">蓝军</option>
-                          <option value="RED">红军</option>
-                          <option value="GREEN">绿军</option>
-                          <option value="CHAOS">Chaos</option>
-                        </select>
-                        <input
-                          value={a.role}
-                          onChange={(e) =>
-                            updateAgent(idx, { ...a, role: e.target.value })
-                          }
-                          className="flex-1 rounded-md border border-gray-200 px-2 py-1 text-sm"
-                        />
-                        <input
-                          value={a.companyName || ''}
-                          placeholder="所属公司(可选)"
-                          onChange={(e) =>
-                            updateAgent(idx, {
-                              ...a,
-                              companyName: e.target.value,
-                            })
-                          }
-                          className="w-full rounded-md border border-gray-200 px-2 py-1 text-sm md:w-40"
-                        />
-                      </div>
-                      <div className="mt-2 grid gap-2 md:grid-cols-2">
-                        <textarea
-                          value={a.persona || ''}
-                          placeholder='Persona（JSON），例：{"style":"激进CEO","bias":"高风险短期"}'
-                          onChange={(e) =>
-                            updateAgent(idx, { ...a, persona: e.target.value })
-                          }
-                          rows={2}
-                          className="w-full rounded-md border border-gray-200 px-2 py-1 font-mono text-xs"
-                        />
-                        <textarea
-                          value={a.memoryPrivate || ''}
-                          placeholder='私有记忆（JSON），例：{"secret":"资金链紧张"}'
-                          onChange={(e) =>
-                            updateAgent(idx, {
-                              ...a,
-                              memoryPrivate: e.target.value,
-                            })
-                          }
-                          rows={2}
-                          className="w-full rounded-md border border-gray-200 px-2 py-1 font-mono text-xs"
-                        />
-                        <textarea
-                          value={a.memoryPublic || ''}
-                          placeholder='公共记忆（JSON），例：{"newsRef":"最新供应链报道"}'
-                          onChange={(e) =>
-                            updateAgent(idx, {
-                              ...a,
-                              memoryPublic: e.target.value,
-                            })
-                          }
-                          rows={2}
-                          className="w-full rounded-md border border-gray-200 px-2 py-1 font-mono text-xs md:col-span-2"
-                        />
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-gray-500">
-                        <button
-                          className="rounded border border-gray-200 px-2 py-1 hover:border-indigo-300"
-                          onClick={() =>
-                            updateAgent(idx, {
-                              ...a,
-                              team: 'RED',
-                              role: '红军 激进CEO',
-                              persona: JSON.stringify(
-                                {
-                                  style: '激进派CEO',
-                                  pressure: '季度财报压力',
-                                  preference: '高风险高回报抢份额',
-                                  decision: '独断专行',
-                                },
-                                null,
-                                2
-                              ),
-                            })
-                          }
-                        >
-                          套用红军·激进CEO
-                        </button>
-                        <button
-                          className="rounded border border-gray-200 px-2 py-1 hover:border-indigo-300"
-                          onClick={() =>
-                            updateAgent(idx, {
-                              ...a,
-                              team: 'RED',
-                              role: '红军 保守董事会',
-                              persona: JSON.stringify(
-                                {
-                                  style: '保守董事会',
-                                  preference: '稳健现金流',
-                                  risk: '反对过度资本开支',
-                                },
-                                null,
-                                2
-                              ),
-                            })
-                          }
-                        >
-                          套用红军·保守董事会
-                        </button>
-                        <button
-                          className="rounded border border-gray-200 px-2 py-1 hover:border-green-300"
-                          onClick={() =>
-                            updateAgent(idx, {
-                              ...a,
-                              team: 'GREEN',
-                              role: '绿军 监管官',
-                              persona: JSON.stringify(
-                                {
-                                  style: '监管/合规',
-                                  focus: '出口管制、能耗、数据合规',
-                                  bias: '保护消费者与能源安全',
-                                },
-                                null,
-                                2
-                              ),
-                            })
-                          }
-                        >
-                          套用绿军·监管
-                        </button>
-                        <button
-                          className="rounded border border-gray-200 px-2 py-1 hover:border-green-300"
-                          onClick={() =>
-                            updateAgent(idx, {
-                              ...a,
-                              team: 'GREEN',
-                              role: '绿军 媒体/舆情',
-                              persona: JSON.stringify(
-                                {
-                                  style: '媒体记者',
-                                  focus: '供应链透明度、价格战',
-                                  bias: '偏好揭露负面但遵循事实',
-                                },
-                                null,
-                                2
-                              ),
-                            })
-                          }
-                        >
-                          套用绿军·媒体
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+          {/* Message */}
+          {message && (
+            <div className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+              {message}
             </div>
+          )}
 
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-base font-semibold text-gray-900">
-                    公司（自动+手工）
-                  </h3>
-                  <button
-                    onClick={addCompany}
-                    className="text-xs text-indigo-600 hover:text-indigo-700"
-                  >
-                    + 添加公司
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  {companies.map((c, idx) => (
-                    <div
-                      key={idx}
-                      className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
-                    >
-                      <div className="flex flex-col gap-2 md:flex-row">
-                        <input
-                          value={c.name}
-                          onChange={(e) =>
-                            updateCompany(idx, { ...c, name: e.target.value })
-                          }
-                          className="flex-1 rounded-md border border-gray-200 px-2 py-1 text-sm"
-                        />
-                        <input
-                          value={c.type}
-                          onChange={(e) =>
-                            updateCompany(idx, { ...c, type: e.target.value })
-                          }
-                          className="w-full rounded-md border border-gray-200 px-2 py-1 text-sm md:w-28"
-                        />
-                        <input
-                          value={c.market}
-                          onChange={(e) =>
-                            updateCompany(idx, { ...c, market: e.target.value })
-                          }
-                          className="w-full rounded-md border border-gray-200 px-2 py-1 text-sm md:w-28"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          {/* Cards */}
+          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
                 <h3 className="text-base font-semibold text-gray-900">
-                  运行与状态
+                  场景列表
                 </h3>
-                <div className="mt-2 rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm text-gray-700">
-                  <p>场景ID: {scenarioId || '未创建'}</p>
-                  <p>Run ID: {runId || '未启动'}</p>
-                  <p>状态: {runData?.status || 'N/A'}</p>
-                  <p>当前回合: {runData?.currentRound ?? '-'}</p>
-                </div>
-                {runData?.turns && (
-                  <div className="mt-3 space-y-2">
-                    <h4 className="text-xs font-medium text-gray-600">
-                      时间线
-                    </h4>
-                    <div className="max-h-64 overflow-auto rounded-lg border border-gray-100 bg-gray-50 p-3 text-xs text-gray-700">
-                      {runData.turns.map((t: any) => (
-                        <div
-                          key={t.id}
-                          className="mb-3 rounded-md bg-white p-2 shadow-sm"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-semibold">
-                              Round {t.roundNumber}
-                            </span>
-                            <span className="text-gray-500">{t.createdAt}</span>
-                          </div>
-                          <div className="mt-1 text-gray-800">
-                            判定: {t.adjudication?.ruling || 'N/A'}
-                          </div>
-                          <div className="mt-1 text-gray-500">
-                            备注: {t.adjudication?.notes || '—'}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {runData?.summary && (
-                  <div className="mt-4 space-y-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-medium text-gray-600">
-                        复盘与归因
-                      </h4>
-                      <span className="text-xs text-gray-400">
-                        关注独白与判定
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="rounded-md bg-white p-2 text-xs shadow-sm">
-                        <div className="font-semibold text-gray-800">
-                          关键发现
-                        </div>
-                        <ul className="mt-1 list-disc space-y-1 pl-4 text-gray-700">
-                          {runData.summary.keyFindings?.length ? (
-                            runData.summary.keyFindings.map(
-                              (f: string, i: number) => <li key={i}>{f}</li>
-                            )
-                          ) : (
-                            <li>暂无</li>
-                          )}
-                        </ul>
-                      </div>
-                      <div className="rounded-md bg-white p-2 text-xs shadow-sm">
-                        <div className="font-semibold text-gray-800">
-                          内心独白日志
-                        </div>
-                        <div className="mt-1 max-h-48 space-y-2 overflow-auto">
-                          {runData.summary.monologueLog?.length ? (
-                            runData.summary.monologueLog.map(
-                              (m: any, i: number) => (
-                                <div
-                                  key={i}
-                                  className="rounded border border-gray-100 bg-gray-50 p-2"
-                                >
-                                  <div className="flex items-center justify-between text-gray-600">
-                                    <span>
-                                      R{m.round} · {m.team} · {m.role}
-                                    </span>
-                                    <span className="text-gray-400">
-                                      {m.timestamp}
-                                    </span>
-                                  </div>
-                                  <div className="mt-1 break-words text-gray-800">
-                                    {m.innerMonologue}
-                                  </div>
-                                </div>
-                              )
-                            )
-                          ) : (
-                            <div className="text-gray-500">暂无日志</div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                <p className="text-xs text-gray-500">
+                  点击卡片可查看/编辑，最新运行状态实时展示
+                </p>
               </div>
+              <button
+                onClick={fetchScenarios}
+                className="text-xs text-gray-600 hover:text-gray-800"
+              >
+                刷新
+              </button>
             </div>
+            {loading ? (
+              <div className="py-10 text-center text-sm text-gray-500">
+                加载中...
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {scenarios.map((s) => {
+                  const run = latestRun(s);
+                  return (
+                    <div
+                      key={s.id}
+                      className="flex cursor-pointer flex-col rounded-xl border border-gray-100 bg-gray-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                      onClick={() => handleOpen(s)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="text-base font-semibold text-gray-900">
+                            {s.name}
+                          </h4>
+                          <p className="text-xs text-gray-500">
+                            {s.industry} · {s.region || 'Global'}
+                          </p>
+                        </div>
+                        {run ? (
+                          <span className="rounded-full bg-purple-100 px-2 py-1 text-[11px] font-medium text-purple-700">
+                            {run.status}
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-gray-100 px-2 py-1 text-[11px] font-medium text-gray-600">
+                            未运行
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-gray-600">
+                        <span className="rounded-full bg-white px-2 py-1">
+                          公司 {s.companies?.length || 0}
+                        </span>
+                        <span className="rounded-full bg-white px-2 py-1">
+                          角色 {s.agents?.length || 0}
+                        </span>
+                        {run && (
+                          <span className="rounded-full bg-white px-2 py-1">
+                            回合 {run.currentRound ?? 0}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-2 text-xs text-gray-500">
+                        更新于 {new Date(s.updatedAt).toLocaleString()}
+                      </div>
+                    </div>
+                  );
+                })}
+                <button
+                  onClick={handleCreate}
+                  className="flex min-h-[150px] flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 text-sm text-gray-500 hover:border-indigo-300 hover:text-indigo-600"
+                >
+                  + 新建推演
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </main>
+
+      {/* Editor Modal */}
+      {showEditor && (
+        <EditorModal
+          scenario={editing}
+          onClose={() => setShowEditor(false)}
+          onSaved={() => {
+            setShowEditor(false);
+            fetchScenarios();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function EditorModal({
+  scenario,
+  onClose,
+  onSaved,
+}: {
+  scenario: any;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    name: scenario?.name || '',
+    industry: scenario?.industry || '',
+    region: scenario?.region || '',
+    goals: scenario?.goals || {},
+    constraints: scenario?.params || {
+      blindMove: true,
+      cot: true,
+      chaosProb: 0.3,
+      irrationalProb: 0.2,
+      humanBreakEvery: 2,
+    },
+  });
+  const [companies, setCompanies] = useState(
+    scenario?.companies || [
+      { name: 'Benchmark Cloud GPU', type: 'benchmark', market: 'Global' },
+      { name: 'Startup AI Infra', type: 'startup', market: 'US' },
+    ]
+  );
+  const [agents, setAgents] = useState(
+    scenario?.agents || [
+      { role: 'CEO - 蓝军', team: 'BLUE', companyName: 'Benchmark Cloud GPU' },
+      { role: 'CEO - 红军', team: 'RED', companyName: 'Startup AI Infra' },
+      { role: '监管观察', team: 'GREEN' },
+    ]
+  );
+  const [saving, setSaving] = useState(false);
+  const [runId, setRunId] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const saveScenario = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`${config.apiUrl}/simulation/scenarios`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          ...form,
+          companies,
+          agents: agents.map((a: any) => ({
+            ...a,
+            persona: a.persona ? safeJson(a.persona, a.persona) : undefined,
+            memoryPublic: a.memoryPublic
+              ? safeJson(a.memoryPublic, a.memoryPublic)
+              : undefined,
+            memoryPrivate: a.memoryPrivate
+              ? safeJson(a.memoryPrivate, a.memoryPrivate)
+              : undefined,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMessage('场景已保存');
+        onSaved();
+      } else {
+        setMessage(data?.message || '保存失败');
+      }
+    } catch (err: any) {
+      setMessage(err.message || '保存失败');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const startRun = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`${config.apiUrl}/simulation/runs`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          scenarioId: scenario?.id,
+          rounds: 4,
+          params: form.constraints,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setRunId(data.id);
+        setMessage('推演已启动');
+      } else {
+        setMessage(data?.message || '启动失败');
+      }
+    } catch (err: any) {
+      setMessage(err.message || '启动失败');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateCompany = (index: number, value: ScenarioFormCompany) => {
+    setCompanies((prev: ScenarioFormCompany[]) =>
+      prev.map((c: ScenarioFormCompany, i: number) => (i === index ? value : c))
+    );
+  };
+  const addCompany = () =>
+    setCompanies((prev: ScenarioFormCompany[]) => [
+      ...prev,
+      { name: `Company ${prev.length + 1}`, type: 'startup', market: 'Global' },
+    ]);
+  const updateAgent = (index: number, value: ScenarioFormAgent) => {
+    setAgents((prev: ScenarioFormAgent[]) =>
+      prev.map((a: ScenarioFormAgent, i: number) => (i === index ? value : a))
+    );
+  };
+  const addAgent = () =>
+    setAgents((prev: ScenarioFormAgent[]) => [
+      ...prev,
+      { role: `Agent ${prev.length + 1}`, team: 'BLUE' },
+    ]);
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-start justify-center bg-black/40 p-6">
+      <div className="h-[90vh] w-full max-w-6xl overflow-auto rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-xl font-semibold text-gray-900">
+              {scenario ? '编辑场景' : '新建场景'}
+            </h3>
+            <p className="text-xs text-gray-500">
+              行业模板：AI算力基础设施，可自定义目标与约束；默认 2 轮暂停。
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-600 hover:bg-gray-200"
+          >
+            关闭
+          </button>
+        </div>
+
+        {message && (
+          <div className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50 p-2 text-sm text-indigo-700">
+            {message}
+          </div>
+        )}
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+          <div className="space-y-4 lg:col-span-2">
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="text-xs text-gray-600">名称</label>
+                  <input
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-600">行业</label>
+                  <input
+                    value={form.industry}
+                    onChange={(e) =>
+                      setForm({ ...form, industry: e.target.value })
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-600">区域</label>
+                  <input
+                    value={form.region}
+                    onChange={(e) =>
+                      setForm({ ...form, region: e.target.value })
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs text-gray-600">目标</label>
+                  <textarea
+                    value={JSON.stringify(form.goals, null, 2)}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        goals: safeJson(e.target.value, form.goals),
+                      })
+                    }
+                    rows={3}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs text-gray-600">
+                    约束 / Chaos / 盲注
+                  </label>
+                  <textarea
+                    value={JSON.stringify(form.constraints, null, 2)}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        constraints: safeJson(e.target.value, form.constraints),
+                      })
+                    }
+                    rows={3}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-gray-900">
+                  角色卡（蓝/多红/绿/Chaos）
+                </h4>
+                <button
+                  onClick={addAgent}
+                  className="text-xs text-indigo-600 hover:text-indigo-700"
+                >
+                  + 添加角色
+                </button>
+              </div>
+              <div className="space-y-3">
+                {agents.map((a: any, idx: number) => (
+                  <div
+                    key={idx}
+                    className="rounded-lg border border-white bg-white p-3 shadow-sm"
+                  >
+                    <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                      <select
+                        value={a.team}
+                        onChange={(e) =>
+                          updateAgent(idx, {
+                            ...a,
+                            team: e.target.value as ScenarioFormAgent['team'],
+                          })
+                        }
+                        className="w-full rounded-md border border-gray-200 px-2 py-1 text-sm md:w-24"
+                      >
+                        <option value="BLUE">蓝军</option>
+                        <option value="RED">红军</option>
+                        <option value="GREEN">绿军</option>
+                        <option value="CHAOS">Chaos</option>
+                      </select>
+                      <input
+                        value={a.role}
+                        onChange={(e) =>
+                          updateAgent(idx, { ...a, role: e.target.value })
+                        }
+                        className="flex-1 rounded-md border border-gray-200 px-2 py-1 text-sm"
+                      />
+                      <input
+                        value={a.companyName || ''}
+                        placeholder="所属公司(可选)"
+                        onChange={(e) =>
+                          updateAgent(idx, {
+                            ...a,
+                            companyName: e.target.value,
+                          })
+                        }
+                        className="w-full rounded-md border border-gray-200 px-2 py-1 text-sm md:w-40"
+                      />
+                    </div>
+                    <div className="mt-2 grid gap-2 md:grid-cols-2">
+                      <textarea
+                        value={a.persona || ''}
+                        placeholder='Persona（JSON），例：{"style":"激进CEO","bias":"高风险短期"}'
+                        onChange={(e) =>
+                          updateAgent(idx, { ...a, persona: e.target.value })
+                        }
+                        rows={2}
+                        className="w-full rounded-md border border-gray-200 px-2 py-1 font-mono text-xs"
+                      />
+                      <textarea
+                        value={a.memoryPrivate || ''}
+                        placeholder='私有记忆（JSON），例：{"secret":"资金链紧张"}'
+                        onChange={(e) =>
+                          updateAgent(idx, {
+                            ...a,
+                            memoryPrivate: e.target.value,
+                          })
+                        }
+                        rows={2}
+                        className="w-full rounded-md border border-gray-200 px-2 py-1 font-mono text-xs"
+                      />
+                      <textarea
+                        value={a.memoryPublic || ''}
+                        placeholder='公共记忆（JSON），例：{"newsRef":"最新供应链报道"}'
+                        onChange={(e) =>
+                          updateAgent(idx, {
+                            ...a,
+                            memoryPublic: e.target.value,
+                          })
+                        }
+                        rows={2}
+                        className="w-full rounded-md border border-gray-200 px-2 py-1 font-mono text-xs md:col-span-2"
+                      />
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-gray-500">
+                      <button
+                        className="rounded border border-gray-200 px-2 py-1 hover:border-indigo-300"
+                        onClick={() =>
+                          updateAgent(idx, {
+                            ...a,
+                            team: 'RED',
+                            role: '红军 激进CEO',
+                            persona: JSON.stringify(
+                              {
+                                style: '激进派CEO',
+                                pressure: '季度财报压力',
+                                preference: '高风险高回报抢份额',
+                                decision: '独断专行',
+                              },
+                              null,
+                              2
+                            ),
+                          })
+                        }
+                      >
+                        套用红军·激进CEO
+                      </button>
+                      <button
+                        className="rounded border border-gray-200 px-2 py-1 hover:border-indigo-300"
+                        onClick={() =>
+                          updateAgent(idx, {
+                            ...a,
+                            team: 'RED',
+                            role: '红军 保守董事会',
+                            persona: JSON.stringify(
+                              {
+                                style: '保守董事会',
+                                preference: '稳健现金流',
+                                risk: '反对过度资本开支',
+                              },
+                              null,
+                              2
+                            ),
+                          })
+                        }
+                      >
+                        套用红军·保守董事会
+                      </button>
+                      <button
+                        className="rounded border border-gray-200 px-2 py-1 hover:border-green-300"
+                        onClick={() =>
+                          updateAgent(idx, {
+                            ...a,
+                            team: 'GREEN',
+                            role: '绿军 监管官',
+                            persona: JSON.stringify(
+                              {
+                                style: '监管/合规',
+                                focus: '出口管制、能耗、数据合规',
+                                bias: '保护消费者与能源安全',
+                              },
+                              null,
+                              2
+                            ),
+                          })
+                        }
+                      >
+                        套用绿军·监管
+                      </button>
+                      <button
+                        className="rounded border border-gray-200 px-2 py-1 hover:border-green-300"
+                        onClick={() =>
+                          updateAgent(idx, {
+                            ...a,
+                            team: 'GREEN',
+                            role: '绿军 媒体/舆情',
+                            persona: JSON.stringify(
+                              {
+                                style: '媒体记者',
+                                focus: '供应链透明度、价格战',
+                                bias: '偏好揭露负面但遵循事实',
+                              },
+                              null,
+                              2
+                            ),
+                          })
+                        }
+                      >
+                        套用绿军·媒体
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-gray-900">
+                  公司（自动+手工）
+                </h4>
+                <button
+                  onClick={addCompany}
+                  className="text-xs text-indigo-600 hover:text-indigo-700"
+                >
+                  + 添加公司
+                </button>
+              </div>
+              <div className="space-y-3">
+                {companies.map((c: any, idx: number) => (
+                  <div
+                    key={idx}
+                    className="rounded-md border border-white bg-white px-3 py-2 shadow-sm"
+                  >
+                    <div className="flex flex-col gap-2 md:flex-row">
+                      <input
+                        value={c.name}
+                        onChange={(e) =>
+                          updateCompany(idx, { ...c, name: e.target.value })
+                        }
+                        className="flex-1 rounded-md border border-gray-200 px-2 py-1 text-sm"
+                      />
+                      <input
+                        value={c.type}
+                        onChange={(e) =>
+                          updateCompany(idx, { ...c, type: e.target.value })
+                        }
+                        className="w-full rounded-md border border-gray-200 px-2 py-1 text-sm md:w-28"
+                      />
+                      <input
+                        value={c.market}
+                        onChange={(e) =>
+                          updateCompany(idx, { ...c, market: e.target.value })
+                        }
+                        className="w-full rounded-md border border-gray-200 px-2 py-1 text-sm md:w-28"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <h4 className="text-sm font-semibold text-gray-900">
+                运行与状态
+              </h4>
+              <div className="mt-2 rounded-lg border border-gray-100 bg-white p-3 text-sm text-gray-700">
+                <p>场景: {scenario?.id || '保存后生成ID'}</p>
+                <p>Run ID: {runId || '未启动'}</p>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={saveScenario}
+                disabled={saving}
+                className="flex-1 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
+              >
+                保存场景
+              </button>
+              {scenario?.id && (
+                <button
+                  onClick={startRun}
+                  disabled={saving}
+                  className="flex-1 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-purple-700 disabled:opacity-50"
+                >
+                  开始推演
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
