@@ -604,6 +604,46 @@ export class AdminController {
     }
   }
 
+  // ============ External Data Providers ============
+
+  /**
+   * 获取外部数据源配置
+   * GET /api/v1/admin/external-providers
+   */
+  @Get("external-providers")
+  async getExternalProviders() {
+    this.logger.log("Admin: Fetching external data providers config");
+    return this.adminService.getExternalProvidersConfig();
+  }
+
+  /**
+   * 更新外部数据源配置
+   * PATCH /api/v1/admin/external-providers
+   */
+  @Patch("external-providers")
+  async updateExternalProviders(
+    @Body()
+    body: {
+      providers: Array<{
+        id: string;
+        name?: string;
+        description?: string;
+        category?: string;
+        enabled?: boolean;
+        baseUrl?: string;
+        apiKey?: string;
+        headers?: string;
+      }>;
+    },
+  ) {
+    this.logger.log(
+      `Admin: Updating external data providers (${body.providers?.length || 0})`,
+    );
+    return this.adminService.updateExternalProvidersConfig(
+      body.providers || [],
+    );
+  }
+
   /**
    * 检查API余额/配额
    * GET /api/v1/admin/api-balance/:type/:provider

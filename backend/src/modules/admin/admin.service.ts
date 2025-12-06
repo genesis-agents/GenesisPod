@@ -2,6 +2,44 @@ import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { AIModelType } from "@prisma/client";
 
+type ExternalProvider = {
+  id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  enabled?: boolean;
+  baseUrl?: string;
+  apiKey?: string;
+  headers?: string;
+};
+
+const DEFAULT_EXTERNAL_PROVIDERS: ExternalProvider[] = [
+  {
+    id: "market",
+    name: "Market / Price",
+    description: "GPU/compute pricing, supply-demand and deal flows",
+    category: "market",
+  },
+  {
+    id: "finance",
+    name: "Finance / Filings",
+    description: "Financials, filings, funding, IPO/registration updates",
+    category: "finance",
+  },
+  {
+    id: "news",
+    name: "News / Sentiment",
+    description: "News streams and sentiment for adjudication evidence",
+    category: "news",
+  },
+  {
+    id: "regulation",
+    name: "Regulation / Policy",
+    description: "Export controls, energy constraints, compliance metrics",
+    category: "regulation",
+  },
+];
+
 @Injectable()
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
@@ -917,6 +955,84 @@ export class AdminService {
     provider: "jina" | "firecrawl" | "tavily",
   ): Promise<string | null> {
     return this.getSetting(`extraction.${provider}.apiKey`);
+  }
+
+
+  // ============ External Data Providers Configuration ============
+
+  async getExternalProvidersConfig(): Promise<
+    Array<ExternalProvider & { hasApiKey: boolean }>
+  > {
+    const stored =
+      (await this.getSetting("external.providers")) as ExternalProvider[] | null;
+    const existing = Array.isArray(stored) ? stored : [];
+    const defaultIds = DEFAULT_EXTERNAL_PROVIDERS.map((p) => p.id);
+
+    const defaults = DEFAULT_EXTERNAL_PROVIDERS.map((provider) => {
+      const prev = existing.find((p) => p.id === provider.id);
+      const apiKey = prev?.apiKey || "";
+      return {
+        ...provider,
+        ...prev,
+        apiKey: apiKey ? this.maskApiKey(apiKey) : "",
+        hasApiKey: !!apiKey,
+        enabled: prev?.enabled ?? false,
+        baseUrl: prev?.baseUrl ?? "",
+        headers: prev?.headers ?? "",
+      };
+    });
+
+    const customProviders = existing
+      .filter((p) => !defaultIds.includes(p.id))
+      .map((provider) => {
+        const apiKey = provider.apiKey || "";
+        return {
+          ...provider,
+          apiKey: apiKey ? this.maskApiKey(apiKey) : "",
+          hasApiKey: !!apiKey,
+          enabled: provider.enabled ?? false,
+          baseUrl: provider.baseUrl ?? "",
+          headers: provider.headers ?? "",
+        };
+      });
+
+    return [...defaults, ...customProviders];
+  }
+
+  async updateExternalProvidersConfig(providers: ExternalProvider[]) {
+    const stored =
+      (await this.getSetting("external.providers")) as ExternalProvider[] | null;
+    const existing = Array.isArray(stored) ? stored : [];
+
+    const mergedProviders = providers
+      .filter((p) => p.id?.trim())
+      .map((provider) => {
+        const prev = existing.find((p) => p.id === provider.id);
+        const incomingApiKey = provider.apiKey || "";
+        const apiKey =
+          incomingApiKey &&
+          !incomingApiKey.includes("***") &&
+          incomingApiKey.trim() !== ""
+            ? incomingApiKey.trim()
+            : prev?.apiKey || "";
+
+        return {
+          ...prev,
+          ...provider,
+          id: provider.id,
+          apiKey,
+          enabled: provider.enabled ?? prev?.enabled ?? false,
+          baseUrl: provider.baseUrl ?? prev?.baseUrl ?? "",
+          headers: provider.headers ?? prev?.headers ?? "",
+        };
+      });
+
+    await this.setSetting("external.providers", mergedProviders, {
+      description: "External data providers configuration",
+      category: "external",
+    });
+
+    return this.getExternalProvidersConfig();
   }
 
   /**
