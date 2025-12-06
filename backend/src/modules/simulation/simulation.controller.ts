@@ -6,11 +6,14 @@ import {
   Post,
   UseGuards,
   Patch,
+  Sse,
+  MessageEvent,
 } from "@nestjs/common";
+import { Observable, interval, map, switchMap, from, takeWhile } from "rxjs";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../common/guards/admin.guard";
 import { SimulationService } from "./simulation.service";
-import { SimulationTeam } from "@prisma/client";
+import { SimulationTeam, SimulationRunStatus } from "@prisma/client";
 import { ExternalDataService } from "./external-data.service";
 import { AIAssistService } from "./ai-assist.service";
 
@@ -154,5 +157,100 @@ export class SimulationController {
     },
   ): Promise<any> {
     return this.aiAssist.generateScenarioSuggestions(body);
+  }
+
+  // ========== SSE Real-time Updates ==========
+
+  /**
+   * SSE端点：实时推送推演状态更新
+   * 前端通过 EventSource 连接此端点接收实时更新
+   */
+  @Sse("runs/:id/events")
+  runEvents(@Param("id") id: string): Observable<MessageEvent> {
+    // 每2秒轮询一次运行状态
+    return interval(2000).pipe(
+      switchMap(() => from(this.simulationService.getRunById(id))),
+      takeWhile((run) => {
+        // 当运行完成或失败时停止推送
+        if (!run) return false;
+        return (
+          run.status !== SimulationRunStatus.COMPLETED &&
+          run.status !== SimulationRunStatus.FAILED
+        );
+      }, true), // inclusive: 包含最后一个状态
+      map((run) => {
+        if (!run) {
+          return {
+            data: JSON.stringify({
+              type: "error",
+              message: "Run not found",
+            }),
+          };
+        }
+
+        // 构建事件数据
+        const eventData: any = {
+          type: "status_update",
+          runId: run.id,
+          status: run.status,
+          currentRound: run.currentRound,
+          rounds: run.rounds,
+          timestamp: new Date().toISOString(),
+        };
+
+        // 如果有最新的turn，添加turn信息
+        if (run.turns && run.turns.length > 0) {
+          const latestTurn = run.turns[run.turns.length - 1];
+          eventData.latestTurn = {
+            roundNumber: latestTurn.roundNumber,
+            adjudication: latestTurn.adjudication,
+            hasBlackSwan: !!(latestTurn.adjudication as any)?.blackSwanEvent,
+          };
+
+          // 检查是否有新回合完成
+          if (latestTurn.roundNumber === run.currentRound) {
+            eventData.type = "turn_complete";
+          }
+        }
+
+        // 如果运行暂停，标记需要人类干预
+        if (run.status === SimulationRunStatus.PAUSED) {
+          eventData.type = "human_intervention_required";
+          eventData.message = `推演已在第${run.currentRound}回合暂停，等待人类干预`;
+        }
+
+        // 如果运行完成
+        if (run.status === SimulationRunStatus.COMPLETED) {
+          eventData.type = "run_completed";
+          eventData.summary = run.summary;
+        }
+
+        return { data: JSON.stringify(eventData) };
+      }),
+    );
+  }
+
+  /**
+   * 获取推演报告（公开版/内部版）
+   */
+  @Get("runs/:id/report")
+  async getRunReport(
+    @Param("id") id: string,
+    @Param("version") version?: "public" | "internal",
+  ): Promise<any> {
+    const run = await this.simulationService.getRunById(id);
+    if (!run || !run.summary) {
+      return { error: "Report not available" };
+    }
+
+    const summary = run.summary as any;
+    if (version === "public" && summary.publicReport) {
+      return summary.publicReport;
+    }
+    if (version === "internal" && summary.internalReport) {
+      return summary.internalReport;
+    }
+
+    return summary;
   }
 }
