@@ -4,6 +4,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  useThemeStore,
+  USER_MESSAGE_STYLES,
+  AI_MESSAGE_STYLES,
+} from '@/stores/themeStore';
 import { config } from '@/lib/config';
 
 interface UserStats {
@@ -74,6 +79,13 @@ function ProfileContent() {
     darkMode: false,
     language: 'en',
   });
+
+  const {
+    userMessageStyle,
+    aiMessageStyle,
+    setUserMessageStyle,
+    setAiMessageStyle,
+  } = useThemeStore();
 
   // Fetch user stats
   const fetchUserStats = useCallback(async () => {
@@ -395,7 +407,116 @@ function ProfileContent() {
             {/* Settings Tab */}
             {activeTab === 'settings' && (
               <div className="space-y-6">
-                {/* Notifications Settings */}
+                {/* Chat Appearance Settings */}
+                <div className="rounded-lg border border-gray-200 bg-white p-6">
+                  <h2 className="mb-4 text-lg font-semibold">
+                    Chat Appearance
+                  </h2>
+                  <div className="space-y-6">
+                    {/* User Message Style */}
+                    <div>
+                      <p className="mb-3 font-medium text-gray-900">
+                        My Message Style
+                      </p>
+                      <div className="flex flex-wrap gap-3">
+                        {USER_MESSAGE_STYLES.map((style) => (
+                          <button
+                            key={style.id}
+                            onClick={() => setUserMessageStyle(style.value)}
+                            className={`group relative flex h-12 w-12 items-center justify-center rounded-full ring-offset-2 transition-all ${style.preview} ${
+                              userMessageStyle === style.value
+                                ? 'ring-2 ring-gray-900'
+                                : 'hover:scale-110'
+                            }`}
+                            title={style.name}
+                          >
+                            {userMessageStyle === style.value && (
+                              <svg
+                                className="h-5 w-5 text-white"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M5 13l4 4L19 7"
+                                />
+                              </svg>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* AI Message Style */}
+                    <div>
+                      <p className="mb-3 font-medium text-gray-900">
+                        AI Message Style
+                      </p>
+                      <div className="flex flex-wrap gap-3">
+                        {AI_MESSAGE_STYLES.map((style) => (
+                          <button
+                            key={style.id}
+                            onClick={() => setAiMessageStyle(style.value)}
+                            className={`group relative flex h-12 w-12 items-center justify-center rounded-full ring-offset-2 transition-all ${style.preview} ${
+                              aiMessageStyle === style.value
+                                ? 'ring-2 ring-gray-900'
+                                : 'hover:scale-110'
+                            }`}
+                            title={style.name}
+                          >
+                            {aiMessageStyle === style.value && (
+                              <svg
+                                className="h-5 w-5 text-gray-900"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M5 13l4 4L19 7"
+                                />
+                              </svg>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Preview */}
+                    <div className="mt-4 rounded-xl bg-gray-50 p-4">
+                      <p className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-500">
+                        Preview
+                      </p>
+                      <div className="space-y-4">
+                        <div className="flex justify-end">
+                          <div
+                            className={`max-w-[80%] rounded-2xl rounded-tr-none px-4 py-3 text-sm shadow-sm ${userMessageStyle}`}
+                          >
+                            <p>How do I customize my chat appearance?</p>
+                          </div>
+                        </div>
+                        <div className="flex justify-start">
+                          <div
+                            className={`max-w-[80%] rounded-2xl rounded-tl-none px-4 py-3 text-sm ${aiMessageStyle}`}
+                          >
+                            <p>
+                              You can select different colors and styles for
+                              both your messages and my responses using the
+                              options above. Changes are saved automatically!
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notification Preferences */}
                 <div className="rounded-lg border border-gray-200 bg-white p-6">
                   <h2 className="mb-4 text-lg font-semibold">
                     Notification Preferences

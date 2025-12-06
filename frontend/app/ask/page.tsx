@@ -13,6 +13,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CollapsibleBlockquote } from '@/components/ui/CollapsibleBlockquote';
 import { CollapsibleMessage } from '@/components/ui/CollapsibleMessage';
+import { useThemeStore } from '@/stores/themeStore';
 
 // Toast notification component
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
@@ -133,6 +134,7 @@ function ModelIcon({
 export default function AskPage() {
   const router = useRouter();
   const { user, accessToken: token } = useAuth();
+  const { userMessageStyle, aiMessageStyle } = useThemeStore();
   const { models, loading: modelsLoading } = useAIModels();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -1116,8 +1118,8 @@ export default function AskPage() {
                       <div
                         className={`max-w-[90%] rounded-2xl px-4 py-3 ${
                           message.role === 'user'
-                            ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white'
-                            : 'bg-white shadow-sm ring-1 ring-gray-100'
+                            ? userMessageStyle
+                            : aiMessageStyle
                         }`}
                         onContextMenu={(e) => {
                           if (message.role === 'assistant') {
