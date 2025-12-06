@@ -128,6 +128,19 @@ export class SimulationService {
     return this.getRunById(run.id);
   }
 
+  async resumeRun(runId: string) {
+    const run = await this.getRunById(runId);
+    if (run.status !== SimulationRunStatus.PAUSED) {
+      return run;
+    }
+    await this.prisma.simulationRun.update({
+      where: { id: runId },
+      data: { status: SimulationRunStatus.RUNNING },
+    });
+    await this.engine.executeRun(runId, { resume: true });
+    return this.getRunById(runId);
+  }
+
   async getRunById(id: string) {
     const run = await this.prisma.simulationRun.findUnique({
       where: { id },
