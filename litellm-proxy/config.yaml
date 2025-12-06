@@ -2,21 +2,24 @@
 # Reference: https://docs.litellm.ai/docs/proxy/config_settings
 
 model_list:
-  # Claude Code model mappings -> Gemini 3 Pro
+  # Claude Code model mappings -> Gemini 3 Pro (disable thinking mode)
   - model_name: claude-sonnet-4-20250514
     litellm_params:
       model: gemini/gemini-3-pro-preview
       api_key: os.environ/GOOGLE_API_KEY
+      reasoning_effort: none
 
   - model_name: claude-opus-4-5-20251101
     litellm_params:
       model: gemini/gemini-3-pro-preview
       api_key: os.environ/GOOGLE_API_KEY
+      reasoning_effort: none
 
   - model_name: claude-sonnet-4-5-20250929
     litellm_params:
       model: gemini/gemini-3-pro-preview
       api_key: os.environ/GOOGLE_API_KEY
+      reasoning_effort: none
 
   # Claude Haiku -> Gemini Flash (faster, cheaper)
   - model_name: claude-haiku-4-5-20251001
