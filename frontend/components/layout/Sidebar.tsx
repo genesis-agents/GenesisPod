@@ -12,8 +12,12 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ className = '' }: SidebarProps) {
-  // 手动锁定展开状态
-  const [isLocked, setIsLocked] = useState(false);
+  // 折叠状态（持久化）
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const stored = window.localStorage.getItem('sidebar-collapsed');
+    return stored === 'true';
+  });
   // 悬停展开
   const [isHovered, setIsHovered] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -25,7 +29,17 @@ export default function Sidebar({ className = '' }: SidebarProps) {
   const { isAdmin } = useAuth();
 
   // 锁定时始终展开，否则悬停时展开
-  const showExpanded = isLocked || isHovered;
+  const showExpanded = !isCollapsed || isHovered;
+
+  // 持久化折叠状态
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(
+        'sidebar-collapsed',
+        isCollapsed ? 'true' : 'false'
+      );
+    }
+  }, [isCollapsed]);
 
   // 检查鼠标是否在侧边栏内
   const checkMouseInSidebar = useCallback(() => {
@@ -113,16 +127,21 @@ export default function Sidebar({ className = '' }: SidebarProps) {
     >
       {/* Collapse/Expand Button - Vertically Centered */}
       <button
-        onClick={() => setIsLocked(!isLocked)}
+        onClick={() => {
+          const next = !isCollapsed;
+          setIsCollapsed(next);
+          // 确保点击后立即展开视图（避免 hover 依赖）
+          setIsHovered(!next ? false : true);
+        }}
         className="group absolute -right-4 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg bg-gradient-to-br from-blue-50 to-purple-50 shadow-sm ring-1 ring-gray-200/50 transition-all duration-200 hover:shadow-md hover:ring-blue-300/50"
         title={
-          isLocked
-            ? 'Unlock sidebar (auto-collapse)'
-            : 'Lock sidebar (stay expanded)'
+          isCollapsed
+            ? 'Expand sidebar (click to keep open)'
+            : 'Collapse sidebar'
         }
       >
         <svg
-          className={`h-4 w-4 text-gray-600 transition-all duration-200 group-hover:text-blue-600 ${!showExpanded ? 'rotate-180' : ''}`}
+          className={`h-4 w-4 text-gray-600 transition-all duration-200 group-hover:text-blue-600 ${isCollapsed ? 'rotate-180' : ''}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
