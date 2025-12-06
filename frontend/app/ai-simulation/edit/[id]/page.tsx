@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,15 +29,28 @@ export default function EditScenarioPage() {
 
   const [scenario, setScenario] = useState<ScenarioDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const redirectedRef = useRef(false);
 
+  // 获取场景数据
   useEffect(() => {
-    if (user && scenarioId) {
+    if (user && scenarioId && !redirectedRef.current) {
       void fetchScenario();
     }
   }, [user, scenarioId]);
 
+  // 场景加载成功后重定向
+  useEffect(() => {
+    if (scenario && !redirectedRef.current) {
+      redirectedRef.current = true;
+      sessionStorage.setItem('editScenarioId', scenario.id);
+      router.push('/ai-simulation');
+    }
+  }, [scenario, router]);
+
   const fetchScenario = async () => {
     setLoading(true);
+    setError(false);
     try {
       const res = await fetch(
         `${config.apiUrl}/simulation/scenarios/${scenarioId}`,
@@ -49,32 +62,40 @@ export default function EditScenarioPage() {
       if (res.ok) {
         const data = await res.json();
         setScenario(data);
+      } else {
+        setError(true);
       }
     } catch (err) {
       console.error('Failed to fetch scenario:', err);
+      setError(true);
     } finally {
       setLoading(false);
     }
   };
 
+  // 加载中
   if (authLoading || loading) {
     return (
       <div className="flex min-h-screen bg-gray-50">
         <Sidebar />
         <main className="flex flex-1 items-center justify-center">
-          <div className="text-gray-500">加载中...</div>
+          <div className="text-center">
+            <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent"></div>
+            <div className="text-gray-500">加载中...</div>
+          </div>
         </main>
       </div>
     );
   }
 
-  if (!user || !scenario) {
+  // 未登录或加载失败
+  if (!user || error) {
     return (
       <div className="flex min-h-screen bg-gray-50">
         <Sidebar />
         <main className="flex flex-1 items-center justify-center">
           <div className="text-center">
-            <div className="mb-4 text-6xl">404</div>
+            <div className="mb-4 text-6xl text-gray-300">404</div>
             <div className="mb-4 text-gray-500">场景不存在或无权访问</div>
             <button
               onClick={() => router.push('/ai-simulation')}
@@ -88,16 +109,7 @@ export default function EditScenarioPage() {
     );
   }
 
-  // 重定向到主页面并打开编辑器
-  // 由于编辑器是在主页面的Modal中，我们重定向并传递参数
-  useEffect(() => {
-    if (scenario) {
-      // 存储到sessionStorage，主页面读取后打开编辑器
-      sessionStorage.setItem('editScenarioId', scenario.id);
-      router.push('/ai-simulation');
-    }
-  }, [scenario, router]);
-
+  // 正在跳转
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />

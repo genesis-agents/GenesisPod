@@ -152,40 +152,34 @@ export default function ScenarioDetailPage() {
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
       <main className="flex-1 overflow-auto">
-        <div className="mx-auto max-w-7xl space-y-6 px-8 py-6">
-          {/* Header */}
-          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-4">
-                <button
-                  onClick={() => router.push('/ai-simulation')}
-                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 hover:bg-gray-50"
+        <div className="space-y-6 px-8 py-6">
+          {/* Header - 与系统其他页面一致 */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => router.push('/ai-simulation')}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 hover:bg-gray-50"
+              >
+                <svg
+                  className="h-4 w-4 text-gray-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  <svg
-                    className="h-5 w-5 text-gray-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 19l-7-7 7-7"
-                    />
-                  </svg>
-                </button>
-                <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-2xl">
-                  ⚔️
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 19l-7-7 7-7"
+                  />
+                </svg>
+              </button>
+              <div>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-xl font-semibold text-gray-900">
                     {scenario.name}
                   </h1>
-                  <p className="text-sm text-gray-600">
-                    {scenario.industry} · {scenario.region || 'Global'}
-                  </p>
-                  <div className="mt-2 flex gap-2">
+                  <div className="flex gap-2">
                     <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600">
                       {scenario.companies?.length || 0} 公司
                     </span>
@@ -199,41 +193,134 @@ export default function ScenarioDetailPage() {
                     )}
                   </div>
                 </div>
+                <p className="mt-1 text-sm text-gray-500">
+                  {scenario.industry} · {scenario.region || 'Global'}
+                </p>
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() =>
-                    router.push(`/ai-simulation/edit/${scenario.id}`)
-                  }
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  编辑
-                </button>
-                <button
-                  onClick={handleStartRun}
-                  disabled={startingRun || activeRun?.status === 'RUNNING'}
-                  className="rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-indigo-500/25 hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50"
-                >
-                  {startingRun
-                    ? '启动中...'
-                    : activeRun?.status === 'RUNNING'
-                      ? '运行中'
-                      : '开始推演'}
-                </button>
-              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() =>
+                  router.push(`/ai-simulation/edit/${scenario.id}`)
+                }
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                编辑
+              </button>
+              <button
+                onClick={handleStartRun}
+                disabled={startingRun || activeRun?.status === 'RUNNING'}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {startingRun
+                  ? '启动中...'
+                  : activeRun?.status === 'RUNNING'
+                    ? '运行中'
+                    : '开始推演'}
+              </button>
             </div>
           </div>
 
           {/* Tabs */}
-          <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <div className="rounded-xl border border-gray-200 bg-white">
             <div className="border-b border-gray-200">
               <div className="flex">
                 {[
-                  { key: 'overview', label: '概览', icon: '📊' },
-                  { key: 'companies', label: '公司棋盘', icon: '🏢' },
-                  { key: 'agents', label: '角色配置', icon: '👥' },
-                  { key: 'runs', label: '运行历史', icon: '📜' },
-                  { key: 'report', label: '复盘报告', icon: '📋' },
+                  {
+                    key: 'overview',
+                    label: '概览',
+                    icon: (
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                        />
+                      </svg>
+                    ),
+                  },
+                  {
+                    key: 'companies',
+                    label: '公司棋盘',
+                    icon: (
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                        />
+                      </svg>
+                    ),
+                  },
+                  {
+                    key: 'agents',
+                    label: '角色配置',
+                    icon: (
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                        />
+                      </svg>
+                    ),
+                  },
+                  {
+                    key: 'runs',
+                    label: '运行历史',
+                    icon: (
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    ),
+                  },
+                  {
+                    key: 'report',
+                    label: '复盘报告',
+                    icon: (
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                    ),
+                  },
                 ].map((item) => (
                   <button
                     key={item.key}
@@ -244,7 +331,7 @@ export default function ScenarioDetailPage() {
                         : 'border-transparent text-gray-500 hover:text-gray-700'
                     }`}
                   >
-                    <span>{item.icon}</span>
+                    {item.icon}
                     <span>{item.label}</span>
                   </button>
                 ))}
@@ -351,7 +438,7 @@ export default function ScenarioDetailPage() {
                         <div className="mb-4 flex items-start justify-between">
                           <div className="flex items-center gap-3">
                             <div
-                              className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl ${
+                              className={`flex h-12 w-12 items-center justify-center rounded-xl text-white ${
                                 company.type === 'benchmark'
                                   ? 'bg-gradient-to-br from-amber-400 to-orange-500'
                                   : company.type === 'challenger'
@@ -361,7 +448,19 @@ export default function ScenarioDetailPage() {
                                       : 'bg-gradient-to-br from-gray-400 to-gray-500'
                               }`}
                             >
-                              🏢
+                              <svg
+                                className="h-6 w-6"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                                />
+                              </svg>
                             </div>
                             <div>
                               <h4 className="font-semibold text-gray-900">
@@ -713,8 +812,20 @@ export default function ScenarioDetailPage() {
                   {/* Report Version Toggle */}
                   <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
-                        📋
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
+                        <svg
+                          className="h-5 w-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                          />
+                        </svg>
                       </div>
                       <div>
                         <h3 className="text-sm font-semibold text-gray-900">
@@ -741,7 +852,19 @@ export default function ScenarioDetailPage() {
                       <div className="rounded-xl border border-gray-200 bg-white p-5">
                         <h4 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-900">
                           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-100 text-amber-600">
-                            💡
+                            <svg
+                              className="h-3.5 w-3.5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                              />
+                            </svg>
                           </span>
                           关键洞察
                         </h4>
@@ -771,7 +894,19 @@ export default function ScenarioDetailPage() {
                       <div className="rounded-xl border border-gray-200 bg-white p-5">
                         <h4 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-900">
                           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-red-100 text-red-600">
-                            ⚠️
+                            <svg
+                              className="h-3.5 w-3.5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                              />
+                            </svg>
                           </span>
                           盲点与风险
                         </h4>

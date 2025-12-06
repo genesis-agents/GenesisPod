@@ -213,46 +213,27 @@ export default function AISimulationPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50/30">
+    <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
       <main className="flex-1 overflow-auto">
-        <div className="space-y-6 px-8 py-6">
-          {/* Header */}
-          <div className="border-b border-gray-100 bg-white/50 backdrop-blur-sm">
-            <div className="px-0 py-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/25">
-                    <svg
-                      className="h-5 w-5 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 6l7 4-7 4-7-4 7-4zm0 8l7 4-7 4-7-4 7-4z"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <h1 className="text-lg font-semibold text-gray-900">
-                      AI Simulation
-                    </h1>
-                    <p className="text-sm text-gray-500">
-                      战略推演：多军对抗、真实数据、人类介入
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleCreate}
-                  className="rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-500/25 hover:from-indigo-700 hover:to-purple-700"
-                >
-                  + 新建推演
-                </button>
+        <div className="px-8 py-6">
+          {/* Header - 与系统其他页面一致 */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-xl font-semibold text-gray-900">
+                  AI Simulation
+                </h1>
+                <p className="mt-1 text-sm text-gray-500">
+                  战略推演：多军对抗、真实数据、人类介入
+                </p>
               </div>
+              <button
+                onClick={handleCreate}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              >
+                + 新建推演
+              </button>
             </div>
           </div>
 
