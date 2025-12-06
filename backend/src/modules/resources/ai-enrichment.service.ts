@@ -132,6 +132,44 @@ export class AIEnrichmentService {
   }
 
   /**
+   * 翻译内容
+   */
+  async translateContent(
+    content: string,
+    targetLanguage = "zh-CN",
+  ): Promise<{
+    translatedText: string;
+    model: string;
+  } | null> {
+    try {
+      this.logger.log(
+        `Translating content (length: ${content.length}) to ${targetLanguage}`,
+      );
+
+      // 如果内容过长，可以使用 translate-segments 接口，这里简化处理使用 translate
+      // 注意：实际生产中可能需要分段处理
+      const response = await this.httpClient.post("/api/v1/ai/translate", {
+        text: content,
+        targetLanguage,
+      });
+
+      const result = {
+        translatedText: response.data.translatedText,
+        model: response.data.model,
+      };
+
+      this.logger.log(`Translation completed using ${result.model}`);
+
+      return result;
+    } catch (error) {
+      this.logger.error(
+        `Failed to translate content: ${getErrorMessage(error)}`,
+      );
+      return null;
+    }
+  }
+
+  /**
    * 完整的 AI 增强处理
    * 对资源内容进行摘要、洞察提取和分类
    */

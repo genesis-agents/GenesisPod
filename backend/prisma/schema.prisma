@@ -227,6 +227,7 @@ model Resource {
   notes              Note[]
   comments           Comment[]
   workspaceResources WorkspaceResource[]
+  translations       ResourceTranslation[]
 
   // AI Group 相关
   topicAttachments TopicMessageAttachment[] @relation("TopicAttachmentResource")
@@ -249,6 +250,28 @@ model Resource {
   @@index([contentFingerprint])
   @@index([titleFingerprint])
   @@map("resources")
+}
+
+model ResourceTranslation {
+  id          String   @id @default(uuid())
+  resourceId  String   @map("resource_id")
+  language    String   @db.VarChar(10) // e.g., 'zh-CN'
+  title       String?  @db.Text
+  content     String   @db.Text // The full translated text
+  summary     String?  @db.Text // Optional: translated summary
+
+  // Translation metadata
+  modelUsed   String?  @map("model_used") @db.VarChar(50)
+  tokensUsed  Int?     @map("tokens_used")
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  resource    Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@unique([resourceId, language])
+  @@index([resourceId])
+  @@map("resource_translations")
 }
 
 // ============ 收藏相关 ============

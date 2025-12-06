@@ -646,8 +646,23 @@ export class AiGroupService {
       throw new NotFoundException("AI member not found");
     }
 
-    return this.prisma.topicAIMember.delete({
-      where: { id: aiMemberId },
+    // Use transaction to safely delete AI member and related records
+    // This fixes FOREIGN_KEY_VIOLATION errors when deleting AIs involved in missions/tasks
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Delete all tasks assigned to this AI (across any mission)
+      await tx.agentTask.deleteMany({
+        where: { assignedToId: aiMemberId },
+      });
+
+      // 2. Delete all missions led by this AI (will cascade delete tasks in those missions)
+      await tx.teamMission.deleteMany({
+        where: { leaderId: aiMemberId },
+      });
+
+      // 3. Delete the AI member
+      return tx.topicAIMember.delete({
+        where: { id: aiMemberId },
+      });
     });
   }
 

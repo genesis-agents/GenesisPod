@@ -9,6 +9,7 @@ import { MongoDBService } from "../../common/mongodb/mongodb.service.postgres";
 import { ensureError } from "../../common/utils/error.utils";
 import { Prisma } from "@prisma/client";
 import { SourceWhitelistService } from "../data-management/services/source-whitelist.service";
+import { AIEnrichmentService } from "./ai-enrichment.service";
 
 /**
  * 资源管理服务
@@ -21,6 +22,7 @@ export class ResourcesService {
     private prisma: PrismaService,
     private mongodb: MongoDBService,
     private whitelistService: SourceWhitelistService,
+    private aiEnrichmentService: AIEnrichmentService,
   ) {}
 
   /**
@@ -201,6 +203,63 @@ export class ResourcesService {
         count: s._count.id,
       })),
     };
+  }
+
+  /**
+   * 翻译资源
+   */
+  async translateResource(id: string, targetLanguage = "zh-CN") {
+    // 1. 检查是否存在翻译
+    const existingTranslation =
+      await this.prisma.resourceTranslation.findUnique({
+        where: {
+          resourceId_language: {
+            resourceId: id,
+            language: targetLanguage,
+          },
+        },
+      });
+
+    if (existingTranslation) {
+      this.logger.log(
+        `Found existing translation for resource ${id} in ${targetLanguage}`,
+      );
+      return existingTranslation;
+    }
+
+    // 2. 获取资源内容
+    const resource = await this.findOne(id);
+    const contentToTranslate = resource.content || resource.abstract || "";
+
+    if (!contentToTranslate) {
+      throw new BadRequestException("Resource has no content to translate");
+    }
+
+    // 3. 调用 AI 服务翻译
+    const translationResult = await this.aiEnrichmentService.translateContent(
+      contentToTranslate,
+      targetLanguage,
+    );
+
+    if (!translationResult) {
+      throw new BadRequestException("Translation failed");
+    }
+
+    // 4. 保存翻译
+    const translation = await this.prisma.resourceTranslation.create({
+      data: {
+        resourceId: id,
+        language: targetLanguage,
+        content: translationResult.translatedText,
+        modelUsed: translationResult.model,
+      },
+    });
+
+    this.logger.log(
+      `Created translation for resource ${id} in ${targetLanguage}`,
+    );
+
+    return translation;
   }
 
   /**

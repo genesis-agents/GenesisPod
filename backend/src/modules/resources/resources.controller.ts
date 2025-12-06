@@ -453,6 +453,19 @@ export class ResourcesController {
   }
 
   /**
+   * 翻译资源
+   * POST /api/v1/resources/:id/translate
+   */
+  @Post(":id/translate")
+  translate(
+    @Param("id") id: string,
+    @Body("language") language: string = "zh-CN",
+  ) {
+    this.logger.log(`Translating resource ${id} to ${language}`);
+    return this.resourcesService.translateResource(id, language);
+  }
+
+  /**
    * 上传并保存资源缩略图
    * POST /api/v1/resources/:id/thumbnail
    *
