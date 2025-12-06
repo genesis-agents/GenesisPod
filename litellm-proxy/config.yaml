@@ -2,10 +2,16 @@
 # API keys are loaded from environment variables (set in .env file)
 
 model_list:
-  # Claude Code model mappings - all Claude models map to Gemini
+  # Claude Code model mappings with fallback
+  # Primary: Gemini 3 Pro, Fallback: Gemini 2.5 Pro
   - model_name: claude-sonnet-4-20250514
     litellm_params:
       model: gemini/gemini-3-pro-preview
+      api_key: os.environ/GOOGLE_API_KEY
+
+  - model_name: claude-sonnet-4-20250514
+    litellm_params:
+      model: gemini/gemini-2.5-pro-preview-06-05
       api_key: os.environ/GOOGLE_API_KEY
 
   - model_name: claude-opus-4-5-20251101
@@ -13,14 +19,29 @@ model_list:
       model: gemini/gemini-3-pro-preview
       api_key: os.environ/GOOGLE_API_KEY
 
+  - model_name: claude-opus-4-5-20251101
+    litellm_params:
+      model: gemini/gemini-2.5-pro-preview-06-05
+      api_key: os.environ/GOOGLE_API_KEY
+
   - model_name: claude-sonnet-4-5-20250929
     litellm_params:
       model: gemini/gemini-3-pro-preview
       api_key: os.environ/GOOGLE_API_KEY
 
+  - model_name: claude-sonnet-4-5-20250929
+    litellm_params:
+      model: gemini/gemini-2.5-pro-preview-06-05
+      api_key: os.environ/GOOGLE_API_KEY
+
   - model_name: claude-haiku-4-5-20251001
     litellm_params:
       model: gemini/gemini-2.0-flash
+      api_key: os.environ/GOOGLE_API_KEY
+
+  - model_name: claude-haiku-4-5-20251001
+    litellm_params:
+      model: gemini/gemini-2.5-flash-preview-05-20
       api_key: os.environ/GOOGLE_API_KEY
 
   # Google Gemini Models
