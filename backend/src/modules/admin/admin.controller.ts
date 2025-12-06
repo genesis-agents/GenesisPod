@@ -626,7 +626,7 @@ export class AdminController {
     body: {
       providers: Array<{
         id: string;
-        name?: string;
+        name: string;
         description?: string;
         category?: string;
         enabled?: boolean;
