@@ -656,6 +656,10 @@ JSON output:`;
     try {
       // 使用 CHAT_FAST tier（低成本快速模型）
       const modelConfig = await this.getFastModelConfig();
+      this.logger.log(
+        `[Summary] Using model: ${modelConfig.name} (${modelConfig.modelId}) - Tier: CHAT_FAST`,
+      );
+
       const prompt =
         language === "zh"
           ? `请为以下内容生成简洁的摘要：\n\n${content}\n\n要求：简明扼要，突出重点。`
@@ -674,6 +678,8 @@ JSON output:`;
       return {
         summary: result.content,
         model: result.model,
+        model_used: modelConfig.modelId,
+        tier: "CHAT_FAST",
       };
     } catch (error) {
       if (error instanceof HttpException) {
@@ -702,6 +708,10 @@ JSON output:`;
     try {
       // 使用 CHAT_FAST tier（低成本快速模型）
       const modelConfig = await this.getFastModelConfig();
+      this.logger.log(
+        `[Insights] Using model: ${modelConfig.name} (${modelConfig.modelId}) - Tier: CHAT_FAST`,
+      );
+
       const prompt = `You are a JSON-only API. Extract key insights from the following content.
 
 Content:
@@ -731,6 +741,8 @@ JSON output:`;
       return {
         insights: jsonContent,
         model: result.model,
+        model_used: modelConfig.modelId,
+        tier: "CHAT_FAST",
       };
     } catch (error) {
       if (error instanceof HttpException) {

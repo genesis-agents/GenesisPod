@@ -121,7 +121,7 @@ export class AiService {
       }
 
       this.logger.log(
-        `Using model for translation: ${defaultModel.name} (${defaultModel.modelId})`,
+        `[Translation] Using model: ${defaultModel.name} (${defaultModel.modelId}) - Tier: CHAT_FAST`,
       );
 
       const targetLangName = this.getLanguageName(targetLang);
