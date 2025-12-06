@@ -9,6 +9,7 @@ import React, { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { CollapsibleBlockquote } from '@/components/ui/CollapsibleBlockquote';
 
 interface SourceReference {
   title: string;
@@ -193,12 +194,9 @@ export default function MessageRenderer({
             );
           },
 
-          // 引用块 - 带左侧色条
+          // 引用块 - 使用可折叠组件
           blockquote: ({ node, ...props }) => (
-            <blockquote
-              className="my-4 rounded-r border-l-4 border-blue-500 bg-blue-50 py-3 pl-4 pr-4 italic text-gray-700"
-              {...props}
-            />
+            <CollapsibleBlockquote {...props} />
           ),
 
           // 代码块 - 语法高亮

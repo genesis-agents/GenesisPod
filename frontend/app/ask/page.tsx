@@ -11,6 +11,7 @@ import SessionSidebar from '@/components/ask/SessionSidebar';
 import MessageContextMenu from '@/components/ask/MessageContextMenu';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { CollapsibleBlockquote } from '@/components/ui/CollapsibleBlockquote';
 
 // Toast notification component
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
@@ -1145,7 +1146,12 @@ export default function AskPage() {
                         <div
                           className={`prose prose-sm max-w-none ${message.role === 'user' ? 'prose-invert' : ''}`}
                         >
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              blockquote: CollapsibleBlockquote,
+                            }}
+                          >
                             {message.content}
                           </ReactMarkdown>
                         </div>
@@ -1264,7 +1270,12 @@ export default function AskPage() {
                           {!response.isCollapsed && response.content && (
                             <div className="border-t border-gray-100 px-4 py-3">
                               <div className="prose prose-sm max-w-none">
-                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                <ReactMarkdown
+                                  remarkPlugins={[remarkGfm]}
+                                  components={{
+                                    blockquote: CollapsibleBlockquote,
+                                  }}
+                                >
                                   {response.content}
                                 </ReactMarkdown>
                               </div>
