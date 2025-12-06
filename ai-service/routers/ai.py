@@ -242,10 +242,12 @@ async def classify_content(
 }}
 """
 
+    # 使用 "fast" tier (GPT-4o-mini)
     result, model = await orch.generate_completion(
         prompt,
         max_tokens=500,
-        temperature=0.3
+        temperature=0.3,
+        tier="fast"
     )
 
     if result is None:
@@ -869,13 +871,6 @@ async def translate_single(
 
     logger.info("Translating: '%s' -> %s", request.text[:50], request.targetLanguage)
 
-    client, active_model = select_ai_client(
-        request.model,
-        orch,
-        "Translate single sentence",
-        "AI translation services unavailable"
-    )
-
     # 智能多语言翻译prompt
     target_lang_name = {
         "zh-CN": "Simplified Chinese (简体中文)",
@@ -902,10 +897,12 @@ Text to translate:
 
 Translation:"""
 
-    result = await client.generate_completion(
+    # Use fast tier for single sentence translation
+    result, active_model = await orch.generate_completion(
         prompt,
         max_tokens=200,
         temperature=0.2,
+        tier="fast"
     )
 
     if result is None:

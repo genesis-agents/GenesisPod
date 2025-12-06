@@ -29,7 +29,8 @@ class GrokClient:
         self,
         prompt: str,
         max_tokens: int = 500,
-        temperature: float = 0.7
+        temperature: float = 0.7,
+        model: str = "grok-3"
     ) -> Optional[str]:
         """
         生成文本补全
@@ -38,6 +39,7 @@ class GrokClient:
             prompt: 提示词
             max_tokens: 最大 token 数
             temperature: 温度参数
+            model: 模型名称
 
         Returns:
             生成的文本，失败返回 None
@@ -55,7 +57,7 @@ class GrokClient:
                         "Content-Type": "application/json",
                     },
                     json={
-                        "model": "grok-3",
+                        "model": model,
                         "messages": [
                             {"role": "user", "content": prompt}
                         ],

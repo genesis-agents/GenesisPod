@@ -7,12 +7,13 @@ import { DynamicThumbnailService } from "./dynamic-thumbnail.service";
 import { PrismaModule } from "../../common/prisma/prisma.module";
 import { MongoDBModule } from "../../common/mongodb/mongodb.module";
 import { DataManagementModule } from "../data-management/data-management.module";
+import { StorageModule } from "../storage/storage.module";
 
 /**
  * 资源管理模块
  */
 @Module({
-  imports: [PrismaModule, MongoDBModule, DataManagementModule],
+  imports: [PrismaModule, MongoDBModule, DataManagementModule, StorageModule],
   controllers: [ResourcesController],
   providers: [
     ResourcesService,

@@ -223,15 +223,33 @@ export class WechatWorkService {
     query: string,
     url?: string | null,
   ): Promise<string> {
-    // 获取默认 AI 模型配置
-    const defaultModel = await this.prisma.aIModel.findFirst({
-      where: { isEnabled: true },
-      orderBy: { isDefault: "desc" },
+    // 获取默认 CHAT 模型配置（企业微信分析需要强模型）
+    let defaultModel = await this.prisma.aIModel.findFirst({
+      where: {
+        isEnabled: true,
+        isDefault: true,
+        modelType: "CHAT",
+      },
     });
 
+    // Fallback: 任意 CHAT 模型
     if (!defaultModel) {
-      throw new Error("No AI model configured");
+      defaultModel = await this.prisma.aIModel.findFirst({
+        where: {
+          isEnabled: true,
+          modelType: "CHAT",
+        },
+        orderBy: { createdAt: "desc" },
+      });
     }
+
+    if (!defaultModel) {
+      throw new Error("No CHAT AI model configured");
+    }
+
+    this.logger.log(
+      `[WechatWork] Using model: ${defaultModel.name} (${defaultModel.modelId})`,
+    );
 
     // 构建系统提示词
     const systemPrompt = `你是 DeepDive AI 助手，一个智能知识分析助手。

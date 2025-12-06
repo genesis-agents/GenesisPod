@@ -1,62 +1,60 @@
-# LiteLLM Proxy Config - Gemini 3 Pro
-# Reference: https://docs.litellm.ai/blog/gemini_3
+# LiteLLM Proxy Config - GPT-5.1 -> Gemini 2.0 Flash
+# Note: Gemini 3 Pro quota exhausted, temporarily disabled
 
 model_list:
-  # Claude Code model mappings -> Gemini 3 Pro (thinking_level: low)
+  # Claude Code model mappings -> GPT-5.1 (primary)
   - model_name: claude-sonnet-4-20250514
     litellm_params:
-      model: gemini/gemini-3-pro-preview
-      api_key: os.environ/GOOGLE_API_KEY
-      reasoning_effort: low
+      model: gpt-5.1
+      api_key: os.environ/OPENAI_API_KEY
       max_tokens: 16384
 
   - model_name: claude-opus-4-5-20251101
     litellm_params:
-      model: gemini/gemini-3-pro-preview
-      api_key: os.environ/GOOGLE_API_KEY
-      reasoning_effort: low
+      model: gpt-5.1
+      api_key: os.environ/OPENAI_API_KEY
       max_tokens: 16384
 
   - model_name: claude-sonnet-4-5-20250929
     litellm_params:
-      model: gemini/gemini-3-pro-preview
-      api_key: os.environ/GOOGLE_API_KEY
-      reasoning_effort: low
+      model: gpt-5.1
+      api_key: os.environ/OPENAI_API_KEY
       max_tokens: 16384
 
-  # Claude Haiku -> Gemini Flash (faster, cheaper)
+  # Claude Haiku -> GPT-4o-mini (fast)
   - model_name: claude-haiku-4-5-20251001
     litellm_params:
-      model: gemini/gemini-2.0-flash
-      api_key: os.environ/GOOGLE_API_KEY
-      max_tokens: 8192
-
-  # Direct Gemini Models
-  - model_name: gemini-3-pro
-    litellm_params:
-      model: gemini/gemini-3-pro-preview
-      api_key: os.environ/GOOGLE_API_KEY
-      reasoning_effort: low
+      model: gpt-4o-mini
+      api_key: os.environ/OPENAI_API_KEY
       max_tokens: 16384
 
+  # Fallback model - Gemini 2.0 Flash (stable, no quota issues)
   - model_name: gemini-2.0-flash
     litellm_params:
       model: gemini/gemini-2.0-flash
       api_key: os.environ/GOOGLE_API_KEY
       max_tokens: 8192
 
-  # OpenAI Models
+  # Direct OpenAI Models
+  - model_name: gpt-5.1
+    litellm_params:
+      model: gpt-5.1
+      api_key: os.environ/OPENAI_API_KEY
+      max_tokens: 16384
+
   - model_name: gpt-4o
     litellm_params:
       model: gpt-4o
       api_key: os.environ/OPENAI_API_KEY
+      max_tokens: 16384
 
   - model_name: gpt-4o-mini
     litellm_params:
       model: gpt-4o-mini
       api_key: os.environ/OPENAI_API_KEY
+      max_tokens: 16384
 
-# Router settings for reliability
+# Router settings - fallback to Gemini 2.0 Flash
 router_settings:
   routing_strategy: simple-shuffle
   num_retries: 3
@@ -69,7 +67,15 @@ router_settings:
     InternalServerErrorRetries: 3
   allowed_fails: 3
   cooldown_time: 60
-  enable_fallbacks: false
+  enable_fallbacks: true
+  fallbacks:
+    - claude-sonnet-4-20250514: [gemini-2.0-flash]
+    - claude-opus-4-5-20251101: [gemini-2.0-flash]
+    - claude-sonnet-4-5-20250929: [gemini-2.0-flash]
+    - claude-haiku-4-5-20251001: [gemini-2.0-flash]
+    - gpt-5.1: [gemini-2.0-flash]
+    - gpt-4o: [gemini-2.0-flash]
+    - gpt-4o-mini: [gemini-2.0-flash]
 
 litellm_settings:
   # Drop unsupported params instead of error

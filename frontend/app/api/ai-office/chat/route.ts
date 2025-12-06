@@ -357,40 +357,48 @@ export async function POST(request: NextRequest) {
 
 /**
  * Build context string from resources
+ * Optimized to prevent context window bloat
  */
 function buildResourceContext(resources: AIOfficeResource[]): string {
   if (!resources || resources.length === 0) {
     return '';
   }
 
-  const contextParts = ['以下是用户选择的资源信息：\n'];
+  // Limit number of resources to prevent massive context
+  // Prioritize first 5 resources (user selection order matters)
+  const MAX_RESOURCES = 5;
+  const processResources = resources.slice(0, MAX_RESOURCES);
 
-  resources.forEach((resource, index) => {
+  const contextParts = [
+    `以下是用户选择的资源信息（共${resources.length}个，显示前${processResources.length}个）：\n`,
+  ];
+
+  processResources.forEach((resource, index) => {
     contextParts.push(`\n资源 ${index + 1}: ${resource.resourceType}`);
 
     if (resource.metadata) {
       contextParts.push(`标题: ${resource.metadata.title || '无标题'}`);
 
       if (resource.metadata.description) {
-        contextParts.push(`描述: ${resource.metadata.description}`);
+        // Truncate description
+        const desc = resource.metadata.description;
+        const truncatedDesc =
+          desc.length > 200 ? desc.substring(0, 200) + '...' : desc;
+        contextParts.push(`描述: ${truncatedDesc}`);
       }
 
       if (resource.metadata.authors) {
         contextParts.push(`作者: ${resource.metadata.authors}`);
       }
-
-      if (resource.metadata.channel) {
-        contextParts.push(`频道: ${resource.metadata.channel}`);
-      }
-
-      if (resource.metadata.url) {
-        contextParts.push(`链接: ${resource.metadata.url}`);
-      }
     }
 
     if (resource.aiAnalysis) {
       if (resource.aiAnalysis.summary) {
-        contextParts.push(`AI摘要: ${resource.aiAnalysis.summary}`);
+        // Truncate summary
+        const summary = resource.aiAnalysis.summary;
+        const truncatedSummary =
+          summary.length > 500 ? summary.substring(0, 500) + '...' : summary;
+        contextParts.push(`AI摘要: ${truncatedSummary}`);
       }
 
       if (
@@ -398,8 +406,12 @@ function buildResourceContext(resources: AIOfficeResource[]): string {
         resource.aiAnalysis.keyPoints.length > 0
       ) {
         contextParts.push('关键点:');
-        resource.aiAnalysis.keyPoints.forEach((point: string) => {
-          contextParts.push(`  - ${point}`);
+        // Limit to top 3 key points
+        resource.aiAnalysis.keyPoints.slice(0, 3).forEach((point: string) => {
+          // Truncate key point
+          const truncatedPoint =
+            point.length > 100 ? point.substring(0, 100) + '...' : point;
+          contextParts.push(`  - ${truncatedPoint}`);
         });
       }
     }

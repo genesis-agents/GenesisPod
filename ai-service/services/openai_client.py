@@ -29,7 +29,8 @@ class OpenAIClient:
         self,
         prompt: str,
         max_tokens: int = 500,
-        temperature: float = 0.7
+        temperature: float = 0.7,
+        model: str = "gpt-4o-mini"
     ) -> Optional[str]:
         """
         生成文本补全
@@ -38,6 +39,7 @@ class OpenAIClient:
             prompt: 提示词
             max_tokens: 最大 token 数
             temperature: 温度参数
+            model: 模型名称
 
         Returns:
             生成的文本，失败返回 None
@@ -48,7 +50,7 @@ class OpenAIClient:
 
         try:
             response = await self.client.chat.completions.create(
-                model="gpt-4o-mini",  # 使用 GPT-4o-mini 性价比更高
+                model=model,  # 使用指定模型 (默认 gpt-4o-mini)
                 messages=[
                     {"role": "user", "content": prompt}
                 ],

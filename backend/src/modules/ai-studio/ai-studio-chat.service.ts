@@ -267,24 +267,46 @@ export class AiStudioChatService {
           isEnabled: true,
         },
       });
-      if (model) return model;
+      if (model) {
+        this.logger.log(
+          `[AIStudio] Using specified model: ${model.name} (${model.modelId})`,
+        );
+        return model;
+      }
     }
 
-    // Fallback to default model
+    // Fallback to default CHAT model
     const defaultModel = await this.prisma.aIModel.findFirst({
       where: {
         isEnabled: true,
         isDefault: true,
+        modelType: "CHAT",
       },
     });
 
-    if (defaultModel) return defaultModel;
+    if (defaultModel) {
+      this.logger.log(
+        `[AIStudio] Using default CHAT model: ${defaultModel.name} (${defaultModel.modelId})`,
+      );
+      return defaultModel;
+    }
 
-    // If no default, get any enabled model
-    return this.prisma.aIModel.findFirst({
-      where: { isEnabled: true },
+    // If no default, get any enabled CHAT model
+    const anyModel = await this.prisma.aIModel.findFirst({
+      where: {
+        isEnabled: true,
+        modelType: "CHAT",
+      },
       orderBy: { createdAt: "asc" },
     });
+
+    if (anyModel) {
+      this.logger.log(
+        `[AIStudio] Using fallback CHAT model: ${anyModel.name} (${anyModel.modelId})`,
+      );
+    }
+
+    return anyModel;
   }
 
   /**

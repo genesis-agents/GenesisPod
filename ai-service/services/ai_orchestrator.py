@@ -43,20 +43,45 @@ class AIOrchestrator:
         prompt: str,
         max_tokens: int = 500,
         temperature: float = 0.7,
-        force_model: Optional[Literal["grok", "openai"]] = None
+        force_model: Optional[Literal["grok", "openai"]] = None,
+        tier: Optional[Literal["fast", "smart"]] = None
     ) -> tuple[Optional[str], str]:
         """
-        生成文本补全（带故障切换）
+        生成文本补全（带故障切换和层级选择）
 
         Args:
             prompt: 提示词
             max_tokens: 最大 token 数
             temperature: 温度参数
-            force_model: 强制使用的模型
+            force_model: 强制使用的模型 (provider)
+            tier: 模型层级 ("fast" for cheap/fast, "smart" for capability)
 
         Returns:
             (生成的文本, 使用的模型名称)
         """
+        # 如果指定了 tier，优先选择合适的 provider 和 model
+        # fast -> openai (gpt-4o-mini)
+        # smart -> grok (grok-3) or openai (gpt-4o)
+
+        selected_model = self._active_model
+
+        if tier == "fast":
+            # For fast tier, prefer OpenAI (gpt-4o-mini is very cheap)
+            if self.openai.available:
+                result = await self.openai.generate_completion(
+                    prompt, max_tokens, temperature, model="gpt-4o-mini"
+                )
+                if result:
+                    return result, "openai:gpt-4o-mini"
+                # Fallback to active model if fast model fails
+            elif self.grok.available:
+                # Use Grok as fallback for fast tier
+                result = await self.grok.generate_completion(
+                    prompt, max_tokens, temperature, model="grok-3" # xAI usually has one main model
+                )
+                if result:
+                    return result, "grok:grok-3"
+
         # 如果指定了强制模型，直接使用
         if force_model:
             return await self._try_model(force_model, prompt, max_tokens, temperature)
@@ -66,7 +91,7 @@ class AIOrchestrator:
 
         if result is not None:
             # 成功，重置失败计数
-            if model == "grok":
+            if model.startswith("grok"):
                 self.grok_failures = 0
             else:
                 self.openai_failures = 0
@@ -111,10 +136,10 @@ class AIOrchestrator:
         temperature: float
     ) -> tuple[Optional[str], str]:
         """
-        尝试使用指定模型
+        尝试使用指定模型 provider
 
         Args:
-            model: 模型名称
+            model: 模型提供商
             prompt: 提示词
             max_tokens: 最大 token 数
             temperature: 温度参数
@@ -126,6 +151,7 @@ class AIOrchestrator:
             result = await self.grok.generate_completion(prompt, max_tokens, temperature)
             return result, "grok" if result else "none"
         else:
+            # Standard generation uses default model (usually gpt-4o-mini or gpt-4 based on client default)
             result = await self.openai.generate_completion(prompt, max_tokens, temperature)
             return result, "openai" if result else "none"
 

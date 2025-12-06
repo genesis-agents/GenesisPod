@@ -17,13 +17,13 @@ import {
 } from "@nestjs/common";
 import { SkipThrottle } from "@nestjs/throttler";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { diskStorage } from "multer";
+import { memoryStorage } from "multer";
 import * as path from "path";
-import * as fs from "fs/promises";
 import { ResourcesService } from "./resources.service";
 import { AIEnrichmentService } from "./ai-enrichment.service";
 import { PdfThumbnailService } from "./pdf-thumbnail.service";
 import { DynamicThumbnailService } from "./dynamic-thumbnail.service";
+import { R2StorageService } from "../storage/r2-storage.service";
 import { Prisma } from "@prisma/client";
 
 /**
@@ -38,6 +38,7 @@ export class ResourcesController {
     private aiEnrichmentService: AIEnrichmentService,
     private pdfThumbnailService: PdfThumbnailService,
     private dynamicThumbnailService: DynamicThumbnailService,
+    private r2StorageService: R2StorageService,
   ) {}
 
   /**
@@ -469,24 +470,12 @@ export class ResourcesController {
    * 上传并保存资源缩略图
    * POST /api/v1/resources/:id/thumbnail
    *
-   * 前端使用 PDF.js 客户端生成缩略图，然后上传到服务器
+   * 前端使用 PDF.js 客户端生成缩略图，然后上传到服务器 (S3/R2)
    */
   @Post(":id/thumbnail")
   @UseInterceptors(
     FileInterceptor("thumbnail", {
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          const uploadPath = path.join(process.cwd(), "public", "thumbnails");
-          fs.mkdir(uploadPath, { recursive: true })
-            .then(() => cb(null, uploadPath))
-            .catch((error) => cb(error as Error, uploadPath));
-        },
-        filename: (req, file, cb) => {
-          const resourceId = req.params.id;
-          const ext = path.extname(file.originalname) || ".jpg";
-          cb(null, `${resourceId}${ext}`);
-        },
-      }),
+      storage: memoryStorage(), // Use memory storage to process file in controller
       limits: {
         fileSize: 5 * 1024 * 1024, // 5MB max
       },
@@ -516,8 +505,22 @@ export class ResourcesController {
       throw new HttpException(`Resource ${id} not found`, HttpStatus.NOT_FOUND);
     }
 
-    // 构建缩略图 URL
-    const thumbnailUrl = `/thumbnails/${file.filename}`;
+    // Upload to S3/R2
+    const uploadResult = await this.r2StorageService.uploadBuffer(
+      file.buffer,
+      "thumbnails",
+      `${id}${path.extname(file.originalname)}`,
+      file.mimetype,
+    );
+
+    if (!uploadResult.success || !uploadResult.url) {
+      throw new HttpException(
+        `Failed to upload thumbnail: ${uploadResult.error}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+
+    const thumbnailUrl = uploadResult.url;
 
     // 更新资源的缩略图 URL
     const updated = await this.resourcesService.update(id, {
@@ -604,24 +607,13 @@ export class ResourcesController {
    * - PROJECT: ZIP/TAR.GZ文件（最大100MB）
    * - NEWS: 图片文件（最大10MB）
    * - YOUTUBE_VIDEO: 字幕文件（最大5MB）
+   *
+   * Uses S3/R2 storage
    */
   @Post("upload-file")
   @UseInterceptors(
     FileInterceptor("file", {
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          const uploadPath = path.join(process.cwd(), "public", "uploads");
-          fs.mkdir(uploadPath, { recursive: true })
-            .then(() => cb(null, uploadPath))
-            .catch((error) => cb(error as Error, uploadPath));
-        },
-        filename: (_req, file, cb) => {
-          const timestamp = Date.now();
-          const ext = path.extname(file.originalname);
-          const name = path.basename(file.originalname, ext);
-          cb(null, `${name}-${timestamp}${ext}`);
-        },
-      }),
+      storage: memoryStorage(), // Use memory storage
       limits: {
         fileSize: 100 * 1024 * 1024, // Max 100MB (will be further validated based on type)
       },
@@ -678,8 +670,6 @@ export class ResourcesController {
 
     const restrictions = typeRestrictions[type];
     if (!restrictions) {
-      // Clean up uploaded file
-      await fs.unlink(file.path).catch(() => {});
       throw new HttpException(
         `Invalid resource type. Must be one of: ${Object.keys(typeRestrictions).join(", ")}`,
         HttpStatus.BAD_REQUEST,
@@ -688,7 +678,6 @@ export class ResourcesController {
 
     // Check file size
     if (file.size > restrictions.maxSize) {
-      await fs.unlink(file.path).catch(() => {});
       const maxSizeMB = restrictions.maxSize / (1024 * 1024);
       throw new HttpException(
         `File size exceeds maximum allowed (${maxSizeMB}MB) for ${type}`,
@@ -703,7 +692,6 @@ export class ResourcesController {
     );
 
     if (!isValidExt) {
-      await fs.unlink(file.path).catch(() => {});
       throw new HttpException(
         `Invalid file type. Allowed extensions for ${type}: ${restrictions.extensions.join(", ")}`,
         HttpStatus.BAD_REQUEST,
@@ -717,24 +705,39 @@ export class ResourcesController {
     );
 
     if (!isValidMime) {
-      await fs.unlink(file.path).catch(() => {});
       throw new HttpException(
         `Invalid file MIME type. Allowed types for ${type}: ${restrictions.mimeTypes.join(", ")}`,
         HttpStatus.BAD_REQUEST,
       );
     }
 
-    // Construct file URL
-    const fileUrl = `/uploads/${file.filename}`;
+    // Upload to S3/R2
+    const uploadResult = await this.r2StorageService.uploadBuffer(
+      file.buffer,
+      "uploads",
+      file.originalname,
+      file.mimetype,
+    );
 
-    this.logger.log(`File uploaded successfully: ${file.filename}`);
+    if (!uploadResult.success || !uploadResult.url) {
+      throw new HttpException(
+        `Failed to upload file: ${uploadResult.error}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+
+    const fileUrl = uploadResult.url;
+
+    this.logger.log(
+      `File uploaded successfully: ${file.originalname} -> ${fileUrl}`,
+    );
 
     // Return file info - frontend can decide whether to create resource or analyze
     return {
       message: "File uploaded successfully",
       file: {
         originalName: file.originalname,
-        filename: file.filename,
+        filename: uploadResult.key, // Use S3 key
         size: file.size,
         mimetype: file.mimetype,
         url: fileUrl,
