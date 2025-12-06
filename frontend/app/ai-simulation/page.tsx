@@ -14,6 +14,9 @@ interface ScenarioFormAgent {
   role: string;
   team: 'BLUE' | 'RED' | 'GREEN' | 'CHAOS';
   companyName?: string;
+  persona?: string;
+  memoryPublic?: string;
+  memoryPrivate?: string;
 }
 
 export default function AISimulationPage() {
@@ -82,7 +85,16 @@ export default function AISimulationPage() {
         body: JSON.stringify({
           ...form,
           companies,
-          agents,
+          agents: agents.map((a) => ({
+            ...a,
+            persona: a.persona ? safeJson(a.persona, a.persona) : undefined,
+            memoryPublic: a.memoryPublic
+              ? safeJson(a.memoryPublic, a.memoryPublic)
+              : undefined,
+            memoryPrivate: a.memoryPrivate
+              ? safeJson(a.memoryPrivate, a.memoryPrivate)
+              : undefined,
+          })),
         }),
       });
       const data = await res.json();
@@ -334,6 +346,122 @@ export default function AISimulationPage() {
                     }
                     className="w-40 rounded-md border border-gray-200 px-2 py-1 text-sm"
                   />
+                </div>
+                <div className="mt-2 grid gap-2 md:grid-cols-2">
+                  <textarea
+                    value={a.persona || ''}
+                    placeholder='Persona（JSON），例：{"style":"激进CEO","bias":"高风险短期"}'
+                    onChange={(e) =>
+                      updateAgent(idx, { ...a, persona: e.target.value })
+                    }
+                    rows={2}
+                    className="w-full rounded-md border border-gray-200 px-2 py-1 font-mono text-xs"
+                  />
+                  <textarea
+                    value={a.memoryPrivate || ''}
+                    placeholder='私有记忆（JSON），例：{"secret":"资金链紧张"}'
+                    onChange={(e) =>
+                      updateAgent(idx, { ...a, memoryPrivate: e.target.value })
+                    }
+                    rows={2}
+                    className="w-full rounded-md border border-gray-200 px-2 py-1 font-mono text-xs"
+                  />
+                  <textarea
+                    value={a.memoryPublic || ''}
+                    placeholder='公共记忆（JSON），例：{"newsRef":"最新供应链报道"}'
+                    onChange={(e) =>
+                      updateAgent(idx, { ...a, memoryPublic: e.target.value })
+                    }
+                    rows={2}
+                    className="w-full rounded-md border border-gray-200 px-2 py-1 font-mono text-xs md:col-span-2"
+                  />
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-gray-500">
+                  <button
+                    className="rounded border border-gray-200 px-2 py-1 hover:border-indigo-300"
+                    onClick={() =>
+                      updateAgent(idx, {
+                        ...a,
+                        team: 'RED',
+                        role: '红军 激进CEO',
+                        persona: JSON.stringify(
+                          {
+                            style: '激进派CEO',
+                            pressure: '季度财报压力',
+                            preference: '高风险高回报抢份额',
+                            decision: '独断专行',
+                          },
+                          null,
+                          2
+                        ),
+                      })
+                    }
+                  >
+                    套用红军·激进CEO
+                  </button>
+                  <button
+                    className="rounded border border-gray-200 px-2 py-1 hover:border-indigo-300"
+                    onClick={() =>
+                      updateAgent(idx, {
+                        ...a,
+                        team: 'RED',
+                        role: '红军 保守董事会',
+                        persona: JSON.stringify(
+                          {
+                            style: '保守董事会',
+                            preference: '稳健现金流',
+                            risk: '反对过度资本开支',
+                          },
+                          null,
+                          2
+                        ),
+                      })
+                    }
+                  >
+                    套用红军·保守董事会
+                  </button>
+                  <button
+                    className="rounded border border-gray-200 px-2 py-1 hover:border-green-300"
+                    onClick={() =>
+                      updateAgent(idx, {
+                        ...a,
+                        team: 'GREEN',
+                        role: '绿军 监管官',
+                        persona: JSON.stringify(
+                          {
+                            style: '监管/合规',
+                            focus: '出口管制、能耗、数据合规',
+                            bias: '保护消费者与能源安全',
+                          },
+                          null,
+                          2
+                        ),
+                      })
+                    }
+                  >
+                    套用绿军·监管
+                  </button>
+                  <button
+                    className="rounded border border-gray-200 px-2 py-1 hover:border-green-300"
+                    onClick={() =>
+                      updateAgent(idx, {
+                        ...a,
+                        team: 'GREEN',
+                        role: '绿军 媒体/舆情',
+                        persona: JSON.stringify(
+                          {
+                            style: '媒体记者',
+                            focus: '供应链透明度、价格战',
+                            bias: '偏好揭露负面但遵循事实',
+                          },
+                          null,
+                          2
+                        ),
+                      })
+                    }
+                  >
+                    套用绿军·媒体
+                  </button>
                 </div>
               </div>
             ))}

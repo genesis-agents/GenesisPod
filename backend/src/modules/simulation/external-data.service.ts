@@ -36,6 +36,29 @@ export class ExternalDataService {
    * Fetch data from configured external provider.
    * If baseUrl is missing or disabled, return null with reason.
    */
+  async getSnapshot(
+    providers: string[] = ["market", "finance", "news", "regulation"],
+  ) {
+    const results = await Promise.all(
+      providers.map((p) => this.fetchFromProvider(p)),
+    );
+    const snapshot: Record<string, any> = {};
+    const evidence: any[] = [];
+
+    results.forEach((res) => {
+      snapshot[res.providerId] = res.ok ? res.data : { error: res.error };
+      evidence.push({
+        provider: res.providerId,
+        endpoint: res.endpoint,
+        ok: res.ok,
+        error: res.error,
+        timestamp: new Date().toISOString(),
+      });
+    });
+
+    return { snapshot, evidence };
+  }
+
   async fetchFromProvider(
     providerId: string,
     path?: string,

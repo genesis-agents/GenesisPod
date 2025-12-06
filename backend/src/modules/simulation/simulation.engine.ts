@@ -41,23 +41,9 @@ export class SimulationEngineService {
     const evidenceTrail: any[] = [];
     const state: Record<string, any> = {};
 
-    const externalFetches = await Promise.all([
-      this.externalData.fetchFromProvider("market", "pricing"),
-      this.externalData.fetchFromProvider("finance", "filings"),
-      this.externalData.fetchFromProvider("news", "latest"),
-      this.externalData.fetchFromProvider("regulation", "policies"),
-    ]);
-
-    externalFetches.forEach((res) => {
-      evidenceTrail.push({
-        provider: res.providerId,
-        endpoint: res.endpoint,
-        ok: res.ok,
-        error: res.error,
-        timestamp: new Date().toISOString(),
-      });
-      state[res.providerId] = res.ok ? res.data : { error: res.error };
-    });
+    const { snapshot, evidence } = await this.externalData.getSnapshot();
+    evidenceTrail.push(...evidence);
+    Object.assign(state, snapshot);
 
     // Save initial world state
     await this.prisma.simulationRun.update({
@@ -100,23 +86,42 @@ export class SimulationEngineService {
       throw new Error(`Run ${runId} not found when processing round`);
     }
 
-    // Collect submissions: for MVP, auto-generate minimal CoT + action prompt using real state/evidence
-    const submissions: any[] = run.scenario.agents.map((agent) => {
+    // Collect submissions: enforce CoT (inner monologue + blind public action scaffold)
+    const submissions: any[] = [];
+    const worldState = (run.worldState as Record<string, any> | null) || {};
+    for (const agent of run.scenario.agents) {
       const baseVisibility =
         agent.team === SimulationTeam.CHAOS ||
         agent.team === SimulationTeam.ARBITER
           ? "global"
           : "team";
-      return {
+
+      const monologueParts = [
+        `角色: ${agent.role} (${agent.team})`,
+        agent.persona ? `Persona: ${JSON.stringify(agent.persona)}` : "",
+        agent.memoryPublic
+          ? `公共记忆: ${JSON.stringify(agent.memoryPublic)}`
+          : "",
+        agent.memoryPrivate
+          ? `私有记忆: ${JSON.stringify(agent.memoryPrivate)}`
+          : "",
+        `外部态势: market=${!!worldState.market}, finance=${!!worldState.finance}, news=${!!worldState.news}, regulation=${!!worldState.regulation}`,
+      ]
+        .filter(Boolean)
+        .join(" | ");
+
+      const submission = {
         agentId: agent.id,
         team: agent.team,
         role: agent.role,
-        innerMonologue: `Analyzing round ${roundNumber} with current world state references. (${baseVisibility} view)`,
-        publicAction: "Awaiting human/LLM action input in next iteration.",
+        innerMonologue: monologueParts,
+        publicAction: "盲注：行动已提交，等待裁判判定",
         visibility: baseVisibility,
         timestamp: new Date().toISOString(),
+        tools: agent.tools,
       };
-    });
+      submissions.push(submission);
+    }
 
     const adjudication: AdjudicationResult = await this.simpleAdjudication(
       run,
@@ -164,6 +169,7 @@ export class SimulationEngineService {
     const evidenceRefs: any[] = [];
     const worldDelta: Record<string, any> = {};
     const worldState = (run.worldState as Record<string, any>) || {};
+    worldDelta["publicMemory"] = worldState;
 
     const providers = ["market", "finance", "news", "regulation"];
     const missing = providers.filter(
