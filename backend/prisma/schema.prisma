@@ -2607,3 +2607,130 @@ model AskMessage {
   @@index([sessionId, createdAt])
   @@map("ask_messages")
 }
+
+// ============ 推演 / Simulation ============
+
+enum SimulationTeam {
+  BLUE
+  RED
+  GREEN
+  CHAOS
+  ARBITER
+  HUMAN
+}
+
+enum SimulationRunStatus {
+  PENDING
+  RUNNING
+  PAUSED
+  COMPLETED
+  FAILED
+}
+
+model SimulationScenario {
+  id          String   @id @default(uuid())
+  name        String   @db.VarChar(200)
+  industry    String   @db.VarChar(100)
+  region      String?  @db.VarChar(100)
+  goals       Json?
+  constraints Json?
+  dataSources Json?
+  createdById String?  @db.VarChar(36)
+
+  companies SimulationCompany[]
+  agents    SimulationAgent[]
+  runs      SimulationRun[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([industry])
+  @@map("simulation_scenarios")
+}
+
+model SimulationCompany {
+  id         String   @id @default(uuid())
+  scenarioId String   @db.VarChar(36)
+  name       String   @db.VarChar(200)
+  type       String?  @db.VarChar(50) // benchmark/startup/region
+  market     String?  @db.VarChar(100)
+
+  metrics     Json? // cash, capacity, inventory, price_band, debt, etc.
+  publicData  Json?
+  privateData Json?
+
+  scenario SimulationScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  agents   SimulationAgent[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([scenarioId])
+  @@map("simulation_companies")
+}
+
+model SimulationAgent {
+  id            String         @id @default(uuid())
+  scenarioId    String         @db.VarChar(36)
+  companyId     String?        @db.VarChar(36)
+  team          SimulationTeam @default(BLUE)
+  role          String         @db.VarChar(100)
+  persona       Json?
+  memoryPublic  Json?
+  memoryPrivate Json?
+  tools         Json?
+
+  scenario SimulationScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  company  SimulationCompany? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  turns    SimulationTurn[]   @relation("TurnAgents")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([scenarioId])
+  @@index([companyId])
+  @@index([team])
+  @@map("simulation_agents")
+}
+
+model SimulationRun {
+  id            String              @id @default(uuid())
+  scenarioId    String              @db.VarChar(36)
+  status        SimulationRunStatus @default(PENDING)
+  params        Json?
+  rounds        Int                 @default(2)
+  currentRound  Int                 @default(0)
+  worldState    Json?
+  evidenceTrail Json?
+  summary       Json?
+  startedById   String?             @db.VarChar(36)
+
+  scenario SimulationScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  turns    SimulationTurn[]
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  completedAt DateTime? @map("completed_at")
+
+  @@index([scenarioId])
+  @@index([status])
+  @@map("simulation_runs")
+}
+
+model SimulationTurn {
+  id           String   @id @default(uuid())
+  runId        String   @db.VarChar(36)
+  roundNumber  Int
+  submissions  Json?
+  adjudication Json?
+  evidence     Json?
+  worldState   Json?
+
+  run    SimulationRun    @relation(fields: [runId], references: [id], onDelete: Cascade)
+  agents SimulationAgent[] @relation("TurnAgents")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([runId, roundNumber])
+  @@map("simulation_turns")
+}

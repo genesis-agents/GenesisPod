@@ -1,0 +1,146 @@
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { PrismaService } from "../../common/prisma/prisma.service";
+import { SimulationRunStatus, SimulationTeam } from "@prisma/client";
+import { SimulationEngineService } from "./simulation.engine";
+
+export interface CreateScenarioInput {
+  name: string;
+  industry: string;
+  region?: string;
+  goals?: any;
+  constraints?: any;
+  dataSources?: any;
+  createdById?: string;
+  companies?: Array<{
+    name: string;
+    type?: string;
+    market?: string;
+    metrics?: any;
+    publicData?: any;
+    privateData?: any;
+  }>;
+  agents?: Array<{
+    companyName?: string;
+    team: SimulationTeam;
+    role: string;
+    persona?: any;
+    memoryPublic?: any;
+    memoryPrivate?: any;
+    tools?: any;
+  }>;
+}
+
+export interface StartRunInput {
+  scenarioId: string;
+  rounds?: number;
+  params?: any;
+  startedById?: string;
+}
+
+@Injectable()
+export class SimulationService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly engine: SimulationEngineService,
+  ) {}
+
+  async createScenario(input: CreateScenarioInput) {
+    const companies = input.companies || [];
+    const agents = input.agents || [];
+
+    const scenario = await this.prisma.simulationScenario.create({
+      data: {
+        name: input.name,
+        industry: input.industry,
+        region: input.region,
+        goals: input.goals,
+        constraints: input.constraints,
+        dataSources: input.dataSources,
+        createdById: input.createdById,
+        companies: {
+          create: companies.map((c) => ({
+            name: c.name,
+            type: c.type,
+            market: c.market,
+            metrics: c.metrics,
+            publicData: c.publicData,
+            privateData: c.privateData,
+          })),
+        },
+      },
+      include: {
+        companies: true,
+      },
+    });
+
+    // attach agents after companies created (resolve companyId by name if provided)
+    if (agents.length > 0) {
+      const companyMap = new Map(
+        scenario.companies.map((c) => [c.name.toLowerCase(), c.id]),
+      );
+      await this.prisma.simulationAgent.createMany({
+        data: agents.map((a) => ({
+          scenarioId: scenario.id,
+          companyId: a.companyName
+            ? companyMap.get(a.companyName.toLowerCase()) || null
+            : null,
+          team: a.team,
+          role: a.role,
+          persona: a.persona,
+          memoryPublic: a.memoryPublic,
+          memoryPrivate: a.memoryPrivate,
+          tools: a.tools,
+        })),
+      });
+    }
+
+    return this.getScenarioById(scenario.id);
+  }
+
+  async getScenarioById(id: string) {
+    const scenario = await this.prisma.simulationScenario.findUnique({
+      where: { id },
+      include: {
+        companies: true,
+        agents: true,
+      },
+    });
+    if (!scenario) {
+      throw new NotFoundException(`Scenario ${id} not found`);
+    }
+    return scenario;
+  }
+
+  async startRun(input: StartRunInput) {
+    const scenario = await this.getScenarioById(input.scenarioId);
+    const run = await this.prisma.simulationRun.create({
+      data: {
+        scenarioId: scenario.id,
+        status: SimulationRunStatus.RUNNING,
+        params: input.params,
+        rounds: input.rounds ?? 2,
+        startedById: input.startedById,
+      },
+    });
+
+    // run loop (synchronous for now)
+    await this.engine.executeRun(run.id);
+    return this.getRunById(run.id);
+  }
+
+  async getRunById(id: string) {
+    const run = await this.prisma.simulationRun.findUnique({
+      where: { id },
+      include: {
+        scenario: {
+          include: { companies: true, agents: true },
+        },
+        turns: true,
+      },
+    });
+    if (!run) {
+      throw new NotFoundException(`Run ${id} not found`);
+    }
+    return run;
+  }
+}
