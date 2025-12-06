@@ -80,3 +80,31 @@ class HealthResponse(BaseModel):
     openai_available: bool
     active_model: str
     timestamp: datetime = Field(default_factory=datetime.now)
+
+
+class GenerateStructuredSummaryRequest(BaseModel):
+    """结构化摘要生成请求"""
+
+    content: str = Field(..., description="原始内容")
+    resourceType: Literal[
+        "PAPER",
+        "NEWS",
+        "YOUTUBE_VIDEO",
+        "PROJECT",
+        "OTHER",
+        "BLOG",
+        "REPORT",
+        "EVENT",
+        "RSS",
+    ] = Field(..., description="资源类型")
+    language: str = Field("zh", description="输出语言")
+    title: Optional[str] = Field(None, description="资源标题")
+    abstract: Optional[str] = Field(None, description="资源摘要")
+
+
+class GenerateStructuredSummaryResponse(BaseModel):
+    """结构化摘要生成响应"""
+
+    summary: dict = Field(..., description="生成的结构化摘要")
+    model: str = Field(..., description="使用的模型")
+    generationTime: Optional[float] = Field(None, description="生成时间(ms)")

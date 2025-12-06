@@ -43,6 +43,7 @@ interface Resource {
   authors?: Array<{ name?: string; username?: string; platform?: string }>;
   publishedAt: string;
   aiSummary?: string | ResourceAISummary;
+  structuredAISummary?: ResourceAISummary; // Added field
   keyInsights?: Array<{
     title: string;
     importance: string;
@@ -72,10 +73,23 @@ export default function ResourcePage() {
   const [editingNoteId, setEditingNoteId] = useState<string | undefined>(
     undefined
   );
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
 
   useEffect(() => {
     loadResource();
   }, [id]);
+
+  // Auto-generate summary if missing when on AI tab
+  useEffect(() => {
+    if (
+      resource &&
+      activeTab === 'ai' &&
+      !resource.structuredAISummary &&
+      !isGeneratingSummary
+    ) {
+      generateAISummary();
+    }
+  }, [resource, activeTab]);
 
   const loadResource = async () => {
     try {
@@ -91,6 +105,31 @@ export default function ResourcePage() {
       console.error('Failed to load resource:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const generateAISummary = async () => {
+    if (!resource) return;
+
+    try {
+      setIsGeneratingSummary(true);
+      const response = await fetch(
+        `${config.apiBaseUrl}/api/v1/resources/${resource.id}/enrich-structured`,
+        {
+          method: 'POST',
+        }
+      );
+
+      if (response.ok) {
+        const updatedResource = await response.json();
+        setResource((prev) =>
+          prev ? { ...prev, ...updatedResource } : updatedResource
+        );
+      }
+    } catch (err) {
+      console.error('Failed to generate AI summary:', err);
+    } finally {
+      setIsGeneratingSummary(false);
     }
   };
 
@@ -359,9 +398,15 @@ export default function ResourcePage() {
           </div>
 
           {/* AI Summary - Using Structured AI Summary Components */}
-          {resource.aiSummary && (
+          {(resource.structuredAISummary || resource.aiSummary) && (
             <div className="mb-6">
-              {isStructuredAISummary(resource.aiSummary) ? (
+              {resource.structuredAISummary ? (
+                <StructuredAISummaryRouter
+                  summary={resource.structuredAISummary}
+                  compact={false}
+                  expandable={true}
+                />
+              ) : isStructuredAISummary(resource.aiSummary) ? (
                 <StructuredAISummaryRouter
                   summary={resource.aiSummary}
                   compact={false}
@@ -519,7 +564,13 @@ export default function ResourcePage() {
               {/* AI Tab Content */}
               {activeTab === 'ai' && (
                 <div className="space-y-4">
-                  {resource.aiSummary ? (
+                  {resource.structuredAISummary ? (
+                    <StructuredAISummaryRouter
+                      summary={resource.structuredAISummary}
+                      compact={false}
+                      expandable={true}
+                    />
+                  ) : resource.aiSummary ? (
                     isStructuredAISummary(resource.aiSummary) ? (
                       <StructuredAISummaryRouter
                         summary={resource.aiSummary}
@@ -540,22 +591,36 @@ export default function ResourcePage() {
                   ) : (
                     <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-gray-300">
                       <div className="text-center">
-                        <svg
-                          className="mx-auto h-12 w-12 text-gray-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-                          />
-                        </svg>
-                        <p className="mt-2 text-sm text-gray-500">
-                          AI analysis not yet available
-                        </p>
+                        {isGeneratingSummary ? (
+                          <>
+                            <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-b-2 border-red-600"></div>
+                            <p className="text-sm text-gray-600">
+                              Generating detailed AI analysis...
+                            </p>
+                            <p className="mt-1 text-xs text-gray-400">
+                              Extracting summary, insights and methods
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <svg
+                              className="mx-auto h-12 w-12 text-gray-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                              />
+                            </svg>
+                            <p className="mt-2 text-sm text-gray-500">
+                              AI analysis not yet available
+                            </p>
+                          </>
+                        )}
                       </div>
                     </div>
                   )}

@@ -8,12 +8,14 @@ from models.schemas import (
     SummaryRequest, SummaryResponse,
     InsightRequest, InsightResponse, Insight,
     ClassificationRequest, ClassificationResponse,
-    HealthResponse
+    HealthResponse,
+    GenerateStructuredSummaryRequest, GenerateStructuredSummaryResponse
 )
 from services.ai_orchestrator import AIOrchestrator
 from pydantic import BaseModel
 from typing import Optional, Literal, List, Tuple
 import json
+import time
 
 
 router = APIRouter(prefix="/ai", tags=["AI"])
@@ -294,6 +296,184 @@ async def health_check(orch: AIOrchestrator = Depends(get_orchestrator)):
         openai_available=health_status["openai_available"],
         active_model=health_status["active_model"]
     )
+
+
+@router.post("/generate-structured-summary", response_model=GenerateStructuredSummaryResponse)
+async def generate_structured_summary(
+    request: GenerateStructuredSummaryRequest,
+    orch: AIOrchestrator = Depends(get_orchestrator)
+):
+    """
+    生成结构化 AI 摘要
+
+    针对不同资源类型（Paper, News, Video等）生成特定的结构化摘要
+    """
+    start_time = time.time()
+    logger.info(f"Generating structured summary for {request.resourceType}, content length: {len(request.content)}")
+
+    # 构建 Prompt
+    base_requirements = """
+    Requirements:
+    1. Analyze the content deeply
+    2. Extract key information based on the specific structure below
+    3. Output ONLY valid JSON
+    4. Use Simplified Chinese (zh-CN) for all content unless specified otherwise
+    5. Ensure all fields are filled with meaningful content
+    """
+
+    # 根据资源类型定义特定结构
+    type_prompts = {
+        "PAPER": """
+        Output JSON structure for ACADEMIC PAPER:
+        {
+          "overview": "200-300 words comprehensive summary",
+          "category": "Academic",
+          "subcategories": ["Specific Field", "Topic"],
+          "keyPoints": ["Key point 1", "Key point 2", "Key point 3"],
+          "keywords": ["keyword1", "keyword2"],
+          "difficulty": "beginner/intermediate/advanced/expert",
+          "readingTime": 5,
+          "confidence": 0.9,
+          "contributions": ["Contribution 1", "Contribution 2"],
+          "methodology": "Detailed description of methods used",
+          "results": "Summary of experimental results",
+          "limitations": ["Limitation 1", "Limitation 2"],
+          "futureWork": ["Future direction 1"],
+          "field": "Main Field",
+          "subfield": "Sub Field"
+        }
+        """,
+        "NEWS": """
+        Output JSON structure for NEWS:
+        {
+          "overview": "Summary of the news event",
+          "category": "News",
+          "subcategories": ["Topic"],
+          "keyPoints": ["Key fact 1", "Key fact 2"],
+          "keywords": ["keyword1", "keyword2"],
+          "difficulty": "beginner/intermediate/advanced",
+          "readingTime": 3,
+          "confidence": 0.9,
+          "headline": "Catchy headline",
+          "coreNews": "The core news event",
+          "background": "Context and background info",
+          "impact": "Implications and impact",
+          "newsFactor": "breaking/developing/analysis/feature",
+          "sentiment": "positive/neutral/negative",
+          "urgency": "high/medium/low",
+          "relatedEntities": [{"name": "Entity Name", "type": "person/org/location", "relevance": 0.9}]
+        }
+        """,
+        "YOUTUBE_VIDEO": """
+        Output JSON structure for VIDEO:
+        {
+          "overview": "Video summary",
+          "category": "Video",
+          "subcategories": ["Topic"],
+          "keyPoints": ["Takeaway 1", "Takeaway 2"],
+          "keywords": ["keyword1"],
+          "difficulty": "beginner/intermediate/advanced",
+          "readingTime": 5,
+          "confidence": 0.9,
+          "mainTopic": "Main topic",
+          "subtopics": ["Subtopic 1", "Subtopic 2"],
+          "videoType": "lecture/tutorial/interview/demo/discussion",
+          "pace": "slow/normal/fast",
+          "audience": "target audience",
+          "speakers": [{"name": "Speaker Name", "role": "Host/Guest"}],
+          "chapters": [{"timestamp": 0, "title": "Intro", "summary": "Introduction"}],
+          "estimatedWatchTime": 10,
+          "keyTimestamps": [{"time": 60, "label": "Key moment"}]
+        }
+        """,
+        "PROJECT": """
+        Output JSON structure for PROJECT/CODE:
+        {
+          "overview": "Project overview",
+          "category": "Technology",
+          "subcategories": ["Language", "Framework"],
+          "keyPoints": ["Feature 1", "Feature 2"],
+          "keywords": ["keyword1"],
+          "difficulty": "beginner/intermediate/advanced",
+          "readingTime": 3,
+          "confidence": 0.9,
+          "projectName": "Project Name",
+          "purpose": "Main purpose/problem solved",
+          "mainFeatures": ["Feature 1", "Feature 2"],
+          "techStack": ["Tech 1", "Tech 2"],
+          "maturity": "alpha/beta/stable/mature",
+          "license": "MIT/Apache/etc",
+          "ecosystem": "Related ecosystem",
+          "gettingStarted": "Brief how-to start",
+          "useCases": ["Use case 1"],
+          "learningCurve": "easy/moderate/steep",
+          "activity": {
+             "stars": 0, "forks": 0, "openIssues": 0, "activeContributors": 0,
+             "lastUpdate": "2023-01-01", "isActive": true
+          }
+        }
+        """
+    }
+
+    # 默认使用 PAPER 结构如果类型未匹配
+    specific_prompt = type_prompts.get(request.resourceType, type_prompts["PAPER"])
+
+    full_prompt = f"""
+    Content to Analyze:
+    Title: {request.title or 'Unknown'}
+    Abstract: {request.abstract or 'None'}
+    Body: {request.content[:5000]}  # Limit content length
+
+    {base_requirements}
+
+    {specific_prompt}
+
+    JSON Output:
+    """
+
+    # 调用 AI
+    # 对于结构化数据生成，GPT-4 通常表现更好，但 Grok 也可以
+    # 使用 orchestrator 自动选择
+    client, active_model = select_ai_client("gpt-4", orch, "Structured Summary")
+
+    result = await client.generate_completion(
+        full_prompt,
+        max_tokens=2000,
+        temperature=0.2  # 低温度以保证格式正确
+    )
+
+    if result is None:
+        raise HTTPException(status_code=503, detail="Failed to generate structured summary")
+
+    # 解析 JSON
+    try:
+        # 清理可能的 Markdown 标记
+        cleaned = result.strip()
+        if "```json" in cleaned:
+            cleaned = cleaned.split("```json")[1].split("```")[0].strip()
+        elif "```" in cleaned:
+            cleaned = cleaned.split("```")[1].split("```")[0].strip()
+
+        summary_data = json.loads(cleaned)
+
+        # 添加元数据
+        summary_data["generatedAt"] = datetime.now().isoformat()
+        summary_data["model"] = active_model
+
+        execution_time = (time.time() - start_time) * 1000
+
+        return GenerateStructuredSummaryResponse(
+            summary=summary_data,
+            model=active_model,
+            generationTime=execution_time
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to parse structured summary JSON: {e}")
+        logger.debug(f"Raw output: {result}")
+        # 如果解析失败，尝试返回一个基本的结构
+        # 这里可以选择抛出错误或者返回降级结果
+        raise HTTPException(status_code=500, detail=f"Failed to parse AI response: {str(e)}")
 
 
 @router.post("/simple-chat")
