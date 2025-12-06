@@ -26,6 +26,7 @@ export class RawDataService {
   ): Promise<string> {
     // Extract externalId from data if present
     const externalId = data.externalId || data.id || data.url || null;
+    const processedAt = resourceId ? new Date() : null;
 
     const rawData = await this.prisma.rawData.create({
       data: {
@@ -33,6 +34,8 @@ export class RawDataService {
         externalId,
         data,
         resourceId: resourceId ?? null,
+        isProcessed: !!resourceId,
+        processedAt,
       },
     });
 
@@ -140,6 +143,8 @@ export class RawDataService {
 
     if (resourceId !== undefined) {
       updateData.resourceId = resourceId;
+      updateData.isProcessed = !!resourceId;
+      updateData.processedAt = resourceId ? new Date() : null;
     }
 
     await this.prisma.rawData.update({
@@ -161,7 +166,11 @@ export class RawDataService {
   ): Promise<void> {
     await this.prisma.rawData.update({
       where: { id: rawDataId },
-      data: { resourceId },
+      data: {
+        resourceId,
+        isProcessed: true,
+        processedAt: new Date(),
+      },
     });
 
     this.logger.log(`Linked resource ${resourceId} to raw data ${rawDataId}`);

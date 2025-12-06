@@ -77,6 +77,39 @@ export class StorageService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
+   * Ensure raw_data rows that already have a resourceId are marked as processed.
+   * This keeps stats accurate and allows cleanupOldRawData to work.
+   */
+  private async ensureLinkedRawDataProcessed(): Promise<number> {
+    try {
+      const updated = await this.prisma.$queryRawUnsafe<
+        Array<{ updated: number }>
+      >(`
+        UPDATE raw_data
+        SET is_processed = TRUE,
+            processed_at = COALESCE(processed_at, updated_at, created_at)
+        WHERE resource_id IS NOT NULL
+          AND (is_processed = FALSE OR processed_at IS NULL)
+        RETURNING 1 as updated
+      `);
+
+      const updatedCount = Array.isArray(updated) ? updated.length : 0;
+      if (updatedCount > 0) {
+        this.logger.log(
+          `Marked ${updatedCount} linked raw_data rows as processed`,
+        );
+      }
+      return updatedCount;
+    } catch (error) {
+      this.logger.warn(
+        "Failed to mark linked raw data as processed:",
+        error,
+      );
+      return 0;
+    }
+  }
+
+  /**
    * Get comprehensive storage statistics
    */
   async getStorageStats(): Promise<StorageStats> {
@@ -236,6 +269,9 @@ export class StorageService {
   }
 
   private async getRawDataStats(): Promise<StorageCategory> {
+    // Make sure linked raw data rows are marked as processed
+    await this.ensureLinkedRawDataProcessed();
+
     const total = await this.prisma.rawData.count();
     const processed = await this.prisma.rawData.count({
       where: { isProcessed: true },
@@ -803,6 +839,9 @@ export class StorageService {
     try {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+      // Sync processed flag before deletion
+      await this.ensureLinkedRawDataProcessed();
 
       const result = await this.prisma.rawData.deleteMany({
         where: {
