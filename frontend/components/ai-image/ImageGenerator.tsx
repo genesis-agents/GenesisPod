@@ -1679,7 +1679,18 @@ export default function ImageGenerator({
   // Download
   const handleDownload = async (image: GeneratedImage) => {
     try {
-      const response = await fetch(image.imageUrl);
+      // Include auth header for protected URLs (e.g., /api/v1/ai-image/{id}/image)
+      const headers =
+        image.imageUrl.startsWith(config.apiBaseUrl || '') ||
+        image.imageUrl.startsWith('/') ||
+        image.imageUrl.includes(config.apiBaseUrl || '')
+          ? getAuthHeader()
+          : undefined;
+
+      const response = await fetch(image.imageUrl, { headers });
+      if (!response.ok) {
+        throw new Error(`Download failed with status ${response.status}`);
+      }
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -1691,6 +1702,8 @@ export default function ImageGenerator({
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Download failed:', err);
+      // Fallback: open in new tab so the user can manually save
+      window.open(image.imageUrl, '_blank', 'noopener,noreferrer');
     }
   };
 

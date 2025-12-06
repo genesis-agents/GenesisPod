@@ -753,15 +753,13 @@ export default function AskPage() {
       <Sidebar />
 
       {/* Session Sidebar */}
-      {token && (
-        <SessionSidebar
-          currentSessionId={currentSessionId || undefined}
-          onSelectSession={loadSession}
-          onNewSession={handleNewSession}
-          isOpen={sidebarOpen}
-          onToggle={() => setSidebarOpen(!sidebarOpen)}
-        />
-      )}
+      <SessionSidebar
+        currentSessionId={currentSessionId || undefined}
+        onSelectSession={loadSession}
+        onNewSession={handleNewSession}
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(!sidebarOpen)}
+      />
 
       {/* Main Content */}
       <main className="flex flex-1 flex-col overflow-hidden">
