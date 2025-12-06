@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  UseGuards,
+  Patch,
+} from "@nestjs/common";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../common/guards/admin.guard";
 import { SimulationService } from "./simulation.service";
@@ -65,5 +73,10 @@ export class SimulationController {
   @Get("runs/:id")
   async getRun(@Param("id") id: string) {
     return this.simulationService.getRunById(id);
+  }
+
+  @Patch("runs/:id/resume")
+  async resumeRun(@Param("id") id: string) {
+    return this.simulationService.resumeRun(id);
   }
 }

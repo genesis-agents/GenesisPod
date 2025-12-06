@@ -23,7 +23,7 @@ export class SimulationEngineService {
    * Execute a full run synchronously for now (MVP).
    * Steps: initialize -> per-round submissions -> adjudication -> summary.
    */
-  async executeRun(runId: string) {
+  async executeRun(runId: string, options?: { resume?: boolean }) {
     const run = await this.prisma.simulationRun.findUnique({
       where: { id: runId },
       include: {
@@ -54,13 +54,37 @@ export class SimulationEngineService {
       },
     });
 
-    let currentRound = 0;
+    let currentRound = options?.resume ? run.currentRound || 0 : 0;
+    const humanBreakEvery =
+      (run.params as any)?.humanBreakEvery !== undefined
+        ? (run.params as any)?.humanBreakEvery
+        : 2;
+
     while (currentRound < rounds) {
       currentRound += 1;
       const turn = await this.processRound(run.id, currentRound);
       this.logger.log(
         `[Simulation] Run ${run.id} finished round ${currentRound}, ruling=${(turn.adjudication as any)?.ruling}`,
       );
+
+      if (
+        humanBreakEvery &&
+        currentRound % humanBreakEvery === 0 &&
+        currentRound < rounds
+      ) {
+        await this.prisma.simulationRun.update({
+          where: { id: run.id },
+          data: {
+            status: SimulationRunStatus.PAUSED,
+            currentRound,
+            summary: {
+              ...(run.summary as object),
+              humanBreak: `Paused at round ${currentRound} for human-in-the-loop`,
+            } as Prisma.InputJsonValue,
+          },
+        });
+        return;
+      }
     }
 
     const debrief = await this.computeDebrief(run.id);
