@@ -7,8 +7,10 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { config } from './config';
 
 // Configure PDF.js worker
+// PDF.js 5.x uses .mjs extension and different build path
 if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+  // Use cdnjs for better reliability
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 }
 
 export interface ThumbnailOptions {

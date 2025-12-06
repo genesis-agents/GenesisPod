@@ -165,6 +165,7 @@ model Resource {
   // AI生成字段
   aiSummary       String? @map("ai_summary") @db.Text
   keyInsights     Json?   @map("key_insights")
+  methodology     String? @db.Text // 研究方法/技术方案
   difficultyLevel Int?    @map("difficulty_level")
   prerequisites   Json?
 

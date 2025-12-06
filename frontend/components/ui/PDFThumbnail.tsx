@@ -31,7 +31,7 @@ export default function PDFThumbnail({
         const pdfjsLib = await import('pdfjs-dist');
 
         // Configure worker
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
         // Load PDF document
         const loadingTask = pdfjsLib.getDocument(pdfUrl);

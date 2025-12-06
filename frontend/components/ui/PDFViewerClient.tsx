@@ -5,8 +5,10 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import { config } from '@/lib/config';
 
 // Configure PDF.js worker (CSS is imported globally in globals.css)
+// PDF.js 5.x uses .mjs extension and different build path
 if (typeof window !== 'undefined') {
-  pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+  // Use cdnjs for better reliability
+  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
 }
 
 interface PDFViewerClientProps {
