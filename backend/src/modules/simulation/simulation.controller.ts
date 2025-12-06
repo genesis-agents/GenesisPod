@@ -11,11 +11,15 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../common/guards/admin.guard";
 import { SimulationService } from "./simulation.service";
 import { SimulationTeam } from "@prisma/client";
+import { ExternalDataService } from "./external-data.service";
 
 @Controller("simulation")
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class SimulationController {
-  constructor(private readonly simulationService: SimulationService) {}
+  constructor(
+    private readonly simulationService: SimulationService,
+    private readonly externalData: ExternalDataService,
+  ) {}
 
   @Post("scenarios")
   async createScenario(
@@ -83,5 +87,10 @@ export class SimulationController {
   @Patch("runs/:id/resume")
   async resumeRun(@Param("id") id: string) {
     return this.simulationService.resumeRun(id);
+  }
+
+  @Get("external/snapshot")
+  async getExternalSnapshot() {
+    return this.externalData.getSnapshot();
   }
 }

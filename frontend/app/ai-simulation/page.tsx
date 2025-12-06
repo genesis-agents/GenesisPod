@@ -1,19 +1,27 @@
-'use client';
+﻿'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/config';
 import { getAuthHeader } from '@/lib/auth';
+
+interface ScenarioRun {
+  id: string;
+  status: string;
+  currentRound?: number;
+}
 
 interface ScenarioCard {
   id: string;
   name: string;
   industry: string;
   region?: string;
-  companies?: any[];
-  agents?: any[];
-  runs?: any[];
+  companies?: ScenarioFormCompany[];
+  agents?: ScenarioFormAgent[];
+  runs?: ScenarioRun[];
+  goals?: ScenarioGoals;
+  params?: ScenarioParams;
   createdAt: string;
   updatedAt: string;
 }
@@ -22,6 +30,7 @@ interface ScenarioFormCompany {
   name: string;
   type: string;
   market: string;
+  metrics?: any;
 }
 
 interface ScenarioFormAgent {
@@ -37,12 +46,38 @@ interface ScenarioTemplate {
   name: string;
   industry: string;
   region?: string;
-  goals?: any;
-  constraints?: any;
+  goals?: ScenarioGoals;
+  constraints?: ScenarioParams;
   companies?: ScenarioFormCompany[];
   agents?: ScenarioFormAgent[];
   description?: string;
   badge?: string;
+}
+
+interface ScenarioGoals {
+  targetShare?: string;
+  risk?: string;
+  growth?: string;
+  custom?: string;
+}
+
+interface ScenarioParams {
+  blindMove: boolean;
+  cot: boolean;
+  chaosProb: number;
+  irrationalProb: number;
+  humanBreakEvery: number;
+}
+
+interface ExternalSnapshot {
+  snapshot: Record<string, any>;
+  evidence: Array<{
+    provider: string;
+    ok: boolean;
+    error?: string;
+    endpoint?: string;
+    timestamp: string;
+  }>;
 }
 
 export default function AISimulationPage() {
@@ -50,43 +85,48 @@ export default function AISimulationPage() {
   const [loading, setLoading] = useState(false);
   const [scenarios, setScenarios] = useState<ScenarioCard[]>([]);
   const [showEditor, setShowEditor] = useState(false);
-  const [editing, setEditing] = useState<any>(null);
+  const [editing, setEditing] = useState<ScenarioCard | null>(null);
   const [seed, setSeed] = useState<ScenarioTemplate | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const templates: ScenarioTemplate[] = [
-    {
-      name: 'AI算力基础设施',
-      industry: 'AI Compute Infrastructure',
-      region: 'Global',
-      goals: {
-        targetShare: '守住份额并提升交付速度',
-        risk: '控制合规与供应链黑天鹅',
-      },
-      constraints: {
-        blindMove: true,
-        cot: true,
-        chaosProb: 0.3,
-        irrationalProb: 0.2,
-        humanBreakEvery: 2,
-      },
-      companies: [
-        { name: 'Benchmark Cloud GPU', type: 'benchmark', market: 'Global' },
-        { name: 'Startup AI Infra', type: 'startup', market: 'US' },
-      ],
-      agents: [
-        {
-          role: 'CEO - 蓝军',
-          team: 'BLUE',
-          companyName: 'Benchmark Cloud GPU',
+  const templates: ScenarioTemplate[] = useMemo(
+    () => [
+      {
+        name: 'AI算力基础设施',
+        industry: 'AI Compute Infrastructure',
+        region: 'Global',
+        goals: {
+          targetShare: '守住份额并提升交付速度',
+          risk: '控制合规与供应链黑天鹅',
+          growth: '拉高算力利用率与现金流效率',
         },
-        { role: 'CEO - 红军', team: 'RED', companyName: 'Startup AI Infra' },
-        { role: '监管观察', team: 'GREEN' },
-      ],
-      description: 'GPU/芯片/云算力供需、价格战、合规/出口管制与舆情对抗场景',
-      badge: '模板',
-    },
-  ];
+        constraints: {
+          blindMove: true,
+          cot: true,
+          chaosProb: 0.3,
+          irrationalProb: 0.2,
+          humanBreakEvery: 2,
+        },
+        companies: [
+          { name: 'Benchmark Cloud GPU', type: 'benchmark', market: 'Global' },
+          { name: 'Startup AI Infra', type: 'startup', market: 'US' },
+        ],
+        agents: [
+          {
+            role: 'CEO - 蓝军',
+            team: 'BLUE',
+            companyName: 'Benchmark Cloud GPU',
+          },
+          { role: 'CEO - 红军', team: 'RED', companyName: 'Startup AI Infra' },
+          { role: '监管观察', team: 'GREEN' },
+        ],
+        description:
+          'GPU/芯片/云算力供需、价格战、合规/出口管制与舆情对抗场景，默认盲注+Chaos+人类介入。',
+        badge: '模板',
+      },
+    ],
+    []
+  );
 
   const fetchScenarios = async () => {
     setLoading(true);
@@ -108,7 +148,7 @@ export default function AISimulationPage() {
   };
 
   useEffect(() => {
-    if (user) fetchScenarios();
+    if (user) void fetchScenarios();
   }, [user]);
 
   const latestRun = (s: ScenarioCard) =>
@@ -260,7 +300,7 @@ export default function AISimulationPage() {
                 </p>
               </div>
               <button
-                onClick={fetchScenarios}
+                onClick={() => void fetchScenarios()}
                 className="text-xs text-gray-600 hover:text-gray-800"
               >
                 刷新
@@ -338,7 +378,7 @@ export default function AISimulationPage() {
           onClose={() => setShowEditor(false)}
           onSaved={() => {
             setShowEditor(false);
-            fetchScenarios();
+            void fetchScenarios();
           }}
         />
       )}
@@ -352,42 +392,54 @@ function EditorModal({
   onClose,
   onSaved,
 }: {
-  scenario: any;
+  scenario: ScenarioCard | null;
   seed?: ScenarioTemplate | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const preset = scenario || seed || {};
-  const defaultConstraints = {
+  const preset = (scenario || seed || {}) as Partial<ScenarioCard> &
+    Partial<ScenarioTemplate>;
+  const defaultConstraints: ScenarioParams = {
     blindMove: true,
     cot: true,
     chaosProb: 0.3,
     irrationalProb: 0.2,
     humanBreakEvery: 2,
   };
+
   const [form, setForm] = useState({
     name: preset.name || '',
     industry: preset.industry || '',
     region: preset.region || '',
-    goals: preset.goals || {},
+    goals: {
+      targetShare: preset.goals?.targetShare || '',
+      risk: preset.goals?.risk || '',
+      growth: preset.goals?.growth || '',
+      custom: preset.goals?.custom || '',
+    } as ScenarioGoals,
     constraints: preset.params || preset.constraints || defaultConstraints,
   });
-  const [companies, setCompanies] = useState(
+
+  const [companies, setCompanies] = useState<ScenarioFormCompany[]>(
     preset.companies || [
       { name: 'Benchmark Cloud GPU', type: 'benchmark', market: 'Global' },
       { name: 'Startup AI Infra', type: 'startup', market: 'US' },
     ]
   );
-  const [agents, setAgents] = useState(
+
+  const [agents, setAgents] = useState<ScenarioFormAgent[]>(
     preset.agents || [
       { role: 'CEO - 蓝军', team: 'BLUE', companyName: 'Benchmark Cloud GPU' },
       { role: 'CEO - 红军', team: 'RED', companyName: 'Startup AI Infra' },
       { role: '监管观察', team: 'GREEN' },
     ]
   );
+
   const [saving, setSaving] = useState(false);
   const [runId, setRunId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [external, setExternal] = useState<ExternalSnapshot | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   const saveScenario = async () => {
     setSaving(true);
@@ -402,7 +454,7 @@ function EditorModal({
         body: JSON.stringify({
           ...form,
           companies,
-          agents: agents.map((a: any) => ({
+          agents: agents.map((a) => ({
             ...a,
             persona: a.persona ? safeJson(a.persona, a.persona) : undefined,
             memoryPublic: a.memoryPublic
@@ -429,6 +481,10 @@ function EditorModal({
   };
 
   const startRun = async () => {
+    if (!scenario?.id) {
+      setMessage('请先保存场景');
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch(`${config.apiUrl}/simulation/runs`, {
@@ -439,7 +495,7 @@ function EditorModal({
         },
         credentials: 'include',
         body: JSON.stringify({
-          scenarioId: scenario?.id,
+          scenarioId: scenario.id,
           rounds: 4,
           params: form.constraints,
         }),
@@ -459,25 +515,63 @@ function EditorModal({
   };
 
   const updateCompany = (index: number, value: ScenarioFormCompany) => {
-    setCompanies((prev: ScenarioFormCompany[]) =>
-      prev.map((c: ScenarioFormCompany, i: number) => (i === index ? value : c))
-    );
+    setCompanies((prev) => prev.map((c, i) => (i === index ? value : c)));
   };
   const addCompany = () =>
-    setCompanies((prev: ScenarioFormCompany[]) => [
+    setCompanies((prev) => [
       ...prev,
       { name: `Company ${prev.length + 1}`, type: 'startup', market: 'Global' },
     ]);
   const updateAgent = (index: number, value: ScenarioFormAgent) => {
-    setAgents((prev: ScenarioFormAgent[]) =>
-      prev.map((a: ScenarioFormAgent, i: number) => (i === index ? value : a))
-    );
+    setAgents((prev) => prev.map((a, i) => (i === index ? value : a)));
   };
   const addAgent = () =>
-    setAgents((prev: ScenarioFormAgent[]) => [
+    setAgents((prev) => [
       ...prev,
       { role: `Agent ${prev.length + 1}`, team: 'BLUE' },
     ]);
+
+  const fetchExternal = async () => {
+    setSyncing(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`${config.apiUrl}/simulation/external/snapshot`, {
+        headers: { ...getAuthHeader() },
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setExternal(data);
+        setMessage('已同步外部数据，建议复核字段并人工调整');
+      } else {
+        setMessage(data?.message || '同步外部数据失败');
+      }
+    } catch (err: any) {
+      setMessage(err.message || '同步外部数据失败');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const injectFromMarket = () => {
+    if (
+      !external?.snapshot?.market ||
+      !Array.isArray(external.snapshot.market)
+    ) {
+      setMessage('外部数据缺少可用的市场公司列表，请检查配置');
+      return;
+    }
+    const next = external.snapshot.market
+      .slice(0, 6)
+      .map((item: any, idx: number) => ({
+        name: item.name || item.title || `Company ${idx + 1}`,
+        type: item.type || 'competitor',
+        market: item.market || form.region || 'Global',
+        metrics: item.metrics || item,
+      }));
+    setCompanies(next);
+    setMessage('已用外部市场数据填充公司，请确认类型/指标');
+  };
 
   return (
     <div className="fixed inset-0 z-40 flex items-start justify-center bg-black/40 p-6">
@@ -488,7 +582,7 @@ function EditorModal({
               {scenario ? '编辑场景' : '新建场景'}
             </h3>
             <p className="text-xs text-gray-500">
-              行业模板：AI算力基础设施，可自定义目标与约束；默认 2 轮暂停。
+              点击行业模板进入配置，支持外部API同步对手/监管/新闻并注入场景。
             </p>
           </div>
           <button
@@ -537,35 +631,173 @@ function EditorModal({
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
-                <div className="col-span-2">
-                  <label className="text-xs text-gray-600">目标</label>
-                  <textarea
-                    value={JSON.stringify(form.goals, null, 2)}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        goals: safeJson(e.target.value, form.goals),
-                      })
-                    }
-                    rows={3}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
+                <div className="col-span-2 grid gap-2 sm:grid-cols-2">
+                  <div>
+                    <label className="text-xs text-gray-600">目标</label>
+                    <input
+                      value={form.goals.targetShare || ''}
+                      placeholder="如：提升市场份额/交付速度"
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          goals: { ...form.goals, targetShare: e.target.value },
+                        })
+                      }
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-600">风险/合规</label>
+                    <input
+                      value={form.goals.risk || ''}
+                      placeholder="如：出口管制、供应链黑天鹅"
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          goals: { ...form.goals, risk: e.target.value },
+                        })
+                      }
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-600">增长</label>
+                    <input
+                      value={form.goals.growth || ''}
+                      placeholder="如：拉高利用率与现金流"
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          goals: { ...form.goals, growth: e.target.value },
+                        })
+                      }
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-600">自定义</label>
+                    <input
+                      value={form.goals.custom || ''}
+                      placeholder="补充其他目标或约束"
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          goals: { ...form.goals, custom: e.target.value },
+                        })
+                      }
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
                 </div>
-                <div className="col-span-2">
-                  <label className="text-xs text-gray-600">
-                    约束 / Chaos / 盲注
-                  </label>
-                  <textarea
-                    value={JSON.stringify(form.constraints, null, 2)}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        constraints: safeJson(e.target.value, form.constraints),
-                      })
-                    }
-                    rows={3}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
+                <div className="col-span-2 rounded-lg border border-white bg-white p-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="text-sm font-semibold text-gray-800">
+                      对战约束
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={form.constraints.blindMove}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            constraints: {
+                              ...form.constraints,
+                              blindMove: e.target.checked,
+                            },
+                          })
+                        }
+                      />
+                      盲注
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={form.constraints.cot}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            constraints: {
+                              ...form.constraints,
+                              cot: e.target.checked,
+                            },
+                          })
+                        }
+                      />
+                      强制CoT
+                    </label>
+                  </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                    <div>
+                      <label className="text-xs text-gray-600">Chaos概率</label>
+                      <input
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        value={form.constraints.chaosProb}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            constraints: {
+                              ...form.constraints,
+                              chaosProb: parseFloat(e.target.value),
+                            },
+                          })
+                        }
+                        className="w-full"
+                      />
+                      <div className="text-xs text-gray-600">
+                        {Math.round(form.constraints.chaosProb * 100)}%
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-600">
+                        非理性概率
+                      </label>
+                      <input
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        value={form.constraints.irrationalProb}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            constraints: {
+                              ...form.constraints,
+                              irrationalProb: parseFloat(e.target.value),
+                            },
+                          })
+                        }
+                        className="w-full"
+                      />
+                      <div className="text-xs text-gray-600">
+                        {Math.round(form.constraints.irrationalProb * 100)}%
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-600">
+                        每N轮暂停(HITL)
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={form.constraints.humanBreakEvery}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            constraints: {
+                              ...form.constraints,
+                              humanBreakEvery:
+                                parseInt(e.target.value, 10) || 2,
+                            },
+                          })
+                        }
+                        className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -583,7 +815,7 @@ function EditorModal({
                 </button>
               </div>
               <div className="space-y-3">
-                {agents.map((a: any, idx: number) => (
+                {agents.map((a, idx) => (
                   <div
                     key={idx}
                     className="rounded-lg border border-white bg-white p-3 shadow-sm"
@@ -765,7 +997,7 @@ function EditorModal({
                 </button>
               </div>
               <div className="space-y-3">
-                {companies.map((c: any, idx: number) => (
+                {companies.map((c, idx) => (
                   <div
                     key={idx}
                     className="rounded-md border border-white bg-white px-3 py-2 shadow-sm"
@@ -799,6 +1031,50 @@ function EditorModal({
             </div>
 
             <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-gray-900">
+                  外部数据 & AI 辅助
+                </h4>
+                <button
+                  onClick={() => void fetchExternal()}
+                  disabled={syncing}
+                  className="text-xs text-indigo-600 hover:text-indigo-700 disabled:opacity-50"
+                >
+                  {syncing ? '同步中...' : '同步外部数据'}
+                </button>
+              </div>
+              <div className="space-y-2 text-xs text-gray-700">
+                <p>
+                  使用 Settings → External API 配置的 provider 拉取
+                  market/finance/news/regulation。
+                </p>
+                {external && (
+                  <div className="rounded-md border border-gray-100 bg-white p-2">
+                    {external.evidence.map((ev, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between text-[11px]"
+                      >
+                        <span className="font-medium">{ev.provider}</span>
+                        <span
+                          className={ev.ok ? 'text-green-600' : 'text-red-600'}
+                        >
+                          {ev.ok ? 'OK' : ev.error || 'error'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button
+                  onClick={injectFromMarket}
+                  className="w-full rounded-md border border-indigo-200 bg-white px-2 py-1 text-xs text-indigo-700 hover:border-indigo-300"
+                >
+                  AI 辅助获取对手（用外部市场数据填充公司）
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
               <h4 className="text-sm font-semibold text-gray-900">
                 运行与状态
               </h4>
@@ -810,7 +1086,7 @@ function EditorModal({
 
             <div className="flex gap-2">
               <button
-                onClick={saveScenario}
+                onClick={() => void saveScenario()}
                 disabled={saving}
                 className="flex-1 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
               >
@@ -818,7 +1094,7 @@ function EditorModal({
               </button>
               {scenario?.id && (
                 <button
-                  onClick={startRun}
+                  onClick={() => void startRun()}
                   disabled={saving}
                   className="flex-1 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-purple-700 disabled:opacity-50"
                 >
