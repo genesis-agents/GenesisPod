@@ -92,12 +92,21 @@ export class SimulationEngineService {
     // Collect submissions: enforce CoT (inner monologue + blind public action scaffold)
     const submissions: any[] = [];
     const worldState = (run.worldState as Record<string, any> | null) || {};
+    const irrationalProb =
+      (run.params as any)?.irrationalProb !== undefined
+        ? (run.params as any)?.irrationalProb
+        : 0.2;
     for (const agent of run.scenario.agents) {
       const baseVisibility =
         agent.team === SimulationTeam.CHAOS ||
         agent.team === SimulationTeam.ARBITER
           ? "global"
           : "team";
+
+      const irrationalTriggered = Math.random() < irrationalProb;
+      const irrationalNote = irrationalTriggered
+        ? "非理性波动：情绪化/短视/误判。"
+        : "";
 
       const monologueParts = [
         `角色: ${agent.role} (${agent.team})`,
@@ -109,6 +118,7 @@ export class SimulationEngineService {
           ? `私有记忆: ${JSON.stringify(agent.memoryPrivate)}`
           : "",
         `外部态势: market=${!!worldState.market}, finance=${!!worldState.finance}, news=${!!worldState.news}, regulation=${!!worldState.regulation}`,
+        irrationalNote,
       ]
         .filter(Boolean)
         .join(" | ");
@@ -125,6 +135,7 @@ export class SimulationEngineService {
         tools: agent.tools,
         systemPrompt:
           "You represent opposing interests. Consensus is NOT the goal. Your goal is to maximize YOUR utility even at the expense of others. Act with your own team's bias and constraints.",
+        irrational: irrationalTriggered,
       };
       submissions.push(submission);
     }
