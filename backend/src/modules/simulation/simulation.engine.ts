@@ -194,6 +194,27 @@ export class SimulationEngineService {
 
     // Minimal heuristic: mirror current state + submissions count
     worldDelta["last_submissions"] = submissions.length;
+
+    // Chaos / Black Swan toggle based on params
+    const chaosProb =
+      (run.params as any)?.chaosProb ??
+      (run.params as any)?.blackSwanProb ??
+      0.1;
+    const chaosTriggered = Math.random() < chaosProb;
+    if (chaosTriggered) {
+      const event = {
+        type: "black_swan",
+        description: "随机黑天鹅触发：供应链/监管/价格战等干扰",
+        probability: chaosProb,
+      };
+      evidenceRefs.push({
+        provider: "chaos",
+        status: "triggered",
+        event,
+      });
+      worldDelta["blackSwan"] = event;
+    }
+
     evidenceRefs.push({
       provider: "compiled",
       status: "ok",
@@ -201,8 +222,10 @@ export class SimulationEngineService {
     });
 
     return {
-      ruling: "proceed",
-      notes: "数据齐备，可继续下一回合或人类干预。",
+      ruling: chaosTriggered ? "black_swan" : "proceed",
+      notes: chaosTriggered
+        ? "黑天鹅随机事件已触发，需人类/裁判评估影响。"
+        : "数据齐备，可继续下一回合或人类干预。",
       evidenceRefs,
       worldDelta,
     };
