@@ -1,25 +1,25 @@
-# LiteLLM Proxy Config - Best Practices
-# Reference: https://docs.litellm.ai/docs/proxy/config_settings
+# LiteLLM Proxy Config - Gemini 3 Pro
+# Reference: https://docs.litellm.ai/blog/gemini_3
 
 model_list:
-  # Claude Code model mappings -> Gemini 3 Pro (disable thinking mode)
+  # Claude Code model mappings -> Gemini 3 Pro (thinking_level: low)
   - model_name: claude-sonnet-4-20250514
     litellm_params:
       model: gemini/gemini-3-pro-preview
       api_key: os.environ/GOOGLE_API_KEY
-      reasoning_effort: none
+      reasoning_effort: low
 
   - model_name: claude-opus-4-5-20251101
     litellm_params:
       model: gemini/gemini-3-pro-preview
       api_key: os.environ/GOOGLE_API_KEY
-      reasoning_effort: none
+      reasoning_effort: low
 
   - model_name: claude-sonnet-4-5-20250929
     litellm_params:
       model: gemini/gemini-3-pro-preview
       api_key: os.environ/GOOGLE_API_KEY
-      reasoning_effort: none
+      reasoning_effort: low
 
   # Claude Haiku -> Gemini Flash (faster, cheaper)
   - model_name: claude-haiku-4-5-20251001
@@ -32,6 +32,7 @@ model_list:
     litellm_params:
       model: gemini/gemini-3-pro-preview
       api_key: os.environ/GOOGLE_API_KEY
+      reasoning_effort: low
 
   - model_name: gemini-2.0-flash
     litellm_params:
@@ -62,9 +63,7 @@ router_settings:
     InternalServerErrorRetries: 3
   allowed_fails: 3
   cooldown_time: 60
-  # Fallback to Flash when rate limited
-  default_fallbacks:
-    - gemini-2.0-flash
+  enable_fallbacks: false
 
 litellm_settings:
   # Drop unsupported params instead of error
@@ -74,10 +73,8 @@ litellm_settings:
   # Request settings
   request_timeout: 300
   stream_timeout: 300
-  # Gemini context caching - only for large contexts
-  context_caching_allowed_models:
-    - gemini/gemini-3-pro-preview
-    - gemini/gemini-2.0-flash
+  # Disable context caching to avoid "too small" errors
+  disable_caching: true
   # Success callbacks (optional logging)
   success_callback: []
   failure_callback: []

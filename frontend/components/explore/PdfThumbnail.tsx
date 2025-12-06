@@ -7,7 +7,7 @@ import dynamic from 'next/dynamic';
 const loadPdfJs = async () => {
   if (typeof window === 'undefined') return null;
   const pdfjs = await import('pdfjs-dist');
-  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
+  pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
   return pdfjs;
 };
 
