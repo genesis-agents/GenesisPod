@@ -519,7 +519,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 ? 'bg-indigo-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
-            title="AI 推演"
+            title="AI Simulation"
           >
             <svg
               className="h-5 w-5 flex-shrink-0"
@@ -534,7 +534,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 d="M12 6l7 4-7 4-7-4 7-4zm0 8l7 4-7 4-7-4 7-4z"
               />
             </svg>
-            {showExpanded && <span>AI 推演</span>}
+            {showExpanded && <span>AI Simulation</span>}
           </Link>
 
           <Link
