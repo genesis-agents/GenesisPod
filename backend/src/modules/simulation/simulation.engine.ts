@@ -123,6 +123,8 @@ export class SimulationEngineService {
         visibility: baseVisibility,
         timestamp: new Date().toISOString(),
         tools: agent.tools,
+        systemPrompt:
+          "You represent opposing interests. Consensus is NOT the goal. Your goal is to maximize YOUR utility even at the expense of others. Act with your own team's bias and constraints.",
       };
       submissions.push(submission);
     }
@@ -241,6 +243,8 @@ export class SimulationEngineService {
       (run.params as any)?.blackSwanProb ??
       0.1;
     const chaosTriggered = Math.random() < chaosProb;
+    // 非理性因素：对部分队别施加随机偏置
+    const irrationalBias = Math.random() < 0.3 ? "irrational_spike" : null;
     if (chaosTriggered) {
       const event = {
         type: "black_swan",
@@ -253,6 +257,14 @@ export class SimulationEngineService {
         event,
       });
       worldDelta["blackSwan"] = event;
+    }
+    if (irrationalBias) {
+      evidenceRefs.push({
+        provider: "arbiter",
+        status: "irrational_bias",
+        note: "Inject slight non-rational behavior to avoid echo chamber",
+      });
+      worldDelta["irrationalBias"] = irrationalBias;
     }
 
     evidenceRefs.push({
