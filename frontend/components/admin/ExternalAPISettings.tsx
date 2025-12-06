@@ -43,18 +43,6 @@ interface BalanceInfo {
   error?: string;
 }
 
-interface ExternalProviderConfig {
-  id: string;
-  name: string;
-  description: string;
-  category: 'market' | 'finance' | 'news' | 'regulation' | 'custom';
-  enabled: boolean;
-  baseUrl: string;
-  apiKey: string;
-  hasApiKey?: boolean;
-  headers?: string;
-}
-
 // Search provider configurations
 const SEARCH_PROVIDERS = [
   {
@@ -134,49 +122,6 @@ const EXTRACTION_PROVIDERS = [
     balanceType: 'extraction' as const,
   },
 ] as const;
-
-const DEFAULT_EXTERNAL_PROVIDERS: ExternalProviderConfig[] = [
-  {
-    id: 'market',
-    name: 'Market / Price',
-    description: 'GPU/芯片/云算力价格、供需与交付周期',
-    category: 'market',
-    enabled: false,
-    baseUrl: '',
-    apiKey: '',
-    hasApiKey: false,
-  },
-  {
-    id: 'finance',
-    name: 'Finance / Filings',
-    description: '财报、公告、投融资、专利/备案等公开信息',
-    category: 'finance',
-    enabled: false,
-    baseUrl: '',
-    apiKey: '',
-    hasApiKey: false,
-  },
-  {
-    id: 'news',
-    name: 'News / Sentiment',
-    description: '新闻与舆情情绪数据（用于裁判证据）',
-    category: 'news',
-    enabled: false,
-    baseUrl: '',
-    apiKey: '',
-    hasApiKey: false,
-  },
-  {
-    id: 'regulation',
-    name: 'Regulation / Policy',
-    description: '政策 / 出口管制 / 能耗 / 合规指标',
-    category: 'regulation',
-    enabled: false,
-    baseUrl: '',
-    apiKey: '',
-    hasApiKey: false,
-  },
-];
 
 // Data API Categories with Provider support
 interface DataAPIProvider {
@@ -272,9 +217,6 @@ export default function ExternalAPISettings() {
     firecrawl: '',
     tavily: '',
   });
-  const [externalProviders, setExternalProviders] = useState<
-    ExternalProviderConfig[]
-  >(DEFAULT_EXTERNAL_PROVIDERS);
 
   // Data APIs state
   const [dataAPICategories, setDataAPICategories] = useState<DataAPICategory[]>(
@@ -297,22 +239,18 @@ export default function ExternalAPISettings() {
     text: string;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<
-    'search' | 'extraction' | 'external' | 'data'
+    'search' | 'extraction' | 'simulation'
   >('search');
 
   const loadConfigs = useCallback(async () => {
     setLoading(true);
     try {
-      const [searchRes, extractionRes, externalRes] = await Promise.all([
+      const [searchRes, extractionRes] = await Promise.all([
         fetch(`${config.apiUrl}/admin/search-config`, {
           headers: { ...getAuthHeader() },
           credentials: 'include',
         }),
         fetch(`${config.apiUrl}/admin/extraction-config`, {
-          headers: { ...getAuthHeader() },
-          credentials: 'include',
-        }),
-        fetch(`${config.apiUrl}/admin/external-providers`, {
           headers: { ...getAuthHeader() },
           credentials: 'include',
         }),
@@ -326,19 +264,6 @@ export default function ExternalAPISettings() {
       if (extractionRes.ok) {
         const data = await extractionRes.json();
         setExtractionConfig(data);
-      }
-
-      if (externalRes.ok) {
-        const data = await externalRes.json();
-        if (Array.isArray(data) && data.length > 0) {
-          setExternalProviders(
-            data.map((item: ExternalProviderConfig) => ({
-              ...item,
-              apiKey: '',
-              hasApiKey: item.hasApiKey ?? false,
-            }))
-          );
-        }
       }
     } catch (err) {
       console.error('Failed to load configs:', err);
@@ -421,59 +346,6 @@ export default function ExternalAPISettings() {
       }
     } catch (err) {
       console.error('Failed to save extraction config:', err);
-      setMessage({ type: 'error', text: '保存配置失败' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSaveExternal = async () => {
-    setSaving(true);
-    setMessage(null);
-
-    try {
-      const res = await fetch(`${config.apiUrl}/admin/external-providers`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeader(),
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          providers: externalProviders.map((provider) => ({
-            id: provider.id,
-            name: provider.name,
-            description: provider.description,
-            category: provider.category,
-            enabled: provider.enabled,
-            baseUrl: provider.baseUrl?.trim() || '',
-            headers: provider.headers?.trim() || undefined,
-            apiKey:
-              provider.apiKey && !provider.apiKey.includes('***')
-                ? provider.apiKey.trim()
-                : undefined,
-          })),
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setExternalProviders(
-            data.map((item: ExternalProviderConfig) => ({
-              ...item,
-              apiKey: '',
-              hasApiKey: item.hasApiKey ?? false,
-            }))
-          );
-        }
-        setMessage({ type: 'success', text: '外部数据源配置保存成功' });
-        setTimeout(() => setMessage(null), 3000);
-      } else {
-        setMessage({ type: 'error', text: '保存配置失败' });
-      }
-    } catch (err) {
-      console.error('Failed to save external providers config:', err);
       setMessage({ type: 'error', text: '保存配置失败' });
     } finally {
       setSaving(false);
@@ -773,17 +645,6 @@ export default function ExternalAPISettings() {
     return providerConfig?.hasApiKey || false;
   };
 
-  const updateExternalProvider = (
-    providerId: string,
-    payload: Partial<ExternalProviderConfig>
-  ) => {
-    setExternalProviders((prev) =>
-      prev.map((provider) =>
-        provider.id === providerId ? { ...provider, ...payload } : provider
-      )
-    );
-  };
-
   const renderBalanceInfo = (
     type: 'search' | 'extraction',
     providerId: string
@@ -917,26 +778,15 @@ export default function ExternalAPISettings() {
           内容提取 API
         </button>
         <button
-          onClick={() => setActiveTab('external')}
+          onClick={() => setActiveTab('simulation')}
           className={`flex items-center gap-2 border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
-            activeTab === 'external'
-              ? 'border-purple-600 text-purple-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <Globe className="h-4 w-4" />
-          外部数据源
-        </button>
-        <button
-          onClick={() => setActiveTab('data')}
-          className={`flex items-center gap-2 border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
-            activeTab === 'data'
+            activeTab === 'simulation'
               ? 'border-purple-600 text-purple-600'
               : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
           <TrendingUp className="h-4 w-4" />
-          Data APIs
+          战略推演 API
         </button>
       </div>
 
@@ -1389,162 +1239,8 @@ export default function ExternalAPISettings() {
         </div>
       )}
 
-      {/* External Data Providers Tab */}
-      {activeTab === 'external' && (
-        <div className="space-y-6">
-          <div className="rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 shadow-lg">
-                  <Globe className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">外部数据源</h3>
-                  <p className="text-sm text-gray-600">
-                    配置实时市场/财务/新闻/监管API，所有推演均直接走已配置的真实接口
-                  </p>
-                  <p className="mt-1 text-xs text-gray-500">
-                    在设置中集中管理，不引入Mock；如已存API Key留空表示沿用。
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {externalProviders.map((provider) => {
-              const isConfigured = provider.hasApiKey;
-
-              return (
-                <div
-                  key={provider.id}
-                  className="flex h-full flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-semibold text-gray-900">
-                          {provider.name}
-                        </h3>
-                        {isConfigured && (
-                          <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
-                            Key已配置
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-1 text-sm text-gray-600">
-                        {provider.description}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() =>
-                        updateExternalProvider(provider.id, {
-                          enabled: !provider.enabled,
-                        })
-                      }
-                      className={`relative inline-flex h-6 w-12 flex-shrink-0 items-center rounded-full transition-colors ${
-                        provider.enabled ? 'bg-blue-600' : 'bg-gray-300'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                          provider.enabled ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-gray-700">
-                        Base URL
-                      </label>
-                      <input
-                        type="text"
-                        value={provider.baseUrl}
-                        onChange={(e) =>
-                          updateExternalProvider(provider.id, {
-                            baseUrl: e.target.value,
-                          })
-                        }
-                        placeholder="https://api.example.com"
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-gray-700">
-                        API Key
-                      </label>
-                      <input
-                        type="password"
-                        value={provider.apiKey}
-                        onChange={(e) =>
-                          updateExternalProvider(provider.id, {
-                            apiKey: e.target.value,
-                            hasApiKey: !!e.target.value || provider.hasApiKey,
-                          })
-                        }
-                        placeholder={
-                          provider.hasApiKey
-                            ? '已配置，留空保持'
-                            : '输入API Key'
-                        }
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-gray-700">
-                        额外Headers（JSON，选填）
-                      </label>
-                      <textarea
-                        value={provider.headers || ''}
-                        onChange={(e) =>
-                          updateExternalProvider(provider.id, {
-                            headers: e.target.value,
-                          })
-                        }
-                        rows={3}
-                        placeholder='例如: {"X-API-KEY":"...", "X-ORG":"..."}'
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-auto flex items-center justify-between text-xs text-gray-500">
-                    <span className="flex items-center gap-1">
-                      <Globe className="h-4 w-4 text-gray-400" />
-                      {provider.category}
-                    </span>
-                    <span className="text-gray-400">
-                      {provider.enabled ? '已启用' : '未启用'}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex justify-end">
-            <button
-              onClick={handleSaveExternal}
-              disabled={saving}
-              className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 px-6 py-2.5 text-sm font-medium text-white shadow-lg shadow-blue-500/20 hover:from-blue-700 hover:to-cyan-700 disabled:opacity-50"
-            >
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              保存外部数据源配置
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Data APIs Tab - New Card-Based Design */}
-      {activeTab === 'data' && (
+      {/* Strategic Simulation APIs Tab - Card-Based Design */}
+      {activeTab === 'simulation' && (
         <div className="space-y-6">
           <div className="rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50 p-5">
             <div className="flex items-start justify-between gap-4">
@@ -1553,7 +1249,7 @@ export default function ExternalAPISettings() {
                   <TrendingUp className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">Data APIs</h3>
+                  <h3 className="font-semibold text-gray-900">战略推演 API</h3>
                   <p className="text-sm text-gray-600">
                     为 AI Simulation 配置真实数据源，支持多 Provider
                     并设置默认值
