@@ -502,11 +502,24 @@ export default function AskPage() {
     }
 
     // Add quoted content at the beginning if present
+    // displayContent is for UI display (truncated), userContent is for AI (full)
+    let displayContent = userContent;
     if (currentQuote) {
+      // Full content for AI
       const quotedBlock = `> 引用内容:\n> ${currentQuote.content.split('\n').join('\n> ')}\n\n`;
       userContent = userContent
         ? `${quotedBlock}${userContent}`
         : `${quotedBlock}请针对以上引用内容进行回复`;
+
+      // Truncated content for display (max 100 chars)
+      const truncatedQuote =
+        currentQuote.content.length > 100
+          ? currentQuote.content.substring(0, 100).replace(/\n/g, ' ') + '...'
+          : currentQuote.content.replace(/\n/g, ' ');
+      const displayQuoteBlock = `> 引用: ${truncatedQuote}\n\n`;
+      displayContent = displayContent
+        ? `${displayQuoteBlock}${displayContent}`
+        : `${displayQuoteBlock}请针对以上引用内容进行回复`;
     }
 
     setInput('');
@@ -529,7 +542,7 @@ export default function AskPage() {
         const userMessage: Message = {
           id: Date.now().toString(),
           role: 'user',
-          content: userContent,
+          content: displayContent,
           createdAt: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, userMessage]);
@@ -587,16 +600,16 @@ export default function AskPage() {
         }
 
         if (sessionId) {
-          // Optimistically add user message
+          // Optimistically add user message (display truncated quote)
           const tempUserMessage: Message = {
             id: 'temp-user-' + Date.now(),
             role: 'user',
-            content: userContent,
+            content: displayContent,
             createdAt: new Date().toISOString(),
           };
           setMessages((prev) => [...prev, tempUserMessage]);
 
-          // Send message and get response
+          // Send message and get response (send full quote to AI)
           const result = await sendMessageToSession(sessionId, userContent);
 
           if (result) {
@@ -630,7 +643,7 @@ export default function AskPage() {
           const userMessage: Message = {
             id: Date.now().toString(),
             role: 'user',
-            content: userContent,
+            content: displayContent,
             createdAt: new Date().toISOString(),
           };
 
@@ -641,6 +654,7 @@ export default function AskPage() {
           const modelName = selectedModelInfo?.modelName || 'gemini';
           // Pass context messages (last 20) for memory
           const contextForAI = currentMessages.slice(-20);
+          // Send full content to AI
           const content = await callAIChat(
             modelName,
             userContent,
