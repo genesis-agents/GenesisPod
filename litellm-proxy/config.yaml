@@ -1,17 +1,11 @@
-# LiteLLM Proxy Config
-# API keys are loaded from environment variables (set in .env file)
+# LiteLLM Proxy Config - Best Practices
+# Reference: https://docs.litellm.ai/docs/proxy/config_settings
 
 model_list:
-  # Claude Code model mappings with fallback
-  # Primary: Gemini 3 Pro, Fallback: Gemini 2.5 Pro
+  # Claude Code model mappings -> Gemini 3 Pro
   - model_name: claude-sonnet-4-20250514
     litellm_params:
       model: gemini/gemini-3-pro-preview
-      api_key: os.environ/GOOGLE_API_KEY
-
-  - model_name: claude-sonnet-4-20250514
-    litellm_params:
-      model: gemini/gemini-2.5-pro-preview-06-05
       api_key: os.environ/GOOGLE_API_KEY
 
   - model_name: claude-opus-4-5-20251101
@@ -19,32 +13,18 @@ model_list:
       model: gemini/gemini-3-pro-preview
       api_key: os.environ/GOOGLE_API_KEY
 
-  - model_name: claude-opus-4-5-20251101
-    litellm_params:
-      model: gemini/gemini-2.5-pro-preview-06-05
-      api_key: os.environ/GOOGLE_API_KEY
-
   - model_name: claude-sonnet-4-5-20250929
     litellm_params:
       model: gemini/gemini-3-pro-preview
       api_key: os.environ/GOOGLE_API_KEY
 
-  - model_name: claude-sonnet-4-5-20250929
-    litellm_params:
-      model: gemini/gemini-2.5-pro-preview-06-05
-      api_key: os.environ/GOOGLE_API_KEY
-
+  # Claude Haiku -> Gemini Flash (faster, cheaper)
   - model_name: claude-haiku-4-5-20251001
     litellm_params:
       model: gemini/gemini-2.0-flash
       api_key: os.environ/GOOGLE_API_KEY
 
-  - model_name: claude-haiku-4-5-20251001
-    litellm_params:
-      model: gemini/gemini-2.5-flash-preview-05-20
-      api_key: os.environ/GOOGLE_API_KEY
-
-  # Google Gemini Models
+  # Direct Gemini Models
   - model_name: gemini-3-pro
     litellm_params:
       model: gemini/gemini-3-pro-preview
@@ -53,16 +33,6 @@ model_list:
   - model_name: gemini-2.0-flash
     litellm_params:
       model: gemini/gemini-2.0-flash
-      api_key: os.environ/GOOGLE_API_KEY
-
-  - model_name: gemini-2.5-pro
-    litellm_params:
-      model: gemini/gemini-2.5-pro-preview-06-05
-      api_key: os.environ/GOOGLE_API_KEY
-
-  - model_name: gemini-2.5-flash
-    litellm_params:
-      model: gemini/gemini-2.5-flash-preview-05-20
       api_key: os.environ/GOOGLE_API_KEY
 
   # OpenAI Models
@@ -76,11 +46,43 @@ model_list:
       model: gpt-4o-mini
       api_key: os.environ/OPENAI_API_KEY
 
+# Router settings for reliability
+router_settings:
+  routing_strategy: simple-shuffle
+  num_retries: 3
+  timeout: 300
+  retry_policy:
+    AuthenticationErrorRetries: 0
+    TimeoutErrorRetries: 3
+    RateLimitErrorRetries: 3
+    ContentPolicyViolationErrorRetries: 2
+    InternalServerErrorRetries: 3
+  allowed_fails: 3
+  cooldown_time: 60
+  # Fallback to Flash when rate limited
+  default_fallbacks:
+    - gemini-2.0-flash
+
 litellm_settings:
+  # Drop unsupported params instead of error
   drop_params: true
+  # Reduce log noise
   set_verbose: false
-  disable_token_counting: true
+  # Request settings
+  request_timeout: 300
+  stream_timeout: 300
+  # Gemini context caching - only for large contexts
+  context_caching_allowed_models:
+    - gemini/gemini-3-pro-preview
+    - gemini/gemini-2.0-flash
+  # Success callbacks (optional logging)
+  success_callback: []
+  failure_callback: []
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
+  # Disable internal logging to reduce overhead
   disable_spend_logs: true
+  disable_reset_budget: true
+  # Allow all IPs (for local use)
+  allowed_ips: null

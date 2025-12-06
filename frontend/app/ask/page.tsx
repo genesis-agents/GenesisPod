@@ -12,6 +12,7 @@ import MessageContextMenu from '@/components/ask/MessageContextMenu';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CollapsibleBlockquote } from '@/components/ui/CollapsibleBlockquote';
+import { CollapsibleMessage } from '@/components/ui/CollapsibleMessage';
 
 // Toast notification component
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
@@ -1143,18 +1144,31 @@ export default function AskPage() {
                               </span>
                             </div>
                           )}
-                        <div
-                          className={`prose prose-sm max-w-none ${message.role === 'user' ? 'prose-invert' : ''}`}
-                        >
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                              blockquote: CollapsibleBlockquote,
-                            }}
-                          >
-                            {message.content}
-                          </ReactMarkdown>
-                        </div>
+                        {message.role === 'assistant' ? (
+                          <CollapsibleMessage maxHeight={600}>
+                            <div className="prose prose-sm max-w-none">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                  blockquote: CollapsibleBlockquote,
+                                }}
+                              >
+                                {message.content}
+                              </ReactMarkdown>
+                            </div>
+                          </CollapsibleMessage>
+                        ) : (
+                          <div className="prose prose-sm prose-invert max-w-none">
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                blockquote: CollapsibleBlockquote,
+                              }}
+                            >
+                              {message.content}
+                            </ReactMarkdown>
+                          </div>
+                        )}
                         {/* Action buttons for assistant messages */}
                         {message.role === 'assistant' && (
                           <div className="mt-3 flex items-center gap-2 border-t border-gray-100 pt-2">
@@ -1269,16 +1283,18 @@ export default function AskPage() {
                           </button>
                           {!response.isCollapsed && response.content && (
                             <div className="border-t border-gray-100 px-4 py-3">
-                              <div className="prose prose-sm max-w-none">
-                                <ReactMarkdown
-                                  remarkPlugins={[remarkGfm]}
-                                  components={{
-                                    blockquote: CollapsibleBlockquote,
-                                  }}
-                                >
-                                  {response.content}
-                                </ReactMarkdown>
-                              </div>
+                              <CollapsibleMessage maxHeight={400}>
+                                <div className="prose prose-sm max-w-none">
+                                  <ReactMarkdown
+                                    remarkPlugins={[remarkGfm]}
+                                    components={{
+                                      blockquote: CollapsibleBlockquote,
+                                    }}
+                                  >
+                                    {response.content}
+                                  </ReactMarkdown>
+                                </div>
+                              </CollapsibleMessage>
                             </div>
                           )}
                         </div>
