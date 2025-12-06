@@ -101,10 +101,7 @@ export class StorageService {
       }
       return updatedCount;
     } catch (error) {
-      this.logger.warn(
-        "Failed to mark linked raw data as processed:",
-        error,
-      );
+      this.logger.warn("Failed to mark linked raw data as processed:", error);
       return 0;
     }
   }
