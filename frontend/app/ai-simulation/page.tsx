@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/config';
@@ -33,13 +33,57 @@ interface ScenarioFormAgent {
   memoryPrivate?: string;
 }
 
+interface ScenarioTemplate {
+  name: string;
+  industry: string;
+  region?: string;
+  goals?: any;
+  constraints?: any;
+  companies?: ScenarioFormCompany[];
+  agents?: ScenarioFormAgent[];
+  description?: string;
+  badge?: string;
+}
+
 export default function AISimulationPage() {
   const { user, isLoading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
   const [scenarios, setScenarios] = useState<ScenarioCard[]>([]);
   const [showEditor, setShowEditor] = useState(false);
   const [editing, setEditing] = useState<any>(null);
+  const [seed, setSeed] = useState<ScenarioTemplate | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  const templates: ScenarioTemplate[] = [
+    {
+      name: 'AI算力基础设施',
+      industry: 'AI Compute Infrastructure',
+      region: 'Global',
+      goals: {
+        targetShare: '守住份额并提升交付速度',
+        risk: '控制合规与供应链黑天鹅',
+      },
+      constraints: {
+        blindMove: true,
+        cot: true,
+        chaosProb: 0.3,
+        irrationalProb: 0.2,
+        humanBreakEvery: 2,
+      },
+      companies: [
+        { name: 'Benchmark Cloud GPU', type: 'benchmark', market: 'Global' },
+        { name: 'Startup AI Infra', type: 'startup', market: 'US' },
+      ],
+      agents: [
+        { role: 'CEO - 蓝军', team: 'BLUE', companyName: 'Benchmark Cloud GPU' },
+        { role: 'CEO - 红军', team: 'RED', companyName: 'Startup AI Infra' },
+        { role: '监管观察', team: 'GREEN' },
+      ],
+      description:
+        'GPU/芯片/云算力供需、价格战、合规/出口管制与舆情对抗场景',
+      badge: '模板',
+    },
+  ];
 
   const fetchScenarios = async () => {
     setLoading(true);
@@ -69,11 +113,19 @@ export default function AISimulationPage() {
 
   const handleCreate = () => {
     setEditing(null);
+    setSeed(null);
     setShowEditor(true);
   };
 
   const handleOpen = (scenario: ScenarioCard) => {
     setEditing(scenario);
+    setSeed(null);
+    setShowEditor(true);
+  };
+
+  const handleTemplate = (template: ScenarioTemplate) => {
+    setEditing(null);
+    setSeed(template);
     setShowEditor(true);
   };
 
@@ -119,12 +171,9 @@ export default function AISimulationPage() {
                 </svg>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  AI Simulation
-                </h1>
+                <h1 className="text-2xl font-bold text-gray-900">AI Simulation</h1>
                 <p className="text-sm text-gray-600">
-                  多红军/绿军/Chaos + 盲注 +
-                  非理性/黑天鹅，裁判用真实外部数据；默认2轮暂停等待人类介入。
+                  多红军/绿军/Chaos + 盲注 + 非理性/黑天鹅，裁判用真实外部数据；默认2轮暂停等待人类介入。
                 </p>
               </div>
             </div>
@@ -134,6 +183,48 @@ export default function AISimulationPage() {
             >
               新建推演
             </button>
+          </div>
+
+          {/* Templates */}
+          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">行业模板</h3>
+                <p className="text-xs text-gray-500">选择模板快速创建推演场景</p>
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {templates.map((t) => (
+                <div
+                  key={t.name}
+                  className="flex cursor-pointer flex-col rounded-xl border border-gray-100 bg-gray-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                  onClick={() => handleTemplate(t)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="text-base font-semibold text-gray-900">{t.name}</h4>
+                      <p className="text-xs text-gray-500">
+                        {t.industry} · {t.region || 'Global'}
+                      </p>
+                    </div>
+                    {t.badge && (
+                      <span className="rounded-full bg-indigo-100 px-2 py-1 text-[11px] font-medium text-indigo-700">
+                        {t.badge}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-2 text-sm text-gray-700 line-clamp-3">{t.description}</p>
+                  <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-gray-600">
+                    <span className="rounded-full bg-white px-2 py-1">
+                      公司 {t.companies?.length || 0}
+                    </span>
+                    <span className="rounded-full bg-white px-2 py-1">
+                      角色 {t.agents?.length || 0}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Message */}
@@ -147,9 +238,7 @@ export default function AISimulationPage() {
           <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h3 className="text-base font-semibold text-gray-900">
-                  场景列表
-                </h3>
+                <h3 className="text-base font-semibold text-gray-900">场景列表</h3>
                 <p className="text-xs text-gray-500">
                   点击卡片可查看/编辑，最新运行状态实时展示
                 </p>
@@ -162,9 +251,7 @@ export default function AISimulationPage() {
               </button>
             </div>
             {loading ? (
-              <div className="py-10 text-center text-sm text-gray-500">
-                加载中...
-              </div>
+              <div className="py-10 text-center text-sm text-gray-500">加载中...</div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {scenarios.map((s) => {
@@ -177,9 +264,7 @@ export default function AISimulationPage() {
                     >
                       <div className="flex items-start justify-between">
                         <div>
-                          <h4 className="text-base font-semibold text-gray-900">
-                            {s.name}
-                          </h4>
+                          <h4 className="text-base font-semibold text-gray-900">{s.name}</h4>
                           <p className="text-xs text-gray-500">
                             {s.industry} · {s.region || 'Global'}
                           </p>
@@ -229,6 +314,7 @@ export default function AISimulationPage() {
       {showEditor && (
         <EditorModal
           scenario={editing}
+          seed={seed}
           onClose={() => setShowEditor(false)}
           onSaved={() => {
             setShowEditor(false);
@@ -242,34 +328,38 @@ export default function AISimulationPage() {
 
 function EditorModal({
   scenario,
+  seed,
   onClose,
   onSaved,
 }: {
   scenario: any;
+  seed?: ScenarioTemplate | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const preset = scenario || seed || {};
+  const defaultConstraints = {
+    blindMove: true,
+    cot: true,
+    chaosProb: 0.3,
+    irrationalProb: 0.2,
+    humanBreakEvery: 2,
+  };
   const [form, setForm] = useState({
-    name: scenario?.name || '',
-    industry: scenario?.industry || '',
-    region: scenario?.region || '',
-    goals: scenario?.goals || {},
-    constraints: scenario?.params || {
-      blindMove: true,
-      cot: true,
-      chaosProb: 0.3,
-      irrationalProb: 0.2,
-      humanBreakEvery: 2,
-    },
+    name: preset.name || '',
+    industry: preset.industry || '',
+    region: preset.region || '',
+    goals: preset.goals || {},
+    constraints: preset.params || preset.constraints || defaultConstraints,
   });
   const [companies, setCompanies] = useState(
-    scenario?.companies || [
+    preset.companies || [
       { name: 'Benchmark Cloud GPU', type: 'benchmark', market: 'Global' },
       { name: 'Startup AI Infra', type: 'startup', market: 'US' },
     ]
   );
   const [agents, setAgents] = useState(
-    scenario?.agents || [
+    preset.agents || [
       { role: 'CEO - 蓝军', team: 'BLUE', companyName: 'Benchmark Cloud GPU' },
       { role: 'CEO - 红军', team: 'RED', companyName: 'Startup AI Infra' },
       { role: '监管观察', team: 'GREEN' },
@@ -689,9 +779,7 @@ function EditorModal({
             </div>
 
             <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-              <h4 className="text-sm font-semibold text-gray-900">
-                运行与状态
-              </h4>
+              <h4 className="text-sm font-semibold text-gray-900">运行与状态</h4>
               <div className="mt-2 rounded-lg border border-gray-100 bg-white p-3 text-sm text-gray-700">
                 <p>场景: {scenario?.id || '保存后生成ID'}</p>
                 <p>Run ID: {runId || '未启动'}</p>
