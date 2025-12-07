@@ -1046,4 +1046,171 @@ export class AIAssistService {
     }
     return delivery;
   }
+
+  /**
+   * 根据行业和场景配置，AI推荐最优推演参数
+   */
+  async suggestParams(params: {
+    industry: string;
+    region?: string;
+    companyCount?: number;
+    agentCount?: number;
+    goals?: {
+      targetShare?: string;
+      risk?: string;
+      growth?: string;
+    };
+  }): Promise<{
+    blindMove: boolean;
+    cot: boolean;
+    chaosProb: number;
+    irrationalProb: number;
+    humanBreakEvery: number;
+    rounds: number;
+    enabledEvents: string[];
+    reasoning: string;
+  }> {
+    const {
+      industry,
+      region = "Global",
+      companyCount = 2,
+      agentCount = 3,
+      goals,
+    } = params;
+
+    this.logger.log(
+      `AI Assist suggesting params for: ${industry}, region: ${region}, companies: ${companyCount}, agents: ${agentCount}`,
+    );
+
+    // 行业特征判断
+    const isHighVolatility = [
+      "AI Compute Infrastructure",
+      "Semiconductor",
+      "Electric Vehicles",
+    ].includes(industry);
+
+    const isHighRegulation = [
+      "Fintech",
+      "Healthcare",
+      "Semiconductor",
+    ].includes(industry);
+
+    const isFastPaced = [
+      "E-commerce",
+      "SaaS",
+      "Cloud Services",
+      "Gaming",
+    ].includes(industry);
+
+    const isGeopolitical = [
+      "AI Compute Infrastructure",
+      "Semiconductor",
+    ].includes(industry);
+
+    // 根据行业特征推荐参数
+    let blindMove = true; // 默认开启盲注，更真实
+    let cot = true; // 默认开启CoT，提高透明度
+    let chaosProb = 0.2; // 基础黑天鹅概率
+    let irrationalProb = 0.15; // 基础非理性概率
+    let humanBreakEvery = 2; // 默认每2轮人工介入
+    let rounds = 4; // 默认4轮
+
+    // 高波动性行业
+    if (isHighVolatility) {
+      chaosProb = 0.35;
+      irrationalProb = 0.25;
+      rounds = 6;
+    }
+
+    // 高监管行业
+    if (isHighRegulation) {
+      humanBreakEvery = 1; // 每轮都需要人工审核
+      irrationalProb = 0.1; // 监管压力下更理性
+    }
+
+    // 快节奏行业
+    if (isFastPaced) {
+      blindMove = true;
+      chaosProb = 0.25;
+    }
+
+    // 地缘政治敏感行业
+    if (isGeopolitical) {
+      chaosProb = Math.min(0.5, chaosProb + 0.15);
+    }
+
+    // 根据参与者数量调整
+    if (companyCount > 3) {
+      rounds = Math.min(8, rounds + 2); // 更多公司需要更多轮次
+      humanBreakEvery = Math.min(3, humanBreakEvery + 1);
+    }
+
+    if (agentCount > 6) {
+      humanBreakEvery = Math.max(1, humanBreakEvery - 1); // 更多角色需要更频繁审核
+    }
+
+    // 根据区域调整
+    if (region === "China") {
+      chaosProb = Math.min(0.5, chaosProb + 0.1); // 政策不确定性
+    }
+
+    // 根据目标调整
+    if (goals?.risk?.includes("高") || goals?.risk?.includes("控制")) {
+      humanBreakEvery = Math.max(1, humanBreakEvery - 1);
+    }
+
+    // 推荐启用的事件类型
+    const enabledEvents: string[] = [
+      "supply_chain",
+      "regulation",
+      "competitor",
+    ];
+
+    if (isHighVolatility) {
+      enabledEvents.push("tech", "finance");
+    }
+
+    if (isHighRegulation) {
+      enabledEvents.push("media", "customer");
+    }
+
+    if (isGeopolitical) {
+      enabledEvents.push("disaster", "talent");
+    }
+
+    // 生成推理说明
+    const reasoningParts: string[] = [];
+
+    if (isHighVolatility) {
+      reasoningParts.push("高波动性行业，建议较高的黑天鹅概率和更多轮次");
+    }
+    if (isHighRegulation) {
+      reasoningParts.push("高监管行业，建议每轮人工审核，降低非理性决策");
+    }
+    if (isFastPaced) {
+      reasoningParts.push("快节奏行业，适合盲注模式模拟同时决策");
+    }
+    if (isGeopolitical) {
+      reasoningParts.push("地缘政治敏感，增加不确定性参数");
+    }
+    if (companyCount > 3) {
+      reasoningParts.push(`${companyCount}家公司参与，建议增加推演轮数`);
+    }
+
+    const reasoning =
+      reasoningParts.length > 0
+        ? `基于${industry}行业特征：${reasoningParts.join("；")}`
+        : `基于${industry}行业的通用配置，建议适度的不确定性和人工介入`;
+
+    return {
+      blindMove,
+      cot,
+      chaosProb: Math.round(chaosProb * 100) / 100,
+      irrationalProb: Math.round(irrationalProb * 100) / 100,
+      humanBreakEvery,
+      rounds,
+      enabledEvents,
+      reasoning,
+    };
+  }
 }

@@ -236,6 +236,27 @@ export class SimulationController {
     return this.aiAssist.generateCompanyMetrics(body);
   }
 
+  /**
+   * AI辅助推荐推演参数
+   */
+  @Post("ai-assist/suggest-params")
+  async suggestParams(
+    @Body()
+    body: {
+      industry: string;
+      region?: string;
+      companyCount?: number;
+      agentCount?: number;
+      goals?: {
+        targetShare?: string;
+        risk?: string;
+        growth?: string;
+      };
+    },
+  ): Promise<any> {
+    return this.aiAssist.suggestParams(body);
+  }
+
   // ========== SSE Real-time Updates ==========
 
   /**

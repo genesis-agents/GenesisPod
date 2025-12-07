@@ -839,204 +839,301 @@ export default function ScenarioDetailPage() {
               {/* Companies Tab - 公司棋盘 */}
               {tab === 'companies' && (
                 <div className="space-y-6">
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {scenario.companies?.map((company: any, idx: number) => (
-                      <div
-                        key={idx}
-                        className="group rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-indigo-200 hover:shadow-md"
-                      >
-                        {/* Header */}
-                        <div className="mb-4 flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={`flex h-12 w-12 items-center justify-center rounded-xl text-white ${
-                                company.type === 'benchmark'
-                                  ? 'bg-gradient-to-br from-amber-400 to-orange-500'
-                                  : company.type === 'challenger'
-                                    ? 'bg-gradient-to-br from-blue-400 to-indigo-500'
-                                    : company.type === 'startup'
-                                      ? 'bg-gradient-to-br from-green-400 to-emerald-500'
-                                      : 'bg-gradient-to-br from-gray-400 to-gray-500'
-                              }`}
-                            >
-                              <svg
-                                className="h-6 w-6"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                                />
-                              </svg>
-                            </div>
-                            <div>
-                              <h4 className="font-semibold text-gray-900">
-                                {company.name}
-                              </h4>
-                              <div className="flex items-center gap-2 text-xs text-gray-500">
-                                <span
-                                  className={`rounded-full px-2 py-0.5 ${
-                                    company.type === 'benchmark'
-                                      ? 'bg-amber-100 text-amber-700'
-                                      : company.type === 'challenger'
-                                        ? 'bg-blue-100 text-blue-700'
-                                        : company.type === 'startup'
-                                          ? 'bg-green-100 text-green-700'
-                                          : 'bg-gray-100 text-gray-700'
-                                  }`}
-                                >
-                                  {company.type === 'benchmark'
-                                    ? '标杆'
-                                    : company.type === 'challenger'
-                                      ? '挑战者'
-                                      : company.type === 'startup'
-                                        ? '新势力'
-                                        : company.type}
-                                </span>
-                                <span>·</span>
-                                <span>{company.market}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Metrics Grid */}
-                        {company.metrics ? (
-                          <div className="space-y-3">
-                            {/* Financial */}
-                            <div className="rounded-lg bg-gray-50 p-3">
-                              <div className="mb-2 text-xs font-medium text-gray-500">
-                                财务指标
-                              </div>
-                              <div className="grid grid-cols-2 gap-2">
-                                {company.metrics.cash !== undefined && (
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-500">
-                                      现金
-                                    </span>
-                                    <span className="text-sm font-semibold text-gray-900">
-                                      ${company.metrics.cash}M
-                                    </span>
-                                  </div>
-                                )}
-                                {company.metrics.share !== undefined && (
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-500">
-                                      份额
-                                    </span>
-                                    <span className="text-sm font-semibold text-indigo-600">
-                                      {company.metrics.share}%
-                                    </span>
-                                  </div>
-                                )}
-                                {company.metrics.margin !== undefined && (
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-500">
-                                      毛利
-                                    </span>
-                                    <span className="text-sm font-semibold text-green-600">
-                                      {company.metrics.margin}%
-                                    </span>
-                                  </div>
-                                )}
-                                {company.metrics.debt !== undefined && (
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-500">
-                                      负债
-                                    </span>
-                                    <span className="text-sm font-semibold text-red-600">
-                                      ${company.metrics.debt}M
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Operations */}
-                            <div className="rounded-lg bg-gray-50 p-3">
-                              <div className="mb-2 text-xs font-medium text-gray-500">
-                                运营指标
-                              </div>
-                              <div className="grid grid-cols-2 gap-2">
-                                {company.metrics.capacity !== undefined && (
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-500">
-                                      产能
-                                    </span>
-                                    <span className="text-sm font-medium text-gray-900">
-                                      {company.metrics.capacity}
-                                    </span>
-                                  </div>
-                                )}
-                                {company.metrics.inventory !== undefined && (
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-500">
-                                      库存
-                                    </span>
-                                    <span className="text-sm font-medium text-gray-900">
-                                      {company.metrics.inventory}
-                                    </span>
-                                  </div>
-                                )}
-                                {company.metrics.delivery && (
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-500">
-                                      交付
-                                    </span>
-                                    <span className="text-sm font-medium text-gray-900">
-                                      {company.metrics.delivery}
-                                    </span>
-                                  </div>
-                                )}
-                                {company.metrics.priceBand && (
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-500">
-                                      价格带
-                                    </span>
-                                    <span className="text-sm font-medium text-gray-900">
-                                      {company.metrics.priceBand}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Share Bar */}
-                            {company.metrics.share !== undefined && (
-                              <div className="mt-2">
-                                <div className="mb-1 flex justify-between text-xs">
-                                  <span className="text-gray-500">
-                                    市场份额
-                                  </span>
-                                  <span className="font-medium text-indigo-600">
-                                    {company.metrics.share}%
-                                  </span>
-                                </div>
-                                <div className="h-2 rounded-full bg-gray-200">
-                                  <div
-                                    className="h-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500"
-                                    style={{
-                                      width: `${Math.min(company.metrics.share, 100)}%`,
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="rounded-lg bg-gray-50 py-6 text-center text-xs text-gray-500">
-                            暂无详细指标
-                          </div>
-                        )}
+                  {/* 公司概览统计 */}
+                  <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                    <div className="rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
+                      <div className="text-2xl font-bold text-indigo-600">
+                        {scenario.companies?.length || 0}
                       </div>
-                    ))}
+                      <div className="text-xs text-gray-600">参与公司</div>
+                    </div>
+                    <div className="rounded-lg bg-gradient-to-br from-amber-50 to-orange-50 p-4">
+                      <div className="text-2xl font-bold text-amber-600">
+                        {scenario.companies?.filter(
+                          (c: any) => c.type === 'benchmark'
+                        ).length || 0}
+                      </div>
+                      <div className="text-xs text-gray-600">标杆企业</div>
+                    </div>
+                    <div className="rounded-lg bg-gradient-to-br from-green-50 to-emerald-50 p-4">
+                      <div className="text-2xl font-bold text-green-600">
+                        {scenario.companies?.filter(
+                          (c: any) =>
+                            c.type === 'challenger' || c.type === 'startup'
+                        ).length || 0}
+                      </div>
+                      <div className="text-xs text-gray-600">挑战者</div>
+                    </div>
+                    <div className="rounded-lg bg-gradient-to-br from-purple-50 to-pink-50 p-4">
+                      <div className="text-2xl font-bold text-purple-600">
+                        {scenario.agents?.filter((a: any) => a.companyId)
+                          .length || 0}
+                      </div>
+                      <div className="text-xs text-gray-600">关联角色</div>
+                    </div>
                   </div>
 
-                  {scenario.companies?.length === 0 && (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {scenario.companies?.map((company: any, idx: number) => {
+                      // 获取该公司关联的角色
+                      const companyAgents =
+                        scenario.agents?.filter(
+                          (a: any) => a.companyId === company.id
+                        ) || [];
+                      // 解析 metrics（可能是 JSON 字符串）
+                      let metrics: any = {};
+                      try {
+                        metrics =
+                          typeof company.metrics === 'string'
+                            ? JSON.parse(company.metrics)
+                            : company.metrics || {};
+                      } catch {
+                        metrics = {};
+                      }
+                      const hasMetrics = Object.keys(metrics).length > 0;
+
+                      return (
+                        <div
+                          key={idx}
+                          className="group rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-indigo-200 hover:shadow-md"
+                        >
+                          {/* Header */}
+                          <div className="mb-4 flex items-start justify-between">
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={`flex h-12 w-12 items-center justify-center rounded-xl text-white ${
+                                  company.type === 'benchmark'
+                                    ? 'bg-gradient-to-br from-amber-400 to-orange-500'
+                                    : company.type === 'challenger'
+                                      ? 'bg-gradient-to-br from-blue-400 to-indigo-500'
+                                      : company.type === 'startup'
+                                        ? 'bg-gradient-to-br from-green-400 to-emerald-500'
+                                        : 'bg-gradient-to-br from-gray-400 to-gray-500'
+                                }`}
+                              >
+                                <svg
+                                  className="h-6 w-6"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                                  />
+                                </svg>
+                              </div>
+                              <div>
+                                <h4 className="font-semibold text-gray-900">
+                                  {company.name}
+                                </h4>
+                                <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
+                                  <span
+                                    className={`rounded-full px-2 py-0.5 ${
+                                      company.type === 'benchmark'
+                                        ? 'bg-amber-100 text-amber-700'
+                                        : company.type === 'challenger'
+                                          ? 'bg-blue-100 text-blue-700'
+                                          : company.type === 'startup'
+                                            ? 'bg-green-100 text-green-700'
+                                            : 'bg-gray-100 text-gray-700'
+                                    }`}
+                                  >
+                                    {company.type === 'benchmark'
+                                      ? '标杆'
+                                      : company.type === 'challenger'
+                                        ? '挑战者'
+                                        : company.type === 'startup'
+                                          ? '新势力'
+                                          : company.type || '未分类'}
+                                  </span>
+                                  {company.market && (
+                                    <>
+                                      <span>·</span>
+                                      <span>{company.market}</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 基本信息 - 始终显示 */}
+                          <div className="mb-3 space-y-2 border-t border-gray-100 pt-3">
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="text-gray-400">🏷️</span>
+                              <span className="text-gray-500">类型:</span>
+                              <span className="font-medium text-gray-700">
+                                {company.type || '未设置'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="text-gray-400">🌍</span>
+                              <span className="text-gray-500">市场:</span>
+                              <span className="font-medium text-gray-700">
+                                {company.market || '未设置'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="text-gray-400">👥</span>
+                              <span className="text-gray-500">关联角色:</span>
+                              <span className="font-medium text-gray-700">
+                                {companyAgents.length > 0
+                                  ? companyAgents
+                                      .map((a: any) => a.role)
+                                      .join(', ')
+                                  : '暂无'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Metrics Grid */}
+                          {hasMetrics ? (
+                            <div className="space-y-3">
+                              {/* Financial */}
+                              {(metrics.cash !== undefined ||
+                                metrics.share !== undefined ||
+                                metrics.margin !== undefined ||
+                                metrics.debt !== undefined) && (
+                                <div className="rounded-lg bg-gray-50 p-3">
+                                  <div className="mb-2 text-xs font-medium text-gray-500">
+                                    财务指标
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {metrics.cash !== undefined && (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs text-gray-500">
+                                          现金
+                                        </span>
+                                        <span className="text-sm font-semibold text-gray-900">
+                                          ${metrics.cash}M
+                                        </span>
+                                      </div>
+                                    )}
+                                    {metrics.share !== undefined && (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs text-gray-500">
+                                          份额
+                                        </span>
+                                        <span className="text-sm font-semibold text-indigo-600">
+                                          {metrics.share}%
+                                        </span>
+                                      </div>
+                                    )}
+                                    {metrics.margin !== undefined && (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs text-gray-500">
+                                          毛利
+                                        </span>
+                                        <span className="text-sm font-semibold text-green-600">
+                                          {metrics.margin}%
+                                        </span>
+                                      </div>
+                                    )}
+                                    {metrics.debt !== undefined && (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs text-gray-500">
+                                          负债
+                                        </span>
+                                        <span className="text-sm font-semibold text-red-600">
+                                          ${metrics.debt}M
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Operations */}
+                              {(metrics.capacity !== undefined ||
+                                metrics.inventory !== undefined ||
+                                metrics.delivery ||
+                                metrics.priceBand) && (
+                                <div className="rounded-lg bg-gray-50 p-3">
+                                  <div className="mb-2 text-xs font-medium text-gray-500">
+                                    运营指标
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {metrics.capacity !== undefined && (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs text-gray-500">
+                                          产能
+                                        </span>
+                                        <span className="text-sm font-medium text-gray-900">
+                                          {metrics.capacity}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {metrics.inventory !== undefined && (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs text-gray-500">
+                                          库存
+                                        </span>
+                                        <span className="text-sm font-medium text-gray-900">
+                                          {metrics.inventory}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {metrics.delivery && (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs text-gray-500">
+                                          交付
+                                        </span>
+                                        <span className="text-sm font-medium text-gray-900">
+                                          {metrics.delivery}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {metrics.priceBand && (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs text-gray-500">
+                                          价格带
+                                        </span>
+                                        <span className="text-sm font-medium text-gray-900">
+                                          {metrics.priceBand}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Share Bar */}
+                              {metrics.share !== undefined && (
+                                <div className="mt-2">
+                                  <div className="mb-1 flex justify-between text-xs">
+                                    <span className="text-gray-500">
+                                      市场份额
+                                    </span>
+                                    <span className="font-medium text-indigo-600">
+                                      {metrics.share}%
+                                    </span>
+                                  </div>
+                                  <div className="h-2 rounded-full bg-gray-200">
+                                    <div
+                                      className="h-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500"
+                                      style={{
+                                        width: `${Math.min(metrics.share, 100)}%`,
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="rounded-lg bg-amber-50 p-3 text-xs text-amber-700">
+                              <span className="font-medium">提示:</span>{' '}
+                              暂无详细指标，可通过编辑添加财务和运营数据
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {(!scenario.companies || scenario.companies.length === 0) && (
                     <div className="rounded-xl border-2 border-dashed border-gray-200 py-12 text-center">
                       <h4 className="text-sm font-medium text-gray-900">
                         暂无公司配置
@@ -1051,199 +1148,292 @@ export default function ScenarioDetailPage() {
 
               {/* Agents Tab */}
               {tab === 'agents' && (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {scenario.agents?.map((agent: any, idx: number) => {
-                    // 解析 persona JSON
-                    let persona: any = {};
-                    try {
-                      persona =
-                        typeof agent.persona === 'string'
-                          ? JSON.parse(agent.persona)
-                          : agent.persona || {};
-                    } catch {
-                      persona = {};
-                    }
+                <div className="space-y-6">
+                  {/* 角色概览统计 */}
+                  <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+                    <div className="rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
+                      <div className="text-2xl font-bold text-blue-600">
+                        {scenario.agents?.filter((a: any) => a.team === 'BLUE')
+                          .length || 0}
+                      </div>
+                      <div className="text-xs text-gray-600">🔵 蓝军</div>
+                    </div>
+                    <div className="rounded-lg bg-gradient-to-br from-red-50 to-rose-50 p-4">
+                      <div className="text-2xl font-bold text-red-600">
+                        {scenario.agents?.filter((a: any) => a.team === 'RED')
+                          .length || 0}
+                      </div>
+                      <div className="text-xs text-gray-600">🔴 红军</div>
+                    </div>
+                    <div className="rounded-lg bg-gradient-to-br from-green-50 to-emerald-50 p-4">
+                      <div className="text-2xl font-bold text-green-600">
+                        {scenario.agents?.filter((a: any) => a.team === 'GREEN')
+                          .length || 0}
+                      </div>
+                      <div className="text-xs text-gray-600">🟢 绿军</div>
+                    </div>
+                    <div className="rounded-lg bg-gradient-to-br from-purple-50 to-pink-50 p-4">
+                      <div className="text-2xl font-bold text-purple-600">
+                        {scenario.agents?.filter((a: any) => a.team === 'CHAOS')
+                          .length || 0}
+                      </div>
+                      <div className="text-xs text-gray-600">🟣 混沌</div>
+                    </div>
+                    <div className="rounded-lg bg-gradient-to-br from-amber-50 to-orange-50 p-4">
+                      <div className="text-2xl font-bold text-amber-600">
+                        {scenario.agents?.filter((a: any) => a.companyId)
+                          .length || 0}
+                      </div>
+                      <div className="text-xs text-gray-600">🏢 有公司归属</div>
+                    </div>
+                  </div>
 
-                    const teamConfigMap: Record<
-                      string,
-                      {
-                        label: string;
-                        bg: string;
-                        text: string;
-                        border: string;
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {scenario.agents?.map((agent: any, idx: number) => {
+                      // 解析 persona JSON
+                      let persona: any = {};
+                      try {
+                        persona =
+                          typeof agent.persona === 'string'
+                            ? JSON.parse(agent.persona)
+                            : agent.persona || {};
+                      } catch {
+                        persona = {};
                       }
-                    > = {
-                      BLUE: {
-                        label: '🔵 蓝军',
-                        bg: 'bg-blue-100',
-                        text: 'text-blue-700',
-                        border: 'border-blue-200',
-                      },
-                      RED: {
-                        label: '🔴 红军',
-                        bg: 'bg-red-100',
-                        text: 'text-red-700',
-                        border: 'border-red-200',
-                      },
-                      GREEN: {
-                        label: '🟢 绿军',
-                        bg: 'bg-green-100',
-                        text: 'text-green-700',
-                        border: 'border-green-200',
-                      },
-                      CHAOS: {
-                        label: '🟣 混沌',
-                        bg: 'bg-purple-100',
-                        text: 'text-purple-700',
-                        border: 'border-purple-200',
-                      },
-                    };
-                    const teamConfig = teamConfigMap[agent.team as string] || {
-                      label: agent.team,
-                      bg: 'bg-gray-100',
-                      text: 'text-gray-700',
-                      border: 'border-gray-200',
-                    };
+                      const hasPersona = Object.keys(persona).length > 0;
 
-                    return (
-                      <div
-                        key={idx}
-                        className={`rounded-xl border-2 ${teamConfig.border} bg-white p-4 shadow-sm`}
-                      >
-                        {/* Header */}
-                        <div className="mb-3 flex items-center justify-between">
-                          <span
-                            className={`rounded-full ${teamConfig.bg} ${teamConfig.text} px-2.5 py-1 text-xs font-medium`}
-                          >
-                            {teamConfig.label}
-                          </span>
-                          {persona.riskTolerance !== undefined && (
+                      const teamConfigMap: Record<
+                        string,
+                        {
+                          label: string;
+                          bg: string;
+                          text: string;
+                          border: string;
+                          gradient: string;
+                        }
+                      > = {
+                        BLUE: {
+                          label: '🔵 蓝军',
+                          bg: 'bg-blue-100',
+                          text: 'text-blue-700',
+                          border: 'border-blue-200',
+                          gradient: 'from-blue-500 to-indigo-500',
+                        },
+                        RED: {
+                          label: '🔴 红军',
+                          bg: 'bg-red-100',
+                          text: 'text-red-700',
+                          border: 'border-red-200',
+                          gradient: 'from-red-500 to-rose-500',
+                        },
+                        GREEN: {
+                          label: '🟢 绿军',
+                          bg: 'bg-green-100',
+                          text: 'text-green-700',
+                          border: 'border-green-200',
+                          gradient: 'from-green-500 to-emerald-500',
+                        },
+                        CHAOS: {
+                          label: '🟣 混沌',
+                          bg: 'bg-purple-100',
+                          text: 'text-purple-700',
+                          border: 'border-purple-200',
+                          gradient: 'from-purple-500 to-pink-500',
+                        },
+                      };
+                      const teamConfig = teamConfigMap[
+                        agent.team as string
+                      ] || {
+                        label: agent.team,
+                        bg: 'bg-gray-100',
+                        text: 'text-gray-700',
+                        border: 'border-gray-200',
+                        gradient: 'from-gray-500 to-gray-600',
+                      };
+
+                      return (
+                        <div
+                          key={idx}
+                          className={`rounded-xl border-2 ${teamConfig.border} bg-white p-4 shadow-sm transition-all hover:shadow-md`}
+                        >
+                          {/* Header with gradient bar */}
+                          <div
+                            className={`-mx-4 -mt-4 mb-4 h-1.5 rounded-t-xl bg-gradient-to-r ${teamConfig.gradient}`}
+                          />
+
+                          <div className="mb-3 flex items-center justify-between">
                             <span
-                              className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                                persona.riskTolerance > 70
-                                  ? 'bg-red-100 text-red-700'
-                                  : persona.riskTolerance > 40
-                                    ? 'bg-amber-100 text-amber-700'
-                                    : 'bg-green-100 text-green-700'
-                              }`}
+                              className={`rounded-full ${teamConfig.bg} ${teamConfig.text} px-2.5 py-1 text-xs font-medium`}
                             >
-                              风险 {persona.riskTolerance}%
+                              {teamConfig.label}
                             </span>
-                          )}
-                        </div>
-
-                        {/* Role & Company */}
-                        <h4 className="text-base font-bold text-gray-900">
-                          {agent.role}
-                        </h4>
-                        {agent.companyName && (
-                          <p className="mt-0.5 text-sm text-gray-500">
-                            {agent.companyName}
-                          </p>
-                        )}
-
-                        {/* Persona - 友好显示 */}
-                        {Object.keys(persona).length > 0 && (
-                          <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
-                            {persona.traits && (
-                              <div className="flex items-start gap-2">
-                                <span className="text-xs text-gray-400">
-                                  🎭
-                                </span>
-                                <div>
-                                  <span className="text-[10px] font-medium uppercase text-gray-400">
-                                    性格
-                                  </span>
-                                  <p className="text-xs text-gray-700">
-                                    {persona.traits}
-                                  </p>
-                                </div>
-                              </div>
-                            )}
-                            {persona.biases && (
-                              <div className="flex items-start gap-2">
-                                <span className="text-xs text-gray-400">
-                                  ⚡
-                                </span>
-                                <div>
-                                  <span className="text-[10px] font-medium uppercase text-gray-400">
-                                    偏见
-                                  </span>
-                                  <p className="text-xs text-gray-700">
-                                    {persona.biases}
-                                  </p>
-                                </div>
-                              </div>
-                            )}
-                            {persona.pressure && (
-                              <div className="flex items-start gap-2">
-                                <span className="text-xs text-gray-400">
-                                  💢
-                                </span>
-                                <div>
-                                  <span className="text-[10px] font-medium uppercase text-gray-400">
-                                    压力源
-                                  </span>
-                                  <p className="text-xs text-gray-700">
-                                    {persona.pressure}
-                                  </p>
-                                </div>
-                              </div>
-                            )}
-                            {persona.timePref && (
-                              <div className="flex items-start gap-2">
-                                <span className="text-xs text-gray-400">
-                                  ⏱️
-                                </span>
-                                <div>
-                                  <span className="text-[10px] font-medium uppercase text-gray-400">
-                                    时间偏好
-                                  </span>
-                                  <p className="text-xs text-gray-700">
-                                    {persona.timePref}
-                                  </p>
-                                </div>
-                              </div>
-                            )}
-                            {/* 显示其他未知字段的摘要 */}
-                            {Object.keys(persona).filter(
-                              (k) =>
-                                ![
-                                  'traits',
-                                  'biases',
-                                  'pressure',
-                                  'timePref',
-                                  'riskTolerance',
-                                  'compliance',
-                                ].includes(k)
-                            ).length > 0 && (
-                              <details className="text-xs">
-                                <summary className="cursor-pointer text-gray-400 hover:text-gray-600">
-                                  更多配置...
-                                </summary>
-                                <div className="mt-1 rounded bg-gray-50 p-2 font-mono text-[10px] text-gray-500">
-                                  {Object.entries(persona)
-                                    .filter(
-                                      ([k]) =>
-                                        ![
-                                          'traits',
-                                          'biases',
-                                          'pressure',
-                                          'timePref',
-                                          'riskTolerance',
-                                          'compliance',
-                                        ].includes(k)
-                                    )
-                                    .map(([k, v]) => `${k}: ${v}`)
-                                    .join(', ')}
-                                </div>
-                              </details>
+                            {persona.riskTolerance !== undefined && (
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                  persona.riskTolerance > 70
+                                    ? 'bg-red-100 text-red-700'
+                                    : persona.riskTolerance > 40
+                                      ? 'bg-amber-100 text-amber-700'
+                                      : 'bg-green-100 text-green-700'
+                                }`}
+                              >
+                                风险 {persona.riskTolerance}%
+                              </span>
                             )}
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
+
+                          {/* Role & Company */}
+                          <h4 className="text-base font-bold text-gray-900">
+                            {agent.role}
+                          </h4>
+
+                          {/* 基本信息 - 始终显示 */}
+                          <div className="mt-2 space-y-1.5">
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="text-gray-400">🏢</span>
+                              <span className="text-gray-500">所属公司:</span>
+                              <span className="font-medium text-gray-700">
+                                {agent.company?.name ||
+                                  agent.companyName ||
+                                  '无归属'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="text-gray-400">🎯</span>
+                              <span className="text-gray-500">阵营:</span>
+                              <span className="font-medium text-gray-700">
+                                {agent.team === 'BLUE'
+                                  ? '蓝军 (我方)'
+                                  : agent.team === 'RED'
+                                    ? '红军 (对手)'
+                                    : agent.team === 'GREEN'
+                                      ? '绿军 (监管/中立)'
+                                      : agent.team === 'CHAOS'
+                                        ? '混沌 (黑天鹅)'
+                                        : agent.team}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Persona - 友好显示 */}
+                          {hasPersona ? (
+                            <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+                              {persona.traits && (
+                                <div className="flex items-start gap-2">
+                                  <span className="text-xs text-gray-400">
+                                    🎭
+                                  </span>
+                                  <div>
+                                    <span className="text-[10px] font-medium uppercase text-gray-400">
+                                      性格
+                                    </span>
+                                    <p className="text-xs text-gray-700">
+                                      {persona.traits}
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+                              {persona.biases && (
+                                <div className="flex items-start gap-2">
+                                  <span className="text-xs text-gray-400">
+                                    ⚡
+                                  </span>
+                                  <div>
+                                    <span className="text-[10px] font-medium uppercase text-gray-400">
+                                      偏见
+                                    </span>
+                                    <p className="text-xs text-gray-700">
+                                      {persona.biases}
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+                              {persona.pressure && (
+                                <div className="flex items-start gap-2">
+                                  <span className="text-xs text-gray-400">
+                                    💢
+                                  </span>
+                                  <div>
+                                    <span className="text-[10px] font-medium uppercase text-gray-400">
+                                      压力源
+                                    </span>
+                                    <p className="text-xs text-gray-700">
+                                      {persona.pressure}
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+                              {persona.timePref && (
+                                <div className="flex items-start gap-2">
+                                  <span className="text-xs text-gray-400">
+                                    ⏱️
+                                  </span>
+                                  <div>
+                                    <span className="text-[10px] font-medium uppercase text-gray-400">
+                                      时间偏好
+                                    </span>
+                                    <p className="text-xs text-gray-700">
+                                      {persona.timePref}
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+                              {/* 显示其他未知字段的摘要 */}
+                              {Object.keys(persona).filter(
+                                (k) =>
+                                  ![
+                                    'traits',
+                                    'biases',
+                                    'pressure',
+                                    'timePref',
+                                    'riskTolerance',
+                                    'compliance',
+                                  ].includes(k)
+                              ).length > 0 && (
+                                <details className="text-xs">
+                                  <summary className="cursor-pointer text-gray-400 hover:text-gray-600">
+                                    更多配置...
+                                  </summary>
+                                  <div className="mt-1 rounded bg-gray-50 p-2 font-mono text-[10px] text-gray-500">
+                                    {Object.entries(persona)
+                                      .filter(
+                                        ([k]) =>
+                                          ![
+                                            'traits',
+                                            'biases',
+                                            'pressure',
+                                            'timePref',
+                                            'riskTolerance',
+                                            'compliance',
+                                          ].includes(k)
+                                      )
+                                      .map(([k, v]) => `${k}: ${v}`)
+                                      .join(', ')}
+                                  </div>
+                                </details>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="mt-3 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-700">
+                              <span className="font-medium">提示:</span>{' '}
+                              暂无详细人设，可通过编辑配置性格、偏见等特征
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {(!scenario.agents || scenario.agents.length === 0) && (
+                    <div className="rounded-xl border-2 border-dashed border-gray-200 py-12 text-center">
+                      <h4 className="text-sm font-medium text-gray-900">
+                        暂无角色配置
+                      </h4>
+                      <p className="mt-1 text-xs text-gray-500">
+                        请编辑场景添加参与推演的角色
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 

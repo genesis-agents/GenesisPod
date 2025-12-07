@@ -793,6 +793,78 @@ function EditorModal({
     setMessage(`已添加 ${newAgents.length} 个AI推荐的角色`);
   };
 
+  // AI辅助：推荐推演参数
+  const [aiParamsAssisting, setAiParamsAssisting] = useState(false);
+  const [aiParamsSuggestions, setAiParamsSuggestions] = useState<{
+    blindMove: boolean;
+    cot: boolean;
+    chaosProb: number;
+    irrationalProb: number;
+    humanBreakEvery: number;
+    rounds: number;
+    enabledEvents: string[];
+    reasoning: string;
+  } | null>(null);
+
+  const aiAssistParams = async () => {
+    if (!form.industry) {
+      setMessage('请先在基本信息中填写行业');
+      return;
+    }
+
+    setAiParamsAssisting(true);
+    setMessage(null);
+    try {
+      const res = await fetch(
+        `${config.apiUrl}/simulation/ai-assist/suggest-params`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeader(),
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            industry: form.industry,
+            region: form.region,
+            companyCount: companies.length,
+            agentCount: agents.length,
+            goals: form.goals,
+          }),
+        }
+      );
+      const data = await res.json();
+      if (res.ok) {
+        setAiParamsSuggestions(data);
+        setMessage('AI已分析行业特征并推荐最优参数配置，点击"采纳建议"应用');
+      } else {
+        setMessage(data?.message || 'AI推荐失败，请稍后重试');
+      }
+    } catch (err: any) {
+      setMessage(err.message || 'AI推荐失败');
+    } finally {
+      setAiParamsAssisting(false);
+    }
+  };
+
+  // 采纳AI推荐的参数
+  const adoptAiParamsSuggestions = () => {
+    if (!aiParamsSuggestions) return;
+    setForm((prev) => ({
+      ...prev,
+      constraints: {
+        ...prev.constraints,
+        blindMove: aiParamsSuggestions.blindMove,
+        cot: aiParamsSuggestions.cot,
+        chaosProb: aiParamsSuggestions.chaosProb,
+        irrationalProb: aiParamsSuggestions.irrationalProb,
+        humanBreakEvery: aiParamsSuggestions.humanBreakEvery,
+      },
+    }));
+    setAiParamsSuggestions(null);
+    setMessage('已采纳AI推荐的推演参数配置');
+  };
+
   const saveScenario = async () => {
     setSaving(true);
     try {
@@ -2280,6 +2352,204 @@ function EditorModal({
           {/* Params Tab */}
           {activeTab === 'params' && (
             <div className="mx-auto max-w-3xl space-y-6">
+              {/* AI辅助推荐参数 */}
+              <div className="rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50 p-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
+                      <svg
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13 10V3L4 14h7v7l9-11h-7z"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900">
+                        AI 智能推荐参数
+                      </h3>
+                      <p className="text-xs text-gray-600">
+                        根据行业特征、公司数量、角色配置，AI推荐最优推演参数
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => void aiAssistParams()}
+                    disabled={aiParamsAssisting || !form.industry}
+                    className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-indigo-500/25 transition-all hover:from-indigo-700 hover:to-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {aiParamsAssisting ? (
+                      <>
+                        <svg
+                          className="h-4 w-4 animate-spin"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                          />
+                        </svg>
+                        分析中...
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                          />
+                        </svg>
+                        AI推荐参数
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* AI推荐结果展示 */}
+                {aiParamsSuggestions && (
+                  <div className="mt-4 space-y-3">
+                    <div className="rounded-lg bg-white/80 p-4">
+                      <div className="mb-3 flex items-center justify-between">
+                        <h4 className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
+                          AI推荐配置
+                        </h4>
+                        <button
+                          onClick={adoptAiParamsSuggestions}
+                          className="flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-700"
+                        >
+                          <svg
+                            className="h-3.5 w-3.5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                          采纳建议
+                        </button>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="rounded-lg bg-gray-50 px-3 py-2">
+                          <div className="text-xs text-gray-500">盲注模式</div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {aiParamsSuggestions.blindMove ? '开启' : '关闭'}
+                          </div>
+                        </div>
+                        <div className="rounded-lg bg-gray-50 px-3 py-2">
+                          <div className="text-xs text-gray-500">CoT推理</div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {aiParamsSuggestions.cot ? '开启' : '关闭'}
+                          </div>
+                        </div>
+                        <div className="rounded-lg bg-gray-50 px-3 py-2">
+                          <div className="text-xs text-gray-500">推荐轮数</div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {aiParamsSuggestions.rounds}轮
+                          </div>
+                        </div>
+                        <div className="rounded-lg bg-purple-50 px-3 py-2">
+                          <div className="text-xs text-purple-600">
+                            黑天鹅概率
+                          </div>
+                          <div className="text-sm font-medium text-purple-700">
+                            {Math.round(aiParamsSuggestions.chaosProb * 100)}%
+                          </div>
+                        </div>
+                        <div className="rounded-lg bg-orange-50 px-3 py-2">
+                          <div className="text-xs text-orange-600">
+                            非理性概率
+                          </div>
+                          <div className="text-sm font-medium text-orange-700">
+                            {Math.round(
+                              aiParamsSuggestions.irrationalProb * 100
+                            )}
+                            %
+                          </div>
+                        </div>
+                        <div className="rounded-lg bg-blue-50 px-3 py-2">
+                          <div className="text-xs text-blue-600">
+                            人工介入间隔
+                          </div>
+                          <div className="text-sm font-medium text-blue-700">
+                            每{aiParamsSuggestions.humanBreakEvery}轮
+                          </div>
+                        </div>
+                      </div>
+                      {aiParamsSuggestions.enabledEvents.length > 0 && (
+                        <div className="mt-3">
+                          <div className="mb-1.5 text-xs text-gray-500">
+                            推荐启用的事件类型
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {aiParamsSuggestions.enabledEvents.map((event) => (
+                              <span
+                                key={event}
+                                className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700"
+                              >
+                                {event === 'supply_chain' && '供应链'}
+                                {event === 'regulation' && '监管政策'}
+                                {event === 'competitor' && '竞争对手'}
+                                {event === 'customer' && '客户变动'}
+                                {event === 'media' && '媒体曝光'}
+                                {event === 'tech' && '技术变革'}
+                                {event === 'finance' && '金融波动'}
+                                {event === 'talent' && '人才变动'}
+                                {event === 'disaster' && '自然灾害'}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="mt-3 flex items-start gap-2 rounded-lg bg-indigo-50 px-3 py-2 text-xs text-indigo-700">
+                        <svg
+                          className="mt-0.5 h-4 w-4 flex-shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        <span>{aiParamsSuggestions.reasoning}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* 对战机制 */}
               <div className="rounded-xl border border-gray-200 bg-white p-5">
                 <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-900">
