@@ -63,17 +63,22 @@ export class ExternalDataService {
    * If baseUrl is missing or disabled, return null with reason.
    */
   async getSnapshot(
-    providers: string[] = ["market", "finance", "news", "regulation"],
+    categories: string[] = ["market", "finance", "news", "regulation"],
   ) {
     const results = await Promise.all(
-      providers.map((p) => this.fetchFromProvider(p)),
+      categories.map(async (category) => {
+        const res = await this.fetchFromProvider(category);
+        return { category, res };
+      }),
     );
     const snapshot: Record<string, any> = {};
     const evidence: any[] = [];
 
-    results.forEach((res) => {
-      snapshot[res.providerId] = res.ok ? res.data : { error: res.error };
+    results.forEach(({ category, res }) => {
+      // 始终使用category名作为key，确保前端能正确识别
+      snapshot[category] = res.ok ? res.data : { error: res.error };
       evidence.push({
+        category,
         provider: res.providerId,
         endpoint: res.endpoint,
         ok: res.ok,
