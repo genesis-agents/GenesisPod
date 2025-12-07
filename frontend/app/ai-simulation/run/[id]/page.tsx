@@ -295,65 +295,65 @@ export default function RunConsolePage() {
 
                     {/* Agent Submissions */}
                     {turn.submissions &&
-                      typeof turn.submissions === 'object' &&
-                      Object.entries(turn.submissions).map(
-                        ([agentId, submission]: [string, any]) => (
-                          <div
-                            key={agentId}
-                            className="ml-4 rounded-lg border border-gray-200 bg-gray-50 p-3"
-                          >
-                            <div className="mb-2 flex items-center justify-between">
-                              <span
-                                className={`text-xs font-medium ${
-                                  submission.team === 'BLUE'
-                                    ? 'text-blue-600'
-                                    : submission.team === 'RED'
-                                      ? 'text-red-600'
-                                      : submission.team === 'GREEN'
-                                        ? 'text-green-600'
-                                        : 'text-purple-600'
-                                }`}
-                              >
-                                {submission.role || agentId}
-                              </span>
+                      Array.isArray(turn.submissions) &&
+                      turn.submissions.map((submission: any, idx: number) => (
+                        <div
+                          key={submission.agentId || idx}
+                          className="ml-4 rounded-lg border border-gray-200 bg-gray-50 p-3"
+                        >
+                          <div className="mb-2 flex items-center justify-between">
+                            <span
+                              className={`text-xs font-medium ${
+                                submission.team === 'BLUE'
+                                  ? 'text-blue-600'
+                                  : submission.team === 'RED'
+                                    ? 'text-red-600'
+                                    : submission.team === 'GREEN'
+                                      ? 'text-green-600'
+                                      : 'text-purple-600'
+                              }`}
+                            >
+                              {submission.role}
+                            </span>
+                            <div className="flex items-center gap-2">
                               <span className="text-xs text-gray-500">
                                 {submission.team}
                               </span>
-                            </div>
-
-                            {/* Inner Monologue */}
-                            {submission.inner_monologue && (
-                              <div className="mb-2 rounded bg-gray-100 p-2 text-xs italic text-gray-600">
-                                💭 {submission.inner_monologue}
-                              </div>
-                            )}
-
-                            {/* Public Action */}
-                            {submission.public_action && (
-                              <div className="text-sm text-gray-900">
-                                {submission.public_action}
-                              </div>
-                            )}
-
-                            {/* Tools Used */}
-                            {submission.tools_used &&
-                              submission.tools_used.length > 0 && (
-                                <div className="mt-2 flex flex-wrap gap-1">
-                                  {submission.tools_used.map(
-                                    (tool: string, idx: number) => (
-                                      <span
-                                        key={idx}
-                                        className="rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700"
-                                      >
-                                        🔧 {tool}
-                                      </span>
-                                    )
-                                  )}
-                                </div>
+                              {submission.irrational && (
+                                <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">
+                                  ⚡ 非理性
+                                </span>
                               )}
+                              {submission.chaosInjected && (
+                                <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                                  🌪️ Chaos
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        )
-                      )}
+
+                          {/* Inner Monologue */}
+                          {submission.innerMonologue && (
+                            <div className="mb-2 rounded bg-gray-100 p-2 text-xs text-gray-600">
+                              💭 {submission.innerMonologue}
+                            </div>
+                          )}
+
+                          {/* Public Action */}
+                          {submission.publicAction && (
+                            <div className="text-sm text-gray-900">
+                              {submission.publicAction}
+                            </div>
+                          )}
+
+                          {/* Tools */}
+                          {submission.tools && (
+                            <div className="mt-2 rounded bg-blue-50 p-2 text-xs text-blue-700">
+                              🔧 工具: {JSON.stringify(submission.tools)}
+                            </div>
+                          )}
+                        </div>
+                      ))}
 
                     {/* Adjudication */}
                     {turn.adjudication && (
@@ -362,39 +362,59 @@ export default function RunConsolePage() {
                           <AlertTriangle className="h-3 w-3" />
                           裁判判定
                         </div>
-                        <div className="text-sm text-gray-900">
-                          {turn.adjudication.ruling || '判定中...'}
+
+                        {/* Ruling */}
+                        <div className="mb-2 flex items-center gap-2">
+                          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                            {turn.adjudication.ruling || 'proceed'}
+                          </span>
                         </div>
 
-                        {/* Evidence */}
-                        {turn.evidence &&
-                          Array.isArray(turn.evidence) &&
-                          turn.evidence.length > 0 && (
+                        {/* Notes */}
+                        {turn.adjudication.notes && (
+                          <div className="mb-2 text-sm text-gray-900">
+                            {turn.adjudication.notes}
+                          </div>
+                        )}
+
+                        {/* Evidence Refs */}
+                        {turn.adjudication.evidenceRefs &&
+                          Array.isArray(turn.adjudication.evidenceRefs) &&
+                          turn.adjudication.evidenceRefs.length > 0 && (
                             <div className="mt-2 space-y-1">
-                              {turn.evidence.map((ev: any, idx: number) => (
-                                <div
-                                  key={idx}
-                                  className="flex items-start gap-2 text-xs text-gray-600"
-                                >
-                                  <CheckCircle className="mt-0.5 h-3 w-3 text-green-600" />
-                                  <span>
-                                    {ev.source}: {ev.summary}
-                                  </span>
-                                </div>
-                              ))}
+                              {turn.adjudication.evidenceRefs.map(
+                                (ev: any, idx: number) => (
+                                  <div
+                                    key={idx}
+                                    className="flex items-start gap-2 text-xs text-gray-600"
+                                  >
+                                    <CheckCircle
+                                      className={`mt-0.5 h-3 w-3 ${ev.status === 'missing' ? 'text-orange-600' : 'text-green-600'}`}
+                                    />
+                                    <span>
+                                      {ev.provider}: {ev.note || ev.status}
+                                    </span>
+                                  </div>
+                                )
+                              )}
                             </div>
                           )}
 
-                        {/* State Delta */}
-                        {turn.adjudication.state_delta && (
-                          <div className="mt-2 rounded bg-white p-2 font-mono text-xs">
-                            <pre className="whitespace-pre-wrap">
-                              {JSON.stringify(
-                                turn.adjudication.state_delta,
-                                null,
-                                2
-                              )}
-                            </pre>
+                        {/* World Delta */}
+                        {turn.adjudication.worldDelta && (
+                          <div className="mt-2 rounded bg-white p-2">
+                            <div className="mb-1 text-xs font-medium text-gray-700">
+                              世界状态变化:
+                            </div>
+                            <div className="max-h-40 overflow-y-auto font-mono text-xs">
+                              <pre className="whitespace-pre-wrap text-gray-600">
+                                {JSON.stringify(
+                                  turn.adjudication.worldDelta,
+                                  null,
+                                  2
+                                )}
+                              </pre>
+                            </div>
                           </div>
                         )}
                       </div>

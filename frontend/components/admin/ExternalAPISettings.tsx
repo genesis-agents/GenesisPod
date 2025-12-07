@@ -272,11 +272,10 @@ export default function ExternalAPISettings() {
 
       if (providersRes.ok) {
         const providers = await providersRes.json();
-        // Group providers by category
+        // Group providers by category - only show categories with actual providers
         if (Array.isArray(providers) && providers.length > 0) {
-          const categorized = DEFAULT_SIMULATION_API_CATEGORIES.map((cat) => ({
-            ...cat,
-            providers: providers
+          const categorized = DEFAULT_SIMULATION_API_CATEGORIES.map((cat) => {
+            const categoryProviders = providers
               .filter((p: any) => p.category === cat.id)
               .map((p: any) => ({
                 id: p.id.replace(`${cat.id}-`, ''),
@@ -286,9 +285,17 @@ export default function ExternalAPISettings() {
                 headers: p.headers || '',
                 enabled: p.enabled ?? false,
                 isDefault: p.isDefault ?? false,
-              })),
-          }));
+              }));
+
+            return {
+              ...cat,
+              providers: categoryProviders,
+            };
+          });
           setSimulationAPICategories(categorized);
+        } else {
+          // No saved providers - keep default empty state
+          setSimulationAPICategories(DEFAULT_SIMULATION_API_CATEGORIES);
         }
       }
     } catch (err) {
@@ -384,24 +391,32 @@ export default function ExternalAPISettings() {
     setMessage(null);
 
     try {
-      // Flatten all providers from all categories
+      // Flatten all providers from all categories - only save providers with valid data
       const allProviders: any[] = [];
       simulationAPICategories.forEach((category) => {
         category.providers.forEach((provider) => {
-          allProviders.push({
-            id: `${category.id}-${provider.id}`,
-            name: provider.name,
-            description: category.description,
-            category: category.id,
-            enabled: provider.enabled,
-            baseUrl: provider.baseUrl?.trim() || '',
-            headers: provider.headers?.trim() || undefined,
-            apiKey:
-              provider.apiKey && !provider.apiKey.includes('***')
-                ? provider.apiKey.trim()
-                : undefined,
-            isDefault: provider.isDefault,
-          });
+          // Only save provider if it has a name AND (baseUrl OR apiKey)
+          const hasValidData =
+            provider.name?.trim() &&
+            (provider.baseUrl?.trim() ||
+              (provider.apiKey && !provider.apiKey.includes('***')));
+
+          if (hasValidData) {
+            allProviders.push({
+              id: `${category.id}-${provider.id}`,
+              name: provider.name,
+              description: category.description,
+              category: category.id,
+              enabled: provider.enabled,
+              baseUrl: provider.baseUrl?.trim() || '',
+              headers: provider.headers?.trim() || undefined,
+              apiKey:
+                provider.apiKey && !provider.apiKey.includes('***')
+                  ? provider.apiKey.trim()
+                  : undefined,
+              isDefault: provider.isDefault,
+            });
+          }
         });
       });
 
