@@ -3197,7 +3197,7 @@ function CompanyCard({
     setAiLoading(true);
     try {
       const res = await fetch(
-        `${config.apiBaseUrl}/simulation/ai-assist/generate-metrics`,
+        `${config.apiUrl}/simulation/ai-assist/generate-metrics`,
         {
           method: 'POST',
           headers: {
