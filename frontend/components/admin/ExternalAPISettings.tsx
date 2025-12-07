@@ -234,9 +234,14 @@ const API_TEMPLATES: Record<string, APITemplate[]> = {
     },
     {
       name: 'Finnhub',
-      description: '财经新闻和市场情绪分析',
-      baseUrl:
-        'https://finnhub.io/api/v1/company-news?symbol=NVDA&from=2025-01-01&to=2025-12-31&token=',
+      description: '财经新闻和市场情绪分析（日期会自动更新为最近一年）',
+      baseUrl: (() => {
+        const today = new Date();
+        const oneYearAgo = new Date(today);
+        oneYearAgo.setFullYear(today.getFullYear() - 1);
+        const formatDate = (d: Date) => d.toISOString().split('T')[0];
+        return `https://finnhub.io/api/v1/company-news?symbol=NVDA&from=${formatDate(oneYearAgo)}&to=${formatDate(today)}&token=`;
+      })(),
       apiKeyUrl: 'https://finnhub.io/register',
       apiKeyPlaceholder: 'YOUR_FINNHUB_TOKEN',
       freeQuota: '免费：60次/分钟',
