@@ -161,6 +161,42 @@ export default function ScenarioDetailPage() {
     }
   };
 
+  // 删除运行记录
+  const [deletingRunId, setDeletingRunId] = useState<string | null>(null);
+
+  const handleDeleteRun = async (runId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // 阻止点击事件冒泡到父元素
+    if (!confirm('确定要删除此推演记录吗？此操作不可恢复。')) {
+      return;
+    }
+
+    setDeletingRunId(runId);
+    try {
+      const res = await fetch(`${config.apiUrl}/simulation/runs/${runId}`, {
+        method: 'DELETE',
+        headers: { ...getAuthHeader() },
+        credentials: 'include',
+      });
+
+      if (res.ok) {
+        // 刷新场景数据以更新运行列表
+        await fetchScenario();
+        // 如果删除的是当前激活的run，清除它
+        if (activeRun?.id === runId) {
+          setActiveRun(null);
+        }
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        alert(errorData.message || '删除失败');
+      }
+    } catch (err: any) {
+      console.error('Failed to delete run:', err);
+      alert('删除失败: ' + (err.message || '网络错误'));
+    } finally {
+      setDeletingRunId(null);
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="flex min-h-screen bg-gray-50">
@@ -1274,7 +1310,7 @@ export default function ScenarioDetailPage() {
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-3">
                             <div className="text-right">
                               <div className="text-xs text-gray-500">
                                 {new Date(run.createdAt).toLocaleString()}
@@ -1288,6 +1324,50 @@ export default function ScenarioDetailPage() {
                                 />
                               </div>
                             </div>
+                            {/* 删除按钮 */}
+                            <button
+                              onClick={(e) => handleDeleteRun(run.id, e)}
+                              disabled={deletingRunId === run.id}
+                              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                              title="删除此推演记录"
+                            >
+                              {deletingRunId === run.id ? (
+                                <svg
+                                  className="h-4 w-4 animate-spin"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="4"
+                                  />
+                                  <path
+                                    className="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                  />
+                                </svg>
+                              ) : (
+                                <svg
+                                  className="h-4 w-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                  />
+                                </svg>
+                              )}
+                            </button>
+                            {/* 查看详情箭头 */}
                             <svg
                               className="h-5 w-5 text-gray-400"
                               fill="none"
