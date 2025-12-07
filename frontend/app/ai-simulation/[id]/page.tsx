@@ -111,6 +111,11 @@ export default function ScenarioDetailPage() {
     setShowRoleModal(false);
     setStartingRun(true);
     setStartError(null);
+
+    // 立即导航到run页面，使用临时ID显示加载状态
+    // 后台继续创建run，页面会轮询获取最新状态
+    const targetUrl = `/ai-simulation/run/pending?scenarioId=${scenario.id}&role=${selectedRole}&mode=${simulationMode}`;
+
     try {
       const res = await fetch(`${config.apiUrl}/simulation/runs`, {
         method: 'POST',
@@ -139,13 +144,11 @@ export default function ScenarioDetailPage() {
       if (res.ok) {
         const data = await res.json();
         if (data?.id) {
-          setActiveRun(data);
-          setTab('runs');
-          // Navigate to run page with role and mode info
-          const targetUrl = `/ai-simulation/run/${data.id}?role=${selectedRole}&mode=${simulationMode}`;
-          console.log('[Simulation] Navigating to:', targetUrl);
+          // 立即导航到实际的run页面
+          const actualUrl = `/ai-simulation/run/${data.id}?role=${selectedRole}&mode=${simulationMode}`;
+          console.log('[Simulation] Navigating immediately to:', actualUrl);
           // 使用 window.location 确保跳转（避免 Next.js router 可能的问题）
-          window.location.href = targetUrl;
+          window.location.href = actualUrl;
         } else {
           setStartError('服务器返回了无效的数据');
           setStartingRun(false);

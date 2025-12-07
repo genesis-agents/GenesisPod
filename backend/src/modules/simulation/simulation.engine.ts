@@ -159,9 +159,10 @@ export class SimulationEngineService {
         model.modelId?.includes("gemini-3");
 
       // 推理模型需要更多tokens (thinking tokens + output tokens)
-      // GPT-5.1 实测需要约2000+ thinking tokens + output tokens，所以设置为4000
+      // GPT-5.1 实测: reasoning_tokens=2000会消耗全部配额，需要设置更高
+      // 设置为16000确保reasoning后仍有足够output空间
       // 非推理模型500足够
-      const maxTokens = isReasoningModel ? 4000 : 500;
+      const maxTokens = isReasoningModel ? 16000 : 500;
 
       try {
         const result = await this.aiChatService.generateChatCompletionWithKey({

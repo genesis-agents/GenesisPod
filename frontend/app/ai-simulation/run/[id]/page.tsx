@@ -773,20 +773,48 @@ export default function RunConsolePage() {
                               </div>
                             )}
 
-                          {/* World Delta */}
+                          {/* World Delta - 友好展示 */}
                           {turn.adjudication.worldDelta && (
                             <div className="mt-2 rounded bg-white p-2">
                               <div className="mb-1 text-xs font-medium text-gray-700">
-                                世界状态变化:
+                                🌍 本轮世界变化:
                               </div>
-                              <div className="max-h-40 overflow-y-auto font-mono text-xs">
-                                <pre className="whitespace-pre-wrap text-gray-600">
-                                  {JSON.stringify(
-                                    turn.adjudication.worldDelta,
-                                    null,
-                                    2
-                                  )}
-                                </pre>
+                              <div className="space-y-1 text-xs">
+                                {/* 黑天鹅事件 */}
+                                {turn.adjudication.worldDelta.blackSwan && (
+                                  <div className="flex items-center gap-2 rounded bg-purple-50 px-2 py-1 text-purple-700">
+                                    <span>🦢</span>
+                                    <span className="font-medium">
+                                      {
+                                        turn.adjudication.worldDelta.blackSwan
+                                          .name
+                                      }
+                                    </span>
+                                  </div>
+                                )}
+                                {/* 非理性偏见 */}
+                                {turn.adjudication.worldDelta
+                                  .irrationalBias && (
+                                  <div className="flex items-center gap-2 rounded bg-orange-50 px-2 py-1 text-orange-700">
+                                    <span>⚡</span>
+                                    <span>非理性因素激活</span>
+                                  </div>
+                                )}
+                                {/* 提交数统计 */}
+                                {turn.adjudication.worldDelta
+                                  .last_submissions && (
+                                  <div className="flex items-center gap-2 text-gray-600">
+                                    <span>📊</span>
+                                    <span>
+                                      本轮提交:{' '}
+                                      {
+                                        turn.adjudication.worldDelta
+                                          .last_submissions
+                                      }{' '}
+                                      条行动
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           )}
@@ -1022,152 +1050,250 @@ export default function RunConsolePage() {
                         📋 推演复盘报告
                       </h3>
 
-                      {/* 关键发现 */}
-                      {run.summary.keyFindings &&
-                        run.summary.keyFindings.length > 0 && (
-                          <div className="mb-4">
-                            <div className="mb-2 text-xs font-semibold text-indigo-700">
-                              💡 关键发现
-                            </div>
-                            <ul className="space-y-1">
-                              {run.summary.keyFindings.map(
-                                (finding: string, idx: number) => (
-                                  <li
-                                    key={idx}
-                                    className="flex items-start gap-2 text-xs text-gray-700"
-                                  >
-                                    <span className="mt-1 text-indigo-500">
-                                      •
-                                    </span>
-                                    {finding}
-                                  </li>
-                                )
-                              )}
-                            </ul>
-                          </div>
-                        )}
+                      {/* 从 publicReport 或 internalReport 或直接从 summary 获取数据 */}
+                      {(() => {
+                        const report =
+                          (run.summary as any)?.internalReport ||
+                          (run.summary as any)?.publicReport ||
+                          run.summary;
+                        const keyFindings = report?.keyFindings || [];
+                        const biasesDetected = report?.biasesDetected || [];
+                        const blindspots = report?.blindspots || [];
+                        const blackSwanEvents = report?.blackSwanEvents || [];
+                        const counterfactuals = report?.counterfactuals || [];
+                        const causalChain = report?.causalChain || [];
 
-                      {/* 偏见识别 */}
-                      {run.summary.biasesDetected &&
-                        run.summary.biasesDetected.length > 0 && (
-                          <div className="mb-4">
-                            <div className="mb-2 text-xs font-semibold text-amber-700">
-                              ⚠️ 偏见识别
-                            </div>
-                            <div className="space-y-2">
-                              {run.summary.biasesDetected.map(
-                                (bias: any, idx: number) => (
-                                  <div
-                                    key={idx}
-                                    className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs"
-                                  >
-                                    <div className="font-medium text-amber-800">
-                                      {bias.type}
+                        return (
+                          <>
+                            {/* 关键发现 */}
+                            {keyFindings.length > 0 && (
+                              <div className="mb-4">
+                                <div className="mb-2 text-xs font-semibold text-indigo-700">
+                                  💡 关键发现
+                                </div>
+                                <ul className="space-y-1">
+                                  {keyFindings.map(
+                                    (finding: string, idx: number) => (
+                                      <li
+                                        key={idx}
+                                        className="flex items-start gap-2 text-xs text-gray-700"
+                                      >
+                                        <span className="mt-1 text-indigo-500">
+                                          •
+                                        </span>
+                                        {finding}
+                                      </li>
+                                    )
+                                  )}
+                                </ul>
+                              </div>
+                            )}
+
+                            {/* 因果链 */}
+                            {causalChain.length > 0 && (
+                              <div className="mb-4">
+                                <div className="mb-2 text-xs font-semibold text-cyan-700">
+                                  🔗 因果链分析
+                                </div>
+                                <div className="space-y-2">
+                                  {causalChain.map((item: any, idx: number) => (
+                                    <div
+                                      key={idx}
+                                      className="rounded-lg border border-cyan-200 bg-cyan-50 p-2 text-xs"
+                                    >
+                                      <div className="font-medium text-cyan-800">
+                                        回合 {item.round}: {item.cause}
+                                      </div>
+                                      {item.effect && (
+                                        <p className="mt-1 text-cyan-700">
+                                          → 影响:{' '}
+                                          {item.effect.changes?.join(', ') ||
+                                            JSON.stringify(item.effect)}
+                                        </p>
+                                      )}
                                     </div>
-                                    <p className="text-amber-700">
-                                      {bias.description}
-                                    </p>
-                                    {bias.recommendation && (
-                                      <p className="mt-1 italic text-amber-600">
-                                        建议: {bias.recommendation}
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* 偏见识别 */}
+                            {biasesDetected.length > 0 && (
+                              <div className="mb-4">
+                                <div className="mb-2 text-xs font-semibold text-amber-700">
+                                  ⚠️ 偏见识别
+                                </div>
+                                <div className="space-y-2">
+                                  {biasesDetected.map(
+                                    (bias: any, idx: number) => (
+                                      <div
+                                        key={idx}
+                                        className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-medium text-amber-800">
+                                            {bias.type}
+                                          </span>
+                                          {bias.round && (
+                                            <span className="rounded bg-amber-200 px-1 text-[10px]">
+                                              回合{bias.round}
+                                            </span>
+                                          )}
+                                          {bias.team && (
+                                            <span className="rounded bg-amber-200 px-1 text-[10px]">
+                                              {bias.team}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <p className="mt-1 text-amber-700">
+                                          {bias.description}
+                                        </p>
+                                        {bias.recommendation && (
+                                          <p className="mt-1 italic text-amber-600">
+                                            💡 建议: {bias.recommendation}
+                                          </p>
+                                        )}
+                                      </div>
+                                    )
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* 盲点 */}
+                            {blindspots.length > 0 && (
+                              <div className="mb-4">
+                                <div className="mb-2 text-xs font-semibold text-red-700">
+                                  🚨 识别盲点
+                                </div>
+                                <div className="space-y-2">
+                                  {blindspots.map((spot: any, idx: number) => (
+                                    <div
+                                      key={idx}
+                                      className="rounded-lg border border-red-200 bg-red-50 p-2 text-xs"
+                                    >
+                                      <div className="font-medium text-red-800">
+                                        {spot.type}
+                                      </div>
+                                      <p className="text-red-700">
+                                        {spot.description}
                                       </p>
-                                    )}
-                                  </div>
-                                )
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                      {/* 盲点 */}
-                      {run.summary.blindspots &&
-                        run.summary.blindspots.length > 0 && (
-                          <div className="mb-4">
-                            <div className="mb-2 text-xs font-semibold text-red-700">
-                              🚨 识别盲点
-                            </div>
-                            <div className="space-y-2">
-                              {run.summary.blindspots.map(
-                                (spot: any, idx: number) => (
-                                  <div
-                                    key={idx}
-                                    className="rounded-lg border border-red-200 bg-red-50 p-2 text-xs"
-                                  >
-                                    <div className="font-medium text-red-800">
-                                      {spot.type}
+                                      {spot.recommendation && (
+                                        <p className="mt-1 italic text-red-600">
+                                          💡 建议: {spot.recommendation}
+                                        </p>
+                                      )}
                                     </div>
-                                    <p className="text-red-700">
-                                      {spot.description}
-                                    </p>
-                                    {spot.recommendation && (
-                                      <p className="mt-1 italic text-red-600">
-                                        建议: {spot.recommendation}
-                                      </p>
-                                    )}
-                                  </div>
-                                )
-                              )}
-                            </div>
-                          </div>
-                        )}
+                                  ))}
+                                </div>
+                              </div>
+                            )}
 
-                      {/* 黑天鹅事件 */}
-                      {run.summary.blackSwanEvents &&
-                        run.summary.blackSwanEvents.length > 0 && (
-                          <div className="mb-4">
-                            <div className="mb-2 text-xs font-semibold text-purple-700">
-                              🦢 黑天鹅事件记录
-                            </div>
-                            <div className="space-y-1">
-                              {run.summary.blackSwanEvents.map(
-                                (event: any, idx: number) => (
-                                  <div
-                                    key={idx}
-                                    className="flex items-center gap-2 rounded bg-purple-100 p-1.5 text-xs"
-                                  >
-                                    <span className="font-medium text-purple-700">
-                                      回合{event.round}
-                                    </span>
-                                    <span className="text-purple-600">
-                                      {event.event}
-                                    </span>
-                                  </div>
-                                )
-                              )}
-                            </div>
-                          </div>
-                        )}
+                            {/* 黑天鹅事件 */}
+                            {blackSwanEvents.length > 0 && (
+                              <div className="mb-4">
+                                <div className="mb-2 text-xs font-semibold text-purple-700">
+                                  🦢 黑天鹅事件记录
+                                </div>
+                                <div className="space-y-1">
+                                  {blackSwanEvents.map(
+                                    (event: any, idx: number) => (
+                                      <div
+                                        key={idx}
+                                        className="rounded bg-purple-100 p-2 text-xs"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-bold text-purple-800">
+                                            {event.name}
+                                          </span>
+                                          <span
+                                            className={`rounded px-1 text-[10px] ${
+                                              event.impact === 'high'
+                                                ? 'bg-red-200 text-red-700'
+                                                : event.impact === 'medium'
+                                                  ? 'bg-orange-200 text-orange-700'
+                                                  : 'bg-gray-200 text-gray-700'
+                                            }`}
+                                          >
+                                            {event.impact === 'high'
+                                              ? '高影响'
+                                              : event.impact === 'medium'
+                                                ? '中影响'
+                                                : '低影响'}
+                                          </span>
+                                        </div>
+                                        <p className="mt-1 text-purple-700">
+                                          {event.description}
+                                        </p>
+                                        {event.affectedTeams && (
+                                          <div className="mt-1 flex gap-1">
+                                            {event.affectedTeams.map(
+                                              (team: string) => (
+                                                <span
+                                                  key={team}
+                                                  className={`rounded px-1 text-[10px] ${
+                                                    team === 'BLUE'
+                                                      ? 'bg-blue-200 text-blue-700'
+                                                      : team === 'RED'
+                                                        ? 'bg-red-200 text-red-700'
+                                                        : team === 'GREEN'
+                                                          ? 'bg-green-200 text-green-700'
+                                                          : 'bg-purple-200 text-purple-700'
+                                                  }`}
+                                                >
+                                                  {team}
+                                                </span>
+                                              )
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )
+                                  )}
+                                </div>
+                              </div>
+                            )}
 
-                      {/* 反事实推理 */}
-                      {run.summary.counterfactuals &&
-                        run.summary.counterfactuals.length > 0 && (
-                          <div className="mb-4">
-                            <div className="mb-2 text-xs font-semibold text-blue-700">
-                              🔮 反事实推理（如果...会怎样）
-                            </div>
-                            <div className="space-y-2">
-                              {run.summary.counterfactuals.map(
-                                (cf: any, idx: number) => (
-                                  <div
-                                    key={idx}
-                                    className="rounded-lg border border-blue-200 bg-blue-50 p-2 text-xs"
-                                  >
-                                    <div className="text-blue-800">
-                                      <span className="font-medium">
-                                        回合{cf.round}：
-                                      </span>
-                                      如果不是"{cf.originalAction}"而是"
-                                      {cf.alternative}"
-                                    </div>
-                                    <p className="mt-1 text-blue-700">
-                                      → {cf.impact}
-                                    </p>
-                                  </div>
-                                )
+                            {/* 反事实推理 */}
+                            {counterfactuals.length > 0 && (
+                              <div className="mb-4">
+                                <div className="mb-2 text-xs font-semibold text-blue-700">
+                                  🔮 反事实推理（如果...会怎样）
+                                </div>
+                                <div className="space-y-2">
+                                  {counterfactuals.map(
+                                    (cf: any, idx: number) => (
+                                      <div
+                                        key={idx}
+                                        className="rounded-lg border border-blue-200 bg-blue-50 p-2 text-xs"
+                                      >
+                                        <div className="font-medium text-blue-800">
+                                          回合{cf.round}：{cf.scenario}
+                                        </div>
+                                        <p className="mt-1 text-blue-700">
+                                          → {cf.potentialOutcome}
+                                        </p>
+                                      </div>
+                                    )
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* 如果没有任何报告内容 */}
+                            {keyFindings.length === 0 &&
+                              biasesDetected.length === 0 &&
+                              blindspots.length === 0 &&
+                              blackSwanEvents.length === 0 &&
+                              counterfactuals.length === 0 &&
+                              causalChain.length === 0 && (
+                                <div className="text-center text-xs text-gray-500">
+                                  推演数据分析中，复盘报告即将生成...
+                                </div>
                               )}
-                            </div>
-                          </div>
-                        )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
