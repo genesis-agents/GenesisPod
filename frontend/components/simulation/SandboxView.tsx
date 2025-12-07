@@ -68,10 +68,25 @@ interface Company {
   };
 }
 
+// 后端submission数据结构
+interface Submission {
+  agentId?: string;
+  companyId?: string;
+  team?: string;
+  role?: string;
+  innerMonologue?: string;
+  publicAction?: string;
+  visibility?: string;
+  timestamp?: string;
+  tools?: any;
+  irrational?: boolean;
+  chaosInjected?: boolean;
+}
+
 interface Turn {
   id: string;
   roundNumber: number;
-  submissions?: Record<string, any>;
+  submissions?: Submission[]; // 后端返回的是数组而不是对象
   adjudication?: {
     ruling?: string;
     summary?: string;
@@ -850,16 +865,12 @@ export default function SandboxView({
 
                     {/* 对话气泡区域 - 展示各方行动和内心独白 */}
                     {currentTurn &&
+                      currentTurn.submissions &&
+                      Array.isArray(currentTurn.submissions) &&
                       (() => {
-                        // 获取该队伍的所有提交
-                        const teamSubmissions = teamAgents
-                          .filter(
-                            (agent) => currentTurn.submissions?.[agent.role]
-                          )
-                          .map((agent) => ({
-                            agent,
-                            submission: currentTurn.submissions?.[agent.role],
-                          }))
+                        // 从submissions数组中筛选该队伍的提交
+                        const teamSubmissions = currentTurn.submissions
+                          .filter((sub) => sub.team === team)
                           .slice(0, 2); // 最多显示2个气泡
 
                         if (teamSubmissions.length === 0) return null;
@@ -870,118 +881,116 @@ export default function SandboxView({
 
                         return (
                           <div
-                            className="absolute left-3 right-3 top-16 max-h-[100px] space-y-2 overflow-hidden"
+                            className="absolute left-3 right-3 top-16 max-h-[120px] space-y-2 overflow-hidden"
                             style={{ transform: 'translateZ(25px)' }}
                           >
-                            {teamSubmissions.map(
-                              ({ agent, submission }, idx) => {
-                                const action =
-                                  submission?.action ||
-                                  submission?.decision ||
-                                  submission?.publicAction;
-                                const innerThought =
-                                  submission?.reasoning ||
-                                  submission?.innerThought ||
-                                  submission?.thought;
+                            {teamSubmissions.map((submission, idx) => {
+                              const action = submission.publicAction;
+                              const innerThought = submission.innerMonologue;
+                              const roleName = submission.role || '未知角色';
 
-                                return (
-                                  <div
-                                    key={idx}
-                                    className={`relative rounded-lg p-2 text-[10px] transition-all ${
-                                      position.includes('Left')
-                                        ? 'ml-0 mr-8 rounded-bl-none'
-                                        : 'ml-8 mr-0 rounded-br-none'
-                                    }`}
-                                    style={{
-                                      backgroundColor: `${teamConfig.primary}20`,
-                                      borderLeft: position.includes('Left')
-                                        ? `3px solid ${teamConfig.primary}`
-                                        : 'none',
-                                      borderRight: position.includes('Right')
-                                        ? `3px solid ${teamConfig.primary}`
-                                        : 'none',
-                                    }}
-                                  >
-                                    {/* 角色名 */}
-                                    <div className="mb-0.5 flex items-center gap-1 font-medium text-white">
-                                      <span
-                                        className="h-2 w-2 rounded-full"
-                                        style={{
-                                          backgroundColor: teamConfig.primary,
-                                        }}
-                                      />
-                                      {agent.role.length > 12
-                                        ? agent.role.substring(0, 12) + '...'
-                                        : agent.role}
-                                    </div>
+                              return (
+                                <div
+                                  key={idx}
+                                  className={`relative rounded-lg p-2 text-[10px] transition-all ${
+                                    position.includes('Left')
+                                      ? 'ml-0 mr-8 rounded-bl-none'
+                                      : 'ml-8 mr-0 rounded-br-none'
+                                  }`}
+                                  style={{
+                                    backgroundColor: `${teamConfig.primary}20`,
+                                    borderLeft: position.includes('Left')
+                                      ? `3px solid ${teamConfig.primary}`
+                                      : 'none',
+                                    borderRight: position.includes('Right')
+                                      ? `3px solid ${teamConfig.primary}`
+                                      : 'none',
+                                  }}
+                                >
+                                  {/* 角色名 */}
+                                  <div className="mb-0.5 flex items-center gap-1 font-medium text-white">
+                                    <span
+                                      className="h-2 w-2 rounded-full"
+                                      style={{
+                                        backgroundColor: teamConfig.primary,
+                                      }}
+                                    />
+                                    {roleName.length > 12
+                                      ? roleName.substring(0, 12) + '...'
+                                      : roleName}
+                                    {submission.irrational && (
+                                      <span className="ml-1 text-yellow-400">
+                                        ⚡
+                                      </span>
+                                    )}
+                                  </div>
 
-                                    {canView ? (
-                                      <>
-                                        {/* 公开行动 */}
-                                        {action && (
-                                          <div className="line-clamp-1 text-gray-300">
-                                            💬{' '}
-                                            {typeof action === 'string'
-                                              ? action.substring(0, 40)
-                                              : '执行策略中...'}
-                                            {typeof action === 'string' &&
-                                            action.length > 40
+                                  {canView ? (
+                                    <>
+                                      {/* 公开行动 */}
+                                      {action && (
+                                        <div className="line-clamp-2 text-gray-300">
+                                          💬{' '}
+                                          {typeof action === 'string'
+                                            ? action.substring(0, 60)
+                                            : '执行策略中...'}
+                                          {typeof action === 'string' &&
+                                          action.length > 60
+                                            ? '...'
+                                            : ''}
+                                        </div>
+                                      )}
+                                      {/* 内心独白 - 仅上帝视角或本方可见 */}
+                                      {innerThought &&
+                                        (viewPermission === 'GOD' ||
+                                          viewPermission === team) && (
+                                          <div className="mt-1 line-clamp-2 border-t border-white/10 pt-1 italic text-gray-400">
+                                            🤔{' '}
+                                            {typeof innerThought === 'string'
+                                              ? innerThought.substring(0, 50)
+                                              : '思考中...'}
+                                            {typeof innerThought === 'string' &&
+                                            innerThought.length > 50
                                               ? '...'
                                               : ''}
                                           </div>
                                         )}
-                                        {/* 内心独白 - 仅上帝视角或本方可见 */}
-                                        {innerThought &&
-                                          viewPermission === 'GOD' && (
-                                            <div className="mt-0.5 line-clamp-1 italic text-gray-500">
-                                              🤔{' '}
-                                              {typeof innerThought === 'string'
-                                                ? innerThought.substring(0, 35)
-                                                : '思考中...'}
-                                              {typeof innerThought ===
-                                                'string' &&
-                                              innerThought.length > 35
-                                                ? '...'
-                                                : ''}
-                                            </div>
-                                          )}
-                                      </>
-                                    ) : (
-                                      <div className="italic text-gray-500">
-                                        🔒 [需要{teamConfig.label}视角查看详情]
-                                      </div>
-                                    )}
+                                    </>
+                                  ) : (
+                                    <div className="italic text-gray-500">
+                                      🔒 [需要{teamConfig.label}视角查看详情]
+                                    </div>
+                                  )}
 
-                                    {/* 气泡尾巴 */}
-                                    <div
-                                      className={`absolute bottom-0 h-2 w-2 ${
-                                        position.includes('Left')
-                                          ? 'left-0 -ml-1'
-                                          : 'right-0 -mr-1'
-                                      }`}
-                                      style={{
-                                        borderColor: `${teamConfig.primary}20`,
-                                        borderStyle: 'solid',
-                                        borderWidth: position.includes('Left')
-                                          ? '0 8px 8px 0'
-                                          : '0 0 8px 8px',
-                                        backgroundColor: 'transparent',
-                                        borderRightColor: position.includes(
-                                          'Left'
-                                        )
-                                          ? `${teamConfig.primary}20`
-                                          : 'transparent',
-                                        borderLeftColor: position.includes(
-                                          'Right'
-                                        )
-                                          ? `${teamConfig.primary}20`
-                                          : 'transparent',
-                                      }}
-                                    />
-                                  </div>
-                                );
-                              }
-                            )}
+                                  {/* 气泡尾巴 */}
+                                  <div
+                                    className={`absolute bottom-0 h-2 w-2 ${
+                                      position.includes('Left')
+                                        ? 'left-0 -ml-1'
+                                        : 'right-0 -mr-1'
+                                    }`}
+                                    style={{
+                                      borderColor: `${teamConfig.primary}20`,
+                                      borderStyle: 'solid',
+                                      borderWidth: position.includes('Left')
+                                        ? '0 8px 8px 0'
+                                        : '0 0 8px 8px',
+                                      backgroundColor: 'transparent',
+                                      borderRightColor: position.includes(
+                                        'Left'
+                                      )
+                                        ? `${teamConfig.primary}20`
+                                        : 'transparent',
+                                      borderLeftColor: position.includes(
+                                        'Right'
+                                      )
+                                        ? `${teamConfig.primary}20`
+                                        : 'transparent',
+                                    }}
+                                  />
+                                </div>
+                              );
+                            })}
                           </div>
                         );
                       })()}
@@ -993,8 +1002,16 @@ export default function SandboxView({
                     >
                       {teamAgents.slice(0, 4).map((agent, idx) => {
                         const isAgentHovered = hoveredAgent === agent.role;
+                        // 从数组中查找该agent的submission
                         const submission =
-                          currentTurn?.submissions?.[agent.role];
+                          currentTurn?.submissions &&
+                          Array.isArray(currentTurn.submissions)
+                            ? currentTurn.submissions.find(
+                                (s) =>
+                                  s.role === agent.role ||
+                                  s.agentId === agent.id
+                              )
+                            : undefined;
 
                         return (
                           <div
@@ -1003,7 +1020,7 @@ export default function SandboxView({
                               isAgentHovered
                                 ? 'scale-105 border-white/50 bg-white/20'
                                 : 'border-white/20 bg-black/30 hover:bg-white/10'
-                            }`}
+                            } ${submission ? 'ring-1 ring-white/20' : ''}`}
                             onMouseEnter={() => setHoveredAgent(agent.role)}
                             onMouseLeave={() => setHoveredAgent(null)}
                           >
@@ -1036,17 +1053,25 @@ export default function SandboxView({
 
                             {/* Hover详情 */}
                             {isAgentHovered && submission && (
-                              <div className="absolute -top-20 left-0 z-10 w-48 rounded-lg border border-white/20 bg-black/90 p-3 text-xs text-white shadow-xl">
+                              <div className="absolute -top-24 left-0 z-10 w-56 rounded-lg border border-white/20 bg-black/90 p-3 text-xs text-white shadow-xl">
                                 <div className="mb-1 font-medium">
                                   {agent.role}
                                 </div>
                                 {viewPermission === 'GOD' ||
                                 viewPermission === team ? (
-                                  <div className="text-gray-300">
-                                    {submission.action ||
-                                      submission.decision ||
-                                      '思考中...'}
-                                  </div>
+                                  <>
+                                    <div className="text-gray-300">
+                                      💬{' '}
+                                      {submission.publicAction ||
+                                        '执行策略中...'}
+                                    </div>
+                                    {submission.innerMonologue &&
+                                      viewPermission === 'GOD' && (
+                                        <div className="mt-1 border-t border-white/10 pt-1 italic text-gray-500">
+                                          🤔 {submission.innerMonologue}
+                                        </div>
+                                      )}
+                                  </>
                                 ) : (
                                   <div className="italic text-gray-500">
                                     [需要{teamConfig.label}视角查看]
@@ -1347,28 +1372,32 @@ export default function SandboxView({
 
                   {/* 各方行动概览 */}
                   {currentTurn.submissions &&
-                    Object.keys(currentTurn.submissions).length > 0 && (
+                    Array.isArray(currentTurn.submissions) &&
+                    currentTurn.submissions.length > 0 && (
                       <div className="mt-1">
                         <div className="mb-1 text-[10px] text-gray-500">
-                          本轮行动 (
-                          {Object.keys(currentTurn.submissions).length})
+                          本轮行动 ({currentTurn.submissions.length})
                         </div>
                         <div className="flex flex-wrap gap-1">
-                          {Object.keys(currentTurn.submissions)
-                            .slice(0, 4)
-                            .map((role) => (
-                              <span
-                                key={role}
-                                className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-gray-400"
-                              >
-                                {role.length > 8
-                                  ? role.substring(0, 8) + '...'
-                                  : role}
-                              </span>
-                            ))}
-                          {Object.keys(currentTurn.submissions).length > 4 && (
+                          {currentTurn.submissions.slice(0, 4).map((sub, i) => (
+                            <span
+                              key={i}
+                              className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-gray-400"
+                              style={{
+                                borderLeft: `2px solid ${
+                                  TEAM_COLORS[sub.team || 'BLUE']?.primary ||
+                                  '#3B82F6'
+                                }`,
+                              }}
+                            >
+                              {(sub.role || '').length > 8
+                                ? (sub.role || '').substring(0, 8) + '...'
+                                : sub.role || '未知'}
+                            </span>
+                          ))}
+                          {currentTurn.submissions.length > 4 && (
                             <span className="text-[10px] text-gray-500">
-                              +{Object.keys(currentTurn.submissions).length - 4}
+                              +{currentTurn.submissions.length - 4}
                             </span>
                           )}
                         </div>
