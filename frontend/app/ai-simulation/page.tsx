@@ -608,13 +608,24 @@ function EditorModal({
     ]
   );
 
-  const [agents, setAgents] = useState<ScenarioFormAgent[]>(
-    preset.agents || [
+  // 转换后端返回的 agents 数据（可能有 company 对象而非 companyName）
+  const [agents, setAgents] = useState<ScenarioFormAgent[]>(() => {
+    if (preset.agents && preset.agents.length > 0) {
+      return preset.agents.map((a: any) => ({
+        role: a.role || '',
+        team: a.team || 'BLUE',
+        companyName: a.companyName || a.company?.name || '',
+        persona: a.persona,
+        memoryPublic: a.memoryPublic,
+        memoryPrivate: a.memoryPrivate,
+      }));
+    }
+    return [
       { role: 'CEO - 蓝军', team: 'BLUE', companyName: 'Benchmark Cloud GPU' },
       { role: 'CEO - 红军', team: 'RED', companyName: 'Startup AI Infra' },
       { role: '监管观察', team: 'GREEN' },
-    ]
-  );
+    ];
+  });
 
   const [saving, setSaving] = useState(false);
   const [runId, setRunId] = useState<string | null>(null);

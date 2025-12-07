@@ -104,10 +104,13 @@ export default function ScenarioDetailPage() {
     setShowRoleModal(true);
   };
 
+  const [startError, setStartError] = useState<string | null>(null);
+
   const confirmStartRun = async () => {
     if (!scenario) return;
     setShowRoleModal(false);
     setStartingRun(true);
+    setStartError(null);
     try {
       const res = await fetch(`${config.apiUrl}/simulation/runs`, {
         method: 'POST',
@@ -141,10 +144,14 @@ export default function ScenarioDetailPage() {
         router.push(
           `/ai-simulation/run/${data.id}?role=${selectedRole}&mode=${simulationMode}`
         );
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        setStartError(errorData.message || `启动失败 (${res.status})`);
+        setStartingRun(false);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to start run:', err);
-    } finally {
+      setStartError(err.message || '网络错误，请重试');
       setStartingRun(false);
     }
   };
@@ -178,6 +185,104 @@ export default function ScenarioDetailPage() {
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
+
+      {/* 启动中全屏遮罩 */}
+      {startingRun && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-gradient-to-br from-indigo-900/95 via-purple-900/95 to-indigo-900/95">
+          <div className="text-center">
+            {/* 动画圆环 */}
+            <div className="relative mx-auto mb-8 h-32 w-32">
+              <div
+                className="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-indigo-400"
+                style={{ animationDuration: '1.5s' }}
+              />
+              <div
+                className="absolute inset-2 animate-spin rounded-full border-4 border-transparent border-t-purple-400"
+                style={{
+                  animationDuration: '2s',
+                  animationDirection: 'reverse',
+                }}
+              />
+              <div
+                className="absolute inset-4 animate-spin rounded-full border-4 border-transparent border-t-pink-400"
+                style={{ animationDuration: '2.5s' }}
+              />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <svg
+                  className="h-12 w-12 animate-pulse text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
+                </svg>
+              </div>
+            </div>
+            <h2 className="mb-2 text-2xl font-bold text-white">
+              正在启动推演引擎
+            </h2>
+            <p className="mb-4 text-indigo-200">
+              {simulationMode === 'auto'
+                ? '全自动推演模式'
+                : '人机协同推演模式'}{' '}
+              · {selectedRole === 'observer' ? '上帝视角' : '角色扮演'}
+            </p>
+            <div className="flex items-center justify-center gap-2 text-sm text-indigo-300">
+              <div
+                className="h-2 w-2 animate-bounce rounded-full bg-indigo-400"
+                style={{ animationDelay: '0ms' }}
+              />
+              <div
+                className="h-2 w-2 animate-bounce rounded-full bg-purple-400"
+                style={{ animationDelay: '150ms' }}
+              />
+              <div
+                className="h-2 w-2 animate-bounce rounded-full bg-pink-400"
+                style={{ animationDelay: '300ms' }}
+              />
+              <span className="ml-2">初始化AI角色，请稍候...</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 启动错误提示 */}
+      {startError && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
+          <div className="max-w-md rounded-xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+              <svg
+                className="h-6 w-6 text-red-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </div>
+            <h3 className="mb-2 text-lg font-semibold text-gray-900">
+              启动失败
+            </h3>
+            <p className="mb-4 text-sm text-gray-600">{startError}</p>
+            <button
+              onClick={() => setStartError(null)}
+              className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              关闭
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 角色选择模态框 */}
       {showRoleModal && (
