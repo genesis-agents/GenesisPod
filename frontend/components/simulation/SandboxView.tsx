@@ -852,124 +852,50 @@ export default function SandboxView({
         {/* 背景遮罩层 */}
         <div className="absolute inset-0 bg-black/40" />
 
-        {/* 主内容区域 - 四象限 */}
-        <div className="relative z-10 flex-1 p-3 pb-28">
-          {/* 四象限容器 - 使用CSS Grid固定布局 */}
-          <div
-            className="relative h-full w-full"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'calc(50% - 60px) 120px calc(50% - 60px)',
-              gridTemplateRows: 'calc(50% - 40px) 80px calc(50% - 40px)',
-              gap: '0',
-            }}
-          >
+        {/* 主内容区域 - 四象限，底部留出时间轴空间 */}
+        <div className="relative z-10 flex flex-1 flex-col overflow-hidden pb-24">
+          {/* 四象限网格 - 2x2均等布局 */}
+          <div className="grid flex-1 grid-cols-2 grid-rows-2 gap-2 p-3">
             {/* 左上 - 蓝军 */}
-            <div className="p-1" style={{ gridColumn: '1', gridRow: '1' }}>
-              {renderQuadrantCard('BLUE', Crown)}
-            </div>
+            <div className="min-h-0">{renderQuadrantCard('BLUE', Crown)}</div>
 
             {/* 右上 - 红军 */}
-            <div className="p-1" style={{ gridColumn: '3', gridRow: '1' }}>
-              {renderQuadrantCard('RED', Target)}
-            </div>
+            <div className="min-h-0">{renderQuadrantCard('RED', Target)}</div>
 
             {/* 左下 - 绿军 */}
-            <div className="p-1" style={{ gridColumn: '1', gridRow: '3' }}>
-              {renderQuadrantCard('GREEN', Store)}
-            </div>
+            <div className="min-h-0">{renderQuadrantCard('GREEN', Store)}</div>
 
             {/* 右下 - 白方 */}
-            <div className="p-1" style={{ gridColumn: '3', gridRow: '3' }}>
-              {renderQuadrantCard('WHITE', Scale)}
-            </div>
+            <div className="min-h-0">{renderQuadrantCard('WHITE', Scale)}</div>
+          </div>
 
-            {/* 中心区域 - 回合信息和事件关联 */}
+          {/* 中心悬浮回合指示器 */}
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <div
-              className="flex items-center justify-center"
-              style={{ gridColumn: '2', gridRow: '2' }}
+              className="pointer-events-auto flex h-16 w-16 flex-col items-center justify-center rounded-full border-2 backdrop-blur-sm"
+              style={{
+                borderColor: `${industryConfig.accent}60`,
+                backgroundColor: 'rgba(0,0,0,0.85)',
+                boxShadow: `0 0 20px ${industryConfig.accent}40`,
+              }}
             >
               <div
-                className="relative flex h-20 w-20 flex-col items-center justify-center rounded-full border-2 backdrop-blur-sm"
-                style={{
-                  borderColor: `${industryConfig.accent}60`,
-                  backgroundColor: 'rgba(0,0,0,0.8)',
-                  boxShadow: `0 0 20px ${industryConfig.accent}40`,
-                }}
+                className="text-lg font-bold"
+                style={{ color: industryConfig.accent }}
               >
-                <div
-                  className="text-xl font-bold"
-                  style={{ color: industryConfig.accent }}
-                >
-                  R{selectedRound}
-                </div>
-                <div className="text-[9px] text-gray-400">
-                  {allSubmissions.length} 行动
-                </div>
-                {currentTurn?.adjudication?.blackSwanEvent && (
-                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-purple-500 px-1.5 py-0.5 text-[8px] text-white">
-                    🦢 黑天鹅
-                  </div>
-                )}
+                R{selectedRound}
               </div>
-            </div>
-
-            {/* 上方中间 - 蓝红冲突标记 */}
-            <div
-              className="flex items-end justify-center pb-2"
-              style={{ gridColumn: '2', gridRow: '1' }}
-            >
-              {eventRelations.some((r) => r.type === 'conflict') && (
-                <div className="flex items-center gap-1 rounded-full bg-red-500/20 px-2 py-1">
-                  <span className="text-[10px] text-red-400">⚔️ 竞争</span>
-                </div>
-              )}
-            </div>
-
-            {/* 下方中间 - 监管/市场标记 */}
-            <div
-              className="flex items-start justify-center pt-2"
-              style={{ gridColumn: '2', gridRow: '3' }}
-            >
-              {(eventRelations.some((r) => r.from === 'GREEN') ||
-                eventRelations.some((r) => r.from === 'WHITE')) && (
-                <div className="flex items-center gap-2">
-                  {eventRelations.some((r) => r.from === 'GREEN') && (
-                    <span className="rounded bg-green-500/20 px-1.5 py-0.5 text-[9px] text-green-400">
-                      市场↑
-                    </span>
-                  )}
-                  {eventRelations.some((r) => r.from === 'WHITE') && (
-                    <span className="rounded bg-gray-500/20 px-1.5 py-0.5 text-[9px] text-gray-400">
-                      监管↑
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* 左侧中间 */}
-            <div
-              className="flex items-center justify-end pr-2"
-              style={{ gridColumn: '1', gridRow: '2' }}
-            >
-              <div className="h-px w-8 bg-gradient-to-r from-transparent to-white/30" />
-            </div>
-
-            {/* 右侧中间 */}
-            <div
-              className="flex items-center justify-start pl-2"
-              style={{ gridColumn: '3', gridRow: '2' }}
-            >
-              <div className="h-px w-8 bg-gradient-to-l from-transparent to-white/30" />
+              <div className="text-[8px] text-gray-400">
+                {allSubmissions.length} 行动
+              </div>
             </div>
           </div>
 
-          {/* 黑天鹅事件横幅 */}
+          {/* 黑天鹅事件横幅 - 在四象限下方 */}
           {currentTurn?.adjudication?.blackSwanEvent && (
-            <div className="absolute bottom-28 left-3 right-3 rounded border border-purple-500/50 bg-purple-900/60 px-3 py-1.5 backdrop-blur-sm">
+            <div className="mx-3 mb-2 shrink-0 rounded border border-purple-500/50 bg-purple-900/60 px-3 py-1.5 backdrop-blur-sm">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="h-3.5 w-3.5 text-purple-400" />
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-purple-400" />
                 <span className="text-xs font-medium text-purple-300">
                   黑天鹅:
                 </span>
