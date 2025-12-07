@@ -149,12 +149,27 @@ export class ExternalDataService {
       };
     }
 
-    const endpoint =
-      provider.baseUrl.replace(/\/+$/, "") +
-      (path ? `/${path.replace(/^\/+/, "")}` : "");
+    // 构建endpoint：检测URL是否需要拼接API Key
+    let endpoint = provider.baseUrl.replace(/\/+$/, "");
+
+    // 检测URL中是否有API Key占位符（如 apiKey=, key=, token= 等结尾）
+    const apiKeyPatterns =
+      /[?&](apiKey|apikey|api_key|key|token|access_token)=$/i;
+    const needsUrlApiKey = apiKeyPatterns.test(endpoint);
+
+    if (needsUrlApiKey && provider.apiKey) {
+      // API Key需要拼接到URL参数中
+      endpoint = endpoint + provider.apiKey;
+      this.logger.log(`[ExternalData] Using URL-param auth for ${provider.id}`);
+    }
+
+    if (path) {
+      endpoint = endpoint + `/${path.replace(/^\/+/, "")}`;
+    }
 
     const headers: Record<string, any> = {};
-    if (provider.apiKey) {
+    // 只有当URL中没有API Key占位符时，才使用Bearer认证
+    if (provider.apiKey && !needsUrlApiKey) {
       headers.Authorization = `Bearer ${provider.apiKey}`;
     }
     if (provider.headers) {
@@ -220,10 +235,26 @@ export class ExternalDataService {
       };
     }
 
-    const endpoint = provider.baseUrl.replace(/\/+$/, "");
+    // 构建endpoint：检测URL是否需要拼接API Key
+    let endpoint = provider.baseUrl.replace(/\/+$/, "");
+
+    // 检测URL中是否有API Key占位符（如 apiKey=, key=, token= 等结尾）
+    const apiKeyPatterns =
+      /[?&](apiKey|apikey|api_key|key|token|access_token)=$/i;
+    const needsUrlApiKey = apiKeyPatterns.test(endpoint);
+
+    if (needsUrlApiKey && provider.apiKey) {
+      // API Key需要拼接到URL参数中
+      endpoint = endpoint + provider.apiKey;
+      this.logger.log(
+        `[ExternalData] Test using URL-param auth for ${provider.id}`,
+      );
+    }
+
     const headers: Record<string, any> = {};
 
-    if (provider.apiKey) {
+    // 只有当URL中没有API Key占位符时，才使用Bearer认证
+    if (provider.apiKey && !needsUrlApiKey) {
       headers.Authorization = `Bearer ${provider.apiKey}`;
     }
 
