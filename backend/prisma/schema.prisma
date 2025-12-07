@@ -2611,12 +2611,13 @@ model AskMessage {
 // ============ 推演 / Simulation ============
 
 enum SimulationTeam {
-  BLUE
-  RED
-  GREEN
-  CHAOS
-  ARBITER
-  HUMAN
+  BLUE    // 蓝军 - 我方/主角公司
+  RED     // 红军 - 竞争对手/挑战者
+  GREEN   // 绿军 - 市场/客户/供应商/渠道等利益相关方
+  WHITE   // 白方 - 裁判控制组/监管机构/政策制定者
+  CHAOS   // 混沌 - 黑天鹅事件制造者
+  ARBITER // 系统裁判(AI)
+  HUMAN   // 人类干预
 }
 
 enum SimulationRunStatus {

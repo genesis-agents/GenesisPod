@@ -36,7 +36,7 @@ interface ScenarioFormCompany {
 
 interface ScenarioFormAgent {
   role: string;
-  team: 'BLUE' | 'RED' | 'GREEN' | 'CHAOS';
+  team: 'BLUE' | 'RED' | 'GREEN' | 'WHITE' | 'CHAOS';
   companyName?: string;
   persona?: string | object; // Can be JSON string or object from backend
   memoryPublic?: string | object;
@@ -1169,6 +1169,7 @@ function EditorModal({
     BLUE: 'bg-blue-100 text-blue-700 border-blue-200',
     RED: 'bg-red-100 text-red-700 border-red-200',
     GREEN: 'bg-green-100 text-green-700 border-green-200',
+    WHITE: 'bg-gray-100 text-gray-700 border-gray-200',
     CHAOS: 'bg-purple-100 text-purple-700 border-purple-200',
   };
 
@@ -1873,7 +1874,7 @@ function EditorModal({
                     AI 角色配置
                   </h3>
                   <p className="text-xs text-gray-500">
-                    配置蓝军、红军、绿军和Chaos角色的Persona（性格/偏见/压力源/风险偏好）
+                    配置蓝军、红军、绿军、白方和Chaos角色的Persona（性格/偏见/压力源/风险偏好）
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -2099,6 +2100,12 @@ function EditorModal({
                           border: 'border-green-200',
                           text: 'text-green-700',
                           dot: 'bg-green-500',
+                        },
+                        WHITE: {
+                          bg: 'bg-gray-50',
+                          border: 'border-gray-200',
+                          text: 'text-gray-700',
+                          dot: 'bg-gray-500',
                         },
                         CHAOS: {
                           bg: 'bg-purple-50',
@@ -3107,6 +3114,12 @@ function AgentCard({
       bgColor: 'bg-green-100',
       icon: '🟢',
     },
+    WHITE: {
+      label: '白方',
+      color: 'text-gray-700',
+      bgColor: 'bg-gray-100',
+      icon: '⚪',
+    },
     CHAOS: {
       label: 'Chaos',
       color: 'text-purple-700',
@@ -3117,16 +3130,19 @@ function AgentCard({
 
   const currentTeam = teamInfo[agent.team] || teamInfo.BLUE;
 
+  // 边框颜色映射
+  const borderColorMap: Record<string, string> = {
+    BLUE: 'border-blue-200',
+    RED: 'border-red-200',
+    GREEN: 'border-green-200',
+    WHITE: 'border-gray-200',
+    CHAOS: 'border-purple-200',
+  };
+
   return (
     <div
       className={`rounded-xl border bg-white shadow-sm transition-all hover:shadow-md ${
-        agent.team === 'BLUE'
-          ? 'border-blue-200'
-          : agent.team === 'RED'
-            ? 'border-red-200'
-            : agent.team === 'GREEN'
-              ? 'border-green-200'
-              : 'border-purple-200'
+        borderColorMap[agent.team] || 'border-gray-200'
       }`}
     >
       {/* Header */}
@@ -3151,6 +3167,7 @@ function AgentCard({
               <option value="BLUE">🔵 蓝军</option>
               <option value="RED">🔴 红军</option>
               <option value="GREEN">🟢 绿军</option>
+              <option value="WHITE">⚪ 白方</option>
               <option value="CHAOS">🟣 Chaos</option>
             </select>
             <input
