@@ -104,7 +104,15 @@ export class SimulationService {
       where: { id },
       include: {
         companies: true,
-        agents: true,
+        agents: {
+          include: {
+            company: true, // Include company relation for each agent
+          },
+        },
+        runs: {
+          orderBy: { createdAt: "desc" },
+          take: 5, // Include last 5 runs for history
+        },
       },
     });
     if (!scenario) {
@@ -196,21 +204,36 @@ export class SimulationService {
         updatedCompanies.map((c) => [c.name.toLowerCase(), c.id]),
       );
 
+      this.logger.log(
+        `[updateScenario] Companies in scenario: ${updatedCompanies.map((c) => c.name).join(", ")}`,
+      );
+      this.logger.log(
+        `[updateScenario] Agent companyNames: ${input.agents.map((a) => a.companyName || "none").join(", ")}`,
+      );
+
       // Create new agents
       if (input.agents.length > 0) {
-        await this.prisma.simulationAgent.createMany({
-          data: input.agents.map((a) => ({
+        const agentsToCreate = input.agents.map((a) => {
+          const companyId = a.companyName
+            ? companyMap.get(a.companyName.toLowerCase()) || null
+            : null;
+          this.logger.log(
+            `[updateScenario] Agent ${a.role}: companyName="${a.companyName}", matched companyId=${companyId}`,
+          );
+          return {
             scenarioId: id,
-            companyId: a.companyName
-              ? companyMap.get(a.companyName.toLowerCase()) || null
-              : null,
+            companyId,
             team: a.team,
             role: a.role,
             persona: a.persona,
             memoryPublic: a.memoryPublic,
             memoryPrivate: a.memoryPrivate,
             tools: a.tools,
-          })),
+          };
+        });
+
+        await this.prisma.simulationAgent.createMany({
+          data: agentsToCreate,
         });
       }
     }
