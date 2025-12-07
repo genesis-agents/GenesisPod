@@ -975,7 +975,7 @@ export class AdminService {
       return {
         ...provider,
         ...prev,
-        apiKey: apiKey ? this.maskApiKey(apiKey) : "",
+        apiKey: apiKey, // Return full API key for external providers (admin only endpoint)
         hasApiKey: !!apiKey,
         enabled: prev?.enabled ?? false,
         baseUrl: prev?.baseUrl ?? "",
@@ -989,7 +989,7 @@ export class AdminService {
         const apiKey = provider.apiKey || "";
         return {
           ...provider,
-          apiKey: apiKey ? this.maskApiKey(apiKey) : "",
+          apiKey: apiKey, // Return full API key for external providers (admin only endpoint)
           hasApiKey: !!apiKey,
           enabled: provider.enabled ?? false,
           baseUrl: provider.baseUrl ?? "",
@@ -1012,8 +1012,13 @@ export class AdminService {
         const hasId = p.id?.trim();
         const hasName = p.name?.trim();
         const hasBaseUrl = p.baseUrl?.trim();
-        const hasApiKey = p.apiKey && !p.apiKey.includes("***");
-        return hasId && hasName && (hasBaseUrl || hasApiKey);
+        // Check for new apiKey OR existing apiKey in database
+        const hasNewApiKey = p.apiKey && !p.apiKey.includes("***");
+        const prev = existing.find((ep) => ep.id === p.id);
+        const hasExistingApiKey = !!prev?.apiKey;
+        return (
+          hasId && hasName && (hasBaseUrl || hasNewApiKey || hasExistingApiKey)
+        );
       })
       .map((provider) => {
         const prev = existing.find((p) => p.id === provider.id);

@@ -427,7 +427,7 @@ export default function ExternalAPISettings() {
                 // Must have name AND (baseUrl OR apiKey)
                 const hasName = p.name?.trim();
                 const hasBaseUrl = p.baseUrl?.trim();
-                const hasApiKey = p.apiKey && !p.apiKey.includes('***');
+                const hasApiKey = !!p.apiKey?.trim();
 
                 const isValid = hasName && (hasBaseUrl || hasApiKey);
 
@@ -437,7 +437,7 @@ export default function ExternalAPISettings() {
                     {
                       name: p.name,
                       hasBaseUrl: !!hasBaseUrl,
-                      hasApiKey: !!hasApiKey,
+                      hasApiKey: hasApiKey,
                     }
                   );
                 }
@@ -448,7 +448,7 @@ export default function ExternalAPISettings() {
                 id: p.id.replace(`${cat.id}-`, ''),
                 name: p.name,
                 baseUrl: p.baseUrl || '',
-                apiKey: p.apiKey ? '***masked***' : '',
+                apiKey: p.apiKey || '', // Show full API key (admin only page)
                 headers: p.headers || '',
                 enabled: p.enabled ?? false,
                 isDefault: p.isDefault ?? false,
@@ -590,10 +590,7 @@ export default function ExternalAPISettings() {
             name: provider.name,
             category: categoryId,
             baseUrl: provider.baseUrl,
-            apiKey:
-              provider.apiKey && !provider.apiKey.includes('***')
-                ? provider.apiKey
-                : undefined,
+            apiKey: provider.apiKey || undefined,
             headers: provider.headers,
             enabled: provider.enabled,
           }),
@@ -638,13 +635,12 @@ export default function ExternalAPISettings() {
 
         category.providers.forEach((provider) => {
           // Only save provider if it has a name AND (baseUrl OR apiKey)
+          const hasApiKey = !!provider.apiKey?.trim();
           const hasValidData =
-            provider.name?.trim() &&
-            (provider.baseUrl?.trim() ||
-              (provider.apiKey && !provider.apiKey.includes('***')));
+            provider.name?.trim() && (provider.baseUrl?.trim() || hasApiKey);
 
           console.log(
-            `[Save] Provider "${provider.name}": hasValidData=${hasValidData}, baseUrl="${provider.baseUrl}", hasApiKey=${!!provider.apiKey}`
+            `[Save] Provider "${provider.name}": hasValidData=${hasValidData}, baseUrl="${provider.baseUrl}", hasApiKey=${hasApiKey}`
           );
 
           if (hasValidData) {
@@ -656,10 +652,7 @@ export default function ExternalAPISettings() {
               enabled: provider.enabled,
               baseUrl: provider.baseUrl?.trim() || '',
               headers: provider.headers?.trim() || undefined,
-              apiKey:
-                provider.apiKey && !provider.apiKey.includes('***')
-                  ? provider.apiKey.trim()
-                  : undefined,
+              apiKey: provider.apiKey?.trim() || undefined,
               isDefault: provider.isDefault,
             };
             console.log('[Save] Adding provider:', providerToSave);

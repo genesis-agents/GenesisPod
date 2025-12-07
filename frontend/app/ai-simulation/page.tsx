@@ -38,9 +38,9 @@ interface ScenarioFormAgent {
   role: string;
   team: 'BLUE' | 'RED' | 'GREEN' | 'CHAOS';
   companyName?: string;
-  persona?: string;
-  memoryPublic?: string;
-  memoryPrivate?: string;
+  persona?: string | object; // Can be JSON string or object from backend
+  memoryPublic?: string | object;
+  memoryPrivate?: string | object;
 }
 
 interface ScenarioTemplate {
@@ -716,6 +716,77 @@ function EditorModal({
     setMessage('已采纳AI推荐的推演目标');
   };
 
+  // AI辅助：根据已有蓝军角色，智能推荐红军/绿军/Chaos角色
+  const [aiAgentAssisting, setAiAgentAssisting] = useState(false);
+  const [aiAgentSuggestions, setAiAgentSuggestions] = useState<Array<{
+    role: string;
+    team: string;
+    companyName?: string;
+    persona?: any;
+    reason: string;
+  }> | null>(null);
+
+  const aiAssistAgents = async () => {
+    // 检查是否已有蓝军角色
+    const blueAgents = agents.filter((a) => a.team === 'BLUE');
+    if (blueAgents.length === 0) {
+      setMessage('请先配置至少一个蓝军角色');
+      return;
+    }
+    if (!form.industry) {
+      setMessage('请先在基本信息中填写行业');
+      return;
+    }
+
+    setAiAgentAssisting(true);
+    setMessage(null);
+    try {
+      const res = await fetch(
+        `${config.apiUrl}/simulation/ai-assist/suggest-agents`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeader(),
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            industry: form.industry,
+            companies: companies.map((c) => ({ name: c.name, type: c.type })),
+            existingAgents: agents.map((a) => ({ role: a.role, team: a.team })),
+          }),
+        }
+      );
+      const data = await res.json();
+      if (res.ok && data.agents) {
+        setAiAgentSuggestions(data.agents);
+        setMessage(
+          `AI已推荐 ${data.agents.length} 个对手角色，请查看并选择采纳`
+        );
+      } else {
+        setMessage(data?.message || 'AI推荐失败，请稍后重试');
+      }
+    } catch (err: any) {
+      setMessage(err.message || 'AI推荐失败');
+    } finally {
+      setAiAgentAssisting(false);
+    }
+  };
+
+  // 采纳AI推荐的对手角色
+  const adoptAiAgentSuggestions = () => {
+    if (!aiAgentSuggestions || aiAgentSuggestions.length === 0) return;
+    const newAgents = aiAgentSuggestions.map((a) => ({
+      role: a.role,
+      team: a.team as ScenarioFormAgent['team'],
+      companyName: a.companyName,
+      persona: a.persona ? JSON.stringify(a.persona) : undefined,
+    }));
+    setAgents((prev) => [...prev, ...newAgents]);
+    setAiAgentSuggestions(null);
+    setMessage(`已添加 ${newAgents.length} 个AI推荐的角色`);
+  };
+
   const saveScenario = async () => {
     setSaving(true);
     try {
@@ -841,24 +912,73 @@ function EditorModal({
     }
   };
 
-  const injectFromMarket = () => {
+  const injectFromMarket = async () => {
+    // 检查外部数据是否有市场公司数组
     if (
-      !external?.snapshot?.market ||
-      !Array.isArray(external.snapshot.market)
+      external?.snapshot?.market &&
+      Array.isArray(external.snapshot.market) &&
+      external.snapshot.market.length > 0
     ) {
-      setMessage('外部数据缺少可用的市场公司列表，请检查配置');
+      // 使用外部API返回的公司列表
+      const next = external.snapshot.market
+        .slice(0, 6)
+        .map((item: any, idx: number) => ({
+          name: item.name || item.title || `Company ${idx + 1}`,
+          type: item.type || 'competitor',
+          market: item.market || form.region || 'Global',
+          metrics: item.metrics || item,
+        }));
+      setCompanies(next);
+      setMessage('已用外部市场数据填充公司，请确认类型/指标');
       return;
     }
-    const next = external.snapshot.market
-      .slice(0, 6)
-      .map((item: any, idx: number) => ({
-        name: item.name || item.title || `Company ${idx + 1}`,
-        type: item.type || 'competitor',
-        market: item.market || form.region || 'Global',
-        metrics: item.metrics || item,
-      }));
-    setCompanies(next);
-    setMessage('已用外部市场数据填充公司，请确认类型/指标');
+
+    // 外部API没有返回公司列表，使用AI辅助分析
+    if (!form.industry) {
+      setMessage('请先在基本信息中填写行业，AI将根据行业分析竞争格局');
+      return;
+    }
+
+    // 调用AI辅助分析
+    setAiAssisting(true);
+    setMessage('正在使用AI分析行业竞争格局...');
+    try {
+      const res = await fetch(`${config.apiUrl}/simulation/ai-assist/analyze`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          industry: form.industry,
+          region: form.region || 'Global',
+          existingCompanies: companies.map((c) => c.name),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.companies && Array.isArray(data.companies)) {
+        const newCompanies = data.companies.map((c: any) => ({
+          name: c.name,
+          type: c.type || 'competitor',
+          market: c.market || form.region || 'Global',
+          metrics: c.metrics || {},
+        }));
+        setCompanies(newCompanies);
+        setAiSuggestions(data);
+        setMessage(
+          `AI已分析并推荐 ${newCompanies.length} 家公司，请确认类型/指标`
+        );
+      } else {
+        setMessage(
+          data?.message || 'AI分析未返回公司数据，请手动添加公司或重试'
+        );
+      }
+    } catch (err: any) {
+      setMessage(err.message || 'AI分析失败，请手动添加公司');
+    } finally {
+      setAiAssisting(false);
+    }
   };
 
   const tabs: Array<{
@@ -1572,10 +1692,11 @@ function EditorModal({
                     </span>
                   </div>
                   <button
-                    onClick={injectFromMarket}
-                    className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                    onClick={() => void injectFromMarket()}
+                    disabled={aiAssisting}
+                    className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    用市场数据填充公司
+                    {aiAssisting ? 'AI分析中...' : '用市场数据填充公司'}
                   </button>
                 </div>
               )}
@@ -1587,6 +1708,7 @@ function EditorModal({
                     key={idx}
                     index={idx}
                     company={c}
+                    industry={form.industry}
                     onUpdate={(value) => updateCompany(idx, value)}
                     onRemove={() => removeCompany(idx)}
                   />
@@ -1652,6 +1774,54 @@ function EditorModal({
                   </p>
                 </div>
                 <div className="flex gap-2">
+                  {/* AI智能配置按钮 */}
+                  <button
+                    onClick={() => void aiAssistAgents()}
+                    disabled={aiAgentAssisting}
+                    className="flex items-center gap-1.5 rounded-lg border border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50 px-3 py-1.5 text-xs font-medium text-purple-700 transition-all hover:from-purple-100 hover:to-indigo-100 disabled:opacity-50"
+                  >
+                    {aiAgentAssisting ? (
+                      <>
+                        <svg
+                          className="h-3.5 w-3.5 animate-spin"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                          />
+                        </svg>
+                        AI分析中...
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                          />
+                        </svg>
+                        AI智能配置
+                      </>
+                    )}
+                  </button>
                   {aiSuggestions?.agents && aiSuggestions.agents.length > 0 && (
                     <button
                       onClick={adoptAiAgents}
@@ -1749,6 +1919,133 @@ function EditorModal({
                         </div>
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* AI智能推荐的角色 - 基于蓝军配置 */}
+              {aiAgentSuggestions && aiAgentSuggestions.length > 0 && (
+                <div className="rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-purple-700">
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                        />
+                      </svg>
+                      AI推荐对手角色
+                    </h4>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={adoptAiAgentSuggestions}
+                        className="flex items-center gap-1 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-700"
+                      >
+                        <svg
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                        全部采纳
+                      </button>
+                      <button
+                        onClick={() => setAiAgentSuggestions(null)}
+                        className="rounded-lg px-2 py-1.5 text-xs text-gray-500 hover:bg-white/50"
+                      >
+                        忽略
+                      </button>
+                    </div>
+                  </div>
+                  <p className="mb-3 text-xs text-gray-600">
+                    根据您配置的蓝军角色和行业特点，AI推荐以下对手角色以构建完整的对抗推演：
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {aiAgentSuggestions.map((a, idx) => {
+                      const teamColors: Record<
+                        string,
+                        {
+                          bg: string;
+                          border: string;
+                          text: string;
+                          dot: string;
+                        }
+                      > = {
+                        RED: {
+                          bg: 'bg-red-50',
+                          border: 'border-red-200',
+                          text: 'text-red-700',
+                          dot: 'bg-red-500',
+                        },
+                        GREEN: {
+                          bg: 'bg-green-50',
+                          border: 'border-green-200',
+                          text: 'text-green-700',
+                          dot: 'bg-green-500',
+                        },
+                        CHAOS: {
+                          bg: 'bg-purple-50',
+                          border: 'border-purple-200',
+                          text: 'text-purple-700',
+                          dot: 'bg-purple-500',
+                        },
+                        BLUE: {
+                          bg: 'bg-blue-50',
+                          border: 'border-blue-200',
+                          text: 'text-blue-700',
+                          dot: 'bg-blue-500',
+                        },
+                      };
+                      const colors = teamColors[a.team] || teamColors.RED;
+                      return (
+                        <div
+                          key={idx}
+                          className={`rounded-lg border ${colors.border} ${colors.bg} p-3`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`h-2.5 w-2.5 rounded-full ${colors.dot}`}
+                            />
+                            <span
+                              className={`text-xs font-semibold ${colors.text}`}
+                            >
+                              {a.team === 'RED'
+                                ? '红军'
+                                : a.team === 'GREEN'
+                                  ? '绿军'
+                                  : a.team === 'CHAOS'
+                                    ? 'Chaos'
+                                    : '蓝军'}
+                            </span>
+                          </div>
+                          <div className="mt-1 font-medium text-gray-900">
+                            {a.role}
+                          </div>
+                          {a.companyName && (
+                            <div className="mt-0.5 text-xs text-gray-500">
+                              {a.companyName}
+                            </div>
+                          )}
+                          <div className="mt-2 text-xs text-gray-600">
+                            {a.reason}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -2443,7 +2740,15 @@ function EditorModal({
   );
 }
 
-function safeJson(input: string, fallback: any) {
+function safeJson(input: string | object | null | undefined, fallback: any) {
+  if (input === null || input === undefined) {
+    return fallback;
+  }
+  // If input is already an object, return it directly
+  if (typeof input === 'object') {
+    return input;
+  }
+  // If input is a string, try to parse it
   try {
     return JSON.parse(input);
   } catch {
@@ -2788,7 +3093,11 @@ function AgentCard({
               私有记忆（仅该角色可见）
             </h4>
             <textarea
-              value={agent.memoryPrivate || ''}
+              value={
+                typeof agent.memoryPrivate === 'object'
+                  ? JSON.stringify(agent.memoryPrivate, null, 2)
+                  : agent.memoryPrivate || ''
+              }
               onChange={(e) =>
                 onUpdate({ ...agent, memoryPrivate: e.target.value })
               }
@@ -2827,15 +3136,23 @@ function AgentCard({
 function CompanyCard({
   index,
   company,
+  industry,
   onUpdate,
   onRemove,
 }: {
   index: number;
   company: ScenarioFormCompany;
+  industry: string;
   onUpdate: (value: ScenarioFormCompany) => void;
   onRemove: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState<{
+    metrics: any;
+    reasoning: string;
+  } | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   // 从metrics中获取值，提供默认值
   const metrics = company.metrics || {};
@@ -2845,6 +3162,58 @@ function CompanyCard({
       ...company,
       metrics: { ...metrics, [key]: value },
     });
+  };
+
+  // AI辅助生成指标
+  const handleAiAssist = async () => {
+    if (!company.name || !company.type) {
+      alert('请先填写公司名称和类型');
+      return;
+    }
+
+    setAiLoading(true);
+    try {
+      const res = await fetch(
+        `${config.apiBaseUrl}/simulation/ai-assist/generate-metrics`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeader(),
+          },
+          body: JSON.stringify({
+            companyName: company.name,
+            companyType: company.type,
+            industry: industry,
+            market: company.market,
+          }),
+        }
+      );
+
+      if (!res.ok) throw new Error('AI生成失败');
+
+      const data = await res.json();
+      setAiSuggestion(data);
+      setShowConfirmDialog(true);
+    } catch (err) {
+      console.error('AI assist error:', err);
+      alert('AI生成失败，请重试');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  // 确认应用AI建议
+  const applyAiSuggestion = () => {
+    if (aiSuggestion) {
+      onUpdate({
+        ...company,
+        metrics: aiSuggestion.metrics,
+      });
+      setShowConfirmDialog(false);
+      setAiSuggestion(null);
+      setExpanded(true); // 展开查看结果
+    }
   };
 
   const companyTypes = [
@@ -2907,6 +3276,59 @@ function CompanyCard({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* AI辅助按钮 */}
+          <button
+            onClick={handleAiAssist}
+            disabled={aiLoading}
+            className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              aiLoading
+                ? 'cursor-wait bg-purple-100 text-purple-400'
+                : 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600'
+            }`}
+            title="AI辅助生成量化指标"
+          >
+            {aiLoading ? (
+              <>
+                <svg
+                  className="h-3.5 w-3.5 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+                生成中...
+              </>
+            ) : (
+              <>
+                <svg
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
+                </svg>
+                AI生成
+              </>
+            )}
+          </button>
           <button
             onClick={() => setExpanded(!expanded)}
             className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
@@ -2950,6 +3372,128 @@ function CompanyCard({
           </button>
         </div>
       </div>
+
+      {/* AI确认对话框 */}
+      {showConfirmDialog && aiSuggestion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white">
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  AI生成的指标建议
+                </h3>
+                <p className="text-sm text-gray-500">{company.name}</p>
+              </div>
+            </div>
+
+            {/* AI推理说明 */}
+            <div className="mb-4 rounded-lg bg-indigo-50 p-3 text-sm text-indigo-700">
+              <span className="font-medium">AI分析：</span>{' '}
+              {aiSuggestion.reasoning}
+            </div>
+
+            {/* 指标预览 */}
+            <div className="mb-4 space-y-3">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-lg bg-gray-50 p-2">
+                  <span className="text-gray-500">现金储备</span>
+                  <p className="font-semibold text-gray-900">
+                    ${aiSuggestion.metrics.cash?.toLocaleString()}万
+                  </p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-2">
+                  <span className="text-gray-500">市场份额</span>
+                  <p className="font-semibold text-gray-900">
+                    {aiSuggestion.metrics.share}%
+                  </p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-2">
+                  <span className="text-gray-500">毛利率</span>
+                  <p className="font-semibold text-gray-900">
+                    {aiSuggestion.metrics.margin}%
+                  </p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-2">
+                  <span className="text-gray-500">负债</span>
+                  <p className="font-semibold text-gray-900">
+                    ${aiSuggestion.metrics.debt?.toLocaleString()}万
+                  </p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-2">
+                  <span className="text-gray-500">产能</span>
+                  <p className="font-semibold text-gray-900">
+                    {aiSuggestion.metrics.capacity?.toLocaleString()}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-2">
+                  <span className="text-gray-500">库存</span>
+                  <p className="font-semibold text-gray-900">
+                    {aiSuggestion.metrics.inventory?.toLocaleString()}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-2">
+                  <span className="text-gray-500">价格定位</span>
+                  <p className="font-semibold text-gray-900">
+                    {aiSuggestion.metrics.priceBand}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-2">
+                  <span className="text-gray-500">交付周期</span>
+                  <p className="font-semibold text-gray-900">
+                    {aiSuggestion.metrics.delivery}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-2">
+                  <span className="text-gray-500">专利数量</span>
+                  <p className="font-semibold text-gray-900">
+                    {aiSuggestion.metrics.patents?.toLocaleString()}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-2">
+                  <span className="text-gray-500">渠道</span>
+                  <p className="font-semibold text-gray-900">
+                    {aiSuggestion.metrics.channels}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* 操作按钮 */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowConfirmDialog(false);
+                  setAiSuggestion(null);
+                }}
+                className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={applyAiSuggestion}
+                className="flex-1 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:from-purple-600 hover:to-indigo-700"
+              >
+                应用建议
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Expanded - 量化指标详情 */}
       {expanded && (

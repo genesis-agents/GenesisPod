@@ -216,7 +216,8 @@ export class ExternalDataService {
   }
 
   /**
-   * Test a provider configuration without saving to database
+   * Test a provider configuration
+   * @param provider - Provider configuration to test
    */
   async testProvider(provider: {
     id: string;
@@ -232,7 +233,11 @@ export class ExternalDataService {
     error?: string;
     endpoint?: string;
   }> {
-    if (!provider.baseUrl) {
+    const apiKey = provider.apiKey;
+    const baseUrl = provider.baseUrl;
+    const headers = provider.headers;
+
+    if (!baseUrl) {
       return {
         ok: false,
         providerId: provider.id,
@@ -241,32 +246,32 @@ export class ExternalDataService {
     }
 
     // 构建endpoint：检测URL是否需要拼接API Key
-    let endpoint = provider.baseUrl.replace(/\/+$/, "");
+    let endpoint = baseUrl.replace(/\/+$/, "");
 
     // 检测URL中是否有API Key占位符（如 apiKey=, key=, token= 等结尾）
     const apiKeyPatterns =
       /[?&](apiKey|apikey|api_key|key|token|access_token)=$/i;
     const needsUrlApiKey = apiKeyPatterns.test(endpoint);
 
-    if (needsUrlApiKey && provider.apiKey) {
+    if (needsUrlApiKey && apiKey) {
       // API Key需要拼接到URL参数中
-      endpoint = endpoint + provider.apiKey;
+      endpoint = endpoint + apiKey;
       this.logger.log(
         `[ExternalData] Test using URL-param auth for ${provider.id}`,
       );
     }
 
-    const headers: Record<string, any> = {};
+    const reqHeaders: Record<string, any> = {};
 
     // 只有当URL中没有API Key占位符时，才使用Bearer认证
-    if (provider.apiKey && !needsUrlApiKey) {
-      headers.Authorization = `Bearer ${provider.apiKey}`;
+    if (apiKey && !needsUrlApiKey) {
+      reqHeaders.Authorization = `Bearer ${apiKey}`;
     }
 
-    if (provider.headers) {
+    if (headers) {
       try {
-        const parsed = JSON.parse(provider.headers);
-        Object.assign(headers, parsed);
+        const parsed = JSON.parse(headers);
+        Object.assign(reqHeaders, parsed);
       } catch (err) {
         this.logger.warn(
           `Invalid headers JSON for provider ${provider.id}: ${err}`,
@@ -276,18 +281,18 @@ export class ExternalDataService {
 
     try {
       const res = await axios.get(endpoint, {
-        headers: headers as AxiosRequestHeaders,
+        headers: reqHeaders as AxiosRequestHeaders,
         timeout: 15000,
       });
       return {
         ok: true,
         providerId: provider.id,
         data: res.data,
-        endpoint,
+        endpoint: endpoint.replace(apiKey || "", "***"),
       };
     } catch (err: any) {
       this.logger.error(
-        `Test provider failed [${provider.id}] ${endpoint}: ${err?.message}`,
+        `Test provider failed [${provider.id}] ${endpoint.replace(apiKey || "", "***")}: ${err?.message}`,
       );
       return {
         ok: false,
@@ -295,7 +300,7 @@ export class ExternalDataService {
         error: err?.response?.status
           ? `HTTP_${err.response.status}`
           : err?.message || "fetch_failed",
-        endpoint,
+        endpoint: endpoint.replace(apiKey || "", "***"),
       };
     }
   }

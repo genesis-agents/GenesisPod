@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ExternalDataService } from "./external-data.service";
+import { AiChatService } from "../ai/ai-chat.service";
 
 interface IndustryAnalysis {
   companies: Array<{
@@ -456,6 +457,101 @@ const INDUSTRY_KNOWLEDGE: Record<string, IndustryAnalysis> = {
   },
 };
 
+// 公司指标生成模板 - 基于公司类型和行业
+interface CompanyMetricsTemplate {
+  cash: { min: number; max: number }; // 万美元
+  share: { min: number; max: number }; // %
+  margin: { min: number; max: number }; // %
+  debt: { min: number; max: number }; // 万美元
+  capacity: { min: number; max: number };
+  inventory: { min: number; max: number };
+  priceBand: string;
+  delivery: string;
+  patents: { min: number; max: number };
+  channels: string;
+  brand: string;
+}
+
+const COMPANY_METRICS_BY_TYPE: Record<string, CompanyMetricsTemplate> = {
+  benchmark: {
+    cash: { min: 50000, max: 200000 },
+    share: { min: 25, max: 60 },
+    margin: { min: 35, max: 55 },
+    debt: { min: 10000, max: 50000 },
+    capacity: { min: 5000, max: 20000 },
+    inventory: { min: 500, max: 2000 },
+    priceBand: "高端",
+    delivery: "2-4周",
+    patents: { min: 500, max: 5000 },
+    channels: "直销+代理",
+    brand: "global_leader",
+  },
+  challenger: {
+    cash: { min: 20000, max: 80000 },
+    share: { min: 10, max: 25 },
+    margin: { min: 25, max: 40 },
+    debt: { min: 5000, max: 30000 },
+    capacity: { min: 2000, max: 8000 },
+    inventory: { min: 300, max: 1000 },
+    priceBand: "中高端",
+    delivery: "3-6周",
+    patents: { min: 100, max: 1000 },
+    channels: "直销+电商",
+    brand: "strong",
+  },
+  regional: {
+    cash: { min: 10000, max: 50000 },
+    share: { min: 5, max: 20 },
+    margin: { min: 20, max: 35 },
+    debt: { min: 3000, max: 20000 },
+    capacity: { min: 1000, max: 5000 },
+    inventory: { min: 200, max: 800 },
+    priceBand: "中端",
+    delivery: "2-4周",
+    patents: { min: 50, max: 500 },
+    channels: "区域代理",
+    brand: "growing",
+  },
+  startup: {
+    cash: { min: 1000, max: 20000 },
+    share: { min: 1, max: 10 },
+    margin: { min: 15, max: 30 },
+    debt: { min: 500, max: 10000 },
+    capacity: { min: 100, max: 1000 },
+    inventory: { min: 50, max: 300 },
+    priceBand: "中低端",
+    delivery: "4-8周",
+    patents: { min: 10, max: 100 },
+    channels: "电商+直销",
+    brand: "emerging",
+  },
+};
+
+// 行业特定调整系数
+const INDUSTRY_MODIFIERS: Record<
+  string,
+  Partial<{
+    cashMultiplier: number;
+    marginBonus: number;
+    patentMultiplier: number;
+    deliveryFast: boolean;
+  }>
+> = {
+  "AI Compute Infrastructure": {
+    cashMultiplier: 2,
+    marginBonus: 10,
+    patentMultiplier: 3,
+  },
+  Semiconductor: { cashMultiplier: 3, marginBonus: 15, patentMultiplier: 5 },
+  "Cloud Services": { cashMultiplier: 2, marginBonus: 5, deliveryFast: true },
+  Fintech: { cashMultiplier: 1.5, marginBonus: -5 },
+  "E-commerce": { cashMultiplier: 1.2, deliveryFast: true },
+  SaaS: { marginBonus: 20, deliveryFast: true },
+  Gaming: { marginBonus: 10, patentMultiplier: 0.5 },
+  Healthcare: { cashMultiplier: 2.5, patentMultiplier: 4 },
+  "Electric Vehicles": { cashMultiplier: 3, patentMultiplier: 2 },
+};
+
 // 通用默认模板
 const DEFAULT_ANALYSIS: IndustryAnalysis = {
   companies: [
@@ -506,7 +602,10 @@ const DEFAULT_ANALYSIS: IndustryAnalysis = {
 export class AIAssistService {
   private readonly logger = new Logger(AIAssistService.name);
 
-  constructor(private readonly externalData: ExternalDataService) {}
+  constructor(
+    private readonly externalData: ExternalDataService,
+    private readonly aiChat: AiChatService,
+  ) {}
 
   /**
    * 根据行业和区域分析竞争格局，推荐公司和角色配置
@@ -669,5 +768,282 @@ export class AIAssistService {
       humanBreakEvery: isRegulationHeavy ? 1 : 2,
       keyRisks: analysis.insights.slice(0, 3),
     };
+  }
+
+  /**
+   * 生成公司量化指标建议
+   * 优先调用 LLM 动态生成，回退到本地模板
+   */
+  async generateCompanyMetrics(params: {
+    companyName: string;
+    companyType: string;
+    industry: string;
+    market?: string;
+  }): Promise<{
+    metrics: {
+      cash: number;
+      share: number;
+      margin: number;
+      debt: number;
+      capacity: number;
+      inventory: number;
+      priceBand: string;
+      delivery: string;
+      patents: number;
+      channels: string;
+      brand: string;
+    };
+    reasoning: string;
+  }> {
+    const { companyName, companyType, industry } = params;
+
+    this.logger.log(
+      `AI Assist generating metrics for: ${companyName} (${companyType}) in ${industry}`,
+    );
+
+    // 优先尝试使用 LLM 生成
+    try {
+      const llmResult = await this.generateMetricsWithLLM(params);
+      if (llmResult) {
+        return llmResult;
+      }
+    } catch (err) {
+      this.logger.warn(
+        `LLM metrics generation failed, falling back to template: ${err}`,
+      );
+    }
+
+    // 回退到本地模板生成
+    return this.generateMetricsFromTemplate(params);
+  }
+
+  /**
+   * 使用 LLM 动态生成公司指标
+   */
+  private async generateMetricsWithLLM(params: {
+    companyName: string;
+    companyType: string;
+    industry: string;
+    market?: string;
+  }): Promise<{
+    metrics: {
+      cash: number;
+      share: number;
+      margin: number;
+      debt: number;
+      capacity: number;
+      inventory: number;
+      priceBand: string;
+      delivery: string;
+      patents: number;
+      channels: string;
+      brand: string;
+    };
+    reasoning: string;
+  } | null> {
+    const { companyName, companyType, industry, market = "Global" } = params;
+
+    const typeLabels: Record<string, string> = {
+      benchmark: "行业标杆/龙头企业",
+      challenger: "挑战者/第二梯队",
+      regional: "区域龙头",
+      startup: "初创公司/新兴企业",
+    };
+
+    const systemPrompt = `你是一位资深的行业分析师和商业情报专家。请根据公司名称、类型、所属行业和市场，生成合理的公司量化指标。
+
+注意事项：
+1. 数据应该基于该行业的实际情况和公司类型进行合理估算
+2. 如果是知名公司，尽量贴近其公开财务数据的量级
+3. 如果是虚构或不知名公司，根据行业和类型给出合理假设
+4. 所有数值应该保持内部一致性（如初创公司不应有过高的现金储备）
+
+请以 JSON 格式返回，不要包含任何其他文字：
+{
+  "metrics": {
+    "cash": <现金储备，万美元>,
+    "share": <市场份额，百分比数值如15表示15%>,
+    "margin": <毛利率，百分比数值>,
+    "debt": <负债，万美元>,
+    "capacity": <产能单位数>,
+    "inventory": <库存单位数>,
+    "priceBand": "<定位：高端/中高端/中端/中低端/低端>",
+    "delivery": "<交付周期如：2-4周>",
+    "patents": <专利数量>,
+    "channels": "<渠道：如直销+代理>",
+    "brand": "<品牌力：global_leader/strong/growing/niche/emerging>"
+  },
+  "reasoning": "<简要说明生成依据，一句话>"
+}`;
+
+    const userPrompt = `公司名称：${companyName}
+公司类型：${typeLabels[companyType] || companyType}
+所属行业：${industry}
+目标市场：${market}
+
+请生成该公司的量化指标。`;
+
+    try {
+      const result = await this.aiChat.generateChatCompletion({
+        model: "gpt-4",
+        systemPrompt,
+        messages: [{ role: "user", content: userPrompt }],
+        maxTokens: 1024,
+        temperature: 0.7,
+      });
+
+      if (!result.content) {
+        return null;
+      }
+
+      // 解析 JSON 响应
+      const jsonMatch = result.content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        this.logger.warn("LLM response is not valid JSON");
+        return null;
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+
+      // 验证必要字段
+      if (!parsed.metrics || typeof parsed.metrics.cash !== "number") {
+        this.logger.warn("LLM response missing required metrics fields");
+        return null;
+      }
+
+      return {
+        metrics: {
+          cash: parsed.metrics.cash || 0,
+          share: parsed.metrics.share || 0,
+          margin: parsed.metrics.margin || 0,
+          debt: parsed.metrics.debt || 0,
+          capacity: parsed.metrics.capacity || 0,
+          inventory: parsed.metrics.inventory || 0,
+          priceBand: parsed.metrics.priceBand || "中端",
+          delivery: parsed.metrics.delivery || "2-4周",
+          patents: parsed.metrics.patents || 0,
+          channels: parsed.metrics.channels || "直销",
+          brand: parsed.metrics.brand || "growing",
+        },
+        reasoning:
+          parsed.reasoning || `基于${industry}行业${companyType}类型生成`,
+      };
+    } catch (err) {
+      this.logger.error(`Failed to parse LLM response: ${err}`);
+      return null;
+    }
+  }
+
+  /**
+   * 使用本地模板生成公司指标（回退方案）
+   */
+  private generateMetricsFromTemplate(params: {
+    companyName: string;
+    companyType: string;
+    industry: string;
+    market?: string;
+  }): {
+    metrics: {
+      cash: number;
+      share: number;
+      margin: number;
+      debt: number;
+      capacity: number;
+      inventory: number;
+      priceBand: string;
+      delivery: string;
+      patents: number;
+      channels: string;
+      brand: string;
+    };
+    reasoning: string;
+  } {
+    const { companyName, companyType, industry, market = "Global" } = params;
+
+    // 1. 获取公司类型基础模板
+    const template =
+      COMPANY_METRICS_BY_TYPE[companyType] ||
+      COMPANY_METRICS_BY_TYPE["startup"];
+
+    // 2. 获取行业调整系数
+    let modifier = INDUSTRY_MODIFIERS[industry] || {};
+
+    // 尝试模糊匹配行业
+    if (!INDUSTRY_MODIFIERS[industry]) {
+      const lowerIndustry = industry.toLowerCase();
+      for (const [key, value] of Object.entries(INDUSTRY_MODIFIERS)) {
+        if (
+          key.toLowerCase().includes(lowerIndustry) ||
+          lowerIndustry.includes(key.toLowerCase())
+        ) {
+          modifier = value;
+          break;
+        }
+      }
+    }
+
+    // 3. 生成随机值的辅助函数
+    const randomBetween = (min: number, max: number) =>
+      Math.round(min + Math.random() * (max - min));
+
+    // 4. 应用模板和行业调整
+    const cashMultiplier = modifier.cashMultiplier || 1;
+    const marginBonus = modifier.marginBonus || 0;
+    const patentMultiplier = modifier.patentMultiplier || 1;
+
+    const metrics = {
+      cash: randomBetween(
+        template.cash.min * cashMultiplier,
+        template.cash.max * cashMultiplier,
+      ),
+      share: randomBetween(template.share.min, template.share.max),
+      margin: Math.min(
+        70,
+        randomBetween(template.margin.min, template.margin.max) + marginBonus,
+      ),
+      debt: randomBetween(template.debt.min, template.debt.max),
+      capacity: randomBetween(template.capacity.min, template.capacity.max),
+      inventory: randomBetween(template.inventory.min, template.inventory.max),
+      priceBand: template.priceBand,
+      delivery: modifier.deliveryFast
+        ? this.shortenDelivery(template.delivery)
+        : template.delivery,
+      patents: Math.round(
+        randomBetween(template.patents.min, template.patents.max) *
+          patentMultiplier,
+      ),
+      channels: template.channels,
+      brand: template.brand,
+    };
+
+    // 5. 区域调整
+    if (market === "China" || market === "Asia") {
+      metrics.share = Math.min(metrics.share * 1.2, 80); // 区域市场份额可能更高
+    }
+
+    // 6. 生成推理说明
+    const typeLabels: Record<string, string> = {
+      benchmark: "行业标杆",
+      challenger: "挑战者",
+      regional: "区域龙头",
+      startup: "初创公司",
+    };
+
+    const reasoning = `基于${companyName}作为${industry}行业的${typeLabels[companyType] || companyType}，结合${market}市场特点生成（本地模板）。`;
+
+    return { metrics, reasoning };
+  }
+
+  /**
+   * 缩短交付周期
+   */
+  private shortenDelivery(delivery: string): string {
+    const match = delivery.match(/(\d+)-(\d+)/);
+    if (match) {
+      const min = Math.max(1, parseInt(match[1]) - 1);
+      const max = Math.max(2, parseInt(match[2]) - 1);
+      return `${min}-${max}周`;
+    }
+    return delivery;
   }
 }

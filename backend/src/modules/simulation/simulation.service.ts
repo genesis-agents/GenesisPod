@@ -385,4 +385,26 @@ export class SimulationService {
     }
     return run;
   }
+
+  async deleteRun(id: string) {
+    const run = await this.prisma.simulationRun.findUnique({
+      where: { id },
+    });
+    if (!run) {
+      throw new NotFoundException(`Run ${id} not found`);
+    }
+
+    // Delete related turns first
+    await this.prisma.simulationTurn.deleteMany({
+      where: { runId: id },
+    });
+
+    // Delete the run
+    await this.prisma.simulationRun.delete({
+      where: { id },
+    });
+
+    this.logger.log(`[Simulation] Deleted run ${id}`);
+    return { success: true, message: "Run deleted successfully" };
+  }
 }

@@ -128,6 +128,11 @@ export class SimulationController {
     return this.simulationService.getRunById(id);
   }
 
+  @Delete("runs/:id")
+  async deleteRun(@Param("id") id: string) {
+    return this.simulationService.deleteRun(id);
+  }
+
   @Patch("runs/:id/resume")
   async resumeRun(@Param("id") id: string) {
     return this.simulationService.resumeRun(id);
@@ -164,7 +169,7 @@ export class SimulationController {
       enabled?: boolean;
     },
   ) {
-    // Test provider by directly calling with provided config
+    // Test provider with provided configuration
     return this.externalData.testProvider(body);
   }
 
@@ -213,6 +218,22 @@ export class SimulationController {
     },
   ): Promise<any> {
     return this.aiAssist.generateScenarioSuggestions(body);
+  }
+
+  /**
+   * AI辅助生成公司量化指标
+   */
+  @Post("ai-assist/generate-metrics")
+  async generateCompanyMetrics(
+    @Body()
+    body: {
+      companyName: string;
+      companyType: string;
+      industry: string;
+      market?: string;
+    },
+  ): Promise<any> {
+    return this.aiAssist.generateCompanyMetrics(body);
   }
 
   // ========== SSE Real-time Updates ==========
