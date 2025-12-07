@@ -641,6 +641,43 @@ function EditorModal({
   const [external, setExternal] = useState<ExternalSnapshot | null>(null);
   const [syncing, setSyncing] = useState(false);
 
+  // 当scenario prop变化时，同步更新内部状态（重要：保存后重新获取数据时触发）
+  useEffect(() => {
+    if (scenario) {
+      setLocalScenario(scenario);
+      // 同步agents状态
+      if (scenario.agents && scenario.agents.length > 0) {
+        setAgents(
+          scenario.agents.map((a: any) => ({
+            role: a.role || '',
+            team: a.team || 'BLUE',
+            companyName: a.companyName || a.company?.name || '',
+            persona: a.persona,
+            memoryPublic: a.memoryPublic,
+            memoryPrivate: a.memoryPrivate,
+          }))
+        );
+      }
+      // 同步companies状态
+      if (scenario.companies && scenario.companies.length > 0) {
+        setCompanies(scenario.companies);
+      }
+      // 同步form状态
+      setForm({
+        name: scenario.name || '',
+        industry: scenario.industry || '',
+        region: scenario.region || '',
+        goals: {
+          targetShare: scenario.goals?.targetShare || '',
+          risk: scenario.goals?.risk || '',
+          growth: scenario.goals?.growth || '',
+          custom: scenario.goals?.custom || '',
+        } as ScenarioGoals,
+        constraints: scenario.params || defaultConstraints,
+      });
+    }
+  }, [scenario]);
+
   // AI辅助状态
   const [aiAssisting, setAiAssisting] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<{
@@ -805,6 +842,27 @@ function EditorModal({
         : `${config.apiUrl}/simulation/scenarios`;
       const method = isEditing ? 'PATCH' : 'POST';
 
+      // 准备要发送的agents数据
+      const agentsToSave = agents.map((a) => ({
+        ...a,
+        persona: a.persona ? safeJson(a.persona, a.persona) : undefined,
+        memoryPublic: a.memoryPublic
+          ? safeJson(a.memoryPublic, a.memoryPublic)
+          : undefined,
+        memoryPrivate: a.memoryPrivate
+          ? safeJson(a.memoryPrivate, a.memoryPrivate)
+          : undefined,
+      }));
+
+      // 调试日志
+      console.log('[saveScenario] Method:', method);
+      console.log('[saveScenario] URL:', url);
+      console.log('[saveScenario] Agents count:', agents.length);
+      console.log(
+        '[saveScenario] Agents to save:',
+        JSON.stringify(agentsToSave, null, 2)
+      );
+
       const res = await fetch(url, {
         method,
         headers: {
@@ -815,16 +873,7 @@ function EditorModal({
         body: JSON.stringify({
           ...form,
           companies,
-          agents: agents.map((a) => ({
-            ...a,
-            persona: a.persona ? safeJson(a.persona, a.persona) : undefined,
-            memoryPublic: a.memoryPublic
-              ? safeJson(a.memoryPublic, a.memoryPublic)
-              : undefined,
-            memoryPrivate: a.memoryPrivate
-              ? safeJson(a.memoryPrivate, a.memoryPrivate)
-              : undefined,
-          })),
+          agents: agentsToSave,
         }),
       });
       const data = await res.json();

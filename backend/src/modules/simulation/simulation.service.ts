@@ -146,6 +146,16 @@ export class SimulationService {
   }
 
   async updateScenario(id: string, input: Partial<CreateScenarioInput>) {
+    this.logger.log(`[updateScenario] Updating scenario ${id}`);
+    this.logger.log(
+      `[updateScenario] Input agents count: ${input.agents?.length || 0}`,
+    );
+    if (input.agents) {
+      this.logger.log(
+        `[updateScenario] Input agents: ${JSON.stringify(input.agents.map((a) => ({ role: a.role, team: a.team, companyName: a.companyName, hasPersona: !!a.persona })))}`,
+      );
+    }
+
     const existing = await this.prisma.simulationScenario.findUnique({
       where: { id },
       include: { companies: true, agents: true },
