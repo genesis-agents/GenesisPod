@@ -798,21 +798,45 @@ export default function RunConsolePage() {
                                       {teamSubmissions.map(
                                         (submission: any, idx: number) => (
                                           <div key={idx} className="p-4">
-                                            {/* 角色和标签 */}
-                                            <div className="mb-2 flex items-center justify-between">
-                                              <div className="flex items-center gap-2">
-                                                <span
-                                                  className={`inline-block h-2 w-2 rounded-full ${teamConfig.accent}`}
-                                                />
-                                                <span className="font-semibold text-gray-900">
-                                                  {submission.role}
-                                                </span>
+                                            {/* 公司/角色信息 - 更突出显示 */}
+                                            <div className="mb-3 flex items-start justify-between">
+                                              <div className="flex-1">
+                                                {/* 公司名称 */}
+                                                {submission.companyName && (
+                                                  <div className="mb-1 flex items-center gap-2">
+                                                    <span className="text-base">
+                                                      🏢
+                                                    </span>
+                                                    <span className="text-sm font-bold text-gray-900">
+                                                      {submission.companyName}
+                                                    </span>
+                                                  </div>
+                                                )}
+                                                {/* 角色 */}
+                                                <div className="flex items-center gap-2">
+                                                  <span
+                                                    className={`inline-block h-2 w-2 rounded-full ${teamConfig.accent}`}
+                                                  />
+                                                  <span className="text-sm font-medium text-gray-700">
+                                                    👤 {submission.role}
+                                                  </span>
+                                                  {submission.agentName &&
+                                                    submission.agentName !==
+                                                      submission.role && (
+                                                      <span className="text-xs text-gray-500">
+                                                        ({submission.agentName})
+                                                      </span>
+                                                    )}
+                                                </div>
                                               </div>
-                                              {submission.irrational && (
-                                                <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-700">
-                                                  ⚡ 非理性决策
-                                                </span>
-                                              )}
+                                              {/* 标签 */}
+                                              <div className="flex flex-col items-end gap-1">
+                                                {submission.irrational && (
+                                                  <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-700">
+                                                    ⚡ 非理性决策
+                                                  </span>
+                                                )}
+                                              </div>
                                             </div>
 
                                             {/* 公开行动 - 结构化显示 */}
@@ -1183,6 +1207,110 @@ export default function RunConsolePage() {
                       </div>
                     </div>
 
+                    {/* 各方态势总览 - 从最新回合提取 */}
+                    {run.turns && run.turns.length > 0 && (
+                      <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                        <div className="mb-3 text-xs font-semibold text-blue-700">
+                          🎯 各方态势总览（第 {run.currentRound} 轮）
+                        </div>
+                        <div className="space-y-3">
+                          {/* 按团队分组显示最新动态 */}
+                          {['BLUE', 'RED', 'GREEN'].map((team) => {
+                            const latestTurn =
+                              run.turns?.[run.turns.length - 1];
+                            const teamSubmissions =
+                              latestTurn?.submissions?.filter(
+                                (s: any) => s.team === team
+                              ) || [];
+                            if (teamSubmissions.length === 0) return null;
+
+                            const teamNames: Record<
+                              string,
+                              { name: string; color: string; bg: string }
+                            > = {
+                              BLUE: {
+                                name: '蓝军（我方）',
+                                color: 'text-blue-700',
+                                bg: 'bg-blue-100',
+                              },
+                              RED: {
+                                name: '红军（对手）',
+                                color: 'text-red-700',
+                                bg: 'bg-red-100',
+                              },
+                              GREEN: {
+                                name: '绿军（监管）',
+                                color: 'text-green-700',
+                                bg: 'bg-green-100',
+                              },
+                            };
+                            const config = teamNames[team];
+
+                            return (
+                              <div
+                                key={team}
+                                className={`rounded-lg ${config.bg} p-2`}
+                              >
+                                <div
+                                  className={`mb-1 text-xs font-semibold ${config.color}`}
+                                >
+                                  {config.name}
+                                </div>
+                                <div className="space-y-1">
+                                  {teamSubmissions
+                                    .slice(0, 2)
+                                    .map((s: any, i: number) => (
+                                      <div
+                                        key={i}
+                                        className="text-[11px] text-gray-700"
+                                      >
+                                        <span className="font-medium">
+                                          {s.companyName || s.role}:
+                                        </span>{' '}
+                                        <span className="text-gray-600">
+                                          {s.publicAction?.substring(0, 80) ||
+                                            '...'}
+                                          {s.publicAction?.length > 80 && '...'}
+                                        </span>
+                                      </div>
+                                    ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 人类干预历史 */}
+                    {run.worldState.interventions &&
+                      run.worldState.interventions.length > 0 && (
+                        <div className="rounded-lg border border-cyan-200 bg-cyan-50 p-3">
+                          <div className="mb-2 text-xs font-semibold text-cyan-700">
+                            🧑‍💼 人类干预记录
+                          </div>
+                          <div className="space-y-2">
+                            {run.worldState.interventions.map(
+                              (iv: any, idx: number) => (
+                                <div
+                                  key={idx}
+                                  className="rounded bg-white p-2 text-xs"
+                                >
+                                  <div className="font-medium text-cyan-800">
+                                    {iv.message}
+                                  </div>
+                                  {iv.round && (
+                                    <div className="mt-1 text-[10px] text-gray-500">
+                                      第 {iv.round} 轮干预
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                     {/* 黑天鹅历史 */}
                     {run.worldState.blackSwanHistory &&
                       run.worldState.blackSwanHistory.length > 0 && (
@@ -1509,9 +1637,9 @@ export default function RunConsolePage() {
             <div className="border-b border-gray-200 px-4 py-3">
               <h2 className="text-sm font-semibold text-gray-900">人类干预</h2>
             </div>
-            <div className="flex flex-1 flex-col p-4">
-              <div className="flex-1">
-                <div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-xs text-yellow-800">
+            <div className="flex flex-1 flex-col overflow-y-auto p-4">
+              <div className="flex-1 space-y-4">
+                <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-xs text-yellow-800">
                   <p className="font-medium">干预说明：</p>
                   <ul className="mt-2 list-inside list-disc space-y-1">
                     <li>暂停推演并注入事件</li>
@@ -1522,10 +1650,47 @@ export default function RunConsolePage() {
                 </div>
 
                 {run.params?.humanBreakEvery && (
-                  <div className="mb-4 text-xs text-gray-600">
+                  <div className="text-xs text-gray-600">
                     <p>每 {run.params.humanBreakEvery} 回合自动暂停等待干预</p>
                   </div>
                 )}
+
+                {/* 干预历史记录 */}
+                {run.worldState?.interventions &&
+                  run.worldState.interventions.length > 0 && (
+                    <div className="rounded-lg border border-cyan-200 bg-cyan-50 p-3">
+                      <div className="mb-2 flex items-center justify-between text-xs">
+                        <span className="font-semibold text-cyan-700">
+                          📝 干预历史
+                        </span>
+                        <span className="rounded-full bg-cyan-200 px-2 py-0.5 text-[10px] font-medium text-cyan-700">
+                          {run.worldState.interventions.length} 次
+                        </span>
+                      </div>
+                      <div className="max-h-32 space-y-2 overflow-y-auto">
+                        {run.worldState.interventions.map(
+                          (iv: any, idx: number) => (
+                            <div
+                              key={idx}
+                              className="rounded bg-white p-2 text-xs"
+                            >
+                              <div className="text-gray-800">{iv.message}</div>
+                              {iv.round && (
+                                <div className="mt-1 text-[10px] text-gray-400">
+                                  第 {iv.round} 轮 ·{' '}
+                                  {iv.timestamp
+                                    ? new Date(
+                                        iv.timestamp
+                                      ).toLocaleTimeString()
+                                    : ''}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  )}
               </div>
 
               <div className="space-y-2">

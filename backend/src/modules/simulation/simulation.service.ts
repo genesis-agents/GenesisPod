@@ -305,22 +305,45 @@ export class SimulationService {
     intervention: { message: string; injectEvent?: any },
   ) {
     const run = await this.getRunById(runId);
-    // Store intervention in run params or create a turn record
+
+    const interventionRecord = {
+      timestamp: new Date().toISOString(),
+      message: intervention.message,
+      injectEvent: intervention.injectEvent,
+      round: run.currentRound,
+    };
+
+    // Store intervention in run params
     const updatedParams = {
       ...(run.params as any),
       interventions: [
         ...((run.params as any)?.interventions || []),
-        {
-          timestamp: new Date().toISOString(),
-          message: intervention.message,
-          injectEvent: intervention.injectEvent,
-        },
+        interventionRecord,
       ],
     };
+
+    // Also store in worldState for frontend display
+    const updatedWorldState = {
+      ...(run.worldState as any),
+      interventions: [
+        ...((run.worldState as any)?.interventions || []),
+        interventionRecord,
+      ],
+      lastIntervention: interventionRecord,
+    };
+
     await this.prisma.simulationRun.update({
       where: { id: runId },
-      data: { params: updatedParams },
+      data: {
+        params: updatedParams,
+        worldState: updatedWorldState,
+      },
     });
+
+    this.logger.log(
+      `[Simulation] Run ${runId} received intervention at round ${run.currentRound}: ${intervention.message.substring(0, 50)}...`,
+    );
+
     return this.getRunById(runId);
   }
 
