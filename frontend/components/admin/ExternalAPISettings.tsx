@@ -272,6 +272,8 @@ export default function ExternalAPISettings() {
 
       if (providersRes.ok) {
         const providers = await providersRes.json();
+        console.log('[ExternalAPI] Loaded providers from backend:', providers);
+
         // Group providers by category - only show categories with actual providers
         if (Array.isArray(providers) && providers.length > 0) {
           const categorized = DEFAULT_SIMULATION_API_CATEGORIES.map((cat) => {
@@ -287,13 +289,21 @@ export default function ExternalAPISettings() {
                 isDefault: p.isDefault ?? false,
               }));
 
+            console.log(
+              `[ExternalAPI] Category ${cat.id} has ${categoryProviders.length} providers`
+            );
+
             return {
               ...cat,
               providers: categoryProviders,
             };
           });
+          console.log('[ExternalAPI] Final categorized:', categorized);
           setSimulationAPICategories(categorized);
         } else {
+          console.log(
+            '[ExternalAPI] No providers saved, using default empty state'
+          );
           // No saved providers - keep default empty state
           setSimulationAPICategories(DEFAULT_SIMULATION_API_CATEGORIES);
         }
@@ -394,6 +404,10 @@ export default function ExternalAPISettings() {
       // Flatten all providers from all categories - only save providers with valid data
       const allProviders: any[] = [];
       simulationAPICategories.forEach((category) => {
+        console.log(
+          `[Save] Processing category ${category.id} with ${category.providers.length} providers`
+        );
+
         category.providers.forEach((provider) => {
           // Only save provider if it has a name AND (baseUrl OR apiKey)
           const hasValidData =
@@ -401,8 +415,12 @@ export default function ExternalAPISettings() {
             (provider.baseUrl?.trim() ||
               (provider.apiKey && !provider.apiKey.includes('***')));
 
+          console.log(
+            `[Save] Provider "${provider.name}": hasValidData=${hasValidData}, baseUrl="${provider.baseUrl}", hasApiKey=${!!provider.apiKey}`
+          );
+
           if (hasValidData) {
-            allProviders.push({
+            const providerToSave = {
               id: `${category.id}-${provider.id}`,
               name: provider.name,
               description: category.description,
@@ -415,10 +433,17 @@ export default function ExternalAPISettings() {
                   ? provider.apiKey.trim()
                   : undefined,
               isDefault: provider.isDefault,
-            });
+            };
+            console.log('[Save] Adding provider:', providerToSave);
+            allProviders.push(providerToSave);
           }
         });
       });
+
+      console.log(
+        `[Save] Total providers to save: ${allProviders.length}`,
+        allProviders
+      );
 
       const res = await fetch(`${config.apiUrl}/admin/external-providers`, {
         method: 'PATCH',

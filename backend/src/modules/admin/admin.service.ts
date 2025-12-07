@@ -11,6 +11,7 @@ type ExternalProvider = {
   baseUrl?: string;
   apiKey?: string;
   headers?: string;
+  isDefault?: boolean;
 };
 
 const DEFAULT_EXTERNAL_PROVIDERS: ExternalProvider[] = [
@@ -957,14 +958,14 @@ export class AdminService {
     return this.getSetting(`extraction.${provider}.apiKey`);
   }
 
-
   // ============ External Data Providers Configuration ============
 
   async getExternalProvidersConfig(): Promise<
     Array<ExternalProvider & { hasApiKey: boolean }>
   > {
-    const stored =
-      (await this.getSetting("external.providers")) as ExternalProvider[] | null;
+    const stored = (await this.getSetting("external.providers")) as
+      | ExternalProvider[]
+      | null;
     const existing = Array.isArray(stored) ? stored : [];
     const defaultIds = DEFAULT_EXTERNAL_PROVIDERS.map((p) => p.id);
 
@@ -1000,8 +1001,9 @@ export class AdminService {
   }
 
   async updateExternalProvidersConfig(providers: ExternalProvider[]) {
-    const stored =
-      (await this.getSetting("external.providers")) as ExternalProvider[] | null;
+    const stored = (await this.getSetting("external.providers")) as
+      | ExternalProvider[]
+      | null;
     const existing = Array.isArray(stored) ? stored : [];
 
     const mergedProviders = providers

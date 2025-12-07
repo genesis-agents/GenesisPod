@@ -11,6 +11,7 @@ interface ExternalProvider {
   baseUrl?: string;
   apiKey?: string;
   headers?: string;
+  isDefault?: boolean;
 }
 
 @Injectable()
@@ -60,7 +61,7 @@ export class ExternalDataService {
   }
 
   async fetchFromProvider(
-    providerId: string,
+    categoryOrProviderId: string,
     path?: string,
     query?: Record<string, any>,
   ): Promise<{
@@ -71,16 +72,56 @@ export class ExternalDataService {
     endpoint?: string;
   }> {
     const providers = await this.loadProviders();
-    const provider = providers.find((p) => p.id === providerId);
+
+    // Try to find provider by exact ID first
+    let provider = providers.find((p) => p.id === categoryOrProviderId);
+
+    // If not found by ID, treat as category and find enabled provider
+    if (!provider) {
+      // Find all providers for this category
+      const categoryProviders = providers.filter(
+        (p) => p.category === categoryOrProviderId,
+      );
+
+      if (categoryProviders.length === 0) {
+        return {
+          ok: false,
+          providerId: categoryOrProviderId,
+          error: "provider_not_configured",
+        };
+      }
+
+      // Prioritize: 1) default + enabled, 2) any enabled, 3) first one
+      provider =
+        categoryProviders.find((p) => p.isDefault && p.enabled) ||
+        categoryProviders.find((p) => p.enabled) ||
+        categoryProviders[0];
+
+      this.logger.log(
+        `[ExternalData] Category ${categoryOrProviderId} using provider: ${provider.id} (enabled=${provider.enabled}, isDefault=${provider.isDefault})`,
+      );
+    }
 
     if (!provider) {
-      return { ok: false, providerId, error: "provider_not_configured" };
+      return {
+        ok: false,
+        providerId: categoryOrProviderId,
+        error: "provider_not_configured",
+      };
     }
     if (!provider.enabled) {
-      return { ok: false, providerId, error: "provider_disabled" };
+      return {
+        ok: false,
+        providerId: provider.id,
+        error: "provider_disabled",
+      };
     }
     if (!provider.baseUrl) {
-      return { ok: false, providerId, error: "missing_base_url" };
+      return {
+        ok: false,
+        providerId: provider.id,
+        error: "missing_base_url",
+      };
     }
 
     const endpoint =
@@ -97,7 +138,7 @@ export class ExternalDataService {
         Object.assign(headers, parsed);
       } catch (err) {
         this.logger.warn(
-          `Invalid headers JSON for provider ${providerId}: ${err}`,
+          `Invalid headers JSON for provider ${provider.id}: ${err}`,
         );
       }
     }
@@ -110,17 +151,17 @@ export class ExternalDataService {
       });
       return {
         ok: true,
-        providerId,
+        providerId: provider.id,
         data: res.data,
         endpoint,
       };
     } catch (err: any) {
       this.logger.error(
-        `External fetch failed [${providerId}] ${endpoint}: ${err?.message}`,
+        `External fetch failed [${provider.id}] ${endpoint}: ${err?.message}`,
       );
       return {
         ok: false,
-        providerId,
+        providerId: provider.id,
         error: err?.response?.status
           ? `HTTP_${err.response.status}`
           : err?.message || "fetch_failed",
