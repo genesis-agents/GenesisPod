@@ -1007,7 +1007,14 @@ export class AdminService {
     const existing = Array.isArray(stored) ? stored : [];
 
     const mergedProviders = providers
-      .filter((p) => p.id?.trim())
+      .filter((p) => {
+        // Only save providers with valid data: must have id AND name AND (baseUrl OR apiKey)
+        const hasId = p.id?.trim();
+        const hasName = p.name?.trim();
+        const hasBaseUrl = p.baseUrl?.trim();
+        const hasApiKey = p.apiKey && !p.apiKey.includes("***");
+        return hasId && hasName && (hasBaseUrl || hasApiKey);
+      })
       .map((provider) => {
         const prev = existing.find((p) => p.id === provider.id);
         const incomingApiKey = provider.apiKey || "";
