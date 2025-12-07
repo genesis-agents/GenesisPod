@@ -194,4 +194,73 @@ export class ExternalDataService {
       };
     }
   }
+
+  /**
+   * Test a provider configuration without saving to database
+   */
+  async testProvider(provider: {
+    id: string;
+    name: string;
+    baseUrl?: string;
+    apiKey?: string;
+    headers?: string;
+    enabled?: boolean;
+  }): Promise<{
+    ok: boolean;
+    providerId: string;
+    data?: any;
+    error?: string;
+    endpoint?: string;
+  }> {
+    if (!provider.baseUrl) {
+      return {
+        ok: false,
+        providerId: provider.id,
+        error: "missing_base_url",
+      };
+    }
+
+    const endpoint = provider.baseUrl.replace(/\/+$/, "");
+    const headers: Record<string, any> = {};
+
+    if (provider.apiKey) {
+      headers.Authorization = `Bearer ${provider.apiKey}`;
+    }
+
+    if (provider.headers) {
+      try {
+        const parsed = JSON.parse(provider.headers);
+        Object.assign(headers, parsed);
+      } catch (err) {
+        this.logger.warn(
+          `Invalid headers JSON for provider ${provider.id}: ${err}`,
+        );
+      }
+    }
+
+    try {
+      const res = await axios.get(endpoint, {
+        headers: headers as AxiosRequestHeaders,
+        timeout: 15000,
+      });
+      return {
+        ok: true,
+        providerId: provider.id,
+        data: res.data,
+        endpoint,
+      };
+    } catch (err: any) {
+      this.logger.error(
+        `Test provider failed [${provider.id}] ${endpoint}: ${err?.message}`,
+      );
+      return {
+        ok: false,
+        providerId: provider.id,
+        error: err?.response?.status
+          ? `HTTP_${err.response.status}`
+          : err?.message || "fetch_failed",
+        endpoint,
+      };
+    }
+  }
 }

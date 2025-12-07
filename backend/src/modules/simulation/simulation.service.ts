@@ -111,6 +111,30 @@ export class SimulationService {
     return scenario;
   }
 
+  async deleteScenario(id: string) {
+    const scenario = await this.prisma.simulationScenario.findUnique({
+      where: { id },
+    });
+    if (!scenario) {
+      throw new NotFoundException(`Scenario ${id} not found`);
+    }
+
+    // Delete related records first (cascading delete)
+    await this.prisma.simulationAgent.deleteMany({
+      where: { scenarioId: id },
+    });
+    await this.prisma.simulationCompany.deleteMany({
+      where: { scenarioId: id },
+    });
+
+    // Delete the scenario
+    await this.prisma.simulationScenario.delete({
+      where: { id },
+    });
+
+    return { success: true, message: "Scenario deleted successfully" };
+  }
+
   async listScenarios() {
     return this.prisma.simulationScenario.findMany({
       orderBy: { updatedAt: "desc" },

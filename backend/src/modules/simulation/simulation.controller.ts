@@ -6,6 +6,7 @@ import {
   Post,
   UseGuards,
   Patch,
+  Delete,
   Sse,
   MessageEvent,
 } from "@nestjs/common";
@@ -68,6 +69,11 @@ export class SimulationController {
     return this.simulationService.getScenarioById(id);
   }
 
+  @Delete("scenarios/:id")
+  async deleteScenario(@Param("id") id: string) {
+    return this.simulationService.deleteScenario(id);
+  }
+
   @Post("runs")
   async startRun(
     @Body()
@@ -110,6 +116,23 @@ export class SimulationController {
   @Get("external/snapshot")
   async getExternalSnapshot(): Promise<any> {
     return this.externalData.getSnapshot();
+  }
+
+  @Post("external-data/test")
+  async testExternalProvider(
+    @Body()
+    body: {
+      id: string;
+      name: string;
+      category?: string;
+      baseUrl?: string;
+      apiKey?: string;
+      headers?: string;
+      enabled?: boolean;
+    },
+  ) {
+    // Test provider by directly calling with provided config
+    return this.externalData.testProvider(body);
   }
 
   // ========== AI Assist APIs ==========

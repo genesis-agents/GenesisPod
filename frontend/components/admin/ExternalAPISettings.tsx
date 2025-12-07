@@ -419,6 +419,62 @@ export default function ExternalAPISettings() {
     }
   };
 
+  // Test external provider API
+  const testSimulationAPIProvider = async (
+    categoryId: string,
+    provider: SimulationAPIProvider
+  ) => {
+    const fullProviderId = `${categoryId}-${provider.id}`;
+
+    try {
+      setMessage({ type: 'success', text: `测试 ${provider.name}...` });
+
+      const res = await fetch(
+        `${config.apiUrl}/simulation/external-data/test`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeader(),
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            id: fullProviderId,
+            name: provider.name,
+            category: categoryId,
+            baseUrl: provider.baseUrl,
+            apiKey:
+              provider.apiKey && !provider.apiKey.includes('***')
+                ? provider.apiKey
+                : undefined,
+            headers: provider.headers,
+            enabled: provider.enabled,
+          }),
+        }
+      );
+
+      const result = await res.json();
+
+      if (result.ok) {
+        setMessage({
+          type: 'success',
+          text: `✅ ${provider.name} 测试成功！`,
+        });
+      } else {
+        setMessage({
+          type: 'error',
+          text: `❌ ${provider.name} 测试失败: ${result.error || '未知错误'}`,
+        });
+      }
+    } catch (err) {
+      console.error('Test provider failed:', err);
+      setMessage({
+        type: 'error',
+        text: `测试失败: ${err instanceof Error ? err.message : '网络错误'}`,
+      });
+    }
+  };
+
   // Simulation APIs Management Functions
   const handleSaveSimulationAPIs = async () => {
     setSaving(true);
@@ -1515,22 +1571,33 @@ export default function ExternalAPISettings() {
                             />
                             启用
                           </label>
-                          {!provider.isDefault && (
+                          <div className="flex gap-2">
                             <button
                               onClick={() =>
-                                updateSimulationAPIProvider(
-                                  category.id,
-                                  provider.id,
-                                  {
-                                    isDefault: true,
-                                  }
-                                )
+                                testSimulationAPIProvider(category.id, provider)
                               }
-                              className="text-xs text-indigo-600 hover:text-indigo-700"
+                              className="text-xs text-blue-600 hover:text-blue-700"
+                              title="测试此 Provider"
                             >
-                              设为默认
+                              🔧 测试
                             </button>
-                          )}
+                            {!provider.isDefault && (
+                              <button
+                                onClick={() =>
+                                  updateSimulationAPIProvider(
+                                    category.id,
+                                    provider.id,
+                                    {
+                                      isDefault: true,
+                                    }
+                                  )
+                                }
+                                className="text-xs text-indigo-600 hover:text-indigo-700"
+                              >
+                                设为默认
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
