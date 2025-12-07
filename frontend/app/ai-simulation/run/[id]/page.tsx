@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,6 +19,150 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
+
+// 智能解析长文本，提取结构化信息
+function parseStructuredContent(text: string): {
+  summary: string;
+  sections: Array<{ title: string; items: string[] }>;
+  hasStructure: boolean;
+} {
+  if (!text || text.length < 100) {
+    return { summary: text, sections: [], hasStructure: false };
+  }
+
+  const sections: Array<{ title: string; items: string[] }> = [];
+  let summary = '';
+
+  // 尝试按数字编号分割 (1. 2. 3. 或 1、2、3、)
+  const numberedPattern =
+    /(?:^|\n)\s*(\d+)[.、)\]]\s*(.+?)(?=(?:\n\s*\d+[.、)\]])|$)/gs;
+  const numberedMatches = [...text.matchAll(numberedPattern)];
+
+  if (numberedMatches.length >= 2) {
+    const firstMatchStart = text.indexOf(numberedMatches[0][0]);
+    if (firstMatchStart > 20) {
+      summary = text.substring(0, firstMatchStart).trim();
+    }
+    const items = numberedMatches.map((m) => m[2].trim().substring(0, 200));
+    sections.push({ title: '主要内容', items });
+    return { summary, sections, hasStructure: true };
+  }
+
+  // 尝试按 - 或 · 分割
+  const bulletPattern = /(?:^|\n)\s*[-·•]\s*(.+?)(?=(?:\n\s*[-·•])|$)/gs;
+  const bulletMatches = [...text.matchAll(bulletPattern)];
+
+  if (bulletMatches.length >= 2) {
+    const firstMatchStart = text.indexOf(bulletMatches[0][0]);
+    if (firstMatchStart > 20) {
+      summary = text.substring(0, firstMatchStart).trim();
+    }
+    const items = bulletMatches.map((m) => m[1].trim().substring(0, 200));
+    sections.push({ title: '要点', items });
+    return { summary, sections, hasStructure: true };
+  }
+
+  // 按句号分割长文本，取关键句子
+  const sentences = text
+    .split(/[。；！？]/)
+    .filter((s) => s.trim().length > 15);
+  if (sentences.length > 2) {
+    summary = sentences[0].trim() + '。';
+    const items = sentences.slice(1, 5).map((s) => s.trim().substring(0, 150));
+    if (items.length > 0) {
+      sections.push({ title: '详细内容', items });
+    }
+    return { summary, sections, hasStructure: true };
+  }
+
+  return { summary: text.substring(0, 300), sections: [], hasStructure: false };
+}
+
+// 结构化内容显示组件
+function StructuredContent({
+  text,
+  defaultExpanded = false,
+  className = '',
+}: {
+  text: string;
+  defaultExpanded?: boolean;
+  className?: string;
+}) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const parsed = useMemo(() => parseStructuredContent(text || ''), [text]);
+
+  if (!text) return null;
+
+  // 短文本直接显示
+  if (text.length < 150 || !parsed.hasStructure) {
+    return (
+      <div className={`text-sm leading-relaxed text-gray-800 ${className}`}>
+        {text.length > 250 && !isExpanded ? (
+          <>
+            {text.substring(0, 230)}...
+            <button
+              onClick={() => setIsExpanded(true)}
+              className="ml-1 text-xs text-indigo-600 hover:underline"
+            >
+              展开全部
+            </button>
+          </>
+        ) : (
+          text
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className={`space-y-2 ${className}`}>
+      {/* 摘要 - 突出显示 */}
+      {parsed.summary && (
+        <div className="rounded bg-white/50 px-2 py-1 text-sm font-medium leading-relaxed text-gray-900">
+          📌 {parsed.summary}
+        </div>
+      )}
+
+      {/* 结构化列表 */}
+      {parsed.sections.map((section, idx) => (
+        <div key={idx}>
+          <ul className="space-y-1.5">
+            {(isExpanded ? section.items : section.items.slice(0, 3)).map(
+              (item, i) => (
+                <li
+                  key={i}
+                  className="flex items-start gap-2 text-xs text-gray-700"
+                >
+                  <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-gray-400" />
+                  <span className="leading-relaxed">{item}</span>
+                </li>
+              )
+            )}
+          </ul>
+
+          {/* 展开/收起 */}
+          {section.items.length > 3 && (
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="mt-2 flex items-center gap-1 text-xs text-indigo-600 hover:underline"
+            >
+              {isExpanded ? (
+                <>
+                  <ChevronUp className="h-3 w-3" /> 收起
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-3 w-3" /> 展开更多 (
+                  {section.items.length - 3} 项)
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 interface Turn {
   id: string;
@@ -671,30 +815,33 @@ export default function RunConsolePage() {
                                               )}
                                             </div>
 
-                                            {/* 公开行动 - 最突出显示 */}
+                                            {/* 公开行动 - 结构化显示 */}
                                             {submission.publicAction && (
                                               <div className="mb-3 rounded-lg bg-gray-50 p-3">
-                                                <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                                                <div className="mb-2 text-[10px] font-medium uppercase tracking-wide text-gray-500">
                                                   📢 公开行动
                                                 </div>
-                                                <div className="text-sm leading-relaxed text-gray-800">
-                                                  {submission.publicAction.includes(
-                                                    'API Error'
-                                                  ) ||
-                                                  submission.publicAction.includes(
-                                                    'quota'
-                                                  ) ? (
-                                                    <span className="italic text-red-500">
-                                                      [决策生成失败]
-                                                    </span>
-                                                  ) : (
-                                                    submission.publicAction
-                                                  )}
-                                                </div>
+                                                {submission.publicAction.includes(
+                                                  'API Error'
+                                                ) ||
+                                                submission.publicAction.includes(
+                                                  'quota'
+                                                ) ? (
+                                                  <span className="italic text-red-500">
+                                                    [决策生成失败]
+                                                  </span>
+                                                ) : (
+                                                  <StructuredContent
+                                                    text={
+                                                      submission.publicAction
+                                                    }
+                                                    defaultExpanded={false}
+                                                  />
+                                                )}
                                               </div>
                                             )}
 
-                                            {/* 内心独白 - 默认展开显示，更直观 */}
+                                            {/* 内心独白 - 结构化显示 */}
                                             {submission.innerMonologue &&
                                               !submission.innerMonologue.includes(
                                                 'API Error'
@@ -702,12 +849,16 @@ export default function RunConsolePage() {
                                               (userRole === 'observer' ||
                                               teamName === 'BLUE' ? (
                                                 <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3">
-                                                  <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-amber-700">
+                                                  <div className="mb-2 text-[10px] font-medium uppercase tracking-wide text-amber-700">
                                                     💭 决策思路（内心想法）
                                                   </div>
-                                                  <div className="text-xs leading-relaxed text-gray-700">
-                                                    {submission.innerMonologue}
-                                                  </div>
+                                                  <StructuredContent
+                                                    text={
+                                                      submission.innerMonologue
+                                                    }
+                                                    defaultExpanded={false}
+                                                    className="text-xs"
+                                                  />
                                                 </div>
                                               ) : (
                                                 <div className="flex items-center gap-2 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3 text-xs text-gray-400">
