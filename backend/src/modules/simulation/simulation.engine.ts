@@ -107,7 +107,7 @@ export class SimulationEngineService {
 
   /**
    * 使用AI模型生成Agent的决策
-   * 如果AI调用失败，回退到模板生成
+   * 支持多模型fallback，如果主模型失败则尝试备用模型
    */
   private async generateAgentDecision(
     agent: any,
@@ -116,53 +116,92 @@ export class SimulationEngineService {
     scenario: any,
     irrationalBias: boolean,
   ): Promise<{ innerMonologue: string; publicAction: string }> {
-    try {
-      // 获取可用的AI模型（优先CHAT_FAST）
-      const model = await this.prisma.aIModel.findFirst({
-        where: {
-          isEnabled: true,
-          modelType: { in: [AIModelType.CHAT_FAST, AIModelType.CHAT] },
-        },
-        orderBy: [{ modelType: "asc" }, { isDefault: "desc" }],
-      });
+    // 获取所有可用的AI模型，按优先级排序
+    const models = await this.prisma.aIModel.findMany({
+      where: {
+        isEnabled: true,
+        modelType: { in: [AIModelType.CHAT_FAST, AIModelType.CHAT] },
+      },
+      orderBy: [{ isDefault: "desc" }, { modelType: "asc" }],
+    });
 
-      if (!model || !model.apiKey) {
-        this.logger.warn(
-          `[Agent ${agent.role}] No AI model available, using template`,
-        );
-        return this.generateTemplateDecision(agent, worldState, irrationalBias);
-      }
-
-      // 构建角色上下文
-      const systemPrompt = this.buildAgentSystemPrompt(agent, scenario);
-      const userPrompt = this.buildAgentUserPrompt(
-        agent,
-        worldState,
-        roundNumber,
-        irrationalBias,
+    if (models.length === 0) {
+      this.logger.warn(
+        `[Agent ${agent.role}] No AI model available, using template`,
       );
-
-      const messages: ChatMessage[] = [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ];
-
-      const result = await this.aiChatService.generateChatCompletionWithKey({
-        provider: model.provider,
-        modelId: model.modelId,
-        apiKey: model.apiKey,
-        apiEndpoint: model.apiEndpoint ?? undefined,
-        messages,
-        maxTokens: 500,
-        temperature: irrationalBias ? 0.9 : 0.7,
-      });
-
-      // 解析AI响应
-      return this.parseAgentResponse(result.content, agent);
-    } catch (error) {
-      this.logger.error(`[Agent ${agent.role}] AI generation failed: ${error}`);
       return this.generateTemplateDecision(agent, worldState, irrationalBias);
     }
+
+    // 构建角色上下文
+    const systemPrompt = this.buildAgentSystemPrompt(agent, scenario);
+    const userPrompt = this.buildAgentUserPrompt(
+      agent,
+      worldState,
+      roundNumber,
+      irrationalBias,
+    );
+
+    const messages: ChatMessage[] = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ];
+
+    // 尝试每个模型，直到成功或全部失败
+    for (const model of models) {
+      if (!model.apiKey) continue;
+
+      // 推理模型（如o1, gpt-5, gemini思考模式）需要更多tokens
+      // 因为它们会先用tokens进行思考/推理，然后才输出实际内容
+      const isReasoningModel =
+        model.modelId?.includes("o1") ||
+        model.modelId?.includes("gpt-5") ||
+        model.modelId?.includes("-thinking") ||
+        model.modelId?.includes("gemini-3");
+
+      // 推理模型需要更多tokens (thinking tokens + output tokens)
+      // 非推理模型500足够
+      const maxTokens = isReasoningModel ? 2000 : 500;
+
+      try {
+        const result = await this.aiChatService.generateChatCompletionWithKey({
+          provider: model.provider,
+          modelId: model.modelId,
+          apiKey: model.apiKey,
+          apiEndpoint: model.apiEndpoint ?? undefined,
+          messages,
+          maxTokens,
+          temperature: irrationalBias ? 0.9 : 0.7,
+        });
+
+        // 成功：解析AI响应并返回
+        this.logger.log(`[Agent ${agent.role}] Using model: ${model.name}`);
+        return this.parseAgentResponse(result.content, agent);
+      } catch (error: any) {
+        const errorMsg = error?.message || String(error);
+        const isQuotaError =
+          errorMsg.includes("quota") ||
+          errorMsg.includes("rate") ||
+          errorMsg.includes("limit");
+
+        if (isQuotaError) {
+          this.logger.warn(
+            `[Agent ${agent.role}] Model ${model.name} quota exceeded, trying next model`,
+          );
+          continue; // 尝试下一个模型
+        }
+
+        this.logger.error(
+          `[Agent ${agent.role}] Model ${model.name} failed: ${errorMsg}`,
+        );
+        continue; // 尝试下一个模型
+      }
+    }
+
+    // 所有模型都失败，使用模板
+    this.logger.warn(
+      `[Agent ${agent.role}] All AI models failed, using template`,
+    );
+    return this.generateTemplateDecision(agent, worldState, irrationalBias);
   }
 
   private buildAgentSystemPrompt(agent: any, scenario: any): string {

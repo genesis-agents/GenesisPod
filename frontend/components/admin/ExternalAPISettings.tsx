@@ -18,6 +18,8 @@ import {
   FileText,
   Wallet,
   TrendingUp,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 interface SearchConfig {
@@ -368,6 +370,13 @@ export default function ExternalAPISettings() {
   const [activeTab, setActiveTab] = useState<
     'search' | 'extraction' | 'simulation'
   >('search');
+  const [visibleApiKeys, setVisibleApiKeys] = useState<Record<string, boolean>>(
+    {}
+  );
+
+  const toggleApiKeyVisibility = (key: string) => {
+    setVisibleApiKeys((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const loadConfigs = useCallback(async () => {
     setLoading(true);
@@ -1237,22 +1246,46 @@ export default function ExternalAPISettings() {
 
                     {/* API Key Input */}
                     <div className="space-y-2">
-                      <input
-                        type="password"
-                        value={searchApiKeys[provider.id]}
-                        onChange={(e) =>
-                          setSearchApiKeys((prev) => ({
-                            ...prev,
-                            [provider.id]: e.target.value,
-                          }))
-                        }
-                        placeholder={
-                          isConfigured
-                            ? '••••••••••••••••'
-                            : provider.placeholder
-                        }
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                      />
+                      <div className="relative">
+                        <input
+                          type={
+                            visibleApiKeys[`search-${provider.id}`]
+                              ? 'text'
+                              : 'password'
+                          }
+                          value={searchApiKeys[provider.id]}
+                          onChange={(e) =>
+                            setSearchApiKeys((prev) => ({
+                              ...prev,
+                              [provider.id]: e.target.value,
+                            }))
+                          }
+                          placeholder={
+                            isConfigured
+                              ? '••••••••••••••••'
+                              : provider.placeholder
+                          }
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 font-mono text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            toggleApiKeyVisibility(`search-${provider.id}`)
+                          }
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                          title={
+                            visibleApiKeys[`search-${provider.id}`]
+                              ? '隐藏'
+                              : '显示'
+                          }
+                        >
+                          {visibleApiKeys[`search-${provider.id}`] ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
                     </div>
 
                     {/* Test Result */}
@@ -1463,22 +1496,46 @@ export default function ExternalAPISettings() {
 
                     {/* API Key Input */}
                     <div className="space-y-2">
-                      <input
-                        type="password"
-                        value={extractionApiKeys[provider.id]}
-                        onChange={(e) =>
-                          setExtractionApiKeys((prev) => ({
-                            ...prev,
-                            [provider.id]: e.target.value,
-                          }))
-                        }
-                        placeholder={
-                          isConfigured
-                            ? '••••••••••••••••'
-                            : provider.placeholder
-                        }
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                      />
+                      <div className="relative">
+                        <input
+                          type={
+                            visibleApiKeys[`extraction-${provider.id}`]
+                              ? 'text'
+                              : 'password'
+                          }
+                          value={extractionApiKeys[provider.id]}
+                          onChange={(e) =>
+                            setExtractionApiKeys((prev) => ({
+                              ...prev,
+                              [provider.id]: e.target.value,
+                            }))
+                          }
+                          placeholder={
+                            isConfigured
+                              ? '••••••••••••••••'
+                              : provider.placeholder
+                          }
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 font-mono text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            toggleApiKeyVisibility(`extraction-${provider.id}`)
+                          }
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                          title={
+                            visibleApiKeys[`extraction-${provider.id}`]
+                              ? '隐藏'
+                              : '显示'
+                          }
+                        >
+                          {visibleApiKeys[`extraction-${provider.id}`] ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
                     </div>
 
                     {/* Test Result */}
@@ -1694,21 +1751,53 @@ export default function ExternalAPISettings() {
                           className="mb-2 w-full rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                         <div className="mb-2">
-                          <input
-                            type="password"
-                            value={provider.apiKey}
-                            onChange={(e) =>
-                              updateSimulationAPIProvider(
-                                category.id,
-                                provider.id,
-                                {
-                                  apiKey: e.target.value,
-                                }
-                              )
-                            }
-                            placeholder="API Key"
-                            className="w-full rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                          />
+                          <div className="relative">
+                            <input
+                              type={
+                                visibleApiKeys[
+                                  `sim-${category.id}-${provider.id}`
+                                ]
+                                  ? 'text'
+                                  : 'password'
+                              }
+                              value={provider.apiKey}
+                              onChange={(e) =>
+                                updateSimulationAPIProvider(
+                                  category.id,
+                                  provider.id,
+                                  {
+                                    apiKey: e.target.value,
+                                  }
+                                )
+                              }
+                              placeholder="API Key"
+                              className="w-full rounded-md border border-gray-200 px-3 py-1.5 pr-10 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                toggleApiKeyVisibility(
+                                  `sim-${category.id}-${provider.id}`
+                                )
+                              }
+                              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                              title={
+                                visibleApiKeys[
+                                  `sim-${category.id}-${provider.id}`
+                                ]
+                                  ? '隐藏'
+                                  : '显示'
+                              }
+                            >
+                              {visibleApiKeys[
+                                `sim-${category.id}-${provider.id}`
+                              ] ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
                           {/* 显示获取API Key的链接 */}
                           {API_TEMPLATES[category.id]?.find(
                             (t) => t.name === provider.name

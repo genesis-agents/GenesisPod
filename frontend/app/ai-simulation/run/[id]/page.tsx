@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/config';
@@ -15,6 +15,9 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
+  HelpCircle,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 interface Turn {
@@ -51,13 +54,19 @@ interface Run {
 export default function RunConsolePage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isLoading: authLoading } = useAuth();
   const runId = params?.id as string;
+
+  // 从URL参数或run.params中获取用户角色
+  const urlRole = searchParams?.get('role') || 'observer';
 
   const [run, setRun] = useState<Run | null>(null);
   const [loading, setLoading] = useState(true);
   const [intervening, setIntervening] = useState(false);
   const [interventionText, setInterventionText] = useState('');
+  const [showGuide, setShowGuide] = useState(false);
+  const [userRole, setUserRole] = useState<string>(urlRole);
   const timelineEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -220,6 +229,18 @@ export default function RunConsolePage() {
                 </div>
               </div>
 
+              {/* 当前角色视角 */}
+              <div
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+                  userRole === 'observer'
+                    ? 'bg-indigo-100 text-indigo-700'
+                    : 'bg-blue-100 text-blue-700'
+                }`}
+              >
+                <span>{userRole === 'observer' ? '👁️' : '🔵'}</span>
+                <span>{userRole === 'observer' ? '上帝视角' : userRole}</span>
+              </div>
+
               {/* Status */}
               <span
                 className={`rounded-full px-3 py-1 text-xs font-medium ${
@@ -264,12 +285,166 @@ export default function RunConsolePage() {
           </div>
         </div>
 
+        {/* 帮助说明画板 - 可折叠 */}
+        <div className="border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50">
+          <button
+            onClick={() => setShowGuide(!showGuide)}
+            className="flex w-full items-center justify-between px-6 py-2 text-left hover:bg-white/50"
+          >
+            <div className="flex items-center gap-2 text-sm font-medium text-indigo-700">
+              <HelpCircle className="h-4 w-4" />
+              如何看懂这个推演？
+            </div>
+            {showGuide ? (
+              <ChevronUp className="h-4 w-4 text-indigo-600" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-indigo-600" />
+            )}
+          </button>
+
+          {showGuide && (
+            <div className="border-t border-indigo-100 px-6 py-4">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {/* 你的角色 */}
+                <div
+                  className={`rounded-lg border p-3 ${userRole === 'observer' ? 'border-indigo-200 bg-indigo-50' : 'border-blue-200 bg-blue-50'}`}
+                >
+                  <div
+                    className={`mb-2 flex items-center gap-2 text-sm font-semibold ${userRole === 'observer' ? 'text-indigo-800' : 'text-blue-800'}`}
+                  >
+                    👤 你的角色
+                  </div>
+                  {userRole === 'observer' ? (
+                    <p className="text-xs text-gray-600">
+                      你是<strong>战略观察者</strong>（上帝视角）。
+                      你可以同时看到所有阵营的行动和内心想法，发现盲点和机会。
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-600">
+                      你正在扮演
+                      <strong className="text-blue-700">{userRole}</strong>。
+                      你只能看到该角色视角的信息，对手的内心想法对你隐藏。
+                      在你的决策回合，请输入你的行动。
+                    </p>
+                  )}
+                </div>
+
+                {/* 四个阵营 */}
+                <div className="rounded-lg border border-gray-200 bg-white p-3">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-800">
+                    ⚔️ 四个阵营
+                  </div>
+                  <div className="space-y-1 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="rounded bg-blue-100 px-1.5 py-0.5 text-blue-700">
+                        🔵 蓝军
+                      </span>
+                      <span className="text-gray-600">
+                        = 我方公司（如NVIDIA）
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded bg-red-100 px-1.5 py-0.5 text-red-700">
+                        🔴 红军
+                      </span>
+                      <span className="text-gray-600">= 竞争对手（如AMD）</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded bg-green-100 px-1.5 py-0.5 text-green-700">
+                        🟢 绿军
+                      </span>
+                      <span className="text-gray-600">= 监管/第三方</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded bg-purple-100 px-1.5 py-0.5 text-purple-700">
+                        🟣 混沌
+                      </span>
+                      <span className="text-gray-600">= 黑天鹅事件</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 推演流程 */}
+                <div className="rounded-lg border border-gray-200 bg-white p-3">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-800">
+                    🔄 推演流程
+                  </div>
+                  <ol className="list-inside list-decimal space-y-1 text-xs text-gray-600">
+                    <li>每回合各阵营AI独立决策</li>
+                    <li>裁判综合评估并更新世界状态</li>
+                    <li>外部数据（市场/新闻）影响决策</li>
+                    <li>你可随时暂停并注入事件</li>
+                  </ol>
+                </div>
+
+                {/* 如何获得洞察 */}
+                <div className="rounded-lg border border-gray-200 bg-white p-3">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-800">
+                    💡 如何获得洞察
+                  </div>
+                  <ul className="list-inside list-disc space-y-1 text-xs text-gray-600">
+                    <li>观察对手的决策思路（💭展开）</li>
+                    <li>注意黑天鹅事件的连锁反应</li>
+                    <li>对比各方对同一事件的反应</li>
+                    <li>尝试注入不同事件测试应对</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* 快速提示 */}
+              <div className="mt-3 flex flex-wrap gap-2 text-[10px]">
+                <span className="rounded-full bg-indigo-100 px-2 py-1 text-indigo-700">
+                  💡 点击「💭 查看决策思路」可看到AI的内心独白
+                </span>
+                <span className="rounded-full bg-purple-100 px-2 py-1 text-purple-700">
+                  🦢 紫色区域 = 黑天鹅事件正在影响局势
+                </span>
+                <span className="rounded-full bg-orange-100 px-2 py-1 text-orange-700">
+                  ⚡ 标有"非理性"表示决策者受情绪影响
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Main Content - 3 Column Layout */}
         <div className="flex flex-1 overflow-hidden">
           {/* Timeline (Left) */}
           <div className="flex w-2/5 flex-col border-r border-gray-200 bg-white">
             <div className="border-b border-gray-200 px-4 py-3">
-              <h2 className="text-sm font-semibold text-gray-900">Timeline</h2>
+              <h2 className="text-sm font-semibold text-gray-900">
+                推演时间线
+              </h2>
+              <p className="mt-1 text-xs text-gray-500">
+                {userRole === 'observer' ? (
+                  <>
+                    以<strong>上帝视角</strong>观看各方博弈，发现盲点和战略机会
+                  </>
+                ) : (
+                  <>
+                    你正在扮演
+                    <strong className="text-blue-600">{userRole}</strong>
+                    ，其他阵营的内心想法已隐藏
+                  </>
+                )}
+              </p>
+            </div>
+            {/* 角色图例 */}
+            <div className="border-b border-gray-100 bg-gray-50 px-4 py-2">
+              <div className="flex flex-wrap gap-2 text-[10px]">
+                <span className="rounded bg-blue-100 px-1.5 py-0.5 text-blue-700">
+                  🔵 蓝军=我方
+                </span>
+                <span className="rounded bg-red-100 px-1.5 py-0.5 text-red-700">
+                  🔴 红军=对手
+                </span>
+                <span className="rounded bg-green-100 px-1.5 py-0.5 text-green-700">
+                  🟢 绿军=监管
+                </span>
+                <span className="rounded bg-purple-100 px-1.5 py-0.5 text-purple-700">
+                  🟣 黑天鹅
+                </span>
+              </div>
             </div>
             <div className="flex-1 space-y-4 overflow-y-auto p-4">
               {run.turns && run.turns.length > 0 ? (
@@ -285,67 +460,164 @@ export default function RunConsolePage() {
                       </span>
                     </div>
 
-                    {/* Agent Submissions */}
-                    {turn.submissions &&
-                      Array.isArray(turn.submissions) &&
-                      turn.submissions.map((submission: any, idx: number) => (
-                        <div
-                          key={submission.agentId || idx}
-                          className="ml-4 rounded-lg border border-gray-200 bg-gray-50 p-3"
-                        >
-                          <div className="mb-2 flex items-center justify-between">
-                            <span
-                              className={`text-xs font-medium ${
-                                submission.team === 'BLUE'
-                                  ? 'text-blue-600'
-                                  : submission.team === 'RED'
-                                    ? 'text-red-600'
-                                    : submission.team === 'GREEN'
-                                      ? 'text-green-600'
-                                      : 'text-purple-600'
-                              }`}
+                    {/* Agent Submissions - 更直观的卡片式展示 */}
+                    {turn.submissions && Array.isArray(turn.submissions) && (
+                      <div className="ml-4 space-y-4">
+                        {/* 按Team分组展示 */}
+                        {['BLUE', 'RED', 'GREEN', 'CHAOS'].map((teamName) => {
+                          const teamSubmissions = turn.submissions.filter(
+                            (s: any) => s.team === teamName
+                          );
+                          if (teamSubmissions.length === 0) return null;
+
+                          const teamConfig = {
+                            BLUE: {
+                              label: '蓝军行动',
+                              sublabel: '我方',
+                              bg: 'bg-gradient-to-r from-blue-50 to-blue-100',
+                              border: 'border-blue-300',
+                              text: 'text-blue-800',
+                              icon: '🔵',
+                              accent: 'bg-blue-500',
+                            },
+                            RED: {
+                              label: '红军行动',
+                              sublabel: '对手',
+                              bg: 'bg-gradient-to-r from-red-50 to-red-100',
+                              border: 'border-red-300',
+                              text: 'text-red-800',
+                              icon: '🔴',
+                              accent: 'bg-red-500',
+                            },
+                            GREEN: {
+                              label: '绿军行动',
+                              sublabel: '第三方',
+                              bg: 'bg-gradient-to-r from-green-50 to-green-100',
+                              border: 'border-green-300',
+                              text: 'text-green-800',
+                              icon: '🟢',
+                              accent: 'bg-green-500',
+                            },
+                            CHAOS: {
+                              label: '黑天鹅事件',
+                              sublabel: '意外',
+                              bg: 'bg-gradient-to-r from-purple-50 to-purple-100',
+                              border: 'border-purple-300',
+                              text: 'text-purple-800',
+                              icon: '🟣',
+                              accent: 'bg-purple-500',
+                            },
+                          }[teamName] || {
+                            label: teamName,
+                            sublabel: '',
+                            bg: 'bg-gray-50',
+                            border: 'border-gray-200',
+                            text: 'text-gray-700',
+                            icon: '👤',
+                            accent: 'bg-gray-500',
+                          };
+
+                          return (
+                            <div
+                              key={teamName}
+                              className={`overflow-hidden rounded-xl border-2 ${teamConfig.border} shadow-sm`}
                             >
-                              {submission.role}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-500">
-                                {submission.team}
-                              </span>
-                              {submission.irrational && (
-                                <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">
-                                  ⚡ 非理性
+                              {/* Team Header - 更突出 */}
+                              <div
+                                className={`flex items-center gap-2 ${teamConfig.bg} px-4 py-2`}
+                              >
+                                <span className="text-lg">
+                                  {teamConfig.icon}
                                 </span>
-                              )}
-                              {submission.chaosInjected && (
-                                <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
-                                  🌪️ Chaos
-                                </span>
-                              )}
-                            </div>
-                          </div>
+                                <div>
+                                  <span
+                                    className={`text-sm font-bold ${teamConfig.text}`}
+                                  >
+                                    {teamConfig.label}
+                                  </span>
+                                  <span className="ml-2 text-xs text-gray-500">
+                                    ({teamConfig.sublabel})
+                                  </span>
+                                </div>
+                              </div>
 
-                          {/* Inner Monologue */}
-                          {submission.innerMonologue && (
-                            <div className="mb-2 rounded bg-gray-100 p-2 text-xs text-gray-600">
-                              💭 {submission.innerMonologue}
-                            </div>
-                          )}
+                              {/* Submissions */}
+                              <div className="divide-y divide-gray-100 bg-white">
+                                {teamSubmissions.map(
+                                  (submission: any, idx: number) => (
+                                    <div key={idx} className="p-4">
+                                      {/* 角色和标签 */}
+                                      <div className="mb-2 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                          <span
+                                            className={`inline-block h-2 w-2 rounded-full ${teamConfig.accent}`}
+                                          />
+                                          <span className="font-semibold text-gray-900">
+                                            {submission.role}
+                                          </span>
+                                        </div>
+                                        {submission.irrational && (
+                                          <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-700">
+                                            ⚡ 非理性决策
+                                          </span>
+                                        )}
+                                      </div>
 
-                          {/* Public Action */}
-                          {submission.publicAction && (
-                            <div className="text-sm text-gray-900">
-                              {submission.publicAction}
-                            </div>
-                          )}
+                                      {/* 公开行动 - 最突出显示 */}
+                                      {submission.publicAction && (
+                                        <div className="mb-3 rounded-lg bg-gray-50 p-3">
+                                          <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                                            📢 公开行动
+                                          </div>
+                                          <div className="text-sm leading-relaxed text-gray-800">
+                                            {submission.publicAction.includes(
+                                              'API Error'
+                                            ) ||
+                                            submission.publicAction.includes(
+                                              'quota'
+                                            ) ? (
+                                              <span className="italic text-red-500">
+                                                [决策生成失败]
+                                              </span>
+                                            ) : (
+                                              submission.publicAction
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
 
-                          {/* Tools */}
-                          {submission.tools && (
-                            <div className="mt-2 rounded bg-blue-50 p-2 text-xs text-blue-700">
-                              🔧 工具: {JSON.stringify(submission.tools)}
+                                      {/* 内心独白 - 默认展开显示，更直观 */}
+                                      {submission.innerMonologue &&
+                                        !submission.innerMonologue.includes(
+                                          'API Error'
+                                        ) &&
+                                        (userRole === 'observer' ||
+                                        teamName === 'BLUE' ? (
+                                          <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+                                            <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-amber-700">
+                                              💭 决策思路（内心想法）
+                                            </div>
+                                            <div className="text-xs leading-relaxed text-gray-700">
+                                              {submission.innerMonologue}
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <div className="flex items-center gap-2 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3 text-xs text-gray-400">
+                                            <span>🔒</span>
+                                            <span className="italic">
+                                              对手的决策思路在此视角下隐藏
+                                            </span>
+                                          </div>
+                                        ))}
+                                    </div>
+                                  )
+                                )}
+                              </div>
                             </div>
-                          )}
-                        </div>
-                      ))}
+                          );
+                        })}
+                      </div>
+                    )}
 
                     {/* Adjudication */}
                     {turn.adjudication && (

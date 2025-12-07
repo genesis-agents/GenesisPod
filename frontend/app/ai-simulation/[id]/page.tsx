@@ -46,6 +46,8 @@ export default function ScenarioDetailPage() {
     'overview' | 'companies' | 'agents' | 'runs' | 'report'
   >('overview');
   const [startingRun, setStartingRun] = useState(false);
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<string>('observer'); // observer or agent id
 
   useEffect(() => {
     if (user && scenarioId) {
@@ -95,6 +97,13 @@ export default function ScenarioDetailPage() {
 
   const handleStartRun = async () => {
     if (!scenario) return;
+    // 先弹出角色选择模态框
+    setShowRoleModal(true);
+  };
+
+  const confirmStartRun = async () => {
+    if (!scenario) return;
+    setShowRoleModal(false);
     setStartingRun(true);
     try {
       const res = await fetch(`${config.apiUrl}/simulation/runs`, {
@@ -109,15 +118,18 @@ export default function ScenarioDetailPage() {
           rounds: scenario.params?.humanBreakEvery
             ? scenario.params.humanBreakEvery * 5
             : 10,
-          params: scenario.params,
+          params: {
+            ...scenario.params,
+            userRole: selectedRole, // 传递用户选择的角色
+          },
         }),
       });
       if (res.ok) {
         const data = await res.json();
         setActiveRun(data);
         setTab('runs');
-        // Navigate to run page
-        router.push(`/ai-simulation/run/${data.id}`);
+        // Navigate to run page with role info
+        router.push(`/ai-simulation/run/${data.id}?role=${selectedRole}`);
       }
     } catch (err) {
       console.error('Failed to start run:', err);
@@ -148,9 +160,128 @@ export default function ScenarioDetailPage() {
     );
   }
 
+  // 获取蓝军角色列表（用户可以扮演的角色）
+  const blueAgents =
+    scenario?.agents?.filter((a: any) => a.team === 'BLUE') || [];
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
+
+      {/* 角色选择模态框 */}
+      {showRoleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="mb-4 text-lg font-semibold text-gray-900">
+              选择你的角色视角
+            </h3>
+            <p className="mb-4 text-sm text-gray-600">
+              选择以何种身份参与本次战略推演。不同角色会看到不同的信息和决策选项。
+            </p>
+
+            <div className="mb-6 space-y-3">
+              {/* 观察者角色 */}
+              <label
+                className={`flex cursor-pointer items-start gap-3 rounded-lg border-2 p-4 transition-all ${
+                  selectedRole === 'observer'
+                    ? 'border-indigo-500 bg-indigo-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="role"
+                  value="observer"
+                  checked={selectedRole === 'observer'}
+                  onChange={(e) => setSelectedRole(e.target.value)}
+                  className="mt-1"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">👁️</span>
+                    <span className="font-medium text-gray-900">
+                      战略观察者（上帝视角）
+                    </span>
+                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                      推荐
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    以第三方视角观看所有阵营的行动和内心想法，全局把控，发现盲点和机会。
+                    适合学习和分析。
+                  </p>
+                </div>
+              </label>
+
+              {/* 分隔线 */}
+              <div className="flex items-center gap-2 py-2">
+                <div className="h-px flex-1 bg-gray-200" />
+                <span className="text-xs text-gray-400">
+                  或扮演蓝军角色参与决策
+                </span>
+                <div className="h-px flex-1 bg-gray-200" />
+              </div>
+
+              {/* 蓝军角色列表 */}
+              {blueAgents.length > 0 ? (
+                blueAgents.map((agent: any) => (
+                  <label
+                    key={agent.role}
+                    className={`flex cursor-pointer items-start gap-3 rounded-lg border-2 p-4 transition-all ${
+                      selectedRole === agent.role
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="role"
+                      value={agent.role}
+                      checked={selectedRole === agent.role}
+                      onChange={(e) => setSelectedRole(e.target.value)}
+                      className="mt-1"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700">
+                          🔵 蓝军
+                        </span>
+                        <span className="font-medium text-gray-900">
+                          {agent.role}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {agent.companyName ? `${agent.companyName} - ` : ''}
+                        扮演此角色参与决策，只能看到该视角的信息。
+                      </p>
+                    </div>
+                  </label>
+                ))
+              ) : (
+                <div className="rounded-lg bg-gray-50 p-4 text-center text-xs text-gray-500">
+                  当前场景未配置蓝军角色，请先在"角色配置"中添加。
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowRoleModal(false)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={confirmStartRun}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              >
+                以此角色开始推演
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <main className="flex-1 overflow-auto">
         <div className="space-y-6 px-8 py-6">
           {/* Header - 与系统其他页面一致 */}
