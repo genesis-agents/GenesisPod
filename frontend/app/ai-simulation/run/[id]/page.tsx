@@ -975,8 +975,50 @@ export default function RunConsolePage() {
                   );
                 })
               ) : (
-                <div className="flex h-full items-center justify-center text-sm text-gray-500">
-                  等待推演开始...
+                <div className="flex h-full flex-col items-center justify-center p-6">
+                  {/* 加载动画 */}
+                  <div className="relative mb-6">
+                    <div className="h-16 w-16 animate-spin rounded-full border-4 border-indigo-100 border-t-indigo-500" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-2xl">🤖</span>
+                    </div>
+                  </div>
+
+                  {/* 状态文字 */}
+                  <div className="text-center">
+                    <div className="mb-2 text-sm font-medium text-gray-700">
+                      AI 正在进行第 1 轮推演决策...
+                    </div>
+                    <div className="mb-4 text-xs text-gray-500">
+                      每个角色都在思考和分析当前局势
+                    </div>
+
+                    {/* 进度指示 */}
+                    <div className="mx-auto max-w-xs space-y-2">
+                      <div className="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                        <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+                        <span>蓝军团队正在分析...</span>
+                      </div>
+                      <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+                        <span
+                          className="h-2 w-2 animate-pulse rounded-full bg-red-500"
+                          style={{ animationDelay: '0.3s' }}
+                        />
+                        <span>红军团队正在决策...</span>
+                      </div>
+                      <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-700">
+                        <span
+                          className="h-2 w-2 animate-pulse rounded-full bg-green-500"
+                          style={{ animationDelay: '0.6s' }}
+                        />
+                        <span>监管方正在评估...</span>
+                      </div>
+                    </div>
+
+                    <p className="mt-4 text-[10px] text-gray-400">
+                      首轮决策通常需要 30-60 秒，请耐心等待
+                    </p>
+                  </div>
                 </div>
               )}
               <div ref={timelineEndRef} />
