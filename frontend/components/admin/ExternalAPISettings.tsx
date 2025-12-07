@@ -425,10 +425,16 @@ export default function ExternalAPISettings() {
     provider: SimulationAPIProvider
   ) => {
     const fullProviderId = `${categoryId}-${provider.id}`;
+    setTesting(fullProviderId);
+
+    // Clear previous result
+    setTestResults((prev) => {
+      const newResults = { ...prev };
+      delete newResults[fullProviderId];
+      return newResults;
+    });
 
     try {
-      setMessage({ type: 'success', text: `测试 ${provider.name}...` });
-
       const res = await fetch(
         `${config.apiUrl}/simulation/external-data/test`,
         {
@@ -455,23 +461,24 @@ export default function ExternalAPISettings() {
 
       const result = await res.json();
 
-      if (result.ok) {
-        setMessage({
-          type: 'success',
-          text: `✅ ${provider.name} 测试成功！`,
-        });
-      } else {
-        setMessage({
-          type: 'error',
-          text: `❌ ${provider.name} 测试失败: ${result.error || '未知错误'}`,
-        });
-      }
+      setTestResults((prev) => ({
+        ...prev,
+        [fullProviderId]: {
+          success: result.ok,
+          message: result.ok ? '连接成功' : result.error || '测试失败',
+        },
+      }));
     } catch (err) {
       console.error('Test provider failed:', err);
-      setMessage({
-        type: 'error',
-        text: `测试失败: ${err instanceof Error ? err.message : '网络错误'}`,
-      });
+      setTestResults((prev) => ({
+        ...prev,
+        [fullProviderId]: {
+          success: false,
+          message: err instanceof Error ? err.message : '网络错误',
+        },
+      }));
+    } finally {
+      setTesting(null);
     }
   };
 
@@ -1576,10 +1583,15 @@ export default function ExternalAPISettings() {
                               onClick={() =>
                                 testSimulationAPIProvider(category.id, provider)
                               }
-                              className="text-xs text-blue-600 hover:text-blue-700"
+                              disabled={
+                                testing === `${category.id}-${provider.id}`
+                              }
+                              className="text-xs text-blue-600 hover:text-blue-700 disabled:opacity-50"
                               title="测试此 Provider"
                             >
-                              🔧 测试
+                              {testing === `${category.id}-${provider.id}`
+                                ? '测试中...'
+                                : '🔧 测试'}
                             </button>
                             {!provider.isDefault && (
                               <button
@@ -1599,6 +1611,27 @@ export default function ExternalAPISettings() {
                             )}
                           </div>
                         </div>
+
+                        {/* Test Result - Show inline like AI Models */}
+                        {testResults[`${category.id}-${provider.id}`] && (
+                          <div
+                            className={`mt-2 rounded border px-2 py-1 text-xs ${
+                              testResults[`${category.id}-${provider.id}`]
+                                .success
+                                ? 'border-green-200 bg-green-50 text-green-700'
+                                : 'border-red-200 bg-red-50 text-red-700'
+                            }`}
+                          >
+                            {testResults[`${category.id}-${provider.id}`]
+                              .success
+                              ? '✅ '
+                              : '❌ '}
+                            {
+                              testResults[`${category.id}-${provider.id}`]
+                                .message
+                            }
+                          </div>
+                        )}
                       </div>
                     ))}
 

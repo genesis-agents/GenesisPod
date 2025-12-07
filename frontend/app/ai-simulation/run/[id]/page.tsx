@@ -63,24 +63,16 @@ export default function RunConsolePage() {
   useEffect(() => {
     if (user && runId) {
       void fetchRun();
-      // Setup SSE for real-time updates
-      const eventSource = new EventSource(
-        `${config.apiUrl}/simulation/runs/${runId}/events`,
-        { withCredentials: true }
-      );
 
-      eventSource.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === 'turn_complete') {
-          void fetchRun();
-        }
+      // Use polling instead of SSE to avoid auth issues
+      // Poll every 2 seconds when run is active
+      const pollInterval = setInterval(() => {
+        void fetchRun();
+      }, 2000);
+
+      return () => {
+        clearInterval(pollInterval);
       };
-
-      eventSource.onerror = () => {
-        eventSource.close();
-      };
-
-      return () => eventSource.close();
     }
   }, [user, runId]);
 
