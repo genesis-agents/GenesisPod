@@ -48,6 +48,9 @@ export default function ScenarioDetailPage() {
   const [startingRun, setStartingRun] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string>('observer'); // observer or agent id
+  const [simulationMode, setSimulationMode] = useState<'auto' | 'interactive'>(
+    'interactive'
+  ); // 推演模式
 
   useEffect(() => {
     if (user && scenarioId) {
@@ -121,6 +124,12 @@ export default function ScenarioDetailPage() {
           params: {
             ...scenario.params,
             userRole: selectedRole, // 传递用户选择的角色
+            simulationMode: simulationMode, // 传递推演模式
+            // 全自动模式下不需要人工暂停
+            humanBreakEvery:
+              simulationMode === 'auto'
+                ? 0
+                : scenario.params?.humanBreakEvery || 2,
           },
         }),
       });
@@ -128,8 +137,10 @@ export default function ScenarioDetailPage() {
         const data = await res.json();
         setActiveRun(data);
         setTab('runs');
-        // Navigate to run page with role info
-        router.push(`/ai-simulation/run/${data.id}?role=${selectedRole}`);
+        // Navigate to run page with role and mode info
+        router.push(
+          `/ai-simulation/run/${data.id}?role=${selectedRole}&mode=${simulationMode}`
+        );
       }
     } catch (err) {
       console.error('Failed to start run:', err);
@@ -171,12 +182,126 @@ export default function ScenarioDetailPage() {
       {/* 角色选择模态框 */}
       {showRoleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
             <h3 className="mb-4 text-lg font-semibold text-gray-900">
-              选择你的角色视角
+              配置推演参数
             </h3>
-            <p className="mb-4 text-sm text-gray-600">
-              选择以何种身份参与本次战略推演。不同角色会看到不同的信息和决策选项。
+
+            {/* 推演模式选择 */}
+            <div className="mb-6">
+              <div className="mb-3 text-sm font-medium text-gray-700">
+                推演模式
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {/* 全自动推演 */}
+                <label
+                  className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all ${
+                    simulationMode === 'auto'
+                      ? 'border-green-500 bg-green-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="mode"
+                    value="auto"
+                    checked={simulationMode === 'auto'}
+                    onChange={() => setSimulationMode('auto')}
+                    className="sr-only"
+                  />
+                  <div
+                    className={`flex h-12 w-12 items-center justify-center rounded-full ${
+                      simulationMode === 'auto' ? 'bg-green-100' : 'bg-gray-100'
+                    }`}
+                  >
+                    <svg
+                      className={`h-6 w-6 ${simulationMode === 'auto' ? 'text-green-600' : 'text-gray-400'}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 10V3L4 14h7v7l9-11h-7z"
+                      />
+                    </svg>
+                  </div>
+                  <div className="text-center">
+                    <div
+                      className={`font-medium ${simulationMode === 'auto' ? 'text-green-700' : 'text-gray-700'}`}
+                    >
+                      全自动推演
+                    </div>
+                    <p className="mt-1 text-[10px] text-gray-500">
+                      AI完全自主运行，一键到底
+                    </p>
+                  </div>
+                </label>
+
+                {/* 人工参与推演 */}
+                <label
+                  className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all ${
+                    simulationMode === 'interactive'
+                      ? 'border-indigo-500 bg-indigo-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="mode"
+                    value="interactive"
+                    checked={simulationMode === 'interactive'}
+                    onChange={() => setSimulationMode('interactive')}
+                    className="sr-only"
+                  />
+                  <div
+                    className={`flex h-12 w-12 items-center justify-center rounded-full ${
+                      simulationMode === 'interactive'
+                        ? 'bg-indigo-100'
+                        : 'bg-gray-100'
+                    }`}
+                  >
+                    <svg
+                      className={`h-6 w-6 ${simulationMode === 'interactive' ? 'text-indigo-600' : 'text-gray-400'}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                    </svg>
+                  </div>
+                  <div className="text-center">
+                    <div
+                      className={`font-medium ${simulationMode === 'interactive' ? 'text-indigo-700' : 'text-gray-700'}`}
+                    >
+                      人机协同推演
+                    </div>
+                    <p className="mt-1 text-[10px] text-gray-500">
+                      每{scenario?.params?.humanBreakEvery || 2}回合暂停，可干预
+                    </p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* 分隔线 */}
+            <div className="mb-4 border-t border-gray-200" />
+
+            <div className="mb-3 text-sm font-medium text-gray-700">
+              选择观察视角
+            </div>
+            <p className="mb-4 text-xs text-gray-500">
+              不同角色会看到不同的信息。
+              {simulationMode === 'auto'
+                ? '全自动模式下推荐使用上帝视角。'
+                : '人机协同模式下可扮演蓝军角色参与决策。'}
             </p>
 
             <div className="mb-6 space-y-3">
@@ -273,9 +398,15 @@ export default function ScenarioDetailPage() {
               </button>
               <button
                 onClick={confirmStartRun}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                className={`rounded-lg px-4 py-2 text-sm font-medium text-white ${
+                  simulationMode === 'auto'
+                    ? 'bg-green-600 hover:bg-green-700'
+                    : 'bg-indigo-600 hover:bg-indigo-700'
+                }`}
               >
-                以此角色开始推演
+                {simulationMode === 'auto'
+                  ? '开始全自动推演'
+                  : '开始人机协同推演'}
               </button>
             </div>
           </div>
@@ -772,45 +903,198 @@ export default function ScenarioDetailPage() {
               {/* Agents Tab */}
               {tab === 'agents' && (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {scenario.agents?.map((agent: any, idx: number) => (
-                    <div
-                      key={idx}
-                      className="rounded-lg border border-gray-200 bg-gray-50 p-4"
-                    >
-                      <div className="mb-2 flex items-center justify-between">
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                            agent.team === 'BLUE'
-                              ? 'bg-blue-100 text-blue-700'
-                              : agent.team === 'RED'
-                                ? 'bg-red-100 text-red-700'
-                                : agent.team === 'GREEN'
-                                  ? 'bg-green-100 text-green-700'
-                                  : 'bg-purple-100 text-purple-700'
-                          }`}
-                        >
-                          {agent.team}
-                        </span>
-                      </div>
-                      <h4 className="font-semibold text-gray-900">
-                        {agent.role}
-                      </h4>
-                      {agent.companyName && (
-                        <p className="text-xs text-gray-500">
-                          {agent.companyName}
-                        </p>
-                      )}
-                      {agent.persona && (
-                        <div className="mt-2 rounded border border-gray-200 bg-white p-2 text-xs">
-                          <pre className="whitespace-pre-wrap font-mono">
-                            {typeof agent.persona === 'string'
-                              ? agent.persona
-                              : JSON.stringify(agent.persona, null, 2)}
-                          </pre>
+                  {scenario.agents?.map((agent: any, idx: number) => {
+                    // 解析 persona JSON
+                    let persona: any = {};
+                    try {
+                      persona =
+                        typeof agent.persona === 'string'
+                          ? JSON.parse(agent.persona)
+                          : agent.persona || {};
+                    } catch {
+                      persona = {};
+                    }
+
+                    const teamConfigMap: Record<
+                      string,
+                      {
+                        label: string;
+                        bg: string;
+                        text: string;
+                        border: string;
+                      }
+                    > = {
+                      BLUE: {
+                        label: '🔵 蓝军',
+                        bg: 'bg-blue-100',
+                        text: 'text-blue-700',
+                        border: 'border-blue-200',
+                      },
+                      RED: {
+                        label: '🔴 红军',
+                        bg: 'bg-red-100',
+                        text: 'text-red-700',
+                        border: 'border-red-200',
+                      },
+                      GREEN: {
+                        label: '🟢 绿军',
+                        bg: 'bg-green-100',
+                        text: 'text-green-700',
+                        border: 'border-green-200',
+                      },
+                      CHAOS: {
+                        label: '🟣 混沌',
+                        bg: 'bg-purple-100',
+                        text: 'text-purple-700',
+                        border: 'border-purple-200',
+                      },
+                    };
+                    const teamConfig = teamConfigMap[agent.team as string] || {
+                      label: agent.team,
+                      bg: 'bg-gray-100',
+                      text: 'text-gray-700',
+                      border: 'border-gray-200',
+                    };
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`rounded-xl border-2 ${teamConfig.border} bg-white p-4 shadow-sm`}
+                      >
+                        {/* Header */}
+                        <div className="mb-3 flex items-center justify-between">
+                          <span
+                            className={`rounded-full ${teamConfig.bg} ${teamConfig.text} px-2.5 py-1 text-xs font-medium`}
+                          >
+                            {teamConfig.label}
+                          </span>
+                          {persona.riskTolerance !== undefined && (
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                persona.riskTolerance > 70
+                                  ? 'bg-red-100 text-red-700'
+                                  : persona.riskTolerance > 40
+                                    ? 'bg-amber-100 text-amber-700'
+                                    : 'bg-green-100 text-green-700'
+                              }`}
+                            >
+                              风险 {persona.riskTolerance}%
+                            </span>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  ))}
+
+                        {/* Role & Company */}
+                        <h4 className="text-base font-bold text-gray-900">
+                          {agent.role}
+                        </h4>
+                        {agent.companyName && (
+                          <p className="mt-0.5 text-sm text-gray-500">
+                            {agent.companyName}
+                          </p>
+                        )}
+
+                        {/* Persona - 友好显示 */}
+                        {Object.keys(persona).length > 0 && (
+                          <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+                            {persona.traits && (
+                              <div className="flex items-start gap-2">
+                                <span className="text-xs text-gray-400">
+                                  🎭
+                                </span>
+                                <div>
+                                  <span className="text-[10px] font-medium uppercase text-gray-400">
+                                    性格
+                                  </span>
+                                  <p className="text-xs text-gray-700">
+                                    {persona.traits}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                            {persona.biases && (
+                              <div className="flex items-start gap-2">
+                                <span className="text-xs text-gray-400">
+                                  ⚡
+                                </span>
+                                <div>
+                                  <span className="text-[10px] font-medium uppercase text-gray-400">
+                                    偏见
+                                  </span>
+                                  <p className="text-xs text-gray-700">
+                                    {persona.biases}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                            {persona.pressure && (
+                              <div className="flex items-start gap-2">
+                                <span className="text-xs text-gray-400">
+                                  💢
+                                </span>
+                                <div>
+                                  <span className="text-[10px] font-medium uppercase text-gray-400">
+                                    压力源
+                                  </span>
+                                  <p className="text-xs text-gray-700">
+                                    {persona.pressure}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                            {persona.timePref && (
+                              <div className="flex items-start gap-2">
+                                <span className="text-xs text-gray-400">
+                                  ⏱️
+                                </span>
+                                <div>
+                                  <span className="text-[10px] font-medium uppercase text-gray-400">
+                                    时间偏好
+                                  </span>
+                                  <p className="text-xs text-gray-700">
+                                    {persona.timePref}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                            {/* 显示其他未知字段的摘要 */}
+                            {Object.keys(persona).filter(
+                              (k) =>
+                                ![
+                                  'traits',
+                                  'biases',
+                                  'pressure',
+                                  'timePref',
+                                  'riskTolerance',
+                                  'compliance',
+                                ].includes(k)
+                            ).length > 0 && (
+                              <details className="text-xs">
+                                <summary className="cursor-pointer text-gray-400 hover:text-gray-600">
+                                  更多配置...
+                                </summary>
+                                <div className="mt-1 rounded bg-gray-50 p-2 font-mono text-[10px] text-gray-500">
+                                  {Object.entries(persona)
+                                    .filter(
+                                      ([k]) =>
+                                        ![
+                                          'traits',
+                                          'biases',
+                                          'pressure',
+                                          'timePref',
+                                          'riskTolerance',
+                                          'compliance',
+                                        ].includes(k)
+                                    )
+                                    .map(([k, v]) => `${k}: ${v}`)
+                                    .join(', ')}
+                                </div>
+                              </details>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 

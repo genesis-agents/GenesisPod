@@ -135,6 +135,87 @@ export class SimulationService {
     return { success: true, message: "Scenario deleted successfully" };
   }
 
+  async updateScenario(id: string, input: Partial<CreateScenarioInput>) {
+    const existing = await this.prisma.simulationScenario.findUnique({
+      where: { id },
+      include: { companies: true, agents: true },
+    });
+    if (!existing) {
+      throw new NotFoundException(`Scenario ${id} not found`);
+    }
+
+    // Update basic scenario fields
+    await this.prisma.simulationScenario.update({
+      where: { id },
+      data: {
+        name: input.name ?? existing.name,
+        industry: input.industry ?? existing.industry,
+        region: input.region ?? existing.region,
+        goals: input.goals ?? existing.goals,
+        constraints: input.constraints ?? existing.constraints,
+        dataSources: input.dataSources ?? existing.dataSources,
+      },
+    });
+
+    // If companies are provided, replace them all
+    if (input.companies) {
+      // Delete existing companies first
+      await this.prisma.simulationCompany.deleteMany({
+        where: { scenarioId: id },
+      });
+      // Create new companies
+      if (input.companies.length > 0) {
+        await this.prisma.simulationCompany.createMany({
+          data: input.companies.map((c) => ({
+            scenarioId: id,
+            name: c.name,
+            type: c.type,
+            market: c.market,
+            metrics: c.metrics,
+            publicData: c.publicData,
+            privateData: c.privateData,
+          })),
+        });
+      }
+    }
+
+    // If agents are provided, replace them all
+    if (input.agents) {
+      // First delete existing agents
+      await this.prisma.simulationAgent.deleteMany({
+        where: { scenarioId: id },
+      });
+
+      // Get updated companies to map names to IDs
+      const updatedCompanies = await this.prisma.simulationCompany.findMany({
+        where: { scenarioId: id },
+      });
+      const companyMap = new Map(
+        updatedCompanies.map((c) => [c.name.toLowerCase(), c.id]),
+      );
+
+      // Create new agents
+      if (input.agents.length > 0) {
+        await this.prisma.simulationAgent.createMany({
+          data: input.agents.map((a) => ({
+            scenarioId: id,
+            companyId: a.companyName
+              ? companyMap.get(a.companyName.toLowerCase()) || null
+              : null,
+            team: a.team,
+            role: a.role,
+            persona: a.persona,
+            memoryPublic: a.memoryPublic,
+            memoryPrivate: a.memoryPrivate,
+            tools: a.tools,
+          })),
+        });
+      }
+    }
+
+    return this.getScenarioById(id);
+  }
+
   async listScenarios() {
     return this.prisma.simulationScenario.findMany({
       orderBy: { updatedAt: "desc" },

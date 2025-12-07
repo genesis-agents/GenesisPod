@@ -69,6 +69,39 @@ export class SimulationController {
     return this.simulationService.getScenarioById(id);
   }
 
+  @Patch("scenarios/:id")
+  async updateScenario(
+    @Param("id") id: string,
+    @Body()
+    body: {
+      name?: string;
+      industry?: string;
+      region?: string;
+      goals?: any;
+      constraints?: any;
+      dataSources?: any;
+      companies?: Array<{
+        name: string;
+        type?: string;
+        market?: string;
+        metrics?: any;
+        publicData?: any;
+        privateData?: any;
+      }>;
+      agents?: Array<{
+        companyName?: string;
+        team: SimulationTeam;
+        role: string;
+        persona?: any;
+        memoryPublic?: any;
+        memoryPrivate?: any;
+        tools?: any;
+      }>;
+    },
+  ) {
+    return this.simulationService.updateScenario(id, body);
+  }
+
   @Delete("scenarios/:id")
   async deleteScenario(@Param("id") id: string) {
     return this.simulationService.deleteScenario(id);

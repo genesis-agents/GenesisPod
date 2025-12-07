@@ -1313,14 +1313,22 @@ Format the summary in a clear, structured manner using markdown.`;
     }
 
     if (!content) {
+      const finishReason = data.choices?.[0]?.finish_reason;
       this.logger.warn(
-        `[${modelName}] API returned empty content, full response: ${JSON.stringify(data).substring(0, 500)}`,
+        `[${modelName}] API returned empty content (finish_reason=${finishReason}), full response: ${JSON.stringify(data).substring(0, 500)}`,
       );
+      // 如果是因为max_tokens不足导致的空内容，抛出异常以便尝试下一个模型
+      if (finishReason === "length") {
+        throw new Error(
+          `[${modelName}] Response truncated due to max_tokens limit (finish_reason=length)`,
+        );
+      }
+      // 其他原因导致的空内容也抛出异常
+      throw new Error(`[${modelName}] No response content received from API.`);
     }
 
     return {
-      content:
-        content || `[${modelName}] No response content received from API.`,
+      content,
       model: modelName,
       tokensUsed: data.usage?.total_tokens || 0,
     };
@@ -1847,14 +1855,22 @@ Generate an image that fulfills the current request while maintaining consistenc
     }
 
     if (!finalContent) {
+      const finishReason = data.candidates?.[0]?.finishReason;
       this.logger.warn(
-        `[Gemini] Empty response, full data: ${JSON.stringify(data).substring(0, 500)}`,
+        `[Gemini] Empty response (finishReason=${finishReason}), full data: ${JSON.stringify(data).substring(0, 500)}`,
       );
+      // 如果是因为max_tokens不足导致的空内容，抛出异常以便尝试下一个模型
+      if (finishReason === "MAX_TOKENS") {
+        throw new Error(
+          `[Gemini] Response truncated due to max_tokens limit (finishReason=MAX_TOKENS)`,
+        );
+      }
+      // 其他原因导致的空内容也抛出异常
+      throw new Error(`[Gemini] No response content received from API.`);
     }
 
     return {
-      content:
-        finalContent || "[Gemini] No response content received from API.",
+      content: finalContent,
       model: "gemini",
       tokensUsed:
         (data.usageMetadata?.promptTokenCount || 0) +

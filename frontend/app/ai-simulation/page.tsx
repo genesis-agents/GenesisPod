@@ -708,8 +708,15 @@ function EditorModal({
   const saveScenario = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`${config.apiUrl}/simulation/scenarios`, {
-        method: 'POST',
+      // 判断是编辑还是新建
+      const isEditing = !!scenario?.id;
+      const url = isEditing
+        ? `${config.apiUrl}/simulation/scenarios/${scenario.id}`
+        : `${config.apiUrl}/simulation/scenarios`;
+      const method = isEditing ? 'PATCH' : 'POST';
+
+      const res = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           ...getAuthHeader(),
@@ -732,7 +739,7 @@ function EditorModal({
       });
       const data = await res.json();
       if (res.ok) {
-        setMessage('场景已保存');
+        setMessage(isEditing ? '场景已更新' : '场景已保存');
         onSaved();
       } else {
         setMessage(data?.message || '保存失败');

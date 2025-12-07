@@ -88,7 +88,33 @@ export default function RunConsolePage() {
   const [interventionText, setInterventionText] = useState('');
   const [showGuide, setShowGuide] = useState(false);
   const [userRole, setUserRole] = useState<string>(urlRole);
+  const [expandedRounds, setExpandedRounds] = useState<Set<number>>(new Set());
   const timelineEndRef = useRef<HTMLDivElement>(null);
+
+  // 切换回合展开/折叠状态
+  const toggleRound = (roundNumber: number) => {
+    setExpandedRounds((prev) => {
+      const next = new Set(prev);
+      if (next.has(roundNumber)) {
+        next.delete(roundNumber);
+      } else {
+        next.add(roundNumber);
+      }
+      return next;
+    });
+  };
+
+  // 展开所有回合
+  const expandAllRounds = () => {
+    if (run?.turns) {
+      setExpandedRounds(new Set(run.turns.map((t) => t.roundNumber)));
+    }
+  };
+
+  // 折叠所有回合
+  const collapseAllRounds = () => {
+    setExpandedRounds(new Set());
+  };
 
   useEffect(() => {
     if (user && runId) {
@@ -109,6 +135,11 @@ export default function RunConsolePage() {
   useEffect(() => {
     // Auto-scroll to bottom when new turns are added
     timelineEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // 自动展开最新的回合
+    if (run?.turns && run.turns.length > 0) {
+      const latestRound = Math.max(...run.turns.map((t) => t.roundNumber));
+      setExpandedRounds((prev) => new Set([...prev, latestRound]));
+    }
   }, [run?.turns?.length]);
 
   const fetchRun = async () => {
@@ -433,9 +464,29 @@ export default function RunConsolePage() {
           {/* Timeline (Left) */}
           <div className="flex w-2/5 flex-col border-r border-gray-200 bg-white">
             <div className="border-b border-gray-200 px-4 py-3">
-              <h2 className="text-sm font-semibold text-gray-900">
-                推演时间线
-              </h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-gray-900">
+                  推演时间线
+                </h2>
+                {run?.turns && run.turns.length > 0 && (
+                  <div className="flex gap-1">
+                    <button
+                      onClick={expandAllRounds}
+                      className="rounded px-2 py-0.5 text-[10px] text-gray-500 hover:bg-gray-100"
+                      title="展开全部"
+                    >
+                      全部展开
+                    </button>
+                    <button
+                      onClick={collapseAllRounds}
+                      className="rounded px-2 py-0.5 text-[10px] text-gray-500 hover:bg-gray-100"
+                      title="折叠全部"
+                    >
+                      全部折叠
+                    </button>
+                  </div>
+                )}
+              </div>
               <p className="mt-1 text-xs text-gray-500">
                 {userRole === 'observer' ? (
                   <>
@@ -467,245 +518,283 @@ export default function RunConsolePage() {
                 </span>
               </div>
             </div>
-            <div className="flex-1 space-y-4 overflow-y-auto p-4">
+            <div className="flex-1 space-y-2 overflow-y-auto p-4">
               {run.turns && run.turns.length > 0 ? (
-                run.turns.map((turn) => (
-                  <div key={turn.id} className="space-y-3">
-                    {/* Round Header */}
-                    <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
-                      <Clock className="h-3 w-3" />
-                      Round {turn.roundNumber}
-                      <span className="text-gray-400">·</span>
-                      <span>
-                        {new Date(turn.createdAt).toLocaleTimeString()}
-                      </span>
-                    </div>
+                run.turns.map((turn) => {
+                  const isExpanded = expandedRounds.has(turn.roundNumber);
+                  const submissionCount = Array.isArray(turn.submissions)
+                    ? turn.submissions.length
+                    : 0;
 
-                    {/* Agent Submissions - 更直观的卡片式展示 */}
-                    {turn.submissions && Array.isArray(turn.submissions) && (
-                      <div className="ml-4 space-y-4">
-                        {/* 按Team分组展示 */}
-                        {['BLUE', 'RED', 'GREEN', 'CHAOS'].map((teamName) => {
-                          const teamSubmissions = turn.submissions.filter(
-                            (s: any) => s.team === teamName
-                          );
-                          if (teamSubmissions.length === 0) return null;
-
-                          const teamConfig = {
-                            BLUE: {
-                              label: '蓝军行动',
-                              sublabel: '我方',
-                              bg: 'bg-gradient-to-r from-blue-50 to-blue-100',
-                              border: 'border-blue-300',
-                              text: 'text-blue-800',
-                              icon: '🔵',
-                              accent: 'bg-blue-500',
-                            },
-                            RED: {
-                              label: '红军行动',
-                              sublabel: '对手',
-                              bg: 'bg-gradient-to-r from-red-50 to-red-100',
-                              border: 'border-red-300',
-                              text: 'text-red-800',
-                              icon: '🔴',
-                              accent: 'bg-red-500',
-                            },
-                            GREEN: {
-                              label: '绿军行动',
-                              sublabel: '第三方',
-                              bg: 'bg-gradient-to-r from-green-50 to-green-100',
-                              border: 'border-green-300',
-                              text: 'text-green-800',
-                              icon: '🟢',
-                              accent: 'bg-green-500',
-                            },
-                            CHAOS: {
-                              label: '黑天鹅事件',
-                              sublabel: '意外',
-                              bg: 'bg-gradient-to-r from-purple-50 to-purple-100',
-                              border: 'border-purple-300',
-                              text: 'text-purple-800',
-                              icon: '🟣',
-                              accent: 'bg-purple-500',
-                            },
-                          }[teamName] || {
-                            label: teamName,
-                            sublabel: '',
-                            bg: 'bg-gray-50',
-                            border: 'border-gray-200',
-                            text: 'text-gray-700',
-                            icon: '👤',
-                            accent: 'bg-gray-500',
-                          };
-
-                          return (
-                            <div
-                              key={teamName}
-                              className={`overflow-hidden rounded-xl border-2 ${teamConfig.border} shadow-sm`}
+                  return (
+                    <div
+                      key={turn.id}
+                      className="overflow-hidden rounded-lg border border-gray-200 bg-white"
+                    >
+                      {/* Round Header - 可点击折叠/展开 */}
+                      <button
+                        onClick={() => toggleRound(turn.roundNumber)}
+                        className="flex w-full items-center justify-between px-3 py-2 transition-colors hover:bg-gray-50"
+                      >
+                        <div className="flex items-center gap-2 text-xs font-medium text-gray-700">
+                          <Clock className="h-3 w-3 text-gray-400" />
+                          <span className="font-semibold">
+                            回合 {turn.roundNumber}
+                          </span>
+                          <span className="text-gray-400">·</span>
+                          <span className="text-gray-500">
+                            {new Date(turn.createdAt).toLocaleTimeString()}
+                          </span>
+                          <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">
+                            {submissionCount} 条行动
+                          </span>
+                          {turn.adjudication?.ruling && (
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                turn.adjudication.ruling === 'proceed'
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-yellow-100 text-yellow-700'
+                              }`}
                             >
-                              {/* Team Header - 更突出 */}
-                              <div
-                                className={`flex items-center gap-2 ${teamConfig.bg} px-4 py-2`}
-                              >
-                                <span className="text-lg">
-                                  {teamConfig.icon}
-                                </span>
-                                <div>
-                                  <span
-                                    className={`text-sm font-bold ${teamConfig.text}`}
+                              {turn.adjudication.ruling}
+                            </span>
+                          )}
+                        </div>
+                        <ChevronDown
+                          className={`h-4 w-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+
+                      {/* Agent Submissions - 折叠内容 */}
+                      {isExpanded &&
+                        turn.submissions &&
+                        Array.isArray(turn.submissions) && (
+                          <div className="ml-4 space-y-4">
+                            {/* 按Team分组展示 */}
+                            {['BLUE', 'RED', 'GREEN', 'CHAOS'].map(
+                              (teamName) => {
+                                const teamSubmissions = turn.submissions.filter(
+                                  (s: any) => s.team === teamName
+                                );
+                                if (teamSubmissions.length === 0) return null;
+
+                                const teamConfig = {
+                                  BLUE: {
+                                    label: '蓝军行动',
+                                    sublabel: '我方',
+                                    bg: 'bg-gradient-to-r from-blue-50 to-blue-100',
+                                    border: 'border-blue-300',
+                                    text: 'text-blue-800',
+                                    icon: '🔵',
+                                    accent: 'bg-blue-500',
+                                  },
+                                  RED: {
+                                    label: '红军行动',
+                                    sublabel: '对手',
+                                    bg: 'bg-gradient-to-r from-red-50 to-red-100',
+                                    border: 'border-red-300',
+                                    text: 'text-red-800',
+                                    icon: '🔴',
+                                    accent: 'bg-red-500',
+                                  },
+                                  GREEN: {
+                                    label: '绿军行动',
+                                    sublabel: '第三方',
+                                    bg: 'bg-gradient-to-r from-green-50 to-green-100',
+                                    border: 'border-green-300',
+                                    text: 'text-green-800',
+                                    icon: '🟢',
+                                    accent: 'bg-green-500',
+                                  },
+                                  CHAOS: {
+                                    label: '黑天鹅事件',
+                                    sublabel: '意外',
+                                    bg: 'bg-gradient-to-r from-purple-50 to-purple-100',
+                                    border: 'border-purple-300',
+                                    text: 'text-purple-800',
+                                    icon: '🟣',
+                                    accent: 'bg-purple-500',
+                                  },
+                                }[teamName] || {
+                                  label: teamName,
+                                  sublabel: '',
+                                  bg: 'bg-gray-50',
+                                  border: 'border-gray-200',
+                                  text: 'text-gray-700',
+                                  icon: '👤',
+                                  accent: 'bg-gray-500',
+                                };
+
+                                return (
+                                  <div
+                                    key={teamName}
+                                    className={`overflow-hidden rounded-xl border-2 ${teamConfig.border} shadow-sm`}
                                   >
-                                    {teamConfig.label}
-                                  </span>
-                                  <span className="ml-2 text-xs text-gray-500">
-                                    ({teamConfig.sublabel})
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Submissions */}
-                              <div className="divide-y divide-gray-100 bg-white">
-                                {teamSubmissions.map(
-                                  (submission: any, idx: number) => (
-                                    <div key={idx} className="p-4">
-                                      {/* 角色和标签 */}
-                                      <div className="mb-2 flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                          <span
-                                            className={`inline-block h-2 w-2 rounded-full ${teamConfig.accent}`}
-                                          />
-                                          <span className="font-semibold text-gray-900">
-                                            {submission.role}
-                                          </span>
-                                        </div>
-                                        {submission.irrational && (
-                                          <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-700">
-                                            ⚡ 非理性决策
-                                          </span>
-                                        )}
+                                    {/* Team Header - 更突出 */}
+                                    <div
+                                      className={`flex items-center gap-2 ${teamConfig.bg} px-4 py-2`}
+                                    >
+                                      <span className="text-lg">
+                                        {teamConfig.icon}
+                                      </span>
+                                      <div>
+                                        <span
+                                          className={`text-sm font-bold ${teamConfig.text}`}
+                                        >
+                                          {teamConfig.label}
+                                        </span>
+                                        <span className="ml-2 text-xs text-gray-500">
+                                          ({teamConfig.sublabel})
+                                        </span>
                                       </div>
+                                    </div>
 
-                                      {/* 公开行动 - 最突出显示 */}
-                                      {submission.publicAction && (
-                                        <div className="mb-3 rounded-lg bg-gray-50 p-3">
-                                          <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                                            📢 公开行动
-                                          </div>
-                                          <div className="text-sm leading-relaxed text-gray-800">
-                                            {submission.publicAction.includes(
-                                              'API Error'
-                                            ) ||
-                                            submission.publicAction.includes(
-                                              'quota'
-                                            ) ? (
-                                              <span className="italic text-red-500">
-                                                [决策生成失败]
-                                              </span>
-                                            ) : (
-                                              submission.publicAction
+                                    {/* Submissions */}
+                                    <div className="divide-y divide-gray-100 bg-white">
+                                      {teamSubmissions.map(
+                                        (submission: any, idx: number) => (
+                                          <div key={idx} className="p-4">
+                                            {/* 角色和标签 */}
+                                            <div className="mb-2 flex items-center justify-between">
+                                              <div className="flex items-center gap-2">
+                                                <span
+                                                  className={`inline-block h-2 w-2 rounded-full ${teamConfig.accent}`}
+                                                />
+                                                <span className="font-semibold text-gray-900">
+                                                  {submission.role}
+                                                </span>
+                                              </div>
+                                              {submission.irrational && (
+                                                <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-700">
+                                                  ⚡ 非理性决策
+                                                </span>
+                                              )}
+                                            </div>
+
+                                            {/* 公开行动 - 最突出显示 */}
+                                            {submission.publicAction && (
+                                              <div className="mb-3 rounded-lg bg-gray-50 p-3">
+                                                <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                                                  📢 公开行动
+                                                </div>
+                                                <div className="text-sm leading-relaxed text-gray-800">
+                                                  {submission.publicAction.includes(
+                                                    'API Error'
+                                                  ) ||
+                                                  submission.publicAction.includes(
+                                                    'quota'
+                                                  ) ? (
+                                                    <span className="italic text-red-500">
+                                                      [决策生成失败]
+                                                    </span>
+                                                  ) : (
+                                                    submission.publicAction
+                                                  )}
+                                                </div>
+                                              </div>
                                             )}
-                                          </div>
-                                        </div>
-                                      )}
 
-                                      {/* 内心独白 - 默认展开显示，更直观 */}
-                                      {submission.innerMonologue &&
-                                        !submission.innerMonologue.includes(
-                                          'API Error'
-                                        ) &&
-                                        (userRole === 'observer' ||
-                                        teamName === 'BLUE' ? (
-                                          <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3">
-                                            <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-amber-700">
-                                              💭 决策思路（内心想法）
-                                            </div>
-                                            <div className="text-xs leading-relaxed text-gray-700">
-                                              {submission.innerMonologue}
-                                            </div>
+                                            {/* 内心独白 - 默认展开显示，更直观 */}
+                                            {submission.innerMonologue &&
+                                              !submission.innerMonologue.includes(
+                                                'API Error'
+                                              ) &&
+                                              (userRole === 'observer' ||
+                                              teamName === 'BLUE' ? (
+                                                <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+                                                  <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-amber-700">
+                                                    💭 决策思路（内心想法）
+                                                  </div>
+                                                  <div className="text-xs leading-relaxed text-gray-700">
+                                                    {submission.innerMonologue}
+                                                  </div>
+                                                </div>
+                                              ) : (
+                                                <div className="flex items-center gap-2 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3 text-xs text-gray-400">
+                                                  <span>🔒</span>
+                                                  <span className="italic">
+                                                    对手的决策思路在此视角下隐藏
+                                                  </span>
+                                                </div>
+                                              ))}
                                           </div>
-                                        ) : (
-                                          <div className="flex items-center gap-2 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3 text-xs text-gray-400">
-                                            <span>🔒</span>
-                                            <span className="italic">
-                                              对手的决策思路在此视角下隐藏
-                                            </span>
-                                          </div>
-                                        ))}
+                                        )
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              }
+                            )}
+                          </div>
+                        )}
+
+                      {/* Adjudication */}
+                      {turn.adjudication && (
+                        <div className="ml-4 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+                          <div className="mb-2 flex items-center gap-2 text-xs font-medium text-indigo-700">
+                            <AlertTriangle className="h-3 w-3" />
+                            裁判判定
+                          </div>
+
+                          {/* Ruling */}
+                          <div className="mb-2 flex items-center gap-2">
+                            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                              {turn.adjudication.ruling || 'proceed'}
+                            </span>
+                          </div>
+
+                          {/* Notes */}
+                          {turn.adjudication.notes && (
+                            <div className="mb-2 text-sm text-gray-900">
+                              {turn.adjudication.notes}
+                            </div>
+                          )}
+
+                          {/* Evidence Refs */}
+                          {turn.adjudication.evidenceRefs &&
+                            Array.isArray(turn.adjudication.evidenceRefs) &&
+                            turn.adjudication.evidenceRefs.length > 0 && (
+                              <div className="mt-2 space-y-1">
+                                {turn.adjudication.evidenceRefs.map(
+                                  (ev: any, idx: number) => (
+                                    <div
+                                      key={idx}
+                                      className="flex items-start gap-2 text-xs text-gray-600"
+                                    >
+                                      <CheckCircle
+                                        className={`mt-0.5 h-3 w-3 ${ev.status === 'missing' ? 'text-orange-600' : 'text-green-600'}`}
+                                      />
+                                      <span>
+                                        {ev.provider}: {ev.note || ev.status}
+                                      </span>
                                     </div>
                                   )
                                 )}
                               </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                            )}
 
-                    {/* Adjudication */}
-                    {turn.adjudication && (
-                      <div className="ml-4 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
-                        <div className="mb-2 flex items-center gap-2 text-xs font-medium text-indigo-700">
-                          <AlertTriangle className="h-3 w-3" />
-                          裁判判定
-                        </div>
-
-                        {/* Ruling */}
-                        <div className="mb-2 flex items-center gap-2">
-                          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
-                            {turn.adjudication.ruling || 'proceed'}
-                          </span>
-                        </div>
-
-                        {/* Notes */}
-                        {turn.adjudication.notes && (
-                          <div className="mb-2 text-sm text-gray-900">
-                            {turn.adjudication.notes}
-                          </div>
-                        )}
-
-                        {/* Evidence Refs */}
-                        {turn.adjudication.evidenceRefs &&
-                          Array.isArray(turn.adjudication.evidenceRefs) &&
-                          turn.adjudication.evidenceRefs.length > 0 && (
-                            <div className="mt-2 space-y-1">
-                              {turn.adjudication.evidenceRefs.map(
-                                (ev: any, idx: number) => (
-                                  <div
-                                    key={idx}
-                                    className="flex items-start gap-2 text-xs text-gray-600"
-                                  >
-                                    <CheckCircle
-                                      className={`mt-0.5 h-3 w-3 ${ev.status === 'missing' ? 'text-orange-600' : 'text-green-600'}`}
-                                    />
-                                    <span>
-                                      {ev.provider}: {ev.note || ev.status}
-                                    </span>
-                                  </div>
-                                )
-                              )}
+                          {/* World Delta */}
+                          {turn.adjudication.worldDelta && (
+                            <div className="mt-2 rounded bg-white p-2">
+                              <div className="mb-1 text-xs font-medium text-gray-700">
+                                世界状态变化:
+                              </div>
+                              <div className="max-h-40 overflow-y-auto font-mono text-xs">
+                                <pre className="whitespace-pre-wrap text-gray-600">
+                                  {JSON.stringify(
+                                    turn.adjudication.worldDelta,
+                                    null,
+                                    2
+                                  )}
+                                </pre>
+                              </div>
                             </div>
                           )}
-
-                        {/* World Delta */}
-                        {turn.adjudication.worldDelta && (
-                          <div className="mt-2 rounded bg-white p-2">
-                            <div className="mb-1 text-xs font-medium text-gray-700">
-                              世界状态变化:
-                            </div>
-                            <div className="max-h-40 overflow-y-auto font-mono text-xs">
-                              <pre className="whitespace-pre-wrap text-gray-600">
-                                {JSON.stringify(
-                                  turn.adjudication.worldDelta,
-                                  null,
-                                  2
-                                )}
-                              </pre>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
               ) : (
                 <div className="flex h-full items-center justify-center text-sm text-gray-500">
                   等待推演开始...

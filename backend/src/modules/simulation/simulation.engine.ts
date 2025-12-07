@@ -178,21 +178,45 @@ export class SimulationEngineService {
         return this.parseAgentResponse(result.content, agent);
       } catch (error: any) {
         const errorMsg = error?.message || String(error);
+
+        // 区分不同类型的错误
+        // quota/rate limit errors - 配额或速率限制
         const isQuotaError =
           errorMsg.includes("quota") ||
-          errorMsg.includes("rate") ||
-          errorMsg.includes("limit");
+          errorMsg.includes("rate_limit") ||
+          errorMsg.includes("rate limit") ||
+          errorMsg.includes("429");
+
+        // max_tokens truncation errors - tokens不足导致截断
+        const isTokenLimitError =
+          errorMsg.includes("max_tokens") ||
+          errorMsg.includes("MAX_TOKENS") ||
+          errorMsg.includes("truncated") ||
+          errorMsg.includes("finish_reason=length") ||
+          errorMsg.includes("finishReason=MAX_TOKENS");
+
+        // empty response errors - API返回空内容
+        const isEmptyResponseError =
+          errorMsg.includes("No response content") ||
+          errorMsg.includes("Empty response");
 
         if (isQuotaError) {
           this.logger.warn(
-            `[Agent ${agent.role}] Model ${model.name} quota exceeded, trying next model`,
+            `[Agent ${agent.role}] Model ${model.name} quota/rate limit exceeded, trying next model`,
           );
-          continue; // 尝试下一个模型
+        } else if (isTokenLimitError) {
+          this.logger.warn(
+            `[Agent ${agent.role}] Model ${model.name} response truncated (max_tokens too small), trying next model`,
+          );
+        } else if (isEmptyResponseError) {
+          this.logger.warn(
+            `[Agent ${agent.role}] Model ${model.name} returned empty response, trying next model`,
+          );
+        } else {
+          this.logger.error(
+            `[Agent ${agent.role}] Model ${model.name} failed: ${errorMsg}`,
+          );
         }
-
-        this.logger.error(
-          `[Agent ${agent.role}] Model ${model.name} failed: ${errorMsg}`,
-        );
         continue; // 尝试下一个模型
       }
     }
@@ -271,25 +295,71 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
     response: string,
     agent: any,
   ): { innerMonologue: string; publicAction: string } {
+    // 清理响应：移除markdown代码块标记
+    let cleanResponse = response
+      .replace(/```json\s*/gi, "")
+      .replace(/```\s*/g, "")
+      .trim();
+
     try {
       // 尝试解析JSON格式
-      const jsonMatch = response.match(
+      const jsonMatch = cleanResponse.match(
         /\{[\s\S]*"innerMonologue"[\s\S]*"publicAction"[\s\S]*\}/,
       );
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
         return {
-          innerMonologue: parsed.innerMonologue || response,
+          innerMonologue: parsed.innerMonologue || "思考中...",
           publicAction: parsed.publicAction || "行动已提交",
         };
       }
+
+      // 尝试直接解析整个响应为JSON
+      if (cleanResponse.startsWith("{")) {
+        const parsed = JSON.parse(cleanResponse);
+        if (parsed.innerMonologue || parsed.publicAction) {
+          return {
+            innerMonologue: parsed.innerMonologue || "思考中...",
+            publicAction: parsed.publicAction || "行动已提交",
+          };
+        }
+      }
     } catch (e) {
-      // JSON解析失败，使用原始响应
+      // JSON解析失败，继续尝试其他方式
+      this.logger.debug(`[Agent ${agent.role}] JSON parse failed: ${e}`);
     }
 
-    // 回退：使用原始响应作为内心独白
+    // 检查是否包含JSON结构但解析失败（可能是不完整的JSON）
+    if (
+      cleanResponse.includes('"innerMonologue"') ||
+      cleanResponse.includes('"publicAction"')
+    ) {
+      // 尝试提取字段值
+      const innerMatch = cleanResponse.match(
+        /"innerMonologue"\s*:\s*"([^"]+)"/,
+      );
+      const actionMatch = cleanResponse.match(/"publicAction"\s*:\s*"([^"]+)"/);
+
+      if (innerMatch || actionMatch) {
+        return {
+          innerMonologue: innerMatch?.[1] || "思考中...",
+          publicAction: actionMatch?.[1] || "行动已提交",
+        };
+      }
+    }
+
+    // 回退：如果响应看起来像是纯文本，用它作为决策内容
+    // 避免显示JSON代码给用户
+    if (!cleanResponse.includes("{") && !cleanResponse.includes("}")) {
+      return {
+        innerMonologue: cleanResponse.slice(0, 500),
+        publicAction: cleanResponse.slice(0, 200),
+      };
+    }
+
+    // 最后的回退：使用默认值，不显示原始JSON
     return {
-      innerMonologue: response.slice(0, 500),
+      innerMonologue: `${agent.role}正在分析局势并制定策略...`,
       publicAction: `${agent.role}的行动已提交，等待裁判判定`,
     };
   }
