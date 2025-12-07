@@ -682,428 +682,433 @@ export default function SandboxView({
     </div>
   );
 
-  // 渲染2.5D沙盘视图 - 四象限布局
-  const renderSandtableView = () => {
-    const zones = [
-      { team: 'BLUE', position: 'topLeft', icon: Crown },
-      { team: 'RED', position: 'topRight', icon: Target },
-      { team: 'GREEN', position: 'bottomLeft', icon: Store },
-      { team: 'WHITE', position: 'bottomRight', icon: Scale },
-    ];
+  // 渲染四象限卡片
+  const renderQuadrantCard = (
+    team: string,
+    Icon: any,
+    quadrant: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+  ) => {
+    const teamConfig = TEAM_COLORS[team];
+    const teamAgents = agentsByTeam[team] || [];
+    const isHovered = hoveredZone === team;
+
+    // 获取该队伍的提交
+    const teamSubmissions =
+      currentTurn?.submissions && Array.isArray(currentTurn.submissions)
+        ? currentTurn.submissions.filter((sub) => sub.team === team)
+        : [];
+
+    // 根据象限决定圆角
+    const borderRadiusClass = {
+      'top-left': 'rounded-tl-2xl rounded-br-lg',
+      'top-right': 'rounded-tr-2xl rounded-bl-lg',
+      'bottom-left': 'rounded-bl-2xl rounded-tr-lg',
+      'bottom-right': 'rounded-br-2xl rounded-tl-lg',
+    }[quadrant];
 
     return (
       <div
-        className={`relative h-full w-full overflow-hidden bg-gradient-to-br ${industryConfig.gradient}`}
+        className={`relative flex flex-col border transition-all ${borderRadiusClass} ${
+          isHovered ? 'border-white/40 shadow-lg' : 'border-white/20'
+        }`}
+        style={{ backgroundColor: `${teamConfig.primary}15` }}
+        onMouseEnter={() => setHoveredZone(team)}
+        onMouseLeave={() => setHoveredZone(null)}
       >
-        {/* 动态行业背景图片 */}
-        {backgroundImage && (
-          <div
-            className="absolute inset-0 opacity-30 transition-opacity duration-1000"
-            style={{
-              backgroundImage: `url(${backgroundImage})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              filter: 'blur(2px)',
-            }}
-          />
-        )}
-
-        {/* 背景生成状态指示器 */}
-        {isGeneratingBackground && (
-          <div className="absolute right-4 top-4 z-10 flex items-center gap-2 rounded-lg border border-white/20 bg-black/50 px-3 py-2 text-xs text-white backdrop-blur-sm">
-            <Loader2
-              className="h-4 w-4 animate-spin"
-              style={{ color: industryConfig.accent }}
-            />
-            <span>生成行业背景...</span>
-          </div>
-        )}
-
-        {/* 手动生成背景按钮 */}
-        {!backgroundImage && !isGeneratingBackground && (
-          <button
-            onClick={generateIndustryBackground}
-            className="absolute right-4 top-4 z-10 flex items-center gap-2 rounded-lg border border-white/20 bg-black/50 px-3 py-2 text-xs text-white backdrop-blur-sm transition-colors hover:border-white/40 hover:bg-black/70"
-          >
-            <ImageIcon
-              className="h-4 w-4"
-              style={{ color: industryConfig.accent }}
-            />
-            <span>生成行业背景</span>
-          </button>
-        )}
-
-        {/* 背景遮罩层 */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/50" />
-
-        {/* 2.5D透视容器 */}
+        {/* 区域标题栏 */}
         <div
-          className="absolute inset-0 flex items-center justify-center"
-          style={{ perspective: '1200px' }}
+          className={`flex items-center justify-between px-3 py-2 ${
+            quadrant.includes('top') ? 'rounded-t-xl' : ''
+          }`}
+          style={{ backgroundColor: `${teamConfig.primary}25` }}
         >
-          {/* 沙盘主体 */}
-          <div
-            className="relative h-[500px] w-[800px] transition-transform duration-500"
-            style={{
-              transform: 'rotateX(55deg) rotateZ(0deg)',
-              transformStyle: 'preserve-3d',
-            }}
-          >
-            {/* 网格底板 */}
+          <div className="flex items-center gap-2">
             <div
-              className="absolute inset-0 rounded-lg bg-gradient-to-br from-slate-800/90 to-slate-900/90 shadow-2xl backdrop-blur-sm"
-              style={{
-                borderColor: `${industryConfig.accent}30`,
-                borderWidth: '1px',
-                borderStyle: 'solid',
-              }}
+              className={`flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br ${teamConfig.gradient}`}
             >
-              {/* 网格线 - 使用行业主题色 */}
-              <svg className="absolute inset-0 h-full w-full opacity-20">
-                <defs>
-                  <pattern
-                    id="sandtable-grid"
-                    width="40"
-                    height="40"
-                    patternUnits="userSpaceOnUse"
-                  >
-                    <path
-                      d="M 40 0 L 0 0 0 40"
-                      fill="none"
-                      stroke={industryConfig.accent}
-                      strokeWidth="0.5"
-                    />
-                  </pattern>
-                </defs>
-                <rect width="100%" height="100%" fill="url(#sandtable-grid)" />
-              </svg>
-
-              {/* 四象限分隔线 - 使用行业主题色 */}
-              <div
-                className="absolute left-1/2 top-0 h-full w-px"
-                style={{
-                  background: `linear-gradient(to bottom, transparent, ${industryConfig.accent}80, transparent)`,
-                }}
-              />
-              <div
-                className="absolute left-0 top-1/2 h-px w-full"
-                style={{
-                  background: `linear-gradient(to right, transparent, ${industryConfig.accent}80, transparent)`,
-                }}
-              />
-
-              {/* 中心战场区域 - 使用行业主题色 */}
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                <div
-                  className="flex h-24 w-24 items-center justify-center rounded-full bg-slate-900/80 shadow-lg"
-                  style={{
-                    borderColor: `${industryConfig.accent}80`,
-                    borderWidth: '2px',
-                    borderStyle: 'solid',
-                    boxShadow: `0 10px 15px -3px ${industryConfig.accent}20`,
-                  }}
-                >
-                  <div className="text-center">
-                    <Zap
-                      className="mx-auto h-6 w-6"
-                      style={{ color: industryConfig.accent }}
-                    />
-                    <span
-                      className="mt-1 block text-xs font-medium"
-                      style={{ color: industryConfig.accent }}
-                    >
-                      R{selectedRound}
-                    </span>
-                  </div>
-                </div>
+              <Icon className="h-3.5 w-3.5 text-white" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-white">
+                {teamConfig.label}
               </div>
-
-              {/* 四个象限区域 */}
-              {zones.map(({ team, position, icon: Icon }) => {
-                const teamConfig = TEAM_COLORS[team];
-                const teamAgents = agentsByTeam[team] || [];
-                const isHovered = hoveredZone === team;
-
-                const positionStyles: Record<string, string> = {
-                  topLeft: 'top-2 left-2 right-1/2 bottom-1/2',
-                  topRight: 'top-2 left-1/2 right-2 bottom-1/2',
-                  bottomLeft: 'top-1/2 left-2 right-1/2 bottom-2',
-                  bottomRight: 'top-1/2 left-1/2 right-2 bottom-2',
-                };
-
-                return (
-                  <div
-                    key={team}
-                    className={`absolute ${positionStyles[position]} m-1 rounded-lg border transition-all duration-300 ${
-                      isHovered
-                        ? 'border-white/40 bg-white/10'
-                        : 'border-white/10 bg-white/5'
-                    }`}
-                    style={{ transformStyle: 'preserve-3d' }}
-                    onMouseEnter={() => setHoveredZone(team)}
-                    onMouseLeave={() => setHoveredZone(null)}
-                  >
-                    {/* 区域标题 */}
-                    <div
-                      className="absolute left-3 top-3 flex items-center gap-2"
-                      style={{ transform: 'translateZ(20px)' }}
-                    >
-                      <div
-                        className={`flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br ${teamConfig.gradient} shadow-lg`}
-                      >
-                        <Icon className="h-4 w-4 text-white" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-semibold text-white">
-                          {teamConfig.label}
-                        </div>
-                        <div className="text-xs text-gray-400">
-                          {teamConfig.description}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 对话气泡区域 - 展示各方行动和内心独白 */}
-                    {currentTurn &&
-                      currentTurn.submissions &&
-                      Array.isArray(currentTurn.submissions) &&
-                      (() => {
-                        // 从submissions数组中筛选该队伍的提交
-                        const teamSubmissions = currentTurn.submissions
-                          .filter((sub) => sub.team === team)
-                          .slice(0, 2); // 最多显示2个气泡
-
-                        if (teamSubmissions.length === 0) return null;
-
-                        // 检查权限
-                        const canView =
-                          viewPermission === 'GOD' || viewPermission === team;
-
-                        return (
-                          <div
-                            className="absolute left-3 right-3 top-16 max-h-[120px] space-y-2 overflow-hidden"
-                            style={{ transform: 'translateZ(25px)' }}
-                          >
-                            {teamSubmissions.map((submission, idx) => {
-                              const action = submission.publicAction;
-                              const innerThought = submission.innerMonologue;
-                              const roleName = submission.role || '未知角色';
-
-                              return (
-                                <div
-                                  key={idx}
-                                  className={`relative rounded-lg p-2 text-[10px] transition-all ${
-                                    position.includes('Left')
-                                      ? 'ml-0 mr-8 rounded-bl-none'
-                                      : 'ml-8 mr-0 rounded-br-none'
-                                  }`}
-                                  style={{
-                                    backgroundColor: `${teamConfig.primary}20`,
-                                    borderLeft: position.includes('Left')
-                                      ? `3px solid ${teamConfig.primary}`
-                                      : 'none',
-                                    borderRight: position.includes('Right')
-                                      ? `3px solid ${teamConfig.primary}`
-                                      : 'none',
-                                  }}
-                                >
-                                  {/* 角色名 */}
-                                  <div className="mb-0.5 flex items-center gap-1 font-medium text-white">
-                                    <span
-                                      className="h-2 w-2 rounded-full"
-                                      style={{
-                                        backgroundColor: teamConfig.primary,
-                                      }}
-                                    />
-                                    {roleName.length > 12
-                                      ? roleName.substring(0, 12) + '...'
-                                      : roleName}
-                                    {submission.irrational && (
-                                      <span className="ml-1 text-yellow-400">
-                                        ⚡
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  {canView ? (
-                                    <>
-                                      {/* 公开行动 */}
-                                      {action && (
-                                        <div className="line-clamp-2 text-gray-300">
-                                          💬{' '}
-                                          {typeof action === 'string'
-                                            ? action.substring(0, 60)
-                                            : '执行策略中...'}
-                                          {typeof action === 'string' &&
-                                          action.length > 60
-                                            ? '...'
-                                            : ''}
-                                        </div>
-                                      )}
-                                      {/* 内心独白 - 仅上帝视角或本方可见 */}
-                                      {innerThought &&
-                                        (viewPermission === 'GOD' ||
-                                          viewPermission === team) && (
-                                          <div className="mt-1 line-clamp-2 border-t border-white/10 pt-1 italic text-gray-400">
-                                            🤔{' '}
-                                            {typeof innerThought === 'string'
-                                              ? innerThought.substring(0, 50)
-                                              : '思考中...'}
-                                            {typeof innerThought === 'string' &&
-                                            innerThought.length > 50
-                                              ? '...'
-                                              : ''}
-                                          </div>
-                                        )}
-                                    </>
-                                  ) : (
-                                    <div className="italic text-gray-500">
-                                      🔒 [需要{teamConfig.label}视角查看详情]
-                                    </div>
-                                  )}
-
-                                  {/* 气泡尾巴 */}
-                                  <div
-                                    className={`absolute bottom-0 h-2 w-2 ${
-                                      position.includes('Left')
-                                        ? 'left-0 -ml-1'
-                                        : 'right-0 -mr-1'
-                                    }`}
-                                    style={{
-                                      borderColor: `${teamConfig.primary}20`,
-                                      borderStyle: 'solid',
-                                      borderWidth: position.includes('Left')
-                                        ? '0 8px 8px 0'
-                                        : '0 0 8px 8px',
-                                      backgroundColor: 'transparent',
-                                      borderRightColor: position.includes(
-                                        'Left'
-                                      )
-                                        ? `${teamConfig.primary}20`
-                                        : 'transparent',
-                                      borderLeftColor: position.includes(
-                                        'Right'
-                                      )
-                                        ? `${teamConfig.primary}20`
-                                        : 'transparent',
-                                    }}
-                                  />
-                                </div>
-                              );
-                            })}
-                          </div>
-                        );
-                      })()}
-
-                    {/* Agent Tokens */}
-                    <div
-                      className="absolute bottom-4 left-4 right-4 flex flex-wrap gap-2"
-                      style={{ transform: 'translateZ(30px)' }}
-                    >
-                      {teamAgents.slice(0, 4).map((agent, idx) => {
-                        const isAgentHovered = hoveredAgent === agent.role;
-                        // 从数组中查找该agent的submission
-                        const submission =
-                          currentTurn?.submissions &&
-                          Array.isArray(currentTurn.submissions)
-                            ? currentTurn.submissions.find(
-                                (s) =>
-                                  s.role === agent.role ||
-                                  s.agentId === agent.id
-                              )
-                            : undefined;
-
-                        return (
-                          <div
-                            key={idx}
-                            className={`group relative flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 transition-all ${
-                              isAgentHovered
-                                ? 'scale-105 border-white/50 bg-white/20'
-                                : 'border-white/20 bg-black/30 hover:bg-white/10'
-                            } ${submission ? 'ring-1 ring-white/20' : ''}`}
-                            onMouseEnter={() => setHoveredAgent(agent.role)}
-                            onMouseLeave={() => setHoveredAgent(null)}
-                          >
-                            {/* 状态指示器 */}
-                            {run.status === 'RUNNING' && (
-                              <span className="absolute -right-1 -top-1 flex h-3 w-3">
-                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
-                                <span className="relative inline-flex h-3 w-3 rounded-full bg-green-500"></span>
-                              </span>
-                            )}
-
-                            <div
-                              className="h-6 w-6 rounded-full"
-                              style={{ backgroundColor: teamConfig.primary }}
-                            />
-                            <div>
-                              <div className="text-xs font-medium text-white">
-                                {agent.role.length > 10
-                                  ? agent.role.substring(0, 10) + '...'
-                                  : agent.role}
-                              </div>
-                              {(agent.companyName || agent.company?.name) && (
-                                <div className="text-[10px] text-gray-400">
-                                  {(
-                                    agent.companyName || agent.company?.name
-                                  )?.substring(0, 12)}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Hover详情 */}
-                            {isAgentHovered && submission && (
-                              <div className="absolute -top-24 left-0 z-10 w-56 rounded-lg border border-white/20 bg-black/90 p-3 text-xs text-white shadow-xl">
-                                <div className="mb-1 font-medium">
-                                  {agent.role}
-                                </div>
-                                {viewPermission === 'GOD' ||
-                                viewPermission === team ? (
-                                  <>
-                                    <div className="text-gray-300">
-                                      💬{' '}
-                                      {submission.publicAction ||
-                                        '执行策略中...'}
-                                    </div>
-                                    {submission.innerMonologue &&
-                                      viewPermission === 'GOD' && (
-                                        <div className="mt-1 border-t border-white/10 pt-1 italic text-gray-500">
-                                          🤔 {submission.innerMonologue}
-                                        </div>
-                                      )}
-                                  </>
-                                ) : (
-                                  <div className="italic text-gray-500">
-                                    [需要{teamConfig.label}视角查看]
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                      {teamAgents.length > 4 && (
-                        <div className="flex items-center rounded-lg border border-white/20 bg-black/30 px-2 py-1 text-xs text-gray-400">
-                          +{teamAgents.length - 4}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 团队统计 */}
-                    <div
-                      className="absolute right-3 top-3 text-right"
-                      style={{ transform: 'translateZ(15px)' }}
-                    >
-                      <div className="text-2xl font-bold text-white">
-                        {teamAgents.length}
-                      </div>
-                      <div className="text-xs text-gray-400">角色</div>
-                    </div>
-                  </div>
-                );
-              })}
+              <div className="text-[10px] text-gray-400">
+                {teamConfig.description}
+              </div>
             </div>
           </div>
+          <div
+            className="flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white"
+            style={{ backgroundColor: teamConfig.primary }}
+          >
+            {teamAgents.length}
+          </div>
+        </div>
+
+        {/* 行动内容区域 */}
+        <div className="flex-1 space-y-2 overflow-y-auto p-2">
+          {teamSubmissions.length > 0 ? (
+            teamSubmissions.map((submission, idx) => {
+              const canView =
+                viewPermission === 'GOD' || viewPermission === team;
+              return (
+                <div
+                  key={idx}
+                  className="rounded-lg border p-2"
+                  style={{
+                    backgroundColor: `${teamConfig.primary}10`,
+                    borderColor: `${teamConfig.primary}30`,
+                  }}
+                >
+                  {/* 角色名 */}
+                  <div className="mb-1.5 flex items-center gap-1.5">
+                    <div
+                      className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                      style={{ backgroundColor: teamConfig.primary }}
+                    >
+                      {(submission.role || '?')[0]}
+                    </div>
+                    <span className="text-xs font-medium text-white">
+                      {submission.role || '未知角色'}
+                    </span>
+                    {submission.irrational && (
+                      <span className="rounded bg-yellow-500/20 px-1 py-0.5 text-[10px] text-yellow-400">
+                        ⚡
+                      </span>
+                    )}
+                  </div>
+
+                  {canView ? (
+                    <>
+                      {/* 公开行动 */}
+                      {submission.publicAction && (
+                        <div className="text-xs leading-relaxed text-gray-200">
+                          {submission.publicAction.length > 100
+                            ? submission.publicAction.substring(0, 100) + '...'
+                            : submission.publicAction}
+                        </div>
+                      )}
+                      {/* 内心独白 - 折叠显示 */}
+                      {submission.innerMonologue &&
+                        (viewPermission === 'GOD' ||
+                          viewPermission === team) && (
+                          <div className="mt-1.5 rounded border-l-2 border-gray-500 bg-black/30 p-1.5 text-[10px] italic text-gray-400">
+                            {submission.innerMonologue.length > 60
+                              ? submission.innerMonologue.substring(0, 60) +
+                                '...'
+                              : submission.innerMonologue}
+                          </div>
+                        )}
+                    </>
+                  ) : (
+                    <div className="text-[10px] italic text-gray-500">
+                      🔒 需要{teamConfig.label}视角
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div className="flex h-full items-center justify-center text-xs text-gray-500">
+              暂无行动
+            </div>
+          )}
+        </div>
+
+        {/* Agent标签 */}
+        <div className="flex flex-wrap gap-1 border-t border-white/10 p-2">
+          {teamAgents.slice(0, 4).map((agent, idx) => (
+            <span
+              key={idx}
+              className="rounded-full border border-white/20 bg-black/30 px-1.5 py-0.5 text-[10px] text-gray-300"
+            >
+              {agent.role.length > 8
+                ? agent.role.substring(0, 8) + '...'
+                : agent.role}
+            </span>
+          ))}
+          {teamAgents.length > 4 && (
+            <span className="text-[10px] text-gray-500">
+              +{teamAgents.length - 4}
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // 渲染平面沙盘视图 - 四象限布局
+  const renderSandtableView = () => {
+    // 收集本回合所有事件用于中心展示
+    const allSubmissions =
+      currentTurn?.submissions && Array.isArray(currentTurn.submissions)
+        ? currentTurn.submissions
+        : [];
+
+    // 检测事件关联 - 简单的关键词匹配
+    const findRelatedEvents = () => {
+      const relations: Array<{
+        from: string;
+        to: string;
+        type: 'conflict' | 'response' | 'impact';
+      }> = [];
+
+      // 蓝军和红军之间的竞争关系
+      const blueActions = allSubmissions.filter((s) => s.team === 'BLUE');
+      const redActions = allSubmissions.filter((s) => s.team === 'RED');
+
+      if (blueActions.length > 0 && redActions.length > 0) {
+        relations.push({ from: 'BLUE', to: 'RED', type: 'conflict' });
+      }
+
+      // 绿军对蓝红的影响
+      const greenActions = allSubmissions.filter((s) => s.team === 'GREEN');
+      if (greenActions.length > 0) {
+        if (blueActions.length > 0)
+          relations.push({ from: 'GREEN', to: 'BLUE', type: 'impact' });
+        if (redActions.length > 0)
+          relations.push({ from: 'GREEN', to: 'RED', type: 'impact' });
+      }
+
+      // 白方的监管影响
+      const whiteActions = allSubmissions.filter((s) => s.team === 'WHITE');
+      if (whiteActions.length > 0) {
+        relations.push({ from: 'WHITE', to: 'BLUE', type: 'response' });
+        relations.push({ from: 'WHITE', to: 'RED', type: 'response' });
+      }
+
+      return relations;
+    };
+
+    const eventRelations = findRelatedEvents();
+
+    return (
+      <div
+        className={`relative flex h-full w-full flex-col overflow-hidden bg-gradient-to-br ${industryConfig.gradient}`}
+      >
+        {/* 背景遮罩层 */}
+        <div className="absolute inset-0 bg-black/40" />
+
+        {/* 主内容区域 */}
+        <div className="relative z-10 flex flex-1 flex-col p-4 pb-32">
+          {/* 四象限主区域 */}
+          <div className="relative flex-1">
+            {/* 坐标轴 - 十字分割线 */}
+            <div className="absolute bottom-0 left-1/2 top-0 w-px bg-gradient-to-b from-transparent via-white/30 to-transparent" />
+            <div className="absolute left-0 right-0 top-1/2 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+
+            {/* 中心圆形事件关联区 */}
+            <div className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
+              <div
+                className="relative flex h-32 w-32 flex-col items-center justify-center rounded-full border-2 backdrop-blur-sm"
+                style={{
+                  borderColor: `${industryConfig.accent}50`,
+                  backgroundColor: 'rgba(0,0,0,0.7)',
+                  boxShadow: `0 0 30px ${industryConfig.accent}30`,
+                }}
+              >
+                {/* 回合信息 */}
+                <div className="text-center">
+                  <div
+                    className="text-2xl font-bold"
+                    style={{ color: industryConfig.accent }}
+                  >
+                    R{selectedRound}
+                  </div>
+                  <div className="text-[10px] text-gray-400">
+                    {run.scenario?.industry || '推演中'}
+                  </div>
+                </div>
+
+                {/* 事件数量指示 */}
+                <div className="mt-1 flex items-center gap-1">
+                  <Activity
+                    className="h-3 w-3"
+                    style={{ color: industryConfig.accent }}
+                  />
+                  <span className="text-xs text-gray-300">
+                    {allSubmissions.length} 个行动
+                  </span>
+                </div>
+
+                {/* 黑天鹅事件指示 */}
+                {currentTurn?.adjudication?.blackSwanEvent && (
+                  <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-purple-500 px-2 py-0.5 text-[10px] text-white">
+                    🦢 黑天鹅
+                  </div>
+                )}
+
+                {/* 关联线指示器 */}
+                {eventRelations.length > 0 && (
+                  <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500 text-[10px] font-bold text-white">
+                    {eventRelations.length}
+                  </div>
+                )}
+              </div>
+
+              {/* 事件关联连接线 - SVG */}
+              <svg
+                className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+                width="400"
+                height="400"
+                style={{ marginLeft: 0, marginTop: 0 }}
+              >
+                {/* 蓝军-红军 冲突线 (左上到右上) */}
+                {eventRelations.some(
+                  (r) =>
+                    r.type === 'conflict' &&
+                    ((r.from === 'BLUE' && r.to === 'RED') ||
+                      (r.from === 'RED' && r.to === 'BLUE'))
+                ) && (
+                  <g>
+                    <line
+                      x1="70"
+                      y1="130"
+                      x2="200"
+                      y2="200"
+                      stroke="#EF4444"
+                      strokeWidth="2"
+                      strokeDasharray="5,5"
+                      opacity="0.6"
+                    />
+                    <line
+                      x1="200"
+                      y1="200"
+                      x2="330"
+                      y2="130"
+                      stroke="#EF4444"
+                      strokeWidth="2"
+                      strokeDasharray="5,5"
+                      opacity="0.6"
+                    />
+                    {/* 冲突标记 */}
+                    <circle
+                      cx="200"
+                      cy="165"
+                      r="12"
+                      fill="#EF4444"
+                      opacity="0.8"
+                    />
+                    <text
+                      x="200"
+                      y="169"
+                      textAnchor="middle"
+                      fontSize="10"
+                      fill="white"
+                    >
+                      ⚔
+                    </text>
+                  </g>
+                )}
+
+                {/* 绿军影响线 (左下到中心) */}
+                {eventRelations.some(
+                  (r) => r.from === 'GREEN' && r.type === 'impact'
+                ) && (
+                  <line
+                    x1="100"
+                    y1="280"
+                    x2="180"
+                    y2="220"
+                    stroke="#10B981"
+                    strokeWidth="2"
+                    opacity="0.5"
+                    markerEnd="url(#arrowGreen)"
+                  />
+                )}
+
+                {/* 白方监管线 (右下到中心) */}
+                {eventRelations.some(
+                  (r) => r.from === 'WHITE' && r.type === 'response'
+                ) && (
+                  <line
+                    x1="300"
+                    y1="280"
+                    x2="220"
+                    y2="220"
+                    stroke="#6B7280"
+                    strokeWidth="2"
+                    opacity="0.5"
+                    markerEnd="url(#arrowWhite)"
+                  />
+                )}
+
+                {/* 箭头定义 */}
+                <defs>
+                  <marker
+                    id="arrowGreen"
+                    markerWidth="6"
+                    markerHeight="6"
+                    refX="5"
+                    refY="3"
+                    orient="auto"
+                  >
+                    <path d="M0,0 L6,3 L0,6 Z" fill="#10B981" />
+                  </marker>
+                  <marker
+                    id="arrowWhite"
+                    markerWidth="6"
+                    markerHeight="6"
+                    refX="5"
+                    refY="3"
+                    orient="auto"
+                  >
+                    <path d="M0,0 L6,3 L0,6 Z" fill="#6B7280" />
+                  </marker>
+                </defs>
+              </svg>
+            </div>
+
+            {/* 四象限网格 */}
+            <div className="grid h-full grid-cols-2 grid-rows-2 gap-1">
+              {/* 左上 - 蓝军 */}
+              <div className="pb-16 pr-16">
+                {renderQuadrantCard('BLUE', Crown, 'top-left')}
+              </div>
+
+              {/* 右上 - 红军 */}
+              <div className="pb-16 pl-16">
+                {renderQuadrantCard('RED', Target, 'top-right')}
+              </div>
+
+              {/* 左下 - 绿军 */}
+              <div className="pr-16 pt-16">
+                {renderQuadrantCard('GREEN', Store, 'bottom-left')}
+              </div>
+
+              {/* 右下 - 白方 */}
+              <div className="pl-16 pt-16">
+                {renderQuadrantCard('WHITE', Scale, 'bottom-right')}
+              </div>
+            </div>
+
+            {/* 象限标签 */}
+            <div className="absolute left-2 top-2 rounded bg-black/50 px-2 py-1 text-[10px] text-blue-400">
+              主角阵营
+            </div>
+            <div className="absolute right-2 top-2 rounded bg-black/50 px-2 py-1 text-[10px] text-red-400">
+              竞争对手
+            </div>
+            <div className="absolute bottom-2 left-2 rounded bg-black/50 px-2 py-1 text-[10px] text-green-400">
+              市场环境
+            </div>
+            <div className="absolute bottom-2 right-2 rounded bg-black/50 px-2 py-1 text-[10px] text-gray-400">
+              监管机构
+            </div>
+          </div>
+
+          {/* 黑天鹅事件横幅 */}
+          {currentTurn?.adjudication?.blackSwanEvent && (
+            <div className="mt-2 rounded-lg border border-purple-500/50 bg-purple-900/40 p-2">
+              <div className="flex items-center gap-2 text-purple-300">
+                <AlertTriangle className="h-4 w-4" />
+                <span className="text-sm font-semibold">黑天鹅事件</span>
+                <span className="text-xs text-purple-200">
+                  {currentTurn.adjudication.blackSwanEvent.event}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 时间轴 - 底部 */}
@@ -1414,74 +1419,6 @@ export default function SandboxView({
             </div>
           </div>
         </div>
-
-        {/* 左侧信息面板 */}
-        <div className="absolute left-4 top-20 w-48 space-y-3">
-          {/* 场景信息 - 显示行业主题 */}
-          <div
-            className="rounded-lg bg-black/50 p-3 backdrop-blur-sm"
-            style={{
-              borderColor: `${industryConfig.accent}30`,
-              borderWidth: '1px',
-              borderStyle: 'solid',
-            }}
-          >
-            <div className="text-xs text-gray-500">推演场景</div>
-            <div
-              className="mt-1 text-sm font-medium"
-              style={{ color: industryConfig.accent }}
-            >
-              {run.scenario?.industry || '未知行业'}
-            </div>
-            <div className="mt-1 text-[10px] text-gray-500">
-              {industryConfig.key !== 'default'
-                ? `主题: ${industryConfig.key}`
-                : '通用主题'}
-            </div>
-          </div>
-
-          {/* 各方统计 */}
-          <div className="rounded-lg border border-white/10 bg-black/50 p-3 backdrop-blur-sm">
-            <div className="mb-2 text-xs text-gray-500">势力分布</div>
-            {Object.entries(TEAM_COLORS)
-              .slice(0, 4)
-              .map(([team, config]) => {
-                const count = agentsByTeam[team]?.length || 0;
-                return (
-                  <div
-                    key={team}
-                    className="flex items-center justify-between py-1"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: config.primary }}
-                      />
-                      <span className="text-xs text-gray-400">
-                        {config.label}
-                      </span>
-                    </div>
-                    <span className="text-xs font-medium text-white">
-                      {count}
-                    </span>
-                  </div>
-                );
-              })}
-          </div>
-        </div>
-
-        {/* 黑天鹅事件提示 */}
-        {currentTurn?.adjudication?.blackSwanEvent && (
-          <div className="absolute right-4 top-20 w-64 rounded-lg border border-purple-500/30 bg-purple-900/50 p-4 backdrop-blur-sm">
-            <div className="flex items-center gap-2 text-purple-300">
-              <AlertTriangle className="h-5 w-5" />
-              <span className="text-sm font-semibold">黑天鹅事件</span>
-            </div>
-            <div className="mt-2 text-xs text-purple-200">
-              {currentTurn.adjudication.blackSwanEvent.event}
-            </div>
-          </div>
-        )}
       </div>
     );
   };
