@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { SimulationRunStatus, SimulationTeam } from "@prisma/client";
 import { SimulationEngineService } from "./simulation.engine";
@@ -39,6 +39,8 @@ export interface StartRunInput {
 
 @Injectable()
 export class SimulationService {
+  private readonly logger = new Logger(SimulationService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly engine: SimulationEngineService,
@@ -242,8 +244,21 @@ export class SimulationService {
       },
     });
 
-    // run loop (synchronous for now)
-    await this.engine.executeRun(run.id);
+    // 立即返回run ID，后台异步执行推演
+    // 前端通过轮询 /runs/:id 获取进度更新
+    // 不使用 await，让推演在后台运行
+    this.engine.executeRun(run.id).catch((err) => {
+      this.logger.error(`[Simulation] Run ${run.id} failed: ${err.message}`);
+      // 更新状态为失败
+      this.prisma.simulationRun
+        .update({
+          where: { id: run.id },
+          data: { status: SimulationRunStatus.FAILED },
+        })
+        .catch(() => {});
+    });
+
+    // 立即返回，让前端可以导航到run页面
     return this.getRunById(run.id);
   }
 
@@ -256,7 +271,20 @@ export class SimulationService {
       where: { id: runId },
       data: { status: SimulationRunStatus.RUNNING },
     });
-    await this.engine.executeRun(runId, { resume: true });
+
+    // 后台异步执行推演，不阻塞
+    this.engine.executeRun(runId, { resume: true }).catch((err) => {
+      this.logger.error(
+        `[Simulation] Run ${runId} resume failed: ${err.message}`,
+      );
+      this.prisma.simulationRun
+        .update({
+          where: { id: runId },
+          data: { status: SimulationRunStatus.FAILED },
+        })
+        .catch(() => {});
+    });
+
     return this.getRunById(runId);
   }
 

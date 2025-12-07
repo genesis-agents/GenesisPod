@@ -112,10 +112,6 @@ export default function ScenarioDetailPage() {
     setStartingRun(true);
     setStartError(null);
 
-    // 立即导航到run页面，使用临时ID显示加载状态
-    // 后台继续创建run，页面会轮询获取最新状态
-    const targetUrl = `/ai-simulation/run/pending?scenarioId=${scenario.id}&role=${selectedRole}&mode=${simulationMode}`;
-
     try {
       const res = await fetch(`${config.apiUrl}/simulation/runs`, {
         method: 'POST',
