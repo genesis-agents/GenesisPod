@@ -150,6 +150,7 @@ export class SimulationEngineService {
     for (const model of models) {
       if (!model.apiKey) continue;
 
+      // 使用模型数据库中配置的maxTokens
       // 推理模型（如o1, gpt-5, gemini思考模式）需要更多tokens
       // 因为它们会先用tokens进行思考/推理，然后才输出实际内容
       const isReasoningModel =
@@ -158,11 +159,12 @@ export class SimulationEngineService {
         model.modelId?.includes("-thinking") ||
         model.modelId?.includes("gemini-3");
 
-      // 推理模型需要更多tokens (thinking tokens + output tokens)
-      // GPT-5.1 实测: reasoning_tokens=2000会消耗全部配额，需要设置更高
-      // 设置为16000确保reasoning后仍有足够output空间
-      // 非推理模型500足够
-      const maxTokens = isReasoningModel ? 16000 : 500;
+      // 优先使用数据库配置的maxTokens
+      // 推理模型需要更高的tokens（reasoning + output），使用16000
+      // 非推理模型使用数据库配置或默认2048
+      const maxTokens = isReasoningModel
+        ? Math.max(model.maxTokens || 4096, 16000)
+        : model.maxTokens || 2048;
 
       try {
         const result = await this.aiChatService.generateChatCompletionWithKey({

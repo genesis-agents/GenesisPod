@@ -54,6 +54,20 @@ model_list:
       api_key: os.environ/OPENAI_API_KEY
       max_tokens: 16384
 
+  # gpt-4 -> gpt-4o (stable, non-reasoning model)
+  # Avoid mapping to gpt-5.1 which is a reasoning model
+  - model_name: gpt-4
+    litellm_params:
+      model: gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+      max_tokens: 8192
+
+  - model_name: gpt-4-turbo-preview
+    litellm_params:
+      model: gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+      max_tokens: 8192
+
 # Router settings - fallback to Gemini 2.0 Flash
 router_settings:
   routing_strategy: simple-shuffle
