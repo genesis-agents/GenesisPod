@@ -236,7 +236,7 @@ const API_TEMPLATES: Record<string, APITemplate[]> = {
       name: 'Finnhub',
       description: '财经新闻和市场情绪分析',
       baseUrl:
-        'https://finnhub.io/api/v1/company-news?symbol=NVDA&from=2024-01-01&to=2024-12-31&token=',
+        'https://finnhub.io/api/v1/company-news?symbol=NVDA&from=2025-01-01&to=2025-12-31&token=',
       apiKeyUrl: 'https://finnhub.io/register',
       apiKeyPlaceholder: 'YOUR_FINNHUB_TOKEN',
       freeQuota: '免费：60次/分钟',

@@ -138,12 +138,18 @@ export default function ScenarioDetailPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setActiveRun(data);
-        setTab('runs');
-        // Navigate to run page with role and mode info
-        router.push(
-          `/ai-simulation/run/${data.id}?role=${selectedRole}&mode=${simulationMode}`
-        );
+        if (data?.id) {
+          setActiveRun(data);
+          setTab('runs');
+          // Navigate to run page with role and mode info
+          const targetUrl = `/ai-simulation/run/${data.id}?role=${selectedRole}&mode=${simulationMode}`;
+          console.log('[Simulation] Navigating to:', targetUrl);
+          // 使用 window.location 确保跳转（避免 Next.js router 可能的问题）
+          window.location.href = targetUrl;
+        } else {
+          setStartError('服务器返回了无效的数据');
+          setStartingRun(false);
+        }
       } else {
         const errorData = await res.json().catch(() => ({}));
         setStartError(errorData.message || `启动失败 (${res.status})`);
