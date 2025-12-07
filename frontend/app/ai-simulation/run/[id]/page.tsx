@@ -425,68 +425,213 @@ export default function RunConsolePage() {
           {/* World State (Middle) */}
           <div className="flex flex-1 flex-col bg-gray-50">
             <div className="border-b border-gray-200 bg-white px-4 py-3">
-              <h2 className="text-sm font-semibold text-gray-900">世界状态</h2>
+              <h2 className="text-sm font-semibold text-gray-900">
+                世界状态 & 态势感知
+              </h2>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
-              {run.worldState ? (
-                <div className="space-y-4">
-                  {/* Companies State */}
-                  {run.worldState.companies && (
-                    <div>
-                      <h3 className="mb-3 text-xs font-semibold text-gray-700">
-                        公司状态
-                      </h3>
-                      <div className="grid gap-3 md:grid-cols-2">
-                        {Object.entries(run.worldState.companies).map(
-                          ([name, state]: [string, any]) => (
-                            <div
-                              key={name}
-                              className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm"
+              <div className="space-y-4">
+                {/* 外部数据源状态指示器 */}
+                <div className="rounded-lg border border-gray-200 bg-white p-4">
+                  <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold text-gray-700">
+                    <span className="flex h-5 w-5 items-center justify-center rounded bg-indigo-100">
+                      <svg
+                        className="h-3 w-3 text-indigo-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                        />
+                      </svg>
+                    </span>
+                    外部数据源
+                  </h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {['market', 'finance', 'news', 'regulation'].map(
+                      (source) => {
+                        const data = run.worldState?.[source];
+                        const hasError = data?.error || data?.['Error Message'];
+                        const hasData = data && !hasError;
+                        return (
+                          <div
+                            key={source}
+                            className={`flex items-center gap-2 rounded-lg border p-2 text-xs ${
+                              hasData
+                                ? 'border-green-200 bg-green-50'
+                                : hasError
+                                  ? 'border-red-200 bg-red-50'
+                                  : 'border-gray-200 bg-gray-50'
+                            }`}
+                          >
+                            <span
+                              className={`flex h-2 w-2 rounded-full ${
+                                hasData
+                                  ? 'bg-green-500'
+                                  : hasError
+                                    ? 'bg-red-500'
+                                    : 'bg-gray-400'
+                              }`}
+                            />
+                            <span
+                              className={
+                                hasData
+                                  ? 'text-green-700'
+                                  : hasError
+                                    ? 'text-red-700'
+                                    : 'text-gray-500'
+                              }
                             >
-                              <h4 className="font-medium text-gray-900">
-                                {name}
-                              </h4>
-                              <div className="mt-2 space-y-1 text-xs">
-                                {Object.entries(state).map(([key, value]) => (
-                                  <div
-                                    key={key}
-                                    className="flex justify-between"
-                                  >
-                                    <span className="text-gray-500">
-                                      {key}:
-                                    </span>
-                                    <span className="font-medium text-gray-900">
-                                      {String(value)}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )
+                              {source === 'market' && '📈 市场'}
+                              {source === 'finance' && '💰 财务'}
+                              {source === 'news' && '📰 新闻'}
+                              {source === 'regulation' && '⚖️ 监管'}
+                            </span>
+                            <span className="ml-auto text-[10px]">
+                              {hasData
+                                ? '✓ 有效'
+                                : hasError
+                                  ? typeof hasError === 'string'
+                                    ? hasError.slice(0, 10)
+                                    : '错误'
+                                  : '待获取'}
+                            </span>
+                          </div>
+                        );
+                      }
+                    )}
+                  </div>
+                </div>
+
+                {/* 事件与状态 */}
+                {run.worldState && (
+                  <div className="space-y-3">
+                    {/* 黑天鹅事件 */}
+                    {run.worldState.blackSwan && (
+                      <div className="rounded-lg border border-purple-200 bg-purple-50 p-3">
+                        <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-purple-700">
+                          🦢 黑天鹅事件触发
+                        </div>
+                        <div className="text-sm font-medium text-purple-900">
+                          {run.worldState.blackSwan.name}
+                        </div>
+                        <p className="mt-1 text-xs text-purple-700">
+                          {run.worldState.blackSwan.description}
+                        </p>
+                        {run.worldState.blackSwan.affectedTeams && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {run.worldState.blackSwan.affectedTeams.map(
+                              (team: string) => (
+                                <span
+                                  key={team}
+                                  className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                                    team === 'BLUE'
+                                      ? 'bg-blue-100 text-blue-700'
+                                      : team === 'RED'
+                                        ? 'bg-red-100 text-red-700'
+                                        : team === 'GREEN'
+                                          ? 'bg-green-100 text-green-700'
+                                          : 'bg-purple-100 text-purple-700'
+                                  }`}
+                                >
+                                  {team}
+                                </span>
+                              )
+                            )}
+                          </div>
                         )}
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Market State */}
-                  {run.worldState.market && (
-                    <div>
-                      <h3 className="mb-3 text-xs font-semibold text-gray-700">
-                        市场状态
-                      </h3>
-                      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-                        <pre className="whitespace-pre-wrap font-mono text-xs text-gray-700">
-                          {JSON.stringify(run.worldState.market, null, 2)}
-                        </pre>
+                    {/* 非理性偏见 */}
+                    {run.worldState.irrationalBias && (
+                      <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-orange-700">
+                          ⚡ 非理性因素激活
+                        </div>
+                        <p className="mt-1 text-xs text-orange-600">
+                          部分决策者受情绪影响，可能做出非最优决策
+                        </p>
+                      </div>
+                    )}
+
+                    {/* 回合统计 */}
+                    <div className="rounded-lg border border-gray-200 bg-white p-3">
+                      <div className="mb-2 text-xs font-semibold text-gray-700">
+                        📊 本轮统计
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">提交数:</span>
+                          <span className="font-medium">
+                            {run.worldState.last_submissions || 0}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">累计轮次:</span>
+                          <span className="font-medium">
+                            {run.currentRound}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex h-full items-center justify-center text-sm text-gray-500">
-                  暂无世界状态数据
-                </div>
-              )}
+
+                    {/* 黑天鹅历史 */}
+                    {run.worldState.blackSwanHistory &&
+                      run.worldState.blackSwanHistory.length > 0 && (
+                        <div className="rounded-lg border border-gray-200 bg-white p-3">
+                          <div className="mb-2 text-xs font-semibold text-gray-700">
+                            🦢 事件历史
+                          </div>
+                          <div className="space-y-1.5">
+                            {run.worldState.blackSwanHistory.map(
+                              (event: any, idx: number) => (
+                                <div
+                                  key={idx}
+                                  className="flex items-center gap-2 text-xs text-gray-600"
+                                >
+                                  <span className="text-purple-600">•</span>
+                                  <span className="font-medium">
+                                    {event.name}
+                                  </span>
+                                  <span className="ml-auto text-[10px] text-gray-400">
+                                    {event.triggeredAt
+                                      ? new Date(
+                                          event.triggeredAt
+                                        ).toLocaleTimeString()
+                                      : ''}
+                                  </span>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                    {/* 原始数据折叠 */}
+                    <details className="rounded-lg border border-gray-200 bg-white">
+                      <summary className="cursor-pointer p-3 text-xs font-semibold text-gray-700 hover:bg-gray-50">
+                        🔍 原始世界状态 (JSON)
+                      </summary>
+                      <div className="border-t border-gray-200 p-3">
+                        <pre className="max-h-60 overflow-auto whitespace-pre-wrap rounded bg-gray-50 p-2 font-mono text-[10px] text-gray-600">
+                          {JSON.stringify(run.worldState, null, 2)}
+                        </pre>
+                      </div>
+                    </details>
+                  </div>
+                )}
+
+                {!run.worldState && (
+                  <div className="flex h-40 items-center justify-center rounded-lg border-2 border-dashed border-gray-200 text-sm text-gray-500">
+                    推演开始后将显示世界状态
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -534,20 +679,58 @@ export default function RunConsolePage() {
                 {/* Quick Actions */}
                 <div className="border-t border-gray-200 pt-2">
                   <div className="mb-2 text-xs font-medium text-gray-700">
-                    快速操作
+                    快速注入事件
                   </div>
                   <div className="space-y-1">
-                    <button className="w-full rounded border border-gray-200 px-2 py-1 text-left text-xs text-gray-700 hover:bg-gray-50">
-                      🌪️ 触发供应链中断
+                    <button
+                      onClick={() =>
+                        setInterventionText(
+                          '[黑天鹅] 供应链中断：主要芯片供应商遭遇产能危机，交付周期延长至6个月'
+                        )
+                      }
+                      className="w-full rounded border border-gray-200 px-2 py-1.5 text-left text-xs text-gray-700 hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700"
+                    >
+                      🌪️ 供应链中断
                     </button>
-                    <button className="w-full rounded border border-gray-200 px-2 py-1 text-left text-xs text-gray-700 hover:bg-gray-50">
-                      📰 重大新闻事件
+                    <button
+                      onClick={() =>
+                        setInterventionText(
+                          '[舆情事件] 某大厂被曝AI训练数据合规问题，股价下跌15%，监管介入调查'
+                        )
+                      }
+                      className="w-full rounded border border-gray-200 px-2 py-1.5 text-left text-xs text-gray-700 hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700"
+                    >
+                      📰 重大新闻曝光
                     </button>
-                    <button className="w-full rounded border border-gray-200 px-2 py-1 text-left text-xs text-gray-700 hover:bg-gray-50">
-                      ⚖️ 监管政策变更
+                    <button
+                      onClick={() =>
+                        setInterventionText(
+                          '[监管政策] 出口管制升级：高端AI芯片出口许可范围扩大，部分区域全面禁售'
+                        )
+                      }
+                      className="w-full rounded border border-gray-200 px-2 py-1.5 text-left text-xs text-gray-700 hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+                    >
+                      ⚖️ 出口管制升级
                     </button>
-                    <button className="w-full rounded border border-gray-200 px-2 py-1 text-left text-xs text-gray-700 hover:bg-gray-50">
-                      💰 市场价格剧变
+                    <button
+                      onClick={() =>
+                        setInterventionText(
+                          '[市场剧变] GPU现货价格暴涨40%，算力租赁成本飙升，中小客户纷纷寻找替代方案'
+                        )
+                      }
+                      className="w-full rounded border border-gray-200 px-2 py-1.5 text-left text-xs text-gray-700 hover:border-green-300 hover:bg-green-50 hover:text-green-700"
+                    >
+                      💰 价格剧烈波动
+                    </button>
+                    <button
+                      onClick={() =>
+                        setInterventionText(
+                          '[技术突破] 竞争对手发布新一代芯片，能效比提升2倍，市场格局面临洗牌'
+                        )
+                      }
+                      className="w-full rounded border border-gray-200 px-2 py-1.5 text-left text-xs text-gray-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                    >
+                      🚀 技术突破
                     </button>
                   </div>
                 </div>

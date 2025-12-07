@@ -1,7 +1,13 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { Prisma, SimulationRunStatus, SimulationTeam } from "@prisma/client";
+import {
+  Prisma,
+  SimulationRunStatus,
+  SimulationTeam,
+  AIModelType,
+} from "@prisma/client";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { ExternalDataService } from "./external-data.service";
+import { AiChatService, ChatMessage } from "../ai/ai-chat.service";
 
 interface AdjudicationResult {
   ruling: string;
@@ -96,7 +102,176 @@ export class SimulationEngineService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly externalData: ExternalDataService,
+    private readonly aiChatService: AiChatService,
   ) {}
+
+  /**
+   * 使用AI模型生成Agent的决策
+   * 如果AI调用失败，回退到模板生成
+   */
+  private async generateAgentDecision(
+    agent: any,
+    worldState: Record<string, any>,
+    roundNumber: number,
+    scenario: any,
+    irrationalBias: boolean,
+  ): Promise<{ innerMonologue: string; publicAction: string }> {
+    try {
+      // 获取可用的AI模型（优先CHAT_FAST）
+      const model = await this.prisma.aIModel.findFirst({
+        where: {
+          isEnabled: true,
+          modelType: { in: [AIModelType.CHAT_FAST, AIModelType.CHAT] },
+        },
+        orderBy: [{ modelType: "asc" }, { isDefault: "desc" }],
+      });
+
+      if (!model || !model.apiKey) {
+        this.logger.warn(
+          `[Agent ${agent.role}] No AI model available, using template`,
+        );
+        return this.generateTemplateDecision(agent, worldState, irrationalBias);
+      }
+
+      // 构建角色上下文
+      const systemPrompt = this.buildAgentSystemPrompt(agent, scenario);
+      const userPrompt = this.buildAgentUserPrompt(
+        agent,
+        worldState,
+        roundNumber,
+        irrationalBias,
+      );
+
+      const messages: ChatMessage[] = [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ];
+
+      const result = await this.aiChatService.generateChatCompletionWithKey({
+        provider: model.provider,
+        modelId: model.modelId,
+        apiKey: model.apiKey,
+        apiEndpoint: model.apiEndpoint ?? undefined,
+        messages,
+        maxTokens: 500,
+        temperature: irrationalBias ? 0.9 : 0.7,
+      });
+
+      // 解析AI响应
+      return this.parseAgentResponse(result.content, agent);
+    } catch (error) {
+      this.logger.error(`[Agent ${agent.role}] AI generation failed: ${error}`);
+      return this.generateTemplateDecision(agent, worldState, irrationalBias);
+    }
+  }
+
+  private buildAgentSystemPrompt(agent: any, scenario: any): string {
+    const teamRole = {
+      BLUE: "你是蓝军（我方/主角），代表当前市场主导者。你的目标是保持市场份额、抵御竞争、防范风险。",
+      RED: "你是红军（对手/挑战者），代表激进的竞争者。你的目标是抢占市场、颠覆格局、寻找弱点攻击。",
+      GREEN:
+        "你是绿军（监管/第三方），代表监管机构和中立观察者。你关注合规、公平竞争和行业健康发展。",
+      CHAOS:
+        "你是混沌军（黑天鹅制造者），你会引入不可预测的市场冲击和突发事件。",
+      ARBITER: "你是裁判，负责评估各方行动的可行性和后果。",
+    };
+
+    return `你是一个战略推演中的AI角色。
+场景：${scenario.name} - ${scenario.industry}
+${teamRole[agent.team as keyof typeof teamRole] || ""}
+
+你的角色：${agent.role}
+${agent.persona ? `人设：${JSON.stringify(agent.persona)}` : ""}
+
+回复格式要求：
+1. 内心独白（Inner Monologue）：你的分析思考过程，对手可能看不到
+2. 公开行动（Public Action）：你决定采取的具体行动，所有人可见
+
+请用以下JSON格式回复：
+{"innerMonologue": "你的思考...", "publicAction": "你的行动..."}`;
+  }
+
+  private buildAgentUserPrompt(
+    agent: any,
+    worldState: Record<string, any>,
+    roundNumber: number,
+    irrationalBias: boolean,
+  ): string {
+    const marketInfo = worldState.market ? "市场数据已获取" : "市场数据缺失";
+    const financeInfo = worldState.finance ? "财务数据已获取" : "财务数据缺失";
+    const newsInfo = worldState.news ? "新闻舆情已获取" : "新闻舆情缺失";
+    const regulationInfo = worldState.regulation
+      ? "监管政策已获取"
+      : "监管政策缺失";
+
+    let prompt = `当前是第 ${roundNumber} 轮推演。
+
+外部态势：
+- ${marketInfo}
+- ${financeInfo}
+- ${newsInfo}
+- ${regulationInfo}
+
+${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} - ${worldState.blackSwan.description}` : ""}
+
+请基于你的角色和当前态势，决定你的下一步行动。`;
+
+    if (irrationalBias) {
+      prompt +=
+        "\n\n⚡ 注意：当前存在市场非理性情绪，你可能需要考虑情绪化因素。";
+    }
+
+    if (agent.memoryPublic) {
+      prompt += `\n\n公共记忆：${JSON.stringify(agent.memoryPublic)}`;
+    }
+
+    return prompt;
+  }
+
+  private parseAgentResponse(
+    response: string,
+    agent: any,
+  ): { innerMonologue: string; publicAction: string } {
+    try {
+      // 尝试解析JSON格式
+      const jsonMatch = response.match(
+        /\{[\s\S]*"innerMonologue"[\s\S]*"publicAction"[\s\S]*\}/,
+      );
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return {
+          innerMonologue: parsed.innerMonologue || response,
+          publicAction: parsed.publicAction || "行动已提交",
+        };
+      }
+    } catch (e) {
+      // JSON解析失败，使用原始响应
+    }
+
+    // 回退：使用原始响应作为内心独白
+    return {
+      innerMonologue: response.slice(0, 500),
+      publicAction: `${agent.role}的行动已提交，等待裁判判定`,
+    };
+  }
+
+  private generateTemplateDecision(
+    agent: any,
+    worldState: Record<string, any>,
+    irrationalBias: boolean,
+  ): { innerMonologue: string; publicAction: string } {
+    const parts = [
+      `角色: ${agent.role} (${agent.team})`,
+      agent.persona ? `Persona: ${JSON.stringify(agent.persona)}` : "",
+      `外部态势: market=${!!worldState.market}, finance=${!!worldState.finance}, news=${!!worldState.news}, regulation=${!!worldState.regulation}`,
+      irrationalBias ? "非理性波动：情绪化/短视/误判" : "",
+    ].filter(Boolean);
+
+    return {
+      innerMonologue: parts.join(" | "),
+      publicAction: "盲注：行动已提交，等待裁判判定",
+    };
+  }
 
   /**
    * Execute a full run synchronously for now (MVP).
@@ -201,48 +376,42 @@ export class SimulationEngineService {
         : 0.2;
     const chaosInjectedTeam =
       run.scenario.agents.some((a) => a.team === SimulationTeam.CHAOS) || false;
-    for (const agent of run.scenario.agents) {
+
+    // 并行生成所有Agent的决策
+    const agentDecisions = await Promise.all(
+      run.scenario.agents.map(async (agent) => {
+        const irrationalTriggered = Math.random() < irrationalProb;
+        const decision = await this.generateAgentDecision(
+          agent,
+          worldState,
+          roundNumber,
+          run.scenario,
+          irrationalTriggered,
+        );
+        return { agent, decision, irrationalTriggered };
+      }),
+    );
+
+    for (const { agent, decision, irrationalTriggered } of agentDecisions) {
       const isChaos = agent.team === SimulationTeam.CHAOS;
       const baseVisibility =
         isChaos || agent.team === SimulationTeam.ARBITER ? "global" : "team";
 
-      const irrationalTriggered = Math.random() < irrationalProb;
       const chaosInjected =
         chaosInjectedTeam &&
         isChaos &&
         Math.random() < ((run.params as any)?.chaosProb ?? 0.3);
-      const irrationalNote = irrationalTriggered
-        ? "非理性波动：情绪化/短视/误判。"
-        : "";
-
-      const monologueParts = [
-        `角色: ${agent.role} (${agent.team})`,
-        agent.persona ? `Persona: ${JSON.stringify(agent.persona)}` : "",
-        agent.memoryPublic
-          ? `公共记忆: ${JSON.stringify(agent.memoryPublic)}`
-          : "",
-        agent.memoryPrivate
-          ? `私有记忆: ${JSON.stringify(agent.memoryPrivate)}`
-          : "",
-        `外部态势: market=${!!worldState.market}, finance=${!!worldState.finance}, news=${!!worldState.news}, regulation=${!!worldState.regulation}`,
-        irrationalNote,
-        chaosInjected ? "Chaos Agent: 模拟市场恐慌/突发随机行动" : "",
-      ]
-        .filter(Boolean)
-        .join(" | ");
 
       const submission = {
         agentId: agent.id,
         companyId: agent.companyId,
         team: agent.team,
         role: agent.role,
-        innerMonologue: monologueParts,
-        publicAction: "盲注：行动已提交，等待裁判判定",
+        innerMonologue: decision.innerMonologue,
+        publicAction: decision.publicAction,
         visibility: baseVisibility,
         timestamp: new Date().toISOString(),
         tools: agent.tools,
-        systemPrompt:
-          "You represent opposing interests. Consensus is NOT the goal. Your goal is to maximize YOUR utility even at the expense of others. Act with your own team's bias and constraints.",
         irrational: irrationalTriggered,
         chaosInjected,
       };
@@ -256,6 +425,13 @@ export class SimulationEngineService {
 
     const evidenceRefs = adjudication.evidenceRefs || [];
 
+    // 累积worldState：将worldDelta与现有worldState深度合并
+    const prevWorldState = (run.worldState as Record<string, any>) || {};
+    const mergedWorldState = {
+      ...prevWorldState,
+      ...adjudication.worldDelta,
+    };
+
     const turn = await this.prisma.simulationTurn.create({
       data: {
         runId,
@@ -263,7 +439,7 @@ export class SimulationEngineService {
         submissions: submissions as Prisma.InputJsonValue,
         adjudication: adjudication as unknown as Prisma.InputJsonValue,
         evidence: evidenceRefs as Prisma.InputJsonValue,
-        worldState: adjudication.worldDelta as Prisma.InputJsonValue,
+        worldState: mergedWorldState as Prisma.InputJsonValue,
       },
     });
 
@@ -273,7 +449,7 @@ export class SimulationEngineService {
       where: { id: runId },
       data: {
         currentRound: roundNumber,
-        worldState: adjudication.worldDelta as Prisma.InputJsonValue,
+        worldState: mergedWorldState as Prisma.InputJsonValue,
         evidenceTrail: {
           ...prevTrail,
           [`round_${roundNumber}`]: evidenceRefs,
@@ -295,7 +471,6 @@ export class SimulationEngineService {
     const evidenceRefs: any[] = [];
     const worldDelta: Record<string, any> = {};
     const worldState = (run.worldState as Record<string, any>) || {};
-    worldDelta["publicMemory"] = worldState;
 
     // Basic resource sanity check: if a submission declares cost but公司现金不足则驳回
     const companyCashMap: Record<string, number> = {};

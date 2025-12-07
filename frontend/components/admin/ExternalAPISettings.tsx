@@ -145,6 +145,133 @@ interface SimulationAPICategory {
   providers: SimulationAPIProvider[];
 }
 
+// 预置API模板 - 帮助用户快速配置常用数据源
+interface APITemplate {
+  name: string;
+  description: string;
+  baseUrl: string;
+  apiKeyUrl: string; // 获取API Key的链接
+  apiKeyPlaceholder: string;
+  headers?: string;
+  freeQuota?: string; // 免费额度说明
+}
+
+const API_TEMPLATES: Record<string, APITemplate[]> = {
+  market: [
+    {
+      name: 'Alpha Vantage',
+      description: '免费股票/加密货币/商品数据API，每分钟5次请求',
+      baseUrl:
+        'https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=NVDA&apikey=',
+      apiKeyUrl: 'https://www.alphavantage.co/support/#api-key',
+      apiKeyPlaceholder: 'YOUR_ALPHAVANTAGE_KEY',
+      freeQuota: '免费：5次/分钟, 500次/天',
+    },
+    {
+      name: 'Yahoo Finance (via RapidAPI)',
+      description: '雅虎财经数据，需RapidAPI账号',
+      baseUrl: 'https://yahoo-finance15.p.rapidapi.com/api/v1/markets/quote',
+      apiKeyUrl: 'https://rapidapi.com/sparior/api/yahoo-finance15',
+      apiKeyPlaceholder: 'YOUR_RAPIDAPI_KEY',
+      headers: '{"X-RapidAPI-Host": "yahoo-finance15.p.rapidapi.com"}',
+      freeQuota: '免费：100次/月',
+    },
+    {
+      name: 'Financial Modeling Prep',
+      description: '财务数据、实时报价、历史价格',
+      baseUrl: 'https://financialmodelingprep.com/api/v3/quote/NVDA?apikey=',
+      apiKeyUrl: 'https://site.financialmodelingprep.com/developer/docs',
+      apiKeyPlaceholder: 'YOUR_FMP_KEY',
+      freeQuota: '免费：250次/天',
+    },
+  ],
+  finance: [
+    {
+      name: 'SEC EDGAR',
+      description: 'SEC公开财报数据，完全免费无需Key',
+      baseUrl: 'https://data.sec.gov/submissions/CIK0001045810.json',
+      apiKeyUrl: 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany',
+      apiKeyPlaceholder: '无需API Key',
+      headers: '{"User-Agent": "DeepDive Research support@example.com"}',
+      freeQuota: '免费：无限制（需设置User-Agent）',
+    },
+    {
+      name: 'Financial Modeling Prep (Filings)',
+      description: '公司财报、资产负债表、现金流',
+      baseUrl:
+        'https://financialmodelingprep.com/api/v3/income-statement/NVDA?apikey=',
+      apiKeyUrl: 'https://site.financialmodelingprep.com/developer/docs',
+      apiKeyPlaceholder: 'YOUR_FMP_KEY',
+      freeQuota: '免费：250次/天',
+    },
+    {
+      name: 'Polygon.io',
+      description: '股票、期权、加密货币市场数据',
+      baseUrl: 'https://api.polygon.io/v3/reference/tickers/NVDA?apiKey=',
+      apiKeyUrl: 'https://polygon.io/dashboard/signup',
+      apiKeyPlaceholder: 'YOUR_POLYGON_KEY',
+      freeQuota: '免费：5次/分钟',
+    },
+  ],
+  news: [
+    {
+      name: 'NewsAPI',
+      description: '全球新闻聚合API，支持关键词搜索',
+      baseUrl: 'https://newsapi.org/v2/everything?q=NVIDIA&apiKey=',
+      apiKeyUrl: 'https://newsapi.org/register',
+      apiKeyPlaceholder: 'YOUR_NEWSAPI_KEY',
+      freeQuota: '免费：100次/天（开发者版）',
+    },
+    {
+      name: 'GNews',
+      description: '新闻搜索API，支持多语言',
+      baseUrl: 'https://gnews.io/api/v4/search?q=semiconductor&token=',
+      apiKeyUrl: 'https://gnews.io/register',
+      apiKeyPlaceholder: 'YOUR_GNEWS_TOKEN',
+      freeQuota: '免费：100次/天',
+    },
+    {
+      name: 'Finnhub',
+      description: '财经新闻和市场情绪分析',
+      baseUrl:
+        'https://finnhub.io/api/v1/company-news?symbol=NVDA&from=2024-01-01&to=2024-12-31&token=',
+      apiKeyUrl: 'https://finnhub.io/register',
+      apiKeyPlaceholder: 'YOUR_FINNHUB_TOKEN',
+      freeQuota: '免费：60次/分钟',
+    },
+  ],
+  regulation: [
+    {
+      name: 'Federal Register API',
+      description: '美国联邦法规公告，完全免费',
+      baseUrl:
+        'https://www.federalregister.gov/api/v1/documents.json?conditions[term]=semiconductor',
+      apiKeyUrl:
+        'https://www.federalregister.gov/developers/documentation/api/v1',
+      apiKeyPlaceholder: '无需API Key',
+      freeQuota: '免费：无限制',
+    },
+    {
+      name: 'BIS Export Administration',
+      description: '美国出口管制条例',
+      baseUrl:
+        'https://www.bis.doc.gov/index.php/regulations/export-administration-regulations-ear',
+      apiKeyUrl: 'https://www.bis.doc.gov',
+      apiKeyPlaceholder: '网页数据源，无API',
+      freeQuota: '公开数据',
+    },
+    {
+      name: 'EU EUR-Lex',
+      description: '欧盟法规数据库API',
+      baseUrl: 'https://eur-lex.europa.eu/eurlex-ws/rest/search',
+      apiKeyUrl:
+        'https://eur-lex.europa.eu/content/help/eurlex-content/webservices.html',
+      apiKeyPlaceholder: '无需API Key',
+      freeQuota: '免费：有速率限制',
+    },
+  ],
+};
+
 const DEFAULT_SIMULATION_API_CATEGORIES: SimulationAPICategory[] = [
   {
     id: 'market',
@@ -562,6 +689,11 @@ export default function ExternalAPISettings() {
     }
   };
 
+  // 模板选择状态
+  const [showTemplateModal, setShowTemplateModal] = useState<string | null>(
+    null
+  );
+
   const addSimulationAPIProvider = (categoryId: string) => {
     setSimulationAPICategories((prev) =>
       prev.map((cat) => {
@@ -585,6 +717,37 @@ export default function ExternalAPISettings() {
         return cat;
       })
     );
+  };
+
+  // 使用模板添加Provider
+  const addProviderFromTemplate = (
+    categoryId: string,
+    template: APITemplate
+  ) => {
+    setSimulationAPICategories((prev) =>
+      prev.map((cat) => {
+        if (cat.id === categoryId) {
+          const newProviderId = `${categoryId}-provider-${Date.now()}`;
+          return {
+            ...cat,
+            providers: [
+              ...cat.providers,
+              {
+                id: newProviderId,
+                name: template.name,
+                baseUrl: template.baseUrl,
+                apiKey: '',
+                headers: template.headers || '',
+                enabled: true,
+                isDefault: cat.providers.length === 0,
+              },
+            ],
+          };
+        }
+        return cat;
+      })
+    );
+    setShowTemplateModal(null);
   };
 
   const updateSimulationAPIProvider = (
@@ -1530,21 +1693,49 @@ export default function ExternalAPISettings() {
                           placeholder="Base URL (https://api.example.com)"
                           className="mb-2 w-full rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
-                        <input
-                          type="password"
-                          value={provider.apiKey}
-                          onChange={(e) =>
-                            updateSimulationAPIProvider(
-                              category.id,
-                              provider.id,
-                              {
-                                apiKey: e.target.value,
-                              }
-                            )
-                          }
-                          placeholder="API Key"
-                          className="mb-2 w-full rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        />
+                        <div className="mb-2">
+                          <input
+                            type="password"
+                            value={provider.apiKey}
+                            onChange={(e) =>
+                              updateSimulationAPIProvider(
+                                category.id,
+                                provider.id,
+                                {
+                                  apiKey: e.target.value,
+                                }
+                              )
+                            }
+                            placeholder="API Key"
+                            className="w-full rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          />
+                          {/* 显示获取API Key的链接 */}
+                          {API_TEMPLATES[category.id]?.find(
+                            (t) => t.name === provider.name
+                          ) && (
+                            <div className="mt-1 flex items-center gap-2 text-xs">
+                              <a
+                                href={
+                                  API_TEMPLATES[category.id].find(
+                                    (t) => t.name === provider.name
+                                  )?.apiKeyUrl
+                                }
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-indigo-600 hover:text-indigo-800 hover:underline"
+                              >
+                                → 获取 API Key
+                              </a>
+                              <span className="text-green-600">
+                                {
+                                  API_TEMPLATES[category.id].find(
+                                    (t) => t.name === provider.name
+                                  )?.freeQuota
+                                }
+                              </span>
+                            </div>
+                          )}
+                        </div>
                         <textarea
                           value={provider.headers || ''}
                           onChange={(e) =>
@@ -1635,11 +1826,56 @@ export default function ExternalAPISettings() {
                       </div>
                     ))}
 
+                  {/* 推荐API模板 - 即使有provider也显示 */}
+                  <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 p-3">
+                    <div className="mb-2 flex items-center gap-2 text-xs font-medium text-indigo-700">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      推荐数据源（点击快速添加）
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {API_TEMPLATES[category.id]?.map((template) => {
+                        const isAlreadyAdded = category.providers.some(
+                          (p) => p.name === template.name
+                        );
+                        return (
+                          <button
+                            key={template.name}
+                            onClick={() =>
+                              !isAlreadyAdded &&
+                              addProviderFromTemplate(category.id, template)
+                            }
+                            disabled={isAlreadyAdded}
+                            className={`group relative rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
+                              isAlreadyAdded
+                                ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
+                                : 'border-indigo-200 bg-white text-indigo-700 hover:border-indigo-400 hover:bg-indigo-100'
+                            }`}
+                            title={template.description}
+                          >
+                            {isAlreadyAdded ? '✓ ' : '+ '}
+                            {template.name}
+                            {template.freeQuota && !isAlreadyAdded && (
+                              <span className="ml-1 text-green-600">
+                                ({template.freeQuota.split('：')[0]})
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   {/* Empty state message if no providers */}
                   {category.providers.length === 0 && (
-                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center">
-                      <p className="text-sm text-gray-500">
-                        暂无配置的 Provider，点击下方按钮添加
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                      <div className="mb-2 flex items-center gap-2 text-sm font-medium text-amber-800">
+                        <AlertTriangle className="h-4 w-4" />
+                        尚未配置数据源
+                      </div>
+                      <p className="text-xs text-amber-700">
+                        请点击上方推荐数据源快速添加，或手动添加自定义
+                        Provider。
+                        推演时如无可用数据源，将以"数据不足"模式继续。
                       </p>
                     </div>
                   )}
@@ -1648,7 +1884,7 @@ export default function ExternalAPISettings() {
                     onClick={() => addSimulationAPIProvider(category.id)}
                     className="w-full rounded-lg border-2 border-dashed border-gray-300 py-2 text-sm text-gray-500 hover:border-indigo-300 hover:text-indigo-600"
                   >
-                    + 添加 Provider
+                    + 手动添加 Provider
                   </button>
                 </div>
               </div>
