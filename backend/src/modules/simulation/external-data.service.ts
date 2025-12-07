@@ -27,7 +27,32 @@ export class ExternalDataService {
     if (!setting) return [];
     try {
       const parsed = JSON.parse(setting.value);
-      return Array.isArray(parsed) ? (parsed as ExternalProvider[]) : [];
+      if (!Array.isArray(parsed)) return [];
+
+      // CRITICAL: Filter out invalid providers
+      // Only return providers with valid configuration
+      const validProviders = parsed.filter((p: ExternalProvider) => {
+        const hasId = p.id?.trim();
+        const hasName = p.name?.trim();
+        const hasBaseUrl = p.baseUrl?.trim();
+        const hasApiKey = p.apiKey?.trim();
+
+        const isValid = hasId && hasName && (hasBaseUrl || hasApiKey);
+
+        if (!isValid) {
+          this.logger.warn(
+            `[ExternalData] Skipping invalid provider: ${p.id || "unknown"} (name=${p.name}, category=${p.category})`,
+          );
+        }
+
+        return isValid;
+      });
+
+      this.logger.log(
+        `[ExternalData] Loaded ${validProviders.length} valid providers (filtered from ${parsed.length} total)`,
+      );
+
+      return validProviders as ExternalProvider[];
     } catch {
       return [];
     }

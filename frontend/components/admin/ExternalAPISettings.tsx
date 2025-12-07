@@ -274,11 +274,35 @@ export default function ExternalAPISettings() {
         const providers = await providersRes.json();
         console.log('[ExternalAPI] Loaded providers from backend:', providers);
 
-        // Group providers by category - only show categories with actual providers
+        // Group providers by category - ONLY include providers with valid data
         if (Array.isArray(providers) && providers.length > 0) {
           const categorized = DEFAULT_SIMULATION_API_CATEGORIES.map((cat) => {
             const categoryProviders = providers
-              .filter((p: any) => p.category === cat.id)
+              .filter((p: any) => {
+                // Filter by category
+                if (p.category !== cat.id) return false;
+
+                // CRITICAL: Only include providers with actual configuration
+                // Must have name AND (baseUrl OR apiKey)
+                const hasName = p.name?.trim();
+                const hasBaseUrl = p.baseUrl?.trim();
+                const hasApiKey = p.apiKey && !p.apiKey.includes('***');
+
+                const isValid = hasName && (hasBaseUrl || hasApiKey);
+
+                if (!isValid) {
+                  console.warn(
+                    `[ExternalAPI] Skipping invalid provider for ${cat.id}:`,
+                    {
+                      name: p.name,
+                      hasBaseUrl: !!hasBaseUrl,
+                      hasApiKey: !!hasApiKey,
+                    }
+                  );
+                }
+
+                return isValid;
+              })
               .map((p: any) => ({
                 id: p.id.replace(`${cat.id}-`, ''),
                 name: p.name,
@@ -290,7 +314,7 @@ export default function ExternalAPISettings() {
               }));
 
             console.log(
-              `[ExternalAPI] Category ${cat.id} has ${categoryProviders.length} providers`
+              `[ExternalAPI] Category ${cat.id} has ${categoryProviders.length} valid providers`
             );
 
             return {
