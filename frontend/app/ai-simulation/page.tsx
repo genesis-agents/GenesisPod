@@ -815,13 +815,23 @@ function EditorModal({
           : undefined,
       }));
 
+      // 准备请求body
+      const requestBody = {
+        ...form,
+        companies,
+        agents: agentsToSave,
+      };
+
       // 调试日志
       console.log('[saveScenario] Method:', method);
       console.log('[saveScenario] URL:', url);
+      console.log('[saveScenario] isEditing:', isEditing);
+      console.log('[saveScenario] localScenario?.id:', localScenario?.id);
       console.log('[saveScenario] Agents count:', agents.length);
+      console.log('[saveScenario] Companies count:', companies.length);
       console.log(
-        '[saveScenario] Agents to save:',
-        JSON.stringify(agentsToSave, null, 2)
+        '[saveScenario] Request body:',
+        JSON.stringify(requestBody, null, 2)
       );
 
       const res = await fetch(url, {
@@ -831,13 +841,13 @@ function EditorModal({
           ...getAuthHeader(),
         },
         credentials: 'include',
-        body: JSON.stringify({
-          ...form,
-          companies,
-          agents: agentsToSave,
-        }),
+        body: JSON.stringify(requestBody),
       });
+
+      console.log('[saveScenario] Response status:', res.status);
       const data = await res.json();
+      console.log('[saveScenario] Response data:', data);
+
       if (res.ok) {
         setMessage(isEditing ? '场景已更新' : '场景已保存');
         // 更新本地场景状态（新建场景时获取ID，后续保存变为PATCH）

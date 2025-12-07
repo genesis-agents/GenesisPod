@@ -70,6 +70,9 @@ export default function ScenarioDetailPage() {
       );
       if (res.ok) {
         const data = await res.json();
+        console.log('[ScenarioDetail] Fetched scenario:', data);
+        console.log('[ScenarioDetail] Agents count:', data.agents?.length);
+        console.log('[ScenarioDetail] Agents:', data.agents);
         setScenario(data);
         // If there are runs, load the latest one
         if (data.runs && data.runs.length > 0) {
