@@ -1374,140 +1374,151 @@ export default function ExternalAPISettings() {
                 </div>
 
                 <div className="space-y-3">
-                  {category.providers.map((provider) => (
-                    <div
-                      key={provider.id}
-                      className="rounded-lg border border-gray-100 bg-gray-50 p-3"
-                    >
-                      <div className="mb-2 flex items-center justify-between">
-                        <input
-                          type="text"
-                          value={provider.name}
-                          onChange={(e) =>
-                            updateSimulationAPIProvider(
-                              category.id,
-                              provider.id,
-                              {
-                                name: e.target.value,
-                              }
-                            )
-                          }
-                          className="flex-1 rounded border-0 bg-transparent text-sm font-medium text-gray-700 focus:outline-none focus:ring-0"
-                          placeholder="Provider 名称"
-                        />
-                        <div className="flex gap-2">
-                          {provider.isDefault && (
-                            <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                              默认
-                            </span>
-                          )}
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                              provider.enabled && provider.baseUrl
-                                ? 'bg-blue-100 text-blue-700'
-                                : 'bg-gray-100 text-gray-600'
-                            }`}
-                          >
-                            {provider.enabled && provider.baseUrl
-                              ? '已配置'
-                              : '未配置'}
-                          </span>
-                          <button
-                            onClick={() =>
-                              removeSimulationAPIProvider(
-                                category.id,
-                                provider.id
-                              )
-                            }
-                            className="text-red-500 hover:text-red-700"
-                            title="删除"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      </div>
-                      <input
-                        type="text"
-                        value={provider.baseUrl}
-                        onChange={(e) =>
-                          updateSimulationAPIProvider(
-                            category.id,
-                            provider.id,
-                            {
-                              baseUrl: e.target.value,
-                            }
-                          )
-                        }
-                        placeholder="Base URL (https://api.example.com)"
-                        className="mb-2 w-full rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
-                      <input
-                        type="password"
-                        value={provider.apiKey}
-                        onChange={(e) =>
-                          updateSimulationAPIProvider(
-                            category.id,
-                            provider.id,
-                            {
-                              apiKey: e.target.value,
-                            }
-                          )
-                        }
-                        placeholder="API Key"
-                        className="mb-2 w-full rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
-                      <textarea
-                        value={provider.headers || ''}
-                        onChange={(e) =>
-                          updateSimulationAPIProvider(
-                            category.id,
-                            provider.id,
-                            {
-                              headers: e.target.value,
-                            }
-                          )
-                        }
-                        placeholder='Headers (JSON): {"X-API-KEY": "..."}'
-                        rows={2}
-                        className="mb-2 w-full rounded-md border border-gray-200 px-3 py-1.5 font-mono text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
-                      <div className="flex items-center justify-between">
-                        <label className="flex items-center gap-2 text-xs text-gray-600">
+                  {/* Only show provider cards if they exist */}
+                  {category.providers.length > 0 &&
+                    category.providers.map((provider) => (
+                      <div
+                        key={provider.id}
+                        className="rounded-lg border border-gray-100 bg-gray-50 p-3"
+                      >
+                        <div className="mb-2 flex items-center justify-between">
                           <input
-                            type="checkbox"
-                            checked={provider.enabled}
+                            type="text"
+                            value={provider.name}
                             onChange={(e) =>
                               updateSimulationAPIProvider(
                                 category.id,
                                 provider.id,
                                 {
-                                  enabled: e.target.checked,
+                                  name: e.target.value,
                                 }
                               )
                             }
-                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                            className="flex-1 rounded border-0 bg-transparent text-sm font-medium text-gray-700 focus:outline-none focus:ring-0"
+                            placeholder="Provider 名称"
                           />
-                          启用
-                        </label>
-                        {!provider.isDefault && (
-                          <button
-                            onClick={() =>
-                              updateSimulationAPIProvider(
-                                category.id,
-                                provider.id,
-                                {
-                                  isDefault: true,
-                                }
-                              )
-                            }
-                            className="text-xs text-indigo-600 hover:text-indigo-700"
-                          >
-                            设为默认
-                          </button>
-                        )}
+                          <div className="flex gap-2">
+                            {provider.isDefault && (
+                              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                                默认
+                              </span>
+                            )}
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                                provider.enabled && provider.baseUrl
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-gray-100 text-gray-600'
+                              }`}
+                            >
+                              {provider.enabled && provider.baseUrl
+                                ? '已配置'
+                                : '未配置'}
+                            </span>
+                            <button
+                              onClick={() =>
+                                removeSimulationAPIProvider(
+                                  category.id,
+                                  provider.id
+                                )
+                              }
+                              className="text-red-500 hover:text-red-700"
+                              title="删除"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </div>
+                        <input
+                          type="text"
+                          value={provider.baseUrl}
+                          onChange={(e) =>
+                            updateSimulationAPIProvider(
+                              category.id,
+                              provider.id,
+                              {
+                                baseUrl: e.target.value,
+                              }
+                            )
+                          }
+                          placeholder="Base URL (https://api.example.com)"
+                          className="mb-2 w-full rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                        <input
+                          type="password"
+                          value={provider.apiKey}
+                          onChange={(e) =>
+                            updateSimulationAPIProvider(
+                              category.id,
+                              provider.id,
+                              {
+                                apiKey: e.target.value,
+                              }
+                            )
+                          }
+                          placeholder="API Key"
+                          className="mb-2 w-full rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                        <textarea
+                          value={provider.headers || ''}
+                          onChange={(e) =>
+                            updateSimulationAPIProvider(
+                              category.id,
+                              provider.id,
+                              {
+                                headers: e.target.value,
+                              }
+                            )
+                          }
+                          placeholder='Headers (JSON): {"X-API-KEY": "..."}'
+                          rows={2}
+                          className="mb-2 w-full rounded-md border border-gray-200 px-3 py-1.5 font-mono text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                        <div className="flex items-center justify-between">
+                          <label className="flex items-center gap-2 text-xs text-gray-600">
+                            <input
+                              type="checkbox"
+                              checked={provider.enabled}
+                              onChange={(e) =>
+                                updateSimulationAPIProvider(
+                                  category.id,
+                                  provider.id,
+                                  {
+                                    enabled: e.target.checked,
+                                  }
+                                )
+                              }
+                              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                            />
+                            启用
+                          </label>
+                          {!provider.isDefault && (
+                            <button
+                              onClick={() =>
+                                updateSimulationAPIProvider(
+                                  category.id,
+                                  provider.id,
+                                  {
+                                    isDefault: true,
+                                  }
+                                )
+                              }
+                              className="text-xs text-indigo-600 hover:text-indigo-700"
+                            >
+                              设为默认
+                            </button>
+                          )}
+                        </div>
                       </div>
+                    ))}
+
+                  {/* Empty state message if no providers */}
+                  {category.providers.length === 0 && (
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center">
+                      <p className="text-sm text-gray-500">
+                        暂无配置的 Provider，点击下方按钮添加
+                      </p>
                     </div>
-                  ))}
+                  )}
 
                   <button
                     onClick={() => addSimulationAPIProvider(category.id)}
