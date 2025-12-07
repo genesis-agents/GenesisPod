@@ -511,12 +511,10 @@ export default function AISimulationPage() {
           scenario={editing}
           seed={seed}
           onClose={() => setShowEditor(false)}
-          onSaved={(savedScenario) => {
-            // 更新编辑中的场景数据（用于保存后继续编辑）
-            setEditing(savedScenario);
-            // 刷新列表数据
+          onSaved={() => {
+            // 只刷新列表数据，不更新editing状态
+            // 这样EditorModal内部的agents/companies状态不会被覆盖
             void fetchScenarios();
-            // 不关闭编辑器，让用户继续编辑
           }}
         />
       )}
@@ -574,7 +572,7 @@ function EditorModal({
   scenario: ScenarioCard | null;
   seed?: ScenarioTemplate | null;
   onClose: () => void;
-  onSaved: (savedScenario: ScenarioCard) => void;
+  onSaved: () => void;
 }) {
   const preset = (scenario || seed || {}) as Partial<ScenarioCard> &
     Partial<ScenarioTemplate>;
@@ -640,43 +638,6 @@ function EditorModal({
   const [message, setMessage] = useState<string | null>(null);
   const [external, setExternal] = useState<ExternalSnapshot | null>(null);
   const [syncing, setSyncing] = useState(false);
-
-  // 当scenario prop变化时，同步更新内部状态（重要：保存后重新获取数据时触发）
-  useEffect(() => {
-    if (scenario) {
-      setLocalScenario(scenario);
-      // 同步agents状态
-      if (scenario.agents && scenario.agents.length > 0) {
-        setAgents(
-          scenario.agents.map((a: any) => ({
-            role: a.role || '',
-            team: a.team || 'BLUE',
-            companyName: a.companyName || a.company?.name || '',
-            persona: a.persona,
-            memoryPublic: a.memoryPublic,
-            memoryPrivate: a.memoryPrivate,
-          }))
-        );
-      }
-      // 同步companies状态
-      if (scenario.companies && scenario.companies.length > 0) {
-        setCompanies(scenario.companies);
-      }
-      // 同步form状态
-      setForm({
-        name: scenario.name || '',
-        industry: scenario.industry || '',
-        region: scenario.region || '',
-        goals: {
-          targetShare: scenario.goals?.targetShare || '',
-          risk: scenario.goals?.risk || '',
-          growth: scenario.goals?.growth || '',
-          custom: scenario.goals?.custom || '',
-        } as ScenarioGoals,
-        constraints: scenario.params || defaultConstraints,
-      });
-    }
-  }, [scenario]);
 
   // AI辅助状态
   const [aiAssisting, setAiAssisting] = useState(false);
@@ -881,7 +842,8 @@ function EditorModal({
         setMessage(isEditing ? '场景已更新' : '场景已保存');
         // 更新本地场景状态（新建场景时获取ID，后续保存变为PATCH）
         setLocalScenario(data as ScenarioCard);
-        onSaved(data as ScenarioCard);
+        // 通知父组件刷新列表（不传递数据，避免覆盖本地状态）
+        onSaved();
       } else {
         setMessage(data?.message || '保存失败');
       }
