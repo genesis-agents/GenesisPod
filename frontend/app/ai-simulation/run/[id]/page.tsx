@@ -39,6 +39,27 @@ interface Run {
   params?: any;
   worldState?: any;
   evidenceTrail?: any;
+  summary?: {
+    keyFindings?: string[];
+    biasesDetected?: {
+      type: string;
+      description: string;
+      recommendation?: string;
+    }[];
+    blindspots?: {
+      type: string;
+      description: string;
+      recommendation?: string;
+    }[];
+    counterfactuals?: {
+      round: number;
+      originalAction: string;
+      alternative: string;
+      impact: string;
+    }[];
+    blackSwanEvents?: { round: number; team: string; event: string }[];
+    monologueLog?: any[];
+  };
   turns?: Turn[];
   scenario?: {
     id: string;
@@ -901,6 +922,174 @@ export default function RunConsolePage() {
                 {!run.worldState && (
                   <div className="flex h-40 items-center justify-center rounded-lg border-2 border-dashed border-gray-200 text-sm text-gray-500">
                     推演开始后将显示世界状态
+                  </div>
+                )}
+
+                {/* 复盘报告 - 推演完成后显示 */}
+                {run.status === 'COMPLETED' && run.summary && (
+                  <div className="mt-6 space-y-4">
+                    <div className="rounded-xl border-2 border-indigo-300 bg-gradient-to-br from-indigo-50 to-purple-50 p-4">
+                      <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-indigo-800">
+                        📋 推演复盘报告
+                      </h3>
+
+                      {/* 关键发现 */}
+                      {run.summary.keyFindings &&
+                        run.summary.keyFindings.length > 0 && (
+                          <div className="mb-4">
+                            <div className="mb-2 text-xs font-semibold text-indigo-700">
+                              💡 关键发现
+                            </div>
+                            <ul className="space-y-1">
+                              {run.summary.keyFindings.map(
+                                (finding: string, idx: number) => (
+                                  <li
+                                    key={idx}
+                                    className="flex items-start gap-2 text-xs text-gray-700"
+                                  >
+                                    <span className="mt-1 text-indigo-500">
+                                      •
+                                    </span>
+                                    {finding}
+                                  </li>
+                                )
+                              )}
+                            </ul>
+                          </div>
+                        )}
+
+                      {/* 偏见识别 */}
+                      {run.summary.biasesDetected &&
+                        run.summary.biasesDetected.length > 0 && (
+                          <div className="mb-4">
+                            <div className="mb-2 text-xs font-semibold text-amber-700">
+                              ⚠️ 偏见识别
+                            </div>
+                            <div className="space-y-2">
+                              {run.summary.biasesDetected.map(
+                                (bias: any, idx: number) => (
+                                  <div
+                                    key={idx}
+                                    className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs"
+                                  >
+                                    <div className="font-medium text-amber-800">
+                                      {bias.type}
+                                    </div>
+                                    <p className="text-amber-700">
+                                      {bias.description}
+                                    </p>
+                                    {bias.recommendation && (
+                                      <p className="mt-1 italic text-amber-600">
+                                        建议: {bias.recommendation}
+                                      </p>
+                                    )}
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                      {/* 盲点 */}
+                      {run.summary.blindspots &&
+                        run.summary.blindspots.length > 0 && (
+                          <div className="mb-4">
+                            <div className="mb-2 text-xs font-semibold text-red-700">
+                              🚨 识别盲点
+                            </div>
+                            <div className="space-y-2">
+                              {run.summary.blindspots.map(
+                                (spot: any, idx: number) => (
+                                  <div
+                                    key={idx}
+                                    className="rounded-lg border border-red-200 bg-red-50 p-2 text-xs"
+                                  >
+                                    <div className="font-medium text-red-800">
+                                      {spot.type}
+                                    </div>
+                                    <p className="text-red-700">
+                                      {spot.description}
+                                    </p>
+                                    {spot.recommendation && (
+                                      <p className="mt-1 italic text-red-600">
+                                        建议: {spot.recommendation}
+                                      </p>
+                                    )}
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                      {/* 黑天鹅事件 */}
+                      {run.summary.blackSwanEvents &&
+                        run.summary.blackSwanEvents.length > 0 && (
+                          <div className="mb-4">
+                            <div className="mb-2 text-xs font-semibold text-purple-700">
+                              🦢 黑天鹅事件记录
+                            </div>
+                            <div className="space-y-1">
+                              {run.summary.blackSwanEvents.map(
+                                (event: any, idx: number) => (
+                                  <div
+                                    key={idx}
+                                    className="flex items-center gap-2 rounded bg-purple-100 p-1.5 text-xs"
+                                  >
+                                    <span className="font-medium text-purple-700">
+                                      回合{event.round}
+                                    </span>
+                                    <span className="text-purple-600">
+                                      {event.event}
+                                    </span>
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                      {/* 反事实推理 */}
+                      {run.summary.counterfactuals &&
+                        run.summary.counterfactuals.length > 0 && (
+                          <div className="mb-4">
+                            <div className="mb-2 text-xs font-semibold text-blue-700">
+                              🔮 反事实推理（如果...会怎样）
+                            </div>
+                            <div className="space-y-2">
+                              {run.summary.counterfactuals.map(
+                                (cf: any, idx: number) => (
+                                  <div
+                                    key={idx}
+                                    className="rounded-lg border border-blue-200 bg-blue-50 p-2 text-xs"
+                                  >
+                                    <div className="text-blue-800">
+                                      <span className="font-medium">
+                                        回合{cf.round}：
+                                      </span>
+                                      如果不是"{cf.originalAction}"而是"
+                                      {cf.alternative}"
+                                    </div>
+                                    <p className="mt-1 text-blue-700">
+                                      → {cf.impact}
+                                    </p>
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 推演完成但无报告 */}
+                {run.status === 'COMPLETED' && !run.summary && (
+                  <div className="mt-6 rounded-lg border-2 border-dashed border-gray-300 p-4 text-center">
+                    <div className="text-sm text-gray-500">推演已完成</div>
+                    <div className="mt-1 text-xs text-gray-400">
+                      复盘报告生成中或暂无数据...
+                    </div>
                   </div>
                 )}
               </div>
