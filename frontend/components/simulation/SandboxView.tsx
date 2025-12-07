@@ -683,11 +683,7 @@ export default function SandboxView({
   );
 
   // 渲染四象限卡片
-  const renderQuadrantCard = (
-    team: string,
-    Icon: any,
-    quadrant: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
-  ) => {
+  const renderQuadrantCard = (team: string, Icon: any) => {
     const teamConfig = TEAM_COLORS[team];
     const teamAgents = agentsByTeam[team] || [];
     const isHovered = hoveredZone === team;
@@ -698,17 +694,9 @@ export default function SandboxView({
         ? currentTurn.submissions.filter((sub) => sub.team === team)
         : [];
 
-    // 根据象限决定圆角
-    const borderRadiusClass = {
-      'top-left': 'rounded-tl-2xl rounded-br-lg',
-      'top-right': 'rounded-tr-2xl rounded-bl-lg',
-      'bottom-left': 'rounded-bl-2xl rounded-tr-lg',
-      'bottom-right': 'rounded-br-2xl rounded-tl-lg',
-    }[quadrant];
-
     return (
       <div
-        className={`relative flex flex-col border transition-all ${borderRadiusClass} ${
+        className={`flex h-full flex-col rounded-lg border transition-all ${
           isHovered ? 'border-white/40 shadow-lg' : 'border-white/20'
         }`}
         style={{ backgroundColor: `${teamConfig.primary}15` }}
@@ -717,89 +705,59 @@ export default function SandboxView({
       >
         {/* 区域标题栏 */}
         <div
-          className={`flex items-center justify-between px-3 py-2 ${
-            quadrant.includes('top') ? 'rounded-t-xl' : ''
-          }`}
+          className="flex shrink-0 items-center justify-between rounded-t-lg px-3 py-2"
           style={{ backgroundColor: `${teamConfig.primary}25` }}
         >
           <div className="flex items-center gap-2">
             <div
-              className={`flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br ${teamConfig.gradient}`}
+              className={`flex h-6 w-6 items-center justify-center rounded bg-gradient-to-br ${teamConfig.gradient}`}
             >
-              <Icon className="h-3.5 w-3.5 text-white" />
+              <Icon className="h-3 w-3 text-white" />
             </div>
-            <div>
-              <div className="text-sm font-semibold text-white">
-                {teamConfig.label}
-              </div>
-              <div className="text-[10px] text-gray-400">
-                {teamConfig.description}
-              </div>
-            </div>
+            <span className="text-sm font-semibold text-white">
+              {teamConfig.label}
+            </span>
           </div>
           <div
-            className="flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white"
+            className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white"
             style={{ backgroundColor: teamConfig.primary }}
           >
             {teamAgents.length}
           </div>
         </div>
 
-        {/* 行动内容区域 */}
-        <div className="flex-1 space-y-2 overflow-y-auto p-2">
+        {/* 行动内容区域 - 固定高度可滚动 */}
+        <div className="flex-1 space-y-1.5 overflow-y-auto p-2">
           {teamSubmissions.length > 0 ? (
-            teamSubmissions.map((submission, idx) => {
+            teamSubmissions.slice(0, 3).map((submission, idx) => {
               const canView =
                 viewPermission === 'GOD' || viewPermission === team;
               return (
                 <div
                   key={idx}
-                  className="rounded-lg border p-2"
+                  className="rounded border p-1.5"
                   style={{
                     backgroundColor: `${teamConfig.primary}10`,
                     borderColor: `${teamConfig.primary}30`,
                   }}
                 >
                   {/* 角色名 */}
-                  <div className="mb-1.5 flex items-center gap-1.5">
+                  <div className="mb-1 flex items-center gap-1">
                     <div
-                      className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                      className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[8px] font-bold text-white"
                       style={{ backgroundColor: teamConfig.primary }}
                     >
                       {(submission.role || '?')[0]}
                     </div>
-                    <span className="text-xs font-medium text-white">
+                    <span className="truncate text-[11px] font-medium text-white">
                       {submission.role || '未知角色'}
                     </span>
-                    {submission.irrational && (
-                      <span className="rounded bg-yellow-500/20 px-1 py-0.5 text-[10px] text-yellow-400">
-                        ⚡
-                      </span>
-                    )}
                   </div>
 
                   {canView ? (
-                    <>
-                      {/* 公开行动 */}
-                      {submission.publicAction && (
-                        <div className="text-xs leading-relaxed text-gray-200">
-                          {submission.publicAction.length > 100
-                            ? submission.publicAction.substring(0, 100) + '...'
-                            : submission.publicAction}
-                        </div>
-                      )}
-                      {/* 内心独白 - 折叠显示 */}
-                      {submission.innerMonologue &&
-                        (viewPermission === 'GOD' ||
-                          viewPermission === team) && (
-                          <div className="mt-1.5 rounded border-l-2 border-gray-500 bg-black/30 p-1.5 text-[10px] italic text-gray-400">
-                            {submission.innerMonologue.length > 60
-                              ? submission.innerMonologue.substring(0, 60) +
-                                '...'
-                              : submission.innerMonologue}
-                          </div>
-                        )}
-                    </>
+                    <div className="line-clamp-2 text-[10px] leading-relaxed text-gray-300">
+                      {submission.publicAction || '无公开行动'}
+                    </div>
                   ) : (
                     <div className="text-[10px] italic text-gray-500">
                       🔒 需要{teamConfig.label}视角
@@ -809,27 +767,32 @@ export default function SandboxView({
               );
             })
           ) : (
-            <div className="flex h-full items-center justify-center text-xs text-gray-500">
+            <div className="flex h-full items-center justify-center text-[11px] text-gray-500">
               暂无行动
+            </div>
+          )}
+          {teamSubmissions.length > 3 && (
+            <div className="text-center text-[10px] text-gray-500">
+              +{teamSubmissions.length - 3} 更多
             </div>
           )}
         </div>
 
         {/* Agent标签 */}
-        <div className="flex flex-wrap gap-1 border-t border-white/10 p-2">
-          {teamAgents.slice(0, 4).map((agent, idx) => (
+        <div className="flex shrink-0 flex-wrap gap-1 border-t border-white/10 p-1.5">
+          {teamAgents.slice(0, 3).map((agent, idx) => (
             <span
               key={idx}
-              className="rounded-full border border-white/20 bg-black/30 px-1.5 py-0.5 text-[10px] text-gray-300"
+              className="rounded border border-white/20 bg-black/30 px-1 py-0.5 text-[9px] text-gray-400"
             >
-              {agent.role.length > 8
-                ? agent.role.substring(0, 8) + '...'
+              {agent.role.length > 6
+                ? agent.role.substring(0, 6) + '..'
                 : agent.role}
             </span>
           ))}
-          {teamAgents.length > 4 && (
-            <span className="text-[10px] text-gray-500">
-              +{teamAgents.length - 4}
+          {teamAgents.length > 3 && (
+            <span className="text-[9px] text-gray-500">
+              +{teamAgents.length - 3}
             </span>
           )}
         </div>
@@ -889,221 +852,128 @@ export default function SandboxView({
         {/* 背景遮罩层 */}
         <div className="absolute inset-0 bg-black/40" />
 
-        {/* 主内容区域 */}
-        <div className="relative z-10 flex flex-1 flex-col p-4 pb-32">
-          {/* 四象限主区域 */}
-          <div className="relative flex-1">
-            {/* 坐标轴 - 十字分割线 */}
-            <div className="absolute bottom-0 left-1/2 top-0 w-px bg-gradient-to-b from-transparent via-white/30 to-transparent" />
-            <div className="absolute left-0 right-0 top-1/2 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+        {/* 主内容区域 - 四象限 */}
+        <div className="relative z-10 flex-1 p-3 pb-28">
+          {/* 四象限容器 - 使用CSS Grid固定布局 */}
+          <div
+            className="relative h-full w-full"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'calc(50% - 60px) 120px calc(50% - 60px)',
+              gridTemplateRows: 'calc(50% - 40px) 80px calc(50% - 40px)',
+              gap: '0',
+            }}
+          >
+            {/* 左上 - 蓝军 */}
+            <div className="p-1" style={{ gridColumn: '1', gridRow: '1' }}>
+              {renderQuadrantCard('BLUE', Crown)}
+            </div>
 
-            {/* 中心圆形事件关联区 */}
-            <div className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
+            {/* 右上 - 红军 */}
+            <div className="p-1" style={{ gridColumn: '3', gridRow: '1' }}>
+              {renderQuadrantCard('RED', Target)}
+            </div>
+
+            {/* 左下 - 绿军 */}
+            <div className="p-1" style={{ gridColumn: '1', gridRow: '3' }}>
+              {renderQuadrantCard('GREEN', Store)}
+            </div>
+
+            {/* 右下 - 白方 */}
+            <div className="p-1" style={{ gridColumn: '3', gridRow: '3' }}>
+              {renderQuadrantCard('WHITE', Scale)}
+            </div>
+
+            {/* 中心区域 - 回合信息和事件关联 */}
+            <div
+              className="flex items-center justify-center"
+              style={{ gridColumn: '2', gridRow: '2' }}
+            >
               <div
-                className="relative flex h-32 w-32 flex-col items-center justify-center rounded-full border-2 backdrop-blur-sm"
+                className="relative flex h-20 w-20 flex-col items-center justify-center rounded-full border-2 backdrop-blur-sm"
                 style={{
-                  borderColor: `${industryConfig.accent}50`,
-                  backgroundColor: 'rgba(0,0,0,0.7)',
-                  boxShadow: `0 0 30px ${industryConfig.accent}30`,
+                  borderColor: `${industryConfig.accent}60`,
+                  backgroundColor: 'rgba(0,0,0,0.8)',
+                  boxShadow: `0 0 20px ${industryConfig.accent}40`,
                 }}
               >
-                {/* 回合信息 */}
-                <div className="text-center">
-                  <div
-                    className="text-2xl font-bold"
-                    style={{ color: industryConfig.accent }}
-                  >
-                    R{selectedRound}
-                  </div>
-                  <div className="text-[10px] text-gray-400">
-                    {run.scenario?.industry || '推演中'}
-                  </div>
+                <div
+                  className="text-xl font-bold"
+                  style={{ color: industryConfig.accent }}
+                >
+                  R{selectedRound}
                 </div>
-
-                {/* 事件数量指示 */}
-                <div className="mt-1 flex items-center gap-1">
-                  <Activity
-                    className="h-3 w-3"
-                    style={{ color: industryConfig.accent }}
-                  />
-                  <span className="text-xs text-gray-300">
-                    {allSubmissions.length} 个行动
-                  </span>
+                <div className="text-[9px] text-gray-400">
+                  {allSubmissions.length} 行动
                 </div>
-
-                {/* 黑天鹅事件指示 */}
                 {currentTurn?.adjudication?.blackSwanEvent && (
-                  <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-purple-500 px-2 py-0.5 text-[10px] text-white">
+                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-purple-500 px-1.5 py-0.5 text-[8px] text-white">
                     🦢 黑天鹅
                   </div>
                 )}
-
-                {/* 关联线指示器 */}
-                {eventRelations.length > 0 && (
-                  <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500 text-[10px] font-bold text-white">
-                    {eventRelations.length}
-                  </div>
-                )}
-              </div>
-
-              {/* 事件关联连接线 - SVG */}
-              <svg
-                className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-                width="400"
-                height="400"
-                style={{ marginLeft: 0, marginTop: 0 }}
-              >
-                {/* 蓝军-红军 冲突线 (左上到右上) */}
-                {eventRelations.some(
-                  (r) =>
-                    r.type === 'conflict' &&
-                    ((r.from === 'BLUE' && r.to === 'RED') ||
-                      (r.from === 'RED' && r.to === 'BLUE'))
-                ) && (
-                  <g>
-                    <line
-                      x1="70"
-                      y1="130"
-                      x2="200"
-                      y2="200"
-                      stroke="#EF4444"
-                      strokeWidth="2"
-                      strokeDasharray="5,5"
-                      opacity="0.6"
-                    />
-                    <line
-                      x1="200"
-                      y1="200"
-                      x2="330"
-                      y2="130"
-                      stroke="#EF4444"
-                      strokeWidth="2"
-                      strokeDasharray="5,5"
-                      opacity="0.6"
-                    />
-                    {/* 冲突标记 */}
-                    <circle
-                      cx="200"
-                      cy="165"
-                      r="12"
-                      fill="#EF4444"
-                      opacity="0.8"
-                    />
-                    <text
-                      x="200"
-                      y="169"
-                      textAnchor="middle"
-                      fontSize="10"
-                      fill="white"
-                    >
-                      ⚔
-                    </text>
-                  </g>
-                )}
-
-                {/* 绿军影响线 (左下到中心) */}
-                {eventRelations.some(
-                  (r) => r.from === 'GREEN' && r.type === 'impact'
-                ) && (
-                  <line
-                    x1="100"
-                    y1="280"
-                    x2="180"
-                    y2="220"
-                    stroke="#10B981"
-                    strokeWidth="2"
-                    opacity="0.5"
-                    markerEnd="url(#arrowGreen)"
-                  />
-                )}
-
-                {/* 白方监管线 (右下到中心) */}
-                {eventRelations.some(
-                  (r) => r.from === 'WHITE' && r.type === 'response'
-                ) && (
-                  <line
-                    x1="300"
-                    y1="280"
-                    x2="220"
-                    y2="220"
-                    stroke="#6B7280"
-                    strokeWidth="2"
-                    opacity="0.5"
-                    markerEnd="url(#arrowWhite)"
-                  />
-                )}
-
-                {/* 箭头定义 */}
-                <defs>
-                  <marker
-                    id="arrowGreen"
-                    markerWidth="6"
-                    markerHeight="6"
-                    refX="5"
-                    refY="3"
-                    orient="auto"
-                  >
-                    <path d="M0,0 L6,3 L0,6 Z" fill="#10B981" />
-                  </marker>
-                  <marker
-                    id="arrowWhite"
-                    markerWidth="6"
-                    markerHeight="6"
-                    refX="5"
-                    refY="3"
-                    orient="auto"
-                  >
-                    <path d="M0,0 L6,3 L0,6 Z" fill="#6B7280" />
-                  </marker>
-                </defs>
-              </svg>
-            </div>
-
-            {/* 四象限网格 */}
-            <div className="grid h-full grid-cols-2 grid-rows-2 gap-1">
-              {/* 左上 - 蓝军 */}
-              <div className="pb-16 pr-16">
-                {renderQuadrantCard('BLUE', Crown, 'top-left')}
-              </div>
-
-              {/* 右上 - 红军 */}
-              <div className="pb-16 pl-16">
-                {renderQuadrantCard('RED', Target, 'top-right')}
-              </div>
-
-              {/* 左下 - 绿军 */}
-              <div className="pr-16 pt-16">
-                {renderQuadrantCard('GREEN', Store, 'bottom-left')}
-              </div>
-
-              {/* 右下 - 白方 */}
-              <div className="pl-16 pt-16">
-                {renderQuadrantCard('WHITE', Scale, 'bottom-right')}
               </div>
             </div>
 
-            {/* 象限标签 */}
-            <div className="absolute left-2 top-2 rounded bg-black/50 px-2 py-1 text-[10px] text-blue-400">
-              主角阵营
+            {/* 上方中间 - 蓝红冲突标记 */}
+            <div
+              className="flex items-end justify-center pb-2"
+              style={{ gridColumn: '2', gridRow: '1' }}
+            >
+              {eventRelations.some((r) => r.type === 'conflict') && (
+                <div className="flex items-center gap-1 rounded-full bg-red-500/20 px-2 py-1">
+                  <span className="text-[10px] text-red-400">⚔️ 竞争</span>
+                </div>
+              )}
             </div>
-            <div className="absolute right-2 top-2 rounded bg-black/50 px-2 py-1 text-[10px] text-red-400">
-              竞争对手
+
+            {/* 下方中间 - 监管/市场标记 */}
+            <div
+              className="flex items-start justify-center pt-2"
+              style={{ gridColumn: '2', gridRow: '3' }}
+            >
+              {(eventRelations.some((r) => r.from === 'GREEN') ||
+                eventRelations.some((r) => r.from === 'WHITE')) && (
+                <div className="flex items-center gap-2">
+                  {eventRelations.some((r) => r.from === 'GREEN') && (
+                    <span className="rounded bg-green-500/20 px-1.5 py-0.5 text-[9px] text-green-400">
+                      市场↑
+                    </span>
+                  )}
+                  {eventRelations.some((r) => r.from === 'WHITE') && (
+                    <span className="rounded bg-gray-500/20 px-1.5 py-0.5 text-[9px] text-gray-400">
+                      监管↑
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="absolute bottom-2 left-2 rounded bg-black/50 px-2 py-1 text-[10px] text-green-400">
-              市场环境
+
+            {/* 左侧中间 */}
+            <div
+              className="flex items-center justify-end pr-2"
+              style={{ gridColumn: '1', gridRow: '2' }}
+            >
+              <div className="h-px w-8 bg-gradient-to-r from-transparent to-white/30" />
             </div>
-            <div className="absolute bottom-2 right-2 rounded bg-black/50 px-2 py-1 text-[10px] text-gray-400">
-              监管机构
+
+            {/* 右侧中间 */}
+            <div
+              className="flex items-center justify-start pl-2"
+              style={{ gridColumn: '3', gridRow: '2' }}
+            >
+              <div className="h-px w-8 bg-gradient-to-l from-transparent to-white/30" />
             </div>
           </div>
 
           {/* 黑天鹅事件横幅 */}
           {currentTurn?.adjudication?.blackSwanEvent && (
-            <div className="mt-2 rounded-lg border border-purple-500/50 bg-purple-900/40 p-2">
-              <div className="flex items-center gap-2 text-purple-300">
-                <AlertTriangle className="h-4 w-4" />
-                <span className="text-sm font-semibold">黑天鹅事件</span>
-                <span className="text-xs text-purple-200">
+            <div className="absolute bottom-28 left-3 right-3 rounded border border-purple-500/50 bg-purple-900/60 px-3 py-1.5 backdrop-blur-sm">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-3.5 w-3.5 text-purple-400" />
+                <span className="text-xs font-medium text-purple-300">
+                  黑天鹅:
+                </span>
+                <span className="truncate text-xs text-purple-200">
                   {currentTurn.adjudication.blackSwanEvent.event}
                 </span>
               </div>
