@@ -511,9 +511,12 @@ export default function AISimulationPage() {
           scenario={editing}
           seed={seed}
           onClose={() => setShowEditor(false)}
-          onSaved={() => {
-            setShowEditor(false);
+          onSaved={(savedScenario) => {
+            // 更新编辑中的场景数据（用于保存后继续编辑）
+            setEditing(savedScenario);
+            // 刷新列表数据
             void fetchScenarios();
+            // 不关闭编辑器，让用户继续编辑
           }}
         />
       )}
@@ -571,7 +574,7 @@ function EditorModal({
   scenario: ScenarioCard | null;
   seed?: ScenarioTemplate | null;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (savedScenario: ScenarioCard) => void;
 }) {
   const preset = (scenario || seed || {}) as Partial<ScenarioCard> &
     Partial<ScenarioTemplate>;
@@ -582,6 +585,11 @@ function EditorModal({
     irrationalProb: 0.2,
     humanBreakEvery: 2,
   };
+
+  // 本地场景状态 - 用于跟踪保存后获取的ID（新建场景时）
+  const [localScenario, setLocalScenario] = useState<ScenarioCard | null>(
+    scenario
+  );
 
   // Tab state for organized editing - 向导式步骤
   type TabType = 'basic' | 'companies' | 'agents' | 'params';
@@ -790,10 +798,10 @@ function EditorModal({
   const saveScenario = async () => {
     setSaving(true);
     try {
-      // 判断是编辑还是新建
-      const isEditing = !!scenario?.id;
+      // 判断是编辑还是新建 - 使用localScenario跟踪保存后的ID
+      const isEditing = !!localScenario?.id;
       const url = isEditing
-        ? `${config.apiUrl}/simulation/scenarios/${scenario.id}`
+        ? `${config.apiUrl}/simulation/scenarios/${localScenario.id}`
         : `${config.apiUrl}/simulation/scenarios`;
       const method = isEditing ? 'PATCH' : 'POST';
 
@@ -822,7 +830,9 @@ function EditorModal({
       const data = await res.json();
       if (res.ok) {
         setMessage(isEditing ? '场景已更新' : '场景已保存');
-        onSaved();
+        // 更新本地场景状态（新建场景时获取ID，后续保存变为PATCH）
+        setLocalScenario(data as ScenarioCard);
+        onSaved(data as ScenarioCard);
       } else {
         setMessage(data?.message || '保存失败');
       }
@@ -834,7 +844,7 @@ function EditorModal({
   };
 
   const startRun = async () => {
-    if (!scenario?.id) {
+    if (!localScenario?.id) {
       setMessage('请先保存场景');
       return;
     }
@@ -848,7 +858,7 @@ function EditorModal({
         },
         credentials: 'include',
         body: JSON.stringify({
-          scenarioId: scenario.id,
+          scenarioId: localScenario.id,
           rounds: 4,
           params: form.constraints,
         }),
@@ -2774,8 +2784,10 @@ function AgentCard({
 }) {
   const [expanded, setExpanded] = useState(false);
 
-  // 解析persona JSON
-  const persona = agent.persona ? safeJson(agent.persona, {}) : {};
+  // 解析persona JSON - 使用useMemo确保响应式更新
+  const persona = useMemo(() => {
+    return agent.persona ? safeJson(agent.persona, {}) : {};
+  }, [agent.persona]);
 
   const updatePersona = (key: string, value: any) => {
     const newPersona = { ...persona, [key]: value };
