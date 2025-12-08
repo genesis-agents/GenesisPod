@@ -956,50 +956,49 @@ export default function SandboxView({
           {/* 势力分布 - 显示具体公司/机构名称 */}
           <div className="rounded-lg border border-white/10 bg-black/50 p-3 backdrop-blur-sm">
             <div className="mb-2 text-[10px] text-gray-500">势力分布</div>
-            {Object.entries(TEAM_COLORS)
-              .slice(0, 4)
-              .map(([team, config]) => {
-                const teamAgentsList = agentsByTeam[team] || [];
-                const companyNames = [
-                  ...new Set(
-                    teamAgentsList
-                      .map((agent) => agent.company?.name || agent.companyName)
-                      .filter(Boolean)
-                  ),
-                ];
-                return (
-                  <div key={team} className="mb-2 last:mb-0">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="h-2 w-2 rounded-full"
-                          style={{ backgroundColor: config.primary }}
-                        />
-                        <span className="text-[11px] font-medium text-white">
-                          {config.label}
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-gray-500">
-                        {teamAgentsList.length} 角色
+            {(['BLUE', 'RED', 'GREEN', 'WHITE'] as const).map((team) => {
+              const config = TEAM_COLORS[team];
+              const teamAgentsList = agentsByTeam[team] || [];
+              const companyNames = [
+                ...new Set(
+                  teamAgentsList
+                    .map((agent) => agent.company?.name || agent.companyName)
+                    .filter(Boolean)
+                ),
+              ];
+              return (
+                <div key={team} className="mb-2 last:mb-0">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: config.primary }}
+                      />
+                      <span className="text-[11px] font-medium text-white">
+                        {config.label}
                       </span>
                     </div>
-                    {/* 显示公司/机构名称 */}
-                    {companyNames.length > 0 && (
-                      <div className="mt-1 space-y-0.5 pl-4">
-                        {companyNames.map((name, idx) => (
-                          <div
-                            key={idx}
-                            className="truncate text-[10px] text-gray-400"
-                            title={name as string}
-                          >
-                            • {name}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    <span className="text-[10px] text-gray-500">
+                      {teamAgentsList.length} 角色
+                    </span>
                   </div>
-                );
-              })}
+                  {/* 显示公司/机构名称 */}
+                  {companyNames.length > 0 && (
+                    <div className="mt-1 space-y-0.5 pl-4">
+                      {companyNames.map((name, idx) => (
+                        <div
+                          key={idx}
+                          className="truncate text-[10px] text-gray-400"
+                          title={name as string}
+                        >
+                          • {name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
