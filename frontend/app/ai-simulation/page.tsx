@@ -659,8 +659,12 @@ function EditorModal({
     setCompletedSteps(new Set());
   }, [scenario?.id, seed?.name]);
 
-  // 当公司配置变化时，自动为没有公司的主要角色智能分配公司
-  // 注意：每个阵营只分配一个公司给主要角色（如CEO），其他角色保持无公司
+  // 当公司配置变化时，智能为各阵营角色分配公司
+  // 业务逻辑：
+  // - 蓝军(BLUE)：用户自己的公司，只分配一个benchmark/regional公司给第一个角色
+  // - 红军(RED)：竞争对手，将所有竞争对手公司(competitor/challenger/startup)分散分配给红军角色
+  // - 绿方(GREEN)：市场客户，将客户/供应商公司(customer/supplier)分散分配给绿方角色
+  // - 白方(WHITE)：监管机构，不分配公司
   useEffect(() => {
     if (companies.length === 0) return;
 
@@ -670,66 +674,79 @@ function EditorModal({
     );
     if (validCompanies.length === 0) return;
 
-    // 检查是否已有蓝军/红军角色绑定了有效公司
-    const blueHasCompany = agents.some(
-      (a) =>
-        a.team === 'BLUE' &&
-        a.companyName &&
-        validCompanies.some((c) => c.name === a.companyName)
-    );
-    const redHasCompany = agents.some(
-      (a) =>
-        a.team === 'RED' &&
-        a.companyName &&
-        validCompanies.some((c) => c.name === a.companyName)
-    );
-
-    // 如果都已分配，则不需要更新
-    if (blueHasCompany && redHasCompany) return;
-
     // 按公司类型分类
-    const benchmarkCompany = validCompanies.find((c) => c.type === 'benchmark');
-    const challengerCompany = validCompanies.find(
-      (c) => c.type === 'challenger'
+    // 蓝军公司：用户自己的公司（benchmark或regional类型）
+    const blueCompanies = validCompanies.filter(
+      (c) => c.type === 'benchmark' || c.type === 'regional'
     );
-    const startupCompany = validCompanies.find((c) => c.type === 'startup');
-    const regionalCompany = validCompanies.find((c) => c.type === 'regional');
-
-    // 蓝军优先使用：benchmark > regional > 第一个公司
-    const blueCompany =
-      benchmarkCompany || regionalCompany || validCompanies[0];
-    // 红军优先使用：challenger > startup > 非蓝军的第一个公司
-    const redCompany =
-      challengerCompany ||
-      startupCompany ||
-      validCompanies.find((c) => c.name !== blueCompany?.name) ||
-      validCompanies[1];
+    // 红军公司：竞争对手（competitor、challenger、startup类型）
+    const redCompanies = validCompanies.filter(
+      (c) =>
+        c.type === 'competitor' ||
+        c.type === 'challenger' ||
+        c.type === 'startup'
+    );
+    // 绿方公司：客户和供应商（customer、supplier类型）
+    const greenCompanies = validCompanies.filter(
+      (c) => c.type === 'customer' || c.type === 'supplier'
+    );
 
     setAgents((prev) => {
-      let blueAssigned = blueHasCompany;
-      let redAssigned = redHasCompany;
+      // 统计各阵营需要分配公司的角色
+      const blueAgents = prev
+        .map((a, idx) => ({ agent: a, index: idx }))
+        .filter((x) => x.agent.team === 'BLUE' && !x.agent.companyName);
+      const redAgents = prev
+        .map((a, idx) => ({ agent: a, index: idx }))
+        .filter((x) => x.agent.team === 'RED' && !x.agent.companyName);
+      const greenAgents = prev
+        .map((a, idx) => ({ agent: a, index: idx }))
+        .filter((x) => x.agent.team === 'GREEN' && !x.agent.companyName);
 
-      return prev.map((agent) => {
-        // 如果角色已有有效公司，保持不变
-        if (
-          agent.companyName &&
-          validCompanies.some((c) => c.name === agent.companyName)
-        ) {
-          return agent;
-        }
+      // 如果没有需要分配的角色，直接返回
+      if (
+        blueAgents.length === 0 &&
+        redAgents.length === 0 &&
+        greenAgents.length === 0
+      ) {
+        return prev;
+      }
 
-        // 每个阵营只分配给第一个没有公司的角色（通常是CEO）
-        if (agent.team === 'BLUE' && !blueAssigned && blueCompany) {
-          blueAssigned = true;
-          return { ...agent, companyName: blueCompany.name };
-        }
-        if (agent.team === 'RED' && !redAssigned && redCompany) {
-          redAssigned = true;
-          return { ...agent, companyName: redCompany.name };
-        }
+      // 复制数组进行修改
+      const updatedAgents = [...prev];
 
-        return agent;
-      });
+      // 蓝军：只分配第一个蓝军公司给第一个蓝军角色
+      if (blueAgents.length > 0 && blueCompanies.length > 0) {
+        updatedAgents[blueAgents[0].index] = {
+          ...updatedAgents[blueAgents[0].index],
+          companyName: blueCompanies[0].name,
+        };
+      }
+
+      // 红军：将竞争对手公司循环分配给所有红军角色
+      // 例如：NVIDIA -> CEO, AMD -> CTO, Intel -> CFO, NVIDIA -> 销售总监...
+      if (redAgents.length > 0 && redCompanies.length > 0) {
+        redAgents.forEach((item, i) => {
+          const companyIndex = i % redCompanies.length;
+          updatedAgents[item.index] = {
+            ...updatedAgents[item.index],
+            companyName: redCompanies[companyIndex].name,
+          };
+        });
+      }
+
+      // 绿方：将客户/供应商公司循环分配给所有绿方角色
+      if (greenAgents.length > 0 && greenCompanies.length > 0) {
+        greenAgents.forEach((item, i) => {
+          const companyIndex = i % greenCompanies.length;
+          updatedAgents[item.index] = {
+            ...updatedAgents[item.index],
+            companyName: greenCompanies[companyIndex].name,
+          };
+        });
+      }
+
+      return updatedAgents;
     });
   }, [companies]);
 
@@ -4065,6 +4082,26 @@ function CompanyCard({
       value: 'challenger',
       label: '挑战者',
       color: 'bg-orange-100 text-orange-700',
+    },
+    {
+      value: 'competitor',
+      label: '竞争对手',
+      color: 'bg-red-100 text-red-700',
+    },
+    {
+      value: 'customer',
+      label: '客户/市场',
+      color: 'bg-cyan-100 text-cyan-700',
+    },
+    {
+      value: 'supplier',
+      label: '供应商',
+      color: 'bg-teal-100 text-teal-700',
+    },
+    {
+      value: 'regulatory',
+      label: '监管机构',
+      color: 'bg-gray-100 text-gray-700',
     },
   ];
 
