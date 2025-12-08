@@ -567,21 +567,25 @@ export default function RunConsolePage() {
                       <span className="rounded bg-blue-100 px-1.5 py-0.5 text-blue-700">
                         🔵 蓝军
                       </span>
-                      <span className="text-gray-600">
-                        = 我方公司（如NVIDIA）
-                      </span>
+                      <span className="text-gray-600">= 我方/主角公司</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="rounded bg-red-100 px-1.5 py-0.5 text-red-700">
                         🔴 红军
                       </span>
-                      <span className="text-gray-600">= 竞争对手（如AMD）</span>
+                      <span className="text-gray-600">= 竞争对手/挑战者</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="rounded bg-green-100 px-1.5 py-0.5 text-green-700">
                         🟢 绿军
                       </span>
-                      <span className="text-gray-600">= 监管/第三方</span>
+                      <span className="text-gray-600">= 市场/客户/供应商</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-700">
+                        ⚪ 白方
+                      </span>
+                      <span className="text-gray-600">= 裁判/监管机构</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="rounded bg-purple-100 px-1.5 py-0.5 text-purple-700">
@@ -695,13 +699,16 @@ export default function RunConsolePage() {
               <div className="border-b border-gray-100 bg-gray-50 px-4 py-2">
                 <div className="flex flex-wrap gap-2 text-[10px]">
                   <span className="rounded bg-blue-100 px-1.5 py-0.5 text-blue-700">
-                    🔵 蓝军=我方
+                    🔵 蓝军=主角
                   </span>
                   <span className="rounded bg-red-100 px-1.5 py-0.5 text-red-700">
                     🔴 红军=对手
                   </span>
                   <span className="rounded bg-green-100 px-1.5 py-0.5 text-green-700">
-                    🟢 绿军=监管
+                    🟢 绿军=市场
+                  </span>
+                  <span className="rounded bg-gray-200 px-1.5 py-0.5 text-gray-700">
+                    ⚪ 白方=监管
                   </span>
                   <span className="rounded bg-purple-100 px-1.5 py-0.5 text-purple-700">
                     🟣 黑天鹅
@@ -761,7 +768,7 @@ export default function RunConsolePage() {
                           Array.isArray(turn.submissions) && (
                             <div className="ml-4 space-y-4">
                               {/* 按Team分组展示 */}
-                              {['BLUE', 'RED', 'GREEN', 'CHAOS'].map(
+                              {['BLUE', 'RED', 'GREEN', 'WHITE', 'CHAOS'].map(
                                 (teamName) => {
                                   const teamSubmissions =
                                     turn.submissions.filter(
@@ -772,7 +779,7 @@ export default function RunConsolePage() {
                                   const teamConfig = {
                                     BLUE: {
                                       label: '蓝军行动',
-                                      sublabel: '我方',
+                                      sublabel: '主角',
                                       bg: 'bg-gradient-to-r from-blue-50 to-blue-100',
                                       border: 'border-blue-300',
                                       text: 'text-blue-800',
@@ -790,12 +797,21 @@ export default function RunConsolePage() {
                                     },
                                     GREEN: {
                                       label: '绿军行动',
-                                      sublabel: '第三方',
+                                      sublabel: '市场',
                                       bg: 'bg-gradient-to-r from-green-50 to-green-100',
                                       border: 'border-green-300',
                                       text: 'text-green-800',
                                       icon: '🟢',
                                       accent: 'bg-green-500',
+                                    },
+                                    WHITE: {
+                                      label: '白方行动',
+                                      sublabel: '监管',
+                                      bg: 'bg-gradient-to-r from-gray-50 to-gray-100',
+                                      border: 'border-gray-300',
+                                      text: 'text-gray-800',
+                                      icon: '⚪',
+                                      accent: 'bg-gray-500',
                                     },
                                     CHAOS: {
                                       label: '黑天鹅事件',
@@ -1265,7 +1281,7 @@ export default function RunConsolePage() {
                           </div>
                           <div className="space-y-3">
                             {/* 按团队分组显示最新动态 */}
-                            {['BLUE', 'RED', 'GREEN'].map((team) => {
+                            {['BLUE', 'RED', 'GREEN', 'WHITE'].map((team) => {
                               const latestTurn =
                                 run.turns?.[run.turns.length - 1];
                               const teamSubmissions =
@@ -1279,7 +1295,7 @@ export default function RunConsolePage() {
                                 { name: string; color: string; bg: string }
                               > = {
                                 BLUE: {
-                                  name: '蓝军（我方）',
+                                  name: '蓝军（主角）',
                                   color: 'text-blue-700',
                                   bg: 'bg-blue-100',
                                 },
@@ -1289,9 +1305,14 @@ export default function RunConsolePage() {
                                   bg: 'bg-red-100',
                                 },
                                 GREEN: {
-                                  name: '绿军（监管）',
+                                  name: '绿军（市场）',
                                   color: 'text-green-700',
                                   bg: 'bg-green-100',
+                                },
+                                WHITE: {
+                                  name: '白方（监管）',
+                                  color: 'text-gray-700',
+                                  bg: 'bg-gray-100',
                                 },
                               };
                               const config = teamNames[team];
@@ -1615,7 +1636,9 @@ export default function RunConsolePage() {
                                                           ? 'bg-red-200 text-red-700'
                                                           : team === 'GREEN'
                                                             ? 'bg-green-200 text-green-700'
-                                                            : 'bg-purple-200 text-purple-700'
+                                                            : team === 'WHITE'
+                                                              ? 'bg-gray-200 text-gray-700'
+                                                              : 'bg-purple-200 text-purple-700'
                                                     }`}
                                                   >
                                                     {team}
