@@ -341,6 +341,7 @@ export default function SandboxView({
     team: string;
     idx: number;
   } | null>(null); // 选中的卡片（点击展开详情）
+  const [showBlackSwanModal, setShowBlackSwanModal] = useState(false); // 黑天鹅事件详情模态框
   const timelineRef = useRef<HTMLDivElement>(null);
 
   // 自动播放功能
@@ -1048,17 +1049,138 @@ export default function SandboxView({
           </div>
         </div>
 
-        {/* 黑天鹅事件横幅 */}
+        {/* 黑天鹅事件横幅 - 可点击展开详情 */}
         {currentTurn?.adjudication?.blackSwanEvent && (
-          <div className="absolute bottom-16 left-1/2 z-20 w-[620px] -translate-x-1/2 rounded border border-purple-500/50 bg-purple-900/60 px-3 py-1.5 backdrop-blur-sm">
+          <button
+            onClick={() => setShowBlackSwanModal(true)}
+            className="absolute bottom-16 left-1/2 z-20 w-[620px] -translate-x-1/2 cursor-pointer rounded border border-purple-500/50 bg-purple-900/60 px-3 py-1.5 backdrop-blur-sm transition-all hover:border-purple-400 hover:bg-purple-900/80"
+          >
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-purple-400" />
               <span className="text-xs font-medium text-purple-300">
-                黑天鹅事件:
+                🦢 黑天鹅事件:
               </span>
-              <span className="truncate text-xs text-purple-200">
+              <span className="flex-1 truncate text-left text-xs text-purple-200">
                 {currentTurn.adjudication.blackSwanEvent.event}
               </span>
+              <span className="shrink-0 text-[10px] text-purple-400">
+                点击查看详情 →
+              </span>
+            </div>
+          </button>
+        )}
+
+        {/* 黑天鹅事件详情模态框 */}
+        {showBlackSwanModal && currentTurn?.adjudication?.blackSwanEvent && (
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowBlackSwanModal(false)}
+          >
+            <div
+              className="relative w-[600px] max-w-[95vw] rounded-xl border border-purple-500/50 bg-gray-900 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* 关闭按钮 */}
+              <button
+                onClick={() => setShowBlackSwanModal(false)}
+                className="absolute right-4 top-4 z-10 rounded-full p-1.5 text-gray-400 hover:bg-white/10 hover:text-white"
+              >
+                ✕
+              </button>
+
+              {/* 标题 */}
+              <div className="flex items-center gap-4 border-b border-purple-500/30 bg-gradient-to-r from-purple-900/50 to-purple-800/30 p-5">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-pink-600 text-2xl">
+                  🦢
+                </div>
+                <div>
+                  <div className="text-lg font-semibold text-white">
+                    黑天鹅事件
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-purple-300">
+                    <span className="rounded bg-purple-500/30 px-2 py-0.5 text-xs">
+                      回合 {selectedRound}
+                    </span>
+                    <span className="text-purple-400">突发事件</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 事件内容 */}
+              <div className="max-h-[60vh] overflow-y-auto p-5">
+                <div className="mb-4">
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="text-lg">⚡</span>
+                    <h3 className="text-sm font-semibold text-purple-400">
+                      事件描述
+                    </h3>
+                  </div>
+                  <div className="rounded-lg border border-purple-500/20 bg-purple-900/30 p-4 text-sm leading-relaxed text-purple-100">
+                    {currentTurn.adjudication.blackSwanEvent.event
+                      .replace(/\\n/g, '\n')
+                      .split('\n')
+                      .map((line: string, idx: number) => (
+                        <p key={idx} className={idx > 0 ? 'mt-2' : ''}>
+                          {line}
+                        </p>
+                      ))}
+                  </div>
+                </div>
+
+                {/* 影响分析 */}
+                {currentTurn.adjudication.blackSwanEvent.team && (
+                  <div className="mb-4">
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="text-lg">🎯</span>
+                      <h3 className="text-sm font-semibold text-purple-400">
+                        主要影响方
+                      </h3>
+                    </div>
+                    <div className="rounded-lg border border-purple-500/20 bg-purple-900/20 p-3">
+                      <span
+                        className="rounded px-2 py-1 text-xs font-medium"
+                        style={{
+                          backgroundColor:
+                            TEAM_COLORS[
+                              currentTurn.adjudication.blackSwanEvent.team
+                            ]?.primary + '30',
+                          color:
+                            TEAM_COLORS[
+                              currentTurn.adjudication.blackSwanEvent.team
+                            ]?.primary,
+                        }}
+                      >
+                        {TEAM_COLORS[
+                          currentTurn.adjudication.blackSwanEvent.team
+                        ]?.label ||
+                          currentTurn.adjudication.blackSwanEvent.team}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* 裁判总结 */}
+                {currentTurn.adjudication.summary && (
+                  <div>
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="text-lg">📋</span>
+                      <h3 className="text-sm font-semibold text-purple-400">
+                        本轮总结
+                      </h3>
+                    </div>
+                    <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-4 text-sm leading-relaxed text-gray-300">
+                      {currentTurn.adjudication.summary
+                        .replace(/\\n/g, '\n')
+                        .split('\n')
+                        .map((line: string, idx: number) => (
+                          <p key={idx} className={idx > 0 ? 'mt-2' : ''}>
+                            {line}
+                          </p>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -1078,36 +1200,80 @@ export default function SandboxView({
             const canView =
               viewPermission === 'GOD' || viewPermission === selectedCard.team;
 
-            // 格式化内容显示
+            // 格式化内容显示 - 处理转义字符和结构化显示
             const formatContent = (text: string) => {
               if (!text) return null;
-              // 按数字开头的段落分割
-              const sections = text
-                .split(/(?=\d+[.、)）]|\n(?=[\u4e00-\u9fa5]))/g)
-                .filter(Boolean);
-              if (sections.length <= 1) {
-                return <p className="whitespace-pre-wrap">{text}</p>;
+
+              // 首先处理转义的换行符 \n -> 真正的换行
+              let processedText = text
+                .replace(/\\n/g, '\n')
+                .replace(/\\t/g, '  ')
+                .replace(/\n{3,}/g, '\n\n'); // 减少过多的空行
+
+              // 按段落分割（双换行或数字开头的段落）
+              const paragraphs = processedText
+                .split(/\n{2,}/)
+                .filter((p) => p.trim());
+
+              if (paragraphs.length === 0) {
+                return (
+                  <p className="whitespace-pre-wrap text-gray-300">{text}</p>
+                );
               }
+
               return (
-                <div className="space-y-3">
-                  {sections.map((section, idx) => {
-                    const trimmed = section.trim();
+                <div className="space-y-4">
+                  {paragraphs.map((paragraph, idx) => {
+                    const trimmed = paragraph.trim();
                     if (!trimmed) return null;
-                    // 检查是否是标题行（以数字开头或是短句）
+
+                    // 检查是否是标题行（以数字开头且较短）
                     const isTitle =
-                      /^\d+[.、)）]/.test(trimmed) || trimmed.length < 30;
-                    return (
-                      <div key={idx}>
-                        {isTitle && trimmed.length < 50 ? (
-                          <h4 className="mb-1 font-medium text-white">
+                      /^\d+[.、)）:：]/.test(trimmed) && trimmed.length < 60;
+                    // 检查是否是列表项
+                    const isListItem =
+                      /^[-•·]\s/.test(trimmed) || /^\d+[)）]\s/.test(trimmed);
+
+                    if (isTitle) {
+                      return (
+                        <div key={idx}>
+                          <h4 className="mb-2 font-semibold text-white">
                             {trimmed}
                           </h4>
-                        ) : (
-                          <p className="whitespace-pre-wrap leading-relaxed text-gray-300">
-                            {trimmed}
-                          </p>
-                        )}
-                      </div>
+                        </div>
+                      );
+                    }
+
+                    // 处理段落内的换行（单换行保留为列表项）
+                    const lines = trimmed.split('\n').filter((l) => l.trim());
+                    if (lines.length > 1) {
+                      return (
+                        <div key={idx} className="space-y-1.5">
+                          {lines.map((line, lineIdx) => {
+                            const lineTrimmed = line.trim();
+                            const lineIsListItem =
+                              /^[-•·]\s/.test(lineTrimmed) ||
+                              /^\d+[)）]\s/.test(lineTrimmed);
+                            return (
+                              <p
+                                key={lineIdx}
+                                className={`leading-relaxed text-gray-300 ${lineIsListItem ? 'pl-4' : ''}`}
+                              >
+                                {lineTrimmed}
+                              </p>
+                            );
+                          })}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <p
+                        key={idx}
+                        className={`leading-relaxed text-gray-300 ${isListItem ? 'pl-4' : ''}`}
+                      >
+                        {trimmed}
+                      </p>
                     );
                   })}
                 </div>

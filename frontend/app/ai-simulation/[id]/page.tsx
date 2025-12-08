@@ -910,7 +910,7 @@ export default function ScenarioDetailPage() {
                           <div className="mb-4 flex items-start justify-between">
                             <div className="flex items-center gap-3">
                               <div
-                                className={`flex h-12 w-12 items-center justify-center rounded-xl text-white ${
+                                className={`flex h-12 w-12 items-center justify-center rounded-xl text-lg font-bold text-white ${
                                   company.type === 'benchmark'
                                     ? 'bg-gradient-to-br from-amber-400 to-orange-500'
                                     : company.type === 'challenger'
@@ -920,19 +920,13 @@ export default function ScenarioDetailPage() {
                                         : 'bg-gradient-to-br from-gray-400 to-gray-500'
                                 }`}
                               >
-                                <svg
-                                  className="h-6 w-6"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                                  />
-                                </svg>
+                                {/* 使用公司名称首字母作为Logo */}
+                                {company.name
+                                  ?.split(/[\s\-_]/)
+                                  .map((w: string) => w[0])
+                                  .join('')
+                                  .toUpperCase()
+                                  .slice(0, 2) || '?'}
                               </div>
                               <div>
                                 <h4 className="font-semibold text-gray-900">
