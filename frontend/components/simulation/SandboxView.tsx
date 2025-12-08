@@ -738,10 +738,13 @@ export default function SandboxView({
             teamSubmissions.map((submission, idx) => {
               const canView =
                 viewPermission === 'GOD' || viewPermission === team;
+              const fullContent = canView
+                ? `【${submission.role || '未知角色'}】\n${submission.publicAction || '无公开行动'}`
+                : `🔒 需要${teamConfig.label}视角查看`;
               return (
                 <div
                   key={idx}
-                  className="flex w-48 shrink-0 flex-col rounded border p-2"
+                  className="group relative flex w-48 shrink-0 flex-col rounded border p-2 transition-all hover:z-10 hover:border-white/50"
                   style={{
                     backgroundColor: `${teamConfig.primary}10`,
                     borderColor: `${teamConfig.primary}30`,
@@ -769,6 +772,32 @@ export default function SandboxView({
                       🔒 需要{teamConfig.label}视角
                     </div>
                   )}
+
+                  {/* Hover时显示完整内容的Tooltip */}
+                  <div className="pointer-events-none absolute bottom-full left-0 z-50 mb-2 hidden w-72 rounded-lg border border-white/20 bg-gray-900/95 p-3 shadow-xl backdrop-blur-sm group-hover:block">
+                    <div className="mb-1 flex items-center gap-2">
+                      <div
+                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white"
+                        style={{ backgroundColor: teamConfig.primary }}
+                      >
+                        {(submission.role || '?')[0]}
+                      </div>
+                      <span className="text-xs font-semibold text-white">
+                        {submission.role || '未知角色'}
+                      </span>
+                    </div>
+                    {canView ? (
+                      <div className="max-h-48 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-gray-300">
+                        {submission.publicAction || '无公开行动'}
+                      </div>
+                    ) : (
+                      <div className="text-xs italic text-gray-500">
+                        🔒 需要{teamConfig.label}视角查看完整内容
+                      </div>
+                    )}
+                    {/* 小三角指示器 */}
+                    <div className="absolute -bottom-2 left-4 h-0 w-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-gray-900/95" />
+                  </div>
                 </div>
               );
             })
