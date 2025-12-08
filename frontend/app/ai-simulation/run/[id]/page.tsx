@@ -560,7 +560,7 @@ export default function RunConsolePage() {
                 {/* 四个阵营 */}
                 <div className="rounded-lg border border-gray-200 bg-white p-3">
                   <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-800">
-                    ⚔️ 四个阵营
+                    ⚔️ 四方博弈
                   </div>
                   <div className="space-y-1 text-xs">
                     <div className="flex items-center gap-2">
@@ -587,11 +587,13 @@ export default function RunConsolePage() {
                       </span>
                       <span className="text-gray-600">= 裁判/监管机构</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="rounded bg-purple-100 px-1.5 py-0.5 text-purple-700">
-                        🟣 混沌
-                      </span>
-                      <span className="text-gray-600">= 黑天鹅事件</span>
+                    <div className="mt-2 border-t border-gray-100 pt-2">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded bg-purple-100 px-1.5 py-0.5 text-purple-700">
+                          🟣 黑天鹅
+                        </span>
+                        <span className="text-gray-600">= 随机突发事件</span>
+                      </div>
                     </div>
                   </div>
                 </div>

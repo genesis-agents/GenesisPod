@@ -620,14 +620,10 @@ export default function ScenarioDetailPage() {
               </button>
               <button
                 onClick={handleStartRun}
-                disabled={startingRun || activeRun?.status === 'RUNNING'}
+                disabled={startingRun}
                 className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
               >
-                {startingRun
-                  ? '启动中...'
-                  : activeRun?.status === 'RUNNING'
-                    ? '运行中'
-                    : '开始推演'}
+                {startingRun ? '启动中...' : '开始推演'}
               </button>
             </div>
           </div>
