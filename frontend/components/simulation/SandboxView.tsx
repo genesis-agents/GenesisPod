@@ -773,21 +773,31 @@ export default function SandboxView({
                     </div>
                   )}
 
-                  {/* Hover时显示完整内容的Tooltip */}
-                  <div className="pointer-events-none absolute bottom-full left-0 z-50 mb-2 hidden w-72 rounded-lg border border-white/20 bg-gray-900/95 p-3 shadow-xl backdrop-blur-sm group-hover:block">
-                    <div className="mb-1 flex items-center gap-2">
+                  {/* Hover时显示完整内容的Tooltip - 使用fixed定位避免被遮挡 */}
+                  <div
+                    className="pointer-events-none fixed z-[9999] hidden w-80 rounded-lg border border-white/30 bg-gray-900 p-3 shadow-2xl group-hover:block"
+                    style={{
+                      left: '50%',
+                      top: '50%',
+                      transform: 'translate(-50%, -50%)',
+                    }}
+                  >
+                    <div className="mb-2 flex items-center gap-2 border-b border-white/10 pb-2">
                       <div
-                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white"
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
                         style={{ backgroundColor: teamConfig.primary }}
                       >
                         {(submission.role || '?')[0]}
                       </div>
-                      <span className="text-xs font-semibold text-white">
+                      <span className="text-sm font-semibold text-white">
                         {submission.role || '未知角色'}
+                      </span>
+                      <span className="ml-auto text-[10px] text-gray-500">
+                        {teamConfig.label}
                       </span>
                     </div>
                     {canView ? (
-                      <div className="max-h-48 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-gray-300">
+                      <div className="max-h-64 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-gray-300">
                         {submission.publicAction || '无公开行动'}
                       </div>
                     ) : (
@@ -795,8 +805,6 @@ export default function SandboxView({
                         🔒 需要{teamConfig.label}视角查看完整内容
                       </div>
                     )}
-                    {/* 小三角指示器 */}
-                    <div className="absolute -bottom-2 left-4 h-0 w-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-gray-900/95" />
                   </div>
                 </div>
               );
