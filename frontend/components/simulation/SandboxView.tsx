@@ -904,38 +904,32 @@ export default function SandboxView({
           </div>
         </div>
 
-        {/* 主内容区域 - 四象限固定高度 */}
-        <div className="relative z-10 flex flex-1 items-start justify-center overflow-hidden pb-24 pl-48 pr-4 pt-4">
-          {/* 四象限网格容器 - 固定尺寸确保均等 */}
-          <div
-            className="relative grid h-full max-h-[420px] w-full gap-2"
-            style={{
-              gridTemplateColumns: '1fr 1fr',
-              gridTemplateRows: '1fr 1fr',
-            }}
-          >
-            {/* 左上 - 蓝军 */}
-            <div className="overflow-hidden">
+        {/* 主内容区域 - 使用绝对定位确保四象限严格等分 */}
+        <div className="relative z-10 flex-1 overflow-hidden">
+          {/* 四象限容器 - 绝对定位精确控制 */}
+          <div className="absolute bottom-24 left-48 right-4 top-4">
+            {/* 左上 - 蓝军: 左半边上半部分 */}
+            <div className="absolute left-0 top-0 h-[calc(50%-4px)] w-[calc(50%-4px)]">
               {renderQuadrantCard('BLUE', Crown)}
             </div>
 
-            {/* 右上 - 红军 */}
-            <div className="overflow-hidden">
+            {/* 右上 - 红军: 右半边上半部分 */}
+            <div className="absolute right-0 top-0 h-[calc(50%-4px)] w-[calc(50%-4px)]">
               {renderQuadrantCard('RED', Target)}
             </div>
 
-            {/* 左下 - 绿军 */}
-            <div className="overflow-hidden">
+            {/* 左下 - 绿军: 左半边下半部分 */}
+            <div className="absolute bottom-0 left-0 h-[calc(50%-4px)] w-[calc(50%-4px)]">
               {renderQuadrantCard('GREEN', Store)}
             </div>
 
-            {/* 右下 - 白方 */}
-            <div className="overflow-hidden">
+            {/* 右下 - 白方: 右半边下半部分 */}
+            <div className="absolute bottom-0 right-0 h-[calc(50%-4px)] w-[calc(50%-4px)]">
               {renderQuadrantCard('WHITE', Scale)}
             </div>
 
-            {/* 中心回合指示器 - 绝对定位在网格中心 */}
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            {/* 中心回合指示器 */}
+            <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
               <div
                 className="pointer-events-auto flex h-12 w-12 flex-col items-center justify-center rounded-full border-2 backdrop-blur-sm"
                 style={{
