@@ -367,13 +367,17 @@ export class AdminService {
       `createAIModel called: name=${data.name}, modelId=${data.modelId}, apiKeyProvided=${!!apiKey}, apiKeyLength=${apiKey?.length || 0}`,
     );
 
-    // 根据 modelId 检查是否存在相同的模型
+    // 根据 modelId 和 name 检查是否存在完全相同的模型配置
+    // 如果只有 modelId 相同但 name 不同，则创建新配置（支持横向扩展）
     const existingByModelId = await this.prisma.aIModel.findFirst({
-      where: { modelId: { equals: data.modelId, mode: "insensitive" } },
+      where: {
+        modelId: { equals: data.modelId, mode: "insensitive" },
+        name: { equals: data.name, mode: "insensitive" },
+      },
     });
 
     if (existingByModelId) {
-      // 如果存在相同 modelId，则更新
+      // 如果存在完全相同的 modelId 和 name，则更新
       this.logger.log(
         `AI Model with modelId=${data.modelId} already exists (id=${existingByModelId.id}), updating`,
       );
