@@ -776,8 +776,8 @@ export default function SandboxView({
           </div>
         </div>
 
-        {/* 行动卡片 - 横向排列 */}
-        <div className="flex flex-1 gap-2 overflow-x-auto p-2">
+        {/* 行动卡片 - 横向排列，支持左右滚动 */}
+        <div className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/20 hover:scrollbar-thumb-white/40 flex flex-nowrap gap-2 overflow-x-auto p-2 pb-3">
           {teamSubmissions.length > 0 ? (
             teamSubmissions.map((submission, idx) => {
               const canView =
