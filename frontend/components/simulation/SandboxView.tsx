@@ -775,7 +775,7 @@ export default function SandboxView({
 
                   {/* Hover时显示完整内容的Tooltip - 使用fixed定位避免被遮挡 */}
                   <div
-                    className="pointer-events-none fixed z-[9999] hidden w-80 rounded-lg border border-white/30 bg-gray-900 p-3 shadow-2xl group-hover:block"
+                    className="fixed z-[9999] hidden w-80 rounded-lg border border-white/30 bg-gray-900 p-3 shadow-2xl group-hover:block"
                     style={{
                       left: '50%',
                       top: '50%',
@@ -797,7 +797,7 @@ export default function SandboxView({
                       </span>
                     </div>
                     {canView ? (
-                      <div className="max-h-64 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-gray-300">
+                      <div className="scrollbar-thin scrollbar-track-gray-800 scrollbar-thumb-gray-600 hover:scrollbar-thumb-gray-500 max-h-64 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-gray-300">
                         {submission.publicAction || '无公开行动'}
                       </div>
                     ) : (
