@@ -149,7 +149,22 @@ const STANDARD_MODEL_CONFIGS = [
 
 function getModelIconUrl(modelName: string): string | null {
   const name = modelName.toLowerCase();
-  return MODEL_ICONS[name] || null;
+  // 直接匹配
+  if (MODEL_ICONS[name]) {
+    return MODEL_ICONS[name];
+  }
+  // 支持带后缀的名称匹配 (如 "gpt-4 #1" -> "gpt-4")
+  const baseName = name.replace(/\s*#\d+$/, '').trim();
+  if (MODEL_ICONS[baseName]) {
+    return MODEL_ICONS[baseName];
+  }
+  // 模糊匹配 - 检查是否包含已知的模型名
+  for (const key of Object.keys(MODEL_ICONS)) {
+    if (name.includes(key)) {
+      return MODEL_ICONS[key];
+    }
+  }
+  return null;
 }
 
 // Model ID Selector with fetch capability
@@ -738,15 +753,28 @@ export default function AIModelSettings() {
                 >
                   {(() => {
                     const iconUrl = getModelIconUrl(model.name);
-                    return iconUrl ? (
-                      <img
-                        src={iconUrl}
-                        alt={model.displayName}
-                        className="h-8 w-8"
-                      />
-                    ) : (
-                      model.icon
-                    );
+                    // 优先使用 MODEL_ICONS 映射
+                    if (iconUrl) {
+                      return (
+                        <img
+                          src={iconUrl}
+                          alt={model.displayName}
+                          className="h-8 w-8"
+                        />
+                      );
+                    }
+                    // 如果 model.icon 是路径，则用 img 显示
+                    if (model.icon && model.icon.startsWith('/')) {
+                      return (
+                        <img
+                          src={model.icon}
+                          alt={model.displayName}
+                          className="h-8 w-8"
+                        />
+                      );
+                    }
+                    // 否则显示 emoji 或文字
+                    return model.icon || '🤖';
                   })()}
                 </div>
                 <div>
