@@ -904,55 +904,55 @@ export default function SandboxView({
           </div>
         </div>
 
-        {/* 主内容区域 - 四象限自适应，底部留出时间轴空间 */}
-        <div className="relative z-10 flex flex-1 flex-col overflow-hidden pb-28 pl-52 pr-4 pt-4">
-          {/* 四象限网格 - 严格等分 */}
+        {/* 主内容区域 - 四象限固定高度 */}
+        <div className="relative z-10 flex flex-1 items-start justify-center overflow-hidden pb-24 pl-48 pr-4 pt-4">
+          {/* 四象限网格容器 - 固定尺寸确保均等 */}
           <div
-            className="grid flex-1 gap-2"
+            className="relative grid h-full max-h-[420px] w-full gap-2"
             style={{
               gridTemplateColumns: '1fr 1fr',
               gridTemplateRows: '1fr 1fr',
             }}
           >
             {/* 左上 - 蓝军 */}
-            <div className="min-h-0 min-w-0">
+            <div className="overflow-hidden">
               {renderQuadrantCard('BLUE', Crown)}
             </div>
 
             {/* 右上 - 红军 */}
-            <div className="min-h-0 min-w-0">
+            <div className="overflow-hidden">
               {renderQuadrantCard('RED', Target)}
             </div>
 
             {/* 左下 - 绿军 */}
-            <div className="min-h-0 min-w-0">
+            <div className="overflow-hidden">
               {renderQuadrantCard('GREEN', Store)}
             </div>
 
             {/* 右下 - 白方 */}
-            <div className="min-h-0 min-w-0">
+            <div className="overflow-hidden">
               {renderQuadrantCard('WHITE', Scale)}
             </div>
-          </div>
 
-          {/* 中心回合指示器 */}
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center pb-28 pl-52 pr-4 pt-4">
-            <div
-              className="pointer-events-auto flex h-14 w-14 flex-col items-center justify-center rounded-full border-2 backdrop-blur-sm"
-              style={{
-                borderColor: `${industryConfig.accent}60`,
-                backgroundColor: 'rgba(0,0,0,0.85)',
-                boxShadow: `0 0 15px ${industryConfig.accent}40`,
-              }}
-            >
+            {/* 中心回合指示器 - 绝对定位在网格中心 */}
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <div
-                className="text-base font-bold"
-                style={{ color: industryConfig.accent }}
+                className="pointer-events-auto flex h-12 w-12 flex-col items-center justify-center rounded-full border-2 backdrop-blur-sm"
+                style={{
+                  borderColor: `${industryConfig.accent}60`,
+                  backgroundColor: 'rgba(0,0,0,0.9)',
+                  boxShadow: `0 0 15px ${industryConfig.accent}40`,
+                }}
               >
-                R{selectedRound}
-              </div>
-              <div className="text-[7px] text-gray-400">
-                {allSubmissions.length} 行动
+                <div
+                  className="text-sm font-bold"
+                  style={{ color: industryConfig.accent }}
+                >
+                  R{selectedRound}
+                </div>
+                <div className="text-[6px] text-gray-400">
+                  {allSubmissions.length} 行动
+                </div>
               </div>
             </div>
           </div>
