@@ -2260,6 +2260,61 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
       );
     }
 
+    // 兼容旧数据：如果 name 也找不到，尝试用数据库 id 查找
+    if (!aiModelConfig) {
+      this.logger.log(
+        `[AI Model Lookup] Falling back to database id lookup: "${aiMember.aiModel}"`,
+      );
+      aiModelConfig = await this.prisma.aIModel.findFirst({
+        where: {
+          id: aiMember.aiModel,
+          isEnabled: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          modelId: true,
+          provider: true,
+          apiKey: true,
+          apiEndpoint: true,
+          temperature: true,
+          isEnabled: true,
+        },
+      });
+      this.logger.log(
+        `[AI Model Lookup] By id: ${aiModelConfig ? `found (id=${aiModelConfig.id}, hasApiKey=${!!aiModelConfig.apiKey}, apiKeyLen=${aiModelConfig.apiKey?.length || 0})` : "NOT FOUND"}`,
+      );
+    }
+
+    // 兼容旧数据：如果 id 也找不到，尝试用 displayName 查找
+    if (!aiModelConfig) {
+      this.logger.log(
+        `[AI Model Lookup] Falling back to displayName lookup: "${aiMember.aiModel}"`,
+      );
+      aiModelConfig = await this.prisma.aIModel.findFirst({
+        where: {
+          displayName: {
+            equals: aiMember.aiModel,
+            mode: "insensitive",
+          },
+          isEnabled: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          modelId: true,
+          provider: true,
+          apiKey: true,
+          apiEndpoint: true,
+          temperature: true,
+          isEnabled: true,
+        },
+      });
+      this.logger.log(
+        `[AI Model Lookup] By displayName: ${aiModelConfig ? `found (id=${aiModelConfig.id}, hasApiKey=${!!aiModelConfig.apiKey}, apiKeyLen=${aiModelConfig.apiKey?.length || 0})` : "NOT FOUND"}`,
+      );
+    }
+
     // 详细日志帮助调试
     // 列出所有可用的模型
     const allModels = await this.prisma.aIModel.findMany({
