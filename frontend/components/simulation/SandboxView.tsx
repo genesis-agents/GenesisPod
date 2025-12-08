@@ -925,7 +925,7 @@ export default function SandboxView({
         {/* 主内容区域 - 战场态势图布局 */}
         <div
           className="relative z-10 flex flex-col justify-between overflow-y-auto pb-3 pl-48 pr-4 pt-3"
-          style={{ height: 'calc(100% - 100px)' }}
+          style={{ height: 'calc(100% - 56px)' }}
         >
           {/* 上部区域 - 蓝军和红军 */}
           <div className="flex-1 space-y-2 overflow-y-auto">
@@ -970,7 +970,7 @@ export default function SandboxView({
 
         {/* 黑天鹅事件横幅 */}
         {currentTurn?.adjudication?.blackSwanEvent && (
-          <div className="absolute bottom-[108px] left-1/2 z-20 w-[620px] -translate-x-1/2 rounded border border-purple-500/50 bg-purple-900/60 px-3 py-1.5 backdrop-blur-sm">
+          <div className="absolute bottom-16 left-1/2 z-20 w-[620px] -translate-x-1/2 rounded border border-purple-500/50 bg-purple-900/60 px-3 py-1.5 backdrop-blur-sm">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-purple-400" />
               <span className="text-xs font-medium text-purple-300">
@@ -983,52 +983,42 @@ export default function SandboxView({
           </div>
         )}
 
-        {/* 时间轴 - 底部固定100px */}
-        <div className="absolute bottom-0 left-0 right-0 h-[100px] border-t border-white/10 bg-black/60 px-4 py-3 backdrop-blur-sm">
-          <div className="flex items-center gap-4">
-            {/* 播放控制 */}
-            <div className="flex items-center gap-2">
-              {/* 回退到开始 */}
+        {/* 时间轴 - 底部固定56px */}
+        <div className="absolute bottom-0 left-0 right-0 h-14 border-t border-white/10 bg-black/70 px-4 backdrop-blur-sm">
+          <div className="flex h-full items-center gap-3">
+            {/* 播放控制 - 紧凑版 */}
+            <div className="flex shrink-0 items-center gap-1">
               <button
                 onClick={() => {
                   setIsPlaying(false);
                   setSelectedRound(1);
                 }}
                 disabled={selectedRound <= 1}
-                className="rounded-lg p-1.5 text-gray-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
+                className="rounded p-1 text-gray-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
                 title="回到开始"
               >
-                <SkipBack className="h-3.5 w-3.5" />
+                <SkipBack className="h-3 w-3" />
               </button>
-
-              {/* 上一回合 */}
               <button
                 onClick={() => setSelectedRound(Math.max(1, selectedRound - 1))}
                 disabled={selectedRound <= 1}
-                className="rounded-lg p-1.5 text-gray-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
+                className="rounded p-1 text-gray-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
                 title="上一回合"
               >
-                <Play className="h-3.5 w-3.5 rotate-180" />
+                <Play className="h-3 w-3 rotate-180" />
               </button>
-
-              {/* 播放/暂停 */}
               <button
                 onClick={() => setIsPlaying(!isPlaying)}
-                className="flex h-10 w-10 items-center justify-center rounded-full text-white shadow-lg hover:opacity-90"
-                style={{
-                  backgroundColor: industryConfig.accent,
-                  boxShadow: `0 10px 15px -3px ${industryConfig.accent}30`,
-                }}
-                title={isPlaying ? '暂停' : '播放推演'}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-white hover:opacity-90"
+                style={{ backgroundColor: industryConfig.accent }}
+                title={isPlaying ? '暂停' : '播放'}
               >
                 {isPlaying ? (
-                  <Pause className="h-5 w-5" />
+                  <Pause className="h-4 w-4" />
                 ) : (
-                  <Play className="h-5 w-5" />
+                  <Play className="h-4 w-4" />
                 )}
               </button>
-
-              {/* 下一回合 */}
               <button
                 onClick={() => {
                   const maxRound = run.turns?.length
@@ -1042,13 +1032,11 @@ export default function SandboxView({
                     ? Math.max(...run.turns.map((t) => t.roundNumber))
                     : run.currentRound)
                 }
-                className="rounded-lg p-1.5 text-gray-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
+                className="rounded p-1 text-gray-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
                 title="下一回合"
               >
-                <Play className="h-3.5 w-3.5" />
+                <Play className="h-3 w-3" />
               </button>
-
-              {/* 跳到最新 */}
               <button
                 onClick={() => {
                   const maxRound = run.turns?.length
@@ -1062,50 +1050,37 @@ export default function SandboxView({
                     ? Math.max(...run.turns.map((t) => t.roundNumber))
                     : run.currentRound)
                 }
-                className="rounded-lg p-1.5 text-gray-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
+                className="rounded p-1 text-gray-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
                 title="跳到最新"
               >
-                <SkipForward className="h-3.5 w-3.5" />
+                <SkipForward className="h-3 w-3" />
               </button>
-
-              {/* 播放速度控制 */}
-              <div className="ml-2 flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1">
-                <span className="text-[10px] text-gray-500">速度</span>
-                <select
-                  value={playbackSpeed}
-                  onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
-                  className="cursor-pointer bg-transparent text-xs text-white focus:outline-none"
-                >
-                  <option value={3000} className="bg-gray-800">
-                    0.5x
-                  </option>
-                  <option value={2000} className="bg-gray-800">
-                    1x
-                  </option>
-                  <option value={1000} className="bg-gray-800">
-                    2x
-                  </option>
-                  <option value={500} className="bg-gray-800">
-                    4x
-                  </option>
-                </select>
-              </div>
+              <select
+                value={playbackSpeed}
+                onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
+                className="ml-1 cursor-pointer rounded border border-white/10 bg-white/5 px-1 py-0.5 text-[10px] text-white focus:outline-none"
+              >
+                <option value={3000} className="bg-gray-800">
+                  0.5x
+                </option>
+                <option value={2000} className="bg-gray-800">
+                  1x
+                </option>
+                <option value={1000} className="bg-gray-800">
+                  2x
+                </option>
+                <option value={500} className="bg-gray-800">
+                  4x
+                </option>
+              </select>
             </div>
 
             {/* 时间轴 - 支持拖动 */}
-            <div className="flex-1">
-              <div className="flex items-center justify-between text-xs text-gray-500">
-                {timelineYears.map((year, idx) => (
-                  <span key={year}>
-                    {year}
-                    {idx === timelineYears.length - 1 ? '+' : ''}
-                  </span>
-                ))}
-              </div>
+            <div className="min-w-0 flex-1">
               <div
                 ref={timelineRef}
-                className={`relative mt-2 h-3 cursor-pointer rounded-full bg-white/10 transition-all ${
-                  isDraggingTimeline ? 'h-4 bg-white/20' : 'hover:bg-white/15'
+                className={`relative h-2 cursor-pointer rounded-full bg-white/10 transition-all ${
+                  isDraggingTimeline ? 'h-3 bg-white/20' : 'hover:bg-white/15'
                 }`}
                 onMouseDown={(e) => {
                   setIsDraggingTimeline(true);
@@ -1114,7 +1089,6 @@ export default function SandboxView({
                 }}
                 title="拖动时间轴查看不同回合"
               >
-                {/* 进度条 - 使用行业主题色 */}
                 <div
                   className="absolute left-0 top-0 h-full rounded-full"
                   style={{
@@ -1122,170 +1096,74 @@ export default function SandboxView({
                     background: `linear-gradient(to right, ${industryConfig.accent}, ${industryConfig.accent}CC)`,
                   }}
                 />
-                {/* 回合标记 */}
                 {run.turns?.map((turn) => {
                   const position = (turn.roundNumber / run.rounds) * 100;
                   const hasBlackSwan = !!turn.adjudication?.blackSwanEvent;
                   const isSelected = turn.roundNumber === selectedRound;
-
                   return (
                     <button
                       key={turn.id}
                       onClick={() => setSelectedRound(turn.roundNumber)}
-                      className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all ${
-                        isSelected ? 'z-10' : ''
-                      }`}
+                      className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all ${isSelected ? 'z-10' : ''}`}
                       style={{ left: `${position}%` }}
                     >
                       <div
                         className={`rounded-full border-2 transition-all ${
                           hasBlackSwan && !isSelected
-                            ? 'h-3 w-3 border-purple-400 bg-purple-500'
+                            ? 'h-2.5 w-2.5 border-purple-400 bg-purple-500'
                             : !isSelected
-                              ? 'h-3 w-3 border-gray-500 bg-gray-600 hover:border-white'
-                              : 'h-5 w-5 border-white shadow-lg'
+                              ? 'h-2 w-2 border-gray-500 bg-gray-600 hover:border-white'
+                              : 'h-4 w-4 border-white'
                         }`}
                         style={
                           isSelected
-                            ? {
-                                backgroundColor: industryConfig.accent,
-                                boxShadow: `0 10px 15px -3px ${industryConfig.accent}50`,
-                              }
+                            ? { backgroundColor: industryConfig.accent }
                             : undefined
                         }
                       />
-                      {hasBlackSwan && isSelected && (
-                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-purple-500 px-2 py-1 text-xs text-white">
-                          🦢 黑天鹅
-                        </div>
-                      )}
                     </button>
                   );
                 })}
               </div>
-              <div className="mt-1 flex items-center justify-between text-xs">
-                <span className="text-gray-500">回合 1</span>
+              <div className="mt-1 flex items-center justify-between text-[10px] text-gray-500">
+                <span>R1</span>
                 <span
-                  className="font-medium"
                   style={{ color: industryConfig.accent }}
+                  className="font-medium"
                 >
-                  当前: R{selectedRound}
+                  当前: R{selectedRound}/{run.rounds}
                 </span>
-                <span className="text-gray-500">回合 {run.rounds}</span>
+                <span>R{run.rounds}</span>
               </div>
             </div>
 
-            {/* 当前回合详情面板 */}
-            <div className="w-72 rounded-lg border border-white/10 bg-white/5 p-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm font-medium text-white">
-                  <Clock
-                    className="h-4 w-4"
-                    style={{ color: industryConfig.accent }}
-                  />
-                  回合 {selectedRound} 详情
-                </div>
-                {isPlaying && (
-                  <span
-                    className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px]"
-                    style={{
-                      backgroundColor: `${industryConfig.accent}20`,
-                      color: industryConfig.accent,
-                    }}
-                  >
-                    <span
-                      className="h-1.5 w-1.5 animate-pulse rounded-full"
-                      style={{ backgroundColor: industryConfig.accent }}
-                    />
-                    播放中
+            {/* 简化的回合信息 */}
+            <div className="flex shrink-0 items-center gap-3 text-xs text-gray-400">
+              {currentTurn?.worldState && (
+                <>
+                  <div className="text-center">
+                    <div className="text-[9px] text-gray-500">市场价格</div>
+                    <div className="font-medium text-white">
+                      {currentTurn.worldState.marketPrice?.toFixed?.(1) || '-'}
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-[9px] text-gray-500">短缺指数</div>
+                    <div className="font-medium text-white">
+                      {((currentTurn.worldState.shortage || 0) * 100).toFixed(
+                        1
+                      )}
+                      %
+                    </div>
+                  </div>
+                </>
+              )}
+              {currentTurn?.adjudication?.blackSwanEvent && (
+                <div className="flex items-center gap-1 rounded bg-purple-500/20 px-2 py-1 text-purple-300">
+                  <span>🦢</span>
+                  <span className="max-w-24 truncate text-[10px]">
+                    {currentTurn.adjudication.blackSwanEvent.event}
                   </span>
-                )}
-              </div>
-
-              {currentTurn ? (
-                <div className="mt-2 space-y-2">
-                  {/* 裁决摘要 */}
-                  {currentTurn.adjudication?.summary && (
-                    <div className="text-xs text-gray-300">
-                      {currentTurn.adjudication.summary}
-                    </div>
-                  )}
-
-                  {/* 市场状态 */}
-                  {currentTurn.worldState && (
-                    <div className="flex gap-3 rounded bg-white/5 p-2">
-                      <div className="text-center">
-                        <div className="text-[10px] text-gray-500">
-                          市场价格
-                        </div>
-                        <div className="text-xs font-medium text-white">
-                          {currentTurn.worldState.marketPrice?.toFixed?.(1) ||
-                            '-'}
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-[10px] text-gray-500">
-                          短缺指数
-                        </div>
-                        <div className="text-xs font-medium text-white">
-                          {(
-                            (currentTurn.worldState.shortage || 0) * 100
-                          ).toFixed(1)}
-                          %
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 黑天鹅事件 */}
-                  {currentTurn.adjudication?.blackSwanEvent && (
-                    <div className="flex items-center gap-2 rounded bg-purple-500/20 p-2 text-xs text-purple-300">
-                      <span>🦢</span>
-                      <span className="line-clamp-1">
-                        {currentTurn.adjudication.blackSwanEvent.event}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* 各方行动概览 */}
-                  {currentTurn.submissions &&
-                    Array.isArray(currentTurn.submissions) &&
-                    currentTurn.submissions.length > 0 && (
-                      <div className="mt-1">
-                        <div className="mb-1 text-[10px] text-gray-500">
-                          本轮行动 ({currentTurn.submissions.length})
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                          {currentTurn.submissions.slice(0, 4).map((sub, i) => (
-                            <span
-                              key={i}
-                              className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-gray-400"
-                              style={{
-                                borderLeft: `2px solid ${
-                                  TEAM_COLORS[sub.team || 'BLUE']?.primary ||
-                                  '#3B82F6'
-                                }`,
-                              }}
-                            >
-                              {(sub.role || '').length > 8
-                                ? (sub.role || '').substring(0, 8) + '...'
-                                : sub.role || '未知'}
-                            </span>
-                          ))}
-                          {currentTurn.submissions.length > 4 && (
-                            <span className="text-[10px] text-gray-500">
-                              +{currentTurn.submissions.length - 4}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                </div>
-              ) : (
-                <div className="mt-2 text-xs italic text-gray-500">
-                  {selectedRound > run.currentRound
-                    ? '此回合尚未推演'
-                    : '加载中...'}
                 </div>
               )}
             </div>
