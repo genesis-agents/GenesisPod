@@ -924,46 +924,47 @@ export default function SandboxView({
 
         {/* 主内容区域 - 战场态势图布局 */}
         <div
-          className="relative z-10 flex flex-col overflow-hidden pl-48 pr-4 pt-3"
+          className="relative z-10 flex flex-col justify-between overflow-y-auto pb-3 pl-48 pr-4 pt-3"
           style={{ height: 'calc(100% - 100px)' }}
         >
-          {/* 回合焦点标题 */}
-          <div className="mb-2 flex shrink-0 items-center justify-center gap-3">
-            <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/20" />
-            <div
-              className="flex items-center gap-2 rounded-full border px-4 py-1"
-              style={{
-                borderColor: `${industryConfig.accent}50`,
-                backgroundColor: 'rgba(0,0,0,0.6)',
-              }}
-            >
-              <span
-                className="text-sm font-bold"
-                style={{ color: industryConfig.accent }}
+          {/* 上部区域 - 蓝军和红军 */}
+          <div className="flex-1 space-y-2 overflow-y-auto">
+            {/* 回合焦点标题 */}
+            <div className="flex shrink-0 items-center justify-center gap-3">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/20" />
+              <div
+                className="flex items-center gap-2 rounded-full border px-4 py-1"
+                style={{
+                  borderColor: `${industryConfig.accent}50`,
+                  backgroundColor: 'rgba(0,0,0,0.6)',
+                }}
               >
-                R{selectedRound}
-              </span>
-              <span className="text-xs text-gray-400">
-                {allSubmissions.length} 个行动
-              </span>
+                <span
+                  className="text-sm font-bold"
+                  style={{ color: industryConfig.accent }}
+                >
+                  R{selectedRound}
+                </span>
+                <span className="text-xs text-gray-400">
+                  {allSubmissions.length} 个行动
+                </span>
+              </div>
+              <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/20" />
             </div>
-            <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/20" />
-          </div>
 
-          {/* 蓝军 - 主角阵营（顶部） */}
-          <div className="mb-2 shrink-0">
-            {renderCampSection('BLUE', Crown, true)}
-          </div>
+            {/* 蓝军 - 主角阵营 */}
+            <div className="shrink-0">
+              {renderCampSection('BLUE', Crown, true)}
+            </div>
 
-          {/* 红军 - 竞争对手（中部，占主要空间） */}
-          <div className="mb-2 min-h-0 flex-1">
-            {renderCampSection('RED', Target)}
-          </div>
+            {/* 红军 - 竞争对手 */}
+            <div className="shrink-0">{renderCampSection('RED', Target)}</div>
 
-          {/* 绿军/白方 - 辅助阵营（底部横排） */}
-          <div className="flex shrink-0 gap-2">
-            <div className="flex-1">{renderAuxiliaryCamp('GREEN', Store)}</div>
-            <div className="flex-1">{renderAuxiliaryCamp('WHITE', Scale)}</div>
+            {/* 绿军 - 市场/供应商 */}
+            <div className="shrink-0">{renderCampSection('GREEN', Store)}</div>
+
+            {/* 白方 - 监管机构 */}
+            <div className="shrink-0">{renderCampSection('WHITE', Scale)}</div>
           </div>
         </div>
 
