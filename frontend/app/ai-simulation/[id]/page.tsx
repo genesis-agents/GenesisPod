@@ -7,6 +7,99 @@ import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/config';
 import { getAuthHeader } from '@/lib/auth';
 
+// 知名公司Logo映射 - 使用 Clearbit Logo API 或官方Logo
+const COMPANY_LOGOS: Record<string, string> = {
+  // 科技巨头
+  nvidia: 'https://logo.clearbit.com/nvidia.com',
+  amd: 'https://logo.clearbit.com/amd.com',
+  intel: 'https://logo.clearbit.com/intel.com',
+  tsmc: 'https://logo.clearbit.com/tsmc.com',
+  qualcomm: 'https://logo.clearbit.com/qualcomm.com',
+  broadcom: 'https://logo.clearbit.com/broadcom.com',
+  arm: 'https://logo.clearbit.com/arm.com',
+  // 云服务
+  aws: 'https://logo.clearbit.com/aws.amazon.com',
+  'amazon web services': 'https://logo.clearbit.com/aws.amazon.com',
+  azure: 'https://logo.clearbit.com/azure.microsoft.com',
+  microsoft: 'https://logo.clearbit.com/microsoft.com',
+  google: 'https://logo.clearbit.com/google.com',
+  'google cloud': 'https://logo.clearbit.com/cloud.google.com',
+  alibaba: 'https://logo.clearbit.com/alibaba.com',
+  阿里云: 'https://logo.clearbit.com/alibabacloud.com',
+  腾讯: 'https://logo.clearbit.com/tencent.com',
+  腾讯云: 'https://logo.clearbit.com/tencent.com',
+  // 中国科技公司
+  华为: 'https://logo.clearbit.com/huawei.com',
+  huawei: 'https://logo.clearbit.com/huawei.com',
+  华为昇腾: 'https://logo.clearbit.com/huawei.com',
+  百度: 'https://logo.clearbit.com/baidu.com',
+  baidu: 'https://logo.clearbit.com/baidu.com',
+  字节跳动: 'https://logo.clearbit.com/bytedance.com',
+  bytedance: 'https://logo.clearbit.com/bytedance.com',
+  小米: 'https://logo.clearbit.com/mi.com',
+  xiaomi: 'https://logo.clearbit.com/mi.com',
+  寒武纪: 'https://logo.clearbit.com/cambricon.com',
+  cambricon: 'https://logo.clearbit.com/cambricon.com',
+  // 金融科技
+  蚂蚁集团: 'https://logo.clearbit.com/antgroup.com',
+  微众银行: 'https://logo.clearbit.com/webank.com',
+  webank: 'https://logo.clearbit.com/webank.com',
+  京东: 'https://logo.clearbit.com/jd.com',
+  jd: 'https://logo.clearbit.com/jd.com',
+  平安: 'https://logo.clearbit.com/pingan.com',
+  // 汽车
+  tesla: 'https://logo.clearbit.com/tesla.com',
+  特斯拉: 'https://logo.clearbit.com/tesla.com',
+  比亚迪: 'https://logo.clearbit.com/byd.com',
+  byd: 'https://logo.clearbit.com/byd.com',
+  蔚来: 'https://logo.clearbit.com/nio.com',
+  nio: 'https://logo.clearbit.com/nio.com',
+  小鹏: 'https://logo.clearbit.com/xiaopeng.com',
+  xpeng: 'https://logo.clearbit.com/xiaopeng.com',
+  理想: 'https://logo.clearbit.com/lixiang.com',
+  // 其他
+  apple: 'https://logo.clearbit.com/apple.com',
+  苹果: 'https://logo.clearbit.com/apple.com',
+  samsung: 'https://logo.clearbit.com/samsung.com',
+  三星: 'https://logo.clearbit.com/samsung.com',
+  openai: 'https://logo.clearbit.com/openai.com',
+  meta: 'https://logo.clearbit.com/meta.com',
+  facebook: 'https://logo.clearbit.com/meta.com',
+};
+
+// 获取公司Logo URL
+function getCompanyLogoUrl(companyName: string): string | null {
+  if (!companyName) return null;
+  const normalized = companyName.toLowerCase().trim();
+  // 直接匹配
+  if (COMPANY_LOGOS[normalized]) {
+    return COMPANY_LOGOS[normalized];
+  }
+  // 部分匹配
+  for (const [key, url] of Object.entries(COMPANY_LOGOS)) {
+    if (normalized.includes(key) || key.includes(normalized)) {
+      return url;
+    }
+  }
+  return null;
+}
+
+// 生成公司名称首字母
+function getCompanyInitials(name: string): string {
+  if (!name) return '?';
+  // 处理中文名称 - 取前两个字
+  if (/[\u4e00-\u9fa5]/.test(name)) {
+    return name.slice(0, 2);
+  }
+  // 处理英文名称 - 取首字母
+  return name
+    .split(/[\s\-_]+/)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+}
+
 interface ScenarioDetail {
   id: string;
   name: string;
@@ -909,25 +1002,55 @@ export default function ScenarioDetailPage() {
                           {/* Header */}
                           <div className="mb-4 flex items-start justify-between">
                             <div className="flex items-center gap-3">
-                              <div
-                                className={`flex h-12 w-12 items-center justify-center rounded-xl text-lg font-bold text-white ${
+                              {/* 公司Logo - 优先使用真实Logo，否则显示首字母 */}
+                              {(() => {
+                                const logoUrl = getCompanyLogoUrl(company.name);
+                                const initials = getCompanyInitials(
+                                  company.name
+                                );
+                                const bgClass =
                                   company.type === 'benchmark'
                                     ? 'bg-gradient-to-br from-amber-400 to-orange-500'
                                     : company.type === 'challenger'
                                       ? 'bg-gradient-to-br from-blue-400 to-indigo-500'
                                       : company.type === 'startup'
                                         ? 'bg-gradient-to-br from-green-400 to-emerald-500'
-                                        : 'bg-gradient-to-br from-gray-400 to-gray-500'
-                                }`}
-                              >
-                                {/* 使用公司名称首字母作为Logo */}
-                                {company.name
-                                  ?.split(/[\s\-_]/)
-                                  .map((w: string) => w[0])
-                                  .join('')
-                                  .toUpperCase()
-                                  .slice(0, 2) || '?'}
-                              </div>
+                                        : 'bg-gradient-to-br from-gray-400 to-gray-500';
+
+                                if (logoUrl) {
+                                  return (
+                                    <div
+                                      className={`flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-white p-1.5`}
+                                    >
+                                      <img
+                                        src={logoUrl}
+                                        alt={company.name}
+                                        className="h-full w-full object-contain"
+                                        onError={(e) => {
+                                          // Logo加载失败时隐藏图片，显示首字母
+                                          (
+                                            e.target as HTMLImageElement
+                                          ).style.display = 'none';
+                                          const parent = (
+                                            e.target as HTMLImageElement
+                                          ).parentElement;
+                                          if (parent) {
+                                            parent.className = `flex h-12 w-12 items-center justify-center rounded-xl text-lg font-bold text-white ${bgClass}`;
+                                            parent.innerHTML = initials;
+                                          }
+                                        }}
+                                      />
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  <div
+                                    className={`flex h-12 w-12 items-center justify-center rounded-xl text-lg font-bold text-white ${bgClass}`}
+                                  >
+                                    {initials}
+                                  </div>
+                                );
+                              })()}
                               <div>
                                 <h4 className="font-semibold text-gray-900">
                                   {company.name}
