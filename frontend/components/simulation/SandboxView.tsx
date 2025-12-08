@@ -1001,6 +1001,108 @@ export default function SandboxView({
               );
             })}
           </div>
+
+          {/* 回合摘要 */}
+          {currentTurn?.adjudication?.summary && (
+            <div className="rounded-lg border border-white/10 bg-black/50 p-3 backdrop-blur-sm">
+              <div className="mb-2 text-[10px] text-gray-500">回合摘要</div>
+              <div className="text-[11px] leading-relaxed text-gray-300">
+                {currentTurn.adjudication.summary.length > 150
+                  ? `${currentTurn.adjudication.summary.slice(0, 150)}...`
+                  : currentTurn.adjudication.summary}
+              </div>
+            </div>
+          )}
+
+          {/* 市场指标 */}
+          {currentTurn?.worldState && (
+            <div className="rounded-lg border border-white/10 bg-black/50 p-3 backdrop-blur-sm">
+              <div className="mb-2 text-[10px] text-gray-500">市场指标</div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-gray-400">市场价格</span>
+                  <span className="font-mono text-[12px] font-medium text-green-400">
+                    {currentTurn.worldState.marketPrice?.toFixed?.(1) || '-'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-gray-400">风险指数</span>
+                  <span
+                    className={`font-mono text-[12px] font-medium ${
+                      (currentTurn.worldState.shortage || 0) > 0.5
+                        ? 'text-red-400'
+                        : (currentTurn.worldState.shortage || 0) > 0.3
+                          ? 'text-yellow-400'
+                          : 'text-green-400'
+                    }`}
+                  >
+                    {((currentTurn.worldState.shortage || 0) * 100).toFixed(0)}%
+                  </span>
+                </div>
+                {/* 进度条显示风险 */}
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-700">
+                  <div
+                    className={`h-full transition-all ${
+                      (currentTurn.worldState.shortage || 0) > 0.5
+                        ? 'bg-red-500'
+                        : (currentTurn.worldState.shortage || 0) > 0.3
+                          ? 'bg-yellow-500'
+                          : 'bg-green-500'
+                    }`}
+                    style={{
+                      width: `${Math.min((currentTurn.worldState.shortage || 0) * 100, 100)}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 本回合动态 */}
+          {allSubmissions.length > 0 && (
+            <div className="rounded-lg border border-white/10 bg-black/50 p-3 backdrop-blur-sm">
+              <div className="mb-2 text-[10px] text-gray-500">本回合动态</div>
+              <div className="max-h-32 space-y-1.5 overflow-y-auto">
+                {allSubmissions.slice(0, 5).map((submission, idx) => {
+                  const teamConfig =
+                    TEAM_COLORS[submission.team as keyof typeof TEAM_COLORS];
+                  return (
+                    <div
+                      key={idx}
+                      className="flex items-start gap-2 text-[10px]"
+                    >
+                      <div
+                        className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full"
+                        style={{
+                          backgroundColor: teamConfig?.primary || '#666',
+                        }}
+                      />
+                      <div className="flex-1">
+                        <span
+                          className="font-medium"
+                          style={{ color: teamConfig?.primary || '#999' }}
+                        >
+                          {submission.role || '未知'}
+                        </span>
+                        <span className="text-gray-500">: </span>
+                        <span className="text-gray-400">
+                          {(submission.publicAction || '').slice(0, 40)}
+                          {(submission.publicAction || '').length > 40
+                            ? '...'
+                            : ''}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+                {allSubmissions.length > 5 && (
+                  <div className="text-center text-[10px] text-gray-500">
+                    还有 {allSubmissions.length - 5} 条动态...
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 主内容区域 - 战场态势图布局 */}
