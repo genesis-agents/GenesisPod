@@ -2340,68 +2340,66 @@ function EditorModal({
           {activeTab === 'agents' && (
             <div className="mx-auto max-w-4xl space-y-5">
               {/* Header */}
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-gray-900">
                     AI 角色配置
                   </h3>
                   <p className="text-xs text-gray-500">
-                    配置蓝军、红军、绿军、白方和Chaos角色的Persona（性格/偏见/压力源/风险偏好）
+                    配置蓝军、红军、绿军、白方角色
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {/* AI智能配置按钮 */}
                   <button
                     onClick={() => void aiAssistAgents()}
                     disabled={aiAgentAssisting}
-                    className="flex items-center gap-1.5 rounded-lg border border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50 px-3 py-1.5 text-xs font-medium text-purple-700 transition-all hover:from-purple-100 hover:to-indigo-100 disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-100 disabled:opacity-50"
+                    title="AI智能推荐角色"
                   >
                     {aiAgentAssisting ? (
-                      <>
-                        <svg
-                          className="h-3.5 w-3.5 animate-spin"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          />
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                          />
-                        </svg>
-                        AI分析中...
-                      </>
-                    ) : (
-                      <>
-                        <svg
-                          className="h-3.5 w-3.5"
-                          fill="none"
+                      <svg
+                        className="h-3.5 w-3.5 animate-spin"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
                           stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-                          />
-                        </svg>
-                        AI智能配置
-                      </>
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        className="h-3.5 w-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                        />
+                      </svg>
                     )}
+                    AI推荐
                   </button>
-                  {aiSuggestions?.agents && aiSuggestions.agents.length > 0 && (
+                  {/* 去重按钮 - 只在有多余角色时显示 */}
+                  {agents.length > 3 && (
                     <button
-                      onClick={adoptAiAgents}
-                      className="flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
+                      onClick={cleanupAgents}
+                      className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100"
+                      title="清理重复和无效角色"
                     >
                       <svg
                         className="h-3.5 w-3.5"
@@ -2413,38 +2411,16 @@ function EditorModal({
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M13 10V3L4 14h7v7l9-11h-7z"
-                        />
-                      </svg>
-                      采纳AI推荐 ({aiSuggestions.agents.length})
-                    </button>
-                  )}
-                  {/* 清理重复按钮 */}
-                  {agents.length > 3 && (
-                    <button
-                      onClick={cleanupAgents}
-                      className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100"
-                      title="清理重复和无效角色"
-                    >
-                      <svg
-                        className="h-3.5 w-3.5 flex-shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
                           d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                         />
                       </svg>
-                      去重
                     </button>
                   )}
+                  {/* 添加角色按钮 */}
                   <button
                     onClick={addAgent}
-                    className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-700"
+                    className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-700"
+                    title="添加新角色"
                   >
                     <svg
                       className="h-3.5 w-3.5"
@@ -2459,70 +2435,12 @@ function EditorModal({
                         d="M12 4v16m8-8H4"
                       />
                     </svg>
-                    添加角色
+                    添加
                   </button>
                 </div>
               </div>
 
-              {/* AI推荐的角色 */}
-              {aiSuggestions?.agents && aiSuggestions.agents.length > 0 && (
-                <div className="rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50 p-4">
-                  <h4 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-indigo-700">
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13 10V3L4 14h7v7l9-11h-7z"
-                      />
-                    </svg>
-                    AI推荐的角色配置
-                  </h4>
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    {aiSuggestions.agents.map((a, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center gap-2 rounded-lg bg-white/70 px-3 py-2"
-                      >
-                        <span
-                          className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${
-                            a.team === 'BLUE'
-                              ? 'bg-blue-100 text-blue-600'
-                              : a.team === 'RED'
-                                ? 'bg-red-100 text-red-600'
-                                : a.team === 'GREEN'
-                                  ? 'bg-green-100 text-green-600'
-                                  : 'bg-purple-100 text-purple-600'
-                          }`}
-                        >
-                          {a.team === 'BLUE'
-                            ? '蓝'
-                            : a.team === 'RED'
-                              ? '红'
-                              : a.team === 'GREEN'
-                                ? '绿'
-                                : '混'}
-                        </span>
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {a.role}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {a.reason}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* AI智能推荐的角色 - 基于蓝军配置 */}
+              {/* AI智能推荐的角色 */}
               {aiAgentSuggestions && aiAgentSuggestions.length > 0 && (
                 <div className="rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 p-4">
                   <div className="mb-3 flex items-center justify-between">
@@ -2657,177 +2575,6 @@ function EditorModal({
                 </div>
               )}
 
-              {/* 快速模板 */}
-              <div className="rounded-xl border border-gray-200 bg-white p-4">
-                <h4 className="mb-3 text-xs font-semibold text-gray-700">
-                  快速添加预设角色
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {/* 蓝军模板 */}
-                  <button
-                    onClick={() =>
-                      setAgents((prev) => [
-                        ...prev,
-                        {
-                          role: 'CEO (蓝军)',
-                          team: 'BLUE',
-                          companyName: companies[0]?.name || '',
-                          persona:
-                            '{"traits":"稳健进取","biases":"偏好长期价值","pressure":"股东回报压力","timePref":"中长期","riskTolerance":60,"compliance":80}',
-                        },
-                      ])
-                    }
-                    className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
-                  >
-                    <span className="h-2 w-2 rounded-full bg-blue-500" />
-                    蓝军 CEO
-                  </button>
-                  <button
-                    onClick={() =>
-                      setAgents((prev) => [
-                        ...prev,
-                        {
-                          role: 'CFO (蓝军)',
-                          team: 'BLUE',
-                          companyName: companies[0]?.name || '',
-                          persona:
-                            '{"traits":"财务保守","biases":"现金流优先","pressure":"成本控制","timePref":"短期","riskTolerance":30,"compliance":90}',
-                        },
-                      ])
-                    }
-                    className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
-                  >
-                    <span className="h-2 w-2 rounded-full bg-blue-500" />
-                    蓝军 CFO
-                  </button>
-                  {/* 红军模板 */}
-                  <button
-                    onClick={() =>
-                      setAgents((prev) => [
-                        ...prev,
-                        {
-                          role: 'CEO (红军)',
-                          team: 'RED',
-                          companyName: companies[1]?.name || '',
-                          persona:
-                            '{"traits":"激进扩张","biases":"市场份额优先","pressure":"融资压力","timePref":"短期","riskTolerance":85,"compliance":60}',
-                        },
-                      ])
-                    }
-                    className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 transition-colors hover:bg-red-100"
-                  >
-                    <span className="h-2 w-2 rounded-full bg-red-500" />
-                    红军 激进CEO
-                  </button>
-                  <button
-                    onClick={() =>
-                      setAgents((prev) => [
-                        ...prev,
-                        {
-                          role: '董事会 (红军)',
-                          team: 'RED',
-                          companyName: companies[1]?.name || '',
-                          persona:
-                            '{"traits":"保守稳健","biases":"风险规避","pressure":"股东利益","timePref":"长期","riskTolerance":25,"compliance":95}',
-                        },
-                      ])
-                    }
-                    className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 transition-colors hover:bg-red-100"
-                  >
-                    <span className="h-2 w-2 rounded-full bg-red-500" />
-                    红军 保守董事会
-                  </button>
-                  {/* 绿军模板 - 市场/客户/供应商 */}
-                  <button
-                    onClick={() =>
-                      setAgents((prev) => [
-                        ...prev,
-                        {
-                          role: '大客户采购',
-                          team: 'GREEN',
-                          persona:
-                            '{"traits":"精明务实","biases":"价格敏感","pressure":"成本控制","focus":"供应商评估、采购决策"}',
-                        },
-                      ])
-                    }
-                    className="flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs font-medium text-green-700 transition-colors hover:bg-green-100"
-                  >
-                    <span className="h-2 w-2 rounded-full bg-green-500" />
-                    绿军 客户
-                  </button>
-                  <button
-                    onClick={() =>
-                      setAgents((prev) => [
-                        ...prev,
-                        {
-                          role: '供应商代表',
-                          team: 'GREEN',
-                          persona:
-                            '{"traits":"谨慎保守","biases":"利润优先","pressure":"产能压力","focus":"订单量、账期、长期合作"}',
-                        },
-                      ])
-                    }
-                    className="flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs font-medium text-green-700 transition-colors hover:bg-green-100"
-                  >
-                    <span className="h-2 w-2 rounded-full bg-green-500" />
-                    绿军 供应商
-                  </button>
-                  {/* 白方模板 - 裁判/监管机构 */}
-                  <button
-                    onClick={() =>
-                      setAgents((prev) => [
-                        ...prev,
-                        {
-                          role: '监管官员',
-                          team: 'WHITE',
-                          persona:
-                            '{"traits":"严格执法","biases":"合规优先","pressure":"政策压力","focus":"出口管制、反垄断、数据安全"}',
-                        },
-                      ])
-                    }
-                    className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100"
-                  >
-                    <span className="h-2 w-2 rounded-full bg-gray-500" />
-                    白方 监管官
-                  </button>
-                  <button
-                    onClick={() =>
-                      setAgents((prev) => [
-                        ...prev,
-                        {
-                          role: '行业分析师',
-                          team: 'WHITE',
-                          persona:
-                            '{"traits":"客观中立","biases":"数据驱动","focus":"市场评估、趋势预测、行业报告"}',
-                        },
-                      ])
-                    }
-                    className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100"
-                  >
-                    <span className="h-2 w-2 rounded-full bg-gray-500" />
-                    白方 分析师
-                  </button>
-                  {/* Chaos模板 */}
-                  <button
-                    onClick={() =>
-                      setAgents((prev) => [
-                        ...prev,
-                        {
-                          role: '黑天鹅事件',
-                          team: 'CHAOS',
-                          persona:
-                            '{"type":"supply_chain","triggers":"供应链中断、关税政策、自然灾害","probability":0.3}',
-                        },
-                      ])
-                    }
-                    className="flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-100"
-                  >
-                    <span className="h-2 w-2 rounded-full bg-purple-500" />
-                    Chaos 黑天鹅
-                  </button>
-                </div>
-              </div>
-
               {/* 角色列表 */}
               <div className="space-y-6">
                 {agents.map((a, idx) => (
@@ -2860,7 +2607,7 @@ function EditorModal({
                       暂无角色
                     </h4>
                     <p className="mt-1 text-xs text-gray-500">
-                      使用上方快速模板或点击"添加角色"
+                      点击"AI推荐"或"添加"按钮配置角色
                     </p>
                   </div>
                 )}
