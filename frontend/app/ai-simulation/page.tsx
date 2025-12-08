@@ -659,7 +659,8 @@ function EditorModal({
     setCompletedSteps(new Set());
   }, [scenario?.id, seed?.name]);
 
-  // 当公司配置变化时，自动为没有公司的角色智能分配公司
+  // 当公司配置变化时，自动为没有公司的主要角色智能分配公司
+  // 注意：每个阵营只分配一个公司给主要角色（如CEO），其他角色保持无公司
   useEffect(() => {
     if (companies.length === 0) return;
 
@@ -669,15 +670,22 @@ function EditorModal({
     );
     if (validCompanies.length === 0) return;
 
-    // 检查是否有角色需要分配公司
-    const needsUpdate = agents.some(
+    // 检查是否已有蓝军/红军角色绑定了有效公司
+    const blueHasCompany = agents.some(
       (a) =>
-        (a.team === 'BLUE' || a.team === 'RED') &&
-        (!a.companyName ||
-          !validCompanies.some((c) => c.name === a.companyName))
+        a.team === 'BLUE' &&
+        a.companyName &&
+        validCompanies.some((c) => c.name === a.companyName)
+    );
+    const redHasCompany = agents.some(
+      (a) =>
+        a.team === 'RED' &&
+        a.companyName &&
+        validCompanies.some((c) => c.name === a.companyName)
     );
 
-    if (!needsUpdate) return;
+    // 如果都已分配，则不需要更新
+    if (blueHasCompany && redHasCompany) return;
 
     // 按公司类型分类
     const benchmarkCompany = validCompanies.find((c) => c.type === 'benchmark');
@@ -697,8 +705,11 @@ function EditorModal({
       validCompanies.find((c) => c.name !== blueCompany?.name) ||
       validCompanies[1];
 
-    setAgents((prev) =>
-      prev.map((agent) => {
+    setAgents((prev) => {
+      let blueAssigned = blueHasCompany;
+      let redAssigned = redHasCompany;
+
+      return prev.map((agent) => {
         // 如果角色已有有效公司，保持不变
         if (
           agent.companyName &&
@@ -707,17 +718,19 @@ function EditorModal({
           return agent;
         }
 
-        // 根据阵营分配公司
-        if (agent.team === 'BLUE' && blueCompany) {
+        // 每个阵营只分配给第一个没有公司的角色（通常是CEO）
+        if (agent.team === 'BLUE' && !blueAssigned && blueCompany) {
+          blueAssigned = true;
           return { ...agent, companyName: blueCompany.name };
         }
-        if (agent.team === 'RED' && redCompany) {
+        if (agent.team === 'RED' && !redAssigned && redCompany) {
+          redAssigned = true;
           return { ...agent, companyName: redCompany.name };
         }
 
         return agent;
-      })
-    );
+      });
+    });
   }, [companies]);
 
   const [saving, setSaving] = useState(false);
@@ -1244,6 +1257,46 @@ function EditorModal({
       ...prev,
       { role: `Agent ${prev.length + 1}`, team: 'BLUE' },
     ]);
+
+  // 重置角色配置为默认状态
+  const resetAgents = () => {
+    setAgents([
+      { role: 'CEO', team: 'BLUE', companyName: '' },
+      { role: 'CEO', team: 'RED', companyName: '' },
+      { role: '监管官员', team: 'WHITE' },
+    ]);
+    setAiAgentSuggestions(null);
+    setMessage('角色配置已重置');
+  };
+
+  // 清理重复和无效角色
+  const cleanupAgents = () => {
+    setAgents((prev) => {
+      const seen = new Set<string>();
+      const cleaned = prev.filter((agent) => {
+        // 跳过空角色
+        if (!agent.role || agent.role.trim() === '') return false;
+
+        // 创建唯一标识
+        const key = `${agent.team}-${agent.role}`.toLowerCase();
+
+        // 跳过重复角色
+        if (seen.has(key)) return false;
+        seen.add(key);
+
+        return true;
+      });
+
+      return cleaned.length > 0
+        ? cleaned
+        : [
+            { role: 'CEO', team: 'BLUE', companyName: '' },
+            { role: 'CEO', team: 'RED', companyName: '' },
+            { role: '监管官员', team: 'WHITE' },
+          ];
+    });
+    setMessage('已清理重复和无效角色');
+  };
 
   const fetchExternal = async () => {
     setSyncing(true);
@@ -2340,6 +2393,29 @@ function EditorModal({
                         />
                       </svg>
                       采纳AI推荐 ({aiSuggestions.agents.length})
+                    </button>
+                  )}
+                  {/* 清理重复按钮 */}
+                  {agents.length > 3 && (
+                    <button
+                      onClick={cleanupAgents}
+                      className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100"
+                      title="清理重复和无效角色"
+                    >
+                      <svg
+                        className="h-3.5 w-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                      清理重复
                     </button>
                   )}
                   <button
