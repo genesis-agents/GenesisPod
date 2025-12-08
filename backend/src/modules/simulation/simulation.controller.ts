@@ -202,7 +202,8 @@ export class SimulationController {
       existingAgents?: Array<{ role: string; team: string }>;
     },
   ): Promise<any> {
-    return this.aiAssist.suggestAgents(body);
+    const agents = await this.aiAssist.suggestAgents(body);
+    return { agents };
   }
 
   /**

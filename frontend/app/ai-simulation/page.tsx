@@ -574,6 +574,7 @@ function EditorModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const router = useRouter();
   const defaultConstraints: ScenarioParams = {
     blindMove: true,
     cot: true,
@@ -983,7 +984,9 @@ function EditorModal({
       const data = await res.json();
       if (res.ok) {
         setRunId(data.id);
-        setMessage('推演已启动');
+        setMessage('推演已启动，正在跳转...');
+        // 导航到推演页面
+        router.push(`/ai-simulation/run/${data.id}`);
       } else {
         setMessage(data?.message || '启动失败');
       }
