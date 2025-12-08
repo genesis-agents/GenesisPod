@@ -1061,7 +1061,7 @@ export default function SandboxView({
                 🦢 黑天鹅事件:
               </span>
               <span className="flex-1 truncate text-left text-xs text-purple-200">
-                {currentTurn.adjudication.blackSwanEvent.event}
+                {currentTurn.adjudication.blackSwanEvent.event || '未知事件'}
               </span>
               <span className="shrink-0 text-[10px] text-purple-400">
                 点击查看详情 →
@@ -1116,7 +1116,10 @@ export default function SandboxView({
                     </h3>
                   </div>
                   <div className="rounded-lg border border-purple-500/20 bg-purple-900/30 p-4 text-sm leading-relaxed text-purple-100">
-                    {currentTurn.adjudication.blackSwanEvent.event
+                    {(
+                      currentTurn.adjudication.blackSwanEvent.event ||
+                      '未知事件'
+                    )
                       .replace(/\\n/g, '\n')
                       .split('\n')
                       .map((line: string, idx: number) => (
@@ -1564,7 +1567,8 @@ export default function SandboxView({
                 <div className="flex items-center gap-1 rounded bg-purple-500/20 px-2 py-1 text-purple-300">
                   <span>🦢</span>
                   <span className="max-w-24 truncate text-[10px]">
-                    {currentTurn.adjudication.blackSwanEvent.event}
+                    {currentTurn.adjudication.blackSwanEvent.event ||
+                      '未知事件'}
                   </span>
                 </div>
               )}
