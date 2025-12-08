@@ -717,24 +717,103 @@ function EditorModal({
   // 采纳AI建议的公司
   const adoptAiCompanies = () => {
     if (!aiSuggestions?.companies) return;
-    const newCompanies = aiSuggestions.companies.map((c) => ({
+    const suggestedCompanies = aiSuggestions.companies.map((c) => ({
       name: c.name,
       type: c.type,
       market: c.market,
     }));
-    setCompanies((prev) => [...prev, ...newCompanies]);
-    setMessage(`已添加 ${newCompanies.length} 家AI推荐的公司`);
+
+    setCompanies((prev) => {
+      // 找出空白的公司槽位（name为空或只有默认占位符）
+      const isEmptyCompany = (company: ScenarioFormCompany) =>
+        !company.name ||
+        company.name.trim() === '' ||
+        company.name.startsWith('Company ');
+
+      // 找出空白槽位索引
+      const emptySlots: number[] = [];
+      prev.forEach((company, index) => {
+        if (isEmptyCompany(company)) {
+          emptySlots.push(index);
+        }
+      });
+
+      // 复制现有数组
+      const updatedCompanies = [...prev];
+      const companiesToAdd: ScenarioFormCompany[] = [];
+
+      suggestedCompanies.forEach((suggested) => {
+        if (emptySlots.length > 0) {
+          // 填充空白槽位
+          const slotIndex = emptySlots.shift()!;
+          updatedCompanies[slotIndex] = suggested;
+        } else {
+          // 没有空白槽位，才添加新公司
+          companiesToAdd.push(suggested);
+        }
+      });
+
+      return [...updatedCompanies, ...companiesToAdd];
+    });
+
+    setMessage(`已采纳 ${suggestedCompanies.length} 家AI推荐的公司`);
   };
 
   // 采纳AI建议的角色
   const adoptAiAgents = () => {
     if (!aiSuggestions?.agents) return;
-    const newAgents = aiSuggestions.agents.map((a) => ({
+    const suggestedAgents = aiSuggestions.agents.map((a) => ({
       role: a.role,
       team: a.team as ScenarioFormAgent['team'],
     }));
-    setAgents((prev) => [...prev, ...newAgents]);
-    setMessage(`已添加 ${newAgents.length} 个AI推荐的角色`);
+
+    setAgents((prev) => {
+      // 找出空白的角色槽位（role为空或只有默认占位符）
+      const isEmptyAgent = (agent: ScenarioFormAgent) =>
+        !agent.role || agent.role.trim() === '' || agent.role === '新角色';
+
+      // 找出同team的空白槽位索引
+      const emptySlotsByTeam: Record<string, number[]> = {};
+      prev.forEach((agent, index) => {
+        if (isEmptyAgent(agent)) {
+          const team = agent.team;
+          if (!emptySlotsByTeam[team]) emptySlotsByTeam[team] = [];
+          emptySlotsByTeam[team].push(index);
+        }
+      });
+
+      // 复制现有数组
+      const updatedAgents = [...prev];
+      const agentsToAdd: ScenarioFormAgent[] = [];
+
+      suggestedAgents.forEach((suggested) => {
+        // 优先填充同team的空白槽位
+        const teamSlots = emptySlotsByTeam[suggested.team];
+        if (teamSlots && teamSlots.length > 0) {
+          const slotIndex = teamSlots.shift()!;
+          updatedAgents[slotIndex] = suggested;
+        } else {
+          // 没有同team空白槽位，查找任意空白槽位
+          let foundSlot = false;
+          for (const team of Object.keys(emptySlotsByTeam)) {
+            if (emptySlotsByTeam[team].length > 0) {
+              const slotIndex = emptySlotsByTeam[team].shift()!;
+              updatedAgents[slotIndex] = suggested;
+              foundSlot = true;
+              break;
+            }
+          }
+          // 如果没有任何空白槽位，才添加新角色
+          if (!foundSlot) {
+            agentsToAdd.push(suggested);
+          }
+        }
+      });
+
+      return [...updatedAgents, ...agentsToAdd];
+    });
+
+    setMessage(`已采纳 ${suggestedAgents.length} 个AI推荐的角色`);
   };
 
   // 采纳AI建议的目标
@@ -811,15 +890,66 @@ function EditorModal({
   // 采纳AI推荐的对手角色
   const adoptAiAgentSuggestions = () => {
     if (!aiAgentSuggestions || aiAgentSuggestions.length === 0) return;
-    const newAgents = aiAgentSuggestions.map((a) => ({
+
+    const suggestedAgents = aiAgentSuggestions.map((a) => ({
       role: a.role,
       team: a.team as ScenarioFormAgent['team'],
       companyName: a.companyName,
       persona: a.persona ? JSON.stringify(a.persona) : undefined,
     }));
-    setAgents((prev) => [...prev, ...newAgents]);
+
+    setAgents((prev) => {
+      // 找出空白的角色槽位（role为空或只有默认占位符）
+      const isEmptyAgent = (agent: ScenarioFormAgent) =>
+        !agent.role || agent.role.trim() === '' || agent.role === '新角色';
+
+      // 找出同team的空白槽位索引
+      const emptySlotsByTeam: Record<string, number[]> = {};
+      prev.forEach((agent, index) => {
+        if (isEmptyAgent(agent)) {
+          const team = agent.team;
+          if (!emptySlotsByTeam[team]) emptySlotsByTeam[team] = [];
+          emptySlotsByTeam[team].push(index);
+        }
+      });
+
+      // 复制现有数组
+      const updatedAgents = [...prev];
+      const agentsToAdd: ScenarioFormAgent[] = [];
+      let filledCount = 0;
+
+      suggestedAgents.forEach((suggested) => {
+        // 优先填充同team的空白槽位
+        const teamSlots = emptySlotsByTeam[suggested.team];
+        if (teamSlots && teamSlots.length > 0) {
+          const slotIndex = teamSlots.shift()!;
+          updatedAgents[slotIndex] = suggested;
+          filledCount++;
+        } else {
+          // 没有同team空白槽位，查找任意空白槽位
+          let foundSlot = false;
+          for (const team of Object.keys(emptySlotsByTeam)) {
+            if (emptySlotsByTeam[team].length > 0) {
+              const slotIndex = emptySlotsByTeam[team].shift()!;
+              updatedAgents[slotIndex] = suggested;
+              filledCount++;
+              foundSlot = true;
+              break;
+            }
+          }
+          // 如果没有任何空白槽位，才添加新角色
+          if (!foundSlot) {
+            agentsToAdd.push(suggested);
+          }
+        }
+      });
+
+      return [...updatedAgents, ...agentsToAdd];
+    });
+
+    const totalCount = suggestedAgents.length;
     setAiAgentSuggestions(null);
-    setMessage(`已添加 ${newAgents.length} 个AI推荐的角色`);
+    setMessage(`已采纳 ${totalCount} 个AI推荐的角色`);
   };
 
   // AI辅助：推荐推演参数

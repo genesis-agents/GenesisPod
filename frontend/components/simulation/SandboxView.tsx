@@ -45,6 +45,8 @@ import {
 } from 'lucide-react';
 import { config } from '@/lib/config';
 import { getAuthHeader } from '@/lib/auth';
+import { ViewPerspective } from '@/components/simulation/PerspectiveSelector';
+import { isContentVisible } from '@/lib/perspectiveFilter';
 
 // 类型定义
 interface Agent {
@@ -117,15 +119,13 @@ interface Run {
   };
 }
 
-// 视角权限类型
-type ViewPermission = 'GOD' | 'BLUE' | 'RED' | 'GREEN' | 'WHITE';
-
 interface SandboxViewProps {
   run: Run;
   onPause?: () => void;
   onResume?: () => void;
   onIntervene?: (message: string) => void;
-  viewPermission?: ViewPermission;
+  perspective?: ViewPerspective;
+  onPerspectiveChange?: (perspective: ViewPerspective) => void;
   userRole?: string;
 }
 
@@ -325,7 +325,8 @@ export default function SandboxView({
   onPause,
   onResume,
   onIntervene,
-  viewPermission = 'GOD',
+  perspective = 'GOD',
+  onPerspectiveChange,
   userRole,
 }: SandboxViewProps) {
   const [activeView, setActiveView] = useState<ViewType>('sandtable');
@@ -555,13 +556,13 @@ export default function SandboxView({
   // 视角过滤 - 根据权限过滤可见内容
   const filterByPermission = useCallback(
     (data: any, team?: string) => {
-      if (viewPermission === 'GOD') return data;
-      if (viewPermission === team) return data;
+      if (perspective === 'GOD') return data;
+      if (perspective === team) return data;
       // 非上帝视角只能看公开信息
       if (data?.publicAction) return { publicAction: data.publicAction };
       return { hidden: true };
     },
-    [viewPermission]
+    [perspective]
   );
 
   // 生成时间轴年份 (模拟2024-2030+)
@@ -593,13 +594,48 @@ export default function SandboxView({
           回合 {run.currentRound}/{run.rounds}
         </div>
 
-        {/* 视角指示器 */}
-        <div className="flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
-          <Eye className="h-3 w-3" />
-          {viewPermission === 'GOD'
-            ? '上帝视角'
-            : `${TEAM_COLORS[viewPermission]?.label}视角`}
-        </div>
+        {/* 视角选择器 - 可点击切换 */}
+        {onPerspectiveChange ? (
+          <button
+            onClick={() => {
+              // 循环切换视角: GOD -> BLUE -> RED -> GREEN -> WHITE -> GOD
+              const perspectives: ViewPerspective[] = [
+                'GOD',
+                'BLUE',
+                'RED',
+                'GREEN',
+                'WHITE',
+              ];
+              const currentIdx = perspectives.indexOf(perspective);
+              const nextIdx = (currentIdx + 1) % perspectives.length;
+              onPerspectiveChange(perspectives[nextIdx]);
+            }}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all hover:opacity-80 ${
+              perspective === 'GOD'
+                ? 'bg-indigo-50 text-indigo-700'
+                : `bg-opacity-20 ${TEAM_COLORS[perspective]?.bg} ${TEAM_COLORS[perspective]?.text}`
+            }`}
+            title="点击切换视角"
+          >
+            <Eye className="h-3 w-3" />
+            {perspective === 'GOD'
+              ? '上帝视角'
+              : `${TEAM_COLORS[perspective]?.label}视角`}
+          </button>
+        ) : (
+          <div
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+              perspective === 'GOD'
+                ? 'bg-indigo-50 text-indigo-700'
+                : `bg-opacity-20 ${TEAM_COLORS[perspective]?.bg} ${TEAM_COLORS[perspective]?.text}`
+            }`}
+          >
+            <Eye className="h-3 w-3" />
+            {perspective === 'GOD'
+              ? '上帝视角'
+              : `${TEAM_COLORS[perspective]?.label}视角`}
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
@@ -785,8 +821,7 @@ export default function SandboxView({
         <div className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/20 hover:scrollbar-thumb-white/40 flex flex-nowrap gap-2 overflow-x-auto p-2 pb-3">
           {teamSubmissions.length > 0 ? (
             teamSubmissions.map((submission, idx) => {
-              const canView =
-                viewPermission === 'GOD' || viewPermission === team;
+              const canView = perspective === 'GOD' || perspective === team;
               const isSelected =
                 selectedCard?.team === team && selectedCard?.idx === idx;
               return (
@@ -1297,7 +1332,7 @@ export default function SandboxView({
             if (!submission) return null;
             const teamConfig = TEAM_COLORS[selectedCard.team];
             const canView =
-              viewPermission === 'GOD' || viewPermission === selectedCard.team;
+              perspective === 'GOD' || perspective === selectedCard.team;
 
             // 格式化内容显示 - 处理转义字符和结构化显示
             const formatContent = (text: string) => {

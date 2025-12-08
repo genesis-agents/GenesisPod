@@ -22,6 +22,12 @@ import {
   List,
 } from 'lucide-react';
 import SandboxView from '@/components/simulation/SandboxView';
+import {
+  PerspectiveSelector,
+  ViewPerspective,
+} from '@/components/simulation/PerspectiveSelector';
+import { useSimulationPerspective } from '@/hooks/useSimulationPerspective';
+import { isContentVisible } from '@/lib/perspectiveFilter';
 
 // 智能解析长文本，提取结构化信息
 function parseStructuredContent(text: string): {
@@ -239,6 +245,12 @@ export default function RunConsolePage() {
   const [viewMode, setViewMode] = useState<'text' | 'sandbox'>('text');
   const timelineEndRef = useRef<HTMLDivElement>(null);
 
+  // 视角管理 - 使用 hook 自动保存到 localStorage
+  const { perspective, setPerspective } = useSimulationPerspective({
+    runId: runId as string,
+    initialPerspective: urlRole === 'observer' ? 'GOD' : 'BLUE',
+  });
+
   // 切换回合展开/折叠状态
   const toggleRound = (roundNumber: number) => {
     setExpandedRounds((prev) => {
@@ -429,17 +441,12 @@ export default function RunConsolePage() {
                 </div>
               </div>
 
-              {/* 当前角色视角 */}
-              <div
-                className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
-                  userRole === 'observer'
-                    ? 'bg-indigo-100 text-indigo-700'
-                    : 'bg-blue-100 text-blue-700'
-                }`}
-              >
-                <span>{userRole === 'observer' ? '👁️' : '🔵'}</span>
-                <span>{userRole === 'observer' ? '上帝视角' : userRole}</span>
-              </div>
+              {/* 视角选择器 */}
+              <PerspectiveSelector
+                value={perspective}
+                onChange={setPerspective}
+                size="sm"
+              />
 
               {/* Status */}
               <span
@@ -652,6 +659,8 @@ export default function RunConsolePage() {
                 setInterventionText(message);
                 void handleIntervention();
               }}
+              perspective={perspective}
+              onPerspectiveChange={setPerspective}
             />
           </div>
         ) : (
