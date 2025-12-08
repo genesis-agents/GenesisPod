@@ -123,6 +123,7 @@ async function getCustomMigrations(): Promise<string[]> {
     "20251202_add_office_documents",
     "20251205_add_topic_join_requests",
     "20251205_cleanup_duplicate_resources",
+    "20251208_add_simulation_team_white",
   ];
 
   const migrations: string[] = [];
