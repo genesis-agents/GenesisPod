@@ -448,35 +448,76 @@ export default function AIModelSettings() {
   };
 
   const handleAddModel = async (
-    model: Omit<AIModel, 'id' | 'createdAt' | 'updatedAt' | 'hasApiKey'>
+    model: Omit<AIModel, 'id' | 'createdAt' | 'updatedAt' | 'hasApiKey'>,
+    workerCount: number = 1
   ) => {
     setSaving(true);
     try {
-      const response = await fetch(`${config.apiUrl}/admin/ai-models`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        credentials: 'include',
-        body: JSON.stringify(model),
-      });
+      const newModels: AIModel[] = [];
+      const updatedModels: AIModel[] = [];
 
-      if (response.ok) {
-        const result = await response.json();
-        // 检查是更新还是创建
-        if (result.isUpdate) {
-          // 更新现有模型列表
-          setModels(models.map((m) => (m.id === result.id ? result : m)));
-          setSuccess(`模型 ${result.displayName} 已更新`);
+      // 批量创建 Worker
+      for (let i = 1; i <= workerCount; i++) {
+        const workerModel = {
+          ...model,
+          // 如果只创建1个，使用原始名称；否则添加编号后缀
+          name: workerCount === 1 ? model.name : `${model.name} #${i}`,
+          displayName:
+            workerCount === 1
+              ? model.displayName
+              : `${model.displayName} #${i}`,
+        };
+
+        const response = await fetch(`${config.apiUrl}/admin/ai-models`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          credentials: 'include',
+          body: JSON.stringify(workerModel),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.isUpdate) {
+            updatedModels.push(result);
+          } else {
+            newModels.push(result);
+          }
         } else {
-          // 添加新模型
-          setModels([...models, result]);
-          setSuccess(`模型 ${result.displayName} 已添加`);
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || `Failed to add Worker #${i}`);
         }
-        setShowAddModal(false);
-        setTimeout(() => setSuccess(null), 3000);
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to add');
       }
+
+      // 更新模型列表
+      let updatedModelsList = [...models];
+      // 先更新已存在的
+      for (const updated of updatedModels) {
+        updatedModelsList = updatedModelsList.map((m) =>
+          m.id === updated.id ? updated : m
+        );
+      }
+      // 再添加新的
+      updatedModelsList = [...updatedModelsList, ...newModels];
+      setModels(updatedModelsList);
+
+      // 显示成功消息
+      if (workerCount === 1) {
+        setSuccess(
+          newModels.length > 0
+            ? `模型 ${newModels[0].displayName} 已添加`
+            : `模型 ${updatedModels[0].displayName} 已更新`
+        );
+      } else {
+        const addedCount = newModels.length;
+        const updatedCount = updatedModels.length;
+        const messages = [];
+        if (addedCount > 0) messages.push(`新增 ${addedCount} 个`);
+        if (updatedCount > 0) messages.push(`更新 ${updatedCount} 个`);
+        setSuccess(`Worker 创建完成：${messages.join('，')}`);
+      }
+
+      setShowAddModal(false);
+      setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add model');
       setTimeout(() => setError(null), 3000);
@@ -1433,7 +1474,8 @@ function AddModelModal({
   saving,
 }: {
   onAdd: (
-    model: Omit<AIModel, 'id' | 'createdAt' | 'updatedAt' | 'hasApiKey'>
+    model: Omit<AIModel, 'id' | 'createdAt' | 'updatedAt' | 'hasApiKey'>,
+    workerCount?: number
   ) => void;
   onClose: () => void;
   saving: boolean;
@@ -1455,6 +1497,7 @@ function AddModelModal({
     description: '',
   });
   const [showApiKey, setShowApiKey] = useState(false);
+  const [workerCount, setWorkerCount] = useState(1); // 默认创建1个
 
   const colorOptions = [
     { value: 'from-blue-500 to-blue-600', label: 'Blue' },
@@ -1666,6 +1709,36 @@ function AddModelModal({
             </div>
           </details>
 
+          {/* 横向扩展 - Worker 数量 */}
+          <div className="rounded-lg border border-purple-200 bg-purple-50 p-4">
+            <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-purple-800">
+              <span>🚀</span> 横向扩展（可选）
+            </h4>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Worker 数量
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  value={workerCount}
+                  onChange={(e) => setWorkerCount(parseInt(e.target.value))}
+                  className="h-2 flex-1 cursor-pointer appearance-none rounded-lg bg-purple-200 accent-purple-600"
+                />
+                <span className="w-8 text-center text-lg font-bold text-purple-700">
+                  {workerCount}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                {workerCount === 1
+                  ? '创建单个模型配置'
+                  : `将创建 ${workerCount} 个相同配置的 Worker（名称后缀 #1, #2, ...）`}
+              </p>
+            </div>
+          </div>
+
           {/* Advanced Settings - Collapsed */}
           <details className="rounded-lg border border-gray-200">
             <summary className="cursor-pointer px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
@@ -1734,15 +1807,22 @@ function AddModelModal({
             </button>
             <button
               onClick={() =>
-                onAdd({
-                  ...formData,
-                  apiKey: formData.apiKey || null,
-                } as any)
+                onAdd(
+                  {
+                    ...formData,
+                    apiKey: formData.apiKey || null,
+                  } as any,
+                  workerCount
+                )
               }
               disabled={saving || !formData.name || !formData.apiKey}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              {saving ? '保存中...' : '添加模型'}
+              {saving
+                ? '保存中...'
+                : workerCount === 1
+                  ? '添加模型'
+                  : `添加 ${workerCount} 个 Worker`}
             </button>
           </div>
         </div>
