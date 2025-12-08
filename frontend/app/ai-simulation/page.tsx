@@ -574,8 +574,6 @@ function EditorModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const preset = (scenario || seed || {}) as Partial<ScenarioCard> &
-    Partial<ScenarioTemplate>;
   const defaultConstraints: ScenarioParams = {
     blindMove: true,
     cot: true,
@@ -594,28 +592,39 @@ function EditorModal({
   const [activeTab, setActiveTab] = useState<TabType>('basic');
   const [completedSteps, setCompletedSteps] = useState<Set<TabType>>(new Set());
 
-  const [form, setForm] = useState({
-    name: preset.name || '',
-    industry: preset.industry || '',
-    region: preset.region || '',
-    goals: {
-      targetShare: preset.goals?.targetShare || '',
-      risk: preset.goals?.risk || '',
-      growth: preset.goals?.growth || '',
-      custom: preset.goals?.custom || '',
-    } as ScenarioGoals,
-    constraints: preset.params || preset.constraints || defaultConstraints,
-  });
+  // 计算初始值的函数
+  const getInitialForm = () => {
+    const preset = (scenario || seed || {}) as Partial<ScenarioCard> &
+      Partial<ScenarioTemplate>;
+    return {
+      name: preset.name || '',
+      industry: preset.industry || '',
+      region: preset.region || '',
+      goals: {
+        targetShare: preset.goals?.targetShare || '',
+        risk: preset.goals?.risk || '',
+        growth: preset.goals?.growth || '',
+        custom: preset.goals?.custom || '',
+      } as ScenarioGoals,
+      constraints: preset.params || preset.constraints || defaultConstraints,
+    };
+  };
 
-  const [companies, setCompanies] = useState<ScenarioFormCompany[]>(
-    preset.companies || [
+  const getInitialCompanies = (): ScenarioFormCompany[] => {
+    const preset = (scenario || seed || {}) as Partial<ScenarioCard> &
+      Partial<ScenarioTemplate>;
+    if (preset.companies && preset.companies.length > 0) {
+      return preset.companies;
+    }
+    return [
       { name: 'Benchmark Cloud GPU', type: 'benchmark', market: 'Global' },
       { name: 'Startup AI Infra', type: 'startup', market: 'US' },
-    ]
-  );
+    ];
+  };
 
-  // 转换后端返回的 agents 数据（可能有 company 对象而非 companyName）
-  const [agents, setAgents] = useState<ScenarioFormAgent[]>(() => {
+  const getInitialAgents = (): ScenarioFormAgent[] => {
+    const preset = (scenario || seed || {}) as Partial<ScenarioCard> &
+      Partial<ScenarioTemplate>;
     if (preset.agents && preset.agents.length > 0) {
       return preset.agents.map((a: any) => ({
         role: a.role || '',
@@ -631,7 +640,22 @@ function EditorModal({
       { role: 'CEO - 红军', team: 'RED', companyName: 'Startup AI Infra' },
       { role: '监管观察', team: 'GREEN' },
     ];
-  });
+  };
+
+  const [form, setForm] = useState(getInitialForm);
+  const [companies, setCompanies] =
+    useState<ScenarioFormCompany[]>(getInitialCompanies);
+  const [agents, setAgents] = useState<ScenarioFormAgent[]>(getInitialAgents);
+
+  // 当 scenario 或 seed 变化时重新初始化状态
+  useEffect(() => {
+    setForm(getInitialForm());
+    setCompanies(getInitialCompanies());
+    setAgents(getInitialAgents());
+    setLocalScenario(scenario);
+    setActiveTab('basic');
+    setCompletedSteps(new Set());
+  }, [scenario?.id, seed?.name]);
 
   const [saving, setSaving] = useState(false);
   const [runId, setRunId] = useState<string | null>(null);
