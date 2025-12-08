@@ -687,11 +687,16 @@ export class AIAssistService {
 
   /**
    * 根据已有配置推荐补充的角色
+   * 关键逻辑：基于用户已选择的蓝军公司，智能分配其他公司给红军/绿军/白军
    */
   async suggestAgents(params: {
     industry: string;
     companies: Array<{ name: string; type: string }>;
-    existingAgents?: Array<{ role: string; team: string }>;
+    existingAgents?: Array<{
+      role: string;
+      team: string;
+      companyName?: string;
+    }>;
   }): Promise<
     Array<{
       role: string;
@@ -707,23 +712,57 @@ export class AIAssistService {
       existingAgents.map((a) => `${a.team}-${a.role}`.toLowerCase()),
     );
 
-    // 过滤已存在的角色
+    // 识别已被蓝军占用的公司
+    const blueCompanyNames = new Set(
+      existingAgents
+        .filter((a) => a.team === "BLUE" && a.companyName)
+        .map((a) => a.companyName!.toLowerCase()),
+    );
+
+    // 识别已被其他阵营占用的公司
+    const usedCompanyNames = new Set(
+      existingAgents
+        .filter((a) => a.companyName)
+        .map((a) => a.companyName!.toLowerCase()),
+    );
+
+    // 获取可用于红军的公司（非蓝军公司）
+    const availableForRed = companies.filter(
+      (c) => !blueCompanyNames.has(c.name.toLowerCase()),
+    );
+
+    // 获取完全未使用的公司
+    const unusedCompanies = companies.filter(
+      (c) => !usedCompanyNames.has(c.name.toLowerCase()),
+    );
+
+    this.logger.log(
+      `AI Suggest Agents: Blue companies: ${[...blueCompanyNames].join(", ")}; Available for RED: ${availableForRed.map((c) => c.name).join(", ")}`,
+    );
+
+    // 过滤已存在的角色，并智能分配公司
     const suggestions = analysis.agents
       .filter((a) => !existingRoles.has(`${a.team}-${a.role}`.toLowerCase()))
+      .filter((a) => a.team !== "BLUE") // 不推荐蓝军角色，因为用户已有蓝军
       .map((a) => {
-        // 尝试为BLUE/RED角色分配公司
         let companyName: string | undefined;
-        if (a.team === "BLUE" && companies.length > 0) {
-          const blueCompany = companies.find(
-            (c) => c.type === "benchmark" || c.type === "regional",
+
+        if (a.team === "RED") {
+          // 红军优先使用：challenger > startup > 其他非蓝军公司
+          const redCompany =
+            availableForRed.find((c) => c.type === "challenger") ||
+            availableForRed.find((c) => c.type === "startup") ||
+            availableForRed.find((c) => c.type === "benchmark") ||
+            availableForRed[0];
+          companyName = redCompany?.name;
+        } else if (a.team === "GREEN") {
+          // 绿军（市场/客户/供应商）可以使用 regional 类型公司或不分配
+          const greenCompany = unusedCompanies.find(
+            (c) => c.type === "regional" || c.type === "startup",
           );
-          companyName = blueCompany?.name || companies[0]?.name;
-        } else if (a.team === "RED" && companies.length > 1) {
-          const redCompany = companies.find(
-            (c) => c.type === "challenger" || c.type === "startup",
-          );
-          companyName = redCompany?.name || companies[1]?.name;
+          companyName = greenCompany?.name;
         }
+        // WHITE（监管）和 CHAOS（黑天鹅）通常不需要绑定公司
 
         return {
           role: a.role,
@@ -773,7 +812,7 @@ export class AIAssistService {
 
   /**
    * 生成公司量化指标建议
-   * 优先调用 LLM 动态生成，回退到本地模板
+   * 策略: 1. 先尝试从外部API获取真实数据 2. 用LLM结合外部数据生成 3. 回退到本地模板
    */
   async generateCompanyMetrics(params: {
     companyName: string;
@@ -795,6 +834,7 @@ export class AIAssistService {
       brand: string;
     };
     reasoning: string;
+    dataSource?: string; // 数据来源标识
   }> {
     const { companyName, companyType, industry } = params;
 
@@ -802,11 +842,38 @@ export class AIAssistService {
       `AI Assist generating metrics for: ${companyName} (${companyType}) in ${industry}`,
     );
 
-    // 优先尝试使用 LLM 生成
+    // Step 1: 尝试从外部API获取公司真实数据
+    let externalData: any = null;
     try {
-      const llmResult = await this.generateMetricsWithLLM(params);
+      const financeResult = await this.externalData.fetchFromProvider(
+        "finance",
+        undefined,
+        { query: companyName },
+      );
+
+      if (financeResult.ok && financeResult.data) {
+        this.logger.log(
+          `[AI Assist] Found external data for ${companyName} from provider: ${financeResult.providerId}`,
+        );
+        externalData = financeResult.data;
+      }
+    } catch (err) {
+      this.logger.warn(`[AI Assist] External data fetch failed: ${err}`);
+    }
+
+    // Step 2: 使用LLM结合外部数据生成指标
+    try {
+      const llmResult = await this.generateMetricsWithLLM({
+        ...params,
+        externalData,
+      });
       if (llmResult) {
-        return llmResult;
+        return {
+          ...llmResult,
+          dataSource: externalData
+            ? "LLM + External API"
+            : "LLM (AI Generated)",
+        };
       }
     } catch (err) {
       this.logger.warn(
@@ -814,18 +881,24 @@ export class AIAssistService {
       );
     }
 
-    // 回退到本地模板生成
-    return this.generateMetricsFromTemplate(params);
+    // Step 3: 回退到本地模板生成
+    const templateResult = this.generateMetricsFromTemplate(params);
+    return {
+      ...templateResult,
+      dataSource: "Local Template (Fallback)",
+    };
   }
 
   /**
    * 使用 LLM 动态生成公司指标
+   * 支持结合外部API数据进行更准确的生成
    */
   private async generateMetricsWithLLM(params: {
     companyName: string;
     companyType: string;
     industry: string;
     market?: string;
+    externalData?: any; // 外部API获取的真实数据
   }): Promise<{
     metrics: {
       cash: number;
@@ -842,7 +915,13 @@ export class AIAssistService {
     };
     reasoning: string;
   } | null> {
-    const { companyName, companyType, industry, market = "Global" } = params;
+    const {
+      companyName,
+      companyType,
+      industry,
+      market = "Global",
+      externalData,
+    } = params;
 
     const typeLabels: Record<string, string> = {
       benchmark: "行业标杆/龙头企业",
@@ -851,13 +930,22 @@ export class AIAssistService {
       startup: "初创公司/新兴企业",
     };
 
-    const systemPrompt = `你是一位资深的行业分析师和商业情报专家。请根据公司名称、类型、所属行业和市场，生成合理的公司量化指标。
+    // 构建系统提示，根据是否有外部数据调整
+    let systemPrompt = `你是一位资深的行业分析师和商业情报专家。请根据公司名称、类型、所属行业和市场，生成合理的公司量化指标。
 
 注意事项：
 1. 数据应该基于该行业的实际情况和公司类型进行合理估算
 2. 如果是知名公司，尽量贴近其公开财务数据的量级
 3. 如果是虚构或不知名公司，根据行业和类型给出合理假设
-4. 所有数值应该保持内部一致性（如初创公司不应有过高的现金储备）
+4. 所有数值应该保持内部一致性（如初创公司不应有过高的现金储备）`;
+
+    if (externalData) {
+      systemPrompt += `
+5. 重要：用户提供了外部API获取的真实数据，请优先参考这些数据，并据此调整生成的指标
+6. 如果外部数据中包含财务数据、市场数据，请直接使用或合理换算`;
+    }
+
+    systemPrompt += `
 
 请以 JSON 格式返回，不要包含任何其他文字：
 {
@@ -874,13 +962,30 @@ export class AIAssistService {
     "channels": "<渠道：如直销+代理>",
     "brand": "<品牌力：global_leader/strong/growing/niche/emerging>"
   },
-  "reasoning": "<简要说明生成依据，一句话>"
+  "reasoning": "<简要说明生成依据，如果使用了外部数据请注明>"
 }`;
 
-    const userPrompt = `公司名称：${companyName}
+    // 构建用户提示
+    let userPrompt = `公司名称：${companyName}
 公司类型：${typeLabels[companyType] || companyType}
 所属行业：${industry}
-目标市场：${market}
+目标市场：${market}`;
+
+    // 如果有外部数据，将其格式化后添加到提示中
+    if (externalData) {
+      const externalDataStr =
+        typeof externalData === "string"
+          ? externalData
+          : JSON.stringify(externalData, null, 2);
+
+      userPrompt += `
+
+=== 外部API获取的真实数据 ===
+${externalDataStr.slice(0, 3000)}${externalDataStr.length > 3000 ? "\n...(数据已截断)" : ""}
+===========================`;
+    }
+
+    userPrompt += `
 
 请生成该公司的量化指标。`;
 

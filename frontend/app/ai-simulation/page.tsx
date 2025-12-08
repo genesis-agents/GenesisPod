@@ -784,7 +784,11 @@ function EditorModal({
           body: JSON.stringify({
             industry: form.industry,
             companies: companies.map((c) => ({ name: c.name, type: c.type })),
-            existingAgents: agents.map((a) => ({ role: a.role, team: a.team })),
+            existingAgents: agents.map((a) => ({
+              role: a.role,
+              team: a.team,
+              companyName: a.companyName,
+            })),
           }),
         }
       );
@@ -1063,6 +1067,21 @@ function EditorModal({
       return;
     }
 
+    // 检查外部数据是否配置了但返回错误
+    if (external?.snapshot?.market?.error) {
+      const errorMsg = external.snapshot.market.error;
+      if (errorMsg === 'provider_not_configured') {
+        setMessage(
+          '外部市场数据源未配置。请在系统设置中配置 market 类型的数据提供商，或使用AI智能分析'
+        );
+      } else if (errorMsg === 'provider_disabled') {
+        setMessage('外部市场数据源已禁用。请启用数据提供商或使用AI智能分析');
+      } else {
+        setMessage(`外部数据获取失败: ${errorMsg}。将使用AI分析作为替代`);
+      }
+      // 不直接返回，继续使用AI分析
+    }
+
     // 外部API没有返回公司列表，使用AI辅助分析
     if (!form.industry) {
       setMessage('请先在基本信息中填写行业，AI将根据行业分析竞争格局');
@@ -1088,16 +1107,51 @@ function EditorModal({
       });
       const data = await res.json();
       if (res.ok && data.companies && Array.isArray(data.companies)) {
-        const newCompanies = data.companies.map((c: any) => ({
-          name: c.name,
-          type: c.type || 'competitor',
-          market: c.market || form.region || 'Global',
-          metrics: c.metrics || {},
-        }));
-        setCompanies(newCompanies);
+        // AI分析成功，为每个公司生成量化指标
+        const companiesWithMetrics = await Promise.all(
+          data.companies.map(async (c: any) => {
+            try {
+              const metricsRes = await fetch(
+                `${config.apiUrl}/simulation/ai-assist/generate-metrics`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeader(),
+                  },
+                  credentials: 'include',
+                  body: JSON.stringify({
+                    companyName: c.name,
+                    companyType: c.type || 'competitor',
+                    industry: form.industry,
+                    market: c.market || form.region || 'Global',
+                  }),
+                }
+              );
+              const metricsData = await metricsRes.json();
+              return {
+                name: c.name,
+                type: c.type || 'competitor',
+                market: c.market || form.region || 'Global',
+                metrics:
+                  metricsRes.ok && metricsData.metrics
+                    ? metricsData.metrics
+                    : {},
+              };
+            } catch {
+              return {
+                name: c.name,
+                type: c.type || 'competitor',
+                market: c.market || form.region || 'Global',
+                metrics: {},
+              };
+            }
+          })
+        );
+        setCompanies(companiesWithMetrics);
         setAiSuggestions(data);
         setMessage(
-          `AI已分析并推荐 ${newCompanies.length} 家公司，请确认类型/指标`
+          `AI已分析并推荐 ${companiesWithMetrics.length} 家公司（含量化指标），请确认类型/指标`
         );
       } else {
         setMessage(
@@ -1737,6 +1791,56 @@ function EditorModal({
                     {syncing ? '同步中...' : '同步外部数据'}
                   </button>
                   <button
+                    onClick={() => void injectFromMarket()}
+                    disabled={aiAssisting || !form.industry}
+                    className="flex items-center gap-1.5 rounded-lg border border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50 px-3 py-1.5 text-xs font-medium text-purple-700 transition-all hover:from-purple-100 hover:to-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    title={
+                      !form.industry ? '请先填写行业' : 'AI根据行业智能推荐公司'
+                    }
+                  >
+                    {aiAssisting ? (
+                      <>
+                        <svg
+                          className="h-3.5 w-3.5 animate-spin"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                          />
+                        </svg>
+                        AI分析中...
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                          />
+                        </svg>
+                        AI智能推荐
+                      </>
+                    )}
+                  </button>
+                  <button
                     onClick={addCompany}
                     className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-700"
                   >
@@ -1827,7 +1931,7 @@ function EditorModal({
                     disabled={aiAssisting}
                     className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {aiAssisting ? 'AI分析中...' : '用市场数据填充公司'}
+                    {aiAssisting ? 'AI分析中...' : 'AI智能填充公司'}
                   </button>
                 </div>
               )}
@@ -3535,6 +3639,7 @@ function CompanyCard({
   const [aiSuggestion, setAiSuggestion] = useState<{
     metrics: any;
     reasoning: string;
+    dataSource?: string; // 数据来源标识
   } | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
@@ -3784,6 +3889,23 @@ function CompanyCard({
                 <p className="text-sm text-gray-500">{company.name}</p>
               </div>
             </div>
+
+            {/* 数据来源标识 */}
+            {aiSuggestion.dataSource && (
+              <div className="mb-3 flex items-center gap-2">
+                <span
+                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                    aiSuggestion.dataSource.includes('External')
+                      ? 'bg-green-100 text-green-700'
+                      : aiSuggestion.dataSource.includes('LLM')
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  📊 {aiSuggestion.dataSource}
+                </span>
+              </div>
+            )}
 
             {/* AI推理说明 */}
             <div className="mb-4 rounded-lg bg-indigo-50 p-3 text-sm text-indigo-700">

@@ -173,6 +173,12 @@ export default function ScenarioDetailPage() {
       return;
     }
 
+    // 如果删除的是当前激活的run，先清除它
+    const wasActive = activeRun?.id === runId;
+    if (wasActive) {
+      setActiveRun(null);
+    }
+
     setDeletingRunId(runId);
     try {
       const res = await fetch(`${config.apiUrl}/simulation/runs/${runId}`, {
@@ -182,15 +188,22 @@ export default function ScenarioDetailPage() {
       });
 
       if (res.ok) {
-        // 刷新场景数据以更新运行列表
-        await fetchScenario();
-        // 如果删除的是当前激活的run，清除它
-        if (activeRun?.id === runId) {
-          setActiveRun(null);
-        }
+        // 更新本地状态，移除已删除的run，而不是重新获取整个场景
+        setScenario((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            runs: prev.runs?.filter((r: any) => r.id !== runId) || [],
+          };
+        });
       } else {
         const errorData = await res.json().catch(() => ({}));
         alert(errorData.message || '删除失败');
+        // 如果删除失败且之前是激活状态，恢复它
+        if (wasActive && activeRun === null) {
+          // 需要重新获取
+          await fetchScenario();
+        }
       }
     } catch (err: any) {
       console.error('Failed to delete run:', err);

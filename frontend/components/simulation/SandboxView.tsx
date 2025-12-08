@@ -1078,38 +1078,74 @@ export default function SandboxView({
             const canView =
               viewPermission === 'GOD' || viewPermission === selectedCard.team;
 
+            // 格式化内容显示
+            const formatContent = (text: string) => {
+              if (!text) return null;
+              // 按数字开头的段落分割
+              const sections = text
+                .split(/(?=\d+[.、)）]|\n(?=[\u4e00-\u9fa5]))/g)
+                .filter(Boolean);
+              if (sections.length <= 1) {
+                return <p className="whitespace-pre-wrap">{text}</p>;
+              }
+              return (
+                <div className="space-y-3">
+                  {sections.map((section, idx) => {
+                    const trimmed = section.trim();
+                    if (!trimmed) return null;
+                    // 检查是否是标题行（以数字开头或是短句）
+                    const isTitle =
+                      /^\d+[.、)）]/.test(trimmed) || trimmed.length < 30;
+                    return (
+                      <div key={idx}>
+                        {isTitle && trimmed.length < 50 ? (
+                          <h4 className="mb-1 font-medium text-white">
+                            {trimmed}
+                          </h4>
+                        ) : (
+                          <p className="whitespace-pre-wrap leading-relaxed text-gray-300">
+                            {trimmed}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            };
+
             return (
               <div
                 className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
                 onClick={() => setSelectedCard(null)}
               >
                 <div
-                  className="relative w-[480px] max-w-[90vw] rounded-xl border bg-gray-900 p-4 shadow-2xl"
+                  className="relative w-[720px] max-w-[95vw] rounded-xl border bg-gray-900 shadow-2xl"
                   style={{ borderColor: `${teamConfig.primary}50` }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   {/* 关闭按钮 */}
                   <button
                     onClick={() => setSelectedCard(null)}
-                    className="absolute right-3 top-3 rounded-full p-1 text-gray-400 hover:bg-white/10 hover:text-white"
+                    className="absolute right-4 top-4 z-10 rounded-full p-1.5 text-gray-400 hover:bg-white/10 hover:text-white"
                   >
                     ✕
                   </button>
 
                   {/* 标题 */}
-                  <div className="mb-3 flex items-center gap-3 border-b border-white/10 pb-3">
+                  <div className="flex items-center gap-4 border-b border-white/10 p-5">
                     <div
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-lg font-bold text-white ${teamConfig.gradient}`}
+                      className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-xl font-bold text-white ${teamConfig.gradient}`}
                     >
                       {(submission.role || '?')[0]}
                     </div>
                     <div>
-                      <div className="text-base font-semibold text-white">
+                      <div className="text-lg font-semibold text-white">
                         {submission.role || '未知角色'}
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-gray-400">
+                      <div className="flex items-center gap-2 text-sm text-gray-400">
                         <span
-                          className="rounded px-1.5 py-0.5"
+                          className="rounded px-2 py-0.5"
                           style={{
                             backgroundColor: `${teamConfig.primary}30`,
                             color: teamConfig.primary,
@@ -1124,11 +1160,57 @@ export default function SandboxView({
 
                   {/* 内容 */}
                   {canView ? (
-                    <div className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-gray-300">
-                      {submission.publicAction || '无公开行动'}
+                    <div className="max-h-[70vh] overflow-y-auto p-5">
+                      {/* 内心独白 - 仅上帝视角或本阵营可见 */}
+                      {submission.innerMonologue && (
+                        <div className="mb-5">
+                          <div className="mb-2 flex items-center gap-2">
+                            <span className="text-lg">🧠</span>
+                            <h3 className="text-sm font-semibold text-purple-400">
+                              内心独白
+                            </h3>
+                            <span className="rounded bg-purple-500/20 px-2 py-0.5 text-[10px] text-purple-300">
+                              仅本方可见
+                            </span>
+                          </div>
+                          <div className="rounded-lg border border-purple-500/20 bg-purple-900/20 p-4 text-sm text-purple-200">
+                            {formatContent(submission.innerMonologue)}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 公开行动 */}
+                      <div>
+                        <div className="mb-2 flex items-center gap-2">
+                          <span className="text-lg">📢</span>
+                          <h3 className="text-sm font-semibold text-blue-400">
+                            公开行动
+                          </h3>
+                          <span className="rounded bg-blue-500/20 px-2 py-0.5 text-[10px] text-blue-300">
+                            所有人可见
+                          </span>
+                        </div>
+                        <div className="rounded-lg border border-blue-500/20 bg-blue-900/20 p-4 text-sm text-gray-200">
+                          {submission.publicAction ? (
+                            formatContent(submission.publicAction)
+                          ) : (
+                            <span className="italic text-gray-500">
+                              无公开行动
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 没有任何内容 */}
+                      {!submission.innerMonologue &&
+                        !submission.publicAction && (
+                          <div className="py-8 text-center text-sm text-gray-500">
+                            暂无行动记录
+                          </div>
+                        )}
                     </div>
                   ) : (
-                    <div className="py-8 text-center text-sm text-gray-500">
+                    <div className="p-8 text-center text-sm text-gray-500">
                       🔒 需要{teamConfig.label}视角查看完整内容
                     </div>
                   )}
