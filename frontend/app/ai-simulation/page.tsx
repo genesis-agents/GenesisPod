@@ -1176,6 +1176,49 @@ function EditorModal({
     }
   };
 
+  // 智能合并公司数据：优先填充空白槽位，有数据的保留
+  const mergeCompanies = (
+    existingCompanies: ScenarioFormCompany[],
+    newCompanies: ScenarioFormCompany[]
+  ): ScenarioFormCompany[] => {
+    if (newCompanies.length === 0) return existingCompanies;
+
+    // 找出空白的公司槽位
+    const isEmptyCompany = (company: ScenarioFormCompany) =>
+      !company.name ||
+      company.name.trim() === '' ||
+      company.name.startsWith('Company ');
+
+    // 找出有数据的公司（保留）和空白槽位
+    const filledCompanies = existingCompanies.filter((c) => !isEmptyCompany(c));
+    const emptySlots = existingCompanies.filter((c) => isEmptyCompany(c));
+
+    // 过滤掉重复的公司名称
+    const existingNames = new Set(
+      filledCompanies.map((c) => c.name.toLowerCase())
+    );
+    const uniqueNewCompanies = newCompanies.filter(
+      (c) => !existingNames.has(c.name.toLowerCase())
+    );
+
+    // 合并：已有数据 + 新数据（填充空白槽位或追加）
+    const result = [...filledCompanies];
+    let emptyIndex = 0;
+
+    uniqueNewCompanies.forEach((newCompany) => {
+      if (emptyIndex < emptySlots.length) {
+        // 填充空白槽位
+        result.push(newCompany);
+        emptyIndex++;
+      } else {
+        // 没有空白槽位，追加
+        result.push(newCompany);
+      }
+    });
+
+    return result;
+  };
+
   const injectFromMarket = async () => {
     // 检查外部数据是否有市场公司数组
     if (
@@ -1184,7 +1227,7 @@ function EditorModal({
       external.snapshot.market.length > 0
     ) {
       // 使用外部API返回的公司列表
-      const next = external.snapshot.market
+      const newCompanies = external.snapshot.market
         .slice(0, 6)
         .map((item: any, idx: number) => ({
           name: item.name || item.title || `Company ${idx + 1}`,
@@ -1192,7 +1235,7 @@ function EditorModal({
           market: item.market || form.region || 'Global',
           metrics: item.metrics || item,
         }));
-      setCompanies(next);
+      setCompanies((prev) => mergeCompanies(prev, newCompanies));
       setMessage('已用外部市场数据填充公司，请确认类型/指标');
       return;
     }
@@ -1278,7 +1321,7 @@ function EditorModal({
             }
           })
         );
-        setCompanies(companiesWithMetrics);
+        setCompanies((prev) => mergeCompanies(prev, companiesWithMetrics));
         setAiSuggestions(data);
         setMessage(
           `AI已分析并推荐 ${companiesWithMetrics.length} 家公司（含量化指标），请确认类型/指标`
