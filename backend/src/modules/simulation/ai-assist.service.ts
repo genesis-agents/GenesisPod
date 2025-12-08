@@ -22,442 +22,16 @@ interface IndustryAnalysis {
   insights: string[];
 }
 
-// 行业知识库 - 基于PRD的AI算力基础设施行业
-const INDUSTRY_KNOWLEDGE: Record<string, IndustryAnalysis> = {
-  "AI Compute Infrastructure": {
-    companies: [
-      {
-        name: "NVIDIA",
-        type: "benchmark",
-        market: "Global",
-        reason: "GPU市场绝对领导者，数据中心芯片占主导",
-      },
-      {
-        name: "AMD",
-        type: "challenger",
-        market: "Global",
-        reason: "MI300系列挑战NVIDIA，性价比优势",
-      },
-      {
-        name: "Intel",
-        type: "regional",
-        market: "US",
-        reason: "Gaudi系列AI加速器，传统CPU厂商转型",
-      },
-      {
-        name: "华为昇腾",
-        type: "regional",
-        market: "China",
-        reason: "国产替代主力，受出口管制影响",
-      },
-      {
-        name: "寒武纪",
-        type: "startup",
-        market: "China",
-        reason: "国产AI芯片新势力，聚焦推理芯片",
-      },
-    ],
-    agents: [
-      { role: "CEO", team: "BLUE", reason: "战略决策者，平衡增长与风险" },
-      { role: "CFO", team: "BLUE", reason: "财务把控，现金流管理" },
-      { role: "CEO", team: "RED", reason: "竞争对手决策者" },
-      { role: "销售VP", team: "RED", reason: "市场抢夺执行者" },
-      { role: "监管官员", team: "WHITE", reason: "出口管制、反垄断审查" },
-      { role: "行业分析师", team: "WHITE", reason: "市场舆情、评级影响" },
-      { role: "黑天鹅事件", team: "CHAOS", reason: "供应链中断、政策突变" },
-    ],
-    goals: {
-      targetShare: "守住现有份额，寻找差异化突破点",
-      risk: "控制供应链风险，应对出口管制不确定性",
-      growth: "提升算力利用率，优化交付周期",
-    },
-    insights: [
-      "AI算力市场规模预计2025年达$500B+，增速40%+",
-      "NVIDIA占据80%+数据中心GPU市场，但面临AMD、Intel、国产芯片挑战",
-      "美国出口管制持续收紧，对中国市场影响深远",
-      "云厂商自研芯片趋势明显(Google TPU、AWS Trainium)",
-      "算力供需紧张，交付周期成为关键竞争因素",
-    ],
-  },
-  "Cloud Services": {
-    companies: [
-      {
-        name: "AWS",
-        type: "benchmark",
-        market: "Global",
-        reason: "全球云市场领导者，市场份额32%",
-      },
-      {
-        name: "Microsoft Azure",
-        type: "benchmark",
-        market: "Global",
-        reason: "企业级云服务强者，市场份额23%",
-      },
-      {
-        name: "Google Cloud",
-        type: "challenger",
-        market: "Global",
-        reason: "AI/ML能力领先，追赶头部",
-      },
-      {
-        name: "阿里云",
-        type: "regional",
-        market: "China",
-        reason: "亚太市场领导者，国内份额第一",
-      },
-      {
-        name: "华为云",
-        type: "regional",
-        market: "China",
-        reason: "政企市场强势，全栈自研",
-      },
-    ],
-    agents: [
-      { role: "CEO", team: "BLUE", reason: "战略方向制定" },
-      { role: "CTO", team: "BLUE", reason: "技术架构决策" },
-      { role: "CEO", team: "RED", reason: "竞争策略制定" },
-      { role: "产品VP", team: "RED", reason: "产品差异化执行" },
-      { role: "数据安全监管", team: "WHITE", reason: "数据合规审查" },
-      { role: "客户代表", team: "GREEN", reason: "客户需求反馈" },
-    ],
-    goals: {
-      targetShare: "提升市场份额2-3个百分点",
-      risk: "数据安全合规，客户锁定风险",
-      growth: "提升ARPU，拓展新业务线",
-    },
-    insights: [
-      "全球云服务市场规模$600B+，增速20%+",
-      "多云/混合云趋势明显，单一厂商锁定风险下降",
-      "AI驱动云服务升级，GPU云成为新增长点",
-      "数据主权要求推动本地化部署需求",
-    ],
-  },
-  Semiconductor: {
-    companies: [
-      {
-        name: "TSMC",
-        type: "benchmark",
-        market: "Global",
-        reason: "先进制程绝对垄断，代工市场60%+份额",
-      },
-      {
-        name: "Samsung",
-        type: "challenger",
-        market: "Global",
-        reason: "先进制程追赶者，存储器领导者",
-      },
-      {
-        name: "Intel",
-        type: "regional",
-        market: "US",
-        reason: "IDM模式回归，政府补贴支持",
-      },
-      {
-        name: "中芯国际",
-        type: "regional",
-        market: "China",
-        reason: "国产替代主力，受设备限制",
-      },
-    ],
-    agents: [
-      { role: "CEO", team: "BLUE", reason: "产能扩张决策" },
-      { role: "采购VP", team: "BLUE", reason: "设备供应链管理" },
-      { role: "CEO", team: "RED", reason: "竞争产能策略" },
-      { role: "技术VP", team: "RED", reason: "制程追赶决策" },
-      {
-        role: "出口管制官员",
-        team: "WHITE",
-        reason: "设备出口、技术转让审查",
-      },
-      { role: "行业协会", team: "WHITE", reason: "产业政策协调" },
-    ],
-    goals: {
-      targetShare: "维持先进制程领先地位",
-      risk: "地缘政治风险、设备供应链安全",
-      growth: "产能扩张ROI最大化",
-    },
-    insights: [
-      "先进制程(3nm以下)竞争白热化",
-      "美国CHIPS法案推动本土制造",
-      "设备供应链(ASML光刻机)成为战略瓶颈",
-      "Chiplet技术可能改变游戏规则",
-    ],
-  },
-  "Electric Vehicles": {
-    companies: [
-      {
-        name: "Tesla",
-        type: "benchmark",
-        market: "Global",
-        reason: "纯电领导者，软件定义汽车先驱",
-      },
-      {
-        name: "比亚迪",
-        type: "benchmark",
-        market: "China",
-        reason: "全球销量第一，垂直整合优势",
-      },
-      {
-        name: "蔚来",
-        type: "startup",
-        market: "China",
-        reason: "高端电动车新势力，换电模式",
-      },
-      {
-        name: "大众",
-        type: "regional",
-        market: "Europe",
-        reason: "传统巨头转型，MEB平台",
-      },
-    ],
-    agents: [
-      { role: "CEO", team: "BLUE", reason: "产品战略决策" },
-      { role: "供应链VP", team: "BLUE", reason: "电池供应管理" },
-      { role: "CEO", team: "RED", reason: "市场竞争策略" },
-      { role: "营销VP", team: "RED", reason: "价格战执行" },
-      { role: "环保监管", team: "WHITE", reason: "排放、回收合规" },
-      { role: "消费者协会", team: "GREEN", reason: "消费者权益、安全" },
-    ],
-    goals: {
-      targetShare: "抢占增量市场份额",
-      risk: "电池安全、产能爬坡风险",
-      growth: "智能化软件收入增长",
-    },
-    insights: [
-      "全球EV渗透率持续提升，2025年预计20%+",
-      "价格战激烈，利润率承压",
-      "固态电池技术可能带来变革",
-      "自动驾驶成为差异化关键",
-    ],
-  },
-  Fintech: {
-    companies: [
-      {
-        name: "蚂蚁集团",
-        type: "benchmark",
-        market: "China",
-        reason: "支付宝生态，数字金融领导者",
-      },
-      {
-        name: "PayPal",
-        type: "benchmark",
-        market: "Global",
-        reason: "全球支付网络，商户生态",
-      },
-      {
-        name: "Stripe",
-        type: "startup",
-        market: "Global",
-        reason: "开发者友好，B2B支付",
-      },
-      {
-        name: "微众银行",
-        type: "regional",
-        market: "China",
-        reason: "微信生态，小微贷款",
-      },
-    ],
-    agents: [
-      { role: "CEO", team: "BLUE", reason: "业务模式创新" },
-      { role: "风控VP", team: "BLUE", reason: "信贷风险管理" },
-      { role: "CEO", team: "RED", reason: "市场竞争策略" },
-      { role: "金融监管", team: "WHITE", reason: "牌照、合规审查" },
-      { role: "消费者保护", team: "WHITE", reason: "数据隐私、费率监管" },
-    ],
-    goals: {
-      targetShare: "扩大活跃用户基数",
-      risk: "监管合规、信贷风险",
-      growth: "ARPU提升、新场景拓展",
-    },
-    insights: [
-      "监管趋严成为行业常态",
-      "嵌入式金融机会巨大",
-      "AI驱动风控和个性化",
-      "跨境支付增长迅速",
-    ],
-  },
-  "E-commerce": {
-    companies: [
-      {
-        name: "Amazon",
-        type: "benchmark",
-        market: "Global",
-        reason: "全球电商领导者，Prime生态",
-      },
-      {
-        name: "阿里巴巴",
-        type: "benchmark",
-        market: "China",
-        reason: "国内电商第一，新零售探索",
-      },
-      {
-        name: "拼多多",
-        type: "challenger",
-        market: "China",
-        reason: "社交电商黑马，下沉市场",
-      },
-      {
-        name: "Shopify",
-        type: "startup",
-        market: "Global",
-        reason: "独立站工具，赋能商家",
-      },
-    ],
-    agents: [
-      { role: "CEO", team: "BLUE", reason: "平台战略" },
-      { role: "运营VP", team: "BLUE", reason: "GMV增长执行" },
-      { role: "CEO", team: "RED", reason: "竞争策略" },
-      { role: "反垄断监管", team: "WHITE", reason: "平台治理审查" },
-      { role: "商家代表", team: "GREEN", reason: "平台规则博弈" },
-    ],
-    goals: {
-      targetShare: "提升GMV和市场份额",
-      risk: "反垄断、商家流失风险",
-      growth: "广告、物流增值服务",
-    },
-    insights: [
-      "直播电商成为增长引擎",
-      "平台反垄断监管持续",
-      "跨境电商机会与挑战并存",
-      "AI个性化推荐提升转化",
-    ],
-  },
-  SaaS: {
-    companies: [
-      {
-        name: "Salesforce",
-        type: "benchmark",
-        market: "Global",
-        reason: "CRM领导者，企业级SaaS标杆",
-      },
-      {
-        name: "Microsoft 365",
-        type: "benchmark",
-        market: "Global",
-        reason: "办公套件霸主，企业渗透率高",
-      },
-      {
-        name: "Zoom",
-        type: "challenger",
-        market: "Global",
-        reason: "视频会议新贵，疫情受益",
-      },
-      {
-        name: "钉钉",
-        type: "regional",
-        market: "China",
-        reason: "企业协作平台，阿里生态",
-      },
-    ],
-    agents: [
-      { role: "CEO", team: "BLUE", reason: "产品战略" },
-      { role: "销售VP", team: "BLUE", reason: "企业客户拓展" },
-      { role: "CEO", team: "RED", reason: "竞争策略" },
-      { role: "企业客户", team: "GREEN", reason: "采购决策" },
-      { role: "数据安全监管", team: "WHITE", reason: "数据合规" },
-    ],
-    goals: {
-      targetShare: "提升ARR和客户留存",
-      risk: "客户流失、竞争加剧",
-      growth: "AI功能升级、生态扩展",
-    },
-    insights: [
-      "AI Copilot成为标配功能",
-      "PLG模式挑战传统销售",
-      "垂直SaaS机会涌现",
-      "安全合规要求提升",
-    ],
-  },
-  Gaming: {
-    companies: [
-      {
-        name: "腾讯游戏",
-        type: "benchmark",
-        market: "Global",
-        reason: "全球游戏收入第一，投资版图庞大",
-      },
-      {
-        name: "索尼",
-        type: "benchmark",
-        market: "Global",
-        reason: "PlayStation生态，独占大作",
-      },
-      {
-        name: "米哈游",
-        type: "startup",
-        market: "Global",
-        reason: "原神现象级，二次元出海标杆",
-      },
-      { name: "网易游戏", type: "regional", market: "China", reason: "自研强" },
-    ],
-    agents: [
-      { role: "CEO", team: "BLUE", reason: "IP战略" },
-      { role: "制作人", team: "BLUE", reason: "产品创新" },
-      { role: "CEO", team: "RED", reason: "竞争策略" },
-      { role: "版号监管", team: "WHITE", reason: "内容审查" },
-      { role: "玩家社区", team: "GREEN", reason: "舆情反馈" },
-    ],
-    goals: {
-      targetShare: "爆款产品市场份额",
-      risk: "版号政策、未成年人保护",
-      growth: "海外市场拓展",
-    },
-    insights: [
-      "版号政策影响国内发行节奏",
-      "出海成为增长必选项",
-      "云游戏、AI NPC新机会",
-      "玩家付费意愿分化明显",
-    ],
-  },
-  Healthcare: {
-    companies: [
-      {
-        name: "强生",
-        type: "benchmark",
-        market: "Global",
-        reason: "医疗器械+制药巨头",
-      },
-      {
-        name: "辉瑞",
-        type: "benchmark",
-        market: "Global",
-        reason: "创新药领导者",
-      },
-      {
-        name: "药明康德",
-        type: "regional",
-        market: "China",
-        reason: "CRO/CDMO龙头",
-      },
-      {
-        name: "联影医疗",
-        type: "startup",
-        market: "China",
-        reason: "高端医疗影像设备",
-      },
-    ],
-    agents: [
-      { role: "CEO", team: "BLUE", reason: "研发战略" },
-      { role: "研发VP", team: "BLUE", reason: "管线决策" },
-      { role: "CEO", team: "RED", reason: "竞争策略" },
-      { role: "FDA/NMPA", team: "WHITE", reason: "药品审批" },
-      { role: "医保局", team: "WHITE", reason: "价格谈判" },
-    ],
-    goals: {
-      targetShare: "关键治疗领域市场份额",
-      risk: "研发失败、合规风险",
-      growth: "创新药管线突破",
-    },
-    insights: [
-      "AI加速药物发现",
-      "医保谈判压缩利润空间",
-      "基因治疗、细胞治疗前沿突破",
-      "老龄化驱动需求增长",
-    ],
-  },
-};
+// 公司类型说明（用于理解 AI 返回的结果）：
+// - benchmark: 行业标杆（用户选择自己的公司时通常是这类）
+// - competitor: 直接竞争对手（会被分配给RED队）
+// - challenger: 挑战者（也是竞争对手，会被分配给RED队）
+// - startup: 初创公司（视情况分配给RED或GREEN）
+// - customer: 客户（分配给GREEN队）
+// - supplier: 供应商（分配给GREEN队）
+// - regional: 区域玩家（根据用户选择决定是竞争对手还是自己）
 
-// 公司指标生成模板 - 基于公司类型和行业
+// 公司指标生成模板 - 基于公司类型（仅用于 LLM fallback）
 interface CompanyMetricsTemplate {
   cash: { min: number; max: number }; // 万美元
   share: { min: number; max: number }; // %
@@ -552,53 +126,6 @@ const INDUSTRY_MODIFIERS: Record<
   "Electric Vehicles": { cashMultiplier: 3, patentMultiplier: 2 },
 };
 
-// 通用默认模板
-const DEFAULT_ANALYSIS: IndustryAnalysis = {
-  companies: [
-    {
-      name: "行业领导者",
-      type: "benchmark",
-      market: "Global",
-      reason: "市场份额最大的头部企业",
-    },
-    {
-      name: "挑战者",
-      type: "challenger",
-      market: "Global",
-      reason: "快速增长的第二梯队",
-    },
-    {
-      name: "区域龙头",
-      type: "regional",
-      market: "Global", // 改为Global以确保在任何区域筛选下都能显示
-      reason: "特定区域市场领先",
-    },
-    {
-      name: "新势力",
-      type: "startup",
-      market: "Global", // 改为Global以确保在任何区域筛选下都能显示
-      reason: "创新型初创企业",
-    },
-  ],
-  agents: [
-    { role: "CEO", team: "BLUE", reason: "战略决策者" },
-    { role: "COO", team: "BLUE", reason: "运营执行者" },
-    { role: "CEO", team: "RED", reason: "竞争对手决策者" },
-    { role: "监管机构", team: "WHITE", reason: "政策合规审查" },
-    { role: "行业分析师", team: "WHITE", reason: "中立评估、舆情影响" },
-    { role: "客户代表", team: "GREEN", reason: "市场需求、采购决策" },
-  ],
-  goals: {
-    targetShare: "提升市场份额",
-    risk: "控制经营风险",
-    growth: "实现可持续增长",
-  },
-  insights: [
-    "请根据具体行业补充竞争格局分析",
-    "建议配置外部数据API获取实时市场信息",
-  ],
-};
-
 @Injectable()
 export class AIAssistService {
   private readonly logger = new Logger(AIAssistService.name);
@@ -609,85 +136,210 @@ export class AIAssistService {
   ) {}
 
   /**
-   * 根据行业和区域分析竞争格局，推荐公司和角色配置
+   * 根据行业和区域分析竞争格局，使用 LLM 动态推荐公司和角色配置
+   * 不使用任何硬编码知识库，完全依赖 AI 分析
    */
   async analyzeIndustry(params: {
     industry: string;
     region?: string;
     existingCompanies?: string[];
   }): Promise<IndustryAnalysis> {
-    const { industry, region, existingCompanies = [] } = params;
+    const { industry, region = "Global", existingCompanies = [] } = params;
 
     this.logger.log(
-      `AI Assist analyzing industry: ${industry}, region: ${region}`,
+      `AI Assist analyzing industry with LLM: ${industry}, region: ${region}`,
     );
 
-    // 1. 尝试从知识库获取行业分析
-    let analysis = INDUSTRY_KNOWLEDGE[industry] || null;
-
-    // 2. 如果没有精确匹配，尝试模糊匹配
-    if (!analysis) {
-      const lowerIndustry = industry.toLowerCase();
-      for (const [key, value] of Object.entries(INDUSTRY_KNOWLEDGE)) {
-        if (
-          key.toLowerCase().includes(lowerIndustry) ||
-          lowerIndustry.includes(key.toLowerCase())
-        ) {
-          analysis = value;
-          break;
-        }
-      }
-    }
-
-    // 3. 如果仍然没有，使用默认模板
-    if (!analysis) {
-      analysis = { ...DEFAULT_ANALYSIS };
-      analysis.insights = [
-        `${industry}行业分析数据较少，建议配置外部数据API获取实时信息`,
-        "可使用AI辅助功能获取更详细的竞争格局分析",
-      ];
-    }
-
-    // 4. 根据区域过滤公司
-    if (region && region !== "Global") {
-      analysis = {
-        ...analysis,
-        companies: analysis.companies.filter(
-          (c) => c.market === "Global" || c.market === region,
-        ),
-      };
-    }
-
-    // 5. 排除已存在的公司
-    if (existingCompanies.length > 0) {
-      const existingLower = existingCompanies.map((c) => c.toLowerCase());
-      analysis = {
-        ...analysis,
-        companies: analysis.companies.filter(
-          (c) => !existingLower.includes(c.name.toLowerCase()),
-        ),
-      };
-    }
-
-    // 6. 尝试从外部数据补充实时洞察
+    // 使用 LLM 动态分析行业竞争格局
     try {
-      const { snapshot } = await this.externalData.getSnapshot(["news"]);
-      if (snapshot?.news && !snapshot.news.error) {
-        analysis.insights = [
-          ...analysis.insights,
-          "已同步外部新闻数据，裁判系统将使用实时信息进行判定",
-        ];
+      const analysis = await this.analyzeIndustryWithLLM({
+        industry,
+        region,
+        existingCompanies,
+      });
+
+      if (analysis) {
+        this.logger.log(
+          `LLM analysis successful: ${analysis.companies.length} companies, ${analysis.agents.length} agents`,
+        );
+        return analysis;
       }
     } catch (err) {
-      this.logger.warn(`Failed to fetch external data for insights: ${err}`);
+      this.logger.warn(`LLM industry analysis failed: ${err}`);
     }
 
-    return analysis;
+    // 如果 LLM 分析失败，返回默认模板
+    this.logger.warn("Falling back to default analysis template");
+    return {
+      companies: [
+        {
+          name: "行业领导者A",
+          type: "competitor",
+          market: region,
+          reason: "市场份额第一的头部企业",
+        },
+        {
+          name: "挑战者B",
+          type: "competitor",
+          market: region,
+          reason: "快速增长的第二梯队企业",
+        },
+        {
+          name: "新兴力量C",
+          type: "competitor",
+          market: region,
+          reason: "创新型初创企业",
+        },
+      ],
+      agents: [
+        { role: "CEO", team: "BLUE", reason: "战略决策者" },
+        { role: "监管机构", team: "WHITE", reason: "政策合规审查" },
+        { role: "行业分析师", team: "WHITE", reason: "市场舆情分析" },
+        { role: "黑天鹅事件", team: "CHAOS", reason: "不可预测的外部冲击" },
+      ],
+      goals: {
+        targetShare: "提升市场份额",
+        risk: "控制经营风险",
+        growth: "实现可持续增长",
+      },
+      insights: [
+        `AI分析暂时不可用，请稍后重试`,
+        `您可以手动添加${industry}行业的主要竞争对手`,
+      ],
+    };
+  }
+
+  /**
+   * 使用 LLM 动态分析行业竞争格局
+   */
+  private async analyzeIndustryWithLLM(params: {
+    industry: string;
+    region: string;
+    existingCompanies: string[];
+  }): Promise<IndustryAnalysis | null> {
+    const { industry, region, existingCompanies } = params;
+
+    const systemPrompt = `你是一位资深的行业分析师和商业情报专家。请根据用户提供的行业和区域信息，分析该行业的竞争格局。
+
+你的分析必须基于真实的市场数据和行业知识，包括：
+1. 识别该行业的主要参与者（至少5-8家真实公司）
+2. 分析每家公司的市场定位和竞争优势
+3. 推荐适合商业模拟的关键角色
+4. 提供行业洞察和趋势分析
+
+公司类型说明：
+- competitor: 直接竞争对手（用于RED队，模拟竞争压力）
+- customer: 主要客户/采购方（用于GREEN队，模拟市场需求）
+- supplier: 关键供应商（用于GREEN队，模拟供应链）
+- benchmark: 行业标杆（通常是用户自己选择的公司）
+
+注意：
+- 不要返回用户已经选择的公司
+- 优先推荐真实存在的知名公司
+- 根据区域筛选相关公司
+
+请以 JSON 格式返回，不要包含任何其他文字：
+{
+  "companies": [
+    { "name": "公司名称", "type": "competitor/customer/supplier", "market": "Global/China/US/等", "reason": "推荐理由" }
+  ],
+  "agents": [
+    { "role": "角色名称", "team": "WHITE/CHAOS", "reason": "角色作用" }
+  ],
+  "goals": {
+    "targetShare": "市场份额目标建议",
+    "risk": "风险控制建议",
+    "growth": "增长策略建议"
+  },
+  "insights": ["行业洞察1", "行业洞察2", "行业洞察3"]
+}`;
+
+    const userPrompt = `请分析以下行业的竞争格局：
+
+行业：${industry}
+目标区域：${region}
+${existingCompanies.length > 0 ? `用户已选择的公司（请不要重复推荐）：${existingCompanies.join("、")}` : ""}
+
+请推荐：
+1. 5-8家该行业的主要竞争对手公司（type为competitor）
+2. 2-3家主要客户或采购方（type为customer）
+3. 1-2家关键供应商（type为supplier）
+4. 适合WHITE队（监管/分析师）和CHAOS队（黑天鹅事件）的角色
+5. 战略目标建议和行业洞察
+
+所有公司必须是真实存在的知名企业。`;
+
+    try {
+      const result = await this.aiChat.generateChatCompletion({
+        model: "gpt-4",
+        systemPrompt,
+        messages: [{ role: "user", content: userPrompt }],
+        maxTokens: 2048,
+        temperature: 0.7,
+      });
+
+      if (!result.content) {
+        this.logger.warn("LLM returned empty content for industry analysis");
+        return null;
+      }
+
+      // 解析 JSON 响应
+      const jsonMatch = result.content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        this.logger.warn("LLM response is not valid JSON");
+        return null;
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+
+      // 验证必要字段
+      if (!parsed.companies || !Array.isArray(parsed.companies)) {
+        this.logger.warn("LLM response missing companies array");
+        return null;
+      }
+
+      // 确保每个公司有正确的type
+      const validatedCompanies = parsed.companies.map(
+        (c: {
+          name: string;
+          type?: string;
+          market?: string;
+          reason?: string;
+        }) => ({
+          name: c.name,
+          type: c.type || "competitor",
+          market: c.market || region,
+          reason: c.reason || "",
+        }),
+      );
+
+      return {
+        companies: validatedCompanies,
+        agents: parsed.agents || [
+          { role: "监管官员", team: "WHITE", reason: "政策合规审查" },
+          { role: "行业分析师", team: "WHITE", reason: "市场舆情分析" },
+          { role: "黑天鹅事件", team: "CHAOS", reason: "不可预测的外部冲击" },
+        ],
+        goals: parsed.goals || {
+          targetShare: "提升市场份额",
+          risk: "控制经营风险",
+          growth: "实现可持续增长",
+        },
+        insights: parsed.insights || [`${industry}行业AI分析完成`],
+      };
+    } catch (err) {
+      this.logger.error(`Failed to parse LLM industry analysis: ${err}`);
+      return null;
+    }
   }
 
   /**
    * 根据已有配置推荐补充的角色
-   * 关键逻辑：基于用户已选择的蓝军公司，智能分配其他公司给红军/绿军/白军
+   * 关键逻辑：
+   * 1. 蓝军绑定用户选择的公司
+   * 2. 红军为每个竞争对手公司各生成1-2个角色（CEO为必须，可选销售VP等）
+   * 3. 绿军绑定客户/供应商公司
+   * 4. 白军/CHAOS不绑定公司
    */
   async suggestAgents(params: {
     industry: string;
@@ -708,9 +360,6 @@ export class AIAssistService {
     const { industry, companies, existingAgents = [] } = params;
 
     const analysis = await this.analyzeIndustry({ industry });
-    const existingRoles = new Set(
-      existingAgents.map((a) => `${a.team}-${a.role}`.toLowerCase()),
-    );
 
     // 识别已被蓝军占用的公司
     const blueCompanyNames = new Set(
@@ -719,58 +368,108 @@ export class AIAssistService {
         .map((a) => a.companyName!.toLowerCase()),
     );
 
-    // 识别已被其他阵营占用的公司
-    const usedCompanyNames = new Set(
-      existingAgents
-        .filter((a) => a.companyName)
-        .map((a) => a.companyName!.toLowerCase()),
+    // 识别所有已存在的角色（团队-角色-公司）
+    const existingAgentKeys = new Set(
+      existingAgents.map((a) =>
+        `${a.team}-${a.role}-${a.companyName || ""}`.toLowerCase(),
+      ),
     );
 
-    // 获取可用于红军的公司（非蓝军公司）
-    const availableForRed = companies.filter(
-      (c) => !blueCompanyNames.has(c.name.toLowerCase()),
+    // 获取可用于红军的公司（非蓝军公司，优先竞争对手类型）
+    const redCompanies = companies.filter(
+      (c) =>
+        !blueCompanyNames.has(c.name.toLowerCase()) &&
+        ["competitor", "challenger", "startup", "benchmark"].includes(c.type),
     );
 
-    // 获取完全未使用的公司
-    const unusedCompanies = companies.filter(
-      (c) => !usedCompanyNames.has(c.name.toLowerCase()),
+    // 获取可用于绿军的公司（客户/供应商/区域类型）
+    const greenCompanies = companies.filter(
+      (c) =>
+        !blueCompanyNames.has(c.name.toLowerCase()) &&
+        ["customer", "supplier", "regional"].includes(c.type),
     );
 
     this.logger.log(
-      `AI Suggest Agents: Blue companies: ${[...blueCompanyNames].join(", ")}; Available for RED: ${availableForRed.map((c) => c.name).join(", ")}`,
+      `AI Suggest Agents: Blue companies: ${[...blueCompanyNames].join(", ")}`,
+    );
+    this.logger.log(
+      `  Available for RED (${redCompanies.length}): ${redCompanies.map((c) => c.name).join(", ")}`,
+    );
+    this.logger.log(
+      `  Available for GREEN (${greenCompanies.length}): ${greenCompanies.map((c) => c.name).join(", ")}`,
     );
 
-    // 过滤已存在的角色，并智能分配公司
-    const suggestions = analysis.agents
-      .filter((a) => !existingRoles.has(`${a.team}-${a.role}`.toLowerCase()))
-      .filter((a) => a.team !== "BLUE") // 不推荐蓝军角色，因为用户已有蓝军
-      .map((a) => {
-        let companyName: string | undefined;
+    const suggestions: Array<{
+      role: string;
+      team: "BLUE" | "RED" | "GREEN" | "WHITE" | "CHAOS";
+      companyName?: string;
+      reason: string;
+    }> = [];
 
-        if (a.team === "RED") {
-          // 红军优先使用：challenger > startup > 其他非蓝军公司
-          const redCompany =
-            availableForRed.find((c) => c.type === "challenger") ||
-            availableForRed.find((c) => c.type === "startup") ||
-            availableForRed.find((c) => c.type === "benchmark") ||
-            availableForRed[0];
-          companyName = redCompany?.name;
-        } else if (a.team === "GREEN") {
-          // 绿军（市场/客户/供应商）可以使用 regional 类型公司或不分配
-          const greenCompany = unusedCompanies.find(
-            (c) => c.type === "regional" || c.type === "startup",
-          );
-          companyName = greenCompany?.name;
-        }
-        // WHITE（监管）和 CHAOS（黑天鹅）通常不需要绑定公司
+    // === 核心逻辑：为每个RED公司生成角色 ===
+    // 每个竞争对手公司至少一个CEO
+    for (const company of redCompanies) {
+      const ceoKey = `red-ceo-${company.name}`.toLowerCase();
+      if (!existingAgentKeys.has(ceoKey)) {
+        suggestions.push({
+          role: "CEO",
+          team: "RED",
+          companyName: company.name,
+          reason: `${company.name}的战略决策者，代表竞争对手核心利益`,
+        });
+      }
+    }
 
-        return {
-          role: a.role,
-          team: a.team,
-          companyName,
-          reason: a.reason,
-        };
-      });
+    // 如果有多个竞争对手，给最强的（benchmark/challenger）加销售VP
+    const strongRedCompanies = redCompanies.filter(
+      (c) => c.type === "benchmark" || c.type === "challenger",
+    );
+    for (const company of strongRedCompanies.slice(0, 2)) {
+      // 最多2个销售VP
+      const vpKey = `red-销售vp-${company.name}`.toLowerCase();
+      if (!existingAgentKeys.has(vpKey)) {
+        suggestions.push({
+          role: "销售VP",
+          team: "RED",
+          companyName: company.name,
+          reason: `${company.name}的市场抢夺执行者`,
+        });
+      }
+    }
+
+    // === 绿军：为每个客户/供应商公司生成代表 ===
+    for (const company of greenCompanies) {
+      const repKey = `green-客户代表-${company.name}`.toLowerCase();
+      if (!existingAgentKeys.has(repKey)) {
+        const role = company.type === "supplier" ? "供应商代表" : "客户代表";
+        suggestions.push({
+          role,
+          team: "GREEN",
+          companyName: company.name,
+          reason: `${company.name}的${company.type === "supplier" ? "供应链" : "采购"}决策者`,
+        });
+      }
+    }
+
+    // === 白军和CHAOS：从模板中取，不绑定公司 ===
+    const whiteAndChaosAgents = analysis.agents.filter(
+      (a) => a.team === "WHITE" || a.team === "CHAOS",
+    );
+    for (const agent of whiteAndChaosAgents) {
+      const agentKey = `${agent.team}-${agent.role}-`.toLowerCase();
+      if (!existingAgentKeys.has(agentKey)) {
+        suggestions.push({
+          role: agent.role,
+          team: agent.team,
+          companyName: undefined,
+          reason: agent.reason,
+        });
+      }
+    }
+
+    this.logger.log(
+      `AI Suggest Agents: Generated ${suggestions.length} suggestions`,
+    );
 
     return suggestions;
   }
