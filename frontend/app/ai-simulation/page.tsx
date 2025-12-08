@@ -636,9 +636,10 @@ function EditorModal({
         memoryPrivate: a.memoryPrivate,
       }));
     }
+    // 默认角色不预设公司，让用户在配置公司后手动选择或使用AI推荐
     return [
-      { role: 'CEO - 蓝军', team: 'BLUE', companyName: 'Benchmark Cloud GPU' },
-      { role: 'CEO - 红军', team: 'RED', companyName: 'Startup AI Infra' },
+      { role: 'CEO', team: 'BLUE', companyName: '' },
+      { role: 'CEO', team: 'RED', companyName: '' },
       { role: '监管官员', team: 'WHITE' },
     ];
   };
@@ -657,6 +658,67 @@ function EditorModal({
     setActiveTab('basic');
     setCompletedSteps(new Set());
   }, [scenario?.id, seed?.name]);
+
+  // 当公司配置变化时，自动为没有公司的角色智能分配公司
+  useEffect(() => {
+    if (companies.length === 0) return;
+
+    // 获取有效公司（非空名称）
+    const validCompanies = companies.filter(
+      (c) => c.name && !c.name.startsWith('Company ')
+    );
+    if (validCompanies.length === 0) return;
+
+    // 检查是否有角色需要分配公司
+    const needsUpdate = agents.some(
+      (a) =>
+        (a.team === 'BLUE' || a.team === 'RED') &&
+        (!a.companyName ||
+          !validCompanies.some((c) => c.name === a.companyName))
+    );
+
+    if (!needsUpdate) return;
+
+    // 按公司类型分类
+    const benchmarkCompany = validCompanies.find((c) => c.type === 'benchmark');
+    const challengerCompany = validCompanies.find(
+      (c) => c.type === 'challenger'
+    );
+    const startupCompany = validCompanies.find((c) => c.type === 'startup');
+    const regionalCompany = validCompanies.find((c) => c.type === 'regional');
+
+    // 蓝军优先使用：benchmark > regional > 第一个公司
+    const blueCompany =
+      benchmarkCompany || regionalCompany || validCompanies[0];
+    // 红军优先使用：challenger > startup > 非蓝军的第一个公司
+    const redCompany =
+      challengerCompany ||
+      startupCompany ||
+      validCompanies.find((c) => c.name !== blueCompany?.name) ||
+      validCompanies[1];
+
+    setAgents((prev) =>
+      prev.map((agent) => {
+        // 如果角色已有有效公司，保持不变
+        if (
+          agent.companyName &&
+          validCompanies.some((c) => c.name === agent.companyName)
+        ) {
+          return agent;
+        }
+
+        // 根据阵营分配公司
+        if (agent.team === 'BLUE' && blueCompany) {
+          return { ...agent, companyName: blueCompany.name };
+        }
+        if (agent.team === 'RED' && redCompany) {
+          return { ...agent, companyName: redCompany.name };
+        }
+
+        return agent;
+      })
+    );
+  }, [companies]);
 
   const [saving, setSaving] = useState(false);
   const [runId, setRunId] = useState<string | null>(null);
