@@ -902,44 +902,41 @@ export default function SandboxView({
           </div>
         </div>
 
-        {/* 主内容区域 - 四象限居中 */}
-        <div className="relative z-10 flex flex-1 items-center justify-center pb-28">
-          {/* 四象限容器 - 正面平视布局 */}
-          <div className="relative" style={{ width: '620px', height: '280px' }}>
-            {/* 四象限网格 - 2x2 正面布局 */}
-            <div className="grid h-full w-full grid-cols-2 grid-rows-2 gap-2">
-              {/* 左上 - 蓝军 */}
-              <div>{renderQuadrantCard('BLUE', Crown)}</div>
+        {/* 主内容区域 - 四象限自适应 */}
+        <div className="relative z-10 flex flex-1 flex-col overflow-hidden pb-24 pl-52 pr-4 pt-4">
+          {/* 四象限网格 - 充分利用空间 */}
+          <div className="grid flex-1 grid-cols-2 grid-rows-2 gap-3">
+            {/* 左上 - 蓝军 */}
+            <div>{renderQuadrantCard('BLUE', Crown)}</div>
 
-              {/* 右上 - 红军 */}
-              <div>{renderQuadrantCard('RED', Target)}</div>
+            {/* 右上 - 红军 */}
+            <div>{renderQuadrantCard('RED', Target)}</div>
 
-              {/* 左下 - 绿军 */}
-              <div>{renderQuadrantCard('GREEN', Store)}</div>
+            {/* 左下 - 绿军 */}
+            <div>{renderQuadrantCard('GREEN', Store)}</div>
 
-              {/* 右下 - 白方 */}
-              <div>{renderQuadrantCard('WHITE', Scale)}</div>
-            </div>
+            {/* 右下 - 白方 */}
+            <div>{renderQuadrantCard('WHITE', Scale)}</div>
+          </div>
 
-            {/* 中心回合指示器 */}
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          {/* 中心回合指示器 */}
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center pb-24 pl-52">
+            <div
+              className="pointer-events-auto flex h-16 w-16 flex-col items-center justify-center rounded-full border-2 backdrop-blur-sm"
+              style={{
+                borderColor: `${industryConfig.accent}60`,
+                backgroundColor: 'rgba(0,0,0,0.85)',
+                boxShadow: `0 0 20px ${industryConfig.accent}40`,
+              }}
+            >
               <div
-                className="pointer-events-auto flex h-16 w-16 flex-col items-center justify-center rounded-full border-2 backdrop-blur-sm"
-                style={{
-                  borderColor: `${industryConfig.accent}60`,
-                  backgroundColor: 'rgba(0,0,0,0.85)',
-                  boxShadow: `0 0 20px ${industryConfig.accent}40`,
-                }}
+                className="text-lg font-bold"
+                style={{ color: industryConfig.accent }}
               >
-                <div
-                  className="text-lg font-bold"
-                  style={{ color: industryConfig.accent }}
-                >
-                  R{selectedRound}
-                </div>
-                <div className="text-[8px] text-gray-400">
-                  {allSubmissions.length} 行动
-                </div>
+                R{selectedRound}
+              </div>
+              <div className="text-[8px] text-gray-400">
+                {allSubmissions.length} 行动
               </div>
             </div>
           </div>
