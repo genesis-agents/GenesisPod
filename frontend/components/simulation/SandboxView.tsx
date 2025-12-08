@@ -682,11 +682,14 @@ export default function SandboxView({
     </div>
   );
 
-  // 渲染四象限卡片 - 固定高度，内容滚动
-  const renderQuadrantCard = (team: string, Icon: any) => {
+  // 渲染阵营区块 - 战场态势图样式
+  const renderCampSection = (
+    team: string,
+    Icon: any,
+    isMain: boolean = false
+  ) => {
     const teamConfig = TEAM_COLORS[team];
     const teamAgents = agentsByTeam[team] || [];
-    const isHovered = hoveredZone === team;
 
     // 获取该队伍的提交
     const teamSubmissions =
@@ -696,107 +699,122 @@ export default function SandboxView({
 
     return (
       <div
-        className={`flex h-full flex-col overflow-hidden rounded-lg border transition-all ${
-          isHovered ? 'border-white/40 shadow-lg' : 'border-white/20'
+        className={`flex flex-col overflow-hidden rounded-lg border ${
+          isMain ? 'border-white/30' : 'border-white/20'
         }`}
         style={{ backgroundColor: `${teamConfig.primary}15` }}
-        onMouseEnter={() => setHoveredZone(team)}
-        onMouseLeave={() => setHoveredZone(null)}
       >
-        {/* 区域标题栏 - 固定高度 */}
+        {/* 阵营标题 */}
         <div
-          className="flex h-9 shrink-0 items-center justify-between rounded-t-lg px-2"
+          className="flex shrink-0 items-center justify-between px-3 py-2"
           style={{ backgroundColor: `${teamConfig.primary}25` }}
         >
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <div
-              className={`flex h-5 w-5 items-center justify-center rounded bg-gradient-to-br ${teamConfig.gradient}`}
+              className={`flex h-6 w-6 items-center justify-center rounded bg-gradient-to-br ${teamConfig.gradient}`}
             >
-              <Icon className="h-2.5 w-2.5 text-white" />
+              <Icon className="h-3 w-3 text-white" />
             </div>
-            <span className="text-xs font-semibold text-white">
-              {teamConfig.label}
-            </span>
+            <div>
+              <span className="text-sm font-semibold text-white">
+                {teamConfig.label}
+              </span>
+              <span className="ml-2 text-xs text-gray-400">
+                {teamConfig.description}
+              </span>
+            </div>
           </div>
           <div
-            className="flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white"
+            className="flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold text-white"
             style={{ backgroundColor: teamConfig.primary }}
           >
             {teamAgents.length}
           </div>
         </div>
 
-        {/* 行动内容区域 - 可滚动 */}
-        <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+        {/* 行动卡片 - 横向排列 */}
+        <div className="flex flex-1 gap-2 overflow-x-auto p-2">
           {teamSubmissions.length > 0 ? (
-            <div className="space-y-1">
-              {teamSubmissions.slice(0, 2).map((submission, idx) => {
-                const canView =
-                  viewPermission === 'GOD' || viewPermission === team;
-                return (
-                  <div
-                    key={idx}
-                    className="rounded border p-1.5"
-                    style={{
-                      backgroundColor: `${teamConfig.primary}10`,
-                      borderColor: `${teamConfig.primary}30`,
-                    }}
-                  >
-                    {/* 角色名 */}
-                    <div className="mb-0.5 flex items-center gap-1">
-                      <div
-                        className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full text-[7px] font-bold text-white"
-                        style={{ backgroundColor: teamConfig.primary }}
-                      >
-                        {(submission.role || '?')[0]}
-                      </div>
-                      <span className="truncate text-[10px] font-medium text-white">
-                        {submission.role || '未知角色'}
-                      </span>
+            teamSubmissions.map((submission, idx) => {
+              const canView =
+                viewPermission === 'GOD' || viewPermission === team;
+              return (
+                <div
+                  key={idx}
+                  className="flex w-48 shrink-0 flex-col rounded border p-2"
+                  style={{
+                    backgroundColor: `${teamConfig.primary}10`,
+                    borderColor: `${teamConfig.primary}30`,
+                  }}
+                >
+                  {/* 角色名 */}
+                  <div className="mb-1 flex items-center gap-1.5">
+                    <div
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white"
+                      style={{ backgroundColor: teamConfig.primary }}
+                    >
+                      {(submission.role || '?')[0]}
                     </div>
-
-                    {canView ? (
-                      <div className="line-clamp-2 text-[9px] leading-snug text-gray-300">
-                        {submission.publicAction || '无公开行动'}
-                      </div>
-                    ) : (
-                      <div className="text-[9px] italic text-gray-500">
-                        🔒 需要{teamConfig.label}视角
-                      </div>
-                    )}
+                    <span className="truncate text-xs font-medium text-white">
+                      {submission.role || '未知角色'}
+                    </span>
                   </div>
-                );
-              })}
-              {teamSubmissions.length > 2 && (
-                <div className="text-center text-[9px] text-gray-500">
-                  +{teamSubmissions.length - 2} 更多
+
+                  {canView ? (
+                    <div className="line-clamp-3 flex-1 text-[11px] leading-relaxed text-gray-300">
+                      {submission.publicAction || '无公开行动'}
+                    </div>
+                  ) : (
+                    <div className="text-xs italic text-gray-500">
+                      🔒 需要{teamConfig.label}视角
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })
           ) : (
-            <div className="flex h-full items-center justify-center text-[10px] text-gray-500">
+            <div className="flex flex-1 items-center justify-center text-xs text-gray-500">
               暂无行动
             </div>
           )}
         </div>
+      </div>
+    );
+  };
 
-        {/* Agent标签 - 固定高度 */}
-        <div className="flex h-7 shrink-0 items-center gap-1 overflow-x-auto border-t border-white/10 px-1.5">
-          {teamAgents.slice(0, 2).map((agent, idx) => (
-            <span
-              key={idx}
-              className="shrink-0 rounded border border-white/20 bg-black/30 px-1 py-0.5 text-[8px] text-gray-400"
-            >
-              {agent.role.length > 5
-                ? agent.role.substring(0, 5) + '..'
-                : agent.role}
+  // 渲染底部辅助阵营（绿军/白方）- 紧凑样式
+  const renderAuxiliaryCamp = (team: string, Icon: any) => {
+    const teamConfig = TEAM_COLORS[team];
+    const teamAgents = agentsByTeam[team] || [];
+    const teamSubmissions =
+      currentTurn?.submissions && Array.isArray(currentTurn.submissions)
+        ? currentTurn.submissions.filter((sub) => sub.team === team)
+        : [];
+
+    return (
+      <div
+        className="flex items-center gap-2 rounded-lg border border-white/20 px-3 py-2"
+        style={{ backgroundColor: `${teamConfig.primary}10` }}
+      >
+        <div
+          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded bg-gradient-to-br ${teamConfig.gradient}`}
+        >
+          <Icon className="h-2.5 w-2.5 text-white" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-white">
+              {teamConfig.label}
             </span>
-          ))}
-          {teamAgents.length > 2 && (
-            <span className="shrink-0 text-[8px] text-gray-500">
-              +{teamAgents.length - 2}
+            <span className="text-[10px] text-gray-500">
+              {teamAgents.length} 角色
             </span>
-          )}
+          </div>
+          <div className="truncate text-[10px] text-gray-400">
+            {teamSubmissions.length > 0
+              ? `${teamSubmissions.length} 个行动`
+              : '暂无行动'}
+          </div>
         </div>
       </div>
     );
@@ -904,51 +922,45 @@ export default function SandboxView({
           </div>
         </div>
 
-        {/* 主内容区域 - 使用绝对定位确保四象限严格等分 */}
-        <div className="relative z-10 flex-1 overflow-hidden">
-          {/* 四象限容器 - 绝对定位精确控制 */}
-          <div className="absolute bottom-24 left-48 right-4 top-4">
-            {/* 左上 - 蓝军: 左半边上半部分 */}
-            <div className="absolute left-0 top-0 h-[calc(50%-4px)] w-[calc(50%-4px)]">
-              {renderQuadrantCard('BLUE', Crown)}
-            </div>
-
-            {/* 右上 - 红军: 右半边上半部分 */}
-            <div className="absolute right-0 top-0 h-[calc(50%-4px)] w-[calc(50%-4px)]">
-              {renderQuadrantCard('RED', Target)}
-            </div>
-
-            {/* 左下 - 绿军: 左半边下半部分 */}
-            <div className="absolute bottom-0 left-0 h-[calc(50%-4px)] w-[calc(50%-4px)]">
-              {renderQuadrantCard('GREEN', Store)}
-            </div>
-
-            {/* 右下 - 白方: 右半边下半部分 */}
-            <div className="absolute bottom-0 right-0 h-[calc(50%-4px)] w-[calc(50%-4px)]">
-              {renderQuadrantCard('WHITE', Scale)}
-            </div>
-
-            {/* 中心回合指示器 */}
-            <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-              <div
-                className="pointer-events-auto flex h-12 w-12 flex-col items-center justify-center rounded-full border-2 backdrop-blur-sm"
-                style={{
-                  borderColor: `${industryConfig.accent}60`,
-                  backgroundColor: 'rgba(0,0,0,0.9)',
-                  boxShadow: `0 0 15px ${industryConfig.accent}40`,
-                }}
+        {/* 主内容区域 - 战场态势图布局 */}
+        <div className="relative z-10 flex flex-1 flex-col overflow-hidden pb-20 pl-48 pr-4 pt-3">
+          {/* 回合焦点标题 */}
+          <div className="mb-2 flex shrink-0 items-center justify-center gap-3">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/20" />
+            <div
+              className="flex items-center gap-2 rounded-full border px-4 py-1"
+              style={{
+                borderColor: `${industryConfig.accent}50`,
+                backgroundColor: 'rgba(0,0,0,0.6)',
+              }}
+            >
+              <span
+                className="text-sm font-bold"
+                style={{ color: industryConfig.accent }}
               >
-                <div
-                  className="text-sm font-bold"
-                  style={{ color: industryConfig.accent }}
-                >
-                  R{selectedRound}
-                </div>
-                <div className="text-[6px] text-gray-400">
-                  {allSubmissions.length} 行动
-                </div>
-              </div>
+                R{selectedRound}
+              </span>
+              <span className="text-xs text-gray-400">
+                {allSubmissions.length} 个行动
+              </span>
             </div>
+            <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/20" />
+          </div>
+
+          {/* 蓝军 - 主角阵营（顶部） */}
+          <div className="mb-2 shrink-0">
+            {renderCampSection('BLUE', Crown, true)}
+          </div>
+
+          {/* 红军 - 竞争对手（中部，占主要空间） */}
+          <div className="mb-2 min-h-0 flex-1">
+            {renderCampSection('RED', Target)}
+          </div>
+
+          {/* 绿军/白方 - 辅助阵营（底部横排） */}
+          <div className="flex shrink-0 gap-2">
+            <div className="flex-1">{renderAuxiliaryCamp('GREEN', Store)}</div>
+            <div className="flex-1">{renderAuxiliaryCamp('WHITE', Scale)}</div>
           </div>
         </div>
 
@@ -967,8 +979,8 @@ export default function SandboxView({
           </div>
         )}
 
-        {/* 时间轴 - 底部 */}
-        <div className="absolute bottom-0 left-0 right-0 border-t border-white/10 bg-black/50 px-6 py-4 backdrop-blur-sm">
+        {/* 时间轴 - 底部（高度约80px） */}
+        <div className="absolute bottom-0 left-0 right-0 border-t border-white/10 bg-black/60 px-4 py-2 backdrop-blur-sm">
           <div className="flex items-center gap-4">
             {/* 播放控制 */}
             <div className="flex items-center gap-2">
