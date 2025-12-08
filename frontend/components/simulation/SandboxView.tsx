@@ -852,48 +852,51 @@ export default function SandboxView({
         {/* 背景遮罩层 */}
         <div className="absolute inset-0 bg-black/40" />
 
-        {/* 主内容区域 - 四象限，底部留出时间轴空间 */}
-        <div className="relative z-10 flex flex-1 flex-col overflow-hidden pb-24">
-          {/* 四象限网格 - 2x2均等布局 */}
-          <div className="grid flex-1 grid-cols-2 grid-rows-2 gap-2 p-3">
-            {/* 左上 - 蓝军 */}
-            <div className="min-h-0">{renderQuadrantCard('BLUE', Crown)}</div>
+        {/* 主内容区域 - 四象限居中显示，固定大小 */}
+        <div className="relative z-10 flex flex-1 items-center justify-center pb-28">
+          {/* 四象限容器 - 固定尺寸 */}
+          <div className="relative" style={{ width: '580px', height: '320px' }}>
+            {/* 四象限网格 */}
+            <div className="grid h-full w-full grid-cols-2 grid-rows-2 gap-2">
+              {/* 左上 - 蓝军 */}
+              <div>{renderQuadrantCard('BLUE', Crown)}</div>
 
-            {/* 右上 - 红军 */}
-            <div className="min-h-0">{renderQuadrantCard('RED', Target)}</div>
+              {/* 右上 - 红军 */}
+              <div>{renderQuadrantCard('RED', Target)}</div>
 
-            {/* 左下 - 绿军 */}
-            <div className="min-h-0">{renderQuadrantCard('GREEN', Store)}</div>
+              {/* 左下 - 绿军 */}
+              <div>{renderQuadrantCard('GREEN', Store)}</div>
 
-            {/* 右下 - 白方 */}
-            <div className="min-h-0">{renderQuadrantCard('WHITE', Scale)}</div>
-          </div>
+              {/* 右下 - 白方 */}
+              <div>{renderQuadrantCard('WHITE', Scale)}</div>
+            </div>
 
-          {/* 中心悬浮回合指示器 */}
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div
-              className="pointer-events-auto flex h-16 w-16 flex-col items-center justify-center rounded-full border-2 backdrop-blur-sm"
-              style={{
-                borderColor: `${industryConfig.accent}60`,
-                backgroundColor: 'rgba(0,0,0,0.85)',
-                boxShadow: `0 0 20px ${industryConfig.accent}40`,
-              }}
-            >
+            {/* 中心悬浮回合指示器 */}
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <div
-                className="text-lg font-bold"
-                style={{ color: industryConfig.accent }}
+                className="pointer-events-auto flex h-14 w-14 flex-col items-center justify-center rounded-full border-2 backdrop-blur-sm"
+                style={{
+                  borderColor: `${industryConfig.accent}60`,
+                  backgroundColor: 'rgba(0,0,0,0.85)',
+                  boxShadow: `0 0 15px ${industryConfig.accent}40`,
+                }}
               >
-                R{selectedRound}
-              </div>
-              <div className="text-[8px] text-gray-400">
-                {allSubmissions.length} 行动
+                <div
+                  className="text-base font-bold"
+                  style={{ color: industryConfig.accent }}
+                >
+                  R{selectedRound}
+                </div>
+                <div className="text-[7px] text-gray-400">
+                  {allSubmissions.length} 行动
+                </div>
               </div>
             </div>
           </div>
 
-          {/* 黑天鹅事件横幅 - 在四象限下方 */}
+          {/* 黑天鹅事件横幅 */}
           {currentTurn?.adjudication?.blackSwanEvent && (
-            <div className="mx-3 mb-2 shrink-0 rounded border border-purple-500/50 bg-purple-900/60 px-3 py-1.5 backdrop-blur-sm">
+            <div className="absolute bottom-32 left-1/2 w-[580px] -translate-x-1/2 rounded border border-purple-500/50 bg-purple-900/60 px-3 py-1.5 backdrop-blur-sm">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-purple-400" />
                 <span className="text-xs font-medium text-purple-300">
