@@ -337,6 +337,10 @@ export default function SandboxView({
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(2000); // 播放速度（毫秒/回合）
   const [isDraggingTimeline, setIsDraggingTimeline] = useState(false);
+  const [selectedCard, setSelectedCard] = useState<{
+    team: string;
+    idx: number;
+  } | null>(null); // 选中的卡片（点击展开详情）
   const timelineRef = useRef<HTMLDivElement>(null);
 
   // 自动播放功能
@@ -782,17 +786,23 @@ export default function SandboxView({
             teamSubmissions.map((submission, idx) => {
               const canView =
                 viewPermission === 'GOD' || viewPermission === team;
-              const fullContent = canView
-                ? `【${submission.role || '未知角色'}】\n${submission.publicAction || '无公开行动'}`
-                : `🔒 需要${teamConfig.label}视角查看`;
+              const isSelected =
+                selectedCard?.team === team && selectedCard?.idx === idx;
               return (
                 <div
                   key={idx}
-                  className="group relative flex w-48 shrink-0 flex-col rounded border p-2 transition-all hover:z-10 hover:border-white/50"
+                  className={`relative flex w-48 shrink-0 cursor-pointer flex-col rounded border p-2 transition-all hover:border-white/50 ${
+                    isSelected ? 'ring-2 ring-white/50' : ''
+                  }`}
                   style={{
                     backgroundColor: `${teamConfig.primary}10`,
-                    borderColor: `${teamConfig.primary}30`,
+                    borderColor: isSelected
+                      ? teamConfig.primary
+                      : `${teamConfig.primary}30`,
                   }}
+                  onClick={() =>
+                    setSelectedCard(isSelected ? null : { team, idx })
+                  }
                 >
                   {/* 角色名 */}
                   <div className="mb-1 flex items-center gap-1.5">
@@ -805,6 +815,10 @@ export default function SandboxView({
                     <span className="truncate text-xs font-medium text-white">
                       {submission.role || '未知角色'}
                     </span>
+                    {/* 点击提示 */}
+                    <span className="ml-auto text-[9px] text-gray-500">
+                      {isSelected ? '点击收起' : '点击展开'}
+                    </span>
                   </div>
 
                   {canView ? (
@@ -816,40 +830,6 @@ export default function SandboxView({
                       🔒 需要{teamConfig.label}视角
                     </div>
                   )}
-
-                  {/* Hover时显示完整内容的Tooltip - 使用fixed定位避免被遮挡 */}
-                  <div
-                    className="fixed z-[9999] hidden w-80 rounded-lg border border-white/30 bg-gray-900 p-3 shadow-2xl group-hover:block"
-                    style={{
-                      left: '50%',
-                      top: '50%',
-                      transform: 'translate(-50%, -50%)',
-                    }}
-                  >
-                    <div className="mb-2 flex items-center gap-2 border-b border-white/10 pb-2">
-                      <div
-                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                        style={{ backgroundColor: teamConfig.primary }}
-                      >
-                        {(submission.role || '?')[0]}
-                      </div>
-                      <span className="text-sm font-semibold text-white">
-                        {submission.role || '未知角色'}
-                      </span>
-                      <span className="ml-auto text-[10px] text-gray-500">
-                        {teamConfig.label}
-                      </span>
-                    </div>
-                    {canView ? (
-                      <div className="scrollbar-thin scrollbar-track-gray-800 scrollbar-thumb-gray-600 hover:scrollbar-thumb-gray-500 max-h-64 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-gray-300">
-                        {submission.publicAction || '无公开行动'}
-                      </div>
-                    ) : (
-                      <div className="text-xs italic text-gray-500">
-                        🔒 需要{teamConfig.label}视角查看完整内容
-                      </div>
-                    )}
-                  </div>
                 </div>
               );
             })
@@ -973,30 +953,50 @@ export default function SandboxView({
             </div>
           </div>
 
-          {/* 势力分布 */}
+          {/* 势力分布 - 显示具体公司/机构名称 */}
           <div className="rounded-lg border border-white/10 bg-black/50 p-3 backdrop-blur-sm">
             <div className="mb-2 text-[10px] text-gray-500">势力分布</div>
             {Object.entries(TEAM_COLORS)
               .slice(0, 4)
               .map(([team, config]) => {
-                const count = agentsByTeam[team]?.length || 0;
+                const teamAgentsList = agentsByTeam[team] || [];
+                const companyNames = [
+                  ...new Set(
+                    teamAgentsList
+                      .map((agent) => agent.company?.name || agent.companyName)
+                      .filter(Boolean)
+                  ),
+                ];
                 return (
-                  <div
-                    key={team}
-                    className="flex items-center justify-between py-0.5"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: config.primary }}
-                      />
-                      <span className="text-[11px] text-gray-400">
-                        {config.label}
+                  <div key={team} className="mb-2 last:mb-0">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: config.primary }}
+                        />
+                        <span className="text-[11px] font-medium text-white">
+                          {config.label}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-gray-500">
+                        {teamAgentsList.length} 角色
                       </span>
                     </div>
-                    <span className="text-[11px] font-medium text-white">
-                      {count}
-                    </span>
+                    {/* 显示公司/机构名称 */}
+                    {companyNames.length > 0 && (
+                      <div className="mt-1 space-y-0.5 pl-4">
+                        {companyNames.map((name, idx) => (
+                          <div
+                            key={idx}
+                            className="truncate text-[10px] text-gray-400"
+                            title={name as string}
+                          >
+                            • {name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -1063,6 +1063,80 @@ export default function SandboxView({
             </div>
           </div>
         )}
+
+        {/* 选中卡片的详情弹窗 */}
+        {selectedCard &&
+          (() => {
+            const teamSubmissions =
+              currentTurn?.submissions && Array.isArray(currentTurn.submissions)
+                ? currentTurn.submissions.filter(
+                    (sub) => sub.team === selectedCard.team
+                  )
+                : [];
+            const submission = teamSubmissions[selectedCard.idx];
+            if (!submission) return null;
+            const teamConfig = TEAM_COLORS[selectedCard.team];
+            const canView =
+              viewPermission === 'GOD' || viewPermission === selectedCard.team;
+
+            return (
+              <div
+                className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+                onClick={() => setSelectedCard(null)}
+              >
+                <div
+                  className="relative w-[480px] max-w-[90vw] rounded-xl border bg-gray-900 p-4 shadow-2xl"
+                  style={{ borderColor: `${teamConfig.primary}50` }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* 关闭按钮 */}
+                  <button
+                    onClick={() => setSelectedCard(null)}
+                    className="absolute right-3 top-3 rounded-full p-1 text-gray-400 hover:bg-white/10 hover:text-white"
+                  >
+                    ✕
+                  </button>
+
+                  {/* 标题 */}
+                  <div className="mb-3 flex items-center gap-3 border-b border-white/10 pb-3">
+                    <div
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-lg font-bold text-white ${teamConfig.gradient}`}
+                    >
+                      {(submission.role || '?')[0]}
+                    </div>
+                    <div>
+                      <div className="text-base font-semibold text-white">
+                        {submission.role || '未知角色'}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-gray-400">
+                        <span
+                          className="rounded px-1.5 py-0.5"
+                          style={{
+                            backgroundColor: `${teamConfig.primary}30`,
+                            color: teamConfig.primary,
+                          }}
+                        >
+                          {teamConfig.label}
+                        </span>
+                        <span>回合 {selectedRound}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 内容 */}
+                  {canView ? (
+                    <div className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-gray-300">
+                      {submission.publicAction || '无公开行动'}
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center text-sm text-gray-500">
+                      🔒 需要{teamConfig.label}视角查看完整内容
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
         {/* 时间轴 - 底部固定56px */}
         <div className="absolute bottom-0 left-0 right-0 h-14 border-t border-white/10 bg-black/70 px-4 backdrop-blur-sm">
