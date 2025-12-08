@@ -2104,7 +2104,7 @@ model AIModel {
   name        String @db.VarChar(50) // 内部名称 (grok, gpt-4, claude, gemini) - 不再唯一，允许同一provider多个模型
   displayName String @map("display_name") @db.VarChar(100)
   provider    String @db.VarChar(50) // xAI, OpenAI, Anthropic, Google
-  modelId     String @unique @map("model_id") @db.VarChar(200) // 实际模型ID - 唯一约束
+  modelId     String @map("model_id") @db.VarChar(200) // 实际模型ID - 允许重复以支持横向扩展
 
   // 模型类型 - 用于按业务需求选择合适的模型
   modelType AIModelType @default(CHAT) @map("model_type")
@@ -2131,6 +2131,7 @@ model AIModel {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([modelType, isEnabled]) // 按类型快速查询启用的模型
+  @@index([modelId]) // 按模型ID查询（支持横向扩展后的多实例查询）
   @@map("ai_models")
 }
 
