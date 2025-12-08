@@ -697,6 +697,18 @@ export default function SandboxView({
         ? currentTurn.submissions.filter((sub) => sub.team === team)
         : [];
 
+    // 获取该阵营的公司/机构名称
+    const teamCompanyNames = [
+      ...new Set(
+        teamAgents
+          .map((agent) => agent.company?.name || agent.companyName)
+          .filter(Boolean)
+      ),
+    ];
+
+    // 获取该阵营角色列表
+    const teamRoles = teamAgents.map((agent) => agent.role).filter(Boolean);
+
     return (
       <div
         className={`flex flex-col overflow-hidden rounded-lg border ${
@@ -715,20 +727,52 @@ export default function SandboxView({
             >
               <Icon className="h-3 w-3 text-white" />
             </div>
-            <div>
-              <span className="text-sm font-semibold text-white">
-                {teamConfig.label}
-              </span>
-              <span className="ml-2 text-xs text-gray-400">
-                {teamConfig.description}
-              </span>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-white">
+                  {teamConfig.label}
+                </span>
+                <span className="text-xs text-gray-400">
+                  {teamConfig.description}
+                </span>
+              </div>
+              {/* 显示公司/机构名称 */}
+              {teamCompanyNames.length > 0 && (
+                <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                  {teamCompanyNames.slice(0, 3).map((name, idx) => (
+                    <span
+                      key={idx}
+                      className="rounded px-1.5 py-0.5 text-[10px] text-white/90"
+                      style={{ backgroundColor: `${teamConfig.primary}40` }}
+                    >
+                      {name}
+                    </span>
+                  ))}
+                  {teamCompanyNames.length > 3 && (
+                    <span className="text-[10px] text-gray-500">
+                      +{teamCompanyNames.length - 3}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
-          <div
-            className="flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold text-white"
-            style={{ backgroundColor: teamConfig.primary }}
-          >
-            {teamAgents.length}
+          <div className="flex flex-col items-end gap-1">
+            <div
+              className="flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold text-white"
+              style={{ backgroundColor: teamConfig.primary }}
+            >
+              {teamAgents.length}
+            </div>
+            {/* 显示角色数量提示 */}
+            {teamRoles.length > 0 && (
+              <span
+                className="text-[10px] text-gray-500"
+                title={teamRoles.join(', ')}
+              >
+                {teamRoles.length} 角色
+              </span>
+            )}
           </div>
         </div>
 
