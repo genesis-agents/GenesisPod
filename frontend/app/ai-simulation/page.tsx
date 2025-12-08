@@ -120,7 +120,7 @@ export default function AISimulationPage() {
             companyName: 'Benchmark Cloud GPU',
           },
           { role: 'CEO - 红军', team: 'RED', companyName: 'Startup AI Infra' },
-          { role: '监管观察', team: 'GREEN' },
+          { role: '监管官员', team: 'WHITE' },
         ],
         description:
           'GPU/芯片/云算力供需、价格战、合规/出口管制与舆情对抗场景，默认盲注+Chaos+人类介入。',
@@ -638,7 +638,7 @@ function EditorModal({
     return [
       { role: 'CEO - 蓝军', team: 'BLUE', companyName: 'Benchmark Cloud GPU' },
       { role: 'CEO - 红军', team: 'RED', companyName: 'Startup AI Infra' },
-      { role: '监管观察', team: 'GREEN' },
+      { role: '监管官员', team: 'WHITE' },
     ];
   };
 
@@ -2161,9 +2161,11 @@ function EditorModal({
                                 ? '红军'
                                 : a.team === 'GREEN'
                                   ? '绿军'
-                                  : a.team === 'CHAOS'
-                                    ? 'Chaos'
-                                    : '蓝军'}
+                                  : a.team === 'WHITE'
+                                    ? '白方'
+                                    : a.team === 'CHAOS'
+                                      ? 'Chaos'
+                                      : '蓝军'}
                             </span>
                           </div>
                           <div className="mt-1 font-medium text-gray-900">
@@ -2264,40 +2266,75 @@ function EditorModal({
                     <span className="h-2 w-2 rounded-full bg-red-500" />
                     红军 保守董事会
                   </button>
-                  {/* 绿军模板 */}
+                  {/* 绿军模板 - 市场/客户/供应商 */}
                   <button
                     onClick={() =>
                       setAgents((prev) => [
                         ...prev,
                         {
-                          role: '监管官员',
+                          role: '大客户采购',
                           team: 'GREEN',
                           persona:
-                            '{"traits":"严格执法","biases":"合规优先","pressure":"政策压力","focus":"出口管制、反垄断、数据安全"}',
+                            '{"traits":"精明务实","biases":"价格敏感","pressure":"成本控制","focus":"供应商评估、采购决策"}',
                         },
                       ])
                     }
                     className="flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs font-medium text-green-700 transition-colors hover:bg-green-100"
                   >
                     <span className="h-2 w-2 rounded-full bg-green-500" />
-                    绿军 监管官
+                    绿军 客户
                   </button>
                   <button
                     onClick={() =>
                       setAgents((prev) => [
                         ...prev,
                         {
-                          role: '媒体记者',
+                          role: '供应商代表',
                           team: 'GREEN',
                           persona:
-                            '{"traits":"追求真相","biases":"负面新闻敏感","focus":"供应链透明度、ESG"}',
+                            '{"traits":"谨慎保守","biases":"利润优先","pressure":"产能压力","focus":"订单量、账期、长期合作"}',
                         },
                       ])
                     }
                     className="flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs font-medium text-green-700 transition-colors hover:bg-green-100"
                   >
                     <span className="h-2 w-2 rounded-full bg-green-500" />
-                    绿军 媒体
+                    绿军 供应商
+                  </button>
+                  {/* 白方模板 - 裁判/监管机构 */}
+                  <button
+                    onClick={() =>
+                      setAgents((prev) => [
+                        ...prev,
+                        {
+                          role: '监管官员',
+                          team: 'WHITE',
+                          persona:
+                            '{"traits":"严格执法","biases":"合规优先","pressure":"政策压力","focus":"出口管制、反垄断、数据安全"}',
+                        },
+                      ])
+                    }
+                    className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                  >
+                    <span className="h-2 w-2 rounded-full bg-gray-500" />
+                    白方 监管官
+                  </button>
+                  <button
+                    onClick={() =>
+                      setAgents((prev) => [
+                        ...prev,
+                        {
+                          role: '行业分析师',
+                          team: 'WHITE',
+                          persona:
+                            '{"traits":"客观中立","biases":"数据驱动","focus":"市场评估、趋势预测、行业报告"}',
+                        },
+                      ])
+                    }
+                    className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                  >
+                    <span className="h-2 w-2 rounded-full bg-gray-500" />
+                    白方 分析师
                   </button>
                   {/* Chaos模板 */}
                   <button

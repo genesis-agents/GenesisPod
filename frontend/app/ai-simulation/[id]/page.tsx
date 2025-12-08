@@ -1146,7 +1146,7 @@ export default function ScenarioDetailPage() {
               {tab === 'agents' && (
                 <div className="space-y-6">
                   {/* 角色概览统计 */}
-                  <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+                  <div className="grid grid-cols-2 gap-4 md:grid-cols-6">
                     <div className="rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
                       <div className="text-2xl font-bold text-blue-600">
                         {scenario.agents?.filter((a: any) => a.team === 'BLUE')
@@ -1167,6 +1167,13 @@ export default function ScenarioDetailPage() {
                           .length || 0}
                       </div>
                       <div className="text-xs text-gray-600">🟢 绿军</div>
+                    </div>
+                    <div className="rounded-lg bg-gradient-to-br from-gray-50 to-slate-100 p-4">
+                      <div className="text-2xl font-bold text-gray-600">
+                        {scenario.agents?.filter((a: any) => a.team === 'WHITE')
+                          .length || 0}
+                      </div>
+                      <div className="text-xs text-gray-600">⚪ 白方</div>
                     </div>
                     <div className="rounded-lg bg-gradient-to-br from-purple-50 to-pink-50 p-4">
                       <div className="text-2xl font-bold text-purple-600">

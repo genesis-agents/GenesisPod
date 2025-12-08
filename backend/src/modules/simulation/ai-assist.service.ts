@@ -11,7 +11,7 @@ interface IndustryAnalysis {
   }>;
   agents: Array<{
     role: string;
-    team: "BLUE" | "RED" | "GREEN" | "CHAOS";
+    team: "BLUE" | "RED" | "GREEN" | "WHITE" | "CHAOS";
     reason: string;
   }>;
   goals: {
@@ -62,8 +62,8 @@ const INDUSTRY_KNOWLEDGE: Record<string, IndustryAnalysis> = {
       { role: "CFO", team: "BLUE", reason: "财务把控，现金流管理" },
       { role: "CEO", team: "RED", reason: "竞争对手决策者" },
       { role: "销售VP", team: "RED", reason: "市场抢夺执行者" },
-      { role: "监管官员", team: "GREEN", reason: "出口管制、反垄断审查" },
-      { role: "行业分析师", team: "GREEN", reason: "市场舆情、评级影响" },
+      { role: "监管官员", team: "WHITE", reason: "出口管制、反垄断审查" },
+      { role: "行业分析师", team: "WHITE", reason: "市场舆情、评级影响" },
       { role: "黑天鹅事件", team: "CHAOS", reason: "供应链中断、政策突变" },
     ],
     goals: {
@@ -117,7 +117,7 @@ const INDUSTRY_KNOWLEDGE: Record<string, IndustryAnalysis> = {
       { role: "CTO", team: "BLUE", reason: "技术架构决策" },
       { role: "CEO", team: "RED", reason: "竞争策略制定" },
       { role: "产品VP", team: "RED", reason: "产品差异化执行" },
-      { role: "数据安全监管", team: "GREEN", reason: "数据合规审查" },
+      { role: "数据安全监管", team: "WHITE", reason: "数据合规审查" },
       { role: "客户代表", team: "GREEN", reason: "客户需求反馈" },
     ],
     goals: {
@@ -166,10 +166,10 @@ const INDUSTRY_KNOWLEDGE: Record<string, IndustryAnalysis> = {
       { role: "技术VP", team: "RED", reason: "制程追赶决策" },
       {
         role: "出口管制官员",
-        team: "GREEN",
+        team: "WHITE",
         reason: "设备出口、技术转让审查",
       },
-      { role: "行业协会", team: "GREEN", reason: "产业政策协调" },
+      { role: "行业协会", team: "WHITE", reason: "产业政策协调" },
     ],
     goals: {
       targetShare: "维持先进制程领先地位",
@@ -215,8 +215,8 @@ const INDUSTRY_KNOWLEDGE: Record<string, IndustryAnalysis> = {
       { role: "供应链VP", team: "BLUE", reason: "电池供应管理" },
       { role: "CEO", team: "RED", reason: "市场竞争策略" },
       { role: "营销VP", team: "RED", reason: "价格战执行" },
-      { role: "环保监管", team: "GREEN", reason: "排放、回收合规" },
-      { role: "消费者协会", team: "GREEN", reason: "安全、维权" },
+      { role: "环保监管", team: "WHITE", reason: "排放、回收合规" },
+      { role: "消费者协会", team: "GREEN", reason: "消费者权益、安全" },
     ],
     goals: {
       targetShare: "抢占增量市场份额",
@@ -261,8 +261,8 @@ const INDUSTRY_KNOWLEDGE: Record<string, IndustryAnalysis> = {
       { role: "CEO", team: "BLUE", reason: "业务模式创新" },
       { role: "风控VP", team: "BLUE", reason: "信贷风险管理" },
       { role: "CEO", team: "RED", reason: "市场竞争策略" },
-      { role: "金融监管", team: "GREEN", reason: "牌照、合规审查" },
-      { role: "消费者保护", team: "GREEN", reason: "数据隐私、费率" },
+      { role: "金融监管", team: "WHITE", reason: "牌照、合规审查" },
+      { role: "消费者保护", team: "WHITE", reason: "数据隐私、费率监管" },
     ],
     goals: {
       targetShare: "扩大活跃用户基数",
@@ -307,7 +307,7 @@ const INDUSTRY_KNOWLEDGE: Record<string, IndustryAnalysis> = {
       { role: "CEO", team: "BLUE", reason: "平台战略" },
       { role: "运营VP", team: "BLUE", reason: "GMV增长执行" },
       { role: "CEO", team: "RED", reason: "竞争策略" },
-      { role: "反垄断监管", team: "GREEN", reason: "平台治理审查" },
+      { role: "反垄断监管", team: "WHITE", reason: "平台治理审查" },
       { role: "商家代表", team: "GREEN", reason: "平台规则博弈" },
     ],
     goals: {
@@ -354,7 +354,7 @@ const INDUSTRY_KNOWLEDGE: Record<string, IndustryAnalysis> = {
       { role: "销售VP", team: "BLUE", reason: "企业客户拓展" },
       { role: "CEO", team: "RED", reason: "竞争策略" },
       { role: "企业客户", team: "GREEN", reason: "采购决策" },
-      { role: "数据安全监管", team: "GREEN", reason: "数据合规" },
+      { role: "数据安全监管", team: "WHITE", reason: "数据合规" },
     ],
     goals: {
       targetShare: "提升ARR和客户留存",
@@ -394,7 +394,7 @@ const INDUSTRY_KNOWLEDGE: Record<string, IndustryAnalysis> = {
       { role: "CEO", team: "BLUE", reason: "IP战略" },
       { role: "制作人", team: "BLUE", reason: "产品创新" },
       { role: "CEO", team: "RED", reason: "竞争策略" },
-      { role: "版号监管", team: "GREEN", reason: "内容审查" },
+      { role: "版号监管", team: "WHITE", reason: "内容审查" },
       { role: "玩家社区", team: "GREEN", reason: "舆情反馈" },
     ],
     goals: {
@@ -440,8 +440,8 @@ const INDUSTRY_KNOWLEDGE: Record<string, IndustryAnalysis> = {
       { role: "CEO", team: "BLUE", reason: "研发战略" },
       { role: "研发VP", team: "BLUE", reason: "管线决策" },
       { role: "CEO", team: "RED", reason: "竞争策略" },
-      { role: "FDA/NMPA", team: "GREEN", reason: "药品审批" },
-      { role: "医保局", team: "GREEN", reason: "价格谈判" },
+      { role: "FDA/NMPA", team: "WHITE", reason: "药品审批" },
+      { role: "医保局", team: "WHITE", reason: "价格谈判" },
     ],
     goals: {
       targetShare: "关键治疗领域市场份额",
@@ -584,8 +584,9 @@ const DEFAULT_ANALYSIS: IndustryAnalysis = {
     { role: "CEO", team: "BLUE", reason: "战略决策者" },
     { role: "COO", team: "BLUE", reason: "运营执行者" },
     { role: "CEO", team: "RED", reason: "竞争对手决策者" },
-    { role: "监管机构", team: "GREEN", reason: "政策合规审查" },
-    { role: "媒体分析师", team: "GREEN", reason: "舆情影响" },
+    { role: "监管机构", team: "WHITE", reason: "政策合规审查" },
+    { role: "行业分析师", team: "WHITE", reason: "中立评估、舆情影响" },
+    { role: "客户代表", team: "GREEN", reason: "市场需求、采购决策" },
   ],
   goals: {
     targetShare: "提升市场份额",
@@ -694,7 +695,7 @@ export class AIAssistService {
   }): Promise<
     Array<{
       role: string;
-      team: "BLUE" | "RED" | "GREEN" | "CHAOS";
+      team: "BLUE" | "RED" | "GREEN" | "WHITE" | "CHAOS";
       companyName?: string;
       reason: string;
     }>
