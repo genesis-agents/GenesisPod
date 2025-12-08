@@ -923,7 +923,10 @@ export default function SandboxView({
         </div>
 
         {/* 主内容区域 - 战场态势图布局 */}
-        <div className="relative z-10 flex flex-1 flex-col overflow-hidden pb-20 pl-48 pr-4 pt-3">
+        <div
+          className="relative z-10 flex flex-col overflow-hidden pl-48 pr-4 pt-3"
+          style={{ height: 'calc(100% - 100px)' }}
+        >
           {/* 回合焦点标题 */}
           <div className="mb-2 flex shrink-0 items-center justify-center gap-3">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/20" />
@@ -966,7 +969,7 @@ export default function SandboxView({
 
         {/* 黑天鹅事件横幅 */}
         {currentTurn?.adjudication?.blackSwanEvent && (
-          <div className="absolute bottom-28 left-1/2 z-20 w-[620px] -translate-x-1/2 rounded border border-purple-500/50 bg-purple-900/60 px-3 py-1.5 backdrop-blur-sm">
+          <div className="absolute bottom-[108px] left-1/2 z-20 w-[620px] -translate-x-1/2 rounded border border-purple-500/50 bg-purple-900/60 px-3 py-1.5 backdrop-blur-sm">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-purple-400" />
               <span className="text-xs font-medium text-purple-300">
@@ -979,8 +982,8 @@ export default function SandboxView({
           </div>
         )}
 
-        {/* 时间轴 - 底部（高度约80px） */}
-        <div className="absolute bottom-0 left-0 right-0 border-t border-white/10 bg-black/60 px-4 py-2 backdrop-blur-sm">
+        {/* 时间轴 - 底部固定100px */}
+        <div className="absolute bottom-0 left-0 right-0 h-[100px] border-t border-white/10 bg-black/60 px-4 py-3 backdrop-blur-sm">
           <div className="flex items-center gap-4">
             {/* 播放控制 */}
             <div className="flex items-center gap-2">
