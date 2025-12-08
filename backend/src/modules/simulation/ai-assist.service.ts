@@ -570,13 +570,13 @@ const DEFAULT_ANALYSIS: IndustryAnalysis = {
     {
       name: "区域龙头",
       type: "regional",
-      market: "Local",
+      market: "Global", // 改为Global以确保在任何区域筛选下都能显示
       reason: "特定区域市场领先",
     },
     {
       name: "新势力",
       type: "startup",
-      market: "Local",
+      market: "Global", // 改为Global以确保在任何区域筛选下都能显示
       reason: "创新型初创企业",
     },
   ],
