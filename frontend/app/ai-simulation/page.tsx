@@ -830,9 +830,25 @@ function EditorModal({
     }));
 
     setAgents((prev) => {
+      // 创建已存在角色的标识集合（team-role组合）
+      const existingRoles = new Set(
+        prev
+          .filter((a) => a.role && a.role.trim() !== '')
+          .map((a) => `${a.team}-${a.role}`.toLowerCase())
+      );
+
       // 找出空白的角色槽位（role为空或只有默认占位符）
       const isEmptyAgent = (agent: ScenarioFormAgent) =>
         !agent.role || agent.role.trim() === '' || agent.role === '新角色';
+
+      // 过滤掉已存在的角色
+      const uniqueSuggestions = suggestedAgents.filter(
+        (s) => !existingRoles.has(`${s.team}-${s.role}`.toLowerCase())
+      );
+
+      if (uniqueSuggestions.length === 0) {
+        return prev; // 没有新角色需要添加
+      }
 
       // 找出同team的空白槽位索引
       const emptySlotsByTeam: Record<string, number[]> = {};
@@ -848,7 +864,7 @@ function EditorModal({
       const updatedAgents = [...prev];
       const agentsToAdd: ScenarioFormAgent[] = [];
 
-      suggestedAgents.forEach((suggested) => {
+      uniqueSuggestions.forEach((suggested) => {
         // 优先填充同team的空白槽位
         const teamSlots = emptySlotsByTeam[suggested.team];
         if (teamSlots && teamSlots.length > 0) {
@@ -961,9 +977,25 @@ function EditorModal({
     }));
 
     setAgents((prev) => {
+      // 创建已存在角色的标识集合（team-role组合）
+      const existingRoles = new Set(
+        prev
+          .filter((a) => a.role && a.role.trim() !== '')
+          .map((a) => `${a.team}-${a.role}`.toLowerCase())
+      );
+
       // 找出空白的角色槽位（role为空或只有默认占位符）
       const isEmptyAgent = (agent: ScenarioFormAgent) =>
         !agent.role || agent.role.trim() === '' || agent.role === '新角色';
+
+      // 过滤掉已存在的角色
+      const uniqueSuggestions = suggestedAgents.filter(
+        (s) => !existingRoles.has(`${s.team}-${s.role}`.toLowerCase())
+      );
+
+      if (uniqueSuggestions.length === 0) {
+        return prev; // 没有新角色需要添加
+      }
 
       // 找出同team的空白槽位索引
       const emptySlotsByTeam: Record<string, number[]> = {};
@@ -978,15 +1010,13 @@ function EditorModal({
       // 复制现有数组
       const updatedAgents = [...prev];
       const agentsToAdd: ScenarioFormAgent[] = [];
-      let filledCount = 0;
 
-      suggestedAgents.forEach((suggested) => {
+      uniqueSuggestions.forEach((suggested) => {
         // 优先填充同team的空白槽位
         const teamSlots = emptySlotsByTeam[suggested.team];
         if (teamSlots && teamSlots.length > 0) {
           const slotIndex = teamSlots.shift()!;
           updatedAgents[slotIndex] = suggested;
-          filledCount++;
         } else {
           // 没有同team空白槽位，查找任意空白槽位
           let foundSlot = false;
@@ -994,7 +1024,6 @@ function EditorModal({
             if (emptySlotsByTeam[team].length > 0) {
               const slotIndex = emptySlotsByTeam[team].shift()!;
               updatedAgents[slotIndex] = suggested;
-              filledCount++;
               foundSlot = true;
               break;
             }
