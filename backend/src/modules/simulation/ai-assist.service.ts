@@ -1,6 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ExternalDataService } from "./external-data.service";
 import { AiChatService } from "../ai/ai-chat.service";
+import { PrismaService } from "../../common/prisma/prisma.service";
+import { AIModelType } from "@prisma/client";
 
 interface IndustryAnalysis {
   companies: Array<{
@@ -133,7 +135,30 @@ export class AIAssistService {
   constructor(
     private readonly externalData: ExternalDataService,
     private readonly aiChat: AiChatService,
+    private readonly prisma: PrismaService,
   ) {}
+
+  /**
+   * 获取可用的 AI 模型（从数据库配置）
+   * 优先返回标准聊天模型
+   */
+  private async getAvailableModels() {
+    const models = await this.prisma.aIModel.findMany({
+      where: {
+        isEnabled: true,
+        modelType: {
+          in: [AIModelType.CHAT, AIModelType.CHAT_FAST],
+        },
+        apiKey: {
+          not: null,
+        },
+      },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+    });
+
+    // 过滤掉没有 API Key 的模型
+    return models.filter((m) => m.apiKey && m.apiKey.length > 0);
+  }
 
   /**
    * 根据行业和区域分析竞争格局，使用 LLM 动态推荐公司和角色配置
@@ -269,15 +294,29 @@ ${existingCompanies.length > 0 ? `用户已选择的公司（请不要重复推�
 
 所有公司必须是真实存在的知名企业。`;
 
-    // 尝试多个模型，优先使用 grok（通常配置更可靠）
-    const models = ["grok", "gpt-4", "claude", "gemini"];
+    // 从数据库获取已配置 API Key 的可用模型
+    const availableModels = await this.getAvailableModels();
+    this.logger.log(
+      `Available models for industry analysis: ${availableModels.map((m) => `${m.name}(${m.provider})`).join(", ")}`,
+    );
+
+    if (availableModels.length === 0) {
+      this.logger.warn("No AI models with API keys configured in database");
+      return null;
+    }
+
     let result = null;
 
-    for (const model of models) {
+    for (const model of availableModels) {
       try {
-        this.logger.log(`Trying model: ${model} for industry analysis`);
-        result = await this.aiChat.generateChatCompletion({
-          model,
+        this.logger.log(
+          `Trying model: ${model.name} (${model.modelId}) for industry analysis`,
+        );
+        result = await this.aiChat.generateChatCompletionWithKey({
+          provider: model.provider,
+          modelId: model.modelId,
+          apiKey: model.apiKey ?? "",
+          apiEndpoint: model.apiEndpoint ?? undefined,
           systemPrompt,
           messages: [{ role: "user", content: userPrompt }],
           maxTokens: 2048,
@@ -289,18 +328,19 @@ ${existingCompanies.length > 0 ? `用户已选择的公司（请不要重复推�
           result.content &&
           !result.content.includes("**API Key 未配置**") &&
           !result.content.includes("**") &&
-          !result.content.includes("API 调用失败")
+          !result.content.includes("API 调用失败") &&
+          !result.content.includes("API Error")
         ) {
-          this.logger.log(`Model ${model} returned valid response`);
+          this.logger.log(`Model ${model.name} returned valid response`);
           break;
         } else {
           this.logger.warn(
-            `Model ${model} returned error or invalid response, trying next...`,
+            `Model ${model.name} returned error or invalid response, trying next...`,
           );
           result = null;
         }
       } catch (modelErr) {
-        this.logger.warn(`Model ${model} failed: ${modelErr}`);
+        this.logger.warn(`Model ${model.name} failed: ${modelErr}`);
       }
     }
 
@@ -717,9 +757,25 @@ ${externalDataStr.slice(0, 3000)}${externalDataStr.length > 3000 ? "\n...(数据
 
 请生成该公司的量化指标。`;
 
+    // 从数据库获取可用模型
+    const availableModels = await this.getAvailableModels();
+    if (availableModels.length === 0) {
+      this.logger.warn("No AI models available for metrics generation");
+      return null;
+    }
+
+    // 使用第一个可用模型（优先默认模型）
+    const model = availableModels[0];
+    this.logger.log(
+      `Using model ${model.name} (${model.modelId}) for company metrics generation`,
+    );
+
     try {
-      const result = await this.aiChat.generateChatCompletion({
-        model: "gpt-4",
+      const result = await this.aiChat.generateChatCompletionWithKey({
+        provider: model.provider,
+        modelId: model.modelId,
+        apiKey: model.apiKey ?? "",
+        apiEndpoint: model.apiEndpoint ?? undefined,
         systemPrompt,
         messages: [{ role: "user", content: userPrompt }],
         maxTokens: 1024,
@@ -727,6 +783,15 @@ ${externalDataStr.slice(0, 3000)}${externalDataStr.length > 3000 ? "\n...(数据
       });
 
       if (!result.content) {
+        return null;
+      }
+
+      // 检查是否是 API 错误
+      if (
+        result.content.includes("**API Key 未配置**") ||
+        result.content.includes("API Error")
+      ) {
+        this.logger.warn("Model returned API error for metrics generation");
         return null;
       }
 
