@@ -12,6 +12,7 @@ import { AgentOrchestrator } from "./core/agent.orchestrator";
 
 // Agent 导入
 import { SlidesAgent } from "./implementations/slides/slides.agent";
+import { DocsAgent } from "./implementations/docs/docs.agent";
 
 // 依赖模块 - 复用现有的 ai-office 模块
 import { AiOfficeModule } from "../ai-office/ai-office.module";
@@ -28,6 +29,7 @@ import { AiOfficeModule } from "../ai-office/ai-office.module";
 
     // Agents
     SlidesAgent,
+    DocsAgent,
   ],
   exports: [AgentsService, AgentRegistry, ToolRegistry, AgentOrchestrator],
 })
@@ -35,10 +37,12 @@ export class AgentsModule implements OnModuleInit {
   constructor(
     private readonly agentRegistry: AgentRegistry,
     private readonly slidesAgent: SlidesAgent,
+    private readonly docsAgent: DocsAgent,
   ) {}
 
   onModuleInit() {
     // 注册 Agents
     this.agentRegistry.register(this.slidesAgent);
+    this.agentRegistry.register(this.docsAgent);
   }
 }
