@@ -615,7 +615,11 @@ export default function SandboxView({
                 ? 'bg-indigo-50 text-indigo-700'
                 : `bg-opacity-20 ${TEAM_COLORS[perspective]?.bg} ${TEAM_COLORS[perspective]?.text}`
             }`}
-            title="点击切换视角"
+            title={
+              perspective === 'GOD'
+                ? '上帝视角：可查看所有阵营的完整信息（点击切换）'
+                : `${TEAM_COLORS[perspective]?.label}视角：可查看${TEAM_COLORS[perspective]?.label}的完整信息，其他阵营仅显示公开行动（点击切换）`
+            }
           >
             <Eye className="h-3 w-3" />
             {perspective === 'GOD'
@@ -629,6 +633,11 @@ export default function SandboxView({
                 ? 'bg-indigo-50 text-indigo-700'
                 : `bg-opacity-20 ${TEAM_COLORS[perspective]?.bg} ${TEAM_COLORS[perspective]?.text}`
             }`}
+            title={
+              perspective === 'GOD'
+                ? '上帝视角：可查看所有阵营的完整信息'
+                : `${TEAM_COLORS[perspective]?.label}视角：可查看${TEAM_COLORS[perspective]?.label}的完整信息，其他阵营仅显示公开行动`
+            }
           >
             <Eye className="h-3 w-3" />
             {perspective === 'GOD'
@@ -857,13 +866,15 @@ export default function SandboxView({
                     </span>
                   </div>
 
-                  {canView ? (
-                    <div className="line-clamp-3 flex-1 text-[11px] leading-relaxed text-gray-300">
-                      {submission.publicAction || '无公开行动'}
-                    </div>
-                  ) : (
-                    <div className="text-xs italic text-gray-500">
-                      🔒 需要{teamConfig.label}视角
+                  {/* 公开行动始终可见 */}
+                  <div className="line-clamp-3 flex-1 text-[11px] leading-relaxed text-gray-300">
+                    {submission.publicAction || '无公开行动'}
+                  </div>
+                  {/* 私密信息指示器 - 非本方视角时显示 */}
+                  {!canView && submission.innerMonologue && (
+                    <div className="mt-1 flex items-center gap-1 text-[9px] text-gray-500">
+                      <span>🔒</span>
+                      <span>有隐藏内容</span>
                     </div>
                   )}
                 </div>
@@ -1458,62 +1469,74 @@ export default function SandboxView({
                     </div>
                   </div>
 
-                  {/* 内容 */}
-                  {canView ? (
-                    <div className="max-h-[70vh] overflow-y-auto p-5">
-                      {/* 内心独白 - 仅上帝视角或本阵营可见 */}
-                      {submission.innerMonologue && (
-                        <div className="mb-5">
-                          <div className="mb-2 flex items-center gap-2">
-                            <span className="text-lg">🧠</span>
-                            <h3 className="text-sm font-semibold text-purple-400">
-                              内心独白
-                            </h3>
-                            <span className="rounded bg-purple-500/20 px-2 py-0.5 text-[10px] text-purple-300">
-                              仅本方可见
-                            </span>
-                          </div>
-                          <div className="rounded-lg border border-purple-500/20 bg-purple-900/20 p-4 text-sm text-purple-200">
-                            {formatContent(submission.innerMonologue)}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* 公开行动 */}
-                      <div>
+                  {/* 内容 - 公开信息始终可见，私密信息根据视角过滤 */}
+                  <div className="max-h-[70vh] overflow-y-auto p-5">
+                    {/* 内心独白 - 仅上帝视角或本阵营可见 */}
+                    {canView && submission.innerMonologue && (
+                      <div className="mb-5">
                         <div className="mb-2 flex items-center gap-2">
-                          <span className="text-lg">📢</span>
-                          <h3 className="text-sm font-semibold text-blue-400">
-                            公开行动
+                          <span className="text-lg">🧠</span>
+                          <h3 className="text-sm font-semibold text-purple-400">
+                            内心独白
                           </h3>
-                          <span className="rounded bg-blue-500/20 px-2 py-0.5 text-[10px] text-blue-300">
-                            所有人可见
+                          <span className="rounded bg-purple-500/20 px-2 py-0.5 text-[10px] text-purple-300">
+                            仅本方可见
                           </span>
                         </div>
-                        <div className="rounded-lg border border-blue-500/20 bg-blue-900/20 p-4 text-sm text-gray-200">
-                          {submission.publicAction ? (
-                            formatContent(submission.publicAction)
-                          ) : (
-                            <span className="italic text-gray-500">
-                              无公开行动
-                            </span>
-                          )}
+                        <div className="rounded-lg border border-purple-500/20 bg-purple-900/20 p-4 text-sm text-purple-200">
+                          {formatContent(submission.innerMonologue)}
                         </div>
                       </div>
+                    )}
 
-                      {/* 没有任何内容 */}
-                      {!submission.innerMonologue &&
-                        !submission.publicAction && (
-                          <div className="py-8 text-center text-sm text-gray-500">
-                            暂无行动记录
+                    {/* 私密信息隐藏提示 - 非本方视角且有私密内容时显示 */}
+                    {!canView && submission.innerMonologue && (
+                      <div className="mb-5">
+                        <div className="flex items-center gap-3 rounded-lg border border-gray-700 bg-gray-800/50 p-4">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-700">
+                            <span className="text-lg">🔒</span>
                           </div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-300">
+                              内心独白已隐藏
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              切换到{teamConfig.label}或上帝视角查看完整信息
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 公开行动 - 始终可见 */}
+                    <div>
+                      <div className="mb-2 flex items-center gap-2">
+                        <span className="text-lg">📢</span>
+                        <h3 className="text-sm font-semibold text-blue-400">
+                          公开行动
+                        </h3>
+                        <span className="rounded bg-blue-500/20 px-2 py-0.5 text-[10px] text-blue-300">
+                          所有人可见
+                        </span>
+                      </div>
+                      <div className="rounded-lg border border-blue-500/20 bg-blue-900/20 p-4 text-sm text-gray-200">
+                        {submission.publicAction ? (
+                          formatContent(submission.publicAction)
+                        ) : (
+                          <span className="italic text-gray-500">
+                            无公开行动
+                          </span>
                         )}
+                      </div>
                     </div>
-                  ) : (
-                    <div className="p-8 text-center text-sm text-gray-500">
-                      🔒 需要{teamConfig.label}视角查看完整内容
-                    </div>
-                  )}
+
+                    {/* 没有任何内容 */}
+                    {!submission.innerMonologue && !submission.publicAction && (
+                      <div className="py-8 text-center text-sm text-gray-500">
+                        暂无行动记录
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -1636,12 +1659,27 @@ export default function SandboxView({
                   const position = (turn.roundNumber / run.rounds) * 100;
                   const hasBlackSwan = !!turn.adjudication?.blackSwanEvent;
                   const isSelected = turn.roundNumber === selectedRound;
+                  // 计算本回合的信息密度
+                  const turnSubmissions = turn.submissions || [];
+                  const totalActions = turnSubmissions.length;
+                  const visibleActions =
+                    perspective === 'GOD'
+                      ? totalActions
+                      : turnSubmissions.filter(
+                          (s) => s.team?.toUpperCase() === perspective
+                        ).length;
+                  const hiddenActions = totalActions - visibleActions;
                   return (
                     <button
                       key={turn.id}
                       onClick={() => setSelectedRound(turn.roundNumber)}
                       className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all ${isSelected ? 'z-10' : ''}`}
                       style={{ left: `${position}%` }}
+                      title={
+                        perspective === 'GOD'
+                          ? `回合 ${turn.roundNumber}: ${totalActions} 个行动`
+                          : `回合 ${turn.roundNumber}: ${visibleActions} 个完整可见, ${hiddenActions} 个仅公开信息`
+                      }
                     >
                       <div
                         className={`rounded-full border-2 transition-all ${
@@ -1657,6 +1695,12 @@ export default function SandboxView({
                             : undefined
                         }
                       />
+                      {/* 信息密度指示器 - 非上帝视角时显示隐藏数量 */}
+                      {hiddenActions > 0 && !isSelected && (
+                        <div className="absolute -right-1 -top-1 flex h-3 w-3 items-center justify-center rounded-full bg-gray-700 text-[7px] text-gray-300">
+                          {hiddenActions}
+                        </div>
+                      )}
                     </button>
                   );
                 })}

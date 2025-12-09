@@ -17,12 +17,30 @@ interface Submission {
 
 // 过滤后的 Submission 类型
 interface FilteredSubmission extends Partial<Submission> {
-  isFiltered?: boolean; // 标记是否被过滤
+  isFiltered?: boolean; // 标记是否被过滤（私密信息被隐藏）
   hiddenFields?: string[]; // 被隐藏的字段列表
+  canViewFull?: boolean; // 是否可以查看完整信息
 }
 
 /**
+ * 视角可见性规则（核心设计）：
+ *
+ * | 信息类型          | 上帝视角 | 本方视角 | 敌方视角 |
+ * |------------------|---------|---------|---------|
+ * | publicAction     | ✅      | ✅      | ✅      |
+ * | innerMonologue   | ✅      | ✅      | ❌      |
+ * | tools            | ✅      | ✅      | ❌      |
+ * | irrational       | ✅      | ✅      | ❌      |
+ * | chaosInjected    | ✅      | ✅      | ❌      |
+ *
+ * 核心原则：公开信息对所有人可见，私密信息只对本方和上帝可见
+ */
+
+/**
  * 根据视角过滤单个 submission 的内容
+ *
+ * 重要变更：公开信息（publicAction）始终可见！
+ * 只有私密信息（innerMonologue, tools等）根据视角过滤
  *
  * @param submission 原始提交数据
  * @param perspective 当前视角
@@ -32,20 +50,18 @@ export function filterSubmissionByPerspective(
   submission: Submission,
   perspective: ViewPerspective
 ): FilteredSubmission {
-  // 上帝视角：返回全部内容
-  if (perspective === 'GOD') {
-    return { ...submission, isFiltered: false };
-  }
-
   // 获取提交的阵营
   const submissionTeam = submission.team?.toUpperCase();
 
-  // 同阵营：返回完整信息
-  if (submissionTeam === perspective) {
-    return { ...submission, isFiltered: false };
+  // 判断是否可以查看完整信息（上帝视角或本方阵营）
+  const canViewFull = perspective === 'GOD' || submissionTeam === perspective;
+
+  // 上帝视角或本方阵营：返回全部内容
+  if (canViewFull) {
+    return { ...submission, isFiltered: false, canViewFull: true };
   }
 
-  // 不同阵营：只返回公开信息，隐藏敏感字段
+  // 不同阵营：返回公开信息 + 标记被隐藏的私密字段
   const hiddenFields: string[] = [];
 
   if (submission.innerMonologue) {
@@ -57,16 +73,20 @@ export function filterSubmissionByPerspective(
   if (submission.irrational !== undefined) {
     hiddenFields.push('irrational');
   }
+  if (submission.chaosInjected !== undefined) {
+    hiddenFields.push('chaosInjected');
+  }
 
   return {
+    // 公开信息 - 始终可见
     team: submission.team,
     role: submission.role,
-    publicAction: submission.publicAction,
+    publicAction: submission.publicAction, // ✅ 公开行动始终可见
     agentId: submission.agentId,
     companyId: submission.companyId,
     visibility: submission.visibility,
     timestamp: submission.timestamp,
-    // 隐藏敏感信息
+    // 私密信息 - 隐藏
     innerMonologue: undefined,
     tools: undefined,
     irrational: undefined,
@@ -74,6 +94,7 @@ export function filterSubmissionByPerspective(
     // 标记
     isFiltered: true,
     hiddenFields,
+    canViewFull: false,
   };
 }
 

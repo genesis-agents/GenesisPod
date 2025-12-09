@@ -37,6 +37,57 @@ export interface StartRunInput {
   startedById?: string;
 }
 
+// 视角类型定义
+export type ViewPerspective = "GOD" | "BLUE" | "RED" | "GREEN" | "WHITE";
+
+// 提交数据的视角过滤
+export interface Submission {
+  team?: string;
+  role?: string;
+  publicAction?: string;
+  innerMonologue?: string;
+  irrational?: boolean;
+  chaosInjected?: boolean;
+  tools?: unknown;
+  agentId?: string;
+  companyId?: string;
+  visibility?: string;
+  timestamp?: string;
+}
+
+/**
+ * 根据视角过滤提交数据
+ * - 上帝视角：可查看所有信息
+ * - 阵营视角：本阵营可查看完整信息，其他阵营只能看公开信息（publicAction）
+ */
+function filterSubmissionByPerspective(
+  submission: Submission,
+  perspective: ViewPerspective,
+): Submission {
+  const submissionTeam = submission.team?.toUpperCase();
+  const canViewFull = perspective === "GOD" || submissionTeam === perspective;
+
+  if (canViewFull) {
+    return submission;
+  }
+
+  // 非本方阵营：只返回公开信息
+  return {
+    team: submission.team,
+    role: submission.role,
+    publicAction: submission.publicAction, // 公开行动始终可见
+    agentId: submission.agentId,
+    companyId: submission.companyId,
+    visibility: submission.visibility,
+    timestamp: submission.timestamp,
+    // 私密信息隐藏
+    innerMonologue: undefined,
+    tools: undefined,
+    irrational: undefined,
+    chaosInjected: undefined,
+  };
+}
+
 @Injectable()
 export class SimulationService {
   private readonly logger = new Logger(SimulationService.name);
@@ -380,7 +431,7 @@ export class SimulationService {
     return this.getRunById(runId);
   }
 
-  async getRunById(id: string) {
+  async getRunById(id: string, perspective?: ViewPerspective) {
     const run = await this.prisma.simulationRun.findUnique({
       where: { id },
       include: {
@@ -393,6 +444,26 @@ export class SimulationService {
     if (!run) {
       throw new NotFoundException(`Run ${id} not found`);
     }
+
+    // 如果指定了视角且不是上帝视角，则过滤私密信息
+    if (perspective && perspective !== "GOD") {
+      return {
+        ...run,
+        turns: run.turns.map((turn) => {
+          // turns 中的 submissions 是 JSON 存储的
+          const submissions = turn.submissions as Submission[] | null;
+          if (!submissions) return turn;
+
+          return {
+            ...turn,
+            submissions: submissions.map((sub) =>
+              filterSubmissionByPerspective(sub, perspective),
+            ),
+          };
+        }),
+      };
+    }
+
     return run;
   }
 

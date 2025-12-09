@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   UseGuards,
   Patch,
   Delete,
@@ -13,7 +14,7 @@ import {
 import { Observable, interval, map, switchMap, from, takeWhile } from "rxjs";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../common/guards/admin.guard";
-import { SimulationService } from "./simulation.service";
+import { SimulationService, ViewPerspective } from "./simulation.service";
 import { SimulationTeam, SimulationRunStatus } from "@prisma/client";
 import { ExternalDataService } from "./external-data.service";
 import { AIAssistService } from "./ai-assist.service";
@@ -124,8 +125,23 @@ export class SimulationController {
   }
 
   @Get("runs/:id")
-  async getRun(@Param("id") id: string) {
-    return this.simulationService.getRunById(id);
+  async getRun(
+    @Param("id") id: string,
+    @Query("perspective") perspective?: ViewPerspective,
+  ) {
+    // 验证视角参数
+    const validPerspectives: ViewPerspective[] = [
+      "GOD",
+      "BLUE",
+      "RED",
+      "GREEN",
+      "WHITE",
+    ];
+    const validatedPerspective =
+      perspective && validPerspectives.includes(perspective)
+        ? perspective
+        : undefined;
+    return this.simulationService.getRunById(id, validatedPerspective);
   }
 
   @Delete("runs/:id")
@@ -265,10 +281,27 @@ export class SimulationController {
    * 前端通过 EventSource 连接此端点接收实时更新
    */
   @Sse("runs/:id/events")
-  runEvents(@Param("id") id: string): Observable<MessageEvent> {
+  runEvents(
+    @Param("id") id: string,
+    @Query("perspective") perspective?: ViewPerspective,
+  ): Observable<MessageEvent> {
+    // 验证视角参数
+    const validPerspectives: ViewPerspective[] = [
+      "GOD",
+      "BLUE",
+      "RED",
+      "GREEN",
+      "WHITE",
+    ];
+    const validatedPerspective =
+      perspective && validPerspectives.includes(perspective)
+        ? perspective
+        : undefined;
     // 每2秒轮询一次运行状态
     return interval(2000).pipe(
-      switchMap(() => from(this.simulationService.getRunById(id))),
+      switchMap(() =>
+        from(this.simulationService.getRunById(id, validatedPerspective)),
+      ),
       takeWhile((run) => {
         // 当运行完成或失败时停止推送
         if (!run) return false;
