@@ -34,6 +34,7 @@
     "d3": "^7.9.0",
     "date-fns": "^4.1.0",
     "docx": "^9.5.1",
+    "framer-motion": "^12.23.25",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.3",
     "lowlight": "^3.3.0",

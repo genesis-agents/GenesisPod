@@ -254,21 +254,21 @@ model Resource {
 }
 
 model ResourceTranslation {
-  id          String   @id @default(uuid())
-  resourceId  String   @map("resource_id")
-  language    String   @db.VarChar(10) // e.g., 'zh-CN'
-  title       String?  @db.Text
-  content     String   @db.Text // The full translated text
-  summary     String?  @db.Text // Optional: translated summary
+  id         String  @id @default(uuid())
+  resourceId String  @map("resource_id")
+  language   String  @db.VarChar(10) // e.g., 'zh-CN'
+  title      String? @db.Text
+  content    String  @db.Text // The full translated text
+  summary    String? @db.Text // Optional: translated summary
 
   // Translation metadata
-  modelUsed   String?  @map("model_used") @db.VarChar(50)
-  tokensUsed  Int?     @map("tokens_used")
+  modelUsed  String? @map("model_used") @db.VarChar(50)
+  tokensUsed Int?    @map("tokens_used")
 
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  resource    Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  resource Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
 
   @@unique([resourceId, language])
   @@index([resourceId])
@@ -2573,9 +2573,9 @@ model OfficeDocumentTemplate {
 // ============ ASK AI 会话管理 ============
 
 model AskSession {
-  id      String @id @default(uuid())
-  userId  String @map("user_id")
-  title   String @db.VarChar(200)
+  id      String  @id @default(uuid())
+  userId  String  @map("user_id")
+  title   String  @db.VarChar(200)
   summary String? @db.Text // AI 生成的会话摘要
   modelId String? @map("model_id") // 默认使用的模型
 
@@ -2590,15 +2590,15 @@ model AskSession {
 }
 
 model AskMessage {
-  id        String @id @default(uuid())
-  sessionId String @map("session_id")
-  role      String @db.VarChar(20) // user, assistant, system
-  content   String @db.Text
+  id        String  @id @default(uuid())
+  sessionId String  @map("session_id")
+  role      String  @db.VarChar(20) // user, assistant, system
+  content   String  @db.Text
   modelId   String? @map("model_id") // 使用的模型 ID
   modelName String? @map("model_name") @db.VarChar(100) // 使用的模型名称
 
   // 元数据
-  tokens    Int?    // token 使用量
+  tokens    Int? // token 使用量
   webSearch Boolean @default(false) @map("web_search") // 是否启用网页搜索
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -2612,13 +2612,13 @@ model AskMessage {
 // ============ 推演 / Simulation ============
 
 enum SimulationTeam {
-  BLUE    // 蓝军 - 我方/主角公司
-  RED     // 红军 - 竞争对手/挑战者
-  GREEN   // 绿军 - 市场/客户/供应商/渠道等利益相关方
-  WHITE   // 白方 - 裁判控制组/监管机构/政策制定者
-  CHAOS   // 混沌 - 黑天鹅事件制造者
+  BLUE // 蓝军 - 我方/主角公司
+  RED // 红军 - 竞争对手/挑战者
+  GREEN // 绿军 - 市场/客户/供应商/渠道等利益相关方
+  WHITE // 白方 - 裁判控制组/监管机构/政策制定者
+  CHAOS // 混沌 - 黑天鹅事件制造者
   ARBITER // 系统裁判(AI)
-  HUMAN   // 人类干预
+  HUMAN // 人类干预
 }
 
 enum SimulationRunStatus {
@@ -2630,14 +2630,14 @@ enum SimulationRunStatus {
 }
 
 model SimulationScenario {
-  id          String   @id @default(uuid())
-  name        String   @db.VarChar(200)
-  industry    String   @db.VarChar(100)
-  region      String?  @db.VarChar(100)
+  id          String  @id @default(uuid())
+  name        String  @db.VarChar(200)
+  industry    String  @db.VarChar(100)
+  region      String? @db.VarChar(100)
   goals       Json?
   constraints Json?
   dataSources Json?
-  createdById String?  @db.VarChar(36)
+  createdById String? @db.VarChar(36)
 
   companies SimulationCompany[]
   agents    SimulationAgent[]
@@ -2651,11 +2651,11 @@ model SimulationScenario {
 }
 
 model SimulationCompany {
-  id         String   @id @default(uuid())
-  scenarioId String   @db.VarChar(36)
-  name       String   @db.VarChar(200)
-  type       String?  @db.VarChar(50) // benchmark/startup/region
-  market     String?  @db.VarChar(100)
+  id         String  @id @default(uuid())
+  scenarioId String  @db.VarChar(36)
+  name       String  @db.VarChar(200)
+  type       String? @db.VarChar(50) // benchmark/startup/region
+  market     String? @db.VarChar(100)
 
   metrics     Json? // cash, capacity, inventory, price_band, debt, etc.
   publicData  Json?
@@ -2720,19 +2720,119 @@ model SimulationRun {
 }
 
 model SimulationTurn {
-  id           String   @id @default(uuid())
-  runId        String   @db.VarChar(36)
+  id           String @id @default(uuid())
+  runId        String @db.VarChar(36)
   roundNumber  Int
   submissions  Json?
   adjudication Json?
   evidence     Json?
   worldState   Json?
 
-  run    SimulationRun    @relation(fields: [runId], references: [id], onDelete: Cascade)
+  run    SimulationRun     @relation(fields: [runId], references: [id], onDelete: Cascade)
   agents SimulationAgent[] @relation("TurnAgents")
 
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([runId, roundNumber])
   @@map("simulation_turns")
+}
+
+// ============ AI Office Agent 矩阵系统 ============
+
+enum OfficeAgentType {
+  SLIDES
+  DOCS
+  DESIGNER
+  DEVELOPER
+}
+
+enum OfficeTaskStatus {
+  PENDING
+  PLANNING
+  EXECUTING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum OfficeArtifactType {
+  PPTX
+  DOCX
+  PDF
+  IMAGE
+  CODE
+  DATA
+}
+
+// AI Office Agent 任务记录
+model OfficeAgentTask {
+  id        String           @id @default(uuid())
+  userId    String?          @map("user_id") @db.VarChar(36)
+  agentType OfficeAgentType  @map("agent_type")
+  status    OfficeTaskStatus @default(PENDING)
+
+  input  Json // AgentInput
+  plan   Json? // AgentPlan
+  result Json? // AgentResult
+
+  // 性能指标
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  duration    Int? // 毫秒
+
+  // 资源消耗
+  tokensUsed Int @default(0) @map("tokens_used")
+  toolCalls  Int @default(0) @map("tool_calls")
+
+  // 错误信息
+  error String? @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  artifacts OfficeAgentArtifact[]
+  toolLogs  OfficeAgentToolLog[]
+
+  @@index([userId, agentType])
+  @@index([status])
+  @@index([createdAt])
+  @@map("office_agent_tasks")
+}
+
+// AI Office Agent 产出物
+model OfficeAgentArtifact {
+  id       String             @id @default(uuid())
+  taskId   String             @map("task_id") @db.VarChar(36)
+  type     OfficeArtifactType
+  name     String
+  mimeType String             @map("mime_type")
+  size     Int
+  url      String? // S3 URL
+  content  Json? // 内联内容
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  task OfficeAgentTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("office_agent_artifacts")
+}
+
+// AI Office Agent 工具调用日志
+model OfficeAgentToolLog {
+  id       String  @id @default(uuid())
+  taskId   String  @map("task_id") @db.VarChar(36)
+  toolType String  @map("tool_type")
+  input    Json
+  output   Json?
+  duration Int // 毫秒
+  success  Boolean
+  error    String? @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  task OfficeAgentTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("office_agent_tool_logs")
 }

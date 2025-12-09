@@ -37,6 +37,7 @@ import { AiImageModule } from "./modules/ai-image/ai-image.module";
 import { StorageModule } from "./modules/storage/storage.module";
 import { AskSessionModule } from "./modules/ask-session/ask-session.module";
 import { SimulationModule } from "./modules/simulation/simulation.module";
+import { AgentsModule } from "./modules/agents/agents.module";
 
 @Module({
   imports: [
@@ -98,6 +99,7 @@ import { SimulationModule } from "./modules/simulation/simulation.module";
     StorageModule,
     AskSessionModule,
     SimulationModule,
+    AgentsModule,
   ],
   controllers: [AppController],
   providers: [
