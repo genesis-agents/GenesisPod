@@ -1257,8 +1257,33 @@ function YouTubeTLDWContent() {
                       <div className="text-sm text-gray-400">加载字幕中...</div>
                     </div>
                   ) : mergedTranscript.length === 0 ? (
-                    <div className="flex items-center justify-center py-12">
-                      <div className="text-sm text-gray-400">暂无字幕</div>
+                    <div className="flex flex-col items-center justify-center px-4 py-12">
+                      <div className="text-center">
+                        <div className="mb-3 text-4xl">📝</div>
+                        <div className="mb-2 text-sm text-gray-400">
+                          暂无字幕
+                        </div>
+                        <div className="max-w-[200px] text-xs text-gray-500">
+                          该视频可能没有字幕，或字幕暂时无法获取
+                        </div>
+                        {videoId && (
+                          <a
+                            href={`https://www.youtube.com/watch?v=${videoId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-3 inline-flex items-center gap-1 text-xs text-red-500 transition-colors hover:text-red-600"
+                          >
+                            <svg
+                              className="h-3 w-3"
+                              fill="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
+                            </svg>
+                            在 YouTube 上观看
+                          </a>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     mergedTranscript.map((segment, index) => {
