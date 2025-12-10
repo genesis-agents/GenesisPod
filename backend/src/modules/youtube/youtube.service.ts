@@ -3,8 +3,11 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma/prisma.service";
+import { AdminService } from "../admin/admin.service";
 
 type YoutubeModule = typeof import("youtubei.js");
 type YoutubeClient = Awaited<ReturnType<YoutubeModule["Innertube"]["create"]>>;
@@ -41,25 +44,52 @@ const CACHE_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 export class YoutubeService {
   private readonly logger = new Logger(YoutubeService.name);
   private youtube: YoutubeClient | null = null;
-  private readonly SUPADATA_API_KEY = process.env.SUPADATA_API_KEY || "";
-  private readonly SUPADATA_ENABLED = !!process.env.SUPADATA_API_KEY;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => AdminService))
+    private readonly adminService: AdminService,
+  ) {}
 
   async onModuleInit() {
     try {
       await this.ensureClient();
       this.logger.log("YouTube client initialized successfully");
-      if (this.SUPADATA_ENABLED) {
-        this.logger.log("Supadata API enabled as primary transcript provider");
+
+      // Check Supadata API key from database
+      const supadataKey = await this.getSupadataApiKey();
+      if (supadataKey) {
+        this.logger.log(
+          "Supadata API enabled as primary transcript provider (from database settings)",
+        );
       } else {
         this.logger.warn(
-          "SUPADATA_API_KEY not set - using fallback transcript methods only",
+          "Supadata API key not configured - using fallback transcript methods only. Configure in Settings > External API > YouTube",
         );
       }
     } catch (error) {
       this.logger.error("Failed to initialize YouTube client:", error);
     }
+  }
+
+  /**
+   * Get Supadata API key from database settings
+   * Falls back to environment variable for backward compatibility
+   */
+  private async getSupadataApiKey(): Promise<string | null> {
+    try {
+      // Try database first
+      const dbKey = await this.adminService.getYoutubeApiKey("supadata");
+      if (dbKey) {
+        return dbKey;
+      }
+    } catch (error) {
+      this.logger.debug(`Failed to get Supadata key from database: ${error}`);
+    }
+
+    // Fall back to environment variable
+    const envKey = process.env.SUPADATA_API_KEY;
+    return envKey || null;
   }
 
   /**
@@ -106,8 +136,13 @@ export class YoutubeService {
     }
 
     // Strategy 1: Try Supadata API first (recommended for cloud deployments)
-    if (this.SUPADATA_ENABLED) {
-      const supadataResult = await this.fetchTranscriptSupadata(videoId, lang);
+    const supadataApiKey = await this.getSupadataApiKey();
+    if (supadataApiKey) {
+      const supadataResult = await this.fetchTranscriptSupadata(
+        videoId,
+        lang,
+        supadataApiKey,
+      );
       if (supadataResult) {
         this.logger.log(
           `Successfully fetched transcript via Supadata API for ${videoId}`,
@@ -324,6 +359,7 @@ export class YoutubeService {
   private async fetchTranscriptSupadata(
     videoId: string,
     preferredLang: string = "en",
+    apiKey: string,
   ): Promise<TranscriptResponse | null> {
     try {
       const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
@@ -342,7 +378,7 @@ export class YoutubeService {
         {
           method: "GET",
           headers: {
-            "x-api-key": this.SUPADATA_API_KEY,
+            "x-api-key": apiKey,
             Accept: "application/json",
           },
         },
@@ -354,7 +390,7 @@ export class YoutubeService {
         this.logger.log(
           `Supadata returned job ID ${jobData.jobId}, polling for result...`,
         );
-        return await this.pollSupadataJob(jobData.jobId, videoId);
+        return await this.pollSupadataJob(jobData.jobId, videoId, apiKey);
       }
 
       if (!response.ok) {
@@ -414,6 +450,7 @@ export class YoutubeService {
   private async pollSupadataJob(
     jobId: string,
     videoId: string,
+    apiKey: string,
     maxAttempts: number = 30,
     intervalMs: number = 2000,
   ): Promise<TranscriptResponse | null> {
@@ -426,7 +463,7 @@ export class YoutubeService {
           {
             method: "GET",
             headers: {
-              "x-api-key": this.SUPADATA_API_KEY,
+              "x-api-key": apiKey,
               Accept: "application/json",
             },
           },

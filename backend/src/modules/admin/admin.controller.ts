@@ -604,6 +604,93 @@ export class AdminController {
     }
   }
 
+  // ============ YouTube API Configuration ============
+
+  /**
+   * 获取YouTube字幕API配置
+   * GET /api/v1/admin/youtube-config
+   */
+  @Get("youtube-config")
+  async getYoutubeConfig() {
+    this.logger.log("Admin: Fetching YouTube config");
+    return this.adminService.getYoutubeConfig();
+  }
+
+  /**
+   * 更新YouTube字幕API配置
+   * PATCH /api/v1/admin/youtube-config
+   */
+  @Patch("youtube-config")
+  async updateYoutubeConfig(
+    @Body()
+    body: {
+      enabled?: boolean;
+      provider?: string;
+      supadataApiKey?: string;
+    },
+  ) {
+    this.logger.log("Admin: Updating YouTube config");
+    return this.adminService.updateYoutubeConfig(body);
+  }
+
+  /**
+   * 测试YouTube字幕API连接
+   * POST /api/v1/admin/youtube-config/test
+   */
+  @Post("youtube-config/test")
+  async testYoutubeConnection(
+    @Body()
+    body: {
+      provider: string;
+      apiKey: string;
+    },
+  ) {
+    this.logger.log(
+      `Admin: Testing YouTube API connection for ${body.provider}`,
+    );
+
+    try {
+      if (body.provider === "supadata") {
+        // Test Supadata API with a known video
+        const testVideoId = "dQw4w9WgXcQ"; // Rick Astley - Never Gonna Give You Up
+        const response = await fetch(
+          `https://api.supadata.ai/v1/youtube/transcript?video_id=${testVideoId}&text=true`,
+          {
+            headers: {
+              "x-api-key": body.apiKey,
+            },
+          },
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          return {
+            success: true,
+            message: "Supadata API 连接成功",
+            hasContent: !!data.content || !!data.transcript,
+          };
+        } else {
+          const errorText = await response.text();
+          return {
+            success: false,
+            message: `Supadata API 错误: HTTP ${response.status} - ${errorText.slice(0, 100)}`,
+          };
+        }
+      }
+
+      return {
+        success: false,
+        message: `未知的 provider: ${body.provider}`,
+      };
+    } catch (error: any) {
+      this.logger.error(`YouTube API test failed: ${error.message}`);
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
   // ============ External Data Providers ============
 
   /**

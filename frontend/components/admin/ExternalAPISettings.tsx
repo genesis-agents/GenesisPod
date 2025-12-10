@@ -20,6 +20,7 @@ import {
   TrendingUp,
   Eye,
   EyeOff,
+  Youtube,
 } from 'lucide-react';
 
 interface SearchConfig {
@@ -44,6 +45,31 @@ interface BalanceInfo {
   quota?: { used: number; limit: number };
   error?: string;
 }
+
+// YouTube transcript API configuration
+interface YouTubeConfig {
+  enabled: boolean;
+  provider: string;
+  supadata: { apiKey: string | null; hasApiKey: boolean };
+}
+
+// YouTube transcript provider configurations
+const YOUTUBE_PROVIDERS = [
+  {
+    id: 'supadata',
+    name: 'Supadata',
+    description: 'YouTube字幕提取API，绕过IP封锁',
+    features: ['100次/月免费', '云服务器友好', '支持多语言'],
+    color: 'from-red-500 to-rose-500',
+    bgColor: 'bg-red-50',
+    textColor: 'text-red-600',
+    url: 'https://supadata.ai/youtube-transcript-api',
+    signupUrl: 'https://dash.supadata.ai?plan=basic',
+    placeholder: 'Enter Supadata API key',
+    pricing: '$9/月 (1000次)',
+    freeQuota: '100次/月',
+  },
+] as const;
 
 // Search provider configurations
 const SEARCH_PROVIDERS = [
@@ -352,6 +378,16 @@ export default function ExternalAPISettings() {
     tavily: '',
   });
 
+  // YouTube config state
+  const [youtubeConfig, setYoutubeConfig] = useState<YouTubeConfig>({
+    enabled: true,
+    provider: 'supadata',
+    supadata: { apiKey: null, hasApiKey: false },
+  });
+  const [youtubeApiKeys, setYoutubeApiKeys] = useState<Record<string, string>>({
+    supadata: '',
+  });
+
   // Simulation APIs state
   const [simulationAPICategories, setSimulationAPICategories] = useState<
     SimulationAPICategory[]
@@ -373,7 +409,7 @@ export default function ExternalAPISettings() {
     text: string;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<
-    'search' | 'extraction' | 'simulation'
+    'search' | 'extraction' | 'simulation' | 'youtube'
   >('search');
   const [visibleApiKeys, setVisibleApiKeys] = useState<Record<string, boolean>>(
     {}
@@ -386,20 +422,25 @@ export default function ExternalAPISettings() {
   const loadConfigs = useCallback(async () => {
     setLoading(true);
     try {
-      const [searchRes, extractionRes, providersRes] = await Promise.all([
-        fetch(`${config.apiUrl}/admin/search-config`, {
-          headers: { ...getAuthHeader() },
-          credentials: 'include',
-        }),
-        fetch(`${config.apiUrl}/admin/extraction-config`, {
-          headers: { ...getAuthHeader() },
-          credentials: 'include',
-        }),
-        fetch(`${config.apiUrl}/admin/external-providers`, {
-          headers: { ...getAuthHeader() },
-          credentials: 'include',
-        }),
-      ]);
+      const [searchRes, extractionRes, providersRes, youtubeRes] =
+        await Promise.all([
+          fetch(`${config.apiUrl}/admin/search-config`, {
+            headers: { ...getAuthHeader() },
+            credentials: 'include',
+          }),
+          fetch(`${config.apiUrl}/admin/extraction-config`, {
+            headers: { ...getAuthHeader() },
+            credentials: 'include',
+          }),
+          fetch(`${config.apiUrl}/admin/external-providers`, {
+            headers: { ...getAuthHeader() },
+            credentials: 'include',
+          }),
+          fetch(`${config.apiUrl}/admin/youtube-config`, {
+            headers: { ...getAuthHeader() },
+            credentials: 'include',
+          }),
+        ]);
 
       if (searchRes.ok) {
         const data = await searchRes.json();
@@ -409,6 +450,11 @@ export default function ExternalAPISettings() {
       if (extractionRes.ok) {
         const data = await extractionRes.json();
         setExtractionConfig(data);
+      }
+
+      if (youtubeRes.ok) {
+        const data = await youtubeRes.json();
+        setYoutubeConfig(data);
       }
 
       if (providersRes.ok) {
@@ -558,6 +604,117 @@ export default function ExternalAPISettings() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // YouTube config handlers
+  const handleSaveYoutube = async () => {
+    setSaving(true);
+    setMessage(null);
+
+    try {
+      const res = await fetch(`${config.apiUrl}/admin/youtube-config`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          enabled: youtubeConfig.enabled,
+          provider: youtubeConfig.provider,
+          supadataApiKey: youtubeApiKeys.supadata || undefined,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setYoutubeConfig(data);
+        setYoutubeApiKeys({ supadata: '' });
+        setMessage({ type: 'success', text: 'YouTube 字幕配置保存成功' });
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        setMessage({ type: 'error', text: '保存配置失败' });
+      }
+    } catch (err) {
+      console.error('Failed to save YouTube config:', err);
+      setMessage({ type: 'error', text: '保存配置失败' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTestYoutube = async (providerId: string) => {
+    setTesting(`youtube-${providerId}`);
+    setTestResults((prev) => ({
+      ...prev,
+      [`youtube-${providerId}`]: { success: false, message: '' },
+    }));
+
+    try {
+      const providerConfig = youtubeConfig[
+        providerId as keyof YouTubeConfig
+      ] as { hasApiKey: boolean } | undefined;
+      const apiKey =
+        youtubeApiKeys[providerId] ||
+        (providerConfig?.hasApiKey ? '***use-saved***' : '');
+
+      if (!apiKey) {
+        setTestResults((prev) => ({
+          ...prev,
+          [`youtube-${providerId}`]: {
+            success: false,
+            message: '请先输入API Key',
+          },
+        }));
+        setTesting(null);
+        return;
+      }
+
+      if (apiKey === '***use-saved***') {
+        setTestResults((prev) => ({
+          ...prev,
+          [`youtube-${providerId}`]: {
+            success: true,
+            message: 'API Key已配置（已保存）',
+          },
+        }));
+        setTesting(null);
+        return;
+      }
+
+      const res = await fetch(`${config.apiUrl}/admin/youtube-config/test`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
+        credentials: 'include',
+        body: JSON.stringify({ provider: providerId, apiKey }),
+      });
+
+      const data = await res.json();
+      setTestResults((prev) => ({
+        ...prev,
+        [`youtube-${providerId}`]: data,
+      }));
+    } catch (err: any) {
+      setTestResults((prev) => ({
+        ...prev,
+        [`youtube-${providerId}`]: {
+          success: false,
+          message: err.message || '测试失败',
+        },
+      }));
+    } finally {
+      setTesting(null);
+    }
+  };
+
+  const getYoutubeProviderStatus = (providerId: string) => {
+    const providerConfig = youtubeConfig[providerId as keyof YouTubeConfig] as
+      | { hasApiKey: boolean }
+      | undefined;
+    return providerConfig?.hasApiKey || false;
   };
 
   // Test external provider API
@@ -1119,6 +1276,17 @@ export default function ExternalAPISettings() {
         >
           <TrendingUp className="h-4 w-4" />
           推演数据源 API
+        </button>
+        <button
+          onClick={() => setActiveTab('youtube')}
+          className={`flex items-center gap-2 border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
+            activeTab === 'youtube'
+              ? 'border-purple-600 text-purple-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Youtube className="h-4 w-4" />
+          YouTube 字幕 API
         </button>
       </div>
 
@@ -1992,6 +2160,278 @@ export default function ExternalAPISettings() {
               )}
               保存推演数据源配置
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* YouTube API Tab */}
+      {activeTab === 'youtube' && (
+        <div className="space-y-6">
+          {/* Global YouTube Toggle */}
+          <div className="rounded-xl border border-red-200 bg-gradient-to-r from-red-50 to-rose-50 p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-red-500 to-rose-600 shadow-lg">
+                  <Youtube className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">
+                    YouTube Transcript API
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    配置第三方 API 获取 YouTube 字幕，解决服务器 IP 封锁问题
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() =>
+                  setYoutubeConfig((prev) => ({
+                    ...prev,
+                    enabled: !prev.enabled,
+                  }))
+                }
+                className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors ${
+                  youtubeConfig.enabled ? 'bg-red-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${
+                    youtubeConfig.enabled ? 'translate-x-8' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* Provider Cards Grid */}
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {YOUTUBE_PROVIDERS.map((provider) => {
+              const isConfigured = getYoutubeProviderStatus(provider.id);
+              const isDefault = youtubeConfig.provider === provider.id;
+              const testResult = testResults[`youtube-${provider.id}`];
+
+              return (
+                <div
+                  key={provider.id}
+                  className={`relative overflow-hidden rounded-xl border-2 bg-white shadow-sm transition-all hover:shadow-md ${
+                    isDefault
+                      ? 'border-red-400 ring-2 ring-red-100'
+                      : 'border-gray-200'
+                  }`}
+                >
+                  {/* Header */}
+                  <div className={`bg-gradient-to-r ${provider.color} p-4`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20 backdrop-blur">
+                          <Youtube className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-white">
+                              {provider.name}
+                            </h3>
+                            {isDefault && (
+                              <span className="rounded-full bg-white/30 px-2 py-0.5 text-xs font-medium text-white">
+                                Default
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-white/80">
+                            {provider.description}
+                          </p>
+                        </div>
+                      </div>
+                      <a
+                        href={provider.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-lg bg-white/20 p-2 text-white hover:bg-white/30"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Body */}
+                  <div className="space-y-4 p-4">
+                    {/* Features */}
+                    <div className="flex flex-wrap gap-2">
+                      {provider.features.map((feature) => (
+                        <span
+                          key={feature}
+                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${provider.bgColor} ${provider.textColor}`}
+                        >
+                          {feature}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Pricing Info */}
+                    <div className="rounded-lg bg-gray-50 p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">定价:</span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {provider.pricing}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between">
+                        <span className="text-sm text-gray-600">免费额度:</span>
+                        <span className="text-sm font-medium text-green-600">
+                          {provider.freeQuota}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Status */}
+                    <div className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+                      <span className="text-sm text-gray-600">API Key:</span>
+                      {isConfigured ? (
+                        <span className="flex items-center gap-1.5 text-sm font-medium text-green-600">
+                          <CheckCircle className="h-4 w-4" />
+                          已配置
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1.5 text-sm font-medium text-gray-400">
+                          <XCircle className="h-4 w-4" />
+                          未配置
+                        </span>
+                      )}
+                    </div>
+
+                    {/* API Key Input */}
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <input
+                          type={
+                            visibleApiKeys[`youtube-${provider.id}`]
+                              ? 'text'
+                              : 'password'
+                          }
+                          value={youtubeApiKeys[provider.id]}
+                          onChange={(e) =>
+                            setYoutubeApiKeys((prev) => ({
+                              ...prev,
+                              [provider.id]: e.target.value,
+                            }))
+                          }
+                          placeholder={
+                            isConfigured
+                              ? '••••••••••••••••'
+                              : provider.placeholder
+                          }
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 font-mono text-sm focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            toggleApiKeyVisibility(`youtube-${provider.id}`)
+                          }
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                          title={
+                            visibleApiKeys[`youtube-${provider.id}`]
+                              ? '隐藏'
+                              : '显示'
+                          }
+                        >
+                          {visibleApiKeys[`youtube-${provider.id}`] ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                      <a
+                        href={provider.signupUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-700"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        获取 API Key
+                      </a>
+                    </div>
+
+                    {/* Test Result */}
+                    {testResult && (
+                      <div
+                        className={`flex items-center gap-2 rounded-lg p-2 text-sm ${
+                          testResult.success
+                            ? 'bg-green-50 text-green-700'
+                            : 'bg-red-50 text-red-700'
+                        }`}
+                      >
+                        {testResult.success ? (
+                          <CheckCircle className="h-4 w-4 flex-shrink-0" />
+                        ) : (
+                          <XCircle className="h-4 w-4 flex-shrink-0" />
+                        )}
+                        <span className="truncate">{testResult.message}</span>
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleTestYoutube(provider.id)}
+                        disabled={
+                          testing === `youtube-${provider.id}` ||
+                          (!youtubeApiKeys[provider.id] && !isConfigured)
+                        }
+                        className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {testing === `youtube-${provider.id}` ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Zap className="h-4 w-4" />
+                        )}
+                        测试连接
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Save Button */}
+          <div className="flex justify-end">
+            <button
+              onClick={handleSaveYoutube}
+              disabled={saving}
+              className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 px-6 py-2.5 text-sm font-medium text-white shadow-lg shadow-red-500/25 hover:from-red-700 hover:to-rose-700 disabled:opacity-50"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              保存 YouTube 配置
+            </button>
+          </div>
+
+          {/* Info */}
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100">
+                <Youtube className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">
+                  为什么需要配置第三方 API？
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  YouTube 会封锁云服务器（如 Railway、AWS、Vercel）的 IP
+                  地址，导致无法直接获取字幕。
+                  <br />
+                  通过配置 <strong>Supadata</strong> 等第三方
+                  API，可以绕过这一限制，稳定获取 YouTube 视频字幕。
+                  <br />
+                  <strong>Supadata</strong> 每月提供 100
+                  次免费请求，适合个人使用。
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       )}

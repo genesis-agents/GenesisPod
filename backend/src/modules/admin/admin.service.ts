@@ -962,6 +962,87 @@ export class AdminService {
     return this.getSetting(`extraction.${provider}.apiKey`);
   }
 
+  // ============ YouTube API Configuration ============
+
+  /**
+   * 获取YouTube字幕API配置
+   */
+  async getYoutubeConfig() {
+    const supadataKey = await this.getSetting("youtube.supadata.apiKey");
+    const enabled = await this.getSetting("youtube.enabled");
+    const provider = await this.getSetting("youtube.provider");
+
+    return {
+      enabled: enabled !== false,
+      provider: provider || "supadata",
+      supadata: {
+        apiKey: supadataKey ? this.maskApiKey(supadataKey) : null,
+        hasApiKey: !!supadataKey,
+      },
+    };
+  }
+
+  /**
+   * 更新YouTube字幕API配置
+   */
+  async updateYoutubeConfig(config: {
+    enabled?: boolean;
+    provider?: string;
+    supadataApiKey?: string;
+  }) {
+    const updates: Array<{
+      key: string;
+      value: any;
+      description?: string;
+      category: string;
+    }> = [];
+
+    if (config.enabled !== undefined) {
+      updates.push({
+        key: "youtube.enabled",
+        value: config.enabled,
+        description: "Enable or disable YouTube transcript API",
+        category: "youtube",
+      });
+    }
+
+    if (config.provider) {
+      updates.push({
+        key: "youtube.provider",
+        value: config.provider,
+        description: "YouTube transcript API provider",
+        category: "youtube",
+      });
+    }
+
+    // Only update API keys if they are provided and not the masked value
+    if (
+      config.supadataApiKey &&
+      !config.supadataApiKey.includes("****") &&
+      config.supadataApiKey.trim() !== ""
+    ) {
+      updates.push({
+        key: "youtube.supadata.apiKey",
+        value: config.supadataApiKey.trim(),
+        description: "Supadata API Key for YouTube transcript",
+        category: "youtube",
+      });
+    }
+
+    if (updates.length > 0) {
+      await this.setSettings(updates);
+    }
+
+    return this.getYoutubeConfig();
+  }
+
+  /**
+   * 获取YouTube API Key（内部使用，返回实际值）
+   */
+  async getYoutubeApiKey(provider: "supadata"): Promise<string | null> {
+    return this.getSetting(`youtube.${provider}.apiKey`);
+  }
+
   // ============ External Data Providers Configuration ============
 
   async getExternalProvidersConfig(): Promise<
