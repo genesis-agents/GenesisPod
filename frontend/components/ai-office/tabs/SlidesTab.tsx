@@ -18,7 +18,6 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Download,
-  Settings,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
@@ -26,12 +25,9 @@ import {
   Edit3,
   Check,
   Sparkles,
-  Send,
-  Paperclip,
   Plus,
   X,
   Loader2,
-  Eye,
   FileText,
   Layout,
   RefreshCw,
@@ -39,6 +35,7 @@ import {
   Circle,
   Wand2,
   ArrowLeft,
+  Eye,
 } from 'lucide-react';
 
 import { useResourceStore, useDocumentStore } from '@/stores/aiOfficeStore';
@@ -459,15 +456,6 @@ function LayoutConfigurator({
   );
 }
 
-// 主题选项
-const THEME_OPTIONS = [
-  { id: 'professional', name: '专业商务', color: '#1e3a5f' },
-  { id: 'modern', name: '现代科技', color: '#6366f1' },
-  { id: 'minimal', name: '极简风格', color: '#18181b' },
-  { id: 'creative', name: '创意活力', color: '#ec4899' },
-  { id: 'genspark', name: '深蓝专业', color: '#0A2B4E' },
-];
-
 // 主组件
 export default function SlidesTab() {
   // 资源状态
@@ -489,8 +477,17 @@ export default function SlidesTab() {
   const [resourceListCollapsed, setResourceListCollapsed] = useState(false);
   const [leftPanelWidth, setLeftPanelWidth] = useState(420);
   const [isDragging, setIsDragging] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState('professional');
+
+  // 解析后的意图状态（由后端返回）
+  const [parsedIntent, setParsedIntent] = useState<{
+    urls: string[];
+    visualStyle: string;
+    visualStyleName: string;
+    pageCount: number | null;
+    colorTheme: string | null;
+    cleanPrompt: string;
+  } | null>(null);
 
   // 生成流程状态
   const [generationStep, setGenerationStep] = useState<GenerationStep>('idle');
@@ -553,7 +550,7 @@ export default function SlidesTab() {
     };
   }, [isDragging]);
 
-  // 生成大纲
+  // 生成大纲（使用后端意图解析）
   const generateOutline = async () => {
     if (!input.trim()) return;
     const userInput = input;
@@ -561,6 +558,7 @@ export default function SlidesTab() {
     setIsLoading(true);
     setGenerationStep('outline');
 
+    // 显示用户输入的原始消息
     setMessages((prev) => [
       ...prev,
       {
@@ -572,15 +570,72 @@ export default function SlidesTab() {
     ]);
 
     try {
+      // 1. 调用后端意图解析 API
+      const intentResponse = await fetch('/api/ai-office/parse-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input: userInput }),
+      });
+      const intentData = await intentResponse.json();
+      setParsedIntent(intentData);
+
+      // 显示解析结果
+      const intentSummary: string[] = [];
+      if (intentData.urls?.length > 0) {
+        intentSummary.push(`检测到 ${intentData.urls.length} 个链接`);
+      }
+      if (intentData.visualStyleName && intentData.visualStyle !== 'default') {
+        intentSummary.push(`风格: ${intentData.visualStyleName}`);
+      }
+      if (intentData.pageCount) {
+        intentSummary.push(`页数: ${intentData.pageCount}页`);
+      }
+
+      if (intentSummary.length > 0) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 0.5).toString(),
+            role: 'assistant',
+            content: `AI 理解到的需求：\n${intentSummary.join('\n')}\n\n正在生成大纲...`,
+            timestamp: new Date(),
+          },
+        ]);
+      }
+
       const selectedResources = resources.filter((r) =>
         selectedResourceIds.includes(r._id)
       );
+
+      // 使用解析后的参数
+      const visualStyle = intentData.visualStyle || 'default';
+      const styleName = intentData.visualStyleName || '默认';
+      const slideCount = intentData.pageCount || 8;
+      const urls = intentData.urls || [];
+
+      // 构建包含URL和设置的提示
+      let prompt = `请为以下主题生成一份PPT大纲，输出JSON格式：\n主题：${userInput}`;
+
+      if (urls.length > 0) {
+        prompt += `\n\n参考资料URL（请从这些链接提取关键信息）：\n${urls.join('\n')}`;
+      }
+
+      prompt += `\n\n要求：
+1. 严格生成 ${slideCount} 页的PPT大纲
+2. 每页包含标题和3-5个要点
+3. 包含封面页和总结页
+4. 视觉风格：${styleName}
+5. 输出格式为JSON数组，每项包含 slideNumber, title, points
+
+只输出JSON，不要其他文字。`;
+
       const response = await fetch('/api/ai-office/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: `请为以下主题生成一份PPT大纲，输出JSON格式：\n主题：${userInput}\n\n要求：\n1. 生成8-15页的PPT大纲\n2. 每页包含标题和3-5个要点\n3. 包含封面页和总结页\n4. 输出格式为JSON数组，每项包含 slideNumber, title, points\n\n只输出JSON，不要其他文字。`,
+          message: prompt,
           resources: selectedResources,
+          urls: urls,
           stream: false,
         }),
       });
@@ -822,6 +877,7 @@ export default function SlidesTab() {
     setOutline([]);
     setLayouts([]);
     setMessages([]);
+    setParsedIntent(null);
   };
 
   // 处理幻灯片内联编辑更新
@@ -876,15 +932,6 @@ export default function SlidesTab() {
                 <RefreshCw className="h-4 w-4" />
               </button>
             )}
-            <button
-              onClick={() => setShowSettings(!showSettings)}
-              className={cn(
-                'rounded-lg p-2 transition-colors',
-                showSettings ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'
-              )}
-            >
-              <Settings className="h-4 w-4" />
-            </button>
           </div>
         </div>
 
@@ -895,37 +942,37 @@ export default function SlidesTab() {
           </div>
         )}
 
-        {/* 设置面板 */}
+        {/* AI 解析结果提示（仅在有解析结果时显示） */}
         <AnimatePresence>
-          {showSettings && (
+          {parsedIntent && generationStep !== 'idle' && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               className="overflow-hidden border-b border-gray-200"
             >
-              <div className="bg-gray-50 p-4">
-                <h3 className="mb-3 text-sm font-medium">主题风格</h3>
-                <div className="flex flex-wrap gap-2">
-                  {THEME_OPTIONS.map((theme) => (
-                    <button
-                      key={theme.id}
-                      onClick={() => setSelectedTheme(theme.id)}
-                      className={cn(
-                        'flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-all',
-                        selectedTheme === theme.id
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      )}
-                    >
-                      <span
-                        className="h-4 w-4 rounded-full"
-                        style={{ backgroundColor: theme.color }}
-                      />
-                      <span>{theme.name}</span>
-                    </button>
-                  ))}
-                </div>
+              <div className="flex flex-wrap items-center gap-2 bg-gradient-to-r from-orange-50 to-amber-50 px-4 py-2">
+                <span className="text-xs text-gray-500">AI 理解:</span>
+                {parsedIntent.urls.length > 0 && (
+                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                    📎 {parsedIntent.urls.length} 个链接
+                  </span>
+                )}
+                {parsedIntent.visualStyle !== 'default' && (
+                  <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">
+                    🎨 {parsedIntent.visualStyleName}
+                  </span>
+                )}
+                {parsedIntent.pageCount && (
+                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                    📄 {parsedIntent.pageCount}页
+                  </span>
+                )}
+                {parsedIntent.colorTheme && (
+                  <span className="rounded-full bg-pink-100 px-2 py-0.5 text-xs text-pink-700">
+                    🎨 {parsedIntent.colorTheme}
+                  </span>
+                )}
               </div>
             </motion.div>
           )}
@@ -1042,7 +1089,7 @@ export default function SlidesTab() {
                   </>
                 )}
               </div>
-              <div className="border-t border-gray-200 bg-white p-3">
+              <div className="border-t border-gray-200 bg-white p-4">
                 <div className="relative">
                   <textarea
                     value={input}
@@ -1053,29 +1100,26 @@ export default function SlidesTab() {
                         generateOutline();
                       }
                     }}
-                    placeholder="描述PPT主题，如：为AI产品发布会创建一份商业提案..."
-                    className="w-full resize-none rounded-xl border-2 border-gray-200 px-4 py-3 pb-10 pr-24 text-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none"
-                    rows={2}
+                    placeholder="直接描述你想要的PPT，AI会自动理解你的需求：&#10;&#10;例如：&#10;• 帮我做一个10页的AI发展历程PPT，用漫画风格&#10;• 基于 https://example.com/report 这篇文章做一个哆啦A梦风格的介绍&#10;• 做一份关于新能源汽车的商业报告，要专业一点，15页左右"
+                    className="w-full resize-none rounded-xl border-2 border-gray-200 px-4 py-4 pb-14 text-sm placeholder:text-gray-400 focus:border-orange-500 focus:outline-none"
+                    rows={4}
                     disabled={isLoading}
                   />
-                  <div className="absolute bottom-2 right-2 flex items-center space-x-2">
-                    <button
-                      className="rounded-lg p-1.5 hover:bg-gray-100"
-                      title="附加资源"
-                    >
-                      <Paperclip className="h-4 w-4 text-gray-500" />
-                    </button>
+                  <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
+                    <p className="text-xs text-gray-400">
+                      支持直接粘贴URL、指定风格、页数、配色等，AI会自动理解
+                    </p>
                     <button
                       onClick={generateOutline}
                       disabled={!input.trim() || isLoading}
-                      className="flex items-center space-x-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm text-white disabled:bg-gray-300"
+                      className="flex items-center gap-2 rounded-lg bg-orange-500 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-orange-600 disabled:bg-gray-300"
                     >
                       {isLoading ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <Send className="h-4 w-4" />
+                        <Sparkles className="h-4 w-4" />
                       )}
-                      <span>开始</span>
+                      <span>生成PPT</span>
                     </button>
                   </div>
                 </div>

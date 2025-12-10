@@ -17,6 +17,7 @@ import { DocumentGenerationController } from "./document-generation.controller";
 import { DocumentGenerationService } from "./document-generation.service";
 import { DocumentExportController } from "./document-export.controller";
 import { DocumentExportService } from "./document-export.service";
+import { IntentParserService } from "./intent-parser.service";
 
 // PPT 3.0 新服务
 import {
@@ -52,6 +53,7 @@ import {
     AIModelService,
     DocumentGenerationService,
     DocumentExportService,
+    IntentParserService,
     // PPT 3.0 服务
     PPTOrchestratorService,
     SlidePlanningService,
@@ -65,6 +67,7 @@ import {
     AIModelService,
     DocumentGenerationService,
     DocumentExportService,
+    IntentParserService,
     // PPT 3.0 服务
     PPTOrchestratorService,
     SlidePlanningService,

@@ -13,7 +13,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Download,
   RefreshCw,
-  Settings,
   ZoomIn,
   Sparkles,
   CheckCircle2,
@@ -102,15 +101,18 @@ export default function DesignerTab() {
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
 
-  // 设置选项
-  const [templateLayout, setTemplateLayout] = useState('cards');
-  const [aspectRatio, setAspectRatio] = useState('16:9');
-  const [style, setStyle] = useState('consulting');
+  // AI 解析后的意图状态
+  const [parsedIntent, setParsedIntent] = useState<{
+    urls: string[];
+    designType: string | null;
+    aspectRatio: string | null;
+    style: string | null;
+    cleanPrompt: string;
+  } | null>(null);
 
-  // 处理提交
+  // 处理提交（使用后端意图解析）
   const handleSubmit = useCallback(
     async (input: AgentInput) => {
       setIsGenerating(true);
@@ -122,14 +124,24 @@ export default function DesignerTab() {
       });
 
       try {
-        // 添加选项
+        // 1. 调用后端意图解析 API
+        const intentResponse = await fetch('/api/ai-office/parse-intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ input: input.prompt }),
+        });
+        const intentData = await intentResponse.json();
+        setParsedIntent(intentData);
+
+        // 2. 使用解析后的参数构建增强输入
         const enhancedInput: AgentInput = {
           ...input,
+          urls: intentData.urls || [],
           options: {
             ...input.options,
-            templateLayout,
-            aspectRatio,
-            style,
+            templateLayout: intentData.designType || 'cards',
+            aspectRatio: intentData.aspectRatio || '16:9',
+            style: intentData.style || 'consulting',
           },
         };
 
@@ -158,14 +170,7 @@ export default function DesignerTab() {
         setIsGenerating(false);
       }
     },
-    [
-      templateLayout,
-      aspectRatio,
-      style,
-      resetProgress,
-      updateProgress,
-      handleEvent,
-    ]
+    [resetProgress, updateProgress, handleEvent]
   );
 
   // 处理取消
@@ -200,112 +205,51 @@ export default function DesignerTab() {
               <p className="text-xs text-gray-500">{agentConfig.description}</p>
             </div>
           </div>
-
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className={cn(
-              'rounded-lg p-2 transition-colors',
-              showSettings ? 'bg-pink-100 text-pink-600' : 'hover:bg-gray-100'
-            )}
-          >
-            <Settings className="h-5 w-5" />
-          </button>
         </div>
       </header>
 
+      {/* AI 解析结果提示 */}
+      <AnimatePresence>
+        {parsedIntent && isGenerating && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="border-b border-gray-200 bg-gradient-to-r from-pink-50 to-rose-50 px-6 py-2"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-gray-500">AI 理解:</span>
+              {parsedIntent.urls.length > 0 && (
+                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                  📎 {parsedIntent.urls.length} 个链接
+                </span>
+              )}
+              {parsedIntent.designType && (
+                <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">
+                  📐{' '}
+                  {LAYOUT_OPTIONS.find((l) => l.id === parsedIntent.designType)
+                    ?.name || parsedIntent.designType}
+                </span>
+              )}
+              {parsedIntent.aspectRatio && (
+                <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                  📏 {parsedIntent.aspectRatio}
+                </span>
+              )}
+              {parsedIntent.style && (
+                <span className="rounded-full bg-pink-100 px-2 py-0.5 text-xs text-pink-700">
+                  🎨{' '}
+                  {STYLE_OPTIONS.find((s) => s.id === parsedIntent.style)
+                    ?.name || parsedIntent.style}
+                </span>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* 主内容区 */}
       <main className="flex-1 overflow-auto px-6 py-6">
-        {/* 设置面板 */}
-        <AnimatePresence>
-          {showSettings && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mb-6 overflow-hidden"
-            >
-              <div className="space-y-4 rounded-xl bg-gray-50 p-4">
-                {/* 布局模板 */}
-                <div>
-                  <h3 className="mb-3 text-sm font-medium">布局模板</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {LAYOUT_OPTIONS.map((layout) => (
-                      <button
-                        key={layout.id}
-                        onClick={() => setTemplateLayout(layout.id)}
-                        className={cn(
-                          'rounded-lg border px-4 py-2 text-left transition-all',
-                          templateLayout === layout.id
-                            ? 'border-pink-500 bg-pink-50'
-                            : 'border-gray-200 hover:border-pink-300'
-                        )}
-                      >
-                        <span className="text-sm font-medium">
-                          {layout.name}
-                        </span>
-                        <p className="text-xs text-gray-500">
-                          {layout.description}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 宽高比 */}
-                <div>
-                  <h3 className="mb-3 text-sm font-medium">宽高比</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {ASPECT_RATIO_OPTIONS.map((ratio) => (
-                      <button
-                        key={ratio.id}
-                        onClick={() => setAspectRatio(ratio.id)}
-                        className={cn(
-                          'flex items-center gap-2 rounded-lg border px-4 py-2 transition-all',
-                          aspectRatio === ratio.id
-                            ? 'border-pink-500 bg-pink-50'
-                            : 'border-gray-200 hover:border-pink-300'
-                        )}
-                      >
-                        <span className="text-sm font-medium">
-                          {ratio.name}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {ratio.description}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 设计风格 */}
-                <div>
-                  <h3 className="mb-3 text-sm font-medium">设计风格</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {STYLE_OPTIONS.map((s) => (
-                      <button
-                        key={s.id}
-                        onClick={() => setStyle(s.id)}
-                        className={cn(
-                          'flex items-center gap-2 rounded-lg border px-4 py-2 transition-all',
-                          style === s.id
-                            ? 'border-pink-500 bg-pink-50'
-                            : 'border-gray-200 hover:border-pink-300'
-                        )}
-                      >
-                        <span
-                          className="h-4 w-4 rounded-full"
-                          style={{ backgroundColor: s.color }}
-                        />
-                        <span className="text-sm">{s.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* 模板区域 */}
         {!isGenerating && progress.phase === 'idle' && (
           <div className="mb-8">
@@ -418,10 +362,13 @@ export default function DesignerTab() {
         <div className="mx-auto max-w-3xl">
           <PromptBar
             agentType={AgentType.DESIGNER}
-            placeholder="描述你想要的设计，例如：创建一张关于人工智能发展历程的信息图..."
+            placeholder="直接描述你想要的设计，AI会自动理解。例如：&#10;• 基于 https://example.com 创建一张科技风信息图&#10;• 设计一张竖版海报，极简风格&#10;• 做一个数据对比图，16:9比例"
             onSubmit={handleSubmit}
             isProcessing={isGenerating}
           />
+          <p className="mt-2 text-center text-xs text-gray-400">
+            支持直接粘贴URL、指定布局、比例、风格等，AI会自动理解
+          </p>
         </div>
       </div>
 

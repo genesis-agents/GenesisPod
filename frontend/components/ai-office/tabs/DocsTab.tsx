@@ -10,13 +10,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Download,
-  RefreshCw,
-  Settings,
-  Sparkles,
-  CheckCircle2,
-} from 'lucide-react';
+import { Download, RefreshCw, Sparkles, CheckCircle2 } from 'lucide-react';
 
 import { PromptBar } from '@/components/ai-office/core/PromptBar';
 import {
@@ -101,14 +95,16 @@ export default function DocsTab() {
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
 
-  // 设置选项
-  const [documentType, setDocumentType] = useState('ARTICLE');
-  const [exportFormat, setExportFormat] = useState('docx');
-  const [detailLevel, setDetailLevel] = useState(2);
+  // AI 解析后的意图状态
+  const [parsedIntent, setParsedIntent] = useState<{
+    urls: string[];
+    documentType: string | null;
+    detailLevel: number | null;
+    cleanPrompt: string;
+  } | null>(null);
 
-  // 处理提交
+  // 处理提交（使用后端意图解析）
   const handleSubmit = useCallback(
     async (input: AgentInput) => {
       setIsGenerating(true);
@@ -120,14 +116,24 @@ export default function DocsTab() {
       });
 
       try {
-        // 添加选项
+        // 1. 调用后端意图解析 API
+        const intentResponse = await fetch('/api/ai-office/parse-intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ input: input.prompt }),
+        });
+        const intentData = await intentResponse.json();
+        setParsedIntent(intentData);
+
+        // 2. 使用解析后的参数构建增强输入
         const enhancedInput: AgentInput = {
           ...input,
+          urls: intentData.urls || [],
           options: {
             ...input.options,
-            documentType,
-            exportFormat,
-            detailLevel,
+            documentType: intentData.documentType || 'ARTICLE',
+            exportFormat: 'docx',
+            detailLevel: intentData.detailLevel || 2,
           },
         };
 
@@ -153,14 +159,7 @@ export default function DocsTab() {
         setIsGenerating(false);
       }
     },
-    [
-      documentType,
-      exportFormat,
-      detailLevel,
-      resetProgress,
-      updateProgress,
-      handleEvent,
-    ]
+    [resetProgress, updateProgress, handleEvent]
   );
 
   // 处理取消
@@ -181,11 +180,6 @@ export default function DocsTab() {
     // TODO: Implement template selection
   };
 
-  // 获取导出格式显示信息
-  const getExportFormatInfo = () => {
-    return EXPORT_FORMAT_OPTIONS.find((f) => f.id === exportFormat);
-  };
-
   return (
     <div className="flex h-full flex-col overflow-hidden bg-white">
       {/* 头部 */}
@@ -200,107 +194,48 @@ export default function DocsTab() {
               <p className="text-xs text-gray-500">{agentConfig.description}</p>
             </div>
           </div>
-
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className={cn(
-              'rounded-lg p-2 transition-colors',
-              showSettings ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'
-            )}
-          >
-            <Settings className="h-5 w-5" />
-          </button>
         </div>
       </header>
 
+      {/* AI 解析结果提示 */}
+      <AnimatePresence>
+        {parsedIntent && isGenerating && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-2"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-gray-500">AI 理解:</span>
+              {parsedIntent.urls.length > 0 && (
+                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                  📎 {parsedIntent.urls.length} 个链接
+                </span>
+              )}
+              {parsedIntent.documentType && (
+                <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">
+                  📄{' '}
+                  {DOC_TYPE_OPTIONS.find(
+                    (t) => t.id === parsedIntent.documentType
+                  )?.name || parsedIntent.documentType}
+                </span>
+              )}
+              {parsedIntent.detailLevel && (
+                <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                  📊{' '}
+                  {DETAIL_LEVEL_OPTIONS.find(
+                    (l) => l.id === parsedIntent.detailLevel
+                  )?.name || '适中'}
+                </span>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* 主内容区 */}
       <main className="flex-1 overflow-auto px-6 py-6">
-        {/* 设置面板 */}
-        <AnimatePresence>
-          {showSettings && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mb-6 overflow-hidden"
-            >
-              <div className="space-y-4 rounded-xl bg-gray-50 p-4">
-                {/* 文档类型 */}
-                <div>
-                  <h3 className="mb-3 text-sm font-medium">文档类型</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {DOC_TYPE_OPTIONS.map((type) => (
-                      <button
-                        key={type.id}
-                        onClick={() => setDocumentType(type.id)}
-                        className={cn(
-                          'rounded-lg border px-4 py-2 text-left transition-all',
-                          documentType === type.id
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200 hover:border-blue-300'
-                        )}
-                      >
-                        <span className="text-sm font-medium">{type.name}</span>
-                        <p className="text-xs text-gray-500">
-                          {type.description}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 导出格式 */}
-                <div>
-                  <h3 className="mb-3 text-sm font-medium">导出格式</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {EXPORT_FORMAT_OPTIONS.map((format) => (
-                      <button
-                        key={format.id}
-                        onClick={() => setExportFormat(format.id)}
-                        className={cn(
-                          'flex items-center gap-2 rounded-lg border px-4 py-2 transition-all',
-                          exportFormat === format.id
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200 hover:border-blue-300'
-                        )}
-                      >
-                        <span>{format.icon}</span>
-                        <span className="text-sm">{format.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 详细程度 */}
-                <div>
-                  <h3 className="mb-3 text-sm font-medium">详细程度</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {DETAIL_LEVEL_OPTIONS.map((level) => (
-                      <button
-                        key={level.id}
-                        onClick={() => setDetailLevel(level.id)}
-                        className={cn(
-                          'rounded-lg border px-4 py-2 text-left transition-all',
-                          detailLevel === level.id
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200 hover:border-blue-300'
-                        )}
-                      >
-                        <span className="text-sm font-medium">
-                          {level.name}
-                        </span>
-                        <p className="text-xs text-gray-500">
-                          {level.description}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* 模板区域 */}
         {!isGenerating && progress.phase === 'idle' && (
           <div className="mb-8">
@@ -369,7 +304,7 @@ export default function DocsTab() {
                         className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-700"
                       >
                         <Download className="h-4 w-4" />
-                        下载 {getExportFormatInfo()?.name || 'DOCX'}
+                        下载 DOCX
                       </a>
                     ))}
                   </div>
@@ -392,10 +327,13 @@ export default function DocsTab() {
         <div className="mx-auto max-w-3xl">
           <PromptBar
             agentType={AgentType.DOCS}
-            placeholder="描述你想要创建的文档，例如：撰写一份关于人工智能发展趋势的研究报告..."
+            placeholder="直接描述你想要的文档，AI会自动理解。例如：&#10;• 基于 https://example.com 撰写一份详细的研究报告&#10;• 写一篇关于AI发展的简洁文章&#10;• 整理这个链接的内容为会议纪要"
             onSubmit={handleSubmit}
             isProcessing={isGenerating}
           />
+          <p className="mt-2 text-center text-xs text-gray-400">
+            支持直接粘贴URL、指定文档类型、详细程度等，AI会自动理解
+          </p>
         </div>
       </div>
 
