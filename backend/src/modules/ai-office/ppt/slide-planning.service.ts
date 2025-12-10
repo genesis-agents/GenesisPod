@@ -561,30 +561,38 @@ export class SlidePlanningService {
     );
 
     try {
+      // 检测是否为 o1/o3 系列模型（不支持 max_tokens，需要 max_completion_tokens）
+      const isO1O3Model =
+        model.modelId.includes("o1") || model.modelId.includes("o3");
+
+      const requestBody: Record<string, unknown> = {
+        model: model.modelId,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a professional presentation designer. Always respond with valid JSON.",
+          },
+          { role: "user", content: prompt },
+        ],
+      };
+
+      // o1/o3 模型使用 max_completion_tokens，其他使用 max_tokens
+      if (isO1O3Model) {
+        requestBody.max_completion_tokens = 4000;
+      } else {
+        requestBody.temperature = 0.7;
+        requestBody.max_tokens = 4000;
+      }
+
       const response = await firstValueFrom(
-        this.httpService.post(
-          url,
-          {
-            model: model.modelId,
-            messages: [
-              {
-                role: "system",
-                content:
-                  "You are a professional presentation designer. Always respond with valid JSON.",
-              },
-              { role: "user", content: prompt },
-            ],
-            temperature: 0.7,
-            max_tokens: 4000,
+        this.httpService.post(url, requestBody, {
+          headers: {
+            Authorization: `Bearer ${model.apiKey}`,
+            "Content-Type": "application/json",
           },
-          {
-            headers: {
-              Authorization: `Bearer ${model.apiKey}`,
-              "Content-Type": "application/json",
-            },
-            timeout: 90000,
-          },
-        ),
+          timeout: 90000,
+        }),
       );
 
       const text = response.data?.choices?.[0]?.message?.content || "";
