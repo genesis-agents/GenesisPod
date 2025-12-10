@@ -32,11 +32,15 @@ import { FilesInterceptor } from "@nestjs/platform-express";
 import { Response } from "express";
 import { Observable, map, catchError, of } from "rxjs";
 import { PPTOrchestratorService } from "./ppt-orchestrator.service";
+import { SlidePlanningService } from "./slide-planning.service";
+import { ContentExtractorService } from "../../ai-image/content-extractor.service";
 import {
   PPTGenerationInput,
   PPTDocument,
   PPTStreamEvent,
   PPT_THEMES,
+  PPTOutline,
+  SlideSpec,
 } from "./ppt.types";
 
 // ============================================
@@ -70,11 +74,29 @@ class ExportPPTDto {
   quality?: "standard" | "high";
 }
 
+class GenerateOutlineDto {
+  prompt!: string;
+  urls?: string[];
+  slideCount?: number;
+  language?: "zh" | "en" | "auto";
+  targetAudience?: string;
+  presentationStyle?: "formal" | "casual" | "educational" | "persuasive";
+}
+
+class PlanSlidesDto {
+  outline!: PPTOutline;
+  themeId?: string;
+}
+
 @Controller("ai-office/ppt")
 export class PPTGenerationController {
   private readonly logger = new Logger(PPTGenerationController.name);
 
-  constructor(private readonly orchestrator: PPTOrchestratorService) {}
+  constructor(
+    private readonly orchestrator: PPTOrchestratorService,
+    private readonly slidePlanning: SlidePlanningService,
+    private readonly contentExtractor: ContentExtractorService,
+  ) {}
 
   /**
    * 流式生成 PPT (SSE)
@@ -169,20 +191,124 @@ export class PPTGenerationController {
   }
 
   /**
-   * 仅生成大纲
+   * 生成 PPT 大纲
    *
-   * 快速预览 PPT 结构，用于用户确认后再生成
+   * 快速生成 PPT 结构，用户确认后再进行详细规划
+   *
+   * 返回：
+   * - outline: PPTOutline 包含每页的 purpose, title, keyPoints, needsImage, needsChart
+   * - suggestedTheme: 推荐的主题 ID
+   */
+  @Post("outline")
+  async generateOutline(
+    @Body() dto: GenerateOutlineDto,
+  ): Promise<{ outline: PPTOutline; suggestedTheme: string }> {
+    this.logger.log(`[generateOutline] ${dto.prompt?.slice(0, 50)}...`);
+
+    try {
+      // 1. 提取内容（如果有 URL）
+      let content = dto.prompt || "";
+
+      if (dto.urls && dto.urls.length > 0) {
+        this.logger.log(
+          `[generateOutline] Extracting content from ${dto.urls.length} URLs`,
+        );
+        for (const url of dto.urls) {
+          try {
+            const extracted = await this.contentExtractor.extractFromUrl(url);
+            if (extracted) {
+              content += `\n\n--- Content from ${url} ---\n${extracted}`;
+            }
+          } catch (err) {
+            this.logger.warn(
+              `[generateOutline] Failed to extract from ${url}: ${err}`,
+            );
+          }
+        }
+      }
+
+      // 2. 调用规划服务生成大纲
+      const outline = await this.slidePlanning.generateOutline(content, {
+        slideCount: dto.slideCount,
+        language: dto.language,
+        targetAudience: dto.targetAudience,
+        presentationStyle: dto.presentationStyle,
+      });
+
+      this.logger.log(
+        `[generateOutline] Generated outline with ${outline.slides.length} slides`,
+      );
+
+      return {
+        outline,
+        suggestedTheme: outline.suggestedTheme || "professional",
+      };
+    } catch (error: any) {
+      this.logger.error("[generateOutline] Error:", error);
+      throw new HttpException(
+        error.message || "Outline generation failed",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * 为大纲生成详细规格
+   *
+   * 输入已确认的大纲，为每一页生成详细的设计规格：
+   * - 布局类型 + 布局理由
+   * - 背景决策（纯色/渐变/AI生成）
+   * - 图像规格（prompt、位置、风格）
+   * - 图表规格（如需要）
+   */
+  @Post("plan-slides")
+  async planSlides(
+    @Body() dto: PlanSlidesDto,
+  ): Promise<{ slideSpecs: SlideSpec[] }> {
+    this.logger.log(
+      `[planSlides] Planning ${dto.outline.slides.length} slides with theme: ${dto.themeId}`,
+    );
+
+    try {
+      // 获取主题
+      const theme =
+        PPT_THEMES[dto.themeId || "professional"] || PPT_THEMES.professional;
+
+      // 调用规划服务生成详细规格
+      const slideSpecs = await this.slidePlanning.planAllSlides(
+        dto.outline,
+        theme,
+      );
+
+      this.logger.log(
+        `[planSlides] Generated specs for ${slideSpecs.length} slides`,
+      );
+
+      return { slideSpecs };
+    } catch (error: any) {
+      this.logger.error("[planSlides] Error:", error);
+      throw new HttpException(
+        error.message || "Slide planning failed",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * @deprecated 使用 POST /outline 代替
    */
   @Post("generate/outline")
   async generateOutlineOnly(
     @Body() dto: GeneratePPTDto,
-  ): Promise<{ outline: any; suggestedTheme: string }> {
-    this.logger.log(`[generateOutlineOnly] ${dto.prompt?.slice(0, 50)}...`);
-
-    // TODO: 实现仅大纲生成
-    // 这需要在 orchestrator 中添加 generateOutlineOnly 方法
-
-    throw new HttpException("Not implemented", HttpStatus.NOT_IMPLEMENTED);
+  ): Promise<{ outline: PPTOutline; suggestedTheme: string }> {
+    return this.generateOutline({
+      prompt: dto.prompt || "",
+      urls: dto.urls,
+      slideCount: dto.slideCount,
+      language: dto.language,
+      targetAudience: dto.targetAudience,
+      presentationStyle: dto.presentationStyle,
+    });
   }
 
   /**

@@ -238,6 +238,15 @@ export interface SlideOutlineItem {
   keyPoints: string[];
   needsImage: boolean;
   needsChart: boolean;
+  // 新增：专业设计师视角的字段
+  visualIntent?: string; // 视觉设计意图
+  imageHint?: string; // 图像类型提示（如 'abstract tech pattern', 'team collaboration photo'）
+  emphasis?: "high" | "medium" | "low"; // 视觉强调程度（用于确定是否为"hero"幻灯片）
+}
+
+// 扩展的大纲信息（AI返回的完整结构）
+export interface PPTOutlineExtended extends PPTOutline {
+  narrativeArc?: string; // 叙事弧线描述
 }
 
 // ============================================

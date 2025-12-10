@@ -67,11 +67,48 @@ interface Resource {
 
 type GenerationStep = 'idle' | 'outline' | 'layout' | 'content' | 'complete';
 
+// 幻灯片目的类型（与后端一致）
+type SlidePurpose =
+  | 'title'
+  | 'agenda'
+  | 'section_header'
+  | 'content'
+  | 'comparison'
+  | 'timeline'
+  | 'statistics'
+  | 'quote'
+  | 'team'
+  | 'image_focus'
+  | 'chart'
+  | 'closing'
+  | 'qna';
+
+// 大纲项（与后端 SlideOutlineItem 对齐）
 interface OutlineItem {
   slideNumber: number;
+  index?: number; // 后端返回的索引
+  purpose?: SlidePurpose;
   title: string;
   points: string[];
+  keyPoints?: string[]; // 后端返回的字段
   layoutSuggestion?: string;
+  // 专业设计师视角的新字段
+  visualIntent?: string;
+  imageHint?: string;
+  needsImage?: boolean;
+  needsChart?: boolean;
+  emphasis?: 'high' | 'medium' | 'low';
+}
+
+// PPT 大纲（与后端 PPTOutline 对齐）
+interface PPTOutlineData {
+  title: string;
+  subtitle?: string;
+  estimatedDuration?: number;
+  targetAudience?: string;
+  suggestedTheme?: string;
+  narrativeArc?: string;
+  slides: OutlineItem[];
 }
 
 interface LayoutConfig {
@@ -184,7 +221,31 @@ function StepIndicator({ currentStep }: { currentStep: GenerationStep }) {
   );
 }
 
-// 大纲编辑器
+// 目的类型到中文名称的映射
+const PURPOSE_LABELS: Record<SlidePurpose, string> = {
+  title: '标题页',
+  agenda: '议程',
+  section_header: '章节',
+  content: '内容',
+  comparison: '对比',
+  timeline: '时间线',
+  statistics: '数据',
+  quote: '引用',
+  team: '团队',
+  image_focus: '图片',
+  chart: '图表',
+  closing: '结束',
+  qna: '问答',
+};
+
+// 强调程度徽章样式
+const EMPHASIS_STYLES = {
+  high: 'bg-amber-100 text-amber-700 border-amber-300',
+  medium: 'bg-blue-50 text-blue-600 border-blue-200',
+  low: 'bg-gray-50 text-gray-500 border-gray-200',
+};
+
+// 大纲编辑器 - 增强版，显示专业设计规格
 function OutlineEditor({
   outline,
   onUpdate,
@@ -234,10 +295,23 @@ function OutlineEditor({
             {outline.map((item, index) => (
               <div
                 key={index}
-                className="rounded-lg border border-gray-200 bg-white p-4 transition-all hover:shadow-sm"
+                className={cn(
+                  'rounded-lg border bg-white p-4 transition-all hover:shadow-sm',
+                  item.emphasis === 'high'
+                    ? 'border-amber-300 ring-1 ring-amber-200'
+                    : 'border-gray-200'
+                )}
               >
+                {/* 头部：页码 + 标题 + 徽章 */}
                 <div className="mb-2 flex items-center gap-2">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
+                  <span
+                    className={cn(
+                      'flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold',
+                      item.emphasis === 'high'
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-blue-100 text-blue-700'
+                    )}
+                  >
                     {item.slideNumber}
                   </span>
                   <input
@@ -251,7 +325,41 @@ function OutlineEditor({
                     className="flex-1 border-none bg-transparent font-medium text-gray-900 focus:outline-none focus:ring-0"
                     placeholder="幻灯片标题"
                   />
+                  {/* 徽章区域 */}
+                  <div className="flex items-center gap-1.5">
+                    {item.purpose && (
+                      <span className="rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-xs text-purple-600">
+                        {PURPOSE_LABELS[item.purpose] || item.purpose}
+                      </span>
+                    )}
+                    {item.emphasis && (
+                      <span
+                        className={cn(
+                          'rounded-full border px-2 py-0.5 text-xs',
+                          EMPHASIS_STYLES[item.emphasis]
+                        )}
+                      >
+                        {item.emphasis === 'high'
+                          ? 'Hero'
+                          : item.emphasis === 'medium'
+                            ? '重点'
+                            : '辅助'}
+                      </span>
+                    )}
+                    {item.needsImage && (
+                      <span className="rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-xs text-green-600">
+                        图片
+                      </span>
+                    )}
+                    {item.needsChart && (
+                      <span className="rounded-full border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-xs text-cyan-600">
+                        图表
+                      </span>
+                    )}
+                  </div>
                 </div>
+
+                {/* 要点列表 */}
                 <ul className="ml-8 space-y-1">
                   {item.points.map((point, pointIndex) => (
                     <li key={pointIndex} className="flex items-start gap-2">
@@ -280,6 +388,42 @@ function OutlineEditor({
                     + 添加要点
                   </button>
                 </ul>
+
+                {/* 设计意图和图片提示（可折叠） */}
+                {(item.visualIntent || item.imageHint) && (
+                  <div className="mt-3 border-t border-gray-100 pt-3">
+                    <details className="group">
+                      <summary className="cursor-pointer text-xs font-medium text-gray-500 hover:text-gray-700">
+                        <span className="inline-flex items-center gap-1">
+                          <Eye className="h-3 w-3" />
+                          查看设计规格
+                        </span>
+                      </summary>
+                      <div className="mt-2 space-y-2 rounded-md bg-gray-50 p-2 text-xs">
+                        {item.visualIntent && (
+                          <div>
+                            <span className="font-medium text-gray-600">
+                              视觉意图：
+                            </span>
+                            <span className="text-gray-500">
+                              {item.visualIntent}
+                            </span>
+                          </div>
+                        )}
+                        {item.imageHint && (
+                          <div>
+                            <span className="font-medium text-gray-600">
+                              图片建议：
+                            </span>
+                            <span className="text-gray-500">
+                              {item.imageHint}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </details>
+                  </div>
+                )}
               </div>
             ))}
             <button
@@ -289,6 +433,7 @@ function OutlineEditor({
                   slideNumber: outline.length + 1,
                   title: '',
                   points: [''],
+                  purpose: 'content',
                 });
                 onUpdate(newOutline);
               }}
@@ -637,40 +782,21 @@ export default function SlidesTab() {
         ]);
       }
 
-      const selectedResources = resources.filter((r) =>
-        selectedResourceIds.includes(r._id)
-      );
-
       // 使用解析后的参数
-      const visualStyle = intentData.visualStyle || 'default';
-      const styleName = intentData.visualStyleName || '默认';
       const slideCount = intentData.pageCount || 8;
       const urls = intentData.urls || [];
 
-      // 构建包含URL和设置的提示
-      let prompt = `请为以下主题生成一份PPT大纲，输出JSON格式：\n主题：${userInput}`;
-
-      if (urls.length > 0) {
-        prompt += `\n\n参考资料URL（请从这些链接提取关键信息）：\n${urls.join('\n')}`;
-      }
-
-      prompt += `\n\n要求：
-1. 严格生成 ${slideCount} 页的PPT大纲
-2. 每页包含标题和3-5个要点
-3. 包含封面页和总结页
-4. 视觉风格：${styleName}
-5. 输出格式为JSON数组，每项包含 slideNumber, title, points
-
-只输出JSON，不要其他文字。`;
-
-      const response = await fetch('/api/ai-office/chat', {
+      // 调用新的专业 PPT 大纲 API
+      const response = await fetch('/api/ai-office/ppt/outline', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: prompt,
-          resources: selectedResources,
-          urls: urls,
-          stream: false,
+          prompt: userInput,
+          urls: urls.length > 0 ? urls : undefined,
+          slideCount: slideCount,
+          language: 'zh',
+          targetAudience: intentData.visualStyleName || undefined,
+          presentationStyle: 'formal',
         }),
       });
 
@@ -683,57 +809,49 @@ export default function SlidesTab() {
         throw new Error(data.error);
       }
 
-      try {
-        const outlineData = JSON.parse(data.content || data.message || '[]');
-        setOutline(outlineData);
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: (Date.now() + 1).toString(),
-            role: 'assistant',
-            content: `已生成 ${outlineData.length} 页的PPT大纲，请在右侧查看和编辑。`,
-            timestamp: new Date(),
-          },
-        ]);
-      } catch {
-        const defaultOutline: OutlineItem[] = [
-          {
-            slideNumber: 1,
-            title: userInput,
-            points: ['核心观点', '价值主张'],
-          },
-          {
-            slideNumber: 2,
-            title: '背景介绍',
-            points: ['行业现状', '发展趋势', '市场机会'],
-          },
-          {
-            slideNumber: 3,
-            title: '核心内容',
-            points: ['要点一', '要点二', '要点三'],
-          },
-          {
-            slideNumber: 4,
-            title: '详细分析',
-            points: ['数据支撑', '案例说明', '深入解读'],
-          },
-          {
-            slideNumber: 5,
-            title: '总结展望',
-            points: ['核心结论', '行动建议', '未来展望'],
-          },
-        ];
-        setOutline(defaultOutline);
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: (Date.now() + 1).toString(),
-            role: 'assistant',
-            content: '已生成基础大纲，请在右侧编辑调整。',
-            timestamp: new Date(),
-          },
-        ]);
-      }
+      // 解析后端返回的专业大纲
+      const pptOutline: PPTOutlineData = data.outline;
+      const suggestedTheme = data.suggestedTheme || 'professional';
+
+      // 转换为前端 OutlineItem 格式
+      const outlineData: OutlineItem[] = pptOutline.slides.map(
+        (slide, index) => ({
+          slideNumber: index + 1,
+          index: slide.index,
+          purpose: slide.purpose,
+          title: slide.title,
+          points: slide.keyPoints || slide.points || [],
+          keyPoints: slide.keyPoints,
+          visualIntent: slide.visualIntent,
+          imageHint: slide.imageHint,
+          needsImage: slide.needsImage,
+          needsChart: slide.needsChart,
+          emphasis: slide.emphasis,
+        })
+      );
+
+      setOutline(outlineData);
+      setSelectedTheme(suggestedTheme);
+
+      // 构建详细的大纲预览消息
+      const outlineSummary = outlineData
+        .map((item) => {
+          const emphasisBadge = item.emphasis === 'high' ? ' [Hero]' : '';
+          const imageBadge = item.needsImage ? ' [Image]' : '';
+          const chartBadge = item.needsChart ? ' [Chart]' : '';
+          return `${item.slideNumber}. ${item.title}${emphasisBadge}${imageBadge}${chartBadge}`;
+        })
+        .join('\n');
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: `已生成专业 PPT 大纲（${outlineData.length} 页）：\n\n${outlineSummary}\n\n推荐主题: ${suggestedTheme}\n${pptOutline.narrativeArc ? `叙事弧线: ${pptOutline.narrativeArc}` : ''}\n\n请在右侧查看和编辑。`,
+          timestamp: new Date(),
+        },
+      ]);
     } catch (error) {
       console.error('Generate outline error:', error);
       setMessages((prev) => [

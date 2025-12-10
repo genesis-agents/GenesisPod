@@ -28,134 +28,227 @@ import {
 import { randomUUID } from "crypto";
 
 // ============================================
-// 大纲生成提示词
+// 大纲生成提示词 - 专业PPT设计师视角
 // ============================================
 
-const OUTLINE_GENERATION_PROMPT = `You are an expert presentation designer. Based on the provided content, generate a PPT outline.
+const OUTLINE_GENERATION_PROMPT = `You are a world-class presentation designer with 20+ years of experience creating keynotes for Fortune 500 companies, TED talks, and product launches. Your presentations have won multiple design awards.
+
+## Your Design Philosophy
+1. **Visual Storytelling**: Every slide should tell a story, not just display information
+2. **One Idea Per Slide**: Avoid cognitive overload - each slide has ONE clear message
+3. **Visual Hierarchy**: Guide the eye with deliberate layout and emphasis
+4. **Breathing Room**: Embrace white space - it's not empty, it's powerful
+5. **Emotional Connection**: Design for impact, not just information transfer
 
 ## Input Content
 {content}
 
-## Requirements
-1. Analyze the core theme and key information
-2. Plan a reasonable number of slides (usually 8-15 pages)
-3. Determine the purpose and main content for each page
-4. Ensure logical flow and clear structure
+## Your Task
+Analyze this content as a master storyteller and create a presentation outline that will CAPTIVATE the audience.
 
-## Slide Purpose Types
-- title: Title slide (always first)
-- agenda: Agenda/Table of contents
-- section_header: Section divider
-- content: Regular content
-- comparison: Comparison (exactly 2 items)
-- timeline: Timeline/Process
-- statistics: Data/Statistics heavy
-- quote: Quote/Highlight
-- image_focus: Image-centric slide
-- chart: Chart/Graph focused
-- closing: Closing slide
-- qna: Q&A slide
+## Design Thinking Process
+1. **Hook**: Start with something that grabs attention (surprising stat, provocative question, powerful image)
+2. **Flow**: Create a narrative arc - setup, conflict/challenge, resolution, call-to-action
+3. **Rhythm**: Vary slide types to maintain engagement (text → image → data → quote → image)
+4. **Emphasis**: Identify 2-3 "hero" slides that deserve extra visual impact
+
+## Slide Purpose Types (Choose Strategically)
+- title: Opening slide - make it memorable! Consider bold imagery or provocative statement
+- agenda: Roadmap - keep it simple, 3-5 items max
+- section_header: Visual break - opportunity for impactful image/quote
+- content: Core information - but think visually! Icons, diagrams, illustrations
+- comparison: Side-by-side (EXACTLY 2 items) - great for before/after, us/them
+- timeline: Process/journey - horizontal feels like progress, vertical feels like depth
+- statistics: Data that matters - highlight ONE key number, support with 2-3 others
+- quote: Powerful words - needs dramatic visual treatment
+- image_focus: Let the image speak - minimal text overlay
+- chart: Data visualization - choose chart type wisely (bar for comparison, line for trends, pie for parts)
+- team: People/credits - humanize with photos
+- closing: End strong! - clear call-to-action or memorable takeaway
+- qna: Q&A invitation - make it inviting, not just "Questions?"
+
+## Visual Strategy for Each Slide
+For EACH slide, consider:
+- **Layout Intent**: Why this arrangement? (e.g., image-left creates reading flow)
+- **Image Needs**: Does this slide need a photo, illustration, icon, or nothing?
+- **Data Visualization**: Numbers → consider chart/infographic
+- **Color Emphasis**: Which element should pop?
 
 ## Output Format (JSON)
 {
-  "title": "Presentation Title",
-  "subtitle": "Subtitle (optional)",
+  "title": "Compelling Presentation Title",
+  "subtitle": "Subtitle that adds context or intrigue (optional)",
   "estimatedDuration": 15,
-  "targetAudience": "Target audience description",
+  "targetAudience": "Specific audience description",
   "suggestedTheme": "professional|modern|minimal|creative|genspark",
+  "narrativeArc": "Brief description of the story flow",
   "slides": [
     {
       "index": 0,
       "purpose": "title",
-      "title": "Slide title",
-      "keyPoints": ["Key point 1", "Key point 2"],
+      "title": "Slide headline (action-oriented, benefit-focused)",
+      "keyPoints": ["Supporting point 1", "Supporting point 2"],
+      "visualIntent": "Brief description of visual approach for this slide",
       "needsImage": true,
-      "needsChart": false
+      "imageHint": "Type of image that would work (e.g., 'abstract tech pattern', 'team collaboration photo')",
+      "needsChart": false,
+      "emphasis": "high|medium|low"
     }
   ]
 }
 
-IMPORTANT:
-- First slide should always be "title" purpose
-- Last slide should be "closing" or "qna"
-- Use "section_header" to divide major sections
-- "comparison" should only be used for exactly 2 items
-- "statistics" for data-heavy content
-- Provide 2-4 keyPoints per slide
+## Professional Guidelines
+1. **Title slide**: Set the tone. Bold statement + striking visual OR clean minimal + powerful title
+2. **Content density**: Max 6 bullets per slide, max 8 words per bullet
+3. **Section breaks**: Use section_header every 3-4 content slides for visual breathing room
+4. **Data slides**: Lead with the insight, not the data. "Sales grew 40%" not "Sales Data"
+5. **Closing**: Never end with "Thank You" alone - add a call-to-action or memorable quote
+6. **Slide count**: Quality over quantity. 8-12 slides for 15 min, 15-20 for 30 min
+
+## CRITICAL RULES
+- First slide MUST be "title" purpose
+- Last slide MUST be "closing" or "qna"
+- "comparison" ONLY for exactly 2 items being compared
+- Each keyPoint should be actionable or insightful, not generic
 - Output valid JSON only, no markdown code blocks`;
 
 // ============================================
-// 单页规划提示词
+// 单页规划提示词 - 专业视觉设计师视角
 // ============================================
 
-const SLIDE_PLANNING_PROMPT = `You are a presentation design expert. Plan the layout and visual style for this slide.
+const SLIDE_PLANNING_PROMPT = `You are a senior visual designer at a top design agency (like Pentagram or IDEO). You're designing a slide that will be part of a high-stakes presentation.
 
-## Slide Information
-- Index: {index}
-- Purpose: {purpose}
-- Title: {title}
-- Key Points: {keyPoints}
-- Theme Style: {themeStyle}
-- Previous Slides Context: {context}
+## Your Design Expertise
+- 15+ years creating presentations for Apple, Google, Nike-level brands
+- Expert in visual hierarchy, color theory, and typography
+- Known for creating slides that are both beautiful AND effective
+- Motto: "Every pixel has a purpose"
 
-## Layout Options
-- title_center: Centered title (for title/closing slides)
-- title_subtitle: Title with subtitle
-- text_only: Text-only content
-- text_image_left: Image left, text right
-- text_image_right: Text left, image right
-- image_full: Full-screen image with text overlay
-- image_top: Image top, text bottom
-- two_columns: Two-column layout
-- three_columns: Three-column layout
-- cards_grid: Card grid layout
-- bullet_points: Bullet point list
-- numbered_list: Numbered list
-- comparison_split: Split comparison (2 items)
-- timeline_horizontal: Horizontal timeline
-- timeline_vertical: Vertical timeline
-- statistics_cards: Statistics cards layout
-- chart_with_text: Chart with explanatory text
-- quote_highlight: Quote highlight layout
-- team_grid: Team member grid
+## Current Slide Brief
+- Slide Number: {index}
+- Slide Purpose: {purpose}
+- Headline: {title}
+- Content Points: {keyPoints}
+- Brand Style: {themeStyle}
+- Context (Previous Slides): {context}
 
-## Background Types
-- solid: Solid color (for text-heavy, formal slides)
-- gradient: Gradient (for visual appeal without AI)
-- ai_generated: AI-generated background (for visual impact slides)
+## Your Design Task
+Create a detailed visual specification for this slide that balances aesthetics with communication effectiveness.
 
-## Decision Guidelines
-1. Title/closing slides → ai_generated background for visual impact
-2. Data/statistics heavy → solid/gradient for readability
-3. Quote slides → ai_generated with subtle background
-4. Content slides → gradient or ai_generated based on complexity
-5. Comparison → solid for clarity
+## Layout Selection Guide (Choose ONE)
+| Layout | Best For | Visual Impact |
+|--------|----------|---------------|
+| title_center | Opening/closing, bold statements | High - commands attention |
+| title_subtitle | Section headers, branded intros | Medium - professional |
+| text_only | Quotes, simple messages | Low-Medium - content focused |
+| text_image_left | Reading flow (eye goes left→right) | High - balanced |
+| text_image_right | Emphasis on text first | High - text priority |
+| image_full | Hero moments, emotional impact | Very High - immersive |
+| image_top | Data/text needs bottom space | Medium - structured |
+| two_columns | Comparisons, dual concepts | Medium - organized |
+| three_columns | Features, team members, steps | Medium - grid feel |
+| cards_grid | Multiple items, features | Medium - scannable |
+| bullet_points | Lists, agendas | Low - functional |
+| numbered_list | Steps, rankings, processes | Low - sequential |
+| comparison_split | Before/after, A vs B | High - contrast |
+| timeline_horizontal | Progress, history, roadmap | Medium - narrative |
+| timeline_vertical | Depth, detailed process | Medium - detailed |
+| statistics_cards | Key metrics, KPIs | High - data viz |
+| chart_with_text | Data stories, insights | Medium-High - analytical |
+| quote_highlight | Testimonials, key quotes | High - emotional |
+| team_grid | People, credits | Medium - personal |
 
-## Output Format (JSON)
+## Background Strategy
+**SOLID** - When to use:
+- Data-heavy slides (charts, statistics)
+- Text-heavy content
+- When images are the focus
+- Clean, corporate feel
+
+**GRADIENT** - When to use:
+- Modern, tech aesthetic
+- Subtle visual interest without distraction
+- Transitional slides
+- When solid feels too flat
+
+**AI_GENERATED** - When to use:
+- Title/closing slides (hero moments)
+- Section headers (visual breaks)
+- Quote slides (atmospheric)
+- Image-focus slides
+- When you want WOW factor
+
+## Color Psychology (for backgrounds)
+- Blues: Trust, professionalism, calm
+- Greens: Growth, health, sustainability
+- Purples: Innovation, luxury, creativity
+- Oranges: Energy, enthusiasm, warmth
+- Dark/Black: Sophistication, drama, premium
+- Light/White: Clean, modern, spacious
+
+## Image Prompt Engineering
+When specifying images, be SPECIFIC:
+- Subject: What exactly should be in the image?
+- Style: Photo? Illustration? 3D render? Abstract?
+- Mood: Energetic? Calm? Professional? Playful?
+- Color tone: Should it match brand colors?
+- Composition: Close-up? Wide shot? Centered? Rule of thirds?
+
+Bad: "business image"
+Good: "Professional photo of diverse team collaborating around modern whiteboard, bright natural lighting, slight depth of field blur, warm color tones, shot from slight angle"
+
+## Output Specification (JSON)
 {
-  "layoutType": "selected_layout",
-  "layoutReasoning": "Why this layout fits",
+  "layoutType": "selected_layout_from_table",
+  "layoutReasoning": "Why this layout serves the content and audience best",
+
   "backgroundType": "solid|gradient|ai_generated",
-  "backgroundReasoning": "Why this background type",
+  "backgroundReasoning": "Design rationale for this background choice",
   "backgroundConfig": {
     "colors": {
-      "primary": "#hex",
-      "secondary": "#hex (for gradient)"
+      "primary": "#hexcolor",
+      "secondary": "#hexcolor (for gradients)",
+      "direction": "horizontal|vertical|diagonal|radial"
     },
-    "aiPrompt": "Background image prompt (if ai_generated)"
+    "aiPrompt": "Detailed background generation prompt (only if ai_generated)"
   },
+
   "needsImage": true,
   "imageSpec": {
-    "prompt": "Detailed image generation prompt in English",
-    "position": "background|left|right|center",
-    "style": "professional|creative|minimal|tech",
-    "aspectRatio": "16:9"
+    "prompt": "Detailed, specific image generation prompt in English - include subject, style, mood, colors, composition",
+    "position": "background|left|right|top|bottom|center",
+    "style": "photo|illustration|3d|abstract|icon",
+    "aspectRatio": "16:9|4:3|1:1|custom",
+    "colorTone": "warm|cool|neutral|brand-matched",
+    "importance": "hero|supporting|decorative"
   },
+
   "needsChart": false,
-  "chartSpec": null
+  "chartSpec": {
+    "type": "bar|line|pie|donut|area|scatter",
+    "title": "Chart title",
+    "dataDescription": "What data this chart should visualize",
+    "colorScheme": "brand|sequential|diverging",
+    "emphasis": "Which data point to highlight"
+  },
+
+  "typography": {
+    "headlineStyle": "bold|light|italic",
+    "textAlignment": "left|center|right",
+    "emphasis": "Which words should be highlighted"
+  },
+
+  "designNotes": "Any additional design considerations or warnings"
 }
 
-Output valid JSON only.`;
+## Professional Standards
+1. **Contrast**: Ensure text is readable against background (WCAG AA minimum)
+2. **Consistency**: Layout should feel cohesive with presentation style
+3. **Hierarchy**: One element should dominate, others support
+4. **Balance**: Visual weight should feel stable
+5. **Purpose**: Every element must serve communication goal
+
+Output valid JSON only, no markdown code blocks.`;
 
 @Injectable()
 export class SlidePlanningService {
@@ -489,6 +582,10 @@ export class SlidePlanningService {
           keyPoints: Array.isArray(slide.keyPoints) ? slide.keyPoints : [],
           needsImage: slide.needsImage ?? true,
           needsChart: slide.needsChart ?? false,
+          // 新增：专业设计师视角的字段
+          visualIntent: slide.visualIntent,
+          imageHint: slide.imageHint,
+          emphasis: this.validateEmphasis(slide.emphasis),
         }));
       }
 
@@ -784,14 +881,29 @@ export class SlidePlanningService {
     if (layoutType === "image_top") position = "top";
     if (layoutType === "image_bottom") position = "bottom";
 
-    // 生成提示词
-    const keywords = outlineItem.keyPoints.slice(0, 3).join(", ");
-    const prompt = `Professional illustration for: ${outlineItem.title}. Related concepts: ${keywords}. Style: modern, clean, professional.`;
+    // 生成提示词 - 优先使用 AI 生成的 imageHint
+    let prompt: string;
+    if (outlineItem.imageHint) {
+      // 使用 AI 提供的更专业的图像提示
+      prompt = `${outlineItem.imageHint}. Context: ${outlineItem.title}. Style: professional, high-quality, modern design.`;
+    } else {
+      // 回退到基本提示词
+      const keywords = outlineItem.keyPoints.slice(0, 3).join(", ");
+      prompt = `Professional illustration for: ${outlineItem.title}. Related concepts: ${keywords}. Style: modern, clean, professional.`;
+    }
+
+    // 根据 emphasis 调整风格
+    const style =
+      outlineItem.emphasis === "high"
+        ? "hero"
+        : outlineItem.emphasis === "low"
+          ? "minimal"
+          : "professional";
 
     return {
       prompt,
       position,
-      style: "professional",
+      style,
       aspectRatio: "16:9",
     };
   }
@@ -908,5 +1020,21 @@ export class SlidePlanningService {
     }
 
     return "gradient";
+  }
+
+  /**
+   * 验证强调程度
+   */
+  private validateEmphasis(
+    emphasis: string | undefined,
+  ): "high" | "medium" | "low" | undefined {
+    if (!emphasis) return undefined;
+
+    const validEmphasis = ["high", "medium", "low"];
+    if (validEmphasis.includes(emphasis)) {
+      return emphasis as "high" | "medium" | "low";
+    }
+
+    return "medium";
   }
 }
