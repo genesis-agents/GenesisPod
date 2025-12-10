@@ -2799,8 +2799,10 @@ function HomeContent() {
 
                   {/* 右侧：视图切换 + 操作按钮 */}
                   <div className="flex items-center gap-2">
-                    {/* View Mode Toggle - 简洁的 Segmented Control */}
+                    {/* View Mode Toggle - 简洁的 Segmented Control (不显示在PDF和YouTube上) */}
                     {selectedResource.type !== 'PAPER' &&
+                      selectedResource.type !== 'YOUTUBE' &&
+                      selectedResource.type !== 'YOUTUBE_VIDEO' &&
                       selectedResource.sourceUrl && (
                         <div className="flex h-8 items-center rounded-md border border-gray-200 bg-gray-50 p-0.5">
                           <button
@@ -3099,6 +3101,48 @@ function HomeContent() {
                     title={selectedResource.title}
                     className="h-full w-full"
                   />
+                ) : selectedResource.type === 'YOUTUBE' ||
+                  selectedResource.type === 'YOUTUBE_VIDEO' ? (
+                  // YouTube 视频播放器
+                  (() => {
+                    const videoId = extractYouTubeVideoId(
+                      selectedResource.sourceUrl
+                    );
+                    return videoId ? (
+                      <div className="flex h-full w-full flex-col bg-black">
+                        <iframe
+                          src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`}
+                          title={selectedResource.title}
+                          className="h-full w-full"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-gray-900">
+                        <div className="text-center text-white">
+                          <svg
+                            className="mx-auto h-16 w-16 text-red-500"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
+                          </svg>
+                          <p className="mt-4 text-lg font-medium">
+                            无法加载视频
+                          </p>
+                          <a
+                            href={selectedResource.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-2 inline-block text-blue-400 hover:underline"
+                          >
+                            在 YouTube 上观看
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  })()
                 ) : selectedResource.sourceUrl ? (
                   htmlViewMode === 'reader' ? (
                     <ReaderView
