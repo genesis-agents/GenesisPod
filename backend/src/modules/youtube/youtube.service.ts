@@ -546,6 +546,12 @@ export class YoutubeService {
           this.logger.debug(
             `Fallback service returned XML instead of JSON for ${videoId} (lang: ${lang}), trying XML parse`,
           );
+
+          // Log first 500 chars of XML for debugging
+          this.logger.debug(
+            `XML content preview: ${text.slice(0, 500).replace(/\n/g, "\\n")}`,
+          );
+
           // Try to parse as transcript XML
           const xmlSegments = this.parseTranscriptXml(text);
           if (xmlSegments.length > 0) {
@@ -747,6 +753,17 @@ export class YoutubeService {
   private parseTranscriptXml(xml: string): TranscriptSegment[] {
     const segments: TranscriptSegment[] = [];
 
+    // Check if this is an error page or HTML (not a transcript)
+    if (
+      xml.includes("<!DOCTYPE html") ||
+      xml.includes("<html") ||
+      xml.includes("<error>") ||
+      xml.includes("We're sorry")
+    ) {
+      this.logger.debug("XML appears to be an error page or HTML, skipping");
+      return segments;
+    }
+
     // Try multiple regex patterns to handle different XML formats
     const patterns = [
       // Standard format: <text start="..." dur="...">content</text>
@@ -755,8 +772,6 @@ export class YoutubeService {
       /<text\s+dur="([^"]+)"\s+start="([^"]+)"[^>]*>([^<]*)<\/text>/g,
       // Format with CDATA or nested content
       /<text\s+start="([^"]+)"\s+dur="([^"]+)"[^>]*>([\s\S]*?)<\/text>/g,
-      // Transcript format from youtubetranscript.com
-      /<transcript>[\s\S]*?<text\s+start="([^"]+)"\s+dur="([^"]+)"[^>]*>([\s\S]*?)<\/text>/g,
     ];
 
     for (const regex of patterns) {
@@ -810,7 +825,7 @@ export class YoutubeService {
     if (segments.length === 0) {
       this.logger.debug(`Standard patterns failed, trying lenient parsing`);
 
-      // Try to extract any text with start/dur attributes
+      // Try to extract any text with start/dur attributes (more flexible order)
       const lenientRegex =
         /<text[^>]*start=["']?([0-9.]+)["']?[^>]*dur=["']?([0-9.]+)["']?[^>]*>([\s\S]*?)<\/text>/gi;
       let match;
@@ -818,6 +833,34 @@ export class YoutubeService {
       while ((match = lenientRegex.exec(xml)) !== null) {
         const start = parseFloat(match[1]);
         const duration = parseFloat(match[2]);
+        const text = match[3]
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .replace(/<[^>]+>/g, "")
+          .replace(/\n/g, " ")
+          .trim();
+
+        if (text && !isNaN(start) && !isNaN(duration)) {
+          segments.push({ text, start, duration });
+        }
+      }
+    }
+
+    // If still no segments, try reversed attribute order pattern
+    if (segments.length === 0) {
+      this.logger.debug(`Trying reversed attribute order pattern`);
+
+      // Pattern where dur comes before start
+      const reversedRegex =
+        /<text[^>]*dur=["']?([0-9.]+)["']?[^>]*start=["']?([0-9.]+)["']?[^>]*>([\s\S]*?)<\/text>/gi;
+      let match;
+
+      while ((match = reversedRegex.exec(xml)) !== null) {
+        const duration = parseFloat(match[1]);
+        const start = parseFloat(match[2]);
         const text = match[3]
           .replace(/&amp;/g, "&")
           .replace(/&lt;/g, "<")
