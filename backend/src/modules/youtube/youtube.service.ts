@@ -438,16 +438,28 @@ export class YoutubeService {
     try {
       const { YoutubeTranscript } = await import("youtube-transcript");
 
-      // Build language list with preferred language first
+      // Build comprehensive language list - include all common variants
+      // zh-Hans is commonly used for Simplified Chinese on YouTube
       let languages: string[];
       if (preferredLang.startsWith("zh")) {
-        languages = ["zh-Hans", "zh-Hant", "zh", "en", "ja", "ko"];
+        languages = [
+          "zh-Hans",
+          "zh-Hant",
+          "zh-CN",
+          "zh-TW",
+          "zh",
+          "en",
+          "ja",
+          "ko",
+        ];
       } else {
         languages = [
           preferredLang,
           "en",
-          "zh-Hans",
-          "zh-Hant",
+          "zh-Hans", // Simplified Chinese - most common
+          "zh-Hant", // Traditional Chinese
+          "zh-CN",
+          "zh-TW",
           "zh",
           "ja",
           "ko",
@@ -500,11 +512,31 @@ export class YoutubeService {
     title: string | null;
   } | null> {
     // Try multiple language codes with preferred language first
+    // Include zh-Hans which is commonly used by YouTube for Simplified Chinese
     let languages: string[];
     if (preferredLang.startsWith("zh")) {
-      languages = ["zh", "zh-CN", "zh-TW", "en", "ja", "ko"];
+      languages = [
+        "zh-Hans",
+        "zh-Hant",
+        "zh",
+        "zh-CN",
+        "zh-TW",
+        "en",
+        "ja",
+        "ko",
+      ];
     } else {
-      languages = [preferredLang, "en", "zh", "zh-CN", "zh-TW", "ja", "ko"];
+      languages = [
+        preferredLang,
+        "en",
+        "zh-Hans", // Add zh-Hans as it's commonly used
+        "zh-Hant",
+        "zh",
+        "zh-CN",
+        "zh-TW",
+        "ja",
+        "ko",
+      ];
     }
 
     for (const lang of languages) {
@@ -716,33 +748,99 @@ export class YoutubeService {
 
   /**
    * Parse YouTube transcript XML format
+   * Supports multiple XML formats from different YouTube APIs
    */
   private parseTranscriptXml(xml: string): TranscriptSegment[] {
     const segments: TranscriptSegment[] = [];
 
-    // Match <text start="..." dur="...">content</text> patterns
-    const textRegex =
-      /<text\s+start="([^"]+)"\s+dur="([^"]+)"[^>]*>([^<]*)<\/text>/g;
-    let match;
+    // Try multiple regex patterns to handle different XML formats
+    const patterns = [
+      // Standard format: <text start="..." dur="...">content</text>
+      /<text\s+start="([^"]+)"\s+dur="([^"]+)"[^>]*>([^<]*)<\/text>/g,
+      // Alternative format with different attribute order
+      /<text\s+dur="([^"]+)"\s+start="([^"]+)"[^>]*>([^<]*)<\/text>/g,
+      // Format with CDATA or nested content
+      /<text\s+start="([^"]+)"\s+dur="([^"]+)"[^>]*>([\s\S]*?)<\/text>/g,
+      // Transcript format from youtubetranscript.com
+      /<transcript>[\s\S]*?<text\s+start="([^"]+)"\s+dur="([^"]+)"[^>]*>([\s\S]*?)<\/text>/g,
+    ];
 
-    while ((match = textRegex.exec(xml)) !== null) {
-      const start = parseFloat(match[1]);
-      const duration = parseFloat(match[2]);
-      // Decode HTML entities
-      const text = match[3]
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/\n/g, " ")
-        .trim();
+    for (const regex of patterns) {
+      let match;
+      regex.lastIndex = 0; // Reset regex state
 
-      if (text && !isNaN(start) && !isNaN(duration)) {
-        segments.push({ text, start, duration });
+      while ((match = regex.exec(xml)) !== null) {
+        let start: number, duration: number, text: string;
+
+        // Handle different capture group orders
+        if (regex.source.includes('dur="([^"]+)"\\s+start=')) {
+          // dur comes before start
+          duration = parseFloat(match[1]);
+          start = parseFloat(match[2]);
+          text = match[3];
+        } else {
+          start = parseFloat(match[1]);
+          duration = parseFloat(match[2]);
+          text = match[3];
+        }
+
+        // Decode HTML entities
+        const decodedText = text
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .replace(/&#(\d+);/g, (_, code) =>
+            String.fromCharCode(parseInt(code)),
+          )
+          .replace(/<[^>]+>/g, "") // Remove any nested HTML tags
+          .replace(/\n/g, " ")
+          .trim();
+
+        if (decodedText && !isNaN(start) && !isNaN(duration)) {
+          segments.push({ text: decodedText, start, duration });
+        }
+      }
+
+      // If we found segments with this pattern, stop trying others
+      if (segments.length > 0) {
+        this.logger.debug(
+          `XML parsed successfully with pattern, found ${segments.length} segments`,
+        );
+        break;
       }
     }
 
+    // If no segments found, try a more lenient approach
+    if (segments.length === 0) {
+      this.logger.debug(`Standard patterns failed, trying lenient parsing`);
+
+      // Try to extract any text with start/dur attributes
+      const lenientRegex =
+        /<text[^>]*start=["']?([0-9.]+)["']?[^>]*dur=["']?([0-9.]+)["']?[^>]*>([\s\S]*?)<\/text>/gi;
+      let match;
+
+      while ((match = lenientRegex.exec(xml)) !== null) {
+        const start = parseFloat(match[1]);
+        const duration = parseFloat(match[2]);
+        const text = match[3]
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .replace(/<[^>]+>/g, "")
+          .replace(/\n/g, " ")
+          .trim();
+
+        if (text && !isNaN(start) && !isNaN(duration)) {
+          segments.push({ text, start, duration });
+        }
+      }
+    }
+
+    this.logger.debug(`XML parsing result: ${segments.length} segments`);
     return segments;
   }
 
