@@ -2,7 +2,6 @@ import {
   Injectable,
   Logger,
   NotFoundException,
-  BadRequestException,
   Inject,
   forwardRef,
 } from "@nestjs/common";
@@ -135,161 +134,116 @@ export class YoutubeService {
       this.logger.debug(`Cache lookup failed: ${cacheError}`);
     }
 
-    // Strategy 1: Try Supadata API first (recommended for cloud deployments)
-    const supadataApiKey = await this.getSupadataApiKey();
-    if (supadataApiKey) {
-      const supadataResult = await this.fetchTranscriptSupadata(
-        videoId,
-        lang,
-        supadataApiKey,
-      );
-      if (supadataResult) {
-        this.logger.log(
-          `Successfully fetched transcript via Supadata API for ${videoId}`,
-        );
-
-        // Save to cache (async, don't block response)
-        this.saveToCache(
-          videoId,
-          supadataResult.title,
-          supadataResult.transcript,
-          lang,
-        ).catch((err) => {
-          this.logger.warn(`Failed to save Supadata result to cache: ${err}`);
-        });
-
-        return supadataResult;
-      }
-      this.logger.warn(
-        `Supadata API failed for ${videoId}, falling back to other methods`,
-      );
-    }
-
-    // Strategy 2: Try local methods (may fail on cloud due to IP blocking)
+    // Strategy 1: Try FREE methods first (to minimize API costs)
+    // Order: timedtext API > youtube-transcript npm > youtubei.js > external fallback
     let transcriptSegments: TranscriptSegment[] = [];
     let title: string | null = null;
 
-    try {
-      // If requesting Chinese, skip youtubei.js and go directly to fallback methods
-      if (lang.startsWith("zh")) {
-        this.logger.log(
-          `Requesting Chinese transcript, using fallback methods`,
-        );
-        throw new Error("Force fallback for Chinese");
-      }
-
-      await this.ensureClient();
-      const info = await this.youtube!.getInfo(videoId);
-
-      if (!info) {
-        throw new NotFoundException("Video not found");
-      }
-
-      title = info.basic_info.title ?? null;
-
-      // Get transcript
-      const transcriptData = await info.getTranscript();
-
-      if (!transcriptData?.transcript) {
-        throw new NotFoundException(
-          "Transcript not available for this video. The video may not have captions enabled.",
-        );
-      }
-
-      // Transform transcript data
-      if (!transcriptData.transcript.content?.body) {
-        throw new NotFoundException("Invalid transcript data structure");
-      }
-
-      const transcript: TranscriptSegment[] =
-        transcriptData.transcript.content.body.initial_segments
-          .filter((segment: any) => segment.snippet?.text) // Filter out segments without text
-          .map((segment: any) => ({
-            text: segment.snippet.text,
-            start: segment.start_ms / 1000, // Convert milliseconds to seconds
-            duration: segment.end_ms / 1000 - segment.start_ms / 1000,
-          }));
-
-      transcriptSegments = transcript;
+    // 1a. Try YouTube's timedtext API (free, direct from YouTube)
+    this.logger.debug(`Trying timedtext API for ${videoId}`);
+    const timedTextTranscript = await this.fetchTranscriptTimedText(
+      videoId,
+      lang,
+    );
+    if (timedTextTranscript && timedTextTranscript.segments.length > 1) {
+      transcriptSegments = timedTextTranscript.segments;
+      title = timedTextTranscript.title;
       this.logger.log(
-        `Successfully fetched ${transcript.length} transcript segments for "${title ?? videoId}"`,
+        `[FREE] Used YouTube timedtext API for ${videoId}, segments=${transcriptSegments.length}`,
       );
-    } catch (error: unknown) {
-      const parserMismatch = this.isYoutubeParserMismatch(error);
-      if (parserMismatch) {
-        this.logger.warn(
-          `youtubei parser mismatch while fetching ${videoId}; falling back to alternate transcript providers`,
-        );
-      } else {
-        this.logger.debug(
-          `Primary method failed for ${videoId} (lang: ${lang}): ${error}`,
-        );
-      }
+    }
 
-      // Strategy: Try multiple methods in order of reliability
-      // 1. YouTube's timedtext API (direct from YouTube, most reliable)
-      // 2. youtube-transcript npm package
-      // 3. External API fallback
-
-      // Try YouTube's timedtext API first (direct from YouTube)
-      const timedTextTranscript = await this.fetchTranscriptTimedText(
-        videoId,
-        lang,
-      );
-      if (timedTextTranscript && timedTextTranscript.segments.length > 1) {
-        transcriptSegments = timedTextTranscript.segments;
-        title = title ?? timedTextTranscript.title;
+    // 1b. Try youtube-transcript npm package (free)
+    if (transcriptSegments.length === 0) {
+      this.logger.debug(`Trying youtube-transcript npm for ${videoId}`);
+      const npmTranscript = await this.fetchTranscriptNpm(videoId, lang);
+      if (npmTranscript && npmTranscript.segments.length > 0) {
+        transcriptSegments = npmTranscript.segments;
+        title = npmTranscript.title;
         this.logger.log(
-          `Used YouTube timedtext API for ${videoId}, segments=${transcriptSegments.length}`,
+          `[FREE] Used youtube-transcript npm for ${videoId}, segments=${transcriptSegments.length}`,
         );
-      } else {
-        // Try youtube-transcript library
-        const npmTranscript = await this.fetchTranscriptNpm(videoId, lang);
-        if (npmTranscript && npmTranscript.segments.length > 0) {
-          transcriptSegments = npmTranscript.segments;
-          title = title ?? npmTranscript.title;
-          this.logger.log(
-            `Used youtube-transcript npm package for ${videoId} (lang: ${lang}), segments=${transcriptSegments.length}`,
-          );
-        } else {
-          // Try external API fallback
-          const fallback = await this.fetchTranscriptFallback(videoId, lang);
-          if (fallback && fallback.segments.length > 1) {
-            transcriptSegments = fallback.segments;
-            title = title ?? fallback.title;
-            this.logger.warn(
-              `Used fallback transcript provider for ${videoId} (lang: ${lang}), segments=${transcriptSegments.length}`,
-            );
-          } else {
-            // All methods failed
-            if (error instanceof NotFoundException) {
-              throw error;
-            }
-
-            const errorMessage =
-              error instanceof Error ? error.message : "Unknown error";
-
-            if (errorMessage.includes("not found")) {
-              throw new NotFoundException(
-                "Video not found or transcript not available",
-              );
-            }
-
-            if (errorMessage.includes("Invalid")) {
-              throw new BadRequestException("Invalid YouTube video ID");
-            }
-
-            throw new BadRequestException(
-              `Failed to fetch transcript: ${errorMessage}. YouTube may be blocking requests from this server.`,
-            );
-          }
-        }
       }
     }
 
+    // 1c. Try youtubei.js (free, but often blocked on cloud)
+    if (transcriptSegments.length === 0 && !lang.startsWith("zh")) {
+      this.logger.debug(`Trying youtubei.js for ${videoId}`);
+      try {
+        await this.ensureClient();
+        const info = await this.youtube!.getInfo(videoId);
+        if (info) {
+          title = info.basic_info.title ?? null;
+          const transcriptData = await info.getTranscript();
+          if (transcriptData?.transcript?.content?.body) {
+            const segments: TranscriptSegment[] =
+              transcriptData.transcript.content.body.initial_segments
+                .filter((segment: any) => segment.snippet?.text)
+                .map((segment: any) => ({
+                  text: segment.snippet.text,
+                  start: segment.start_ms / 1000,
+                  duration: segment.end_ms / 1000 - segment.start_ms / 1000,
+                }));
+            if (segments.length > 0) {
+              transcriptSegments = segments;
+              this.logger.log(
+                `[FREE] Used youtubei.js for ${videoId}, segments=${segments.length}`,
+              );
+            }
+          }
+        }
+      } catch (error) {
+        this.logger.debug(`youtubei.js failed for ${videoId}: ${error}`);
+      }
+    }
+
+    // 1d. Try external fallback API (free)
     if (transcriptSegments.length === 0) {
+      this.logger.debug(`Trying external fallback for ${videoId}`);
+      const fallback = await this.fetchTranscriptFallback(videoId, lang);
+      if (fallback && fallback.segments.length > 1) {
+        transcriptSegments = fallback.segments;
+        title = title ?? fallback.title;
+        this.logger.log(
+          `[FREE] Used fallback provider for ${videoId}, segments=${transcriptSegments.length}`,
+        );
+      }
+    }
+
+    // Strategy 2: If all FREE methods failed, try Supadata API (paid, but reliable)
+    if (transcriptSegments.length === 0) {
+      const supadataApiKey = await this.getSupadataApiKey();
+      if (supadataApiKey) {
+        this.logger.log(
+          `All free methods failed for ${videoId}, trying Supadata API (paid)`,
+        );
+        const supadataResult = await this.fetchTranscriptSupadata(
+          videoId,
+          lang,
+          supadataApiKey,
+        );
+        if (supadataResult) {
+          this.logger.log(
+            `[PAID] Successfully fetched transcript via Supadata API for ${videoId}`,
+          );
+
+          // Save to cache (async, don't block response)
+          this.saveToCache(
+            videoId,
+            supadataResult.title,
+            supadataResult.transcript,
+            lang,
+          ).catch((err) => {
+            this.logger.warn(`Failed to save Supadata result to cache: ${err}`);
+          });
+
+          return supadataResult;
+        }
+      }
+
+      // All methods failed
       throw new NotFoundException(
-        "Transcript not available for this video. YouTube may be blocking requests from cloud servers.",
+        "Transcript not available for this video. The video may not have captions, or YouTube is blocking requests.",
       );
     }
 
@@ -1058,31 +1012,5 @@ export class YoutubeService {
 
     this.logger.debug(`XML parsing result: ${segments.length} segments`);
     return segments;
-  }
-
-  private isYoutubeParserMismatch(error: unknown): boolean {
-    if (error instanceof Error) {
-      if (error.name === "ParsingError") {
-        return true;
-      }
-      if (error.message.includes("Type mismatch, got")) {
-        return true;
-      }
-    }
-    if (typeof error === "object" && error !== null) {
-      const maybeError = error as Record<string, unknown>;
-      const name = maybeError.name;
-      const message = maybeError.message;
-      if (typeof name === "string" && name === "ParsingError") {
-        return true;
-      }
-      if (
-        typeof message === "string" &&
-        message.includes("Type mismatch, got")
-      ) {
-        return true;
-      }
-    }
-    return false;
   }
 }
