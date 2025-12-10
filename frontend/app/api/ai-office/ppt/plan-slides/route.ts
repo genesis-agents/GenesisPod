@@ -5,6 +5,9 @@ const BACKEND_API_URL =
   process.env.BACKEND_API_URL ||
   'https://deepdive-engine.up.railway.app/api/v1';
 
+// Vercel Serverless Function 配置 - 增加超时时间（Pro plan 支持 60 秒）
+export const maxDuration = 60;
+
 /**
  * PPT 幻灯片规划 API 代理
  * POST /api/ai-office/ppt/plan-slides
@@ -26,13 +29,20 @@ export async function POST(request: NextRequest) {
 
     const backendUrl = `${BACKEND_API_URL}/ai-office/ppt/plan-slides`;
 
+    // 创建 AbortController 用于超时控制（2 分钟）
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
+
     const response = await fetch(backendUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();
