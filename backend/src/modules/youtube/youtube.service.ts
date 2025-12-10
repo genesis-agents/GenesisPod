@@ -37,8 +37,8 @@ interface SupadataResponse {
   availableLangs: string[];
 }
 
-// Cache duration: 30 days
-const CACHE_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
+// Cache duration: 1 year (YouTube subtitles rarely change)
+const CACHE_DURATION_MS = 365 * 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class YoutubeService {
