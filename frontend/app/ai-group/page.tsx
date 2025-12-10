@@ -834,24 +834,24 @@ function TopicCard({
                       {model?.iconUrl ? (
                         <img
                           src={model.iconUrl}
-                          alt={model.name}
+                          alt={model.name || ''}
                           className="h-4 w-4"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            const fallback = e.currentTarget
+                              .nextElementSibling as HTMLElement;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
                         />
-                      ) : (
-                        <svg
-                          className="h-4 w-4 text-white"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                          />
-                        </svg>
-                      )}
+                      ) : null}
+                      <span
+                        className="flex h-4 w-4 items-center justify-center text-xs text-white"
+                        style={{
+                          display: model?.iconUrl ? 'none' : 'flex',
+                        }}
+                      >
+                        {model?.icon || '🤖'}
+                      </span>
                     </div>
                   );
                 })}
@@ -1061,10 +1061,21 @@ function CreateTopicDialog({
                       src={model.iconUrl}
                       alt={model.name}
                       className="h-6 w-6"
+                      onError={(e) => {
+                        // 图片加载失败时隐藏，显示 fallback
+                        e.currentTarget.style.display = 'none';
+                        const fallback = e.currentTarget
+                          .nextElementSibling as HTMLElement;
+                        if (fallback) fallback.style.display = 'block';
+                      }}
                     />
-                  ) : (
-                    <span className="text-2xl">{model.icon}</span>
-                  )}
+                  ) : null}
+                  <span
+                    className="text-2xl"
+                    style={{ display: model.iconUrl ? 'none' : 'block' }}
+                  >
+                    {model.icon || '🤖'}
+                  </span>
                   <div>
                     <div className="text-sm font-medium text-gray-900">
                       {model.name}
