@@ -430,7 +430,7 @@ export class YoutubeService {
 
   private async fetchTranscriptNpm(
     videoId: string,
-    preferredLang: string = "en",
+    _preferredLang: string = "en", // Kept for API compatibility, but we try all languages
   ): Promise<{
     segments: TranscriptSegment[];
     title: string | null;
@@ -438,33 +438,24 @@ export class YoutubeService {
     try {
       const { YoutubeTranscript } = await import("youtube-transcript");
 
-      // Build comprehensive language list - include all common variants
+      // Build comprehensive language list
+      // English is always preferred, then fall back to other languages
       // zh-Hans is commonly used for Simplified Chinese on YouTube
-      let languages: string[];
-      if (preferredLang.startsWith("zh")) {
-        languages = [
-          "zh-Hans",
-          "zh-Hant",
-          "zh-CN",
-          "zh-TW",
-          "zh",
-          "en",
-          "ja",
-          "ko",
-        ];
-      } else {
-        languages = [
-          preferredLang,
-          "en",
-          "zh-Hans", // Simplified Chinese - most common
-          "zh-Hant", // Traditional Chinese
-          "zh-CN",
-          "zh-TW",
-          "zh",
-          "ja",
-          "ko",
-        ];
-      }
+      const languages = [
+        "en", // English always first
+        "zh-Hans", // Simplified Chinese - most common on YouTube
+        "zh-Hant", // Traditional Chinese
+        "zh-CN",
+        "zh-TW",
+        "zh",
+        "ja",
+        "ko",
+        "es",
+        "fr",
+        "de",
+        "pt",
+        "ru",
+      ];
 
       for (const lang of languages) {
         try {
@@ -506,38 +497,28 @@ export class YoutubeService {
 
   private async fetchTranscriptFallback(
     videoId: string,
-    preferredLang: string = "en",
+    _preferredLang: string = "en", // Kept for API compatibility, but we try all languages
   ): Promise<{
     segments: TranscriptSegment[];
     title: string | null;
   } | null> {
-    // Try multiple language codes with preferred language first
+    // Try multiple language codes - English first, then fall back to others
     // Include zh-Hans which is commonly used by YouTube for Simplified Chinese
-    let languages: string[];
-    if (preferredLang.startsWith("zh")) {
-      languages = [
-        "zh-Hans",
-        "zh-Hant",
-        "zh",
-        "zh-CN",
-        "zh-TW",
-        "en",
-        "ja",
-        "ko",
-      ];
-    } else {
-      languages = [
-        preferredLang,
-        "en",
-        "zh-Hans", // Add zh-Hans as it's commonly used
-        "zh-Hant",
-        "zh",
-        "zh-CN",
-        "zh-TW",
-        "ja",
-        "ko",
-      ];
-    }
+    const languages = [
+      "en", // English always first
+      "zh-Hans", // Simplified Chinese - most common on YouTube
+      "zh-Hant", // Traditional Chinese
+      "zh",
+      "zh-CN",
+      "zh-TW",
+      "ja",
+      "ko",
+      "es",
+      "fr",
+      "de",
+      "pt",
+      "ru",
+    ];
 
     for (const lang of languages) {
       try {
@@ -639,7 +620,7 @@ export class YoutubeService {
     // Try YouTube's timedtext API as final fallback
     const timedTextResult = await this.fetchTranscriptTimedText(
       videoId,
-      preferredLang,
+      "en", // Try English first in timedtext API
     );
     if (timedTextResult) {
       return timedTextResult;
@@ -653,14 +634,27 @@ export class YoutubeService {
    */
   private async fetchTranscriptTimedText(
     videoId: string,
-    preferredLang: string = "en",
+    _preferredLang: string = "en", // Kept for API compatibility
   ): Promise<{
     segments: TranscriptSegment[];
     title: string | null;
   } | null> {
-    const languages = preferredLang.startsWith("zh")
-      ? ["zh-Hans", "zh-Hant", "zh-CN", "zh-TW", "zh", "en"]
-      : [preferredLang, "en", "zh-Hans", "zh-Hant", "zh"];
+    // English first, then comprehensive language fallback
+    const languages = [
+      "en",
+      "zh-Hans",
+      "zh-Hant",
+      "zh-CN",
+      "zh-TW",
+      "zh",
+      "ja",
+      "ko",
+      "es",
+      "fr",
+      "de",
+      "pt",
+      "ru",
+    ];
 
     for (const lang of languages) {
       try {
