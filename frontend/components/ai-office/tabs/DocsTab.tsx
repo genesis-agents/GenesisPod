@@ -117,12 +117,25 @@ export default function DocsTab() {
 
       try {
         // 1. 调用后端意图解析 API
-        const intentResponse = await fetch('/api/ai-office/parse-intent', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ input: input.prompt }),
-        });
-        const intentData = await intentResponse.json();
+        let intentData = {
+          urls: [] as string[],
+          documentType: 'ARTICLE',
+          detailLevel: 2,
+          cleanPrompt: input.prompt,
+        };
+
+        try {
+          const intentResponse = await fetch('/api/ai-office/parse-intent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ input: input.prompt }),
+          });
+          if (intentResponse.ok) {
+            intentData = await intentResponse.json();
+          }
+        } catch (parseError) {
+          console.warn('Intent parsing failed, using defaults:', parseError);
+        }
         setParsedIntent(intentData);
 
         // 2. 使用解析后的参数构建增强输入

@@ -571,12 +571,27 @@ export default function SlidesTab() {
 
     try {
       // 1. 调用后端意图解析 API
-      const intentResponse = await fetch('/api/ai-office/parse-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: userInput }),
-      });
-      const intentData = await intentResponse.json();
+      let intentData = {
+        urls: [] as string[],
+        visualStyle: 'default',
+        visualStyleName: '默认',
+        pageCount: 8,
+        colorTheme: null,
+        cleanPrompt: userInput,
+      };
+
+      try {
+        const intentResponse = await fetch('/api/ai-office/parse-intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ input: userInput }),
+        });
+        if (intentResponse.ok) {
+          intentData = await intentResponse.json();
+        }
+      } catch (parseError) {
+        console.warn('Intent parsing failed, using defaults:', parseError);
+      }
       setParsedIntent(intentData);
 
       // 显示解析结果
@@ -639,7 +654,16 @@ export default function SlidesTab() {
           stream: false,
         }),
       });
+
+      if (!response.ok) {
+        throw new Error(`API responded with status: ${response.status}`);
+      }
+
       const data = await response.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
       try {
         const outlineData = JSON.parse(data.content || data.message || '[]');
         setOutline(outlineData);
