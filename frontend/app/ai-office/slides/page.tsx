@@ -7,7 +7,7 @@
  * 采用左右分栏布局：左侧资源+AI对话，右侧PPT预览
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
@@ -40,8 +40,11 @@ import Link from 'next/link';
 import Sidebar from '@/components/layout/Sidebar';
 import { useResourceStore, useDocumentStore } from '@/stores/aiOfficeStore';
 import { cn } from '@/lib/utils';
-import { parseMarkdownToEnhancedSlides } from '@/lib/markdown-parser';
-import EnhancedSlideRenderer from '@/components/ai-office/document/EnhancedSlideRenderer';
+import {
+  parseMarkdownToEnhancedSlides,
+  EnhancedSlide,
+} from '@/lib/markdown-parser';
+import EditableSlideRenderer from '@/components/ai-office/document/EditableSlideRenderer';
 import { getTemplateById, PPTTemplate } from '@/lib/ppt-templates';
 
 // ============================================
@@ -523,7 +526,8 @@ export default function SlidesPage() {
   // PPT 预览状态
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [thumbnailsCollapsed, setThumbnailsCollapsed] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
+  const [isInlineEditMode, setIsInlineEditMode] = useState(false); // 内联编辑模式
+  const [isSourceEditMode, setIsSourceEditMode] = useState(false); // 源码编辑模式
   const [editingContent, setEditingContent] = useState('');
 
   // 聊天状态
@@ -902,6 +906,36 @@ ${layoutText}
     setLayouts([]);
     setMessages([]);
   };
+
+  // 处理幻灯片内联编辑更新
+  const handleSlideChange = useCallback(
+    (slideIndex: number, updatedSlide: EnhancedSlide) => {
+      if (!currentDocumentId || !content) return;
+
+      // 将更新后的幻灯片转换回markdown格式
+      const slidesSections = content.split(/(?=### Slide \d+:)/);
+      const newSections = slidesSections.map((section: string, idx: number) => {
+        if (idx === slideIndex) {
+          // 重建这个幻灯片的markdown
+          let newMarkdown = `### Slide ${slideIndex + 1}: ${updatedSlide.title}\n`;
+          updatedSlide.content.forEach((line) => {
+            if (line.trim()) {
+              newMarkdown += `${line}\n`;
+            }
+          });
+          return newMarkdown;
+        }
+        return section;
+      });
+
+      const newContent = newSections.join('\n---\n\n').trim();
+      updateDocument(currentDocumentId, {
+        content: { markdown: newContent },
+        updatedAt: new Date(),
+      } as any);
+    },
+    [currentDocumentId, content, updateDocument]
+  );
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -1358,9 +1392,30 @@ ${layoutText}
                     幻灯片 {currentSlideIndex + 1} / {slides.length}
                   </div>
                   <div className="flex items-center space-x-2">
+                    {/* 内联编辑模式切换 */}
                     <button
                       onClick={() => {
-                        if (isEditMode) {
+                        setIsInlineEditMode(!isInlineEditMode);
+                        if (!isInlineEditMode) {
+                          setIsSourceEditMode(false);
+                        }
+                      }}
+                      className={cn(
+                        'flex items-center space-x-1 rounded-lg px-3 py-2 text-sm transition-all',
+                        isInlineEditMode
+                          ? 'bg-blue-600 text-white hover:bg-blue-700'
+                          : 'border border-gray-300 hover:bg-white'
+                      )}
+                      title="双击幻灯片文字可直接编辑"
+                    >
+                      <Edit3 className="h-4 w-4" />
+                      <span>内联编辑</span>
+                    </button>
+
+                    {/* 源码编辑模式切换 */}
+                    <button
+                      onClick={() => {
+                        if (isSourceEditMode) {
                           if (editingContent !== content && currentDocumentId) {
                             updateDocument(currentDocumentId, {
                               content: { markdown: editingContent },
@@ -1369,24 +1424,28 @@ ${layoutText}
                         } else {
                           setEditingContent(content);
                         }
-                        setIsEditMode(!isEditMode);
+                        setIsSourceEditMode(!isSourceEditMode);
+                        if (!isSourceEditMode) {
+                          setIsInlineEditMode(false);
+                        }
                       }}
                       className={cn(
-                        'flex items-center space-x-1 rounded-lg px-3 py-2 text-sm',
-                        isEditMode
-                          ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        'flex items-center space-x-1 rounded-lg px-3 py-2 text-sm transition-all',
+                        isSourceEditMode
+                          ? 'bg-orange-600 text-white hover:bg-orange-700'
                           : 'border border-gray-300 hover:bg-white'
                       )}
+                      title="编辑 Markdown 源码"
                     >
-                      {isEditMode ? (
+                      {isSourceEditMode ? (
                         <>
                           <Eye className="h-4 w-4" />
                           <span>预览</span>
                         </>
                       ) : (
                         <>
-                          <Edit3 className="h-4 w-4" />
-                          <span>编辑</span>
+                          <FileText className="h-4 w-4" />
+                          <span>源码</span>
                         </>
                       )}
                     </button>
@@ -1417,7 +1476,7 @@ ${layoutText}
                 </div>
 
                 <div className="flex flex-1 items-center justify-center">
-                  {isEditMode ? (
+                  {isSourceEditMode ? (
                     <div className="flex h-full w-full max-w-5xl flex-col">
                       <div className="flex-1 rounded-2xl bg-white p-6 shadow-2xl">
                         <textarea
@@ -1430,9 +1489,13 @@ ${layoutText}
                     </div>
                   ) : (
                     slides[currentSlideIndex] && (
-                      <EnhancedSlideRenderer
+                      <EditableSlideRenderer
                         slide={slides[currentSlideIndex]}
                         template={template}
+                        isEditable={isInlineEditMode}
+                        onSlideChange={(updatedSlide) =>
+                          handleSlideChange(currentSlideIndex, updatedSlide)
+                        }
                       />
                     )
                   )}
