@@ -203,7 +203,16 @@ export class PPTGenerationController {
   async generateOutline(
     @Body() dto: GenerateOutlineDto,
   ): Promise<{ outline: PPTOutline; suggestedTheme: string }> {
-    this.logger.log(`[generateOutline] ${dto.prompt?.slice(0, 50)}...`);
+    // 详细日志 - 调试 prompt 为空的问题
+    this.logger.log(
+      `[generateOutline] Received DTO: ${JSON.stringify({
+        prompt: dto.prompt,
+        promptLength: dto.prompt?.length,
+        urls: dto.urls,
+        slideCount: dto.slideCount,
+        language: dto.language,
+      })}`,
+    );
 
     try {
       // 1. 提取内容（如果有 URL）
