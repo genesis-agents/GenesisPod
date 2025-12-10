@@ -561,9 +561,18 @@ export class SlidePlanningService {
     );
 
     try {
-      // 检测是否为 o1/o3 系列模型（不支持 max_tokens，需要 max_completion_tokens）
-      const isO1O3Model =
-        model.modelId.includes("o1") || model.modelId.includes("o3");
+      // 检测是否为新版模型（需要 max_completion_tokens 而非 max_tokens）
+      // 包括: o1/o3 系列, gpt-4.5, gpt-5 系列
+      const modelIdLower = model.modelId.toLowerCase();
+      const requiresCompletionTokens =
+        modelIdLower.includes("o1") ||
+        modelIdLower.includes("o3") ||
+        modelIdLower.includes("gpt-4.5") ||
+        modelIdLower.includes("gpt-5");
+
+      this.logger.debug(
+        `[callOpenAICompatibleAPI] Model: ${model.modelId}, requiresCompletionTokens: ${requiresCompletionTokens}`,
+      );
 
       const requestBody: Record<string, unknown> = {
         model: model.modelId,
@@ -577,8 +586,8 @@ export class SlidePlanningService {
         ],
       };
 
-      // o1/o3 模型使用 max_completion_tokens，其他使用 max_tokens
-      if (isO1O3Model) {
+      // 新版模型使用 max_completion_tokens，旧版使用 max_tokens
+      if (requiresCompletionTokens) {
         requestBody.max_completion_tokens = 4000;
       } else {
         requestBody.temperature = 0.7;
