@@ -68,12 +68,22 @@ function mergeTranscriptBySentence(
     }
 
     let segmentText = (segment.text || '').trim();
-    // 移除字幕开头的 - 符号（YouTube 字幕格式问题）
+
+    // 清理 YouTube 自动字幕中的各种标记
+    // 1. 移除说话人标记 >> 或 > >（YouTube 自动字幕中的说话人切换标记）
+    segmentText = segmentText.replace(/^>\s*>\s*/g, '').trim();
+    segmentText = segmentText.replace(/>\s*>\s*/g, ' ').trim();
+
+    // 2. 移除字幕开头的 - 符号（YouTube 字幕格式问题）
     if (segmentText.startsWith('- ')) {
       segmentText = segmentText.substring(2);
     } else if (segmentText.startsWith('-')) {
       segmentText = segmentText.substring(1).trim();
     }
+
+    // 3. 移除多余空格
+    segmentText = segmentText.replace(/\s+/g, ' ').trim();
+
     if (!segmentText) {
       // 跳过空文本的segment，但仍然将其包含在当前块的indices中
       currentIndices.push(index);
