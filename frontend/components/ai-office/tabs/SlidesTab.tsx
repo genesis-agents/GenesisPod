@@ -805,8 +805,15 @@ export default function SlidesTab() {
       }
 
       const data = await response.json();
+      console.log('[PPT] Response data:', JSON.stringify(data).slice(0, 500));
+
       if (data.error) {
         throw new Error(data.error);
+      }
+
+      if (!data.outline || !data.outline.slides) {
+        console.error('[PPT] Invalid response structure:', data);
+        throw new Error('Invalid response: missing outline or slides');
       }
 
       // 解析后端返回的专业大纲
@@ -854,12 +861,14 @@ export default function SlidesTab() {
       ]);
     } catch (error) {
       console.error('Generate outline error:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       setMessages((prev) => [
         ...prev,
         {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: '抱歉，生成大纲时出错，请重试。',
+          content: `抱歉，生成大纲时出错：${errorMessage}`,
           timestamp: new Date(),
         },
       ]);
