@@ -3752,6 +3752,23 @@ function HomeContent() {
                       const newResource = resources.find(
                         (r) => r.id === resource.id
                       );
+                      const targetResource = newResource || resource;
+
+                      // For YouTube videos, navigate to YouTube page
+                      if (
+                        targetResource.type === 'YOUTUBE' ||
+                        targetResource.type === 'YOUTUBE_VIDEO' ||
+                        (targetResource as any).videoId
+                      ) {
+                        const videoId = extractYouTubeVideoId(
+                          targetResource.sourceUrl
+                        );
+                        if (videoId) {
+                          router.push(`/youtube?videoId=${videoId}`);
+                          return;
+                        }
+                      }
+
                       if (newResource) {
                         setSelectedResource(newResource);
                       } else {
