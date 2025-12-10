@@ -8,11 +8,19 @@
  * 注意：左侧菜单使用系统全局Sidebar
  *
  * v3.0: 新增 PPT 3.0 模式切换
+ * v4.0: 新增 Slides/Docs/Designer 多模式切换
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import { useUIStore, useTaskStore } from '@/stores/aiOfficeStore';
-import { ListTodo, Presentation, FileText } from 'lucide-react';
+import {
+  ListTodo,
+  Presentation,
+  FileText,
+  Image,
+  ArrowUpRight,
+} from 'lucide-react';
 import MiddlePanel from './MiddlePanel';
 import RightPanel from './RightPanel';
 import TaskList from '../task/TaskList';
@@ -77,34 +85,65 @@ export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
       ref={containerRef}
       className="relative flex h-full flex-col overflow-hidden bg-gray-50"
     >
-      {/* 模式切换标签 */}
+      {/* 模式切换标签 + 快捷入口 */}
       <div className="flex-shrink-0 border-b border-gray-200 bg-white px-6 py-2">
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setWorkspaceMode('classic')}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              workspaceMode === 'classic'
-                ? 'bg-blue-50 text-blue-600'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <FileText className="h-4 w-4" />
-            <span>经典模式</span>
-          </button>
-          <button
-            onClick={() => setWorkspaceMode('ppt30')}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              workspaceMode === 'ppt30'
-                ? 'bg-blue-50 text-blue-600'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <Presentation className="h-4 w-4" />
-            <span>PPT 3.0</span>
-            <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700">
-              新
-            </span>
-          </button>
+        <div className="flex items-center justify-between">
+          {/* 左侧：模式切换 */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setWorkspaceMode('classic')}
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                workspaceMode === 'classic'
+                  ? 'bg-blue-50 text-blue-600'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <FileText className="h-4 w-4" />
+              <span>经典模式</span>
+            </button>
+            <button
+              onClick={() => setWorkspaceMode('ppt30')}
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                workspaceMode === 'ppt30'
+                  ? 'bg-blue-50 text-blue-600'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <Presentation className="h-4 w-4" />
+              <span>PPT 3.0</span>
+              <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700">
+                新
+              </span>
+            </button>
+          </div>
+
+          {/* 右侧：快捷入口 */}
+          <div className="flex items-center gap-2">
+            <Link
+              href="/ai-office/slides"
+              className="flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-sm font-medium text-orange-700 transition-colors hover:bg-orange-100"
+            >
+              <Presentation className="h-4 w-4" />
+              <span>AI Slides</span>
+              <ArrowUpRight className="h-3 w-3" />
+            </Link>
+            <Link
+              href="/ai-office/docs"
+              className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100"
+            >
+              <FileText className="h-4 w-4" />
+              <span>AI Docs</span>
+              <ArrowUpRight className="h-3 w-3" />
+            </Link>
+            <Link
+              href="/ai-office/designer"
+              className="flex items-center gap-1.5 rounded-lg border border-pink-200 bg-pink-50 px-3 py-1.5 text-sm font-medium text-pink-700 transition-colors hover:bg-pink-100"
+            >
+              <Image className="h-4 w-4" />
+              <span>AI Designer</span>
+              <ArrowUpRight className="h-3 w-3" />
+            </Link>
+          </div>
         </div>
       </div>
 
