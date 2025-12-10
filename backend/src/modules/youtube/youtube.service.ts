@@ -147,6 +147,17 @@ export class YoutubeService {
         this.logger.log(
           `Successfully fetched transcript via Supadata API for ${videoId}`,
         );
+
+        // Save to cache (async, don't block response)
+        this.saveToCache(
+          videoId,
+          supadataResult.title,
+          supadataResult.transcript,
+          lang,
+        ).catch((err) => {
+          this.logger.warn(`Failed to save Supadata result to cache: ${err}`);
+        });
+
         return supadataResult;
       }
       this.logger.warn(
