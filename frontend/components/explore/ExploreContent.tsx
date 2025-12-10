@@ -701,30 +701,9 @@ function HomeContent() {
         resource.type === 'YOUTUBE_VIDEO' ||
         (resource as any).videoId
       ) {
-        let videoId = (resource as any).videoId;
-
-        // If no videoId, extract from sourceUrl (handle multiple YouTube URL formats)
-        if (!videoId && resource.sourceUrl) {
-          // Try youtube.com/watch?v=xxx format
-          let urlMatch = resource.sourceUrl.match(/[?&]v=([^&]+)/);
-          if (urlMatch) {
-            videoId = urlMatch[1];
-          } else {
-            // Try youtu.be/xxx format
-            urlMatch = resource.sourceUrl.match(/youtu\.be\/([^?&]+)/);
-            if (urlMatch) {
-              videoId = urlMatch[1];
-            } else {
-              // Try youtube.com/embed/xxx format
-              urlMatch = resource.sourceUrl.match(
-                /youtube\.com\/embed\/([^?&]+)/
-              );
-              if (urlMatch) {
-                videoId = urlMatch[1];
-              }
-            }
-          }
-        }
+        const videoId =
+          (resource as any).videoId ||
+          extractYouTubeVideoId(resource.sourceUrl);
 
         if (videoId) {
           router.push(`/youtube?videoId=${videoId}`);
@@ -1110,30 +1089,8 @@ function HomeContent() {
       resource.type === 'YOUTUBE_VIDEO' ||
       (resource as any).videoId
     ) {
-      let videoId = (resource as any).videoId;
-
-      // If no videoId, extract from sourceUrl (handle multiple YouTube URL formats)
-      if (!videoId && resource.sourceUrl) {
-        // Try youtube.com/watch?v=xxx format
-        let urlMatch = resource.sourceUrl.match(/[?&]v=([^&]+)/);
-        if (urlMatch) {
-          videoId = urlMatch[1];
-        } else {
-          // Try youtu.be/xxx format
-          urlMatch = resource.sourceUrl.match(/youtu\.be\/([^?&]+)/);
-          if (urlMatch) {
-            videoId = urlMatch[1];
-          } else {
-            // Try youtube.com/embed/xxx format
-            urlMatch = resource.sourceUrl.match(
-              /youtube\.com\/embed\/([^?&]+)/
-            );
-            if (urlMatch) {
-              videoId = urlMatch[1];
-            }
-          }
-        }
-      }
+      const videoId =
+        (resource as any).videoId || extractYouTubeVideoId(resource.sourceUrl);
 
       if (videoId) {
         router.push(`/youtube?videoId=${videoId}`);
