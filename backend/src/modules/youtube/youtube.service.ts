@@ -148,44 +148,63 @@ export class YoutubeService {
         );
       }
 
-      // Try youtube-transcript library first
-      const npmTranscript = await this.fetchTranscriptNpm(videoId, lang);
-      if (npmTranscript) {
-        transcriptSegments = npmTranscript.segments;
-        title = title ?? npmTranscript.title;
+      // Strategy: Try multiple methods in order of reliability
+      // 1. YouTube's timedtext API (direct from YouTube, most reliable)
+      // 2. youtube-transcript npm package
+      // 3. External API fallback
+
+      // Try YouTube's timedtext API first (direct from YouTube)
+      const timedTextTranscript = await this.fetchTranscriptTimedText(
+        videoId,
+        lang,
+      );
+      if (timedTextTranscript && timedTextTranscript.segments.length > 1) {
+        transcriptSegments = timedTextTranscript.segments;
+        title = title ?? timedTextTranscript.title;
         this.logger.log(
-          `Used youtube-transcript npm package for ${videoId} (lang: ${lang}), segments=${transcriptSegments.length}`,
+          `Used YouTube timedtext API for ${videoId}, segments=${transcriptSegments.length}`,
         );
       } else {
-        // Try external API fallback
-        const fallback = await this.fetchTranscriptFallback(videoId, lang);
-        if (fallback) {
-          transcriptSegments = fallback.segments;
-          title = title ?? fallback.title;
-          this.logger.warn(
-            `Used fallback transcript provider for ${videoId} (lang: ${lang}), segments=${transcriptSegments.length}`,
+        // Try youtube-transcript library
+        const npmTranscript = await this.fetchTranscriptNpm(videoId, lang);
+        if (npmTranscript && npmTranscript.segments.length > 0) {
+          transcriptSegments = npmTranscript.segments;
+          title = title ?? npmTranscript.title;
+          this.logger.log(
+            `Used youtube-transcript npm package for ${videoId} (lang: ${lang}), segments=${transcriptSegments.length}`,
           );
         } else {
-          if (error instanceof NotFoundException) {
-            throw error;
-          }
+          // Try external API fallback
+          const fallback = await this.fetchTranscriptFallback(videoId, lang);
+          if (fallback && fallback.segments.length > 1) {
+            transcriptSegments = fallback.segments;
+            title = title ?? fallback.title;
+            this.logger.warn(
+              `Used fallback transcript provider for ${videoId} (lang: ${lang}), segments=${transcriptSegments.length}`,
+            );
+          } else {
+            // All methods failed
+            if (error instanceof NotFoundException) {
+              throw error;
+            }
 
-          const errorMessage =
-            error instanceof Error ? error.message : "Unknown error";
+            const errorMessage =
+              error instanceof Error ? error.message : "Unknown error";
 
-          if (errorMessage.includes("not found")) {
-            throw new NotFoundException(
-              "Video not found or transcript not available",
+            if (errorMessage.includes("not found")) {
+              throw new NotFoundException(
+                "Video not found or transcript not available",
+              );
+            }
+
+            if (errorMessage.includes("Invalid")) {
+              throw new BadRequestException("Invalid YouTube video ID");
+            }
+
+            throw new BadRequestException(
+              `Failed to fetch transcript: ${errorMessage}. YouTube may be blocking requests from this server.`,
             );
           }
-
-          if (errorMessage.includes("Invalid")) {
-            throw new BadRequestException("Invalid YouTube video ID");
-          }
-
-          throw new BadRequestException(
-            `Failed to fetch transcript: ${errorMessage}. YouTube may be blocking requests from this server. Consider setting SUPADATA_API_KEY for reliable transcript access.`,
-          );
         }
       }
     }
@@ -459,9 +478,17 @@ export class YoutubeService {
 
       for (const lang of languages) {
         try {
+          this.logger.debug(
+            `Trying youtube-transcript for ${videoId} with lang: ${lang}`,
+          );
+
           const transcript = await YoutubeTranscript.fetchTranscript(videoId, {
             lang: lang,
           });
+
+          this.logger.debug(
+            `youtube-transcript returned ${transcript?.length ?? 0} items for lang ${lang}`,
+          );
 
           if (transcript && transcript.length > 0) {
             const segments: TranscriptSegment[] = transcript.map(
@@ -473,9 +500,13 @@ export class YoutubeService {
             );
 
             this.logger.log(
-              `Successfully fetched transcript using youtube-transcript (lang: ${lang}) for ${videoId}`,
+              `Successfully fetched transcript using youtube-transcript (lang: ${lang}) for ${videoId}, ${segments.length} segments`,
             );
             return { segments, title: null };
+          } else {
+            this.logger.debug(
+              `youtube-transcript returned empty result for lang ${lang}`,
+            );
           }
         } catch (langError) {
           this.logger.debug(
@@ -623,15 +654,7 @@ export class YoutubeService {
 
     this.logger.warn(`All fallback transcript attempts failed for ${videoId}`);
 
-    // Try YouTube's timedtext API as final fallback
-    const timedTextResult = await this.fetchTranscriptTimedText(
-      videoId,
-      "en", // Try English first in timedtext API
-    );
-    if (timedTextResult) {
-      return timedTextResult;
-    }
-
+    // Note: timedtext API is now tried first in the main flow, no need to retry here
     return null;
   }
 
@@ -662,43 +685,56 @@ export class YoutubeService {
       "ru",
     ];
 
-    for (const lang of languages) {
-      try {
-        // Try to get caption track URL from video page
-        const videoPageResponse = await fetch(
-          `https://www.youtube.com/watch?v=${videoId}`,
-          {
-            headers: {
-              "User-Agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-              "Accept-Language": "en-US,en;q=0.9",
-            },
+    this.logger.debug(`Starting timedtext API fetch for ${videoId}`);
+
+    // We only need to fetch the video page once to get all caption tracks
+    try {
+      const videoPageResponse = await fetch(
+        `https://www.youtube.com/watch?v=${videoId}`,
+        {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
           },
+        },
+      );
+
+      if (!videoPageResponse.ok) {
+        this.logger.debug(
+          `Failed to fetch video page for ${videoId}: ${videoPageResponse.status}`,
         );
+        return null;
+      }
 
-        if (!videoPageResponse.ok) {
-          continue;
-        }
+      const html = await videoPageResponse.text();
 
-        const html = await videoPageResponse.text();
+      // Extract caption tracks from ytInitialPlayerResponse
+      const captionMatch = html.match(/"captionTracks":\s*(\[.*?\])/);
+      if (!captionMatch) {
+        this.logger.debug(
+          `No caption tracks found in video page for ${videoId}`,
+        );
+        return null;
+      }
 
-        // Extract caption tracks from ytInitialPlayerResponse
-        const captionMatch = html.match(/"captionTracks":\s*(\[.*?\])/);
-        if (!captionMatch) {
-          this.logger.debug(
-            `No caption tracks found in video page for ${videoId}`,
-          );
-          continue;
-        }
+      let captionTracks: Array<{
+        baseUrl: string;
+        languageCode: string;
+        name?: { simpleText?: string };
+      }>;
+      try {
+        captionTracks = JSON.parse(captionMatch[1]);
+        this.logger.debug(
+          `Found ${captionTracks.length} caption tracks for ${videoId}: ${captionTracks.map((t) => t.languageCode).join(", ")}`,
+        );
+      } catch {
+        this.logger.debug(`Failed to parse caption tracks for ${videoId}`);
+        return null;
+      }
 
-        let captionTracks: Array<{ baseUrl: string; languageCode: string }>;
-        try {
-          captionTracks = JSON.parse(captionMatch[1]);
-        } catch {
-          this.logger.debug(`Failed to parse caption tracks for ${videoId}`);
-          continue;
-        }
-
+      // Try each language in order
+      for (const lang of languages) {
         // Find matching language track
         const track = captionTracks.find(
           (t) =>
@@ -707,9 +743,12 @@ export class YoutubeService {
         );
 
         if (!track?.baseUrl) {
-          this.logger.debug(`No ${lang} caption track found for ${videoId}`);
           continue;
         }
+
+        this.logger.debug(
+          `Found ${lang} caption track for ${videoId}, fetching...`,
+        );
 
         // Fetch the caption XML
         const captionResponse = await fetch(track.baseUrl, {
@@ -720,6 +759,9 @@ export class YoutubeService {
         });
 
         if (!captionResponse.ok) {
+          this.logger.debug(
+            `Failed to fetch caption for ${videoId} (${lang}): ${captionResponse.status}`,
+          );
           continue;
         }
 
@@ -733,13 +775,14 @@ export class YoutubeService {
             `Successfully fetched transcript using timedtext API (lang: ${lang}) for ${videoId}, segments=${segments.length}`,
           );
           return { segments, title: null };
+        } else {
+          this.logger.debug(
+            `Parsed 0 segments from ${lang} caption XML for ${videoId}`,
+          );
         }
-      } catch (error) {
-        this.logger.debug(
-          `Timedtext API failed for lang ${lang}: ${String(error)}`,
-        );
-        continue;
       }
+    } catch (error) {
+      this.logger.debug(`Timedtext API error for ${videoId}: ${error}`);
     }
 
     this.logger.warn(`Timedtext API fallback failed for ${videoId}`);
