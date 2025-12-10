@@ -16,7 +16,10 @@ import MatrixLayout from '../visualizations/MatrixLayout';
 import { Edit3, Check, X } from 'lucide-react';
 
 interface EditableSlideRendererProps {
-  slide: EnhancedSlide;
+  slide: EnhancedSlide & {
+    backgroundImage?: string;
+    contentImage?: string;
+  };
   template: PPTTemplate;
   isEditable?: boolean;
   onTitleChange?: (newTitle: string) => void;
@@ -346,6 +349,11 @@ export default function EditableSlideRenderer({
     [slide, onContentChange, onSlideChange]
   );
 
+  // 从 slide 中提取背景图片（可能来自后端PPT API）
+  const backgroundImageUrl =
+    slide.backgroundImage ||
+    (slide.images && slide.images.length > 0 ? slide.images[0] : null);
+
   return (
     <div
       className={cn(
@@ -355,13 +363,28 @@ export default function EditableSlideRenderer({
       style={{
         aspectRatio: '16/9',
         backgroundColor: template.colors.background,
-        backgroundImage: template.colors.backgroundOverlay
-          ? template.colors.backgroundOverlay.startsWith('linear')
-            ? template.colors.backgroundOverlay
-            : `linear-gradient(135deg, ${template.colors.background}, ${template.colors.background})`
-          : undefined,
+        backgroundImage: backgroundImageUrl
+          ? `url(${backgroundImageUrl})`
+          : template.colors.backgroundOverlay
+            ? template.colors.backgroundOverlay.startsWith('linear')
+              ? template.colors.backgroundOverlay
+              : `linear-gradient(135deg, ${template.colors.background}, ${template.colors.background})`
+            : undefined,
+        backgroundSize: backgroundImageUrl ? 'cover' : undefined,
+        backgroundPosition: backgroundImageUrl ? 'center' : undefined,
       }}
     >
+      {/* 背景图片遮罩（提高文字可读性） */}
+      {backgroundImageUrl && (
+        <div
+          className="absolute inset-0 z-0"
+          style={{
+            background:
+              'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.5) 100%)',
+          }}
+        />
+      )}
+
       {/* 编辑模式指示器 */}
       {isEditable && (
         <div className="absolute right-4 top-4 z-20 flex items-center gap-1.5 rounded-full bg-blue-500/90 px-3 py-1 text-xs font-medium text-white">
@@ -397,11 +420,15 @@ export default function EditableSlideRenderer({
             className="mb-2 font-bold"
             style={{
               fontSize: `${template.typography.title}px`,
-              color:
-                template.style.layoutStyle === 'dark'
+              color: backgroundImageUrl
+                ? '#ffffff'
+                : template.style.layoutStyle === 'dark'
                   ? template.colors.textLight
                   : template.colors.primary,
               fontFamily: template.fonts.heading,
+              textShadow: backgroundImageUrl
+                ? '0 2px 4px rgba(0,0,0,0.5)'
+                : undefined,
             }}
             placeholder="点击输入标题..."
           />
@@ -423,7 +450,8 @@ export default function EditableSlideRenderer({
             slide,
             template,
             isEditable,
-            handleContentItemChange
+            handleContentItemChange,
+            !!backgroundImageUrl
           )}
         </div>
       </div>
@@ -435,7 +463,8 @@ function renderEditableSlideContent(
   slide: EnhancedSlide,
   template: PPTTemplate,
   isEditable: boolean,
-  onContentChange: (index: number, newContent: string) => void
+  onContentChange: (index: number, newContent: string) => void,
+  hasBackgroundImage: boolean = false
 ) {
   switch (slide.type) {
     case 'cover':
@@ -443,7 +472,8 @@ function renderEditableSlideContent(
         slide,
         template,
         isEditable,
-        onContentChange
+        onContentChange,
+        hasBackgroundImage
       );
 
     case 'flowchart':
@@ -460,7 +490,8 @@ function renderEditableSlideContent(
         slide,
         template,
         isEditable,
-        onContentChange
+        onContentChange,
+        hasBackgroundImage
       );
 
     default:
@@ -468,7 +499,8 @@ function renderEditableSlideContent(
         slide,
         template,
         isEditable,
-        onContentChange
+        onContentChange,
+        hasBackgroundImage
       );
   }
 }
@@ -478,17 +510,11 @@ function renderEditableCoverSlide(
   slide: EnhancedSlide,
   template: PPTTemplate,
   isEditable: boolean,
-  onContentChange: (index: number, newContent: string) => void
+  onContentChange: (index: number, newContent: string) => void,
+  hasBackgroundImage: boolean = false
 ) {
   return (
     <div className="flex h-full flex-col items-center justify-center">
-      {slide.images && slide.images.length > 0 && (
-        <img
-          src={slide.images[0]}
-          alt="Cover"
-          className="mb-8 max-h-48 rounded-lg shadow-lg"
-        />
-      )}
       <div className="w-full max-w-2xl text-center">
         {slide.content.map((line, idx) => {
           const trimmed = line.trim();
@@ -502,11 +528,15 @@ function renderEditableCoverSlide(
               className="mb-2 block"
               style={{
                 fontSize: `${template.typography.subtitle}px`,
-                color:
-                  template.style.layoutStyle === 'dark'
+                color: hasBackgroundImage
+                  ? '#ffffff'
+                  : template.style.layoutStyle === 'dark'
                     ? template.colors.textLight
                     : template.colors.textSecondary,
                 fontFamily: template.fonts.body,
+                textShadow: hasBackgroundImage
+                  ? '0 2px 4px rgba(0,0,0,0.5)'
+                  : undefined,
               }}
               renderAsHtml
             />
@@ -573,7 +603,8 @@ function renderEditable2ColumnSlide(
   slide: EnhancedSlide,
   template: PPTTemplate,
   isEditable: boolean,
-  onContentChange: (index: number, newContent: string) => void
+  onContentChange: (index: number, newContent: string) => void,
+  hasBackgroundImage: boolean = false
 ) {
   const columns: { line: string; originalIndex: number }[][] = [[], []];
   let currentColumn = 0;
@@ -609,11 +640,15 @@ function renderEditable2ColumnSlide(
                   className="mb-2 font-bold"
                   style={{
                     fontSize: `${template.typography.subtitle}px`,
-                    color:
-                      template.style.layoutStyle === 'dark'
+                    color: hasBackgroundImage
+                      ? '#ffffff'
+                      : template.style.layoutStyle === 'dark'
                         ? template.colors.textLight
                         : template.colors.primary,
                     fontFamily: template.fonts.heading,
+                    textShadow: hasBackgroundImage
+                      ? '0 2px 4px rgba(0,0,0,0.5)'
+                      : undefined,
                   }}
                 />
               );
@@ -629,7 +664,9 @@ function renderEditable2ColumnSlide(
                   onChange={onContentChange}
                   isEditable={isEditable}
                   template={template}
-                  bulletColor={template.colors.decorative}
+                  bulletColor={
+                    hasBackgroundImage ? '#ffffff' : template.colors.decorative
+                  }
                 />
               );
             }
@@ -647,7 +684,8 @@ function renderEditableStandardSlide(
   slide: EnhancedSlide,
   template: PPTTemplate,
   isEditable: boolean,
-  onContentChange: (index: number, newContent: string) => void
+  onContentChange: (index: number, newContent: string) => void,
+  hasBackgroundImage: boolean = false
 ) {
   const hasImages = slide.images && slide.images.length > 0;
   const layout = slide.layout || 'content';
@@ -683,7 +721,8 @@ function renderEditableStandardSlide(
             slide.content,
             template,
             isEditable,
-            onContentChange
+            onContentChange,
+            hasBackgroundImage
           )}
         </div>
         {layout === 'image-right' && (
@@ -706,7 +745,8 @@ function renderEditableStandardSlide(
         slide.content,
         template,
         isEditable,
-        onContentChange
+        onContentChange,
+        hasBackgroundImage
       )}
     </div>
   );
@@ -716,7 +756,8 @@ function renderEditableContentList(
   content: string[],
   template: PPTTemplate,
   isEditable: boolean,
-  onContentChange: (index: number, newContent: string) => void
+  onContentChange: (index: number, newContent: string) => void,
+  hasBackgroundImage: boolean = false
 ) {
   return content.map((line, idx) => {
     const trimmed = line.trim();
@@ -733,7 +774,9 @@ function renderEditableContentList(
           onChange={onContentChange}
           isEditable={isEditable}
           template={template}
-          bulletColor={template.colors.decorative}
+          bulletColor={
+            hasBackgroundImage ? '#ffffff' : template.colors.decorative
+          }
         />
       );
     }
@@ -753,8 +796,13 @@ function renderEditableContentList(
           <span
             className="font-medium"
             style={{
-              color: template.colors.decorative,
+              color: hasBackgroundImage
+                ? '#ffffff'
+                : template.colors.decorative,
               fontSize: `${template.typography.body}px`,
+              textShadow: hasBackgroundImage
+                ? '0 1px 2px rgba(0,0,0,0.5)'
+                : undefined,
             }}
           >
             {number}.
@@ -768,11 +816,15 @@ function renderEditableContentList(
             className="flex-1 leading-relaxed"
             style={{
               fontSize: `${template.typography.body}px`,
-              color:
-                template.style.layoutStyle === 'dark'
+              color: hasBackgroundImage
+                ? '#ffffff'
+                : template.style.layoutStyle === 'dark'
                   ? template.colors.text
                   : template.colors.text,
               fontFamily: template.fonts.body,
+              textShadow: hasBackgroundImage
+                ? '0 1px 2px rgba(0,0,0,0.5)'
+                : undefined,
             }}
             renderAsHtml
           />
@@ -790,11 +842,15 @@ function renderEditableContentList(
         className="leading-relaxed"
         style={{
           fontSize: `${template.typography.body}px`,
-          color:
-            template.style.layoutStyle === 'dark'
+          color: hasBackgroundImage
+            ? '#ffffff'
+            : template.style.layoutStyle === 'dark'
               ? template.colors.text
               : template.colors.text,
           fontFamily: template.fonts.body,
+          textShadow: hasBackgroundImage
+            ? '0 1px 2px rgba(0,0,0,0.5)'
+            : undefined,
         }}
         renderAsHtml
       />

@@ -757,7 +757,7 @@ export default function SlidesTab() {
     ]);
   };
 
-  // 生成内容
+  // 生成内容 - 使用后端完整PPT生成API（包含图片）
   const generateContent = async () => {
     setIsLoading(true);
     setGenerationStep('content');
@@ -781,7 +781,7 @@ export default function SlidesTab() {
         { timestamp: new Date(), action: 'create' as const, aiModel: 'grok' },
       ],
       versions: [],
-      content: { markdown: '' },
+      content: { markdown: '', slides: [] },
       metadata: { wordCount: 0 },
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -789,6 +789,216 @@ export default function SlidesTab() {
     addDocument(newDocument as any);
     setCurrentDocument(newDocumentId);
 
+    try {
+      // 构建大纲文本用于 prompt
+      const outlineText = outline
+        .map(
+          (item) =>
+            `第${item.slideNumber}页 - ${item.title}: ${item.points.join(', ')}`
+        )
+        .join('\n');
+
+      // 获取解析的意图数据
+      const visualStyle = parsedIntent?.visualStyle || 'default';
+      const urls = parsedIntent?.urls || [];
+
+      // 构建完整的提示词
+      const fullPrompt = `${outline[0]?.title || input}\n\n大纲：\n${outlineText}`;
+
+      // 映射视觉风格到主题ID
+      const themeMapping: Record<string, string> = {
+        default: 'professional',
+        comic: 'creative',
+        doraemon: 'creative',
+        anime: 'creative',
+        watercolor: 'creative',
+        pixel: 'creative',
+        flat: 'modern',
+        handdrawn: 'creative',
+        professional: 'professional',
+        tech: 'modern',
+        minimal: 'minimal',
+      };
+      const themeId = themeMapping[visualStyle] || 'professional';
+
+      // 构建 SSE 请求 URL
+      const params = new URLSearchParams({
+        prompt: fullPrompt,
+        themeId: themeId,
+        slideCount: String(outline.length),
+        language: 'zh',
+        includeImages: 'true',
+      });
+
+      if (urls.length > 0) {
+        params.set('urls', urls.join(','));
+      }
+
+      // 使用后端完整 PPT 生成 API（包含图片生成）
+      const eventSource = new EventSource(
+        `/api/ai-office/ppt/generate/stream?${params.toString()}`
+      );
+
+      let generatedSlides: any[] = [];
+      let pptDocument: any = null;
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+
+          switch (data.type) {
+            case 'progress':
+              // 更新进度消息
+              setMessages((prev) => {
+                const lastMsg = prev[prev.length - 1];
+                if (
+                  lastMsg?.role === 'assistant' &&
+                  lastMsg.content.includes('正在')
+                ) {
+                  return [
+                    ...prev.slice(0, -1),
+                    {
+                      ...lastMsg,
+                      content: `正在生成: ${data.message || data.phase}...`,
+                    },
+                  ];
+                }
+                return [
+                  ...prev,
+                  {
+                    id: Date.now().toString(),
+                    role: 'assistant',
+                    content: `正在生成: ${data.message || data.phase}...`,
+                    timestamp: new Date(),
+                  },
+                ];
+              });
+              break;
+
+            case 'slide':
+              // 收到单页幻灯片
+              generatedSlides.push(data.slide);
+              // 转换为 Markdown 格式更新文档
+              const markdown = generatedSlides
+                .map(
+                  (slide, idx) =>
+                    `### Slide ${idx + 1}: ${slide.title}\n${
+                      slide.content
+                        ?.map((c: any) => `- ${c.text || c}`)
+                        .join('\n') || ''
+                    }${slide.backgroundImage ? `\n<!-- IMAGE: ${slide.backgroundImage} -->` : ''}`
+                )
+                .join('\n\n---\n\n');
+              updateDocument(newDocumentId, {
+                content: { markdown, slides: generatedSlides },
+                metadata: { wordCount: markdown.length },
+                updatedAt: new Date(),
+              } as any);
+              break;
+
+            case 'complete':
+              // 生成完成
+              pptDocument = data.document;
+              if (pptDocument?.slides) {
+                generatedSlides = pptDocument.slides;
+                const finalMarkdown = generatedSlides
+                  .map(
+                    (slide: any, idx: number) =>
+                      `### Slide ${idx + 1}: ${slide.title}\n${
+                        slide.content
+                          ?.map((c: any) => `- ${c.text || c}`)
+                          .join('\n') || ''
+                      }${slide.backgroundImage ? `\n<!-- IMAGE: ${slide.backgroundImage} -->` : ''}`
+                  )
+                  .join('\n\n---\n\n');
+                updateDocument(newDocumentId, {
+                  content: {
+                    markdown: finalMarkdown,
+                    slides: generatedSlides,
+                    pptDocument,
+                  },
+                  status: 'completed',
+                  metadata: { wordCount: finalMarkdown.length },
+                  updatedAt: new Date(),
+                } as any);
+              }
+
+              setGenerationStep('complete');
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: Date.now().toString(),
+                  role: 'assistant',
+                  content: `PPT生成完成！共 ${generatedSlides.length} 页，包含AI生成的图片。`,
+                  timestamp: new Date(),
+                },
+              ]);
+              setIsLoading(false);
+              eventSource.close();
+              break;
+
+            case 'error':
+              throw new Error(data.error?.message || 'PPT generation failed');
+          }
+        } catch (parseError) {
+          console.error('Parse SSE event error:', parseError);
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('SSE error:', error);
+        eventSource.close();
+
+        // 如果已经有生成的slides，使用它们
+        if (generatedSlides.length > 0) {
+          const markdown = generatedSlides
+            .map(
+              (slide, idx) =>
+                `### Slide ${idx + 1}: ${slide.title}\n${
+                  slide.content
+                    ?.map((c: any) => `- ${c.text || c}`)
+                    .join('\n') || ''
+                }`
+            )
+            .join('\n\n---\n\n');
+          updateDocument(newDocumentId, {
+            content: { markdown, slides: generatedSlides },
+            status: 'completed',
+            updatedAt: new Date(),
+          } as any);
+          setGenerationStep('complete');
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: Date.now().toString(),
+              role: 'assistant',
+              content: `PPT生成完成！共 ${generatedSlides.length} 页。`,
+              timestamp: new Date(),
+            },
+          ]);
+        } else {
+          // 回退到简单文本生成
+          fallbackToTextGeneration(newDocumentId);
+        }
+        setIsLoading(false);
+      };
+    } catch (error) {
+      console.error('Generate content error:', error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: '抱歉，生成内容时出错，请重试。',
+          timestamp: new Date(),
+        },
+      ]);
+      setIsLoading(false);
+    }
+  };
+
+  // 回退到简单文本生成（当后端PPT API不可用时）
+  const fallbackToTextGeneration = async (documentId: string) => {
     try {
       const outlineText = outline
         .map(
@@ -807,17 +1017,16 @@ export default function SlidesTab() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: `请根据以下大纲和布局配置生成完整的PPT内容。\n\n【大纲】\n${outlineText}\n\n【布局配置】\n${layoutText}\n\n【输出格式要求】\n请严格按照以下Markdown格式输出：\n\n### Slide 1: [标题]\n- 内容要点\n\n---\n\n### Slide 2: [标题]\n- 内容要点\n\n---\n\n注意：\n1. 每页以 "### Slide X: " 开头\n2. 使用 "---" 分隔\n3. 内容丰富详实，每页3-5个要点\n4. 对于图表页，添加 <!-- CHART:type --> 标记\n5. 直接输出，不要添加说明`,
+          message: `请根据以下大纲和布局配置生成完整的PPT内容。\n\n【大纲】\n${outlineText}\n\n【布局配置】\n${layoutText}\n\n【输出格式要求】\n请严格按照以下Markdown格式输出：\n\n### Slide 1: [标题]\n- 内容要点\n\n---\n\n### Slide 2: [标题]\n- 内容要点\n\n---\n\n注意：\n1. 每页以 "### Slide X: " 开头\n2. 使用 "---" 分隔\n3. 内容丰富详实，每页3-5个要点\n4. 直接输出，不要添加说明`,
           resources: resources.filter((r) =>
             selectedResourceIds.includes(r._id)
           ),
-          documentId: newDocumentId,
+          documentId: documentId,
           stream: true,
-          isDocumentGeneration: true,
         }),
       });
 
-      if (!response.ok) throw new Error('AI service request failed');
+      if (!response.ok) throw new Error('Fallback generation failed');
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -837,7 +1046,7 @@ export default function SlidesTab() {
                 const parsed = JSON.parse(data);
                 if (parsed.content) {
                   aiContent += parsed.content;
-                  updateDocument(newDocumentId, {
+                  updateDocument(documentId, {
                     content: { markdown: aiContent },
                     metadata: { wordCount: aiContent.length },
                     updatedAt: new Date(),
@@ -852,7 +1061,7 @@ export default function SlidesTab() {
       }
 
       const slideCount = aiContent.split('---').filter((s) => s.trim()).length;
-      updateDocument(newDocumentId, {
+      updateDocument(documentId, {
         status: 'completed',
         updatedAt: new Date(),
       } as any);
@@ -863,12 +1072,12 @@ export default function SlidesTab() {
         {
           id: Date.now().toString(),
           role: 'assistant',
-          content: `PPT生成完成！共 ${slideCount} 页。您可以在右侧预览和编辑。`,
+          content: `PPT生成完成！共 ${slideCount} 页（文本模式）。`,
           timestamp: new Date(),
         },
       ]);
     } catch (error) {
-      console.error('Generate content error:', error);
+      console.error('Fallback generation error:', error);
       setMessages((prev) => [
         ...prev,
         {
@@ -878,8 +1087,6 @@ export default function SlidesTab() {
           timestamp: new Date(),
         },
       ]);
-    } finally {
-      setIsLoading(false);
     }
   };
 
