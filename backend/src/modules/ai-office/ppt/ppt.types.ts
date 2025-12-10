@@ -367,6 +367,28 @@ export const PPT_THEMES: Record<string, PPTTheme> = {
     borderRadius: "large",
     shadowStyle: "medium",
   },
+  doraemon: {
+    id: "doraemon",
+    name: "Doraemon",
+    nameZh: "机器猫",
+    colors: {
+      primary: "#0EA5E9", // 哆啦A梦蓝
+      secondary: "#38BDF8", // 天空蓝
+      accent: "#EF4444", // 铃铛红/鼻子红
+      background: "#F0F9FF", // 浅蓝背景
+      backgroundSecondary: "#E0F2FE",
+      text: "#0C4A6E", // 深蓝文字
+      textLight: "#0284C7",
+      textMuted: "#7DD3FC",
+    },
+    fonts: {
+      heading: "'Comic Sans MS', 'Noto Sans SC', cursive",
+      body: "'Noto Sans SC', sans-serif",
+    },
+    style: "creative", // playful/childlike aesthetic
+    borderRadius: "large",
+    shadowStyle: "medium",
+  },
   genspark: {
     id: "genspark",
     name: "Genspark",

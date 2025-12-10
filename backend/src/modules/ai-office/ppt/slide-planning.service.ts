@@ -925,22 +925,38 @@ export class SlidePlanningService {
   }
 
   /**
-   * 确定图像规格
+   * 确定图像规格 - 生成高质量的图片提示词（参考 Gamma/Genspark 标准）
    */
   private determineImageSpec(
     outlineItem: SlideOutlineItem,
     layoutType: SlideLayoutType,
     _backgroundType: BackgroundType,
   ): SlideImageSpec | undefined {
-    // 如果背景已经是 AI 生成，不需要额外图片（除非布局需要）
+    // 大多数布局都需要图片以提升视觉效果
     const needsContentImage =
       layoutType === "text_image_left" ||
       layoutType === "text_image_right" ||
       layoutType === "image_full" ||
       layoutType === "image_top" ||
-      layoutType === "image_bottom";
+      layoutType === "image_bottom" ||
+      layoutType === "title_center" ||
+      layoutType === "title_subtitle" ||
+      layoutType === "cards_grid" ||
+      layoutType === "two_columns" ||
+      layoutType === "statistics_cards";
 
-    if (!outlineItem.needsImage && !needsContentImage) {
+    // 如果明确不需要图片且布局不需要，则跳过
+    if (
+      !outlineItem.needsImage &&
+      !needsContentImage &&
+      layoutType !== "bullet_points"
+    ) {
+      return undefined;
+    }
+
+    // 对于内容密集型布局（统计、图表），也添加装饰性图片
+    const shouldAddImage = outlineItem.needsImage || needsContentImage;
+    if (!shouldAddImage) {
       return undefined;
     }
 
@@ -950,32 +966,197 @@ export class SlidePlanningService {
     if (layoutType === "image_full") position = "background";
     if (layoutType === "image_top") position = "top";
     if (layoutType === "image_bottom") position = "bottom";
+    if (layoutType === "title_center" || layoutType === "title_subtitle")
+      position = "background";
 
-    // 生成提示词 - 优先使用 AI 生成的 imageHint
+    // 生成高质量提示词 - 使用专业的 prompt engineering
     let prompt: string;
+
     if (outlineItem.imageHint) {
-      // 使用 AI 提供的更专业的图像提示
-      prompt = `${outlineItem.imageHint}. Context: ${outlineItem.title}. Style: professional, high-quality, modern design.`;
+      // 使用 AI 提供的更专业的图像提示，但增强它
+      prompt = this.enhanceImagePrompt(
+        outlineItem.imageHint,
+        outlineItem.title,
+        outlineItem.purpose,
+      );
     } else {
-      // 回退到基本提示词
-      const keywords = outlineItem.keyPoints.slice(0, 3).join(", ");
-      prompt = `Professional illustration for: ${outlineItem.title}. Related concepts: ${keywords}. Style: modern, clean, professional.`;
+      // 根据幻灯片目的生成专业的图片提示词
+      prompt = this.generateImagePromptByPurpose(
+        outlineItem.purpose,
+        outlineItem.title,
+        outlineItem.keyPoints,
+      );
     }
 
-    // 根据 emphasis 调整风格
-    const style =
-      outlineItem.emphasis === "high"
-        ? "hero"
-        : outlineItem.emphasis === "low"
-          ? "minimal"
-          : "professional";
+    // 根据 emphasis 和 purpose 调整风格
+    let style: string;
+    if (outlineItem.purpose === "title" || outlineItem.purpose === "closing") {
+      style = "hero";
+    } else if (outlineItem.emphasis === "high") {
+      style = "hero";
+    } else if (outlineItem.emphasis === "low") {
+      style = "minimal";
+    } else {
+      style = "professional";
+    }
 
     return {
       prompt,
       position,
       style,
-      aspectRatio: "16:9",
+      aspectRatio: position === "background" ? "16:9" : "4:3",
     };
+  }
+
+  /**
+   * 增强图片提示词
+   */
+  private enhanceImagePrompt(
+    hint: string,
+    title: string,
+    purpose: SlidePurpose,
+  ): string {
+    const styleModifiers = this.getStyleModifiersByPurpose(purpose);
+    return `${hint}.
+
+Technical specs: High resolution, professional quality, ${styleModifiers.style} aesthetic.
+Composition: ${styleModifiers.composition}
+Color palette: ${styleModifiers.colors}
+Context: ${title}
+DO NOT include any text or words in the image.`;
+  }
+
+  /**
+   * 根据幻灯片目的生成专业的图片提示词
+   */
+  private generateImagePromptByPurpose(
+    purpose: SlidePurpose,
+    title: string,
+    keyPoints: string[],
+  ): string {
+    const keywords = keyPoints.slice(0, 3).join(", ");
+    const modifiers = this.getStyleModifiersByPurpose(purpose);
+
+    const purposePrompts: Record<SlidePurpose, string> = {
+      title: `Stunning hero image representing "${title}". ${modifiers.style} style, cinematic quality, dramatic lighting. Abstract or symbolic visual that evokes the theme. NO text. Ultra high quality, 8K resolution feel.`,
+
+      closing: `Inspiring closing visual for "${title}". ${modifiers.style} aesthetic, hopeful and forward-looking mood. Could be: abstract light rays, open horizon, connected network, or symbolic growth imagery. NO text.`,
+
+      section_header: `Bold section header visual for "${title}". Eye-catching, modern design. Abstract geometric patterns or symbolic imagery. Strong visual impact. ${modifiers.colors}. NO text.`,
+
+      content: `Professional illustration for "${title}" covering: ${keywords}. Clean, modern business style. Could be: isometric illustration, flat design icons, or subtle photography. Professional and engaging. NO text.`,
+
+      comparison: `Split comparison visual for "${title}". Two contrasting but balanced elements. Clear visual distinction between left and right. Modern, clean aesthetic. NO text.`,
+
+      timeline: `Timeline or process visualization for "${title}". Shows progression, evolution, or journey. Could be: path, road, growing plant, or connected nodes. ${modifiers.style} style. NO text.`,
+
+      statistics: `Data visualization theme for "${title}": ${keywords}. Abstract representation of growth, metrics, or success. Could be: rising graphs, connected data points, or achievement imagery. Modern, tech-forward aesthetic. NO text.`,
+
+      quote: `Atmospheric background for quote about "${title}". Elegant, minimal, thoughtful mood. Soft lighting, subtle textures. Could be: nature scene, abstract light play, or serene landscape. ${modifiers.colors}. NO text.`,
+
+      team: `Professional team/people themed image for "${title}". Diverse, collaborative, modern workplace feel. Could be: silhouettes collaborating, hands joining, or abstract human connections. Warm and professional. NO text.`,
+
+      image_focus: `Hero image showcasing "${title}": ${keywords}. This is the main visual - make it stunning. High impact, professional photography style or detailed illustration. ${modifiers.style}. NO text.`,
+
+      chart: `Supporting visual for data/chart about "${title}". Abstract representation of analytics, insights, or data patterns. Modern, clean, tech aesthetic. Blue tones work well. NO text.`,
+
+      agenda: `Clean agenda/roadmap visual for "${title}". Could be: path, stepping stones, connected circles, or subtle geometric pattern. Organized, professional feel. ${modifiers.colors}. NO text.`,
+
+      qna: `Inviting Q&A visual. Open, welcoming imagery. Could be: speech bubbles, raised hands, dialogue symbols, or open door metaphor. Friendly and approachable. NO text.`,
+    };
+
+    return (
+      purposePrompts[purpose] ||
+      `Professional illustration for ${title}. Modern, clean design. Related to: ${keywords}. NO text.`
+    );
+  }
+
+  /**
+   * 获取不同目的的样式修饰符
+   */
+  private getStyleModifiersByPurpose(purpose: SlidePurpose): {
+    style: string;
+    composition: string;
+    colors: string;
+  } {
+    const modifiers: Record<
+      SlidePurpose,
+      { style: string; composition: string; colors: string }
+    > = {
+      title: {
+        style: "cinematic, dramatic",
+        composition: "centered focus with depth",
+        colors: "rich, vibrant, high contrast",
+      },
+      closing: {
+        style: "hopeful, inspiring",
+        composition: "open, expansive",
+        colors: "warm, optimistic tones",
+      },
+      section_header: {
+        style: "bold, modern",
+        composition: "strong focal point",
+        colors: "brand-aligned, impactful",
+      },
+      content: {
+        style: "clean, professional",
+        composition: "balanced, organized",
+        colors: "muted, professional palette",
+      },
+      comparison: {
+        style: "clear, contrasting",
+        composition: "symmetrical split",
+        colors: "two distinct but harmonious palettes",
+      },
+      timeline: {
+        style: "flowing, progressive",
+        composition: "left-to-right or bottom-to-top flow",
+        colors: "gradient progression",
+      },
+      statistics: {
+        style: "modern, data-driven",
+        composition: "clean with focal metrics",
+        colors: "cool blues, greens for growth",
+      },
+      quote: {
+        style: "elegant, atmospheric",
+        composition: "minimal, spacious",
+        colors: "soft, muted, sophisticated",
+      },
+      team: {
+        style: "warm, collaborative",
+        composition: "inclusive, connected",
+        colors: "warm, approachable tones",
+      },
+      image_focus: {
+        style: "stunning, hero-quality",
+        composition: "strong subject, rule of thirds",
+        colors: "vivid, attention-grabbing",
+      },
+      chart: {
+        style: "analytical, clean",
+        composition: "data-focused",
+        colors: "analytical blues, clear contrast",
+      },
+      agenda: {
+        style: "organized, structured",
+        composition: "sequential, clear hierarchy",
+        colors: "professional, subtle",
+      },
+      qna: {
+        style: "open, welcoming",
+        composition: "inviting, conversational",
+        colors: "friendly, approachable",
+      },
+    };
+
+    return (
+      modifiers[purpose] || {
+        style: "professional, modern",
+        composition: "balanced",
+        colors: "professional palette",
+      }
+    );
   }
 
   /**

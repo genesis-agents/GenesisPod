@@ -19,7 +19,14 @@ import { SlideSpec, GeneratedSlideContent } from "./ppt.types";
 // 内容生成提示词
 // ============================================
 
-const CONTENT_GENERATION_PROMPT = `You are a professional presentation content writer. Generate detailed content for this slide.
+const CONTENT_GENERATION_PROMPT = `You are a WORLD-CLASS presentation content writer, like those who write for TED Talks, Apple Keynotes, and Fortune 500 companies. Your presentations are known for being ENGAGING, INSIGHTFUL, and MEMORABLE.
+
+## Your Content Philosophy (Reference: Gamma.app, Genspark quality)
+1. **Rich & Valuable**: Every slide provides REAL VALUE, not just headers
+2. **Storytelling**: Content flows naturally, tells a story
+3. **Specific & Concrete**: Use real data, examples, and details - NO generic filler
+4. **Visually Structured**: Content is organized for visual impact
+5. **Memorable**: Each slide has a takeaway worth remembering
 
 ## Slide Specification
 - Title: {title}
@@ -30,31 +37,72 @@ const CONTENT_GENERATION_PROMPT = `You are a professional presentation content w
 ## Source Material (for reference)
 {sourceContent}
 
-## Requirements
-1. Title: Concise and impactful (max 10 words)
-2. Subtitle: Optional, provides context
-3. Bullet Points: 2-5 points, each max 15 words
-4. Keep language consistent with outline
-5. Extract specific data/numbers if available
-6. Generate speaker notes (2-3 sentences, ~30 seconds of speaking)
+## CRITICAL CONTENT REQUIREMENTS (Like Gamma/Genspark)
+
+### For Title Slides:
+- Compelling headline that hooks the audience
+- Subtitle that creates intrigue or states the value proposition
+
+### For Content Slides:
+1. **Bullet Points**: 4-6 substantive points, each 15-25 words
+   - Each point should be a COMPLETE INSIGHT, not just a label
+   - Include specific examples, numbers, or facts when relevant
+   - Bad: "Benefits of AI"
+   - Good: "AI automation reduces manual processing time by 60%, freeing teams to focus on strategic decisions"
+
+2. **Body Text** (when appropriate): 2-3 sentences providing context
+   - Should add value, not repeat bullets
+   - Include relevant statistics or examples
+
+3. **Highlight Text**: The ONE thing audience should remember from this slide
+
+### For Statistics Slides:
+- Include 3-4 statistics with:
+  - Specific numbers (not ranges like "20-30%")
+  - Context/comparison ("up 40% from last year")
+  - Trend indicators
+
+### For Quote Slides:
+- Powerful, memorable quote
+- Author with credentials
+- Source for credibility
+
+### For Comparison Slides:
+- Clear structure: Left vs Right
+- 4-5 comparison points for each side
+- Each point should be substantive
 
 ## Language: {language}
 If language is "auto", detect from outline and maintain consistency.
+If Chinese (zh), use natural, professional Chinese - avoid awkward translations.
 
 ## Output Format (JSON)
 {
-  "title": "Slide title",
-  "subtitle": "Optional subtitle",
-  "bodyText": "Main paragraph text (for text_only layouts)",
-  "bulletPoints": ["Point 1", "Point 2", "Point 3"],
-  "highlightText": "Key number or phrase to emphasize",
-  "speakerNotes": "Speaker notes for this slide..."
+  "title": "Compelling, action-oriented headline (8-12 words)",
+  "subtitle": "Supporting context that adds value",
+  "bodyText": "2-3 sentences of rich context with specific details (for text layouts)",
+  "bulletPoints": [
+    "Substantive point 1 with specific detail or example (15-25 words)",
+    "Substantive point 2 with data or insight",
+    "Substantive point 3 with concrete example",
+    "Substantive point 4 with actionable insight",
+    "Substantive point 5 (optional, if needed)"
+  ],
+  "highlightText": "The ONE key number or insight to emphasize",
+  "speakerNotes": "3-4 sentences for ~45 seconds of speaking. Include: transition from previous slide, key emphasis points, transition to next topic."
 }
 
 For specific purposes, include additional fields:
 - statistics: Include "statistics" array with {label, value, comparison, trend}
 - quote: Include "quote" object with {text, author, source}
-- comparison: Structure bulletPoints as two groups
+- comparison: Include "comparisonData" with {left: {title, points[]}, right: {title, points[]}}
+
+## QUALITY CHECK - Before outputting, verify:
+✓ Each bullet is 15-25 words with real substance
+✓ No generic filler content like "Key benefits" or "Important features"
+✓ Specific data/examples included where relevant
+✓ Content tells a story, not just lists facts
+✓ Speaker notes are natural and helpful
 
 Output valid JSON only.`;
 

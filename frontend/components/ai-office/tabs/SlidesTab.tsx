@@ -955,7 +955,7 @@ export default function SlidesTab() {
       const themeMapping: Record<string, string> = {
         default: 'professional',
         comic: 'creative',
-        doraemon: 'creative',
+        doraemon: 'doraemon', // 专门的机器猫主题
         anime: 'creative',
         watercolor: 'creative',
         pixel: 'creative',
