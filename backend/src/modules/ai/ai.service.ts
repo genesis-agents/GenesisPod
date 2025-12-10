@@ -55,15 +55,35 @@ export class AiService {
 
   /**
    * 根据模型名称获取图标 URL
+   * 使用模糊匹配来支持各种命名格式（如 "ChatGPT (OpenAI) #1", "Grok (xAI)"）
    */
   private getIconUrl(name: string): string {
-    const iconMap: Record<string, string> = {
-      grok: "/icons/ai/grok.svg",
-      "gpt-4": "/icons/ai/openai.svg",
-      claude: "/icons/ai/claude.svg",
-      gemini: "/icons/ai/gemini.svg",
-    };
-    return iconMap[name.toLowerCase()] || "/icons/ai/default.svg";
+    const lowerName = name.toLowerCase();
+
+    // 模糊匹配规则
+    if (
+      lowerName.includes("grok") ||
+      lowerName.includes("xai") ||
+      lowerName.includes("x.ai")
+    ) {
+      return "/icons/ai/grok.svg";
+    }
+    if (
+      lowerName.includes("gpt") ||
+      lowerName.includes("openai") ||
+      lowerName.includes("chatgpt")
+    ) {
+      return "/icons/ai/openai.svg";
+    }
+    if (lowerName.includes("claude") || lowerName.includes("anthropic")) {
+      return "/icons/ai/claude.svg";
+    }
+    if (lowerName.includes("gemini") || lowerName.includes("google")) {
+      return "/icons/ai/gemini.svg";
+    }
+
+    // 默认返回 OpenAI 图标（最通用的）
+    return "/icons/ai/openai.svg";
   }
 
   async translateText(
