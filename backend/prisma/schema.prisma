@@ -654,6 +654,29 @@ model YouTubeVideo {
   @@map("youtube_videos")
 }
 
+// ============ YouTube字幕缓存（全局） ============
+
+model YouTubeTranscriptCache {
+  id      String @id @default(uuid())
+  videoId String @unique @map("video_id") @db.VarChar(100) // YouTube视频ID
+
+  // 视频信息
+  title String? @db.VarChar(1000)
+
+  // 字幕数据
+  transcript Json // [{ start: number, duration: number, text: string }]
+  language   String @default("en") @db.VarChar(10) // 字幕语言
+
+  // 缓存元数据
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  expiresAt DateTime @map("expires_at") // 缓存过期时间
+
+  @@index([videoId])
+  @@index([expiresAt])
+  @@map("youtube_transcript_cache")
+}
+
 // ============ 报告相关 (Reports TAB) ============
 
 model ReportPublisher {

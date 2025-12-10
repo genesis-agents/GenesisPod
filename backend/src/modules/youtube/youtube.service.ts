@@ -4,6 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
+import { PrismaService } from "../../common/prisma/prisma.service";
 
 type YoutubeModule = typeof import("youtubei.js");
 type YoutubeClient = Awaited<ReturnType<YoutubeModule["Innertube"]["create"]>>;
@@ -33,12 +34,17 @@ interface SupadataResponse {
   availableLangs: string[];
 }
 
+// Cache duration: 30 days
+const CACHE_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
+
 @Injectable()
 export class YoutubeService {
   private readonly logger = new Logger(YoutubeService.name);
   private youtube: YoutubeClient | null = null;
   private readonly SUPADATA_API_KEY = process.env.SUPADATA_API_KEY || "";
   private readonly SUPADATA_ENABLED = !!process.env.SUPADATA_API_KEY;
+
+  constructor(private readonly prisma: PrismaService) {}
 
   async onModuleInit() {
     try {
@@ -72,6 +78,32 @@ export class YoutubeService {
     this.logger.log(
       `Fetching transcript for video: ${videoId} (lang: ${lang})`,
     );
+
+    // Strategy 0: Check cache first
+    try {
+      const cached = await this.prisma.youTubeTranscriptCache.findUnique({
+        where: { videoId },
+      });
+
+      if (cached && cached.expiresAt > new Date()) {
+        const cachedTranscript =
+          cached.transcript as unknown as TranscriptSegment[];
+        this.logger.log(
+          `Cache hit for ${videoId}, returning cached transcript with ${cachedTranscript.length} segments`,
+        );
+        return {
+          videoId,
+          title: cached.title ?? `YouTube Video ${videoId}`,
+          transcript: cachedTranscript,
+        };
+      }
+
+      if (cached) {
+        this.logger.debug(`Cache expired for ${videoId}, will refresh`);
+      }
+    } catch (cacheError) {
+      this.logger.debug(`Cache lookup failed: ${cacheError}`);
+    }
 
     // Strategy 1: Try Supadata API first (recommended for cloud deployments)
     if (this.SUPADATA_ENABLED) {
@@ -220,11 +252,55 @@ export class YoutubeService {
       (await this.fetchVideoTitle(videoId)) ??
       `YouTube Video ${videoId}`;
 
+    // Save to cache (async, don't block response)
+    this.saveToCache(videoId, finalTitle, transcriptSegments, lang).catch(
+      (err) => {
+        this.logger.warn(`Failed to save transcript to cache: ${err}`);
+      },
+    );
+
     return {
       videoId,
       title: finalTitle,
       transcript: transcriptSegments,
     };
+  }
+
+  /**
+   * Save transcript to global cache
+   */
+  private async saveToCache(
+    videoId: string,
+    title: string,
+    transcript: TranscriptSegment[],
+    language: string,
+  ): Promise<void> {
+    try {
+      const expiresAt = new Date(Date.now() + CACHE_DURATION_MS);
+
+      await this.prisma.youTubeTranscriptCache.upsert({
+        where: { videoId },
+        update: {
+          title,
+          transcript: transcript as any,
+          language,
+          expiresAt,
+        },
+        create: {
+          videoId,
+          title,
+          transcript: transcript as any,
+          language,
+          expiresAt,
+        },
+      });
+
+      this.logger.log(
+        `Cached transcript for ${videoId} with ${transcript.length} segments, expires at ${expiresAt.toISOString()}`,
+      );
+    } catch (error) {
+      this.logger.warn(`Failed to cache transcript for ${videoId}: ${error}`);
+    }
   }
 
   /**
