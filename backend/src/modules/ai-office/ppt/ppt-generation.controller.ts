@@ -42,6 +42,15 @@ import {
   PPTOutline,
   SlideSpec,
 } from "./ppt.types";
+import {
+  IsString,
+  IsOptional,
+  IsArray,
+  IsNumber,
+  IsIn,
+  ValidateNested,
+} from "class-validator";
+import { Type } from "class-transformer";
 
 // ============================================
 // DTOs
@@ -75,16 +84,38 @@ class ExportPPTDto {
 }
 
 class GenerateOutlineDto {
+  @IsString()
   prompt!: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
   urls?: string[];
+
+  @IsOptional()
+  @IsNumber()
   slideCount?: number;
+
+  @IsOptional()
+  @IsIn(["zh", "en", "auto"])
   language?: "zh" | "en" | "auto";
+
+  @IsOptional()
+  @IsString()
   targetAudience?: string;
+
+  @IsOptional()
+  @IsIn(["formal", "casual", "educational", "persuasive"])
   presentationStyle?: "formal" | "casual" | "educational" | "persuasive";
 }
 
 class PlanSlidesDto {
+  @ValidateNested()
+  @Type(() => Object) // PPTOutline 是复杂对象
   outline!: PPTOutline;
+
+  @IsOptional()
+  @IsString()
   themeId?: string;
 }
 
@@ -204,15 +235,12 @@ export class PPTGenerationController {
     @Body() dto: GenerateOutlineDto,
   ): Promise<{ outline: PPTOutline; suggestedTheme: string }> {
     // 详细日志 - 调试 prompt 为空的问题
+    this.logger.log(`[generateOutline] Raw DTO object: ${JSON.stringify(dto)}`);
     this.logger.log(
-      `[generateOutline] Received DTO: ${JSON.stringify({
-        prompt: dto.prompt,
-        promptLength: dto.prompt?.length,
-        urls: dto.urls,
-        slideCount: dto.slideCount,
-        language: dto.language,
-      })}`,
+      `[generateOutline] DTO keys: ${Object.keys(dto || {}).join(", ")}`,
     );
+    this.logger.log(`[generateOutline] prompt value: "${dto?.prompt}"`);
+    this.logger.log(`[generateOutline] slideCount: ${dto?.slideCount}`);
 
     try {
       // 1. 提取内容（如果有 URL）

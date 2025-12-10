@@ -13,10 +13,17 @@ export const maxDuration = 60;
  * POST /api/ai-office/ppt/outline
  */
 export async function POST(request: NextRequest) {
+  console.log('[PPT Outline] API route called');
+
   try {
     const body = await request.json();
 
-    console.log('[PPT Outline] Request:', JSON.stringify(body).slice(0, 200));
+    console.log(
+      '[PPT Outline] Request body:',
+      JSON.stringify(body).slice(0, 500)
+    );
+    console.log('[PPT Outline] prompt:', body.prompt?.slice(0, 100));
+    console.log('[PPT Outline] slideCount:', body.slideCount);
 
     const backendUrl = `${BACKEND_API_URL}/ai-office/ppt/outline`;
 
