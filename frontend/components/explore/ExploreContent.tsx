@@ -2404,6 +2404,10 @@ function HomeContent() {
                                         </span>{' '}
                                         {resource.authors
                                           .slice(0, 3)
+                                          .map(
+                                            (a) =>
+                                              a.name || a.username || 'Unknown'
+                                          )
                                           .join(', ')}
                                         {resource.authors.length > 3 &&
                                           ' et al.'}
@@ -2908,7 +2912,7 @@ function HomeContent() {
                               </svg>
                               {selectedResource.authors
                                 .slice(0, 2)
-                                .map((a) => a.username)
+                                .map((a) => a.name || a.username || 'Unknown')
                                 .join(', ')}
                             </span>
                           )}
