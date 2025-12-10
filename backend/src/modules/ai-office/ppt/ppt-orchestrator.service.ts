@@ -211,10 +211,27 @@ export class PPTOrchestratorService {
     const textModel = await this.aiModelService.getDefaultTextModel(
       input.textModelId,
     );
-    const imageModel =
-      input.includeImages !== false
-        ? await this.aiModelService.getDefaultImageModel(input.imageModelId)
-        : null;
+
+    let imageModel = null;
+    if (input.includeImages !== false) {
+      try {
+        imageModel = await this.aiModelService.getDefaultImageModel(
+          input.imageModelId,
+        );
+        this.logger.log(
+          `[executeGeneration] Image model: ${imageModel?.name || "none"} (${imageModel?.modelId || "none"})`,
+        );
+      } catch (error: any) {
+        this.logger.error(
+          `[executeGeneration] Failed to get image model: ${error.message}`,
+        );
+        // 继续生成，但不包含图片
+      }
+    } else {
+      this.logger.log(
+        `[executeGeneration] Image generation disabled by user (includeImages=${input.includeImages})`,
+      );
+    }
 
     // 逐页生成（保持顺序，但内容和图像并行）
     for (let i = 0; i < slideSpecs.length; i++) {
@@ -408,7 +425,22 @@ export class PPTOrchestratorService {
   ): Promise<GeneratedSlideImage[]> {
     const images: GeneratedSlideImage[] = [];
 
-    if (!includeImages || !imageModel) {
+    // 详细日志 - 调试图片生成
+    this.logger.log(
+      `[generateSlideImages] Slide ${spec.index}: includeImages=${includeImages}, hasImageModel=${!!imageModel}, bgType=${spec.backgroundDecision?.type}, hasImageSpec=${!!spec.imageSpec}`,
+    );
+
+    if (!includeImages) {
+      this.logger.warn(
+        `[generateSlideImages] Skipping slide ${spec.index}: includeImages is false`,
+      );
+      return images;
+    }
+
+    if (!imageModel) {
+      this.logger.error(
+        `[generateSlideImages] Skipping slide ${spec.index}: No image model available!`,
+      );
       return images;
     }
 
@@ -417,6 +449,9 @@ export class PPTOrchestratorService {
       spec.backgroundDecision.type === "ai_generated" &&
       spec.backgroundDecision.aiConfig
     ) {
+      this.logger.log(
+        `[generateSlideImages] Slide ${spec.index}: Generating AI background with prompt: ${spec.backgroundDecision.aiConfig.prompt.slice(0, 100)}...`,
+      );
       try {
         const bgImage = await this.slideImage.generateImage(
           spec.backgroundDecision.aiConfig.prompt,
@@ -429,6 +464,9 @@ export class PPTOrchestratorService {
         );
 
         if (bgImage) {
+          this.logger.log(
+            `[generateSlideImages] Slide ${spec.index}: Background image generated successfully: ${bgImage.url}`,
+          );
           images.push({
             url: bgImage.url,
             prompt: spec.backgroundDecision.aiConfig.prompt,
@@ -438,17 +476,28 @@ export class PPTOrchestratorService {
             height: bgImage.height,
             generatedAt: new Date().toISOString(),
           });
+        } else {
+          this.logger.warn(
+            `[generateSlideImages] Slide ${spec.index}: Background image returned null`,
+          );
         }
-      } catch (error) {
-        this.logger.warn(
-          `Failed to generate background image for slide ${spec.index}`,
-          error,
+      } catch (error: any) {
+        this.logger.error(
+          `[generateSlideImages] Slide ${spec.index}: Failed to generate background image: ${error.message}`,
+          error.stack,
         );
       }
+    } else {
+      this.logger.debug(
+        `[generateSlideImages] Slide ${spec.index}: No AI background needed (type=${spec.backgroundDecision?.type})`,
+      );
     }
 
     // 生成内容图像（如果需要）
     if (spec.imageSpec) {
+      this.logger.log(
+        `[generateSlideImages] Slide ${spec.index}: Generating content image with prompt: ${spec.imageSpec.prompt.slice(0, 100)}...`,
+      );
       try {
         const contentImage = await this.slideImage.generateImage(
           spec.imageSpec.prompt,
@@ -461,6 +510,9 @@ export class PPTOrchestratorService {
         );
 
         if (contentImage) {
+          this.logger.log(
+            `[generateSlideImages] Slide ${spec.index}: Content image generated successfully: ${contentImage.url}`,
+          );
           images.push({
             url: contentImage.url,
             prompt: spec.imageSpec.prompt,
@@ -470,14 +522,26 @@ export class PPTOrchestratorService {
             height: contentImage.height,
             generatedAt: new Date().toISOString(),
           });
+        } else {
+          this.logger.warn(
+            `[generateSlideImages] Slide ${spec.index}: Content image returned null`,
+          );
         }
-      } catch (error) {
-        this.logger.warn(
-          `Failed to generate content image for slide ${spec.index}`,
-          error,
+      } catch (error: any) {
+        this.logger.error(
+          `[generateSlideImages] Slide ${spec.index}: Failed to generate content image: ${error.message}`,
+          error.stack,
         );
       }
+    } else {
+      this.logger.debug(
+        `[generateSlideImages] Slide ${spec.index}: No content image spec defined`,
+      );
     }
+
+    this.logger.log(
+      `[generateSlideImages] Slide ${spec.index}: Generated ${images.length} images total`,
+    );
 
     return images;
   }
