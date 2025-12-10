@@ -518,10 +518,29 @@ export default function SlidesTab() {
 
   // 获取当前文档内容
   const docContent = currentDocument?.content as
-    | { markdown?: string }
+    | { markdown?: string; slides?: any[] }
     | undefined;
   const content = docContent?.markdown || '';
-  const slides = parseMarkdownToEnhancedSlides(content);
+  const rawSlides = docContent?.slides || [];
+
+  // 解析 Markdown 并合并图片信息
+  const parsedSlides = parseMarkdownToEnhancedSlides(content);
+
+  // 合并 rawSlides 中的图片信息到 parsedSlides
+  const slides = parsedSlides.map((parsedSlide, index) => {
+    const rawSlide = rawSlides[index];
+    if (rawSlide) {
+      return {
+        ...parsedSlide,
+        backgroundImage: rawSlide.backgroundImage,
+        contentImage: rawSlide.contentImage,
+        images: rawSlide.images,
+        renderedHtml: rawSlide.renderedHtml,
+      };
+    }
+    return parsedSlide;
+  });
+
   const template: PPTTemplate = currentDocument?.template?.id
     ? getTemplateById(currentDocument.template.id)
     : getTemplateById('corporate');
@@ -851,6 +870,8 @@ export default function SlidesTab() {
               // 更新进度消息
               setMessages((prev) => {
                 const lastMsg = prev[prev.length - 1];
+                const progressMsg =
+                  data.progress?.message || data.message || data.phase;
                 if (
                   lastMsg?.role === 'assistant' &&
                   lastMsg.content.includes('正在')
@@ -859,7 +880,7 @@ export default function SlidesTab() {
                     ...prev.slice(0, -1),
                     {
                       ...lastMsg,
-                      content: `正在生成: ${data.message || data.phase}...`,
+                      content: `正在生成: ${progressMsg}...`,
                     },
                   ];
                 }
@@ -868,20 +889,66 @@ export default function SlidesTab() {
                   {
                     id: Date.now().toString(),
                     role: 'assistant',
-                    content: `正在生成: ${data.message || data.phase}...`,
+                    content: `正在生成: ${progressMsg}...`,
                     timestamp: new Date(),
                   },
                 ];
               });
               break;
 
+            case 'slide_complete':
+              // 后端发送的单页完成事件
+              if (data.slide) {
+                const slideData = {
+                  index: data.slide.index,
+                  title:
+                    data.slide.spec?.title ||
+                    data.slide.content?.title ||
+                    `Slide ${data.slide.index + 1}`,
+                  content: data.slide.content?.bulletPoints || [],
+                  backgroundImage: data.slide.images?.find(
+                    (img: any) => img.position === 'background'
+                  )?.url,
+                  contentImage: data.slide.images?.find(
+                    (img: any) => img.position !== 'background'
+                  )?.url,
+                  renderedHtml: data.slide.renderedHtml,
+                  spec: data.slide.spec,
+                  rawContent: data.slide.content,
+                  images: data.slide.images,
+                };
+                generatedSlides.push(slideData);
+
+                // 转换为 Markdown 格式更新文档
+                const markdown = generatedSlides
+                  .map(
+                    (slide: any, idx: number) =>
+                      `### Slide ${idx + 1}: ${slide.title}\n${
+                        Array.isArray(slide.content)
+                          ? slide.content
+                              .map(
+                                (c: any) =>
+                                  `- ${typeof c === 'string' ? c : c.text || c}`
+                              )
+                              .join('\n')
+                          : ''
+                      }${slide.backgroundImage ? `\n<!-- BACKGROUND_IMAGE: ${slide.backgroundImage} -->` : ''}${slide.contentImage ? `\n<!-- CONTENT_IMAGE: ${slide.contentImage} -->` : ''}`
+                  )
+                  .join('\n\n---\n\n');
+                updateDocument(newDocumentId, {
+                  content: { markdown, slides: generatedSlides },
+                  metadata: { wordCount: markdown.length },
+                  updatedAt: new Date(),
+                } as any);
+              }
+              break;
+
             case 'slide':
-              // 收到单页幻灯片
+              // 兼容旧格式
               generatedSlides.push(data.slide);
-              // 转换为 Markdown 格式更新文档
-              const markdown = generatedSlides
+              const markdownOld = generatedSlides
                 .map(
-                  (slide, idx) =>
+                  (slide: any, idx: number) =>
                     `### Slide ${idx + 1}: ${slide.title}\n${
                       slide.content
                         ?.map((c: any) => `- ${c.text || c}`)
@@ -890,46 +957,64 @@ export default function SlidesTab() {
                 )
                 .join('\n\n---\n\n');
               updateDocument(newDocumentId, {
-                content: { markdown, slides: generatedSlides },
-                metadata: { wordCount: markdown.length },
+                content: { markdown: markdownOld, slides: generatedSlides },
+                metadata: { wordCount: markdownOld.length },
                 updatedAt: new Date(),
               } as any);
               break;
 
             case 'complete':
               // 生成完成
-              pptDocument = data.document;
-              if (pptDocument?.slides) {
-                generatedSlides = pptDocument.slides;
+              pptDocument = data.result;
+
+              // 如果 result 中有 pptId，说明生成成功
+              if (data.result?.pptId) {
                 const finalMarkdown = generatedSlides
                   .map(
                     (slide: any, idx: number) =>
                       `### Slide ${idx + 1}: ${slide.title}\n${
-                        slide.content
-                          ?.map((c: any) => `- ${c.text || c}`)
-                          .join('\n') || ''
-                      }${slide.backgroundImage ? `\n<!-- IMAGE: ${slide.backgroundImage} -->` : ''}`
+                        Array.isArray(slide.content)
+                          ? slide.content
+                              .map(
+                                (c: any) =>
+                                  `- ${typeof c === 'string' ? c : c.text || c}`
+                              )
+                              .join('\n')
+                          : ''
+                      }${slide.backgroundImage ? `\n<!-- BACKGROUND_IMAGE: ${slide.backgroundImage} -->` : ''}${slide.contentImage ? `\n<!-- CONTENT_IMAGE: ${slide.contentImage} -->` : ''}`
                   )
                   .join('\n\n---\n\n');
+
                 updateDocument(newDocumentId, {
                   content: {
                     markdown: finalMarkdown,
                     slides: generatedSlides,
-                    pptDocument,
+                    pptId: data.result.pptId,
                   },
                   status: 'completed',
-                  metadata: { wordCount: finalMarkdown.length },
+                  metadata: {
+                    wordCount: finalMarkdown.length,
+                    totalSlides: data.result.totalSlides,
+                    duration: data.result.duration,
+                  },
                   updatedAt: new Date(),
                 } as any);
               }
 
               setGenerationStep('complete');
+              const imageCount = generatedSlides.reduce(
+                (acc: number, slide: any) =>
+                  acc +
+                  (slide.backgroundImage ? 1 : 0) +
+                  (slide.contentImage ? 1 : 0),
+                0
+              );
               setMessages((prev) => [
                 ...prev,
                 {
                   id: Date.now().toString(),
                   role: 'assistant',
-                  content: `PPT生成完成！共 ${generatedSlides.length} 页，包含AI生成的图片。`,
+                  content: `PPT生成完成！共 ${generatedSlides.length} 页${imageCount > 0 ? `，包含 ${imageCount} 张AI生成的图片` : ''}。`,
                   timestamp: new Date(),
                 },
               ]);
