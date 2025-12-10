@@ -271,12 +271,19 @@ export class SlidePlanningService {
       presentationStyle?: string;
     } = {},
   ): Promise<PPTOutline> {
-    this.logger.log("[generateOutline] Starting outline generation");
+    this.logger.log(
+      `[generateOutline] Starting outline generation, content length: ${content.length}`,
+    );
 
     const textModel = await this.aiModelService.getDefaultTextModel();
     if (!textModel) {
+      this.logger.error("[generateOutline] No text model available!");
       throw new Error("No text model available for outline generation");
     }
+
+    this.logger.log(
+      `[generateOutline] Using model: ${textModel.displayName} (${textModel.modelId}), provider: ${textModel.provider}`,
+    );
 
     // 构建提示词
     let prompt = OUTLINE_GENERATION_PROMPT.replace("{content}", content);
@@ -284,12 +291,17 @@ export class SlidePlanningService {
     if (options.slideCount) {
       prompt += `\n\nTarget slide count: approximately ${options.slideCount} slides.`;
     }
+    if (options.language === "zh") {
+      prompt += `\n\nIMPORTANT: Generate all titles and content in Chinese (简体中文).`;
+    }
     if (options.targetAudience) {
       prompt += `\nTarget audience: ${options.targetAudience}`;
     }
     if (options.presentationStyle) {
       prompt += `\nPresentation style: ${options.presentationStyle}`;
     }
+
+    this.logger.log(`[generateOutline] Prompt length: ${prompt.length}`);
 
     // 调用文本模型
     const response = await this.callTextModel(
@@ -300,6 +312,10 @@ export class SlidePlanningService {
         provider: textModel.provider,
       },
       prompt,
+    );
+
+    this.logger.log(
+      `[generateOutline] Got response, length: ${response.length}`,
     );
 
     // 解析响应
@@ -491,21 +507,40 @@ export class SlidePlanningService {
   ): Promise<string> {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model.modelId}:generateContent?key=${model.apiKey}`;
 
-    const response = await firstValueFrom(
-      this.httpService.post(
-        url,
-        {
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 4000,
-          },
-        },
-        { headers: { "Content-Type": "application/json" }, timeout: 60000 },
-      ),
+    this.logger.log(
+      `[callGeminiAPI] Calling model: ${model.modelId}, prompt length: ${prompt.length}`,
     );
 
-    return response.data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(
+          url,
+          {
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 4000,
+            },
+          },
+          { headers: { "Content-Type": "application/json" }, timeout: 90000 },
+        ),
+      );
+
+      const text =
+        response.data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      this.logger.log(
+        `[callGeminiAPI] Response length: ${text.length}, first 200 chars: ${text.slice(0, 200)}`,
+      );
+      return text;
+    } catch (error: any) {
+      this.logger.error(
+        `[callGeminiAPI] Error: ${error.message}`,
+        error.response?.data || error.stack,
+      );
+      throw new Error(
+        `Gemini API error: ${error.response?.data?.error?.message || error.message}`,
+      );
+    }
   }
 
   private async callOpenAICompatibleAPI(
@@ -521,33 +556,51 @@ export class SlidePlanningService {
       url = url.replace(/\/$/, "") + "/chat/completions";
     }
 
-    const response = await firstValueFrom(
-      this.httpService.post(
-        url,
-        {
-          model: model.modelId,
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are a professional presentation designer. Always respond with valid JSON.",
-            },
-            { role: "user", content: prompt },
-          ],
-          temperature: 0.7,
-          max_tokens: 4000,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${model.apiKey}`,
-            "Content-Type": "application/json",
-          },
-          timeout: 60000,
-        },
-      ),
+    this.logger.log(
+      `[callOpenAICompatibleAPI] Calling ${url}, model: ${model.modelId}, prompt length: ${prompt.length}`,
     );
 
-    return response.data?.choices?.[0]?.message?.content || "";
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(
+          url,
+          {
+            model: model.modelId,
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You are a professional presentation designer. Always respond with valid JSON.",
+              },
+              { role: "user", content: prompt },
+            ],
+            temperature: 0.7,
+            max_tokens: 4000,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${model.apiKey}`,
+              "Content-Type": "application/json",
+            },
+            timeout: 90000,
+          },
+        ),
+      );
+
+      const text = response.data?.choices?.[0]?.message?.content || "";
+      this.logger.log(
+        `[callOpenAICompatibleAPI] Response length: ${text.length}`,
+      );
+      return text;
+    } catch (error: any) {
+      this.logger.error(
+        `[callOpenAICompatibleAPI] Error: ${error.message}`,
+        error.response?.data || error.stack,
+      );
+      throw new Error(
+        `OpenAI API error: ${error.response?.data?.error?.message || error.message}`,
+      );
+    }
   }
 
   /**
