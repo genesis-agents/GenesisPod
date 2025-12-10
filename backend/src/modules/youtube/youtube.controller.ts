@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Param,
+  Query,
   Body,
   BadRequestException,
   Logger,
@@ -20,6 +21,13 @@ interface SubtitlesRequestDto {
   videoId: string;
   englishLang?: string;
   chineseLang?: string;
+}
+
+interface CacheTranscriptDto {
+  videoId: string;
+  title: string;
+  transcript: Array<{ text: string; start: number; duration: number }>;
+  language: string;
 }
 
 interface ExportPdfRequestDto {
@@ -183,6 +191,107 @@ export class YoutubeController {
       this.logger.error(`Failed to export PDF for ${videoId}:`, error);
       throw new BadRequestException(
         `Failed to export PDF: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    }
+  }
+
+  /**
+   * 客户端辅助获取字幕
+   * 当服务端无法获取时，通过此接口尝试其他方式获取
+   * 主要用于触发服务端的备用获取策略
+   */
+  @Post("client-fetch/:videoId")
+  async clientFetch(
+    @Param("videoId") videoId: string,
+    @Query("lang") lang: string = "en",
+  ) {
+    this.logger.log(`Client-assisted fetch request for video: ${videoId}`);
+
+    if (!videoId || videoId.trim().length === 0) {
+      throw new BadRequestException("Video ID is required");
+    }
+
+    const cleanVideoId = videoId.trim();
+
+    try {
+      // 尝试所有可用的获取方式
+      const result = await this.youtubeService.getTranscript(
+        cleanVideoId,
+        lang,
+      );
+
+      return {
+        videoId: cleanVideoId,
+        title: result.title,
+        transcript: result.transcript,
+        language: lang,
+        source: "server",
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Client-assisted fetch failed for ${cleanVideoId}: ${error instanceof Error ? error.message : error}`,
+      );
+
+      // 返回空结果而不是抛出错误，让前端知道需要其他方式
+      return {
+        videoId: cleanVideoId,
+        title: null,
+        transcript: [],
+        language: lang,
+        source: "failed",
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  /**
+   * 接收前端上传的字幕并缓存到数据库
+   * 用于前端成功获取字幕后上传到服务器
+   */
+  @Post("cache-transcript")
+  async cacheTranscript(@Body() body: CacheTranscriptDto) {
+    const { videoId, title, transcript, language } = body;
+
+    this.logger.log(
+      `Receiving transcript upload for video: ${videoId} (${transcript?.length || 0} segments)`,
+    );
+
+    if (!videoId || videoId.trim().length === 0) {
+      throw new BadRequestException("Video ID is required");
+    }
+
+    if (!transcript || !Array.isArray(transcript) || transcript.length === 0) {
+      throw new BadRequestException(
+        "Transcript is required and must not be empty",
+      );
+    }
+
+    const cleanVideoId = videoId.trim();
+
+    try {
+      await this.youtubeService.cacheTranscript(
+        cleanVideoId,
+        title || `YouTube Video ${cleanVideoId}`,
+        transcript,
+        language || "en",
+      );
+
+      this.logger.log(
+        `Successfully cached transcript for ${cleanVideoId} with ${transcript.length} segments`,
+      );
+
+      return {
+        success: true,
+        videoId: cleanVideoId,
+        segmentCount: transcript.length,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to cache transcript for ${cleanVideoId}:`,
+        error,
+      );
+      throw new BadRequestException(
+        `Failed to cache transcript: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
     }
   }

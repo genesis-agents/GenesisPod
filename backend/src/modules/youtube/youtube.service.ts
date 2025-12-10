@@ -267,6 +267,18 @@ export class YoutubeService {
   }
 
   /**
+   * Public method to cache transcript from external source (e.g., frontend)
+   */
+  async cacheTranscript(
+    videoId: string,
+    title: string,
+    transcript: TranscriptSegment[],
+    language: string,
+  ): Promise<void> {
+    return this.saveToCache(videoId, title, transcript, language);
+  }
+
+  /**
    * Save transcript to global cache
    */
   private async saveToCache(

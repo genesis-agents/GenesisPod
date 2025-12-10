@@ -23,6 +23,10 @@ import KeyMomentsPanel, {
 import { SubtitleExportButton } from '@/components/youtube';
 import { useAIModels } from '@/hooks/useAIModels';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  fetchTranscriptSmart,
+  uploadTranscriptToCache,
+} from '@/lib/youtube-transcript';
 
 interface TranscriptSegment {
   text: string;
@@ -341,20 +345,35 @@ function YouTubeTLDWContent() {
     }
   }, []);
 
-  // Fetch transcript
+  // Fetch transcript status
+  const [transcriptStatus, setTranscriptStatus] = useState<string>('');
+
+  // Fetch transcript using smart fetching (server first, then client fallback)
   useEffect(() => {
     if (!videoId) return;
 
-    const fetchTranscript = async () => {
+    const fetchTranscriptData = async () => {
       setLoading(true);
-      try {
-        const response = await fetch(
-          `${config.apiUrl}/youtube/transcript/${videoId}`
-        );
-        const data = await response.json();
+      setTranscriptStatus('正在获取字幕...');
 
-        if (data.transcript && Array.isArray(data.transcript)) {
-          setTranscript(data.transcript);
+      try {
+        // 使用智能获取：先服务器，失败则客户端获取并缓存
+        const result = await fetchTranscriptSmart(
+          videoId,
+          config.apiBaseUrl,
+          'en',
+          setTranscriptStatus
+        );
+
+        if (result && result.transcript.length > 0) {
+          setTranscript(result.transcript);
+          setTranscriptStatus(
+            result.source === 'cache'
+              ? '已从缓存获取'
+              : result.source === 'client'
+                ? '已通过客户端获取'
+                : '已获取字幕'
+          );
 
           // Generate topics from transcript (mock implementation)
           const mockTopics: Topic[] = [
@@ -380,15 +399,18 @@ function YouTubeTLDWContent() {
             },
           ];
           setTopics(mockTopics);
+        } else {
+          setTranscriptStatus('暂无字幕');
         }
       } catch (error) {
         console.error('Failed to fetch transcript:', error);
+        setTranscriptStatus('获取字幕失败');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTranscript();
+    fetchTranscriptData();
   }, [videoId]);
 
   // Fetch comments when tab is switched to comments
@@ -1253,8 +1275,11 @@ function YouTubeTLDWContent() {
               {activeTab === 'transcript' && (
                 <div className="space-y-0">
                   {loading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <div className="text-sm text-gray-400">加载字幕中...</div>
+                    <div className="flex flex-col items-center justify-center py-12">
+                      <div className="mb-2 h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-red-500" />
+                      <div className="text-sm text-gray-400">
+                        {transcriptStatus || '加载字幕中...'}
+                      </div>
                     </div>
                   ) : mergedTranscript.length === 0 ? (
                     <div className="flex flex-col items-center justify-center px-4 py-12">
