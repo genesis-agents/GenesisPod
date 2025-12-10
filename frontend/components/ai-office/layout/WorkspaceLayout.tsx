@@ -13,14 +13,16 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useUIStore, useTaskStore } from '@/stores/aiOfficeStore';
-import { ListTodo, Presentation, FileText, Image, Palette } from 'lucide-react';
+import { ListTodo, Presentation, FileText, Palette } from 'lucide-react';
 import MiddlePanel from './MiddlePanel';
 import RightPanel from './RightPanel';
 import TaskList from '../task/TaskList';
 import CommandPalette, {
   useCommandPalette,
 } from '@/components/ai-studio/CommandPalette';
-import PPTGenerator from '../ppt/PPTGenerator';
+import SlidesTab from '../tabs/SlidesTab';
+import DocsTab from '../tabs/DocsTab';
+import DesignerTab from '../tabs/DesignerTab';
 
 // 工作模式类型 - 经典模式下的 Tab
 type WorkspaceTab = 'classic' | 'slides' | 'docs' | 'designer';
@@ -167,43 +169,21 @@ export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
         {activeTab === 'slides' && (
           /* AI Slides - PPT 生成器 */
           <div className="flex-1 overflow-hidden">
-            <PPTGenerator />
+            <SlidesTab />
           </div>
         )}
 
         {activeTab === 'docs' && (
-          /* AI Docs - 文档生成 (待实现内嵌版本) */
-          <div className="flex flex-1 flex-col items-center justify-center bg-white p-8">
-            <div className="text-center">
-              <FileText className="mx-auto mb-4 h-16 w-16 text-blue-500" />
-              <h2 className="mb-2 text-xl font-semibold text-gray-800">
-                AI Docs
-              </h2>
-              <p className="mb-6 text-gray-500">
-                智能文档生成器 - 研究报告、商业提案、技术文档等
-              </p>
-              <p className="text-sm text-gray-400">
-                在左侧对话区描述需求，AI将帮您生成专业文档
-              </p>
-            </div>
+          /* AI Docs - 文档生成 */
+          <div className="flex-1 overflow-hidden">
+            <DocsTab />
           </div>
         )}
 
         {activeTab === 'designer' && (
-          /* AI Designer - 设计生成 (待实现内嵌版本) */
-          <div className="flex flex-1 flex-col items-center justify-center bg-white p-8">
-            <div className="text-center">
-              <Palette className="mx-auto mb-4 h-16 w-16 text-pink-500" />
-              <h2 className="mb-2 text-xl font-semibold text-gray-800">
-                AI Designer
-              </h2>
-              <p className="mb-6 text-gray-500">
-                智能设计助手 - 信息图、数据可视化、流程图、海报等
-              </p>
-              <p className="text-sm text-gray-400">
-                在左侧对话区描述设计需求，AI将帮您创建专业设计
-              </p>
-            </div>
+          /* AI Designer - 设计生成 */
+          <div className="flex-1 overflow-hidden">
+            <DesignerTab />
           </div>
         )}
       </div>
