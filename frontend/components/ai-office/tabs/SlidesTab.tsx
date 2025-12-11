@@ -1050,10 +1050,20 @@ export default function SlidesTab() {
         params.set('urls', urls.join(','));
       }
 
-      // 使用后端完整 PPT 生成 API（包含图片生成）
-      const eventSource = new EventSource(
-        `/api/ai-office/ppt/generate/stream?${params.toString()}`
+      // 智能选择 SSE 端点：
+      // 1. 如果环境变量配置了后端 URL，直接连接后端（更稳定，无 serverless 超时）
+      // 2. 否则使用 Next.js API route 作为代理
+      const isLocalhost = config.apiUrl.includes('localhost');
+      const sseUrl = isLocalhost
+        ? `/api/ai-office/ppt/generate/stream?${params.toString()}`
+        : `${config.apiUrl}/ai-office/ppt/generate/stream?${params.toString()}`;
+
+      console.log(
+        `[PPT] SSE URL: ${sseUrl.slice(0, 100)}... (${isLocalhost ? 'via proxy' : 'direct'})`
       );
+
+      // 使用后端完整 PPT 生成 API（包含图片生成）
+      const eventSource = new EventSource(sseUrl);
 
       let generatedSlides: any[] = [];
       let pptDocument: any = null;

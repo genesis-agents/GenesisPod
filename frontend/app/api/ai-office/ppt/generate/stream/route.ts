@@ -5,6 +5,11 @@ const BACKEND_API_URL =
   process.env.BACKEND_API_URL ||
   'https://deepdive-engine.up.railway.app/api/v1';
 
+// 设置更长的超时时间以支持长时间的 PPT 生成
+// Railway Pro plan 支持最多 300 秒
+export const maxDuration = 300;
+export const runtime = 'nodejs';
+
 /**
  * PPT 3.0 流式生成 API 代理
  * 转发 SSE 请求到后端
