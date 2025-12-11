@@ -271,6 +271,7 @@ export class SlidePlanningService {
       presentationStyle?: string;
     } = {},
   ): Promise<PPTOutline> {
+    const startTime = Date.now();
     this.logger.log(
       `[generateOutline] Starting outline generation, content length: ${content.length}`,
     );
@@ -278,11 +279,13 @@ export class SlidePlanningService {
     const textModel = await this.aiModelService.getDefaultTextModel();
     if (!textModel) {
       this.logger.error("[generateOutline] No text model available!");
-      throw new Error("No text model available for outline generation");
+      throw new Error(
+        "No text model available for outline generation. Please configure an AI model in System Management > AI Models.",
+      );
     }
 
     this.logger.log(
-      `[generateOutline] Using model: ${textModel.displayName} (${textModel.modelId}), provider: ${textModel.provider}`,
+      `[generateOutline] Using model: ${textModel.displayName} (${textModel.modelId}), provider: ${textModel.provider}, apiKey: ${textModel.apiKey ? "***" + textModel.apiKey.slice(-4) : "NONE"}`,
     );
 
     // 构建提示词
@@ -304,25 +307,37 @@ export class SlidePlanningService {
     this.logger.log(`[generateOutline] Prompt length: ${prompt.length}`);
 
     // 调用文本模型
-    const response = await this.callTextModel(
-      {
-        apiEndpoint: textModel.apiEndpoint || "",
-        apiKey: textModel.apiKey || "",
-        modelId: textModel.modelId,
-        provider: textModel.provider,
-      },
-      prompt,
-    );
+    let response: string;
+    try {
+      response = await this.callTextModel(
+        {
+          apiEndpoint: textModel.apiEndpoint || "",
+          apiKey: textModel.apiKey || "",
+          modelId: textModel.modelId,
+          provider: textModel.provider,
+        },
+        prompt,
+      );
+    } catch (apiError: any) {
+      const elapsed = Date.now() - startTime;
+      this.logger.error(
+        `[generateOutline] API call failed after ${elapsed}ms: ${apiError.message}`,
+      );
+      throw new Error(
+        `AI model API call failed: ${apiError.message}. Please check your AI model configuration.`,
+      );
+    }
 
+    const elapsed = Date.now() - startTime;
     this.logger.log(
-      `[generateOutline] Got response, length: ${response.length}`,
+      `[generateOutline] Got response in ${elapsed}ms, length: ${response.length}`,
     );
 
     // 解析响应
     const outline = this.parseOutlineResponse(response);
 
     this.logger.log(
-      `[generateOutline] Generated outline with ${outline.slides.length} slides`,
+      `[generateOutline] Generated outline with ${outline.slides.length} slides in ${elapsed}ms`,
     );
 
     return outline;
