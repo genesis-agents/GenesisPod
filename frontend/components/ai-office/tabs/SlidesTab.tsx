@@ -1070,6 +1070,9 @@ export default function SlidesTab() {
       console.log(
         `[PPT] SSE URL: ${sseUrl.slice(0, 100)}... (${isLocalhost ? 'via proxy' : 'direct'})`
       );
+      console.log(
+        '[PPT] === CODE VERSION: 2024-12-11-v2 with addEventListener fix ==='
+      );
 
       // 使用后端完整 PPT 生成 API（包含图片生成）
       const eventSource = new EventSource(sseUrl);
@@ -1259,15 +1262,48 @@ export default function SlidesTab() {
 
       // 监听所有 SSE 事件类型
       // NestJS SSE 发送命名事件，需要分别监听
-      eventSource.onmessage = handleSSEEvent; // 未命名事件
-      eventSource.addEventListener('progress', handleSSEEvent);
-      eventSource.addEventListener('outline_complete', handleSSEEvent);
-      eventSource.addEventListener('slide_planned', handleSSEEvent);
-      eventSource.addEventListener('slide_content_complete', handleSSEEvent);
-      eventSource.addEventListener('slide_image_complete', handleSSEEvent);
-      eventSource.addEventListener('slide_complete', handleSSEEvent);
-      eventSource.addEventListener('complete', handleSSEEvent);
-      eventSource.addEventListener('error', handleSSEEvent);
+      console.log('[PPT] Registering SSE event listeners...');
+
+      // 未命名事件（默认 message 事件）
+      eventSource.onmessage = (event) => {
+        console.log(
+          '[PPT] onmessage received:',
+          event.data?.slice?.(0, 200) || event.data
+        );
+        handleSSEEvent(event);
+      };
+
+      // 命名事件 - NestJS @Sse 会根据返回对象的 type 字段设置事件名
+      const eventTypes = [
+        'progress',
+        'outline_complete',
+        'slide_planned',
+        'slide_content_complete',
+        'slide_image_complete',
+        'slide_complete',
+        'complete',
+        'error',
+      ];
+
+      eventTypes.forEach((eventType) => {
+        eventSource.addEventListener(eventType, (event) => {
+          console.log(
+            `[PPT] Named event '${eventType}' received:`,
+            (event as MessageEvent).data?.slice?.(0, 200)
+          );
+          handleSSEEvent(event as MessageEvent);
+        });
+      });
+
+      // 监听 open 事件确认连接
+      eventSource.onopen = () => {
+        console.log('[PPT] SSE connection opened');
+      };
+
+      console.log(
+        '[PPT] SSE event listeners registered for:',
+        eventTypes.join(', ')
+      );
 
       eventSource.onerror = (error) => {
         console.error('SSE error:', error);
