@@ -1077,9 +1077,11 @@ export default function SlidesTab() {
       let generatedSlides: any[] = [];
       let pptDocument: any = null;
 
-      eventSource.onmessage = (event) => {
+      // 通用事件处理函数
+      const handleSSEEvent = (event: MessageEvent) => {
         try {
           const data = JSON.parse(event.data);
+          console.log('[SlidesTab] SSE event received:', data.type, data);
 
           switch (data.type) {
             case 'progress':
@@ -1254,6 +1256,18 @@ export default function SlidesTab() {
           console.error('Parse SSE event error:', parseError);
         }
       };
+
+      // 监听所有 SSE 事件类型
+      // NestJS SSE 发送命名事件，需要分别监听
+      eventSource.onmessage = handleSSEEvent; // 未命名事件
+      eventSource.addEventListener('progress', handleSSEEvent);
+      eventSource.addEventListener('outline_complete', handleSSEEvent);
+      eventSource.addEventListener('slide_planned', handleSSEEvent);
+      eventSource.addEventListener('slide_content_complete', handleSSEEvent);
+      eventSource.addEventListener('slide_image_complete', handleSSEEvent);
+      eventSource.addEventListener('slide_complete', handleSSEEvent);
+      eventSource.addEventListener('complete', handleSSEEvent);
+      eventSource.addEventListener('error', handleSSEEvent);
 
       eventSource.onerror = (error) => {
         console.error('SSE error:', error);
