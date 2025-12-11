@@ -219,7 +219,7 @@ export class PPTOrchestratorService {
           input.imageModelId,
         );
         this.logger.log(
-          `[executeGeneration] Image model: ${imageModel?.name || "none"} (${imageModel?.modelId || "none"})`,
+          `[executeGeneration] Image model loaded: ${imageModel?.name || "none"} (${imageModel?.modelId || "none"}), provider: ${imageModel?.provider || "none"}, hasApiKey: ${!!imageModel?.apiKey}`,
         );
       } catch (error: any) {
         this.logger.error(

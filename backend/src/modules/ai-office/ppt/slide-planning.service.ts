@@ -986,18 +986,26 @@ export class SlidePlanningService {
       layoutType === "two_columns" ||
       layoutType === "statistics_cards";
 
+    this.logger.debug(
+      `[determineImageSpec] Slide "${outlineItem.title}": layoutType=${layoutType}, needsImage=${outlineItem.needsImage}, needsContentImage=${needsContentImage}`,
+    );
+
     // 如果明确不需要图片且布局不需要，则跳过
     if (
       !outlineItem.needsImage &&
       !needsContentImage &&
       layoutType !== "bullet_points"
     ) {
+      this.logger.debug(
+        `[determineImageSpec] Skipping: needsImage=false and layout doesn't need image`,
+      );
       return undefined;
     }
 
     // 对于内容密集型布局（统计、图表），也添加装饰性图片
     const shouldAddImage = outlineItem.needsImage || needsContentImage;
     if (!shouldAddImage) {
+      this.logger.debug(`[determineImageSpec] Skipping: shouldAddImage=false`);
       return undefined;
     }
 
