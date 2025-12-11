@@ -5,8 +5,12 @@ const BACKEND_API_URL =
   process.env.BACKEND_API_URL ||
   'https://deepdive-engine.up.railway.app/api/v1';
 
-// Vercel Serverless Function 配置 - 增加超时时间（Pro plan 支持 60 秒）
-export const maxDuration = 60;
+// Vercel Serverless Function 配置
+// Pro plan 支持最多 300 秒，设置为 180 秒以支持长时间 AI 生成
+export const maxDuration = 180;
+
+// 强制使用 Node.js 运行时（支持更长超时）
+export const runtime = 'nodejs';
 
 /**
  * PPT 大纲生成 API 代理

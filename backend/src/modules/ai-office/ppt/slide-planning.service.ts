@@ -537,7 +537,7 @@ export class SlidePlanningService {
               maxOutputTokens: 4000,
             },
           },
-          { headers: { "Content-Type": "application/json" }, timeout: 90000 },
+          { headers: { "Content-Type": "application/json" }, timeout: 180000 },
         ),
       );
 
@@ -615,7 +615,7 @@ export class SlidePlanningService {
             Authorization: `Bearer ${model.apiKey}`,
             "Content-Type": "application/json",
           },
-          timeout: 90000,
+          timeout: 180000,
         }),
       );
 
@@ -642,7 +642,7 @@ export class SlidePlanningService {
       // 根据错误类型提供有用的错误消息
       if (errorDetails.isTimeout) {
         throw new Error(
-          `AI API request timed out after 90 seconds. The model may be slow or overloaded. Try again later or use a faster model.`,
+          `AI API request timed out after 180 seconds. The model may be slow or overloaded. Try again later or use a faster model.`,
         );
       }
       if (error.response?.status === 401) {

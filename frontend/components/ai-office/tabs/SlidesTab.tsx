@@ -40,6 +40,7 @@ import {
 
 import { useResourceStore, useDocumentStore } from '@/stores/aiOfficeStore';
 import { cn } from '@/lib/utils';
+import { config } from '@/lib/config';
 import {
   parseMarkdownToEnhancedSlides,
   EnhancedSlide,
@@ -786,8 +787,12 @@ export default function SlidesTab() {
       const slideCount = intentData.pageCount || 8;
       const urls = intentData.urls || [];
 
-      // 调用新的专业 PPT 大纲 API
-      const response = await fetch('/api/ai-office/ppt/outline', {
+      // 直接调用后端 API，避免 Next.js API route 的超时限制
+      // Railway 后端没有严格的超时限制，可以支持长时间的 AI 生成
+      const backendUrl = `${config.apiUrl}/ai-office/ppt/outline`;
+      console.log('[PPT] Calling backend directly:', backendUrl);
+
+      const response = await fetch(backendUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
