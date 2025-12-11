@@ -787,10 +787,16 @@ export default function SlidesTab() {
       const slideCount = intentData.pageCount || 8;
       const urls = intentData.urls || [];
 
-      // 直接调用后端 API，避免 Next.js API route 的超时限制
-      // Railway 后端没有严格的超时限制，可以支持长时间的 AI 生成
-      const backendUrl = `${config.apiUrl}/ai-office/ppt/outline`;
-      console.log('[PPT] Calling backend directly:', backendUrl);
+      // 智能选择 API 端点：
+      // 1. 如果 config.apiUrl 包含 localhost，说明环境变量没配置，使用相对路径（通过 Next.js API route）
+      // 2. 否则直接调用后端 API（更快，没有 serverless 超时限制）
+      const isLocalhost = config.apiUrl.includes('localhost');
+      const backendUrl = isLocalhost
+        ? '/api/ai-office/ppt/outline' // 使用 Next.js API route 作为代理
+        : `${config.apiUrl}/ai-office/ppt/outline`; // 直接调用后端
+      console.log(
+        `[PPT] API URL: ${backendUrl} (${isLocalhost ? 'via proxy' : 'direct'})`
+      );
 
       // 带重试的 API 调用（处理 AI API 偶发的 5xx 错误）
       const maxRetries = 3;
