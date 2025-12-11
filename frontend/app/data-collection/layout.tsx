@@ -12,6 +12,18 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import AIAssistant from '@/components/admin/AIAssistant';
+
+type AIAssistantContext =
+  | 'whitelist'
+  | 'quality'
+  | 'ai-models'
+  | 'system'
+  | 'dashboard'
+  | 'users'
+  | 'collection'
+  | 'external-api'
+  | 'storage';
 
 export default function DataCollectionLayout({
   children,
@@ -139,6 +151,26 @@ export default function DataCollectionLayout({
           <div className="flex-1 overflow-auto">{children}</div>
         </div>
       </div>
+
+      {/* AI Assistant - 根据当前路由自动切换上下文 */}
+      <AIAssistant context={getAIContext(pathname)} />
     </div>
   );
+}
+
+// 根据路径获取 AI 助手上下文
+function getAIContext(pathname: string): AIAssistantContext {
+  if (pathname.includes('/whitelists')) return 'whitelist';
+  if (pathname.includes('/quality')) return 'quality';
+  if (pathname.includes('/ai-models')) return 'ai-models';
+  if (pathname.includes('/external-api')) return 'external-api';
+  if (pathname.includes('/storage')) return 'storage';
+  if (pathname.includes('/users')) return 'users';
+  if (
+    pathname.includes('/config') ||
+    pathname.includes('/scheduler') ||
+    pathname.includes('/batch')
+  )
+    return 'collection';
+  return 'dashboard';
 }

@@ -14,7 +14,16 @@ import { config } from '@/lib/config';
 import { getAuthHeader } from '@/lib/auth';
 
 interface AIAssistantProps {
-  context: 'whitelist' | 'quality' | 'ai-models' | 'system';
+  context:
+    | 'whitelist'
+    | 'quality'
+    | 'ai-models'
+    | 'system'
+    | 'dashboard'
+    | 'users'
+    | 'collection'
+    | 'external-api'
+    | 'storage';
   currentData?: any; // 当前配置数据，用于AI分析
   onApplySuggestion?: (suggestion: any) => void; // 应用AI建议的回调
 }
@@ -68,6 +77,51 @@ const CONTEXT_PROMPTS: Record<string, string> = {
 5. 建议系统性能优化方案
 
 请给出具体的配置参数建议。`,
+
+  dashboard: `你是一个系统监控和分析专家。帮助用户：
+1. 解读系统仪表盘数据
+2. 识别潜在的性能瓶颈
+3. 分析数据采集趋势
+4. 建议关键指标的优化方向
+5. 提供系统健康度评估
+
+请给出具体的分析和优化建议。`,
+
+  users: `你是一个用户管理和权限配置专家。帮助用户：
+1. 设计用户角色和权限结构
+2. 建议安全策略（密码复杂度、会话管理）
+3. 优化用户管理流程
+4. 分析用户活跃度和使用模式
+5. 建议访问控制最佳实践
+
+请给出具体的配置建议。`,
+
+  collection: `你是一个数据采集配置专家。帮助用户：
+1. 优化数据源配置策略
+2. 设计采集调度计划
+3. 建议数据抓取规则
+4. 优化批量采集参数
+5. 排查采集失败问题
+
+请给出具体的配置和优化建议。`,
+
+  'external-api': `你是一个外部 API 集成专家。帮助用户：
+1. 配置搜索 API（Tavily、Serper 等）
+2. 优化 API 调用频率和配额
+3. 建议 API 降级策略
+4. 诊断 API 连接问题
+5. 推荐合适的第三方服务
+
+请给出具体的配置建议。`,
+
+  storage: `你是一个存储管理专家。帮助用户：
+1. 优化存储空间使用
+2. 配置数据备份策略
+3. 建议数据归档方案
+4. 分析存储性能
+5. 规划存储扩容
+
+请给出具体的优化建议。`,
 };
 
 // 每个 context 的预设问题
@@ -96,6 +150,36 @@ const PRESET_QUESTIONS: Record<string, string[]> = {
     '搜索 API 选 Tavily 还是 Serper？',
     '如何优化系统性能？',
   ],
+  dashboard: [
+    '当前系统状态如何？',
+    '有哪些需要关注的指标？',
+    '数据采集效率如何优化？',
+    '系统瓶颈分析',
+  ],
+  users: [
+    '如何设计用户权限？',
+    '安全策略建议',
+    '用户管理最佳实践',
+    '如何提高用户活跃度？',
+  ],
+  collection: [
+    '优化数据采集策略',
+    '如何设置采集调度？',
+    '批量采集参数建议',
+    '采集失败如何排查？',
+  ],
+  'external-api': [
+    '搜索 API 怎么选择？',
+    'API 调用频率建议',
+    'API 配置问题诊断',
+    '第三方服务推荐',
+  ],
+  storage: [
+    '如何优化存储空间？',
+    '数据备份策略建议',
+    '存储扩容方案',
+    '性能优化建议',
+  ],
 };
 
 export default function AIAssistant({
@@ -120,6 +204,11 @@ export default function AIAssistant({
     quality: '数据质量',
     'ai-models': 'AI 模型',
     system: '系统设置',
+    dashboard: '仪表盘',
+    users: '用户管理',
+    collection: '数据采集',
+    'external-api': '外部 API',
+    storage: '存储管理',
   };
 
   const sendMessage = async (content: string) => {
