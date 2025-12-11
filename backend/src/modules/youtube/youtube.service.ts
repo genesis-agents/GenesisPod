@@ -15,12 +15,15 @@ export interface TranscriptSegment {
   text: string;
   start: number;
   duration: number;
+  translatedText?: string; // 翻译后的文本（可选）
 }
 
 export interface TranscriptResponse {
   videoId: string;
   title: string;
   transcript: TranscriptSegment[];
+  targetLanguage?: string; // 翻译目标语言（如果有翻译）
+  hasTranslation?: boolean; // 是否已有翻译
 }
 
 // Supadata API response types
@@ -115,15 +118,21 @@ export class YoutubeService {
       });
 
       if (cached && cached.expiresAt > new Date()) {
-        const cachedTranscript =
-          cached.transcript as unknown as TranscriptSegment[];
+        // 优先返回翻译版本（如果有）
+        const hasTranslation = !!cached.translatedTranscript;
+        const cachedTranscript = hasTranslation
+          ? (cached.translatedTranscript as unknown as TranscriptSegment[])
+          : (cached.transcript as unknown as TranscriptSegment[]);
+
         this.logger.log(
-          `Cache hit for ${videoId}, returning cached transcript with ${cachedTranscript.length} segments`,
+          `Cache hit for ${videoId}, returning ${hasTranslation ? "translated" : "original"} transcript with ${cachedTranscript.length} segments`,
         );
         return {
           videoId,
           title: cached.title ?? `YouTube Video ${videoId}`,
           transcript: cachedTranscript,
+          targetLanguage: cached.targetLanguage ?? undefined,
+          hasTranslation,
         };
       }
 
@@ -276,6 +285,73 @@ export class YoutubeService {
     language: string,
   ): Promise<void> {
     return this.saveToCache(videoId, title, transcript, language);
+  }
+
+  /**
+   * 保存翻译结果到缓存 - 全局共享
+   * 一个用户翻译后，所有用户都可以使用
+   */
+  async saveTranslation(
+    videoId: string,
+    translatedTranscript: TranscriptSegment[],
+    targetLanguage: string,
+  ): Promise<void> {
+    try {
+      // 检查是否存在原始字幕缓存
+      const existing = await this.prisma.youTubeTranscriptCache.findUnique({
+        where: { videoId },
+      });
+
+      if (!existing) {
+        this.logger.warn(
+          `Cannot save translation for ${videoId}: No original transcript cached`,
+        );
+        throw new Error(
+          "Original transcript must be cached before saving translation",
+        );
+      }
+
+      await this.prisma.youTubeTranscriptCache.update({
+        where: { videoId },
+        data: {
+          translatedTranscript: translatedTranscript as any,
+          targetLanguage,
+          translatedAt: new Date(),
+        },
+      });
+
+      this.logger.log(
+        `Saved translation for ${videoId} (${translatedTranscript.length} segments, target: ${targetLanguage})`,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to save translation for ${videoId}: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取翻译状态
+   */
+  async getTranslationStatus(
+    videoId: string,
+  ): Promise<{ hasTranslation: boolean; targetLanguage?: string }> {
+    try {
+      const cached = await this.prisma.youTubeTranscriptCache.findUnique({
+        where: { videoId },
+        select: {
+          translatedTranscript: true,
+          targetLanguage: true,
+        },
+      });
+
+      return {
+        hasTranslation: !!cached?.translatedTranscript,
+        targetLanguage: cached?.targetLanguage ?? undefined,
+      };
+    } catch (error) {
+      this.logger.debug(`Failed to get translation status: ${error}`);
+      return { hasTranslation: false };
+    }
   }
 
   /**

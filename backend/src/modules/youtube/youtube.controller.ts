@@ -30,6 +30,17 @@ interface CacheTranscriptDto {
   language: string;
 }
 
+interface SaveTranslationDto {
+  videoId: string;
+  translatedTranscript: Array<{
+    text: string;
+    start: number;
+    duration: number;
+    translatedText: string;
+  }>;
+  targetLanguage: string; // 翻译目标语言，如 "zh", "en"
+}
+
 interface ExportPdfRequestDto {
   videoId: string;
   title?: string;
@@ -294,5 +305,78 @@ export class YoutubeController {
         `Failed to cache transcript: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
     }
+  }
+
+  /**
+   * 保存翻译结果到缓存 - 全局共享
+   * 一个用户翻译后，所有用户都可以使用
+   */
+  @Post("save-translation")
+  async saveTranslation(@Body() body: SaveTranslationDto) {
+    const { videoId, translatedTranscript, targetLanguage } = body;
+
+    this.logger.log(
+      `Receiving translation upload for video: ${videoId} (${translatedTranscript?.length || 0} segments, target: ${targetLanguage})`,
+    );
+
+    if (!videoId || videoId.trim().length === 0) {
+      throw new BadRequestException("Video ID is required");
+    }
+
+    if (
+      !translatedTranscript ||
+      !Array.isArray(translatedTranscript) ||
+      translatedTranscript.length === 0
+    ) {
+      throw new BadRequestException(
+        "Translated transcript is required and must not be empty",
+      );
+    }
+
+    if (!targetLanguage) {
+      throw new BadRequestException("Target language is required");
+    }
+
+    const cleanVideoId = videoId.trim();
+
+    try {
+      await this.youtubeService.saveTranslation(
+        cleanVideoId,
+        translatedTranscript,
+        targetLanguage,
+      );
+
+      this.logger.log(
+        `Successfully saved translation for ${cleanVideoId} with ${translatedTranscript.length} segments (target: ${targetLanguage})`,
+      );
+
+      return {
+        success: true,
+        videoId: cleanVideoId,
+        segmentCount: translatedTranscript.length,
+        targetLanguage,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to save translation for ${cleanVideoId}:`,
+        error,
+      );
+      throw new BadRequestException(
+        `Failed to save translation: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    }
+  }
+
+  /**
+   * 获取翻译状态
+   */
+  @Get("translation-status/:videoId")
+  async getTranslationStatus(@Param("videoId") videoId: string) {
+    if (!videoId || videoId.trim().length === 0) {
+      throw new BadRequestException("Video ID is required");
+    }
+
+    const cleanVideoId = videoId.trim();
+    return await this.youtubeService.getTranslationStatus(cleanVideoId);
   }
 }

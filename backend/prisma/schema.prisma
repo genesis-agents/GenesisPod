@@ -665,7 +665,12 @@ model YouTubeTranscriptCache {
 
   // 字幕数据
   transcript Json // [{ start: number, duration: number, text: string }]
-  language   String @default("en") @db.VarChar(10) // 字幕语言
+  language   String @default("en") @db.VarChar(10) // 原始字幕语言
+
+  // 翻译数据 - 全局共享，一个用户翻译后所有用户可用
+  translatedTranscript Json?   @map("translated_transcript") // [{ start: number, duration: number, text: string, translatedText: string }]
+  targetLanguage       String? @map("target_language") @db.VarChar(10) // 翻译目标语言 (如 "zh", "en")
+  translatedAt         DateTime? @map("translated_at") // 翻译时间
 
   // 缓存元数据
   createdAt DateTime @default(now()) @map("created_at")
