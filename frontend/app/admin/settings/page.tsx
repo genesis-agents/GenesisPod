@@ -7,6 +7,7 @@ import WhitelistManagement from '@/components/admin/WhitelistManagement';
 import DataQualityManagement from '@/components/admin/DataQualityManagement';
 import AIModelSettings from '@/components/admin/AIModelSettings';
 import SystemSettings from '@/components/admin/SystemSettings';
+import AIAssistant from '@/components/admin/AIAssistant';
 
 type SettingsTab = 'whitelist' | 'quality' | 'ai-models' | 'system';
 
@@ -54,6 +55,9 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* AI Assistant - 根据当前 TAB 自动切换上下文 */}
+      <AIAssistant context={activeTab} />
     </div>
   );
 }
