@@ -350,9 +350,14 @@ export default function EditableSlideRenderer({
   );
 
   // 从 slide 中提取背景图片（可能来自后端PPT API）
+  // images 可能是对象数组 [{url, position}] 或字符串数组
   const backgroundImageUrl =
     slide.backgroundImage ||
-    (slide.images && slide.images.length > 0 ? slide.images[0] : null);
+    (slide.images && slide.images.length > 0
+      ? typeof slide.images[0] === 'string'
+        ? slide.images[0]
+        : (slide.images[0] as { url?: string; position?: string })?.url
+      : null);
 
   return (
     <div
