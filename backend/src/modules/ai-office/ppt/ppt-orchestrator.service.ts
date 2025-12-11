@@ -315,6 +315,9 @@ export class PPTOrchestratorService {
       generatedSlides.push(generatedSlide);
 
       // 发送单页完成事件
+      this.logger.log(
+        `[executeGeneration] Emitting slide_complete for slide ${spec.index}, images: ${images.length}, imageUrls: ${images.map((img) => img.url?.slice(0, 50)).join(", ") || "none"}`,
+      );
       subject.next({
         type: "slide_complete",
         timestamp: new Date().toISOString(),

@@ -699,12 +699,21 @@ export default function SlidesTab() {
   // 调试：检查合并后的幻灯片数据
   if (slides.length > 0) {
     const firstSlide = slides[0] as any;
-    console.log('[SlidesTab] Final slide[0]:', {
+    console.log('[SlidesTab] === SLIDE IMAGE DEBUG ===');
+    console.log('[SlidesTab] rawSlides count:', rawSlides.length);
+    console.log('[SlidesTab] rawSlides[0] full:', rawSlides[0]);
+    console.log('[SlidesTab] Final slide[0] full:', firstSlide);
+    console.log('[SlidesTab] Final slide[0] summary:', {
       title: firstSlide.title,
       hasBackgroundImage: !!firstSlide.backgroundImage,
-      backgroundImage: firstSlide.backgroundImage?.slice(0, 100),
+      backgroundImage:
+        firstSlide.backgroundImage?.slice?.(0, 100) ||
+        firstSlide.backgroundImage,
       hasImages: !!firstSlide.images?.length,
+      imagesCount: firstSlide.images?.length || 0,
+      images: firstSlide.images,
     });
+    console.log('[SlidesTab] === END DEBUG ===');
   }
 
   const template: PPTTemplate = currentDocument?.template?.id
@@ -1105,7 +1114,19 @@ export default function SlidesTab() {
 
             case 'slide_complete':
               // 后端发送的单页完成事件
+              console.log('[SlidesTab] === SSE slide_complete EVENT ===');
+              console.log('[SlidesTab] Raw data.slide:', data.slide);
+              console.log('[SlidesTab] data.slide.images:', data.slide?.images);
               if (data.slide) {
+                const backgroundImg = data.slide.images?.find(
+                  (img: any) => img.position === 'background'
+                );
+                const contentImg = data.slide.images?.find(
+                  (img: any) => img.position !== 'background'
+                );
+                console.log('[SlidesTab] backgroundImg found:', backgroundImg);
+                console.log('[SlidesTab] contentImg found:', contentImg);
+
                 const slideData = {
                   index: data.slide.index,
                   title:
@@ -1113,17 +1134,14 @@ export default function SlidesTab() {
                     data.slide.content?.title ||
                     `Slide ${data.slide.index + 1}`,
                   content: data.slide.content?.bulletPoints || [],
-                  backgroundImage: data.slide.images?.find(
-                    (img: any) => img.position === 'background'
-                  )?.url,
-                  contentImage: data.slide.images?.find(
-                    (img: any) => img.position !== 'background'
-                  )?.url,
+                  backgroundImage: backgroundImg?.url,
+                  contentImage: contentImg?.url,
                   renderedHtml: data.slide.renderedHtml,
                   spec: data.slide.spec,
                   rawContent: data.slide.content,
                   images: data.slide.images,
                 };
+                console.log('[SlidesTab] Constructed slideData:', slideData);
                 generatedSlides.push(slideData);
 
                 // 转换为 Markdown 格式更新文档
