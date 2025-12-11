@@ -669,6 +669,15 @@ export default function SlidesTab() {
   const content = docContent?.markdown || '';
   const rawSlides = docContent?.slides || [];
 
+  // 调试：检查原始幻灯片数据中的图片信息
+  if (rawSlides.length > 0 && rawSlides[0]?.images) {
+    console.log('[SlidesTab] rawSlides[0] images:', rawSlides[0].images);
+    console.log(
+      '[SlidesTab] rawSlides[0] backgroundImage:',
+      rawSlides[0].backgroundImage
+    );
+  }
+
   // 解析 Markdown 并合并图片信息
   const parsedSlides = parseMarkdownToEnhancedSlides(content);
 
@@ -686,6 +695,17 @@ export default function SlidesTab() {
     }
     return parsedSlide;
   });
+
+  // 调试：检查合并后的幻灯片数据
+  if (slides.length > 0) {
+    const firstSlide = slides[0] as any;
+    console.log('[SlidesTab] Final slide[0]:', {
+      title: firstSlide.title,
+      hasBackgroundImage: !!firstSlide.backgroundImage,
+      backgroundImage: firstSlide.backgroundImage?.slice(0, 100),
+      hasImages: !!firstSlide.images?.length,
+    });
+  }
 
   const template: PPTTemplate = currentDocument?.template?.id
     ? getTemplateById(currentDocument.template.id)
