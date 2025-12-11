@@ -345,9 +345,10 @@ export class AskSessionService {
     const modelConfig = await this.getModelConfig(message.modelId);
 
     // 构建上下文（不包括要重新生成的消息）
+    // 同样需要清理 base64 图片数据
     const contextMessages: MessageWithContext[] = previousMessages.map((m) => ({
       role: m.role as "user" | "assistant" | "system",
-      content: m.content,
+      content: this.sanitizeMessageContent(m.content),
     }));
 
     try {
@@ -382,6 +383,7 @@ export class AskSessionService {
 
   /**
    * 构建上下文消息
+   * 清理 base64 图片数据以避免 token 超限
    */
   private async buildContext(
     sessionId: string,
@@ -396,11 +398,77 @@ export class AskSessionService {
     // 反转以保持时间顺序
     const orderedMessages = messages.reverse();
 
-    // 转换为上下文格式
-    return orderedMessages.map((m) => ({
+    // 转换为上下文格式，同时清理 base64 图片数据
+    const contextMessages = orderedMessages.map((m) => ({
       role: m.role as "user" | "assistant" | "system",
-      content: m.content,
+      content: this.sanitizeMessageContent(m.content),
     }));
+
+    // 计算总字符长度，如果超过限制则截断旧消息
+    const MAX_TOTAL_CHARS = 100000; // 约 25000 tokens
+    let totalChars = 0;
+    const truncatedMessages: MessageWithContext[] = [];
+
+    // 从最新的消息开始，保留尽可能多的消息
+    for (let i = contextMessages.length - 1; i >= 0; i--) {
+      const msgLength = contextMessages[i].content.length;
+      if (totalChars + msgLength <= MAX_TOTAL_CHARS) {
+        truncatedMessages.unshift(contextMessages[i]);
+        totalChars += msgLength;
+      } else {
+        // 如果是最新的用户消息，仍然保留（可能需要截断）
+        if (
+          i === contextMessages.length - 1 &&
+          contextMessages[i].role === "user"
+        ) {
+          const truncatedContent = contextMessages[i].content.substring(
+            0,
+            MAX_TOTAL_CHARS - totalChars,
+          );
+          truncatedMessages.unshift({
+            ...contextMessages[i],
+            content: truncatedContent + "\n[内容已截断]",
+          });
+        }
+        this.logger.warn(
+          `Context truncated: removed ${i + 1} older messages to fit token limit`,
+        );
+        break;
+      }
+    }
+
+    return truncatedMessages;
+  }
+
+  /**
+   * 清理消息内容中的 base64 图片数据
+   * 将巨大的 base64 数据替换为占位符
+   */
+  private sanitizeMessageContent(content: string): string {
+    if (!content) return content;
+
+    // 替换 base64 图片数据为占位符
+    // 匹配 data:image/xxx;base64,... 格式
+    let sanitized = content.replace(
+      /data:image\/[a-zA-Z0-9+.-]+;base64,[A-Za-z0-9+/=\s]+/g,
+      "[图片已省略]",
+    );
+
+    // 替换 Markdown 格式的 base64 图片
+    // ![xxx](data:image/xxx;base64,...)
+    sanitized = sanitized.replace(
+      /!\[[^\]]*\]\(data:image\/[^)]+\)/g,
+      "[图片已省略]",
+    );
+
+    // 如果单条消息还是太长，截断
+    const MAX_MESSAGE_LENGTH = 20000;
+    if (sanitized.length > MAX_MESSAGE_LENGTH) {
+      sanitized =
+        sanitized.substring(0, MAX_MESSAGE_LENGTH) + "\n[消息内容已截断]";
+    }
+
+    return sanitized;
   }
 
   /**
