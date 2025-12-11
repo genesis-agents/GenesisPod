@@ -3908,14 +3908,12 @@ Generate the edited version of this image now.`;
     } catch (error: any) {
       const errorStatus = error.response?.status;
       const errorData = error.response?.data;
-      this.logger.error(
-        `Imagen generateImages error: status=${errorStatus}, data=${JSON.stringify(errorData).slice(0, 500)}`,
-      );
 
       // 如果 generateImages 失败，尝试使用 predict 端点 (旧 API)
+      // 这是预期的 fallback 行为，不是真正的错误
       if (errorStatus === 404 || errorStatus === 400) {
         this.logger.log(
-          `generateImages failed with ${errorStatus}, trying predict endpoint...`,
+          `generateImages endpoint not available (${errorStatus}), using predict endpoint instead`,
         );
         return this.generateWithImagenPredict(
           apiKey,
@@ -3924,6 +3922,11 @@ Generate the edited version of this image now.`;
           aspectRatio,
         );
       }
+
+      // 其他错误才是真正的错误
+      this.logger.error(
+        `Imagen generateImages error: status=${errorStatus}, data=${JSON.stringify(errorData).slice(0, 500)}`,
+      );
       throw error;
     }
   }
