@@ -3,12 +3,37 @@
  * 统一管理环境变量和配置
  */
 
+// Railway 生产环境后端 URL
+const RAILWAY_BACKEND_URL = 'https://deepdive-engine-backend.up.railway.app';
+
+// 检测是否在 Railway 生产环境（通过检查当前域名）
+const isRailwayProduction = () => {
+  if (typeof window !== 'undefined') {
+    return window.location.hostname.includes('railway.app');
+  }
+  return process.env.RAILWAY_ENVIRONMENT === 'production';
+};
+
+// 获取正确的 API 基础 URL
+const getApiBaseUrl = () => {
+  // 1. 优先使用环境变量
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  // 2. Railway 生产环境使用硬编码的后端 URL
+  if (isRailwayProduction()) {
+    return RAILWAY_BACKEND_URL;
+  }
+  // 3. 开发环境默认 localhost
+  return 'http://localhost:4000';
+};
+
 export const config = {
   /**
    * API基础URL
-   * 从环境变量读取，开发环境默认localhost:4000
+   * 从环境变量读取，Railway 生产环境使用后端 URL，开发环境默认localhost:4000
    */
-  apiBaseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000',
+  apiBaseUrl: getApiBaseUrl(),
 
   /**
    * API版本
