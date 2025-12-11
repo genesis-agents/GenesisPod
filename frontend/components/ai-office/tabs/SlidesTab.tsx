@@ -792,21 +792,60 @@ export default function SlidesTab() {
       const backendUrl = `${config.apiUrl}/ai-office/ppt/outline`;
       console.log('[PPT] Calling backend directly:', backendUrl);
 
-      const response = await fetch(backendUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: userInput,
-          urls: urls.length > 0 ? urls : undefined,
-          slideCount: slideCount,
-          language: 'zh',
-          targetAudience: intentData.visualStyleName || undefined,
-          presentationStyle: 'formal',
-        }),
-      });
+      // 带重试的 API 调用（处理 AI API 偶发的 5xx 错误）
+      const maxRetries = 3;
+      let lastError: Error | null = null;
+      let response: Response | null = null;
 
-      if (!response.ok) {
-        throw new Error(`API responded with status: ${response.status}`);
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`[PPT] Attempt ${attempt}/${maxRetries}...`);
+          response = await fetch(backendUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              prompt: userInput,
+              urls: urls.length > 0 ? urls : undefined,
+              slideCount: slideCount,
+              language: 'zh',
+              targetAudience: intentData.visualStyleName || undefined,
+              presentationStyle: 'formal',
+            }),
+          });
+
+          if (response.ok) {
+            console.log(`[PPT] Success on attempt ${attempt}`);
+            break;
+          }
+
+          // 5xx 错误可以重试，4xx 错误直接失败
+          if (response.status >= 500 && attempt < maxRetries) {
+            console.log(
+              `[PPT] Server error ${response.status}, retrying in 2s...`
+            );
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+            lastError = new Error(
+              `API responded with status: ${response.status}`
+            );
+            continue;
+          }
+
+          throw new Error(`API responded with status: ${response.status}`);
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error(String(err));
+          if (attempt < maxRetries) {
+            console.log(
+              `[PPT] Request failed: ${lastError.message}, retrying...`
+            );
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          }
+        }
+      }
+
+      if (!response || !response.ok) {
+        throw (
+          lastError || new Error('Failed to generate outline after retries')
+        );
       }
 
       const data = await response.json();
