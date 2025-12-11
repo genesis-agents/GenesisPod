@@ -625,12 +625,38 @@ export class SlidePlanningService {
       );
       return text;
     } catch (error: any) {
+      // 详细的错误日志
+      const errorDetails = {
+        message: error.message,
+        code: error.code,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        isTimeout:
+          error.code === "ECONNABORTED" || error.message?.includes("timeout"),
+      };
       this.logger.error(
-        `[callOpenAICompatibleAPI] Error: ${error.message}`,
-        error.response?.data || error.stack,
+        `[callOpenAICompatibleAPI] Error calling ${url}: ${JSON.stringify(errorDetails)}`,
       );
+
+      // 根据错误类型提供有用的错误消息
+      if (errorDetails.isTimeout) {
+        throw new Error(
+          `AI API request timed out after 90 seconds. The model may be slow or overloaded. Try again later or use a faster model.`,
+        );
+      }
+      if (error.response?.status === 401) {
+        throw new Error(
+          `AI API authentication failed. Please check your API key in System Management > AI Models.`,
+        );
+      }
+      if (error.response?.status === 429) {
+        throw new Error(
+          `AI API rate limit exceeded. Please wait and try again, or switch to a different model.`,
+        );
+      }
       throw new Error(
-        `OpenAI API error: ${error.response?.data?.error?.message || error.message}`,
+        `AI API error (${error.response?.status || "unknown"}): ${error.response?.data?.error?.message || error.message}`,
       );
     }
   }
