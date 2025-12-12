@@ -5,12 +5,21 @@
  * 1. 根据任务类型选择最佳模型
  * 2. 实现多种选择策略
  * 3. 维护模型可用性状态
+ *
+ * 配置通过 ConfigService 注入，支持环境变量覆盖
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
 import { AIModelType } from "@prisma/client";
 import { AiTaskType, AiModelConfig, ModelSelectionStrategy } from "./types";
+import {
+  AiOrchestrationConfig,
+  DEFAULT_CONFIG,
+  ModelRankingConfig,
+  HealthCheckConfig,
+} from "./config";
 
 @Injectable()
 export class ModelSelectorService {
@@ -22,7 +31,20 @@ export class ModelSelectorService {
     { healthy: boolean; lastCheck: Date; failCount: number }
   > = new Map();
 
-  constructor(private readonly prisma: PrismaService) {}
+  // 配置
+  private readonly modelRanking: ModelRankingConfig;
+  private readonly healthCheckConfig: HealthCheckConfig;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly configService?: ConfigService,
+  ) {
+    // 从 ConfigService 获取配置，或使用默认值
+    const config =
+      this.configService?.get<AiOrchestrationConfig>("aiOrchestration");
+    this.modelRanking = config?.modelRanking || DEFAULT_CONFIG.modelRanking;
+    this.healthCheckConfig = config?.healthCheck || DEFAULT_CONFIG.healthCheck;
+  }
 
   /**
    * 根据任务类型选择最佳模型
@@ -197,74 +219,36 @@ export class ModelSelectorService {
 
   /**
    * 成本优化选择
+   * 使用配置中的成本排名
    */
   private selectCostOptimized(models: AiModelConfig[]): AiModelConfig {
-    // 成本排序：Gemini Flash < GPT-3.5 < Claude Haiku < GPT-4 < Claude Sonnet < Claude Opus
-    const costRanking: Record<string, number> = {
-      "gemini-flash": 1,
-      "gemini-2.0-flash": 1,
-      "gpt-3.5": 2,
-      "claude-haiku": 2,
-      "gpt-4-turbo": 3,
-      "gpt-4o": 3,
-      "claude-sonnet": 4,
-      grok: 4,
-      "gpt-4": 5,
-      "claude-opus": 6,
-    };
-
     return models.sort((a, b) => {
-      const aCost = this.getModelCostRank(a.modelId, costRanking);
-      const bCost = this.getModelCostRank(b.modelId, costRanking);
+      const aCost = this.getModelRank(a.modelId, this.modelRanking.cost);
+      const bCost = this.getModelRank(b.modelId, this.modelRanking.cost);
       return aCost - bCost;
     })[0];
   }
 
   /**
    * 质量优先选择
+   * 使用配置中的质量排名
    */
   private selectQualityFirst(models: AiModelConfig[]): AiModelConfig {
-    // 质量排序（与成本相反）
-    const qualityRanking: Record<string, number> = {
-      "claude-opus": 1,
-      "gpt-4": 2,
-      "claude-sonnet": 3,
-      grok: 3,
-      "gpt-4o": 4,
-      "gpt-4-turbo": 4,
-      "claude-haiku": 5,
-      "gpt-3.5": 6,
-      "gemini-flash": 7,
-    };
-
     return models.sort((a, b) => {
-      const aQuality = this.getModelCostRank(a.modelId, qualityRanking);
-      const bQuality = this.getModelCostRank(b.modelId, qualityRanking);
+      const aQuality = this.getModelRank(a.modelId, this.modelRanking.quality);
+      const bQuality = this.getModelRank(b.modelId, this.modelRanking.quality);
       return aQuality - bQuality;
     })[0];
   }
 
   /**
    * 速度优先选择
+   * 使用配置中的速度排名
    */
   private selectSpeedFirst(models: AiModelConfig[]): AiModelConfig {
-    // 速度排序：Flash 模型最快
-    const speedRanking: Record<string, number> = {
-      "gemini-flash": 1,
-      "gemini-2.0-flash": 1,
-      "claude-haiku": 2,
-      "gpt-3.5": 2,
-      "gpt-4o": 3,
-      "gpt-4-turbo": 4,
-      "claude-sonnet": 5,
-      grok: 5,
-      "gpt-4": 6,
-      "claude-opus": 7,
-    };
-
     return models.sort((a, b) => {
-      const aSpeed = this.getModelCostRank(a.modelId, speedRanking);
-      const bSpeed = this.getModelCostRank(b.modelId, speedRanking);
+      const aSpeed = this.getModelRank(a.modelId, this.modelRanking.speed);
+      const bSpeed = this.getModelRank(b.modelId, this.modelRanking.speed);
       return aSpeed - bSpeed;
     })[0];
   }
@@ -280,9 +264,9 @@ export class ModelSelectorService {
   }
 
   /**
-   * 获取模型成本排名
+   * 获取模型排名
    */
-  private getModelCostRank(
+  private getModelRank(
     modelId: string,
     ranking: Record<string, number>,
   ): number {
@@ -297,14 +281,20 @@ export class ModelSelectorService {
 
   /**
    * 检查模型是否健康
+   * 使用配置中的健康检查参数
    */
   isModelHealthy(modelId: string): boolean {
     const health = this.modelHealthCache.get(modelId);
     if (!health) return true; // 未知状态视为健康
 
-    // 如果最近 5 分钟内失败超过 3 次，视为不健康
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-    if (health.lastCheck > fiveMinutesAgo && health.failCount >= 3) {
+    // 使用配置的恢复窗口和失败阈值
+    const recoveryWindow = new Date(
+      Date.now() - this.healthCheckConfig.recoveryWindowMs,
+    );
+    if (
+      health.lastCheck > recoveryWindow &&
+      health.failCount >= this.healthCheckConfig.failureThreshold
+    ) {
       return false;
     }
 
@@ -323,7 +313,7 @@ export class ModelSelectorService {
 
     health.failCount++;
     health.lastCheck = new Date();
-    health.healthy = health.failCount < 3;
+    health.healthy = health.failCount < this.healthCheckConfig.failureThreshold;
 
     this.modelHealthCache.set(modelId, health);
 

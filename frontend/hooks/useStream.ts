@@ -37,20 +37,24 @@ export interface StreamState<T = unknown> {
 }
 
 export interface UseStreamOptions<T> {
-  // 完成回调
+  /** 完成回调 */
   onComplete?: (result: T) => void;
-  // 错误回调
+  /** 错误回调 */
   onError?: (error: string) => void;
-  // 进度回调
+  /** 进度回调 */
   onProgress?: (event: SSEProgressEvent) => void;
-  // 原始事件回调
+  /** 原始事件回调 */
   onEvent?: (event: SSEEvent) => void;
-  // 是否自动重连
+  /** 是否自动重连 */
   autoReconnect?: boolean;
-  // 重连次数
+  /** 最大重连次数 */
   reconnectAttempts?: number;
-  // 重连间隔（毫秒）
+  /** 初始重连间隔（毫秒） */
   reconnectInterval?: number;
+  /** 最大重连间隔（毫秒） */
+  maxReconnectInterval?: number;
+  /** 退避因子 */
+  backoffFactor?: number;
 }
 
 export interface UseStreamResult<T, P = void> {
@@ -78,6 +82,22 @@ const initialState: StreamState = {
 /**
  * SSE 流式响应 Hook
  */
+/**
+ * 计算指数退避延迟
+ */
+function calculateBackoffDelay(
+  attempt: number,
+  baseDelay: number,
+  maxDelay: number,
+  factor: number
+): number {
+  // 指数退避
+  const delay = Math.min(baseDelay * Math.pow(factor, attempt), maxDelay);
+  // 添加随机抖动 (±25%) 防止雷鸣羊群效应
+  const jitter = delay * 0.25;
+  return Math.floor(delay + Math.random() * jitter * 2 - jitter);
+}
+
 export function useStream<T = unknown, P = unknown>(
   options: UseStreamOptions<T> = {}
 ): UseStreamResult<T, P> {
@@ -89,6 +109,8 @@ export function useStream<T = unknown, P = unknown>(
     autoReconnect = false,
     reconnectAttempts = 3,
     reconnectInterval = 1000,
+    maxReconnectInterval = 30000,
+    backoffFactor = 2,
   } = options;
 
   const [state, setState] = useState<StreamState<T>>(
@@ -140,12 +162,18 @@ export function useStream<T = unknown, P = unknown>(
         autoReconnect &&
         reconnectCountRef.current < reconnectAttempts
       ) {
+        const delay = calculateBackoffDelay(
+          reconnectCountRef.current,
+          reconnectInterval,
+          maxReconnectInterval,
+          backoffFactor
+        );
         reconnectCountRef.current++;
         setTimeout(() => {
           if (currentPathRef.current) {
             startStream(currentPathRef.current);
           }
-        }, reconnectInterval);
+        }, delay);
         return;
       }
 

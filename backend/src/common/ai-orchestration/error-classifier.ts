@@ -7,8 +7,10 @@
  * 1. 区分可重试错误 vs 永久错误
  * 2. 提供统一的错误类型
  * 3. 保留原始错误信息
+ * 4. 可通过 DI 注入（符合 DIP 原则）
  */
 
+import { Injectable } from "@nestjs/common";
 import axios from "axios";
 
 /**
@@ -128,7 +130,10 @@ export class AIError extends Error {
 
 /**
  * AI 错误分类器
+ *
+ * 可通过依赖注入使用，便于测试和替换
  */
+@Injectable()
 export class AIErrorClassifier {
   /**
    * 分类错误
