@@ -17,8 +17,10 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Subject, Observable } from "rxjs";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { ContentExtractorService } from "../../ai-image/content-extractor.service";
-import { DataFetchingService } from "../../ai-image/data-fetching.service";
+import {
+  ContentExtractorService,
+  DataFetchingService,
+} from "../../../common/content-processing";
 import { AIModelService } from "../ai-model.service";
 import { SlidePlanningService } from "./slide-planning.service";
 import { SlideContentService } from "./slide-content.service";

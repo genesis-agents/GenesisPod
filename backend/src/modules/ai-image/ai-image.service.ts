@@ -7,11 +7,11 @@ import {
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom, Observable, Subject } from "rxjs";
-import { ContentExtractorService } from "./content-extractor.service";
 import {
+  ContentExtractorService,
   DataFetchingService,
   DataFetchingResult,
-} from "./data-fetching.service";
+} from "../../common/content-processing";
 import { R2StorageService } from "../storage/r2-storage.service";
 import { AIModelType, Prisma } from "@prisma/client";
 

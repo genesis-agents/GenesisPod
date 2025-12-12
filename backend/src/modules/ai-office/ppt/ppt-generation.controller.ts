@@ -33,7 +33,7 @@ import { Response } from "express";
 import { Observable, map, catchError, of } from "rxjs";
 import { PPTOrchestratorService } from "./ppt-orchestrator.service";
 import { SlidePlanningService } from "./slide-planning.service";
-import { ContentExtractorService } from "../../ai-image/content-extractor.service";
+import { ContentExtractorService } from "../../../common/content-processing";
 import {
   PPTGenerationInput,
   PPTDocument,

@@ -10,9 +10,13 @@ export { AiImageService } from "./ai-image.service";
 export { AgentExecutorService } from "./agent-executor.service";
 export { BrandKitService } from "./brand-kit.service";
 export { ExportService } from "./export.service";
-export { ContentExtractorService } from "./content-extractor.service";
 export { InfographicTemplateService } from "./infographic-template.service";
-export { DataFetchingService } from "./data-fetching.service";
+
+// 重新导出公共模块服务（向后兼容）
+export {
+  ContentExtractorService,
+  DataFetchingService,
+} from "../../common/content-processing";
 
 // 模块
 export { AiImageModule } from "./ai-image.module";
