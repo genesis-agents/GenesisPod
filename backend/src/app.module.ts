@@ -10,6 +10,8 @@ import { PrismaModule } from "./common/prisma/prisma.module";
 import { MongoDBModule } from "./common/mongodb/mongodb.module";
 import { GraphModule } from "./common/graph/graph.module";
 import { Neo4jModule } from "./common/neo4j/neo4j.module";
+import { AiOrchestrationModule } from "./common/ai-orchestration";
+import { StreamingModule } from "./common/streaming";
 import { CrawlerModule } from "./modules/crawler/crawler.module";
 import { ResourcesModule } from "./modules/resources/resources.module";
 import { FeedModule } from "./modules/feed/feed.module";
@@ -70,6 +72,10 @@ import { AgentsModule } from "./modules/agents/agents.module";
     MongoDBModule,
     GraphModule,
     Neo4jModule,
+
+    // 公共服务模块
+    AiOrchestrationModule,
+    StreamingModule,
 
     // 功能模块
     CrawlerModule,
