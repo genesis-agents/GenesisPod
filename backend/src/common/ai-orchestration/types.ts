@@ -50,6 +50,17 @@ export interface AiModelConfig {
 }
 
 /**
+ * AI 调用元数据
+ */
+export interface AiCallMetadata {
+  source?: string; // 调用来源模块
+  userId?: string;
+  requestId?: string;
+  sessionId?: string;
+  [key: string]: unknown;
+}
+
+/**
  * AI 调用输入参数
  */
 export interface AiCallInput {
@@ -68,6 +79,9 @@ export interface AiCallInput {
   // 模型选择（可选，不指定则自动选择）
   modelId?: string;
 
+  // 模型选择策略
+  strategy?: ModelSelectionStrategy;
+
   // 生成参数
   maxTokens?: number;
   temperature?: number;
@@ -80,11 +94,7 @@ export interface AiCallInput {
   };
 
   // 元数据（用于追踪和分析）
-  metadata?: {
-    source?: string; // 调用来源模块
-    userId?: string;
-    requestId?: string;
-  };
+  metadata?: AiCallMetadata;
 }
 
 /**
@@ -114,6 +124,7 @@ export interface AiCallResult {
 
   // 错误信息
   error?: string;
+  errorType?: string; // AIErrorType
 
   // 降级信息
   fallbackUsed?: boolean;
@@ -121,6 +132,9 @@ export interface AiCallResult {
 
   // 延迟（毫秒）
   latencyMs: number;
+
+  // 追踪 ID
+  traceId?: string;
 }
 
 /**

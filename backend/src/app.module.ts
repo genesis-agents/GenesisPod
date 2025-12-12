@@ -12,6 +12,7 @@ import { GraphModule } from "./common/graph/graph.module";
 import { Neo4jModule } from "./common/neo4j/neo4j.module";
 import { AiOrchestrationModule } from "./common/ai-orchestration";
 import { StreamingModule } from "./common/streaming";
+import { ContentProcessingModule } from "./common/content-processing";
 import { CrawlerModule } from "./modules/crawler/crawler.module";
 import { ResourcesModule } from "./modules/resources/resources.module";
 import { FeedModule } from "./modules/feed/feed.module";
@@ -76,6 +77,7 @@ import { AgentsModule } from "./modules/agents/agents.module";
     // 公共服务模块
     AiOrchestrationModule,
     StreamingModule,
+    ContentProcessingModule,
 
     // 功能模块
     CrawlerModule,
