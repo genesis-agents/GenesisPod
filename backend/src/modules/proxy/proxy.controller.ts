@@ -481,42 +481,52 @@ export class ProxyController {
         break;
       }
 
-      // 使用专用新闻提取服务，实现4层元数据提取
-      const newsResult = await this.newsExtractor.extractNews(
+      // 统一使用 AdvancedExtractorService (Readability) 提取 HTML 内容
+      // 这样可以保留图片、表格等富媒体内容
+      const contentResult = await this.advancedExtractor.extract(
+        html!,
+        currentUrl,
+        30000,
+      );
+
+      // 同时使用 NewsExtractorService 提取元数据（作者、日期等）
+      const newsMetadata = await this.newsExtractor.extractNews(
         html!,
         currentUrl,
       );
 
       // 验证提取结果
-      if (!newsResult.title || newsResult.title.length < 5) {
-        this.logger.warn(
-          `Failed to extract valid news title from ${currentUrl}`,
-        );
+      const title = contentResult.title || newsMetadata.title;
+      if (!title || title.length < 5) {
+        this.logger.warn(`Failed to extract valid title from ${currentUrl}`);
         throw new HttpException(
-          "Failed to extract valid news article from this page",
+          "Failed to extract valid article from this page",
           HttpStatus.UNPROCESSABLE_ENTITY,
         );
       }
 
       this.logger.log(
-        `Successfully extracted news via ${newsResult.source}: "${newsResult.title}" (confidence: ${newsResult.confidence}%)`,
+        `Successfully extracted content via ${contentResult.plan}: "${title}" (${contentResult.length} chars, confidence: ${contentResult.confidence}%)`,
       );
 
-      // 返回新闻提取的完整结果
+      // 返回统一格式的结果：HTML 内容 + 新闻元数据
       return {
         success: true,
-        title: newsResult.title,
-        content: newsResult.content,
-        textContent: newsResult.textContent,
-        excerpt: newsResult.excerpt,
-        author: newsResult.author,
-        publishDate: newsResult.publishDate,
-        modifiedDate: newsResult.modifiedDate,
-        imageUrl: newsResult.imageUrl,
-        siteName: newsResult.siteName,
-        paywalledIndicators: newsResult.paywalledIndicators,
-        confidence: newsResult.confidence,
-        source: newsResult.source,
+        title: title,
+        content: contentResult.content, // 保留 HTML 结构（图片、表格等）
+        textContent: contentResult.textContent,
+        excerpt: contentResult.excerpt || newsMetadata.excerpt,
+        byline: contentResult.byline || newsMetadata.author,
+        author: newsMetadata.author,
+        publishDate: newsMetadata.publishDate,
+        modifiedDate: newsMetadata.modifiedDate,
+        imageUrl: newsMetadata.imageUrl,
+        siteName: contentResult.siteName || newsMetadata.siteName,
+        length: contentResult.length,
+        plan: contentResult.plan,
+        paywalledIndicators: newsMetadata.paywalledIndicators,
+        confidence: contentResult.confidence,
+        source: newsMetadata.source,
         sourceUrl: url, // 保留原始 URL
         finalUrl: currentUrl, // 添加最终 URL（如果有重定向）
       };
