@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useResourceStore } from '@/stores/aiOfficeStore';
 import UserProfileButton from './UserProfileButton';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -23,9 +22,6 @@ export default function Sidebar({ className = '' }: SidebarProps) {
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const sidebarRef = useRef<HTMLElement>(null);
   const pathname = usePathname();
-  const aiOfficeResourceCount = useResourceStore(
-    (state) => state.resources.length
-  );
   const { isAdmin } = useAuth();
 
   // 锁定时始终展开，否则悬停时展开
@@ -445,21 +441,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"
               />
             </svg>
-            {showExpanded && (
-              <div className="flex flex-1 items-center justify-between">
-                <span>AI Office</span>
-                {aiOfficeResourceCount > 0 && (
-                  <span className="ml-auto rounded-full bg-blue-600 px-2 py-0.5 text-xs font-semibold text-white">
-                    {aiOfficeResourceCount}
-                  </span>
-                )}
-              </div>
-            )}
-            {!showExpanded && aiOfficeResourceCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white">
-                {aiOfficeResourceCount > 9 ? '9+' : aiOfficeResourceCount}
-              </span>
-            )}
+            {showExpanded && <span>AI Office</span>}
           </Link>
 
           <Link
