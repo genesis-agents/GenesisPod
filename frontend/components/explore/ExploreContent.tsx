@@ -696,7 +696,7 @@ function HomeContent() {
     const resourceId = searchParams?.get('id');
     if (!resourceId) return;
 
-    // Helper function to handle the resource
+    // Helper function to handle the resource (same behavior as handleResourceClick)
     const handleResource = (resource: Resource) => {
       // For YouTube videos, redirect to the YouTube page
       if (
@@ -717,6 +717,14 @@ function HomeContent() {
       // For non-YouTube resources, show in detail view
       setSelectedResource(resource);
       setViewMode('detail');
+      // Clear previous AI data and article content
+      setAiMessages([]);
+      setAiSummary(null);
+      setAiInsights([]);
+      setArticleTextContent('');
+      // Auto-generate summary and insights (same as handleResourceClick)
+      generateSummary(resource);
+      generateInsights(resource);
     };
 
     // First try to find in current resources
@@ -745,7 +753,8 @@ function HomeContent() {
     };
 
     fetchResourceById();
-  }, [searchParams, resources, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, router]);
 
   useEffect(() => {
     if (chatEndRef.current) {

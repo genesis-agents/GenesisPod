@@ -568,7 +568,7 @@ function LibraryPageContent() {
   };
 
   // 工具函数：根据资源类型获取正确的链接
-  // YouTube 视频打开专属 YouTube 页面，其他类型打开资源详情页
+  // YouTube 视频打开专属 YouTube 页面，其他类型打开 Explore 详情页（带 PDF 阅读器和 AI 助手）
   const getResourceLink = (resource: Resource): string => {
     if (resource.type === 'YOUTUBE' || resource.type === 'YOUTUBE_VIDEO') {
       // 从 sourceUrl 提取 YouTube videoId
@@ -593,9 +593,10 @@ function LibraryPageContent() {
       }
       return videoId
         ? `/youtube?videoId=${videoId}`
-        : `/resource/${resource.id}`;
+        : `/explore?id=${resource.id}`;
     }
-    return `/resource/${resource.id}`;
+    // 所有非 YouTube 资源都跳转到 Explore 页面，和从 Explore 列表点击进入体验一致
+    return `/explore?id=${resource.id}`;
   };
 
   // Type badge config
