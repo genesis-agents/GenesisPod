@@ -424,36 +424,74 @@ export class ProxyController {
 
     // News类别不限制域名，允许访问所有新闻网站
     try {
-      const urlObj = new URL(url);
+      let currentUrl = url;
+      let html: string;
+      const maxMetaRedirects = 3; // 最多跟随3次 meta refresh 重定向
 
-      this.logger.log(
-        `Fetching HTML for News Reader Mode from: ${urlObj.hostname} (no domain restriction for News)`,
-      );
+      // 获取 HTML 并处理 meta refresh 重定向
+      for (
+        let redirectCount = 0;
+        redirectCount <= maxMetaRedirects;
+        redirectCount++
+      ) {
+        const urlObj = new URL(currentUrl);
 
-      // 从远程服务器获取 HTML
-      const response = await axios.get(url, {
-        responseType: "text",
-        timeout: 30000,
-        maxRedirects: 5,
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-          Accept:
-            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-          "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
-          "Accept-Encoding": "gzip, deflate, br",
-        },
-      });
+        this.logger.log(
+          `Fetching HTML for News Reader Mode from: ${urlObj.hostname} (redirect #${redirectCount})`,
+        );
+
+        // 从远程服务器获取 HTML
+        const response = await axios.get(currentUrl, {
+          responseType: "text",
+          timeout: 30000,
+          maxRedirects: 5,
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            Accept:
+              "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
+            "Accept-Encoding": "gzip, deflate, br",
+          },
+        });
+
+        html = response.data;
+
+        // 检测 meta refresh 重定向（如 deepmind.google -> blog.google）
+        const redirectCheck = this.newsExtractor.detectMetaRefreshRedirect(
+          html,
+          currentUrl,
+        );
+
+        if (redirectCheck.isRedirect && redirectCheck.redirectUrl) {
+          if (redirectCount < maxMetaRedirects) {
+            this.logger.log(
+              `Following meta refresh redirect: ${currentUrl} -> ${redirectCheck.redirectUrl}`,
+            );
+            currentUrl = redirectCheck.redirectUrl;
+            continue; // 跟随重定向
+          } else {
+            this.logger.warn(
+              `Max meta refresh redirects reached (${maxMetaRedirects}), using current page`,
+            );
+          }
+        }
+
+        // 没有重定向或已达到最大次数，跳出循环
+        break;
+      }
 
       // 使用专用新闻提取服务，实现4层元数据提取
       const newsResult = await this.newsExtractor.extractNews(
-        response.data,
-        url,
+        html!,
+        currentUrl,
       );
 
       // 验证提取结果
       if (!newsResult.title || newsResult.title.length < 5) {
-        this.logger.warn(`Failed to extract valid news title from ${url}`);
+        this.logger.warn(
+          `Failed to extract valid news title from ${currentUrl}`,
+        );
         throw new HttpException(
           "Failed to extract valid news article from this page",
           HttpStatus.UNPROCESSABLE_ENTITY,
@@ -479,7 +517,8 @@ export class ProxyController {
         paywalledIndicators: newsResult.paywalledIndicators,
         confidence: newsResult.confidence,
         source: newsResult.source,
-        sourceUrl: url,
+        sourceUrl: url, // 保留原始 URL
+        finalUrl: currentUrl, // 添加最终 URL（如果有重定向）
       };
     } catch (error) {
       if (error instanceof HttpException) {

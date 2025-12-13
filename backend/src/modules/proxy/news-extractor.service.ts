@@ -2,6 +2,14 @@ import { Injectable, Logger } from "@nestjs/common";
 import { JSDOM } from "jsdom";
 
 /**
+ * Meta Refresh 重定向检测结果
+ */
+export interface MetaRefreshResult {
+  isRedirect: boolean;
+  redirectUrl: string | null;
+}
+
+/**
  * 新闻内容提取结果
  */
 export interface NewsExtractionResult {
@@ -33,6 +41,87 @@ export interface NewsExtractionResult {
 @Injectable()
 export class NewsExtractorService {
   private readonly logger = new Logger(NewsExtractorService.name);
+
+  /**
+   * 检测 HTML 中的 Meta Refresh 重定向
+   *
+   * 一些网站（如 deepmind.google）使用 meta refresh 进行重定向，
+   * 而不是 HTTP 301/302 重定向。axios 不会自动处理这种重定向。
+   *
+   * 检测格式：
+   * - <meta http-equiv="refresh" content="0; url=https://...">
+   * - <meta http-equiv="refresh" content="1;url=https://...">
+   * - window.location.href = "https://..." (JavaScript重定向)
+   */
+  detectMetaRefreshRedirect(html: string, baseUrl: string): MetaRefreshResult {
+    try {
+      const dom = new JSDOM(html, { url: baseUrl });
+      const doc = dom.window.document;
+
+      // 1. 检查 meta refresh 标签
+      const metaRefresh = doc.querySelector(
+        'meta[http-equiv="refresh"], meta[http-equiv="Refresh"]',
+      );
+
+      if (metaRefresh) {
+        const content = metaRefresh.getAttribute("content") || "";
+        // 解析格式: "0; url=https://..." 或 "1;url=https://..."
+        const urlMatch = content.match(/url=["']?([^"'\s>]+)/i);
+        if (urlMatch && urlMatch[1]) {
+          let redirectUrl = urlMatch[1];
+          // 处理 HTML entities
+          redirectUrl = redirectUrl.replace(/&amp;/g, "&");
+          // 如果是相对 URL，转换为绝对 URL
+          if (!redirectUrl.startsWith("http")) {
+            const base = new URL(baseUrl);
+            redirectUrl = new URL(redirectUrl, base).href;
+          }
+          this.logger.log(
+            `Detected meta refresh redirect: ${baseUrl} -> ${redirectUrl}`,
+          );
+          return { isRedirect: true, redirectUrl };
+        }
+      }
+
+      // 2. 检查 JavaScript 重定向 (window.location)
+      const scripts = doc.querySelectorAll("script");
+      for (const script of Array.from(scripts)) {
+        const text = script.textContent || "";
+        // 匹配 window.location.href = "..." 或 window.location = "..."
+        const jsMatch = text.match(
+          /window\.location(?:\.href)?\s*=\s*["']([^"']+)["']/,
+        );
+        if (jsMatch && jsMatch[1]) {
+          let redirectUrl = jsMatch[1];
+          redirectUrl = redirectUrl.replace(/&amp;/g, "&");
+          if (!redirectUrl.startsWith("http")) {
+            const base = new URL(baseUrl);
+            redirectUrl = new URL(redirectUrl, base).href;
+          }
+          this.logger.log(
+            `Detected JavaScript redirect: ${baseUrl} -> ${redirectUrl}`,
+          );
+          return { isRedirect: true, redirectUrl };
+        }
+      }
+
+      // 3. 检查页面内容是否过短（可能是重定向页面）
+      const bodyText = doc.body?.textContent?.trim() || "";
+      if (bodyText.length < 200) {
+        // 页面内容很短，可能是重定向页面但我们没能解析出 URL
+        this.logger.debug(
+          `Page content very short (${bodyText.length} chars), might be a redirect page`,
+        );
+      }
+
+      return { isRedirect: false, redirectUrl: null };
+    } catch (error) {
+      this.logger.debug(
+        `Meta refresh detection failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return { isRedirect: false, redirectUrl: null };
+    }
+  }
 
   /**
    * 智能新闻内容提取 - 按优先级尝试多个方法
