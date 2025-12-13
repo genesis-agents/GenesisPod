@@ -10,8 +10,8 @@ import {
   ChevronUp,
   Lightbulb,
 } from 'lucide-react';
-import { config } from '@/lib/config';
-import { getAuthHeader } from '@/lib/auth';
+import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 
 interface AIAssistantProps {
   context:

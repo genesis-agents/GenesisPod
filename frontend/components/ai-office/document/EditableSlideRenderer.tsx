@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/common';
 import type { EnhancedSlide } from '@/lib/ai-office/markdown-parser';
 import { renderMarkdownLine } from '@/lib/ai-office/markdown-parser';
 import type { PPTTemplate } from '@/lib/ai-office/ppt-templates';

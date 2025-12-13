@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Loader2, CheckCircle, AlertCircle, Copy, X } from 'lucide-react';
-import { config } from '@/lib/config';
+import { config } from '@/lib/utils/config';
 
 interface DataImportDialogProps {
   open: boolean;

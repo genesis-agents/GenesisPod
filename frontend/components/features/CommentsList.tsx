@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { config } from '@/lib/config';
-import { getAuthHeader } from '@/lib/auth';
+import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 import CommentItem from './CommentItem';
 import CommentInput from './CommentInput';
 

@@ -1,4 +1,4 @@
-import { config } from '@/lib/config';
+import { config } from '@/lib/utils/config';
 
 const baseUrl = `${config.apiUrl}/data-collection`;
 

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { config } from '@/lib/config';
-import { getAuthHeader } from '@/lib/auth';
+import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 
 interface CommentInputProps {
   resourceId: string;

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
-import { config } from '@/lib/config';
+import { config } from '@/lib/utils/config';
 
 // Configure PDF.js worker (CSS is imported globally in globals.css)
 // PDF.js 5.x uses .mjs extension and different build path

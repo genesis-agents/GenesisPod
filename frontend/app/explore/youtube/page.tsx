@@ -9,13 +9,13 @@ import {
   useMemo,
 } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { config } from '@/lib/config';
+import { config } from '@/lib/utils/config';
 import Sidebar from '@/components/layout/Sidebar';
 import NotesList from '@/components/features/NotesList';
 import {
   AIContextBuilder,
   type Resource as AIResource,
-} from '@/lib/ai/context-builder';
+} from '@/lib/ai-office/context-builder';
 import ReactMarkdown from 'react-markdown';
 import KeyMomentsPanel, {
   type KeyMoment,

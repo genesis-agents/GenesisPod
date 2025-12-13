@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { config } from '@/lib/config';
+import { config } from '@/lib/utils/config';
 
 interface AIExplanation {
   text: string;

@@ -13,34 +13,38 @@ import { Neo4jModule } from "./common/neo4j/neo4j.module";
 import { AiOrchestrationModule } from "./common/ai-orchestration";
 import { StreamingModule } from "./common/streaming";
 import { ContentProcessingModule } from "./common/content-processing";
-import { CrawlerModule } from "./modules/crawler/crawler.module";
-import { ResourcesModule } from "./modules/resources/resources.module";
-import { FeedModule } from "./modules/feed/feed.module";
-import { KnowledgeGraphModule } from "./modules/knowledge-graph/knowledge-graph.module";
-import { ProxyModule } from "./modules/proxy/proxy.module";
-import { RecommendationsModule } from "./modules/recommendations/recommendations.module";
-import { AuthModule } from "./modules/auth/auth.module";
-import { CollectionsModule } from "./modules/collections/collections.module";
-import { NotesModule } from "./modules/notes/notes.module";
-import { CommentsModule } from "./modules/comments/comments.module";
-import { ReportsModule } from "./modules/reports/reports.module";
-import { YoutubeVideosModule } from "./modules/youtube-videos/youtube-videos.module";
-import { YoutubeModule } from "./modules/youtube/youtube.module";
-import { WorkspaceModule } from "./modules/workspace/workspace.module";
-import { AiModule } from "./modules/ai/ai.module";
-import { BlogCollectionModule } from "./modules/blog-collection/blog-collection.module";
-import { DataManagementModule } from "./modules/data-management/data-management.module";
-import { AiOfficeModule } from "./modules/ai-office/ai-office.module";
-import { DataCollectionModule } from "./modules/data-collection/data-collection.module";
-import { AdminModule } from "./modules/admin/admin.module";
-import { AiTeamsModule } from "./modules/ai-teams/ai-teams.module";
-import { WechatWorkModule } from "./modules/wechat-work/wechat-work.module";
-import { AiStudioModule } from "./modules/ai-studio/ai-studio.module";
-import { AiImageModule } from "./modules/ai-image/ai-image.module";
-import { StorageModule } from "./modules/storage/storage.module";
-import { AskSessionModule } from "./modules/ask-session/ask-session.module";
-import { AiSimulationModule } from "./modules/ai-simulation/ai-simulation.module";
-import { AgentsModule } from "./modules/agents/agents.module";
+// Core modules
+import { AuthModule } from "./modules/core/auth/auth.module";
+import { AdminModule } from "./modules/core/admin/admin.module";
+import { StorageModule } from "./modules/core/storage/storage.module";
+// AI modules
+import { AiCoreModule } from "./modules/ai/ai-core/ai-core.module";
+import { AiAgentsModule } from "./modules/ai/ai-agents/ai-agents.module";
+import { AiAskModule } from "./modules/ai/ai-ask/ai-ask.module";
+import { AiImageModule } from "./modules/ai/ai-image/ai-image.module";
+import { AiOfficeModule } from "./modules/ai/ai-office/ai-office.module";
+import { AiSimulationModule } from "./modules/ai/ai-simulation/ai-simulation.module";
+import { AiStudioModule } from "./modules/ai/ai-studio/ai-studio.module";
+import { AiTeamsModule } from "./modules/ai/ai-teams/ai-teams.module";
+// Content modules
+import { CollectionsModule } from "./modules/content/collections/collections.module";
+import { CommentsModule } from "./modules/content/comments/comments.module";
+import { ExploreModule } from "./modules/content/explore/explore.module";
+import { FeedModule } from "./modules/content/feed/feed.module";
+import { NotesModule } from "./modules/content/notes/notes.module";
+import { ReportsModule } from "./modules/content/reports/reports.module";
+import { ResourcesModule } from "./modules/content/resources/resources.module";
+import { WorkspaceModule } from "./modules/content/workspace/workspace.module";
+// Data modules
+import { BlogCollectionModule } from "./modules/data-services/blog-collection/blog-collection.module";
+import { CrawlerModule } from "./modules/data-services/crawler/crawler.module";
+import { DataCollectionModule } from "./modules/data-services/data-collection/data-collection.module";
+import { DataManagementModule } from "./modules/data-services/data-management/data-management.module";
+import { KnowledgeGraphModule } from "./modules/data-services/knowledge-graph/knowledge-graph.module";
+import { RecommendationsModule } from "./modules/data-services/recommendations/recommendations.module";
+// Integration modules
+import { ProxyModule } from "./modules/integrations/proxy/proxy.module";
+import { WechatWorkModule } from "./modules/integrations/wechat-work/wechat-work.module";
 
 @Module({
   imports: [
@@ -79,35 +83,42 @@ import { AgentsModule } from "./modules/agents/agents.module";
     StreamingModule,
     ContentProcessingModule,
 
-    // 功能模块
+    // Core modules
+    AuthModule,
+    AdminModule,
+    StorageModule,
+
+    // AI modules (ai-* prefix)
+    AiCoreModule,
+    AiAgentsModule,
+    AiAskModule,
+    AiImageModule,
+    AiOfficeModule,
+    AiSimulationModule,
+    AiStudioModule,
+    AiTeamsModule,
+
+    // Content modules
     CrawlerModule,
     ResourcesModule,
     FeedModule,
-    KnowledgeGraphModule,
-    ProxyModule,
-    RecommendationsModule,
-    AuthModule,
     CollectionsModule,
     NotesModule,
     CommentsModule,
     ReportsModule,
-    YoutubeModule,
-    YoutubeVideosModule,
+    ExploreModule,
     WorkspaceModule,
-    AiModule,
+
+    // Data modules
     BlogCollectionModule,
     DataManagementModule,
-    AiOfficeModule,
     DataCollectionModule,
-    AdminModule,
-    AiTeamsModule,
+    KnowledgeGraphModule,
+    RecommendationsModule,
+
+    // Integration modules
+    ProxyModule,
     WechatWorkModule,
-    AiStudioModule,
-    AiImageModule,
-    StorageModule,
-    AskSessionModule,
-    AiSimulationModule,
-    AgentsModule,
   ],
   controllers: [AppController],
   providers: [

@@ -20,7 +20,7 @@ import {
   AgentTask,
 } from '@/types/ai-teams';
 import * as api from '@/lib/api/ai-teams';
-import { getAuthTokens } from '@/lib/auth';
+import { getAuthTokens } from '@/lib/utils/auth';
 import { io, Socket } from 'socket.io-client';
 
 // Performance: Maximum messages to keep in memory to prevent browser memory overflow

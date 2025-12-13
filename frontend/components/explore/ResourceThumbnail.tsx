@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { config } from '@/lib/config';
+import { config } from '@/lib/utils/config';
 
 // 简单的内存缓存，用于存储已提取的缩略图
 const thumbnailCache = new Map<string, string | null>();

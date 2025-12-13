@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { config } from '@/lib/config';
+import { config } from '@/lib/utils/config';
 
 interface ReaderViewProps {
   url: string;

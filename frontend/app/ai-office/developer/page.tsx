@@ -33,7 +33,7 @@ import {
   subscribeToTask,
   cancelTask,
 } from '@/lib/ai-office/agents/api';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/common';
 
 // 代码模板定义
 const DEVELOPER_TEMPLATES = [

@@ -8,7 +8,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getAuthTokens } from '@/lib/auth';
+import { getAuthTokens } from '@/lib/utils/auth';
 import { useAIModels } from '@/hooks/useAIModels';
 import MessageRenderer from '@/components/ai-office/chat/MessageRenderer';
 import {

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { config } from '@/lib/config';
-import { getAuthHeader } from '@/lib/auth';
+import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 
 // AI模型类型枚举 - 支持 Tier 分级
 type AIModelType =

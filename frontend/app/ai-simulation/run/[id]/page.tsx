@@ -4,8 +4,8 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { useAuth } from '@/contexts/AuthContext';
-import { config } from '@/lib/config';
-import { getAuthHeader } from '@/lib/auth';
+import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 import {
   Play,
   Pause,

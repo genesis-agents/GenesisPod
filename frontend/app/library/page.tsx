@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { config } from '@/lib/config';
+import { config } from '@/lib/utils/config';
 import NotesList, { type Note } from '@/components/features/NotesList';
 import Sidebar from '@/components/layout/Sidebar';
 import { Tag, UserStats } from '@/components/library/CollectionNav';
@@ -11,7 +11,7 @@ import CollectionModal from '@/components/library/CollectionModal';
 import BatchActionBar from '@/components/library/BatchActionBar';
 import ReadStatusBadge from '@/components/library/ReadStatusBadge';
 import TagList from '@/components/library/TagList';
-import { getAuthHeader } from '@/lib/auth';
+import { getAuthHeader } from '@/lib/utils/auth';
 import { useMultiSelect } from '@/hooks/useMultiSelect';
 import {
   useCollections,

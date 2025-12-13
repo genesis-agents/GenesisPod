@@ -34,7 +34,7 @@ import {
   subscribeToTask,
   cancelTask,
 } from '@/lib/ai-office/agents/api';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/common';
 
 // 设计模板定义
 const DESIGNER_TEMPLATES = [

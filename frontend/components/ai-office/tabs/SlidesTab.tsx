@@ -39,8 +39,8 @@ import {
 } from 'lucide-react';
 
 import { useResourceStore, useDocumentStore } from '@/stores/aiOfficeStore';
-import { cn } from '@/lib/utils';
-import { config } from '@/lib/config';
+import { cn } from '@/lib/utils/common';
+import { config } from '@/lib/utils/config';
 import {
   parseMarkdownToEnhancedSlides,
   EnhancedSlide,

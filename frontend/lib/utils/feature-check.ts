@@ -174,7 +174,7 @@ export class FeatureChecker {
   async checkExportSystem(): Promise<FeatureCheckResult> {
     try {
       const { documentExportService } = await import(
-        '@/lib/services/document-export.service'
+        '@/lib/utils/document-export.service'
       );
 
       if (!documentExportService) {

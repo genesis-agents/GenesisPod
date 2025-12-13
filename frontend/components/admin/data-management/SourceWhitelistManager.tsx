@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { config } from '@/lib/config';
+import { config } from '@/lib/utils/config';
 import { Loader2, AlertCircle, Plus, Trash2 } from 'lucide-react';
 
 interface SourceWhitelist {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { config } from '@/lib/config';
+import { config } from '@/lib/utils/config';
 import { useThumbnailGenerator } from '@/hooks/useThumbnailGeneratorClient';
 
 // Disable static generation for this page (requires browser APIs)

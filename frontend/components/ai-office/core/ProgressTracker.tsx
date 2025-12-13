@@ -27,7 +27,7 @@ import {
   Sparkles,
   Clock,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/common';
 import {
   PlanStep,
   ProgressState,

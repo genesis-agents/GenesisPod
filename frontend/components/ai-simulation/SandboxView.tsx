@@ -43,8 +43,8 @@ import {
   Loader2,
   Image as ImageIcon,
 } from 'lucide-react';
-import { config } from '@/lib/config';
-import { getAuthHeader } from '@/lib/auth';
+import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 import { ViewPerspective } from '@/components/ai-simulation/PerspectiveSelector';
 import { isContentVisible } from '@/lib/ai-simulation/perspectiveFilter';
 

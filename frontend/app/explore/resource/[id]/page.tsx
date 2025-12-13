@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { config } from '@/lib/config';
+import { config } from '@/lib/utils/config';
 import NoteEditor from '@/components/features/NoteEditor';
 import NotesList from '@/components/features/NotesList';
 import CommentsList from '@/components/features/CommentsList';

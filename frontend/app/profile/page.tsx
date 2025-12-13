@@ -9,7 +9,7 @@ import {
   USER_MESSAGE_STYLES,
   AI_MESSAGE_STYLES,
 } from '@/stores/themeStore';
-import { config } from '@/lib/config';
+import { config } from '@/lib/utils/config';
 
 interface UserStats {
   userId: string;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { config } from '@/lib/config';
+import { config } from '@/lib/utils/config';
 import TextHighlighter from '../ui/TextHighlighter';
 import NoteEditor from './NoteEditor';
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { config } from '@/lib/config';
+import { config } from '@/lib/utils/config';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 interface DataQualityMetric {

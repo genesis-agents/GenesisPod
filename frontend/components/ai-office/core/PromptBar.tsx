@@ -27,7 +27,7 @@ import {
   Presentation,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/common';
 import { AgentType, UploadedFile } from '@/lib/ai-office/agents/types';
 
 interface PromptBarProps {

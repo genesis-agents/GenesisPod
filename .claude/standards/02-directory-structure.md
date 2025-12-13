@@ -1,489 +1,314 @@
 # 目录结构规范
 
-**版本：** 1.0
-**强制级别：** 🔴 MUST
-**更新日期：** 2025-11-08
+**版本：** 2.0
+**强制级别：** MUST
+**更新日期：** 2025-12-13
 
 ---
 
 ## 核心原则
 
+- Monorepo 结构 - 前端、后端、AI服务统一管理
+- 分组模块化 - 按领域分组，组内模块化
+- 清晰的分层 - API层、业务层、数据层明确分离
+- 一致的命名 - ai-\* 前缀统一AI相关模块
+- 易于导航 - 新开发者能快速找到代码
+
+---
+
+## 项目总体结构
+
 ```
-✅ Monorepo 结构 - 前端、后端、AI服务、爬虫统一管理
-✅ 模块化设计 - 每个服务独立但协同工作
-✅ 清晰的分层 - API层、业务层、数据层明确分离
-✅ 一致的结构 - 同类文件放在固定位置
-✅ 易于导航 - 新开发者能快速找到代码
+deepdive/
+├── frontend/                          <- Next.js 前端服务
+├── backend/                           <- NestJS 后端服务
+├── ai-service/                        <- Python AI服务
+├── .claude/                           <- 规范和配置
+│   ├── standards/                     <- 规范文档库
+│   ├── tools/                         <- 自动化工具
+│   ├── agents/                        <- AI Agent 配置
+│   └── config/                        <- 项目配置
+└── docs/                              <- 项目文档
 ```
 
 ---
 
-## 完整目录树
+## Backend 目录结构 (NestJS)
+
+### 分组模块架构
+
+后端采用**分组模块化**架构，将模块按业务领域分为5个组：
 
 ```
-deepdive-engine/
+backend/src/
+├── main.ts                            <- 应用入口
+├── app.module.ts                      <- 根模块
+├── app.controller.ts                  <- 健康检查
 │
-├── 📄 readme.md                       ← 项目说明
-├── 📄 prd.md                          ← 产品需求文档
-├── 📄 architecture.md                 ← 技术架构文档
-├── 📄 project-rules.md                ← 项目开发规范
-├── 📄 .gitignore                      ← Git忽略规则
-├── 📄 .env.example                    ← 环境变量模板
-├── 📄 docker-compose.yml              ← 本地开发环境
-├── 📄 package.json                    ← Monorepo根配置
+├── common/                            <- 共享代码
+│   ├── prisma/                        <- Prisma ORM 服务
+│   ├── mongodb/                       <- MongoDB 服务
+│   ├── neo4j/                         <- Neo4j 图数据库服务
+│   ├── graph/                         <- 知识图谱服务
+│   ├── ai-orchestration/              <- AI 调度服务
+│   ├── streaming/                     <- SSE 流式响应
+│   ├── content-processing/            <- 内容处理服务
+│   ├── filters/                       <- 异常过滤器
+│   ├── guards/                        <- 守卫
+│   ├── interceptors/                  <- 拦截器
+│   ├── pipes/                         <- 管道
+│   └── decorators/                    <- 装饰器
 │
-├── frontend/                          ← ✅ Next.js 前端服务
-│   ├── app/                           ← App Router
-│   │   ├── page.tsx                   ← 首页
-│   │   ├── layout.tsx                 ← 全局布局
-│   │   ├── api/                       ← API Routes
-│   │   └── (routes)/                  ← 路由组
-│   ├── components/                    ← React组件
-│   │   ├── ui/                        ← UI基础组件
-│   │   ├── features/                  ← 功能组件
-│   │   └── layout/                    ← 布局组件
-│   ├── lib/                           ← 工具函数
-│   │   ├── api.ts                     ← API客户端
-│   │   ├── utils.ts                   ← 工具函数
-│   │   └── hooks/                     ← 自定义Hooks
-│   ├── public/                        ← 静态资源
-│   ├── styles/                        ← 全局样式
-│   ├── types/                         ← TypeScript类型定义
-│   ├── .eslintrc.json                 ← ESLint配置
-│   ├── tailwind.config.ts             ← TailwindCSS配置
-│   ├── tsconfig.json                  ← TypeScript配置
-│   ├── next.config.js                 ← Next.js配置
-│   └── package.json                   ← 前端依赖
-│
-├── backend/                           ← ✅ NestJS 后端服务
-│   ├── src/
-│   │   ├── main.ts                    ← 应用入口
-│   │   ├── app.module.ts              ← 根模块
-│   │   ├── app.controller.ts          ← 根控制器
-│   │   ├── common/                    ← 共享代码
-│   │   │   ├── filters/               ← 异常过滤器
-│   │   │   ├── guards/                ← 守卫
-│   │   │   ├── interceptors/          ← 拦截器
-│   │   │   ├── pipes/                 ← 管道
-│   │   │   ├── decorators/            ← 装饰器
-│   │   │   └── dto/                   ← 公共DTO
-│   │   ├── modules/                   ← 功能模块（按领域）
-│   │   │   ├── resource/              ← 资源管理模块
-│   │   │   │   ├── resource.module.ts
-│   │   │   │   ├── resource.controller.ts
-│   │   │   │   ├── resource.service.ts
-│   │   │   │   ├── dto/
-│   │   │   │   │   ├── create-resource.dto.ts
-│   │   │   │   │   └── update-resource.dto.ts
-│   │   │   │   └── entities/
-│   │   │   │       └── resource.entity.ts
-│   │   │   ├── feed/                  ← Feed流模块
-│   │   │   ├── ai-summary/            ← AI总结模块
-│   │   │   └── knowledge-graph/       ← 知识图谱模块
-│   │   ├── proxy/                     ← 代理服务
-│   │   │   ├── proxy.module.ts
-│   │   │   └── proxy.controller.ts
-│   │   ├── config/                    ← 配置管理
-│   │   │   ├── database.config.ts
-│   │   │   ├── neo4j.config.ts
-│   │   │   └── mongodb.config.ts
-│   │   └── utils/                     ← 工具函数
-│   ├── prisma/                        ← Prisma ORM
-│   │   ├── schema.prisma              ← 数据库Schema
-│   │   ├── migrations/                ← 数据库迁移
-│   │   └── seed.ts                    ← 种子数据
-│   ├── test/                          ← E2E测试
-│   │   ├── app.e2e-spec.ts
-│   │   └── jest-e2e.json
-│   ├── .eslintrc.js                   ← ESLint配置
-│   ├── tsconfig.json                  ← TypeScript配置
-│   ├── nest-cli.json                  ← NestJS CLI配置
-│   └── package.json                   ← 后端依赖
-│
-├── ai-service/                        ← ✅ Python AI服务
-│   ├── main.py                        ← FastAPI应用入口
-│   ├── routers/                       ← API路由
-│   │   ├── __init__.py
-│   │   └── ai.py                      ← AI相关端点
-│   ├── services/                      ← 业务逻辑
-│   │   ├── __init__.py
-│   │   ├── grok_client.py             ← Grok API客户端
-│   │   ├── openai_client.py           ← OpenAI客户端
-│   │   ├── ai_orchestrator.py         ← AI服务编排
-│   │   └── prompts.py                 ← Prompt模板
-│   ├── models/                        ← 数据模型
-│   │   ├── __init__.py
-│   │   ├── request.py                 ← 请求模型
-│   │   └── response.py                ← 响应模型
-│   ├── utils/                         ← 工具函数
-│   │   ├── __init__.py
-│   │   ├── logger.py                  ← 日志配置
-│   │   └── secret_manager.py          ← 密钥管理
-│   ├── tests/                         ← 测试
-│   │   ├── __init__.py
-│   │   ├── test_grok_client.py
-│   │   └── test_orchestrator.py
-│   ├── requirements.txt               ← Python依赖
-│   ├── .env.example                   ← 环境变量示例
-│   └── pytest.ini                     ← Pytest配置
-│
-├── crawler/                           ← ✅ 数据采集服务
-│   ├── src/
-│   │   ├── index.ts                   ← 入口文件
-│   │   ├── crawlers/                  ← 爬虫实现
-│   │   │   ├── arxiv-crawler.ts       ← arXiv爬虫
-│   │   │   ├── github-crawler.ts      ← GitHub爬虫
-│   │   │   ├── hackernews-crawler.ts  ← HackerNews爬虫
-│   │   │   └── base-crawler.ts        ← 爬虫基类
-│   │   ├── parsers/                   ← 数据解析
-│   │   │   ├── arxiv-parser.ts
-│   │   │   ├── github-parser.ts
-│   │   │   └── hn-parser.ts
-│   │   ├── storage/                   ← 数据存储
-│   │   │   ├── mongodb-client.ts      ← MongoDB客户端
-│   │   │   └── postgres-client.ts     ← PostgreSQL客户端
-│   │   ├── scheduler/                 ← 任务调度
-│   │   │   └── cron-jobs.ts
-│   │   ├── utils/                     ← 工具函数
-│   │   │   ├── logger.ts
-│   │   │   ├── deduplicator.ts        ← 去重逻辑
-│   │   │   └── rate-limiter.ts
-│   │   └── types/                     ← TypeScript类型
-│   ├── tsconfig.json
-│   └── package.json
-│
-├── docs/                              ← ✅ 文档
-│   ├── readme.md
-│   ├── product/                       ← 产品文档
-│   │   └── requirements.md
-│   ├── tech/                          ← 技术文档
-│   │   ├── architecture.md
-│   │   ├── api-design.md
-│   │   ├── database-schema.md
-│   │   └── deployment.md
-│   ├── development/                   ← 开发指南
-│   │   ├── setup.md
-│   │   ├── testing.md
-│   │   └── troubleshooting.md
-│   └── api/                           ← API文档
-│       ├── backend-api.md
-│       └── ai-service-api.md
-│
-├── .claude/                           ← ✅ 规范和配置
-│   ├── standards/                     ← 规范文档库
-│   │   ├── 00-overview.md
-│   │   ├── 02-directory-structure.md
-│   │   ├── 03-naming-conventions.md
-│   │   ├── 04-code-style.md
-│   │   ├── 05-api-design.md
-│   │   ├── 06-database-design.md
-│   │   ├── 07-testing-standards.md
-│   │   ├── 08-git-workflow.md
-│   │   ├── 09-documentation.md
-│   │   ├── 10-security.md
-│   │   ├── 11-deployment.md
-│   │   └── 99-quick-reference.md
-│   ├── tools/                         ← 自动化工具
-│   │   ├── check-all.sh
-│   │   ├── auto-fix.sh
-│   │   ├── setup-standards.sh
-│   │   └── validate-commit.sh
-│   └── hooks/                         ← Git hooks
-│       ├── install-hooks.sh
-│       ├── pre-commit
-│       ├── commit-msg
-│       └── pre-push
-│
-├── scripts/                           ← 工具脚本
-│   ├── setup.sh                       ← 项目初始化
-│   ├── dev.sh                         ← 启动开发环境
-│   ├── build.sh                       ← 构建所有服务
-│   ├── test.sh                        ← 运行所有测试
-│   └── migrate.sh                     ← 数据库迁移
-│
-├── infra/                             ← 基础设施代码
-│   ├── docker/
-│   │   ├── Dockerfile.frontend
-│   │   ├── Dockerfile.backend
-│   │   ├── Dockerfile.ai-service
-│   │   └── docker-compose.prod.yml
-│   ├── kubernetes/
-│   │   ├── frontend/
-│   │   ├── backend/
-│   │   └── ai-service/
-│   └── terraform/
-│       ├── main.tf
-│       ├── variables.tf
-│       └── outputs.tf
-│
-└── .github/                           ← GitHub配置
-    ├── workflows/
-    │   ├── frontend-ci.yml            ← 前端CI
-    │   ├── backend-ci.yml             ← 后端CI
-    │   ├── ai-service-ci.yml          ← AI服务CI
-    │   └── deploy.yml                 ← 部署流程
-    ├── ISSUE_TEMPLATE/
-    │   ├── bug_report.md
-    │   └── feature_request.md
-    └── pull_request_template.md
+└── modules/                           <- 业务模块（按领域分组）
+    ├── ai/                            <- AI 模块组
+    ├── content/                       <- 内容模块组
+    ├── core/                          <- 核心模块组
+    ├── data-services/                 <- 数据服务模块组
+    └── integrations/                  <- 集成模块组
+```
+
+### AI 模块组 (modules/ai/)
+
+所有AI相关功能，统一使用 ai- 前缀：
+
+```
+modules/ai/
+├── ai-core/                           <- AI 核心服务
+├── ai-agents/                         <- AI Agent 管理
+├── ai-ask/                            <- AI 问答会话
+├── ai-image/                          <- AI 图像生成
+├── ai-office/                         <- AI Office (文档/PPT)
+│   ├── ai-office.module.ts
+│   ├── ai-office.controller.ts
+│   ├── ai-office.service.ts
+│   ├── ppt/                           <- PPT 生成子模块
+│   └── dto/
+├── ai-simulation/                     <- AI 模拟推演
+├── ai-studio/                         <- AI Studio 项目
+└── ai-teams/                          <- AI 团队协作
+```
+
+### Content 模块组 (modules/content/)
+
+```
+modules/content/
+├── collections/                       <- 收藏集
+├── comments/                          <- 评论
+├── explore/                           <- 探索 (含 YouTube)
+├── feed/                              <- 信息流
+├── notes/                             <- 笔记
+├── reports/                           <- 报告
+├── resources/                         <- 资源管理
+└── workspace/                         <- 工作空间
+```
+
+### Core 模块组 (modules/core/)
+
+```
+modules/core/
+├── admin/                             <- 管理后台
+├── auth/                              <- 认证授权
+└── storage/                           <- 文件存储
+```
+
+### Data Services 模块组 (modules/data-services/)
+
+```
+modules/data-services/
+├── blog-collection/                   <- 博客采集
+├── crawler/                           <- 爬虫服务
+├── data-collection/                   <- 数据采集
+├── data-management/                   <- 数据管理
+├── knowledge-graph/                   <- 知识图谱
+└── recommendations/                   <- 推荐服务
+```
+
+### Integrations 模块组 (modules/integrations/)
+
+```
+modules/integrations/
+├── proxy/                             <- 代理服务
+└── wechat-work/                       <- 企业微信
 ```
 
 ---
 
-## 目录规则
+## Frontend 目录结构 (Next.js)
 
-### 🔴 MUST - 严格遵守
+### lib 工具库架构
 
-#### 1. 服务独立性
-
-```
-✅ frontend/ - 完整的Next.js应用
-✅ backend/ - 完整的NestJS应用
-✅ ai-service/ - 完整的FastAPI应用
-✅ crawler/ - 独立的数据采集服务
-
-❌ 跨服务直接文件引用（必须通过API通信）
-❌ 在根目录放置服务代码
-```
-
-#### 2. 模块化组织（Backend/NestJS）
+前端 lib 目录采用**按领域分组**的结构：
 
 ```
-✅ backend/src/modules/resource/
-    ├── resource.module.ts
-    ├── resource.controller.ts
-    ├── resource.service.ts
-    ├── dto/
-    └── entities/
-
-❌ backend/src/controllers/resource.controller.ts (分散结构)
-❌ backend/src/services/resource.service.ts (分散结构)
+frontend/lib/
+├── api/                               <- API 客户端
+│   ├── client.ts                      <- 通用 HTTP 客户端
+│   ├── ai-teams.ts                    <- AI Teams API
+│   ├── workspace.ts                   <- Workspace API
+│   ├── data-collection.ts             <- 数据采集 API
+│   └── index.ts                       <- 统一导出
+│
+├── ai-office/                         <- AI Office 业务逻辑
+│   ├── agents/                        <- Agent 定义
+│   ├── multi-agents/                  <- 多 Agent 协作
+│   ├── context-builder.ts             <- 上下文构建
+│   ├── markdown-parser.ts             <- Markdown 解析
+│   ├── ppt-templates.ts               <- PPT 模板
+│   └── ppt-utils.ts                   <- PPT 工具
+│
+├── ai-simulation/                     <- AI Simulation 业务逻辑
+├── explore/                           <- 探索功能
+├── templates/                         <- 模板定义
+├── cache/                             <- 缓存工具
+│
+└── utils/                             <- 通用工具函数
+    ├── auth.ts                        <- 认证工具
+    ├── config.ts                      <- 配置管理
+    ├── common.ts                      <- 通用函数
+    ├── feature-check.ts               <- 功能检测
+    ├── pdf-thumbnail.ts               <- PDF 缩略图
+    ├── performance.ts                 <- 性能监控
+    └── document-export.service.ts     <- 文档导出
 ```
 
-#### 3. 组件化结构（Frontend/Next.js）
-
-```
-✅ frontend/components/ui/Button.tsx
-✅ frontend/components/features/FeedCard.tsx
-✅ frontend/components/layout/Header.tsx
-
-❌ frontend/components/Button.tsx (未分类)
-❌ frontend/Button.tsx (位置错误)
-```
-
-#### 4. Python模块结构（AI Service）
-
-```
-✅ ai-service/
-    ├── __init__.py (包标记)
-    ├── main.py
-    ├── services/
-    │   ├── __init__.py
-    │   └── grok_client.py
-    └── tests/
-        ├── __init__.py
-        └── test_grok_client.py
-
-❌ ai-service/grok_client.py (应该在services/下)
-❌ ai-service/services/ 目录缺少 __init__.py
-```
-
-#### 5. 配置文件位置
-
-```
-✅ 服务根目录：package.json, tsconfig.json, .eslintrc.js
-✅ 项目根目录：docker-compose.yml, .gitignore, .env.example
-✅ .claude/ 目录：规范、工具、hooks
-
-❌ 配置文件混在代码目录中
-❌ 多个相同配置文件在不同位置
-```
-
----
-
-## 各服务目录结构细则
-
-### Frontend (Next.js 14)
-
-#### App Router 结构
-
-```
-frontend/app/
-├── page.tsx                    ← 首页 /
-├── layout.tsx                  ← 根布局
-├── loading.tsx                 ← 加载状态
-├── error.tsx                   ← 错误处理
-├── not-found.tsx               ← 404页面
-├── (dashboard)/                ← 路由组（不影响URL）
-│   ├── feed/
-│   │   └── page.tsx            ← /feed
-│   ├── knowledge-graph/
-│   │   └── page.tsx            ← /knowledge-graph
-│   └── layout.tsx              ← Dashboard布局
-└── api/                        ← API Routes
-    ├── resources/
-    │   └── route.ts            ← GET/POST /api/resources
-    └── feed/
-        └── route.ts            ← GET /api/feed
-```
-
-#### Components 组织
+### Components 组织
 
 ```
 frontend/components/
-├── ui/                         ← 基础UI组件（可复用）
-│   ├── Button.tsx
-│   ├── Card.tsx
-│   ├── Dialog.tsx
-│   └── Input.tsx
-├── features/                   ← 功能组件（业务相关）
-│   ├── FeedCard.tsx
-│   ├── ResourceDetail.tsx
-│   ├── KnowledgeGraph.tsx
-│   └── AIInsightPanel.tsx
-└── layout/                     ← 布局组件
-    ├── Header.tsx
-    ├── Sidebar.tsx
-    └── Footer.tsx
+├── ui/                                <- UI 基础组件 (shadcn)
+├── ai-office/                         <- AI Office 组件
+├── ai-teams/                          <- AI Teams 组件
+├── ai-simulation/                     <- AI Simulation 组件
+├── ai-studio/                         <- AI Studio 组件
+├── explore/                           <- 探索组件
+├── layout/                            <- 布局组件
+└── shared/                            <- 共享组件
 ```
 
-### Backend (NestJS)
-
-#### 模块组织
+### App Router 结构
 
 ```
-backend/src/modules/resource/
-├── resource.module.ts          ← 模块定义
-├── resource.controller.ts      ← 控制器（API端点）
-├── resource.service.ts         ← 业务逻辑
-├── dto/                        ← 数据传输对象
-│   ├── create-resource.dto.ts
-│   ├── update-resource.dto.ts
-│   └── query-resource.dto.ts
-├── entities/                   ← 实体定义
-│   └── resource.entity.ts
-├── interfaces/                 ← 接口定义
-│   └── resource.interface.ts
-└── resource.controller.spec.ts ← 测试
+frontend/app/
+├── page.tsx                           <- 首页
+├── layout.tsx                         <- 根布局
+├── api/                               <- API Routes (BFF 代理)
+├── ai-office/                         <- AI Office 页面
+├── ai-teams/                          <- AI Teams 页面
+├── ai-simulation/                     <- AI Simulation 页面
+├── ai-studio/                         <- AI Studio 页面
+├── explore/                           <- 探索页面
+├── ask/                               <- AI 问答
+├── library/                           <- 我的收藏
+└── auth/                              <- 认证页面
 ```
 
-#### Common 目录
+---
 
-```
-backend/src/common/
-├── filters/                    ← 异常过滤器
-│   └── http-exception.filter.ts
-├── guards/                     ← 守卫（权限控制）
-│   └── auth.guard.ts
-├── interceptors/               ← 拦截器
-│   └── logging.interceptor.ts
-├── pipes/                      ← 管道（数据验证转换）
-│   └── validation.pipe.ts
-├── decorators/                 ← 自定义装饰器
-│   └── user.decorator.ts
-└── dto/                        ← 公共DTO
-    └── pagination.dto.ts
-```
-
-### AI Service (FastAPI)
-
-#### Python包结构
+## AI Service 目录结构 (Python/FastAPI)
 
 ```
 ai-service/
-├── __init__.py                 ← 包标记
-├── main.py                     ← FastAPI应用
-├── routers/                    ← API路由
-│   ├── __init__.py
-│   └── ai.py
-├── services/                   ← 业务逻辑
-│   ├── __init__.py
-│   ├── grok_client.py
-│   ├── openai_client.py
-│   └── ai_orchestrator.py
-├── models/                     ← 数据模型
-│   ├── __init__.py
-│   ├── request.py
-│   └── response.py
-├── utils/                      ← 工具函数
-│   ├── __init__.py
-│   ├── logger.py
-│   └── secret_manager.py
-└── tests/                      ← 测试
-    ├── __init__.py
-    ├── test_grok_client.py
-    └── test_orchestrator.py
-```
-
-**重要：** 每个Python包目录必须包含 `__init__.py` 文件！
-
----
-
-## 不允许的结构
-
-```
-❌ 在项目根目录创建代码文件
-❌ 跨服务直接引用文件（必须通过API）
-❌ 混合不同服务的代码
-❌ 配置文件分散在多个位置
-❌ 测试文件与源代码文件分离过远
-❌ Python包缺少 __init__.py
-❌ 超过5层的深层嵌套目录
+├── main.py                            <- FastAPI 应用入口
+├── routers/                           <- API 路由
+│   ├── ai.py                          <- AI 通用路由
+│   ├── report.py                      <- 报告生成
+│   ├── trend.py                       <- 趋势分析
+│   └── workspace.py                   <- 工作空间
+├── services/                          <- 业务逻辑
+│   ├── ai_orchestrator.py             <- AI 服务编排
+│   ├── grok_client.py                 <- Grok API 客户端
+│   ├── openai_client.py               <- OpenAI 客户端
+│   └── trend_analysis.py              <- 趋势分析
+├── models/                            <- 数据模型
+├── configs/                           <- 配置文件
+├── utils/                             <- 工具函数
+└── requirements.txt                   <- Python 依赖
 ```
 
 ---
 
-## 添加新功能的目录规范
+## 命名规范
 
-### 场景 1：添加新的 Backend 模块
+### 模块命名
+
+| 类型     | 规范      | 示例                          |
+| -------- | --------- | ----------------------------- |
+| AI 模块  | ai-{功能} | ai-office, ai-teams, ai-core  |
+| 内容模块 | {功能}    | reports, resources, workspace |
+| 数据服务 | {功能}    | crawler, data-collection      |
+| 集成模块 | {平台}    | wechat-work, proxy            |
+
+### 文件命名
+
+| 类型          | 规范                 | 示例                      |
+| ------------- | -------------------- | ------------------------- |
+| NestJS 模块   | {name}.module.ts     | ai-office.module.ts       |
+| NestJS 控制器 | {name}.controller.ts | ai-office.controller.ts   |
+| NestJS 服务   | {name}.service.ts    | ai-office.service.ts      |
+| React 组件    | {Name}.tsx           | SlideEditor.tsx           |
+| 工具函数      | {name}.ts            | context-builder.ts        |
+| 测试文件      | {name}.spec.ts       | ai-office.service.spec.ts |
+
+---
+
+## 导入路径规范
+
+### Backend 相对路径
+
+```typescript
+// 模块内部导入
+import { SomeService } from "./some.service";
+
+// 同组模块导入
+import { AuthModule } from "../auth/auth.module";
+
+// 跨组模块导入
+import { ReportsModule } from "../../content/reports/reports.module";
+
+// 公共模块导入
+import { PrismaService } from "../../../common/prisma/prisma.service";
+```
+
+### Frontend 路径别名
+
+```typescript
+// 使用 @/ 别名
+import { Button } from "@/components/ui/button";
+import { api } from "@/lib/api/client";
+import { config } from "@/lib/utils/config";
+import { getAuthTokens } from "@/lib/utils/auth";
+```
+
+---
+
+## 添加新功能的规范
+
+### 添加新的 AI 模块
 
 ```bash
 # 1. 创建模块目录
-mkdir -p backend/src/modules/analytics
+mkdir -p backend/src/modules/ai/ai-{name}
 
 # 2. 创建必要文件
-cd backend/src/modules/analytics
-touch analytics.module.ts
-touch analytics.controller.ts
-touch analytics.service.ts
-mkdir dto entities
+touch ai-{name}.module.ts
+touch ai-{name}.controller.ts
+touch ai-{name}.service.ts
 
-# 3. 创建测试
-touch analytics.controller.spec.ts
-touch analytics.service.spec.ts
+# 3. 在 app.module.ts 中导入
+# 4. 创建对应前端页面和组件
 ```
 
-### 场景 2：添加新的 Frontend 页面
+### 添加新的前端业务模块
 
 ```bash
-# 1. 在 app/ 下创建路由
-mkdir -p frontend/app/analytics
+# 1. 在 lib/ 下创建业务逻辑目录
+mkdir -p frontend/lib/{name}
 
-# 2. 创建页面文件
-cd frontend/app/analytics
-touch page.tsx
-touch layout.tsx
-touch loading.tsx
+# 2. 在 components/ 下创建组件目录
+mkdir -p frontend/components/{name}
 
-# 3. 创建相关组件
-mkdir -p frontend/components/features/analytics
-touch frontend/components/features/analytics/AnalyticsChart.tsx
-```
-
-### 场景 3：添加新的 AI 服务功能
-
-```bash
-# 1. 创建服务文件
-touch ai-service/services/text_analysis.py
-
-# 2. 创建路由
-# 在 ai-service/routers/ai.py 中添加端点
-
-# 3. 创建测试
-touch ai-service/tests/test_text_analysis.py
-
-# 4. 确保包含 __init__.py
-# 检查所有目录都有 __init__.py
+# 3. 在 app/ 下创建页面
+mkdir -p frontend/app/{name}
 ```
 
 ---
@@ -492,43 +317,40 @@ touch ai-service/tests/test_text_analysis.py
 
 提交代码前检查：
 
-- [ ] 所有文件都在正确的服务目录下
-- [ ] NestJS模块使用模块化结构（module/controller/service）
-- [ ] Next.js组件按类型分类（ui/features/layout）
-- [ ] Python包都有 `__init__.py` 文件
-- [ ] 测试文件与源代码在同一模块
-- [ ] 配置文件在正确位置
-- [ ] 没有跨服务直接文件引用
-- [ ] 目录深度 < 5 层
+- [ ] 模块放在正确的分组目录下
+- [ ] AI 相关模块使用 ai- 前缀
+- [ ] 导入路径使用正确的相对路径
+- [ ] 新模块已在 app.module.ts 中注册
+- [ ] 测试文件与源代码在同一目录
+- [ ] Python 包目录有 **init**.py
+- [ ] 前端使用 @/ 路径别名
 
 ---
 
 ## 常见问题
 
-### Q: 某个文件应该放在哪里？
+### Q: 新功能应该放在哪个分组？
 
-**A:** 按照这个优先级判断：
+按照这个优先级判断：
 
-1. 是哪个服务？→ frontend/backend/ai-service/crawler
-2. 是什么类型？→ 组件/API/服务/工具/配置
-3. 是什么功能？→ 具体的业务模块
+1. 是否是 AI 功能？-> modules/ai/
+2. 是否是内容管理？-> modules/content/
+3. 是否是数据采集/处理？-> modules/data-services/
+4. 是否是第三方集成？-> modules/integrations/
+5. 是否是核心基础设施？-> modules/core/
 
-### Q: 跨服务共享代码怎么办？
+### Q: 前端工具函数放哪里？
 
-**A:**
+- 特定业务逻辑 -> lib/{业务名}/
+- 通用工具 -> lib/utils/
+- API 调用 -> lib/api/
 
-- **不推荐：** 直接文件引用
-- **推荐：** 通过 API 通信
-- **可选：** 创建独立的共享包（发布到 npm）
+### Q: 跨模块依赖如何处理？
 
-### Q: 测试文件放在哪里？
-
-**A:**
-
-- **NestJS：** 与源文件同目录，文件名 `*.spec.ts`
-- **Next.js：** 与组件同目录，文件名 `*.test.tsx`
-- **Python：** 在 `tests/` 目录，文件名 `test_*.py`
+- 尽量减少跨组依赖
+- 必要时通过 common/ 共享服务
+- 使用事件驱动解耦
 
 ---
 
-**记住：** 好的目录结构让项目易于理解和维护。遵循约定胜于配置的原则，新开发者能快速上手！
+**记住：** 好的目录结构让项目易于理解和维护。分组模块化设计让代码组织清晰，新开发者能快速上手！

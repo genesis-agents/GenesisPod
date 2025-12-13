@@ -1,5 +1,5 @@
 'use client';
-import { config } from '@/lib/config';
+import { config } from '@/lib/utils/config';
 
 import React, { useState } from 'react';
 import { Sparkles, Loader2, CheckCircle } from 'lucide-react';

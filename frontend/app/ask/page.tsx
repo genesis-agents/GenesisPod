@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIModels, AIModel } from '@/hooks/useAIModels';
-import { config } from '@/lib/config';
+import { config } from '@/lib/utils/config';
 import Sidebar from '@/components/layout/Sidebar';
 import SessionSidebar from '@/components/ask/SessionSidebar';
 import MessageContextMenu from '@/components/ask/MessageContextMenu';

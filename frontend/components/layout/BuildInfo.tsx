@@ -1,6 +1,6 @@
 'use client';
 
-import { config } from '@/lib/config';
+import { config } from '@/lib/utils/config';
 import { CURRENT_VERSION } from '@/lib/utils/changelog';
 
 /**

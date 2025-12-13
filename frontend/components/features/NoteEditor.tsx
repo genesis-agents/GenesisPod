@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { config } from '@/lib/config';
+import { config } from '@/lib/utils/config';
 import MarkdownEditor from './MarkdownEditor';
 
 interface Note {

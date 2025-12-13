@@ -12,8 +12,8 @@ import {
   loginWithGoogle as authLoginWithGoogle,
   logout as authLogout,
   isUserAdmin,
-} from '@/lib/auth';
-import { config } from '@/lib/config';
+} from '@/lib/utils/auth';
+import { config } from '@/lib/utils/config';
 
 interface AuthContextType extends AuthState {
   login: (user: User, accessToken: string, refreshToken: string) => void;

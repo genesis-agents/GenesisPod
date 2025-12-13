@@ -9,7 +9,7 @@
  * 5. 类型安全
  */
 
-import { config } from '../config';
+import { config } from '../utils/config';
 
 // ==================== 类型定义 ====================
 

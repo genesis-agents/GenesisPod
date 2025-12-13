@@ -9,8 +9,8 @@
  */
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { config } from '@/lib/config';
-import { getAuthHeader } from '@/lib/auth';
+import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 import { useImageSourceStore } from '@/stores/imageSourceStore';
 import SourcePool from './SourcePool';
 

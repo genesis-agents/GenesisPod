@@ -15,8 +15,8 @@ import { Module, Global } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { ContentExtractorService } from "./content-extractor.service";
 import { DataFetchingService } from "./data-fetching.service";
-import { YoutubeModule } from "../../modules/youtube/youtube.module";
-import { AdminModule } from "../../modules/admin/admin.module";
+import { ExploreModule } from "../../modules/content/explore/explore.module";
+import { AdminModule } from "../../modules/core/admin/admin.module";
 
 @Global()
 @Module({
@@ -25,7 +25,7 @@ import { AdminModule } from "../../modules/admin/admin.module";
       timeout: 30000,
       maxRedirects: 5,
     }),
-    YoutubeModule,
+    ExploreModule,
     AdminModule,
   ],
   providers: [ContentExtractorService, DataFetchingService],

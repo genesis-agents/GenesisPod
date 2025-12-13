@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { config } from '@/lib/config';
+import { config } from '@/lib/utils/config';
 import {
   createWorkspace,
   getWorkspace,

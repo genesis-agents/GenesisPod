@@ -1,0 +1,806 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Patch,
+  Param,
+  Query,
+  Body,
+  UseGuards,
+  Logger,
+} from "@nestjs/common";
+import { AdminService } from "./admin.service";
+import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../common/guards/admin.guard";
+import { AiChatService } from "../../ai/ai-core/ai-chat.service";
+import { AIModelType } from "@prisma/client";
+
+/**
+ * 管理员控制器
+ * 所有接口都需要管理员权限
+ */
+@Controller("admin")
+@UseGuards(JwtAuthGuard, AdminGuard)
+export class AdminController {
+  private readonly logger = new Logger(AdminController.name);
+
+  constructor(
+    private adminService: AdminService,
+    private aiChatService: AiChatService,
+  ) {}
+
+  /**
+   * 获取所有用户
+   * GET /api/v1/admin/users
+   */
+  @Get("users")
+  async getUsers(
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+    @Query("search") search?: string,
+  ) {
+    this.logger.log(`Admin: Fetching users (page=${page}, search=${search})`);
+    return this.adminService.getAllUsers(
+      page ? parseInt(page) : 1,
+      limit ? parseInt(limit) : 20,
+      search,
+    );
+  }
+
+  /**
+   * 获取系统统计信息
+   * GET /api/v1/admin/stats
+   */
+  @Get("stats")
+  async getStats() {
+    this.logger.log("Admin: Fetching system stats");
+    return this.adminService.getSystemStats();
+  }
+
+  /**
+   * 删除资源
+   * DELETE /api/v1/admin/resources/:id
+   */
+  @Delete("resources/:id")
+  async deleteResource(@Param("id") id: string) {
+    this.logger.log(`Admin: Deleting resource ${id}`);
+    return this.adminService.deleteResource(id);
+  }
+
+  /**
+   * 批量删除资源
+   * DELETE /api/v1/admin/resources
+   */
+  @Delete("resources")
+  async deleteResources(@Body("ids") ids: string[]) {
+    this.logger.log(`Admin: Batch deleting ${ids.length} resources`);
+    return this.adminService.deleteResources(ids);
+  }
+
+  /**
+   * 更新用户角色
+   * PATCH /api/v1/admin/users/:id/role
+   */
+  @Patch("users/:id/role")
+  async updateUserRole(
+    @Param("id") id: string,
+    @Body("role") role: "USER" | "ADMIN",
+  ) {
+    this.logger.log(`Admin: Updating user ${id} role to ${role}`);
+    return this.adminService.updateUserRole(id, role);
+  }
+
+  /**
+   * 禁用/启用用户
+   * PATCH /api/v1/admin/users/:id/status
+   */
+  @Patch("users/:id/status")
+  async toggleUserStatus(
+    @Param("id") id: string,
+    @Body("isActive") isActive: boolean,
+  ) {
+    this.logger.log(
+      `Admin: Updating user ${id} status to ${isActive ? "active" : "inactive"}`,
+    );
+    return this.adminService.toggleUserStatus(id, isActive);
+  }
+
+  // ============ AI Model Management ============
+
+  /**
+   * 获取所有AI模型
+   * GET /api/v1/admin/ai-models
+   */
+  @Get("ai-models")
+  async getAIModels() {
+    this.logger.log("Admin: Fetching AI models");
+    return this.adminService.getAllAIModels();
+  }
+
+  /**
+   * 诊断AI模型配置
+   * GET /api/v1/admin/ai-models/diagnose
+   * 返回所有AI模型的配置状态，用于调试
+   * NOTE: This route MUST come before :id route to avoid being matched as an ID
+   */
+  @Get("ai-models/diagnose")
+  async diagnoseAIModels() {
+    this.logger.log("Admin: Diagnosing AI models configuration");
+    const models = await this.adminService.diagnoseAIModels();
+    return {
+      timestamp: new Date().toISOString(),
+      models,
+      summary: {
+        total: models.length,
+        enabled: models.filter((m: any) => m.isEnabled).length,
+        withApiKey: models.filter((m: any) => m.hasApiKey).length,
+        ready: models.filter((m: any) => m.isEnabled && m.hasApiKey).length,
+      },
+    };
+  }
+
+  /**
+   * 获取单个AI模型
+   * GET /api/v1/admin/ai-models/:id
+   * @query edit - 如果为 true，返回完整的 API Key（用于编辑模式）
+   */
+  @Get("ai-models/:id")
+  async getAIModel(@Param("id") id: string, @Query("edit") edit?: string) {
+    const includeFullApiKey = edit === "true";
+    this.logger.log(
+      `Admin: Fetching AI model ${id}, edit mode: ${includeFullApiKey}`,
+    );
+    return this.adminService.getAIModel(id, includeFullApiKey);
+  }
+
+  /**
+   * 创建AI模型
+   * POST /api/v1/admin/ai-models
+   */
+  @Post("ai-models")
+  async createAIModel(
+    @Body()
+    body: {
+      name: string;
+      displayName: string;
+      provider: string;
+      modelId: string;
+      modelType?: AIModelType;
+      icon: string;
+      color: string;
+      apiEndpoint: string;
+      apiKey?: string;
+      maxTokens?: number;
+      temperature?: number;
+      description?: string;
+    },
+  ) {
+    this.logger.log(
+      `Admin: Creating AI model ${body.name}, type=${body.modelType || "CHAT"}`,
+    );
+    return this.adminService.createAIModel(body);
+  }
+
+  /**
+   * 获取提供商可用的模型列表
+   * POST /api/v1/admin/ai-models/fetch-available
+   * NOTE: This route MUST come before :id routes to avoid being matched as an ID
+   */
+  @Post("ai-models/fetch-available")
+  async fetchAvailableModels(
+    @Body()
+    body: {
+      provider: string;
+      apiKey: string;
+      apiEndpoint?: string;
+    },
+  ) {
+    this.logger.log(`Admin: Fetching available models for ${body.provider}`);
+    return this.aiChatService.fetchAvailableModels(
+      body.provider,
+      body.apiKey,
+      body.apiEndpoint,
+    );
+  }
+
+  /**
+   * 更新AI模型
+   * PATCH /api/v1/admin/ai-models/:id
+   */
+  @Patch("ai-models/:id")
+  async updateAIModel(
+    @Param("id") id: string,
+    @Body()
+    body: {
+      displayName?: string;
+      provider?: string;
+      modelId?: string;
+      modelType?: AIModelType;
+      icon?: string;
+      color?: string;
+      apiEndpoint?: string;
+      apiKey?: string;
+      maxTokens?: number;
+      temperature?: number;
+      description?: string;
+      isEnabled?: boolean;
+    },
+  ) {
+    this.logger.log(`Admin: Updating AI model ${id}, type=${body.modelType}`);
+    return this.adminService.updateAIModel(id, body);
+  }
+
+  /**
+   * 设置默认AI模型
+   * POST /api/v1/admin/ai-models/:id/set-default
+   */
+  @Post("ai-models/:id/set-default")
+  async setDefaultAIModel(@Param("id") id: string) {
+    this.logger.log(`Admin: Setting default AI model ${id}`);
+    return this.adminService.setDefaultAIModel(id);
+  }
+
+  /**
+   * 删除AI模型
+   * DELETE /api/v1/admin/ai-models/:id
+   */
+  @Delete("ai-models/:id")
+  async deleteAIModel(@Param("id") id: string) {
+    this.logger.log(`Admin: Deleting AI model ${id}`);
+    return this.adminService.deleteAIModel(id);
+  }
+
+  /**
+   * 测试AI模型连接
+   * POST /api/v1/admin/ai-models/:id/test
+   */
+  @Post("ai-models/:id/test")
+  async testAIModelConnection(@Param("id") id: string) {
+    this.logger.log(`Admin: Testing AI model connection ${id}`);
+
+    // 获取模型配置
+    const model = await this.adminService.getAIModel(id);
+
+    // 获取真实的 API Key（getAIModel 返回的是掩码 "***configured***"）
+    const apiKey = await this.adminService.getAIModelApiKey(id);
+
+    // 检查是否有 API Key
+    if (!apiKey) {
+      return {
+        modelId: id,
+        modelName: model.name,
+        displayName: model.displayName,
+        success: false,
+        message: "API key is not configured for this model",
+        latency: 0,
+      };
+    }
+
+    // 使用数据库中的真实 API Key 测试连接
+    const result = await this.aiChatService.testModelConnectionWithKey(
+      model.provider,
+      model.modelId,
+      apiKey,
+      model.apiEndpoint,
+    );
+
+    return {
+      modelId: id,
+      modelName: model.name,
+      displayName: model.displayName,
+      ...result,
+    };
+  }
+
+  // ============ System Settings ============
+
+  /**
+   * 获取系统设置
+   * GET /api/v1/admin/settings
+   */
+  @Get("settings")
+  async getSettings(@Query("category") category?: string) {
+    this.logger.log(`Admin: Fetching settings (category=${category})`);
+    return this.adminService.getSettings(category);
+  }
+
+  /**
+   * 更新系统设置
+   * PATCH /api/v1/admin/settings
+   */
+  @Patch("settings")
+  async updateSettings(
+    @Body()
+    body: Array<{
+      key: string;
+      value: any;
+      description?: string;
+      category?: string;
+    }>,
+  ) {
+    this.logger.log(`Admin: Updating ${body.length} settings`);
+    return this.adminService.setSettings(body);
+  }
+
+  // ============ Search API Configuration ============
+
+  /**
+   * 获取搜索API配置
+   * GET /api/v1/admin/search-config
+   */
+  @Get("search-config")
+  async getSearchConfig() {
+    this.logger.log("Admin: Fetching search config");
+    return this.adminService.getSearchConfig();
+  }
+
+  /**
+   * 更新搜索API配置
+   * PATCH /api/v1/admin/search-config
+   */
+  @Patch("search-config")
+  async updateSearchConfig(
+    @Body()
+    body: {
+      provider?: string;
+      enabled?: boolean;
+      perplexityApiKey?: string;
+      tavilyApiKey?: string;
+      serperApiKey?: string;
+    },
+  ) {
+    this.logger.log("Admin: Updating search config");
+    return this.adminService.updateSearchConfig(body);
+  }
+
+  /**
+   * 测试搜索API连接
+   * POST /api/v1/admin/search-config/test
+   */
+  @Post("search-config/test")
+  async testSearchConnection(
+    @Body()
+    body: {
+      provider: string;
+      apiKey: string;
+    },
+  ) {
+    this.logger.log(`Admin: Testing search connection for ${body.provider}`);
+
+    try {
+      const { HttpService } = await import("@nestjs/axios");
+
+      // Create a temporary test instance
+      const httpService = new HttpService();
+
+      // Test search
+      const testQuery = "AI technology news";
+      let response;
+
+      if (body.provider === "perplexity") {
+        const { firstValueFrom } = await import("rxjs");
+        response = await firstValueFrom(
+          httpService.post(
+            "https://api.perplexity.ai/chat/completions",
+            {
+              model: "llama-3.1-sonar-small-128k-online",
+              messages: [
+                {
+                  role: "user",
+                  content: testQuery,
+                },
+              ],
+              max_tokens: 50,
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${body.apiKey}`,
+                "Content-Type": "application/json",
+              },
+              timeout: 15000,
+            },
+          ),
+        );
+
+        return {
+          success: true,
+          message: "Perplexity API connection successful",
+          model: response.data.model || "llama-3.1-sonar-small-128k-online",
+        };
+      } else if (body.provider === "tavily") {
+        const { firstValueFrom } = await import("rxjs");
+        response = await firstValueFrom(
+          httpService.post(
+            "https://api.tavily.com/search",
+            {
+              api_key: body.apiKey,
+              query: testQuery,
+              max_results: 1,
+              search_depth: "basic",
+            },
+            {
+              headers: { "Content-Type": "application/json" },
+              timeout: 10000,
+            },
+          ),
+        );
+
+        return {
+          success: true,
+          message: "Tavily API connection successful",
+          resultsCount: response.data.results?.length || 0,
+        };
+      } else if (body.provider === "serper") {
+        const { firstValueFrom } = await import("rxjs");
+        response = await firstValueFrom(
+          httpService.post(
+            "https://google.serper.dev/search",
+            {
+              q: testQuery,
+              num: 1,
+            },
+            {
+              headers: {
+                "X-API-KEY": body.apiKey,
+                "Content-Type": "application/json",
+              },
+              timeout: 10000,
+            },
+          ),
+        );
+
+        return {
+          success: true,
+          message: "Serper API connection successful",
+          resultsCount: response.data.organic?.length || 0,
+        };
+      }
+
+      return {
+        success: false,
+        message: `Unknown provider: ${body.provider}`,
+      };
+    } catch (error: any) {
+      this.logger.error(`Search API test failed: ${error.message}`);
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message,
+      };
+    }
+  }
+
+  // ============ Content Extraction API Configuration ============
+
+  /**
+   * 获取内容提取API配置
+   * GET /api/v1/admin/extraction-config
+   */
+  @Get("extraction-config")
+  async getContentExtractionConfig() {
+    this.logger.log("Admin: Fetching content extraction config");
+    return this.adminService.getContentExtractionConfig();
+  }
+
+  /**
+   * 更新内容提取API配置
+   * PATCH /api/v1/admin/extraction-config
+   */
+  @Patch("extraction-config")
+  async updateContentExtractionConfig(
+    @Body()
+    body: {
+      enabled?: boolean;
+      jinaApiKey?: string;
+      firecrawlApiKey?: string;
+      tavilyApiKey?: string;
+    },
+  ) {
+    this.logger.log("Admin: Updating content extraction config");
+    return this.adminService.updateContentExtractionConfig(body);
+  }
+
+  /**
+   * 测试内容提取API连接
+   * POST /api/v1/admin/extraction-config/test
+   */
+  @Post("extraction-config/test")
+  async testExtractionConnection(
+    @Body()
+    body: {
+      provider: "jina" | "firecrawl" | "tavily";
+      apiKey: string;
+    },
+  ) {
+    this.logger.log(
+      `Admin: Testing extraction connection for ${body.provider}`,
+    );
+
+    try {
+      if (body.provider === "jina") {
+        // Test Jina AI Reader
+        const response = await fetch("https://r.jina.ai/https://example.com", {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${body.apiKey}`,
+            Accept: "application/json",
+          },
+        });
+
+        if (response.ok) {
+          return {
+            success: true,
+            message: "Jina AI Reader connection successful",
+          };
+        } else {
+          return {
+            success: false,
+            message: `Jina API error: HTTP ${response.status}`,
+          };
+        }
+      } else if (body.provider === "firecrawl") {
+        // Test Firecrawl
+        const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${body.apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            url: "https://example.com",
+            formats: ["markdown"],
+          }),
+        });
+
+        if (response.ok) {
+          return {
+            success: true,
+            message: "Firecrawl connection successful",
+          };
+        } else {
+          const errorData = await response.text();
+          return {
+            success: false,
+            message: `Firecrawl API error: ${response.status} - ${errorData.slice(0, 100)}`,
+          };
+        }
+      } else if (body.provider === "tavily") {
+        // Test Tavily
+        const response = await fetch("https://api.tavily.com/search", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            api_key: body.apiKey,
+            query: "test",
+            max_results: 1,
+          }),
+        });
+
+        if (response.ok) {
+          return {
+            success: true,
+            message: "Tavily connection successful",
+          };
+        } else {
+          return {
+            success: false,
+            message: `Tavily API error: HTTP ${response.status}`,
+          };
+        }
+      }
+
+      return {
+        success: false,
+        message: `Unknown provider: ${body.provider}`,
+      };
+    } catch (error: any) {
+      this.logger.error(`Extraction API test failed: ${error.message}`);
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+  // ============ YouTube API Configuration ============
+
+  /**
+   * 获取YouTube字幕API配置
+   * GET /api/v1/admin/youtube-config
+   */
+  @Get("youtube-config")
+  async getYoutubeConfig() {
+    this.logger.log("Admin: Fetching YouTube config");
+    return this.adminService.getYoutubeConfig();
+  }
+
+  /**
+   * 更新YouTube字幕API配置
+   * PATCH /api/v1/admin/youtube-config
+   */
+  @Patch("youtube-config")
+  async updateYoutubeConfig(
+    @Body()
+    body: {
+      enabled?: boolean;
+      provider?: string;
+      supadataApiKey?: string;
+    },
+  ) {
+    this.logger.log("Admin: Updating YouTube config");
+    return this.adminService.updateYoutubeConfig(body);
+  }
+
+  /**
+   * 测试YouTube字幕API连接
+   * POST /api/v1/admin/youtube-config/test
+   */
+  @Post("youtube-config/test")
+  async testYoutubeConnection(
+    @Body()
+    body: {
+      provider: string;
+      apiKey: string;
+    },
+  ) {
+    this.logger.log(
+      `Admin: Testing YouTube API connection for ${body.provider}`,
+    );
+
+    try {
+      if (body.provider === "supadata") {
+        // Test Supadata API with a known video
+        const testVideoId = "dQw4w9WgXcQ"; // Rick Astley - Never Gonna Give You Up
+        const response = await fetch(
+          `https://api.supadata.ai/v1/youtube/transcript?video_id=${testVideoId}&text=true`,
+          {
+            headers: {
+              "x-api-key": body.apiKey,
+            },
+          },
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          return {
+            success: true,
+            message: "Supadata API 连接成功",
+            hasContent: !!data.content || !!data.transcript,
+          };
+        } else {
+          const errorText = await response.text();
+          return {
+            success: false,
+            message: `Supadata API 错误: HTTP ${response.status} - ${errorText.slice(0, 100)}`,
+          };
+        }
+      }
+
+      return {
+        success: false,
+        message: `未知的 provider: ${body.provider}`,
+      };
+    } catch (error: any) {
+      this.logger.error(`YouTube API test failed: ${error.message}`);
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+  // ============ External Data Providers ============
+
+  /**
+   * 获取外部数据源配置
+   * GET /api/v1/admin/external-providers
+   */
+  @Get("external-providers")
+  async getExternalProviders() {
+    this.logger.log("Admin: Fetching external data providers config");
+    return this.adminService.getExternalProvidersConfig();
+  }
+
+  /**
+   * 更新外部数据源配置
+   * PATCH /api/v1/admin/external-providers
+   */
+  @Patch("external-providers")
+  async updateExternalProviders(
+    @Body()
+    body: {
+      providers: Array<{
+        id: string;
+        name: string;
+        description?: string;
+        category?: string;
+        enabled?: boolean;
+        baseUrl?: string;
+        apiKey?: string;
+        headers?: string;
+      }>;
+    },
+  ) {
+    this.logger.log(
+      `Admin: Updating external data providers (${body.providers?.length || 0})`,
+    );
+    return this.adminService.updateExternalProvidersConfig(
+      body.providers || [],
+    );
+  }
+
+  /**
+   * 检查API余额/配额
+   * GET /api/v1/admin/api-balance/:type/:provider
+   */
+  @Get("api-balance/:type/:provider")
+  async checkApiBalance(
+    @Param("type") type: "search" | "extraction",
+    @Param("provider") provider: string,
+  ) {
+    this.logger.log(`Admin: Checking ${type} API balance for ${provider}`);
+    return this.adminService.checkApiBalance(type, provider);
+  }
+
+  // ============ AI Model Type-based Selection ============
+
+  /**
+   * 获取所有模型类型及其默认模型
+   * GET /api/v1/admin/ai-models/type-defaults
+   * NOTE: This route MUST come before :id routes
+   */
+  @Get("ai-models/type-defaults")
+  async getAllModelTypeDefaults() {
+    this.logger.log("Admin: Fetching all model type defaults");
+    return this.adminService.getAllModelTypeDefaults();
+  }
+
+  /**
+   * 获取指定类型的所有模型
+   * GET /api/v1/admin/ai-models/type/:type
+   */
+  @Get("ai-models/type/:type")
+  async getAIModelsByType(@Param("type") type: AIModelType) {
+    this.logger.log(`Admin: Fetching AI models of type ${type}`);
+    return this.adminService.getAIModelsByType(type);
+  }
+
+  /**
+   * 获取指定类型的默认模型
+   * GET /api/v1/admin/ai-models/type/:type/default
+   */
+  @Get("ai-models/type/:type/default")
+  async getDefaultModelByType(@Param("type") type: AIModelType) {
+    this.logger.log(`Admin: Fetching default model for type ${type}`);
+    return this.adminService.getDefaultModelByType(type);
+  }
+
+  /**
+   * 设置模型为其类型的默认模型
+   * POST /api/v1/admin/ai-models/:id/set-type-default
+   */
+  @Post("ai-models/:id/set-type-default")
+  async setDefaultAIModelForType(@Param("id") id: string) {
+    this.logger.log(`Admin: Setting model ${id} as default for its type`);
+    return this.adminService.setDefaultAIModelForType(id);
+  }
+
+  // ============ Data Collection Management ============
+
+  /**
+   * 重置所有采集数据
+   * POST /api/v1/admin/collection/reset
+   *
+   * ⚠️ 危险操作：会删除所有 raw_data、resources 和 deduplication_records
+   * 用于清空去重缓存，允许重新采集
+   */
+  @Post("collection/reset")
+  async resetCollectionData() {
+    this.logger.warn(
+      "Admin: Resetting ALL collection data (raw_data, resources, deduplication_records)",
+    );
+    return this.adminService.resetCollectionData();
+  }
+}

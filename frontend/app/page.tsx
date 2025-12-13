@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { config } from '@/lib/config';
+import { config } from '@/lib/utils/config';
 import { useAuth } from '@/contexts/AuthContext';
-import { getAuthHeader } from '@/lib/auth';
+import { getAuthHeader } from '@/lib/utils/auth';
 import Sidebar from '@/components/layout/Sidebar';
 import VersionUpdateBanner from '@/components/layout/VersionUpdateBanner';
 import PDFThumbnail from '@/components/ui/PDFThumbnail';
@@ -120,7 +120,7 @@ import ResponsiveNav, {
 import {
   AIContextBuilder,
   type Resource as AIResource,
-} from '@/lib/ai/context-builder';
+} from '@/lib/ai-office/context-builder';
 import { useResourceStore } from '@/stores/aiOfficeStore';
 import type { Resource as AIOfficeResource } from '@/types/ai-office';
 import { ThumbsUp, TrendingUp, Clock, Star, ChevronDown } from 'lucide-react';
@@ -1671,7 +1671,7 @@ function HomeContent() {
     // Check if user is logged in
     if (!user) {
       // Trigger Google OAuth login
-      const { loginWithGoogle } = await import('@/lib/auth');
+      const { loginWithGoogle } = await import('@/lib/utils/auth');
       loginWithGoogle();
       return;
     }

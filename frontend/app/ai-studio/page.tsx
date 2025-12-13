@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { getAuthTokens } from '@/lib/auth';
+import { getAuthTokens } from '@/lib/utils/auth';
 import ImageGenerator from '@/components/ai-image/ImageGenerator';
 
 // ==================== 自定义图标组件 ====================

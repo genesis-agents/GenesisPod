@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { TopicMessage, Topic } from '@/types/ai-teams';
-import { config } from '@/lib/config';
-import { getAuthHeader } from '@/lib/auth';
+import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 
 interface MessageSelectionToolbarProps {
   selectedMessages: Set<string>;

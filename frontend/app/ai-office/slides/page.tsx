@@ -39,7 +39,7 @@ import Link from 'next/link';
 
 import Sidebar from '@/components/layout/Sidebar';
 import { useResourceStore, useDocumentStore } from '@/stores/aiOfficeStore';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/common';
 import {
   parseMarkdownToEnhancedSlides,
   EnhancedSlide,

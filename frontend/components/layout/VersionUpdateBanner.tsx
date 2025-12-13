@@ -9,7 +9,7 @@ import {
   getLatestChangelog,
   CURRENT_VERSION,
 } from '@/lib/utils/changelog';
-import { config } from '@/lib/config';
+import { config } from '@/lib/utils/config';
 
 export default function VersionUpdateBanner() {
   const [showBanner, setShowBanner] = useState(false);

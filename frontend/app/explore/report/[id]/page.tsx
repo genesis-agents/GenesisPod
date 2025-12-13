@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
-import { config } from '@/lib/config';
+import { config } from '@/lib/utils/config';
 
 interface ReportSection {
   title: string;

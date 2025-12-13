@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
-import { AdminService } from "../../modules/admin/admin.service";
+import { AdminService } from "../../modules/core/admin/admin.service";
 
 /**
  * 结构化数据项
