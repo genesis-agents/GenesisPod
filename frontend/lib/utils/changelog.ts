@@ -12,61 +12,150 @@ export interface ChangelogEntry {
   }[];
 }
 
-export const CURRENT_VERSION = '0.3.0';
+export const CURRENT_VERSION = '1.0.0';
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '0.3.0',
-    date: '2025-01-21',
+    version: '1.0.0',
+    date: '2025-12-13',
     changes: [
       {
         type: 'feature',
         description:
-          'Profile个人信息编辑功能 - 支持修改用户名、个人简介和研究兴趣',
+          'AI Office - Create professional documents, presentations, and reports with AI assistance',
       },
       {
         type: 'feature',
-        description: '兴趣标签管理 - 可以添加和删除研究兴趣标签',
+        description:
+          'AI Teams - Collaborate with AI agents on research topics and analysis',
+      },
+      {
+        type: 'feature',
+        description:
+          'AI Simulation - Run strategic simulations with multiple AI perspectives',
+      },
+      {
+        type: 'feature',
+        description:
+          'Labs - Toggle AI features on/off to customize your experience',
+      },
+      {
+        type: 'feature',
+        description:
+          'Feedback System - Submit bug reports and feature requests directly',
       },
       {
         type: 'improvement',
-        description: '用户认证体验优化 - 登录按钮移至侧边栏，Profile菜单项',
+        description:
+          'Admin Console - Reorganized tabs following best practices',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Notifications - Persistent notification system with filtering',
       },
     ],
   },
   {
-    version: '0.2.0',
-    date: '2025-01-20',
+    version: '0.9.0',
+    date: '2025-12-10',
     changes: [
       {
         type: 'feature',
-        description: 'Google OAuth 登录 - 支持使用Google账号登录',
+        description:
+          'AI Studio - Build custom AI workflows and automation pipelines',
       },
       {
         type: 'feature',
-        description: 'My Library功能 - 查看和管理收藏的论文和资源',
+        description: 'AI Store - Discover and install AI agents and extensions',
+      },
+      {
+        type: 'improvement',
+        description: 'Explore - Enhanced search with filters and sorting',
       },
       {
         type: 'fix',
-        description: '修复My Library无法显示书签的问题',
+        description: 'Fixed resource detail page loading issues',
+      },
+    ],
+  },
+  {
+    version: '0.8.0',
+    date: '2025-12-01',
+    changes: [
+      {
+        type: 'feature',
+        description:
+          'Multi-Agent Mode - Use multiple AI agents for complex document generation',
+      },
+      {
+        type: 'feature',
+        description: 'PPT Templates - 10+ professional presentation templates',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Export System - Support for Word, PPT, PDF, Markdown formats',
+      },
+    ],
+  },
+  {
+    version: '0.5.0',
+    date: '2025-11-15',
+    changes: [
+      {
+        type: 'feature',
+        description: 'Ask AI - Chat with AI about any research topic',
+      },
+      {
+        type: 'feature',
+        description: 'Library - Organize and manage your bookmarked resources',
+      },
+      {
+        type: 'feature',
+        description: 'AI Summary - Automatically generate summaries for papers',
+      },
+      {
+        type: 'feature',
+        description: 'AI Translation - Translate content between languages',
+      },
+    ],
+  },
+  {
+    version: '0.3.0',
+    date: '2025-10-20',
+    changes: [
+      {
+        type: 'feature',
+        description:
+          'Profile - Edit your profile, research interests, and preferences',
+      },
+      {
+        type: 'feature',
+        description: 'Google OAuth - Sign in with your Google account',
+      },
+      {
+        type: 'improvement',
+        description: 'UI - Modern sidebar navigation with collapsible design',
       },
     ],
   },
   {
     version: '0.1.0',
-    date: '2025-01-15',
+    date: '2025-10-01',
     changes: [
       {
         type: 'feature',
-        description: '论文搜索和浏览功能',
+        description: 'Explore - Browse AI papers, projects, and news',
       },
       {
         type: 'feature',
-        description: '书签收藏功能',
+        description: 'Bookmark - Save resources to your library',
       },
       {
         type: 'feature',
-        description: 'AI总结和翻译功能',
+        description:
+          'Data Collection - Aggregate content from multiple sources',
       },
     ],
   },
@@ -107,12 +196,12 @@ export function getChangeTypeInfo(type: ChangelogEntry['changes'][0]['type']): {
 } {
   switch (type) {
     case 'feature':
-      return { label: '新功能', color: 'bg-green-100 text-green-800' };
+      return { label: 'New', color: 'bg-green-100 text-green-800' };
     case 'fix':
-      return { label: '修复', color: 'bg-red-100 text-red-800' };
+      return { label: 'Fix', color: 'bg-red-100 text-red-800' };
     case 'improvement':
-      return { label: '优化', color: 'bg-blue-100 text-blue-800' };
+      return { label: 'Improved', color: 'bg-blue-100 text-blue-800' };
     case 'breaking':
-      return { label: '破坏性更新', color: 'bg-orange-100 text-orange-800' };
+      return { label: 'Breaking', color: 'bg-orange-100 text-orange-800' };
   }
 }

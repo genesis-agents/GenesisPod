@@ -1,165 +1,52 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Sidebar from '@/components/layout/Sidebar';
-
-interface LabFeature {
-  id: string;
-  name: string;
-  description: string;
-  status: 'beta' | 'alpha' | 'experimental';
-  enabled: boolean;
-  icon: string;
-}
+import {
+  useSettingsStore,
+  AI_FEATURE_INFO,
+  type AIFeatureSettings,
+} from '@/stores/settingsStore';
+import {
+  FlaskConical,
+  Sparkles,
+  Zap,
+  Layout,
+  RotateCcw,
+  MessageSquare,
+} from 'lucide-react';
 
 export default function Labs() {
-  const [features, setFeatures] = useState<LabFeature[]>([
-    {
-      id: 'ai-insights',
-      name: 'AI-Powered Insights',
-      description:
-        'Automatically extract key insights and methodologies from papers using advanced AI models.',
-      status: 'beta',
-      enabled: true,
-      icon: 'sparkles',
-    },
-    {
-      id: 'vector-search',
-      name: 'Semantic Vector Search',
-      description:
-        'Search papers by meaning, not just keywords. Powered by embedding models.',
-      status: 'alpha',
-      enabled: false,
-      icon: 'search',
-    },
-    {
-      id: 'knowledge-graph',
-      name: 'Knowledge Graph Visualization',
-      description:
-        'Explore connections between papers, authors, and concepts in an interactive graph.',
-      status: 'beta',
-      enabled: false,
-      icon: 'graph',
-    },
-    {
-      id: 'smart-recommendations',
-      name: 'Smart Recommendations',
-      description:
-        'Get personalized paper recommendations based on your reading history and interests.',
-      status: 'experimental',
-      enabled: false,
-      icon: 'magic',
-    },
-    {
-      id: 'auto-summary',
-      name: 'Auto-Generated Summaries',
-      description:
-        'Automatically generate concise summaries for newly added papers.',
-      status: 'beta',
-      enabled: true,
-      icon: 'document',
-    },
-    {
-      id: 'citation-tracking',
-      name: 'Citation Tracking',
-      description:
-        'Track citations and references across papers to understand research impact.',
-      status: 'alpha',
-      enabled: false,
-      icon: 'link',
-    },
-  ]);
+  const { aiFeatures, setAIFeature, resetAIFeatures } = useSettingsStore();
+  const [mounted, setMounted] = useState(false);
 
-  const toggleFeature = (id: string) => {
-    setFeatures(
-      features.map((f) => (f.id === id ? { ...f, enabled: !f.enabled } : f))
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="flex h-screen bg-gray-50">
+        <Sidebar />
+        <div className="flex flex-1 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
+        </div>
+      </div>
     );
-  };
+  }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'beta':
-        return 'bg-blue-100 text-blue-700';
-      case 'alpha':
-        return 'bg-yellow-100 text-yellow-700';
-      case 'experimental':
-        return 'bg-purple-100 text-purple-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
-    }
-  };
+  const coreFeatures = AI_FEATURE_INFO.filter((f) => f.category === 'core');
+  const betaFeatures = AI_FEATURE_INFO.filter((f) => f.category === 'beta');
+  const uiFeatures = AI_FEATURE_INFO.filter((f) => f.category === 'ui');
 
   const getFeatureIcon = (icon: string) => {
+    const iconClass = 'h-5 w-5';
     switch (icon) {
-      case 'sparkles':
-        return (
-          <svg
-            className="h-6 w-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-            />
-          </svg>
-        );
-      case 'search':
-        return (
-          <svg
-            className="h-6 w-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
-        );
-      case 'graph':
-        return (
-          <svg
-            className="h-6 w-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"
-            />
-          </svg>
-        );
-      case 'magic':
-        return (
-          <svg
-            className="h-6 w-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M13 10V3L4 14h7v7l9-11h-7z"
-            />
-          </svg>
-        );
       case 'document':
         return (
           <svg
-            className="h-6 w-6"
+            className={iconClass}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -172,10 +59,10 @@ export default function Labs() {
             />
           </svg>
         );
-      case 'link':
+      case 'translate':
         return (
           <svg
-            className="h-6 w-6"
+            className={iconClass}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -184,146 +71,293 @@ export default function Labs() {
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={2}
-              d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+              d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
+            />
+          </svg>
+        );
+      case 'sparkles':
+        return <Sparkles className={iconClass} />;
+      case 'users':
+        return (
+          <svg
+            className={iconClass}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+            />
+          </svg>
+        );
+      case 'save':
+        return (
+          <svg
+            className={iconClass}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
+            />
+          </svg>
+        );
+      case 'search':
+        return (
+          <svg
+            className={iconClass}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+        );
+      case 'magic':
+        return <Zap className={iconClass} />;
+      case 'layout':
+        return <Layout className={iconClass} />;
+      case 'moon':
+        return (
+          <svg
+            className={iconClass}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
             />
           </svg>
         );
       default:
-        return null;
+        return <Sparkles className={iconClass} />;
     }
+  };
+
+  const renderFeatureCard = (
+    feature: (typeof AI_FEATURE_INFO)[0],
+    categoryColor: string
+  ) => {
+    const isEnabled = aiFeatures[feature.key];
+    const isDarkMode = feature.key === 'darkModeEnabled';
+
+    return (
+      <div
+        key={feature.key}
+        className={`rounded-lg border bg-white p-5 transition-all ${
+          isEnabled ? 'border-violet-200 shadow-md' : 'border-gray-200'
+        } ${isDarkMode ? 'opacity-60' : ''}`}
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex flex-1 items-start gap-4">
+            <div
+              className={`rounded-lg p-2.5 ${
+                isEnabled
+                  ? `${categoryColor} text-white`
+                  : 'bg-gray-100 text-gray-500'
+              }`}
+            >
+              {getFeatureIcon(feature.icon)}
+            </div>
+            <div className="flex-1">
+              <div className="mb-1 flex items-center gap-2">
+                <h3 className="font-semibold text-gray-900">{feature.name}</h3>
+                {feature.category === 'beta' && (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                    Beta
+                  </span>
+                )}
+                {isDarkMode && (
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+                    Coming Soon
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-gray-600">{feature.description}</p>
+              {isEnabled && !isDarkMode && (
+                <p className="mt-2 text-xs font-medium text-green-600">
+                  Enabled
+                </p>
+              )}
+            </div>
+          </div>
+
+          <label className="relative inline-flex cursor-pointer items-center">
+            <input
+              type="checkbox"
+              checked={isEnabled}
+              onChange={() =>
+                !isDarkMode &&
+                setAIFeature(
+                  feature.key,
+                  !isEnabled as AIFeatureSettings[typeof feature.key]
+                )
+              }
+              disabled={isDarkMode}
+              className="peer sr-only"
+            />
+            <div
+              className={`peer h-6 w-11 rounded-full after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 ${
+                isEnabled
+                  ? 'bg-violet-600 peer-focus:ring-violet-300'
+                  : 'bg-gray-200 peer-focus:ring-gray-300'
+              }`}
+            />
+          </label>
+        </div>
+      </div>
+    );
   };
 
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
 
-      {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <header className="flex h-16 items-center border-b border-gray-200 bg-white px-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Experimental Features
-            </h1>
-            <p className="text-sm text-gray-600">
-              Try out new features and help us improve
-            </p>
+        <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
+          <div className="flex items-center gap-3">
+            <FlaskConical className="h-6 w-6 text-violet-600" />
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Labs</h1>
+              <p className="text-sm text-gray-500">
+                Customize your AI experience
+              </p>
+            </div>
           </div>
+          <button
+            onClick={resetAIFeatures}
+            className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Reset to defaults
+          </button>
         </header>
 
         {/* Content */}
         <main className="flex-1 overflow-y-auto p-6">
           <div className="mx-auto max-w-4xl">
-            {/* Warning Banner */}
-            <div className="mb-6 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
+            {/* Info Banner */}
+            <div className="mb-6 rounded-lg border border-violet-200 bg-gradient-to-r from-violet-50 to-purple-50 p-4">
               <div className="flex items-start gap-3">
-                <svg
-                  className="h-6 w-6 flex-shrink-0 text-yellow-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                  />
-                </svg>
+                <Sparkles className="h-5 w-5 flex-shrink-0 text-violet-600" />
                 <div>
-                  <h3 className="mb-1 font-semibold text-yellow-900">
-                    Experimental Features
+                  <h3 className="font-semibold text-violet-900">
+                    AI Feature Controls
                   </h3>
-                  <p className="text-sm text-yellow-800">
-                    These features are still in development and may not work as
-                    expected. Your feedback helps us improve them.
+                  <p className="mt-1 text-sm text-violet-700">
+                    Toggle AI features on or off to customize your DeepDive
+                    experience. Changes are saved automatically.
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Features Grid */}
-            <div className="space-y-4">
-              {features.map((feature) => (
-                <div
-                  key={feature.id}
-                  className="rounded-lg border border-gray-200 bg-white p-6 transition-shadow hover:shadow-md"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex flex-1 items-start gap-4">
-                      {/* Icon */}
-                      <div
-                        className={`rounded-lg p-3 ${feature.enabled ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'}`}
-                      >
-                        {getFeatureIcon(feature.icon)}
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex-1">
-                        <div className="mb-2 flex items-center gap-2">
-                          <h3 className="font-semibold text-gray-900">
-                            {feature.name}
-                          </h3>
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${getStatusColor(feature.status)}`}
-                          >
-                            {feature.status}
-                          </span>
-                        </div>
-                        <p className="mb-3 text-sm text-gray-600">
-                          {feature.description}
-                        </p>
-                        {feature.enabled && (
-                          <p className="text-xs font-medium text-green-600">
-                            ✓ Enabled
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Toggle */}
-                    <label className="relative inline-flex cursor-pointer items-center">
-                      <input
-                        type="checkbox"
-                        checked={feature.enabled}
-                        onChange={() => toggleFeature(feature.id)}
-                        className="peer sr-only"
-                      />
-                      <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-red-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300"></div>
-                    </label>
-                  </div>
-                </div>
-              ))}
+            {/* Core AI Features */}
+            <div className="mb-8">
+              <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-600">
+                  {coreFeatures.filter((f) => aiFeatures[f.key]).length}
+                </span>
+                Core AI Features
+              </h2>
+              <div className="space-y-3">
+                {coreFeatures.map((feature) =>
+                  renderFeatureCard(feature, 'bg-violet-600')
+                )}
+              </div>
             </div>
 
-            {/* Feedback Section */}
-            <div className="mt-8 rounded-lg border border-red-100 bg-gradient-to-r from-red-50 to-orange-50 p-6">
-              <h3 className="mb-2 font-semibold text-gray-900">
-                Have feedback?
-              </h3>
-              <p className="mb-4 text-sm text-gray-600">
-                Your input helps us build better features. Let us know what you
-                think!
-              </p>
-              <Link
-                href="/feedback"
-                className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
-              >
-                Share Feedback
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+            {/* Beta Features */}
+            <div className="mb-8">
+              <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-600">
+                  {betaFeatures.filter((f) => aiFeatures[f.key]).length}
+                </span>
+                Beta Features
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                  Experimental
+                </span>
+              </h2>
+              <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <p className="text-sm text-amber-800">
+                  Beta features are still in development. They may not work
+                  perfectly and could change at any time.
+                </p>
+              </div>
+              <div className="space-y-3">
+                {betaFeatures.map((feature) =>
+                  renderFeatureCard(feature, 'bg-amber-500')
+                )}
+              </div>
+            </div>
+
+            {/* UI Experiments */}
+            <div className="mb-8">
+              <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-600">
+                  {uiFeatures.filter((f) => aiFeatures[f.key]).length}
+                </span>
+                UI Experiments
+              </h2>
+              <div className="space-y-3">
+                {uiFeatures.map((feature) =>
+                  renderFeatureCard(feature, 'bg-blue-500')
+                )}
+              </div>
+            </div>
+
+            {/* Feedback CTA */}
+            <div className="rounded-lg border border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100 p-6">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-100">
+                  <MessageSquare className="h-6 w-6 text-violet-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-900">
+                    Have feedback on these features?
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Your input helps us improve. Let us know what works and what
+                    doesn't!
+                  </p>
+                </div>
+                <Link
+                  href="/feedback"
+                  className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M14 5l7 7m0 0l-7 7m7-7H3"
-                  />
-                </svg>
-              </Link>
+                  Send Feedback
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M14 5l7 7m0 0l-7 7m7-7H3"
+                    />
+                  </svg>
+                </Link>
+              </div>
             </div>
           </div>
         </main>
