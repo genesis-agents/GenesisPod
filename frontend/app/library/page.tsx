@@ -666,7 +666,7 @@ function LibraryPageContent() {
         if (match) videoId = match[1];
       }
       return videoId
-        ? `/youtube?videoId=${videoId}`
+        ? `/explore/youtube?videoId=${videoId}`
         : `/explore?id=${resource.id}`;
     }
     // 所有非 YouTube 资源都跳转到 Explore 页面，和从 Explore 列表点击进入体验一致

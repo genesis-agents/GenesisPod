@@ -709,7 +709,7 @@ function HomeContent() {
           extractYouTubeVideoId(resource.sourceUrl);
 
         if (videoId) {
-          router.push(`/youtube?videoId=${videoId}`);
+          router.push(`/explore/youtube?videoId=${videoId}`);
           return;
         }
       }
@@ -1131,7 +1131,7 @@ function HomeContent() {
         (resource as any).videoId || extractYouTubeVideoId(resource.sourceUrl);
 
       if (videoId) {
-        router.push(`/youtube?videoId=${videoId}`);
+        router.push(`/explore/youtube?videoId=${videoId}`);
         return;
       }
     }
@@ -3743,7 +3743,7 @@ function HomeContent() {
                           targetResource.sourceUrl
                         );
                         if (videoId) {
-                          router.push(`/youtube?videoId=${videoId}`);
+                          router.push(`/explore/youtube?videoId=${videoId}`);
                           return;
                         }
                       }

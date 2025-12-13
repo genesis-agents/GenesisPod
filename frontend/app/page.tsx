@@ -657,7 +657,7 @@ function HomeContent() {
         }
 
         if (videoId) {
-          router.push(`/youtube?videoId=${videoId}`);
+          router.push(`/explore/youtube?videoId=${videoId}`);
           return;
         }
       }
@@ -998,7 +998,7 @@ function HomeContent() {
       }
 
       if (videoId) {
-        router.push(`/youtube?videoId=${videoId}`);
+        router.push(`/explore/youtube?videoId=${videoId}`);
         return;
       }
     }
