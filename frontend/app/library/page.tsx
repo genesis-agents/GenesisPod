@@ -882,7 +882,7 @@ function LibraryPageContent() {
 
         {/* Main card content */}
         <Link
-          href={`/?id=${resource.id}`}
+          href={`/resource/${resource.id}`}
           className="block"
           onClick={(e) => {
             if (selectionMode) {
@@ -1538,7 +1538,7 @@ function LibraryPageContent() {
                 Close
               </button>
               <a
-                href={`/?id=${selectedItem.resource.id}`}
+                href={`/resource/${selectedItem.resource.id}`}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
               >
                 View Full Details
