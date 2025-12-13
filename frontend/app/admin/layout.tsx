@@ -9,8 +9,6 @@ import {
   Plug,
   Shield,
   HardDrive,
-  Calendar,
-  Activity,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -32,36 +30,18 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname();
 
+  // Admin tabs ordered by management best practices:
+  // 1. Overview (Dashboard) - first for quick status check
+  // 2. Core Settings (AI Models, External API) - system configuration
+  // 3. Content Management (Collection, Whitelists) - data management
+  // 4. Access Control (Users) - security and permissions
+  // 5. Infrastructure (Storage) - system resources last
   const tabs = [
     {
       name: 'Dashboard',
       href: '/admin/dashboard',
       icon: LayoutDashboard,
       description: 'System overview and key metrics',
-    },
-    {
-      name: 'Collection',
-      href: '/admin/collection',
-      icon: Database,
-      description: 'Data sources and collection rules',
-    },
-    {
-      name: 'Scheduler',
-      href: '/admin/scheduler',
-      icon: Calendar,
-      description: 'Task scheduling and automation',
-    },
-    {
-      name: 'Monitor',
-      href: '/admin/batch-monitor',
-      icon: Activity,
-      description: 'Batch task monitoring',
-    },
-    {
-      name: 'Whitelists',
-      href: '/admin/whitelists',
-      icon: Shield,
-      description: 'Source whitelist management',
     },
     {
       name: 'AI Models',
@@ -76,6 +56,18 @@ export default function AdminLayout({
       description: 'Search and third-party API configuration',
     },
     {
+      name: 'Collection',
+      href: '/admin/collection',
+      icon: Database,
+      description: 'Data sources and collection rules',
+    },
+    {
+      name: 'Whitelists',
+      href: '/admin/whitelists',
+      icon: Shield,
+      description: 'Source whitelist management',
+    },
+    {
       name: 'Users',
       href: '/admin/users',
       icon: Users,
@@ -85,7 +77,7 @@ export default function AdminLayout({
       name: 'Storage',
       href: '/admin/storage',
       icon: HardDrive,
-      description: 'Railway storage management',
+      description: 'Database storage management',
     },
   ];
 
@@ -184,11 +176,6 @@ function getAIContext(pathname: string | null): AIAssistantContext {
   if (pathname.includes('/external-api')) return 'external-api';
   if (pathname.includes('/storage')) return 'storage';
   if (pathname.includes('/users')) return 'users';
-  if (
-    pathname.includes('/collection') ||
-    pathname.includes('/scheduler') ||
-    pathname.includes('/batch')
-  )
-    return 'collection';
+  if (pathname.includes('/collection')) return 'collection';
   return 'dashboard';
 }
