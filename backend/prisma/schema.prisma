@@ -206,8 +206,9 @@ model Resource {
   influenceScore Int?    @map("influence_score")
   maturityStage  String? @map("maturity_stage") @db.VarChar(50)
 
-  // MongoDB 原始数据引用（关键！）
-  rawDataId String? @map("raw_data_id")
+  // RawData 关联（双向关系）
+  rawDataId   String?  @unique @map("raw_data_id")
+  primaryRawData RawData? @relation("PrimaryRawData", fields: [rawDataId], references: [id], onDelete: SetNull)
 
   // 向量引用
   embeddingId String? @map("embedding_id")
@@ -234,8 +235,8 @@ model Resource {
   topicAttachments TopicMessageAttachment[] @relation("TopicAttachmentResource")
   topicResources   TopicResource[]          @relation("TopicSharedResource")
 
-  // Raw data collection (replaces MongoDB)
-  rawDataRecords RawData[]
+  // Raw data collection (replaces MongoDB) - 历史记录
+  rawDataRecords RawData[] @relation("ResourceRawDataHistory")
 
   // AI Office 文档引用
   officeDocumentRefs OfficeDocumentResourceRef[]
@@ -1280,6 +1281,8 @@ model DeduplicationRecord {
   @@index([resourceId])
   @@index([decision])
   @@index([taskId])
+  // 防止同一对资源被重复记录（同一任务内）
+  @@unique([taskId, resourceId, duplicateOfId], name: "dedup_record_unique")
   @@map("deduplication_records")
 }
 
@@ -2316,9 +2319,12 @@ model RawData {
   // Complete raw data stored as JSONB
   data Json
 
-  // Reference to PostgreSQL Resource (bidirectional link)
+  // 主 Resource 关联（反向关系）
+  primaryResource Resource? @relation("PrimaryRawData")
+
+  // 历史关联 - 一个 RawData 可能被多个 Resource 引用（如合并场景）
   resourceId String?   @map("resource_id")
-  resource   Resource? @relation(fields: [resourceId], references: [id], onDelete: SetNull)
+  resource   Resource? @relation("ResourceRawDataHistory", fields: [resourceId], references: [id], onDelete: SetNull)
 
   // Processing status
   processedAt     DateTime? @map("processed_at")
@@ -2335,6 +2341,8 @@ model RawData {
   @@index([resourceId])
   @@index([createdAt])
   @@index([isProcessed])
+  // Unique constraint for source + externalId (防止重复采集)
+  @@unique([source, externalId], name: "raw_data_source_external_id_unique")
   // GIN index for JSONB data (created via raw SQL migration)
   @@map("raw_data")
 }

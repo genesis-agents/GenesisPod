@@ -6,11 +6,6 @@ import { AiImageService } from "./ai-image.service";
 import { InfographicTemplateService } from "./infographic-template.service";
 import { PrismaModule } from "../../common/prisma/prisma.module";
 import { StorageModule } from "../storage/storage.module";
-// 从公共模块导入内容处理服务
-import {
-  ContentExtractorService,
-  DataFetchingService,
-} from "../../common/content-processing";
 // DeepDive Engine v2.1 新增服务和控制器
 import { AgentExecutorService } from "./agent-executor.service";
 import { BrandKitService } from "./brand-kit.service";
@@ -45,9 +40,6 @@ import { ExportController } from "./export.controller";
   exports: [
     AiImageService,
     InfographicTemplateService,
-    // 重新导出公共服务以保持向后兼容
-    ContentExtractorService,
-    DataFetchingService,
     // DeepDive Engine v2.1 新增
     AgentExecutorService,
     BrandKitService,
