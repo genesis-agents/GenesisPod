@@ -567,6 +567,37 @@ function LibraryPageContent() {
     }
   };
 
+  // 工具函数：根据资源类型获取正确的链接
+  // YouTube 视频打开专属 YouTube 页面，其他类型打开资源详情页
+  const getResourceLink = (resource: Resource): string => {
+    if (resource.type === 'YOUTUBE' || resource.type === 'YOUTUBE_VIDEO') {
+      // 从 sourceUrl 提取 YouTube videoId
+      const url = resource.sourceUrl || '';
+      let videoId = '';
+      try {
+        const urlObj = new URL(url);
+        if (urlObj.hostname.includes('youtu.be')) {
+          videoId = urlObj.pathname.slice(1);
+        } else if (urlObj.hostname.includes('youtube.com')) {
+          videoId =
+            urlObj.searchParams.get('v') ||
+            urlObj.pathname.split('/').pop() ||
+            '';
+        }
+      } catch {
+        // URL 解析失败，尝试正则匹配
+        const match = url.match(
+          /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([a-zA-Z0-9_-]+)/
+        );
+        if (match) videoId = match[1];
+      }
+      return videoId
+        ? `/youtube?videoId=${videoId}`
+        : `/resource/${resource.id}`;
+    }
+    return `/resource/${resource.id}`;
+  };
+
   // Type badge config
   const typeConfig: Record<
     string,
@@ -882,7 +913,7 @@ function LibraryPageContent() {
 
         {/* Main card content */}
         <Link
-          href={`/resource/${resource.id}`}
+          href={getResourceLink(resource)}
           className="block"
           onClick={(e) => {
             if (selectionMode) {
@@ -1538,7 +1569,7 @@ function LibraryPageContent() {
                 Close
               </button>
               <a
-                href={`/resource/${selectedItem.resource.id}`}
+                href={getResourceLink(selectedItem.resource)}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
               >
                 View Full Details
