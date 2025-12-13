@@ -1,11 +1,11 @@
 import { Module } from "@nestjs/common";
 import {
-  AiGroupController,
+  AiTeamsController,
   UsersController,
   BookmarksController,
-} from "./ai-group.controller";
-import { AiGroupService } from "./ai-group.service";
-import { AiGroupGateway } from "./ai-group.gateway";
+} from "./ai-teams.controller";
+import { AiTeamsService } from "./ai-teams.service";
+import { AiTeamsGateway } from "./ai-teams.gateway";
 import { DebateService } from "./debate.service";
 import { ContextRouterService } from "./context-router.service";
 import { TeamMissionService } from "./team-mission.service";
@@ -16,10 +16,10 @@ import { AiModule } from "../ai/ai.module";
 
 @Module({
   imports: [PrismaModule, AiModule],
-  controllers: [AiGroupController, UsersController, BookmarksController],
+  controllers: [AiTeamsController, UsersController, BookmarksController],
   providers: [
-    AiGroupService,
-    AiGroupGateway,
+    AiTeamsService,
+    AiTeamsGateway,
     DebateService,
     ContextRouterService,
     TeamMissionService,
@@ -27,7 +27,7 @@ import { AiModule } from "../ai/ai.module";
     ContentExtractionService,
   ],
   exports: [
-    AiGroupService,
+    AiTeamsService,
     DebateService,
     ContextRouterService,
     TeamMissionService,
@@ -35,4 +35,4 @@ import { AiModule } from "../ai/ai.module";
     ContentExtractionService,
   ],
 })
-export class AiGroupModule {}
+export class AiTeamsModule {}

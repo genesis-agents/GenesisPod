@@ -6,12 +6,12 @@ import {
   TopicAIMember,
   UpdateTopicDto,
   AddAIMemberDto,
-} from '@/types/ai-group';
-import { useAiGroupStore } from '@/stores/aiGroupStore';
+} from '@/types/ai-teams';
+import { useAiGroupStore } from '@/stores/aiTeamsStore';
 import { useAIModels, AIModel } from '@/hooks/useAIModels';
 import { config } from '@/lib/config';
-import * as aiGroupApi from '@/lib/api/ai-group';
-import { JoinRequest } from '@/lib/api/ai-group';
+import * as aiGroupApi from '@/lib/api/ai-teams';
+import { JoinRequest } from '@/lib/api/ai-teams';
 
 // User search result type
 interface SearchedUser {

@@ -12,8 +12,8 @@ import {
   Logger,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
-import { AiGroupService } from "./ai-group.service";
-import { AiGroupGateway } from "./ai-group.gateway";
+import { AiTeamsService } from "./ai-teams.service";
+import { AiTeamsGateway } from "./ai-teams.gateway";
 import { DebateService } from "./debate.service";
 import { UrlParserService } from "./url-parser.service";
 import {
@@ -37,12 +37,12 @@ import { TeamMissionService } from "./team-mission.service";
 
 @Controller("topics")
 @UseGuards(JwtAuthGuard)
-export class AiGroupController {
-  private readonly logger = new Logger(AiGroupController.name);
+export class AiTeamsController {
+  private readonly logger = new Logger(AiTeamsController.name);
 
   constructor(
-    private readonly aiGroupService: AiGroupService,
-    private readonly aiGroupGateway: AiGroupGateway,
+    private readonly aiGroupService: AiTeamsService,
+    private readonly aiGroupGateway: AiTeamsGateway,
     private readonly debateService: DebateService,
     private readonly teamMissionService: TeamMissionService,
     private readonly urlParserService: UrlParserService,
@@ -1128,7 +1128,7 @@ export class AiGroupController {
 @Controller("bookmarks")
 @UseGuards(JwtAuthGuard)
 export class BookmarksController {
-  constructor(private readonly aiGroupService: AiGroupService) {}
+  constructor(private readonly aiGroupService: AiTeamsService) {}
 
   @Get()
   async getBookmarks(
@@ -1148,7 +1148,7 @@ export class BookmarksController {
 @Controller("users")
 @UseGuards(JwtAuthGuard)
 export class UsersController {
-  constructor(private readonly aiGroupService: AiGroupService) {}
+  constructor(private readonly aiGroupService: AiTeamsService) {}
 
   @Get("search")
   async searchUsers(

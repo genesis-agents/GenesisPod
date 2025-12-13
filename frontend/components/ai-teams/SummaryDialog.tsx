@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Topic, TopicSummary, GenerateSummaryDto } from '@/types/ai-group';
+import { Topic, TopicSummary, GenerateSummaryDto } from '@/types/ai-teams';
 import { useAIModels } from '@/hooks/useAIModels';
-import * as api from '@/lib/api/ai-group';
+import * as api from '@/lib/api/ai-teams';
 
 interface SummaryDialogProps {
   topic: Topic;

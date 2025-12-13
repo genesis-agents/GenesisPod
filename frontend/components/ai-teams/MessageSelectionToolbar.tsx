@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { TopicMessage, Topic } from '@/types/ai-group';
+import { TopicMessage, Topic } from '@/types/ai-teams';
 import { config } from '@/lib/config';
 import { getAuthHeader } from '@/lib/auth';
 

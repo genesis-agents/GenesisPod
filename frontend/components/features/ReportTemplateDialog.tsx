@@ -5,7 +5,7 @@ import {
   REPORT_TEMPLATES,
   validateResourceCount,
   type ReportTemplate,
-} from '@/lib/report-templates';
+} from '@/lib/templates/report-templates';
 
 interface ReportTemplateDialogProps {
   isOpen: boolean;

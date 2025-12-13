@@ -14,7 +14,7 @@ import {
   ProgressState,
   ToolType,
   AGENT_CONFIGS,
-} from '@/lib/agents/types';
+} from '@/lib/ai-office/agents/types';
 
 interface AgentStore {
   // 当前选中的 Agent

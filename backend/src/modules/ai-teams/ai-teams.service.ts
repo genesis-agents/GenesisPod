@@ -35,8 +35,8 @@ import {
 import { UrlParserService, ParsedUrl } from "./url-parser.service";
 
 @Injectable()
-export class AiGroupService {
-  private readonly logger = new Logger(AiGroupService.name);
+export class AiTeamsService {
+  private readonly logger = new Logger(AiTeamsService.name);
 
   constructor(
     private prisma: PrismaService,

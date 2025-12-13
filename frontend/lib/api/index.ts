@@ -5,8 +5,8 @@
 // 统一的 API 客户端
 export * from './client';
 
-// AI Group API
-export * from './ai-group';
+// AI Teams API
+export * from './ai-teams';
 
 // Data Collection API
 export * from './data-collection';

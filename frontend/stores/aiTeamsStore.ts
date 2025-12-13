@@ -18,8 +18,8 @@ import {
   MissionStatus,
   AgentTaskStatus,
   AgentTask,
-} from '@/types/ai-group';
-import * as api from '@/lib/api/ai-group';
+} from '@/types/ai-teams';
+import * as api from '@/lib/api/ai-teams';
 import { getAuthTokens } from '@/lib/auth';
 import { io, Socket } from 'socket.io-client';
 

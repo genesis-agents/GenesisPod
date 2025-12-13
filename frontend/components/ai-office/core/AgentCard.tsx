@@ -13,7 +13,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { AgentConfig, AgentTemplate } from '@/lib/agents/types';
+import { AgentConfig, AgentTemplate } from '@/lib/ai-office/agents/types';
 import { cn } from '@/lib/utils';
 
 interface AgentCardProps {

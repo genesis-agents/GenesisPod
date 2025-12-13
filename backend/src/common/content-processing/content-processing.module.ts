@@ -8,7 +8,7 @@
  * 被以下模块使用：
  * - ai-office (PPT 生成、文档生成)
  * - ai-image (信息图生成)
- * - ai-group (AI 团队研究)
+ * - ai-teams (AI 团队研究)
  */
 
 import { Module, Global } from "@nestjs/common";

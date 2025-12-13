@@ -17,9 +17,17 @@ import {
   ProgressTracker,
   ProgressOverlay,
 } from '@/components/ai-office/core/ProgressTracker';
-import { AgentType, AgentInput, AGENT_CONFIGS } from '@/lib/agents/types';
+import {
+  AgentType,
+  AgentInput,
+  AGENT_CONFIGS,
+} from '@/lib/ai-office/agents/types';
 import { useAgentStore } from '@/stores/agentStore';
-import { executeAgent, subscribeToTask, cancelTask } from '@/lib/agents/api';
+import {
+  executeAgent,
+  subscribeToTask,
+  cancelTask,
+} from '@/lib/ai-office/agents/api';
 import { cn } from '@/lib/utils';
 
 // 文档模板定义

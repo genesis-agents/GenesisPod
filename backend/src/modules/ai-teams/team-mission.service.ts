@@ -15,7 +15,7 @@ import {
 } from "@prisma/client";
 import { CreateMissionDto } from "./dto/create-mission.dto";
 import { AiChatService } from "../ai/ai-chat.service";
-import { AiGroupGateway } from "./ai-group.gateway";
+import { AiTeamsGateway } from "./ai-teams.gateway";
 
 interface TaskBreakdownItem {
   title: string;
@@ -42,7 +42,7 @@ export class TeamMissionService {
   constructor(
     private prisma: PrismaService,
     private aiChatService: AiChatService,
-    private aiGroupGateway: AiGroupGateway,
+    private aiTeamsGateway: AiTeamsGateway,
   ) {}
 
   /**
@@ -157,7 +157,7 @@ export class TeamMissionService {
     );
 
     // 广播任务创建事件
-    this.aiGroupGateway.emitToTopic(topicId, "mission:created", {
+    this.aiTeamsGateway.emitToTopic(topicId, "mission:created", {
       mission,
       messageId: systemMessage?.id,
     });
@@ -213,7 +213,7 @@ export class TeamMissionService {
     });
 
     // 广播状态变更
-    this.aiGroupGateway.emitToTopic(mission.topicId, "mission:status_changed", {
+    this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:status_changed", {
       missionId,
       status: MissionStatus.PLANNING,
       previousStatus: MissionStatus.PENDING,
@@ -296,7 +296,7 @@ export class TeamMissionService {
       });
 
       // 广播状态变更
-      this.aiGroupGateway.emitToTopic(
+      this.aiTeamsGateway.emitToTopic(
         mission.topicId,
         "mission:status_changed",
         {
@@ -443,7 +443,7 @@ export class TeamMissionService {
       );
 
       // 广播 Agent 工作状态
-      this.aiGroupGateway.emitToTopic(mission.topicId, "agent:working", {
+      this.aiTeamsGateway.emitToTopic(mission.topicId, "agent:working", {
         missionId: mission.id,
         taskId: task.id,
         agentId: assignedTo.id,
@@ -492,7 +492,7 @@ export class TeamMissionService {
       });
 
       // 广播任务完成
-      this.aiGroupGateway.emitToTopic(mission.topicId, "task:completed", {
+      this.aiTeamsGateway.emitToTopic(mission.topicId, "task:completed", {
         missionId: mission.id,
         taskId: task.id,
         agentId: assignedTo.id,
@@ -806,7 +806,7 @@ export class TeamMissionService {
         ...mission.tasks.map((t) => t.assignedToId),
       ].filter((id, index, arr) => arr.indexOf(id) === index); // 去重
 
-      this.aiGroupGateway.emitToTopic(mission.topicId, "mission:completed", {
+      this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:completed", {
         missionId,
         finalResult: aiResponse.content,
         participantAIIds,
@@ -847,7 +847,7 @@ export class TeamMissionService {
     });
 
     // 广播进度更新
-    this.aiGroupGateway.emitToTopic(
+    this.aiTeamsGateway.emitToTopic(
       mission.topicId,
       "mission:progress_updated",
       {
@@ -908,7 +908,7 @@ export class TeamMissionService {
       });
 
       // 广播新消息
-      this.aiGroupGateway.emitToTopic(topicId, "message:new", message);
+      this.aiTeamsGateway.emitToTopic(topicId, "message:new", message);
 
       return message;
     } catch (error) {
@@ -1409,7 +1409,7 @@ ${taskResults}
       content: "任务已被用户取消",
     });
 
-    this.aiGroupGateway.emitToTopic(mission.topicId, "mission:cancelled", {
+    this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:cancelled", {
       missionId,
     });
 

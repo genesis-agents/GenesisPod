@@ -31,7 +31,7 @@ export class FeatureChecker {
     try {
       // 检查Agent模块是否可导入
       const { CoordinatorAgent, ResourceAnalysisAgent, VerificationAgent } =
-        await import('@/lib/ai-agents');
+        await import('@/lib/ai-office/multi-agents');
 
       if (!CoordinatorAgent || !ResourceAnalysisAgent || !VerificationAgent) {
         return {
@@ -221,7 +221,7 @@ export class FeatureChecker {
   async checkResearchPageSystem(): Promise<FeatureCheckResult> {
     try {
       const { getAllResearchPageTemplates } = await import(
-        '@/lib/research-page-templates'
+        '@/lib/templates/research-page-templates'
       );
       const templates = getAllResearchPageTemplates();
 

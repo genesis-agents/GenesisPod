@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { SimulationRunStatus, SimulationTeam } from "@prisma/client";
-import { SimulationEngineService } from "./simulation.engine";
+import { AiSimulationEngineService } from "./ai-simulation.engine";
 
 export interface CreateScenarioInput {
   name: string;
@@ -89,12 +89,12 @@ function filterSubmissionByPerspective(
 }
 
 @Injectable()
-export class SimulationService {
-  private readonly logger = new Logger(SimulationService.name);
+export class AiSimulationService {
+  private readonly logger = new Logger(AiSimulationService.name);
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly engine: SimulationEngineService,
+    private readonly engine: AiSimulationEngineService,
   ) {}
 
   async createScenario(input: CreateScenarioInput) {

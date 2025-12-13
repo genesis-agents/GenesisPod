@@ -9,7 +9,7 @@ import {
 } from "@nestjs/websockets";
 import { Server, Socket } from "socket.io";
 import { Logger } from "@nestjs/common";
-import { AiGroupService } from "./ai-group.service";
+import { AiTeamsService } from "./ai-teams.service";
 import { SendMessageDto } from "./dto";
 
 interface AuthenticatedSocket extends Socket {
@@ -18,7 +18,7 @@ interface AuthenticatedSocket extends Socket {
 }
 
 @WebSocketGateway({
-  namespace: "/ai-group",
+  namespace: "/ai-teams",
   cors: {
     origin: [
       "http://localhost:3000",
@@ -37,17 +37,17 @@ interface AuthenticatedSocket extends Socket {
   pingTimeout: 60000, // 增加 ping 超时时间（代理环境下可能需要更长）
   pingInterval: 25000, // ping 间隔
 })
-export class AiGroupGateway
+export class AiTeamsGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
   @WebSocketServer()
   server!: Server;
 
-  private logger = new Logger("AiGroupGateway");
+  private logger = new Logger("AiTeamsGateway");
   private userSockets = new Map<string, Set<string>>(); // userId -> Set<socketId>
   private socketUsers = new Map<string, string>(); // socketId -> userId
 
-  constructor(private readonly aiGroupService: AiGroupService) {}
+  constructor(private readonly aiGroupService: AiTeamsService) {}
 
   async handleConnection(client: AuthenticatedSocket) {
     try {

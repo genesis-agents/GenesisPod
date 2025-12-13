@@ -29,7 +29,7 @@ import VersionSelector from './VersionSelector';
 import { parseMarkdownToEnhancedSlides } from '@/lib/ai-office/markdown-parser';
 import EnhancedSlideRenderer from './EnhancedSlideRenderer';
 import ResearchPageRenderer from './ResearchPageRenderer';
-import { getResearchPageTemplateById } from '@/lib/research-page-templates';
+import { getResearchPageTemplateById } from '@/lib/templates/research-page-templates';
 
 // 旧版 Slide 类型定义（仅供后备使用）
 interface Slide {

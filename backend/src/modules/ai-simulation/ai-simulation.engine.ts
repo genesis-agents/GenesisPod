@@ -96,8 +96,8 @@ const BLACK_SWAN_EVENTS: Omit<BlackSwanEvent, "triggered" | "probability">[] = [
 ];
 
 @Injectable()
-export class SimulationEngineService {
-  private readonly logger = new Logger(SimulationEngineService.name);
+export class AiSimulationEngineService {
+  private readonly logger = new Logger(AiSimulationEngineService.name);
 
   constructor(
     private readonly prisma: PrismaService,

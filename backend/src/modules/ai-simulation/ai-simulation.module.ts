@@ -1,20 +1,20 @@
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../common/prisma/prisma.module";
 import { AiModule } from "../ai/ai.module";
-import { SimulationService } from "./simulation.service";
-import { SimulationController } from "./simulation.controller";
-import { SimulationEngineService } from "./simulation.engine";
+import { AiSimulationService } from "./ai-simulation.service";
+import { AiSimulationController } from "./ai-simulation.controller";
+import { AiSimulationEngineService } from "./ai-simulation.engine";
 import { ExternalDataService } from "./external-data.service";
 import { AIAssistService } from "./ai-assist.service";
 
 @Module({
   imports: [PrismaModule, AiModule],
-  controllers: [SimulationController],
+  controllers: [AiSimulationController],
   providers: [
-    SimulationService,
-    SimulationEngineService,
+    AiSimulationService,
+    AiSimulationEngineService,
     ExternalDataService,
     AIAssistService,
   ],
 })
-export class SimulationModule {}
+export class AiSimulationModule {}

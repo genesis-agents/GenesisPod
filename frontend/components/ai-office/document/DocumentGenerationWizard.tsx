@@ -13,7 +13,7 @@ import {
   GENERATION_OPTIONS,
   type DocumentCategory,
   type DocumentTemplateConfig,
-} from '@/constants/document-templates';
+} from '@/lib/templates/document-templates';
 
 interface DocumentGenerationWizardProps {
   isOpen: boolean;

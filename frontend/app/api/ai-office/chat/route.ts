@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { CoordinatorAgent, ResourceAnalysisAgent } from '@/lib/ai-agents';
+import {
+  CoordinatorAgent,
+  ResourceAnalysisAgent,
+} from '@/lib/ai-office/multi-agents';
 import type { Resource } from '@/types/ai-office';
 
 // 服务器端使用内部域名进行服务间通信

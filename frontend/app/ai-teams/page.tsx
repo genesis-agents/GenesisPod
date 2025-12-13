@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAiGroupStore } from '@/stores/aiGroupStore';
-import { Topic, CreateTopicDto, UpdateTopicDto } from '@/types/ai-group';
+import { useAiGroupStore } from '@/stores/aiTeamsStore';
+import { Topic, CreateTopicDto, UpdateTopicDto } from '@/types/ai-teams';
 import { useAIModels, AIModel } from '@/hooks/useAIModels';
 import Sidebar from '@/components/layout/Sidebar';
-import * as api from '@/lib/api/ai-group';
-import { PublicTopic, JoinRequest } from '@/lib/api/ai-group';
+import * as api from '@/lib/api/ai-teams';
+import { PublicTopic, JoinRequest } from '@/lib/api/ai-teams';
 
 type TabType = 'my-teams' | 'discover';
 

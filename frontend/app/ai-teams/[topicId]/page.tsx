@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback, memo, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAiGroupStore } from '@/stores/aiGroupStore';
+import { useAiGroupStore } from '@/stores/aiTeamsStore';
 import {
   Topic,
   TopicMessage,
@@ -13,10 +13,10 @@ import {
   MentionType,
   TopicRole,
   AICapability,
-} from '@/types/ai-group';
+} from '@/types/ai-teams';
 import { useUrlDetection } from '@/hooks/useUrlDetection';
 import { LinkPreviewList } from '@/components/ai-teams/LinkPreviewCard';
-import type { ParsedUrl } from '@/lib/api/ai-group';
+import type { ParsedUrl } from '@/lib/api/ai-teams';
 
 // Helper to get short capability labels and colors
 const CAPABILITY_CONFIG: Record<

@@ -14,7 +14,7 @@ import {
   Search,
   Download,
 } from 'lucide-react';
-import type { ResearchPageTemplate } from '@/lib/research-page-templates';
+import type { ResearchPageTemplate } from '@/lib/templates/research-page-templates';
 
 interface ResearchPageRendererProps {
   content: string;

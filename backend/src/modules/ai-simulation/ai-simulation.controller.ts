@@ -14,16 +14,16 @@ import {
 import { Observable, interval, map, switchMap, from, takeWhile } from "rxjs";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../common/guards/admin.guard";
-import { SimulationService, ViewPerspective } from "./simulation.service";
+import { AiSimulationService, ViewPerspective } from "./ai-simulation.service";
 import { SimulationTeam, SimulationRunStatus } from "@prisma/client";
 import { ExternalDataService } from "./external-data.service";
 import { AIAssistService } from "./ai-assist.service";
 
 @Controller("simulation")
 @UseGuards(JwtAuthGuard, AdminGuard)
-export class SimulationController {
+export class AiSimulationController {
   constructor(
-    private readonly simulationService: SimulationService,
+    private readonly simulationService: AiSimulationService,
     private readonly externalData: ExternalDataService,
     private readonly aiAssist: AIAssistService,
   ) {}

@@ -33,13 +33,13 @@ import { DataManagementModule } from "./modules/data-management/data-management.
 import { AiOfficeModule } from "./modules/ai-office/ai-office.module";
 import { DataCollectionModule } from "./modules/data-collection/data-collection.module";
 import { AdminModule } from "./modules/admin/admin.module";
-import { AiGroupModule } from "./modules/ai-group/ai-group.module";
+import { AiTeamsModule } from "./modules/ai-teams/ai-teams.module";
 import { WechatWorkModule } from "./modules/wechat-work/wechat-work.module";
 import { AiStudioModule } from "./modules/ai-studio/ai-studio.module";
 import { AiImageModule } from "./modules/ai-image/ai-image.module";
 import { StorageModule } from "./modules/storage/storage.module";
 import { AskSessionModule } from "./modules/ask-session/ask-session.module";
-import { SimulationModule } from "./modules/simulation/simulation.module";
+import { AiSimulationModule } from "./modules/ai-simulation/ai-simulation.module";
 import { AgentsModule } from "./modules/agents/agents.module";
 
 @Module({
@@ -100,13 +100,13 @@ import { AgentsModule } from "./modules/agents/agents.module";
     AiOfficeModule,
     DataCollectionModule,
     AdminModule,
-    AiGroupModule,
+    AiTeamsModule,
     WechatWorkModule,
     AiStudioModule,
     AiImageModule,
     StorageModule,
     AskSessionModule,
-    SimulationModule,
+    AiSimulationModule,
     AgentsModule,
   ],
   controllers: [AppController],
