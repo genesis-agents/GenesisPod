@@ -6,10 +6,20 @@ import SettingsNav from '@/components/admin/SettingsNav';
 import WhitelistManagement from '@/components/admin/WhitelistManagement';
 import DataQualityManagement from '@/components/admin/DataQualityManagement';
 import AIModelSettings from '@/components/admin/AIModelSettings';
+import ExternalAPISettings from '@/components/admin/ExternalAPISettings';
+import StorageSettings from '@/components/admin/StorageSettings';
+import UsersSettings from '@/components/admin/UsersSettings';
 import SystemSettings from '@/components/admin/SystemSettings';
 import AIAssistant from '@/components/admin/AIAssistant';
 
-type SettingsTab = 'whitelist' | 'quality' | 'ai-models' | 'system';
+type SettingsTab =
+  | 'whitelist'
+  | 'quality'
+  | 'ai-models'
+  | 'external-api'
+  | 'storage'
+  | 'users'
+  | 'system';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('whitelist');
@@ -51,6 +61,9 @@ export default function SettingsPage() {
             {activeTab === 'whitelist' && <WhitelistManagement />}
             {activeTab === 'quality' && <DataQualityManagement />}
             {activeTab === 'ai-models' && <AIModelSettings />}
+            {activeTab === 'external-api' && <ExternalAPISettings />}
+            {activeTab === 'storage' && <StorageSettings />}
+            {activeTab === 'users' && <UsersSettings />}
             {activeTab === 'system' && <SystemSettings />}
           </div>
         </div>
