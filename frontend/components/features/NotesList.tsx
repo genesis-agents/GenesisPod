@@ -32,7 +32,13 @@ interface NotesListProps {
   onEditNote?: (note: Note) => void;
   onDeleteNote?: (noteId: string) => void;
   showActions?: boolean; // Always show edit/delete buttons
+  selectionMode?: boolean; // Enable selection checkboxes
+  selectedNoteIds?: Set<string>; // Currently selected note IDs
+  onToggleSelect?: (noteId: string) => void; // Toggle note selection
+  onAddToOffice?: (note: Note) => void; // Add note to AI Office
 }
+
+export { type Note };
 
 /**
  * 判断标签是否有意义（过滤掉随机ID类标签）
@@ -74,6 +80,10 @@ export default function NotesList({
   onEditNote,
   onDeleteNote,
   showActions = false,
+  selectionMode = false,
+  selectedNoteIds = new Set(),
+  onToggleSelect,
+  onAddToOffice,
 }: NotesListProps) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
@@ -347,15 +357,41 @@ export default function NotesList({
       <div className="space-y-3">
         {filteredNotes.map((note) => {
           const isExpanded = expandedNoteId === note.id;
+          const isSelected = selectedNoteIds.has(note.id);
           return (
             <div
               key={note.id}
-              className="cursor-pointer rounded-lg border border-gray-200 bg-white p-3 transition-all hover:border-blue-300 hover:shadow-md"
-              onClick={() => setExpandedNoteId(isExpanded ? null : note.id)}
+              className={`group relative cursor-pointer rounded-lg border bg-white p-3 transition-all hover:border-blue-300 hover:shadow-md ${
+                isSelected
+                  ? 'border-blue-500 ring-2 ring-blue-200'
+                  : 'border-gray-200'
+              }`}
+              onClick={() => {
+                if (selectionMode && onToggleSelect) {
+                  onToggleSelect(note.id);
+                } else {
+                  setExpandedNoteId(isExpanded ? null : note.id);
+                }
+              }}
             >
+              {/* Selection checkbox */}
+              {selectionMode && (
+                <div className="absolute left-2 top-2 z-10">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => onToggleSelect?.(note.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-4 w-4 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                </div>
+              )}
+
               {/* Resource info header */}
               {!resourceId && note.resource && (
-                <div className="mb-2 truncate text-xs text-gray-500">
+                <div
+                  className={`mb-2 truncate text-xs text-gray-500 ${selectionMode ? 'ml-6' : ''}`}
+                >
                   <span className="font-medium">{note.resource.type}:</span>{' '}
                   {note.resource.title}
                 </div>
@@ -422,6 +458,31 @@ export default function NotesList({
 
                 {/* Actions + Expand indicator */}
                 <div className="flex items-center gap-2">
+                  {/* Add to Office button */}
+                  {onAddToOffice && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAddToOffice(note);
+                      }}
+                      className="text-green-600 hover:text-green-800"
+                      title="Add to AI Office"
+                    >
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                    </button>
+                  )}
                   {showActions && (
                     <button
                       onClick={(e) => {

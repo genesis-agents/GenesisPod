@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { config } from '@/lib/config';
-import NotesList from '@/components/features/NotesList';
+import NotesList, { type Note } from '@/components/features/NotesList';
 import Sidebar from '@/components/layout/Sidebar';
 import { Tag, UserStats } from '@/components/library/CollectionNav';
 import CollectionModal from '@/components/library/CollectionModal';
@@ -187,6 +187,40 @@ function LibraryPageContent() {
       thumbnailUrl: resource.thumbnailUrl,
     } as any,
   });
+
+  // Handle adding a note to AI Office
+  const handleAddNoteToOffice = (note: Note) => {
+    // Notes can be added as reference material
+    // Create a pseudo-resource from the note
+    const noteAsResource: Partial<AIOfficeResource> = {
+      _id: `note-${note.id}`,
+      userId: 'current-user',
+      resourceId: note.id,
+      resourceType: 'web_page' as const,
+      status: 'collected' as const,
+      collectedAt: new Date(),
+      updatedAt: new Date(),
+      metadata: {
+        title: note.resource?.title || 'Note',
+        description: note.content.slice(0, 200),
+        url: '',
+        content: note.content,
+      } as any,
+    };
+
+    if (!aiOfficeStore.resources.some((r) => r._id === `note-${note.id}`)) {
+      aiOfficeStore.addResource(noteAsResource as any);
+      setToast({
+        message: 'Note added to AI Office',
+        type: 'success',
+      });
+    } else {
+      setToast({
+        message: 'Note already in AI Office',
+        type: 'error',
+      });
+    }
+  };
 
   // Load tags and stats
   const loadTagsAndStats = useCallback(async () => {
@@ -1438,7 +1472,11 @@ function LibraryPageContent() {
 
           {/* Notes Tab */}
           {activeTab === 'notes' && (
-            <NotesList searchQuery={searchQuery} showActions />
+            <NotesList
+              searchQuery={searchQuery}
+              showActions
+              onAddToOffice={handleAddNoteToOffice}
+            />
           )}
 
           {/* Images Tab - Bookmarked AI Images Gallery */}
