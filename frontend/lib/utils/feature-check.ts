@@ -75,7 +75,7 @@ export class FeatureChecker {
    */
   async checkTemplateSystem(): Promise<FeatureCheckResult> {
     try {
-      const { getAllTemplates } = await import('@/lib/ppt-templates');
+      const { getAllTemplates } = await import('@/lib/ai-office/ppt-templates');
       const templates = getAllTemplates();
 
       if (templates.length < 10) {
@@ -131,7 +131,7 @@ export class FeatureChecker {
         compareDocVersions,
         getDiffColor,
         getDiffIcon,
-      } = await import('@/lib/version-diff');
+      } = await import('@/lib/utils/version-diff');
 
       // 简单测试
       const testResult = comparePPTVersions(

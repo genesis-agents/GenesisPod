@@ -1,6 +1,6 @@
 'use client';
 
-import { ReadStatus } from '@/lib/use-collections';
+import { ReadStatus } from '@/hooks/useCollections';
 
 interface ReadStatusBadgeProps {
   status: ReadStatus;

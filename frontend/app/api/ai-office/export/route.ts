@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { documentExportService } from '@/lib/services/document-export.service';
-import { getTemplateById } from '@/lib/ppt-templates';
+import { getTemplateById } from '@/lib/ai-office/ppt-templates';
 
 /**
  * 文档导出API路由

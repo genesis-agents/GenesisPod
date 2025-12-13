@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ViewPerspective } from '@/components/simulation/PerspectiveSelector';
+import { ViewPerspective } from '@/components/ai-simulation/PerspectiveSelector';
 
 const STORAGE_KEY = 'deepdive_simulation_preferences';
 

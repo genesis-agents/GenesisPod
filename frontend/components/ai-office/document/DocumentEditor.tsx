@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useDocumentStore } from '@/stores/aiOfficeStore';
-import { getTemplateById, PPTTemplate } from '@/lib/ppt-templates';
+import { getTemplateById, PPTTemplate } from '@/lib/ai-office/ppt-templates';
 import {
   FileDown,
   FileText,
@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import VersionHistory from './VersionHistory';
 import VersionSelector from './VersionSelector';
-import { parseMarkdownToEnhancedSlides } from '@/lib/markdown-parser';
+import { parseMarkdownToEnhancedSlides } from '@/lib/ai-office/markdown-parser';
 import EnhancedSlideRenderer from './EnhancedSlideRenderer';
 import ResearchPageRenderer from './ResearchPageRenderer';
 import { getResearchPageTemplateById } from '@/lib/research-page-templates';

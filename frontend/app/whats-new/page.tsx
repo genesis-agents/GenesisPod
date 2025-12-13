@@ -7,7 +7,7 @@ import {
   CURRENT_VERSION,
   getChangeTypeInfo,
   type ChangelogEntry,
-} from '@/lib/changelog';
+} from '@/lib/utils/changelog';
 import { Sparkles } from 'lucide-react';
 
 function WhatsNewContent() {

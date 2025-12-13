@@ -8,7 +8,7 @@ import {
   markVersionAsSeen,
   getLatestChangelog,
   CURRENT_VERSION,
-} from '@/lib/changelog';
+} from '@/lib/utils/changelog';
 import { config } from '@/lib/config';
 
 export default function VersionUpdateBanner() {

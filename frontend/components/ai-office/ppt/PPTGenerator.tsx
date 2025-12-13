@@ -38,7 +38,7 @@ import {
   PPTOutline,
   PPT_THEME_LIST,
   LAYOUT_OPTIONS,
-} from '@/types/ppt';
+} from '@/types/ai-office/ppt';
 
 // ============================================
 // 子组件

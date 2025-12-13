@@ -1,4 +1,4 @@
-import { ViewPerspective } from '@/components/simulation/PerspectiveSelector';
+import { ViewPerspective } from '@/components/ai-simulation/PerspectiveSelector';
 
 // Submission 类型定义
 interface Submission {

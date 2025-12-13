@@ -12,14 +12,14 @@ import BatchActionBar from '@/components/library/BatchActionBar';
 import ReadStatusBadge from '@/components/library/ReadStatusBadge';
 import TagList from '@/components/library/TagList';
 import { getAuthHeader } from '@/lib/auth';
-import { useMultiSelect } from '@/lib/use-multi-select';
+import { useMultiSelect } from '@/hooks/useMultiSelect';
 import {
   useCollections,
   ReadStatus,
   CollectionItem,
   Collection,
   PaginatedResult,
-} from '@/lib/use-collections';
+} from '@/hooks/useCollections';
 import { useResourceStore } from '@/stores/aiOfficeStore';
 import { useImageSourceStore } from '@/stores/imageSourceStore';
 import type { Resource as AIOfficeResource } from '@/types/ai-office';

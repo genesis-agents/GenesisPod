@@ -21,13 +21,13 @@ import {
   LayoutGrid,
   List,
 } from 'lucide-react';
-import SandboxView from '@/components/simulation/SandboxView';
+import SandboxView from '@/components/ai-simulation/SandboxView';
 import {
   PerspectiveSelector,
   ViewPerspective,
-} from '@/components/simulation/PerspectiveSelector';
+} from '@/components/ai-simulation/PerspectiveSelector';
 import { useSimulationPerspective } from '@/hooks/useSimulationPerspective';
-import { isContentVisible } from '@/lib/perspectiveFilter';
+import { isContentVisible } from '@/lib/ai-simulation/perspectiveFilter';
 
 // 智能解析长文本，提取结构化信息
 function parseStructuredContent(text: string): {

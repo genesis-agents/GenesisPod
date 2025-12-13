@@ -43,9 +43,9 @@ import { cn } from '@/lib/utils';
 import {
   parseMarkdownToEnhancedSlides,
   EnhancedSlide,
-} from '@/lib/markdown-parser';
+} from '@/lib/ai-office/markdown-parser';
 import EditableSlideRenderer from '@/components/ai-office/document/EditableSlideRenderer';
-import { getTemplateById, PPTTemplate } from '@/lib/ppt-templates';
+import { getTemplateById, PPTTemplate } from '@/lib/ai-office/ppt-templates';
 
 // ============================================
 // 类型定义

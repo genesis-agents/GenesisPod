@@ -14,7 +14,7 @@ import type {
   DocumentType,
   DocumentVersion,
 } from '@/types/ai-office';
-import { calculateSlideCount } from '@/lib/utils/ppt-utils';
+import { calculateSlideCount } from '@/lib/ai-office/ppt-utils';
 
 // ============================================================================
 // Resource Store (持久化 + 去重)

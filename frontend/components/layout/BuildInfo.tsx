@@ -1,7 +1,7 @@
 'use client';
 
 import { config } from '@/lib/config';
-import { CURRENT_VERSION } from '@/lib/changelog';
+import { CURRENT_VERSION } from '@/lib/utils/changelog';
 
 /**
  * 构建信息组件 - 显示版本号、commit hash 和构建时间

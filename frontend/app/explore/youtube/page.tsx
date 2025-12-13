@@ -15,18 +15,18 @@ import NotesList from '@/components/features/NotesList';
 import {
   AIContextBuilder,
   type Resource as AIResource,
-} from '@/lib/ai-context-builder';
+} from '@/lib/ai/context-builder';
 import ReactMarkdown from 'react-markdown';
 import KeyMomentsPanel, {
   type KeyMoment,
-} from '@/components/youtube/KeyMomentsPanel';
-import { SubtitleExportButton } from '@/components/youtube';
+} from '@/components/explore/youtube/KeyMomentsPanel';
+import { SubtitleExportButton } from '@/components/explore/youtube';
 import { useAIModels } from '@/hooks/useAIModels';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   fetchTranscriptSmart,
   uploadTranscriptToCache,
-} from '@/lib/youtube-transcript';
+} from '@/lib/explore/youtube-transcript';
 
 interface TranscriptSegment {
   text: string;

@@ -6,9 +6,9 @@
  */
 
 import React from 'react';
-import type { EnhancedSlide } from '@/lib/markdown-parser';
-import { renderMarkdownLine } from '@/lib/markdown-parser';
-import type { PPTTemplate } from '@/lib/ppt-templates';
+import type { EnhancedSlide } from '@/lib/ai-office/markdown-parser';
+import { renderMarkdownLine } from '@/lib/ai-office/markdown-parser';
+import type { PPTTemplate } from '@/lib/ai-office/ppt-templates';
 import ChartRenderer from '../visualizations/ChartRenderer';
 import FlowDiagram from '../visualizations/FlowDiagram';
 import MatrixLayout from '../visualizations/MatrixLayout';

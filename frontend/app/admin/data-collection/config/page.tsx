@@ -36,7 +36,7 @@ import {
   DataSource,
   CollectionTask,
 } from '@/lib/api/data-collection';
-import BatchCollectionDrawer from '@/components/data-collection/BatchCollectionDrawer';
+import BatchCollectionDrawer from '@/components/admin/data-collection/BatchCollectionDrawer';
 
 // Extended type for edit form with schedule fields
 interface EditFormData extends Partial<DataSource> {

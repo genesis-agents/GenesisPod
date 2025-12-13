@@ -109,10 +109,10 @@ function Base64Image({ src, alt }: { src: string; alt: string }) {
     </div>
   );
 }
-import { useReportWorkspace } from '@/lib/use-report-workspace';
+import { useReportWorkspace } from '@/hooks/useReportWorkspace';
 import FilterPanel from '@/components/features/FilterPanel';
-import { ImportUrlDialog } from '@/components/ImportUrlDialog';
-import { ImportFileDialog } from '@/components/ImportFileDialog';
+import { ImportUrlDialog } from '@/components/shared/dialogs/ImportUrlDialog';
+import { ImportFileDialog } from '@/components/shared/dialogs/ImportFileDialog';
 import ResponsiveNav, {
   type TabType,
   type SortByType,
@@ -120,7 +120,7 @@ import ResponsiveNav, {
 import {
   AIContextBuilder,
   type Resource as AIResource,
-} from '@/lib/ai-context-builder';
+} from '@/lib/ai/context-builder';
 import { useResourceStore } from '@/stores/aiOfficeStore';
 import type { Resource as AIOfficeResource } from '@/types/ai-office';
 import { ThumbsUp, TrendingUp, Clock, Star, ChevronDown } from 'lucide-react';

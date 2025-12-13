@@ -16,7 +16,7 @@ import {
   getDiffIcon,
   type VersionComparison,
   type DiffChange,
-} from '@/lib/version-diff';
+} from '@/lib/utils/version-diff';
 
 interface VersionDiffViewerProps {
   oldVersion: DocumentVersion;

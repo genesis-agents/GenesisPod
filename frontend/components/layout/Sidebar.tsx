@@ -463,9 +463,9 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           </Link>
 
           <Link
-            href="/studio"
+            href="/ai-studio"
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium ${
-              pathname?.startsWith('/studio')
+              pathname?.startsWith('/ai-studio')
                 ? 'bg-purple-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
@@ -488,9 +488,9 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           </Link>
 
           <Link
-            href="/ai-group"
+            href="/ai-teams"
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium ${
-              pathname?.startsWith('/ai-group')
+              pathname?.startsWith('/ai-teams')
                 ? 'bg-green-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
@@ -611,13 +611,13 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
           {isAdmin && (
             <Link
-              href="/data-collection/dashboard"
+              href="/admin/dashboard"
               className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium ${
-                pathname?.startsWith('/data-collection')
+                pathname?.startsWith('/admin')
                   ? 'bg-purple-50 text-gray-900'
                   : 'text-gray-700 hover:bg-gray-50'
               }`}
-              title="Settings"
+              title="Admin"
             >
               <svg
                 className="h-5 w-5 flex-shrink-0"
@@ -638,7 +638,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                   d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
                 />
               </svg>
-              {showExpanded && <span>Settings</span>}
+              {showExpanded && <span>Admin</span>}
             </Link>
           )}
         </div>

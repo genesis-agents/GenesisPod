@@ -5,7 +5,7 @@ import { config } from '@/lib/config';
 import {
   useThumbnailGenerator,
   needsThumbnail,
-} from '@/lib/use-thumbnail-generator';
+} from '@/hooks/useThumbnailGeneratorClient';
 import { useRouter } from 'next/navigation';
 import { useImageSourceStore } from '@/stores/imageSourceStore';
 

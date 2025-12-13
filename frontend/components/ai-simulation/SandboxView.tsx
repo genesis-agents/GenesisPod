@@ -45,8 +45,8 @@ import {
 } from 'lucide-react';
 import { config } from '@/lib/config';
 import { getAuthHeader } from '@/lib/auth';
-import { ViewPerspective } from '@/components/simulation/PerspectiveSelector';
-import { isContentVisible } from '@/lib/perspectiveFilter';
+import { ViewPerspective } from '@/components/ai-simulation/PerspectiveSelector';
+import { isContentVisible } from '@/lib/ai-simulation/perspectiveFilter';
 
 // 类型定义
 interface Agent {

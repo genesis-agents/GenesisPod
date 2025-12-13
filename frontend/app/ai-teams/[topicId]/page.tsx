@@ -15,7 +15,7 @@ import {
   AICapability,
 } from '@/types/ai-group';
 import { useUrlDetection } from '@/hooks/useUrlDetection';
-import { LinkPreviewList } from '@/components/ai-group/LinkPreviewCard';
+import { LinkPreviewList } from '@/components/ai-teams/LinkPreviewCard';
 import type { ParsedUrl } from '@/lib/api/ai-group';
 
 // Helper to get short capability labels and colors
@@ -86,12 +86,12 @@ const CAPABILITY_CONFIG: Record<
 };
 import { useAIModels, AIModel } from '@/hooks/useAIModels';
 import Link from 'next/link';
-import TopicSettingsDialog from '@/components/ai-group/TopicSettingsDialog';
-import ResourcesPanel from '@/components/ai-group/ResourcesPanel';
-import SummaryDialog from '@/components/ai-group/SummaryDialog';
-import MessageSelectionToolbar from '@/components/ai-group/MessageSelectionToolbar';
-import CreateMissionDialog from '@/components/ai-group/CreateMissionDialog';
-import MissionProgressPanel from '@/components/ai-group/MissionProgressPanel';
+import TopicSettingsDialog from '@/components/ai-teams/TopicSettingsDialog';
+import ResourcesPanel from '@/components/ai-teams/ResourcesPanel';
+import SummaryDialog from '@/components/ai-teams/SummaryDialog';
+import MessageSelectionToolbar from '@/components/ai-teams/MessageSelectionToolbar';
+import CreateMissionDialog from '@/components/ai-teams/CreateMissionDialog';
+import MissionProgressPanel from '@/components/ai-teams/MissionProgressPanel';
 import Sidebar from '@/components/layout/Sidebar';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';

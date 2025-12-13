@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ReadStatus, Collection } from '@/lib/use-collections';
+import { ReadStatus, Collection } from '@/hooks/useCollections';
 
 interface BatchActionBarProps {
   selectedCount: number;

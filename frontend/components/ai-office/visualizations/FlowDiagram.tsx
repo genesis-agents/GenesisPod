@@ -6,8 +6,8 @@
  */
 
 import React from 'react';
-import type { FlowStep } from '@/lib/markdown-parser';
-import type { PPTTemplate } from '@/lib/ppt-templates';
+import type { FlowStep } from '@/lib/ai-office/markdown-parser';
+import type { PPTTemplate } from '@/lib/ai-office/ppt-templates';
 
 interface FlowDiagramProps {
   steps: FlowStep[];

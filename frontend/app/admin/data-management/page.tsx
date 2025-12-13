@@ -1,7 +1,7 @@
 'use client';
 
 import Sidebar from '@/components/layout/Sidebar';
-import { DataManagementDashboard } from '@/components/data-management/DataManagementDashboard';
+import { DataManagementDashboard } from '@/components/admin/data-management/DataManagementDashboard';
 
 export default function Page() {
   return (

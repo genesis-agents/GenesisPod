@@ -4,7 +4,7 @@
  */
 
 import * as pdfjsLib from 'pdfjs-dist';
-import { config } from './config';
+import { config } from '../config';
 
 // Configure PDF.js worker
 // PDF.js 5.x uses .mjs extension and different build path
