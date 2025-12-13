@@ -20,6 +20,9 @@ import {
   Collection,
   PaginatedResult,
 } from '@/lib/use-collections';
+import { useResourceStore } from '@/stores/aiOfficeStore';
+import { useImageSourceStore } from '@/stores/imageSourceStore';
+import type { Resource as AIOfficeResource } from '@/types/ai-office';
 
 export const dynamic = 'force-dynamic';
 
@@ -147,6 +150,43 @@ function LibraryPageContent() {
 
   // API hooks
   const collectionsApi = useCollections();
+
+  // AI Office stores
+  const aiOfficeStore = useResourceStore();
+  const imageSourceStore = useImageSourceStore();
+
+  // Toast state for notifications
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error';
+  } | null>(null);
+
+  // Auto-hide toast after 3 seconds
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  // Convert resource to AI Office format (simplified version for adding to store)
+  const convertToAIOfficeResource = (
+    resource: Resource
+  ): Partial<AIOfficeResource> => ({
+    _id: resource.id,
+    userId: 'current-user',
+    resourceId: resource.id,
+    resourceType: 'web_page' as const,
+    status: 'collected' as const,
+    collectedAt: new Date(),
+    updatedAt: new Date(),
+    metadata: {
+      title: resource.title,
+      description: resource.abstract || '',
+      url: resource.sourceUrl,
+      thumbnailUrl: resource.thumbnailUrl,
+    } as any,
+  });
 
   // Load tags and stats
   const loadTagsAndStats = useCallback(async () => {
@@ -886,6 +926,53 @@ function LibraryPageContent() {
                   />
                 </svg>
               </button>
+              {/* Add to AI Office */}
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (
+                    !aiOfficeStore.resources.some((r) => r._id === resource.id)
+                  ) {
+                    const aiResource = convertToAIOfficeResource(resource);
+                    aiOfficeStore.addResource(aiResource as any);
+                    setToast({
+                      message: `Added "${resource.title.slice(0, 30)}..." to AI Office`,
+                      type: 'success',
+                    });
+                  }
+                }}
+                disabled={aiOfficeStore.resources.some(
+                  (r) => r._id === resource.id
+                )}
+                className={`rounded-lg p-2 shadow-md transition-all ${
+                  aiOfficeStore.resources.some((r) => r._id === resource.id)
+                    ? 'bg-green-100 text-green-600'
+                    : 'bg-white hover:bg-green-50 hover:text-green-600'
+                }`}
+                title={
+                  aiOfficeStore.resources.some((r) => r._id === resource.id)
+                    ? 'Already in AI Office'
+                    : 'Add to AI Office'
+                }
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill={
+                    aiOfficeStore.resources.some((r) => r._id === resource.id)
+                      ? 'currentColor'
+                      : 'none'
+                  }
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+              </button>
               <button
                 onClick={(e) => {
                   e.preventDefault();
@@ -1393,6 +1480,124 @@ function LibraryPageContent() {
                         className="h-full w-full object-cover transition-transform group-hover:scale-105"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+
+                      {/* Action buttons - visible on hover */}
+                      <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                        {/* Add to Image Source Pool */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (
+                              !imageSourceStore.sources.some(
+                                (s) => s.id === image.id
+                              )
+                            ) {
+                              imageSourceStore.addSource({
+                                id: image.id,
+                                type: 'blog', // AI generated images
+                                title: image.prompt.slice(0, 50),
+                                url: image.imageUrl,
+                                thumbnailUrl: image.imageUrl,
+                                addedAt: new Date(),
+                              });
+                              setToast({
+                                message: 'Added to Image Source Pool',
+                                type: 'success',
+                              });
+                            }
+                          }}
+                          disabled={imageSourceStore.sources.some(
+                            (s) => s.id === image.id
+                          )}
+                          className={`rounded-lg p-2 shadow-md backdrop-blur-sm transition-all ${
+                            imageSourceStore.sources.some(
+                              (s) => s.id === image.id
+                            )
+                              ? 'bg-purple-100 text-purple-600'
+                              : 'bg-white/90 hover:bg-purple-50 hover:text-purple-600'
+                          }`}
+                          title={
+                            imageSourceStore.sources.some(
+                              (s) => s.id === image.id
+                            )
+                              ? 'Added to Image Pool'
+                              : 'Add to Image Source Pool'
+                          }
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill={
+                              imageSourceStore.sources.some(
+                                (s) => s.id === image.id
+                              )
+                                ? 'currentColor'
+                                : 'none'
+                            }
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
+                          </svg>
+                        </button>
+                        {/* Download */}
+                        <a
+                          href={image.imageUrl}
+                          download
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="rounded-lg bg-white/90 p-2 shadow-md backdrop-blur-sm transition-all hover:bg-white hover:text-blue-600"
+                          title="Download"
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                            />
+                          </svg>
+                        </a>
+                        {/* Remove */}
+                        <button
+                          onClick={(e) =>
+                            handleRemoveImageBookmark(image.id, e)
+                          }
+                          className="rounded-lg bg-white/90 p-2 shadow-md backdrop-blur-sm transition-all hover:bg-red-50 hover:text-red-600"
+                          title="Remove from Library"
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+
                       <div className="absolute bottom-0 left-0 right-0 p-3 text-white opacity-0 transition-opacity group-hover:opacity-100">
                         <p className="line-clamp-2 text-sm">{image.prompt}</p>
                       </div>
@@ -1827,6 +2032,52 @@ function LibraryPageContent() {
                 </svg>
                 Remove from Library
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast notification */}
+      {toast && (
+        <div className="fixed bottom-4 right-4 z-50 animate-fade-in">
+          <div
+            className={`rounded-lg px-4 py-3 shadow-lg ${
+              toast.type === 'success'
+                ? 'bg-green-600 text-white'
+                : 'bg-red-600 text-white'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {toast.type === 'success' ? (
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              )}
+              <span className="text-sm font-medium">{toast.message}</span>
             </div>
           </div>
         </div>
