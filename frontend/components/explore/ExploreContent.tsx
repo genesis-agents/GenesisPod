@@ -18,6 +18,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import ReportWorkspace from '@/components/features/ReportWorkspace';
 import ResourceThumbnail from '@/components/explore/ResourceThumbnail';
+import { InsightBadge } from '@/components/explore/InsightBadge';
 
 // Extract base64 images from markdown content
 function extractImagesFromMarkdown(content: string): {
@@ -2425,6 +2426,15 @@ function HomeContent() {
                                 </span>
                               )}
                             </p>
+
+                            {/* AI Insights Badge */}
+                            {resource.keyInsights &&
+                              resource.keyInsights.length > 0 && (
+                                <InsightBadge
+                                  insights={resource.keyInsights}
+                                  maxVisible={2}
+                                />
+                              )}
 
                             {/* Spacer */}
                             <div className="flex-1"></div>

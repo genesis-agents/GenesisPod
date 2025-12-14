@@ -23,6 +23,8 @@ import {
 import { useResourceStore } from '@/stores/aiOfficeStore';
 import { useImageSourceStore } from '@/stores/imageSourceStore';
 import type { Resource as AIOfficeResource } from '@/types/ai-office';
+import { AddToAIStudioDialog } from '@/components/shared/dialogs/AddToAIStudioDialog';
+import AIOrganizePanel from '@/components/library/AIOrganizePanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -160,6 +162,11 @@ function LibraryPageContent() {
     message: string;
     type: 'success' | 'error';
   } | null>(null);
+
+  // AI Studio dialog state
+  const [aiStudioDialogOpen, setAiStudioDialogOpen] = useState(false);
+  const [selectedResourceForStudio, setSelectedResourceForStudio] =
+    useState<Resource | null>(null);
 
   // Auto-hide toast after 3 seconds
   useEffect(() => {
@@ -1007,6 +1014,31 @@ function LibraryPageContent() {
                   />
                 </svg>
               </button>
+              {/* Add to AI Studio */}
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setSelectedResourceForStudio(resource);
+                  setAiStudioDialogOpen(true);
+                }}
+                className="rounded-lg bg-white p-2 shadow-md transition-all hover:bg-purple-50 hover:text-purple-600"
+                title="Add to AI Studio"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+                  />
+                </svg>
+              </button>
               <button
                 onClick={(e) => {
                   e.preventDefault();
@@ -1282,6 +1314,21 @@ function LibraryPageContent() {
 
         {/* Main content area */}
         <div className="px-8 py-6">
+          {/* AI Organize Panel - Only show in Bookmarks tab */}
+          {activeTab === 'bookmarks' && (
+            <AIOrganizePanel
+              collections={collections.map((c) => ({
+                id: c.id,
+                name: c.name,
+                itemCount: c.items?.length || 0,
+              }))}
+              onRefresh={() => {
+                loadItems(1, false);
+                loadTagsAndStats();
+              }}
+            />
+          )}
+
           {/* Bookmarks and All Content View */}
           {activeTab === 'bookmarks' &&
             (loading ? (
@@ -2119,6 +2166,24 @@ function LibraryPageContent() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Add to AI Studio Dialog */}
+      {selectedResourceForStudio && (
+        <AddToAIStudioDialog
+          isOpen={aiStudioDialogOpen}
+          onClose={() => {
+            setAiStudioDialogOpen(false);
+            setSelectedResourceForStudio(null);
+          }}
+          resource={selectedResourceForStudio}
+          onSuccess={(projectId, projectName) => {
+            setToast({
+              message: `Added to "${projectName}" in AI Studio`,
+              type: 'success',
+            });
+          }}
+        />
       )}
     </div>
   );

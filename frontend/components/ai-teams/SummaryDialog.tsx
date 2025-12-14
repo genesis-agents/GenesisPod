@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { Topic, TopicSummary, GenerateSummaryDto } from '@/types/ai-teams';
 import { useAIModels } from '@/hooks/useAIModels';
 import * as api from '@/lib/api/ai-teams';
+import { useResourceStore } from '@/stores/aiOfficeStore';
+import { FileText, Download, CheckCircle } from 'lucide-react';
 
 interface SummaryDialogProps {
   topic: Topic;
@@ -17,7 +19,11 @@ export default function SummaryDialog({ topic, onClose }: SummaryDialogProps) {
   const [selectedSummary, setSelectedSummary] = useState<TopicSummary | null>(
     null
   );
+  const [exportedSummaries, setExportedSummaries] = useState<Set<string>>(
+    new Set()
+  );
   const { models: aiModels } = useAIModels();
+  const aiOfficeStore = useResourceStore();
 
   // 查找模型：优先用 modelId 匹配，兼容旧数据
   const findModel = (aiModel: string) => {
@@ -55,6 +61,46 @@ export default function SummaryDialog({ topic, onClose }: SummaryDialogProps) {
     } catch (error) {
       console.error('Failed to delete summary:', error);
     }
+  };
+
+  const handleExportToAIOffice = (summary: TopicSummary) => {
+    const resourceId = `summary-${summary.id}`;
+
+    // Check if already exported
+    if (aiOfficeStore.resources.some((r) => r._id === resourceId)) {
+      return;
+    }
+
+    // Convert summary to AI Office resource format
+    const summaryAsResource = {
+      _id: resourceId,
+      userId: 'current-user',
+      resourceId: summary.id,
+      resourceType: 'text' as const,
+      status: 'collected' as const,
+      collectedAt: new Date(),
+      updatedAt: new Date(),
+      metadata: {
+        title: summary.title,
+        description: `AI Team Summary from "${topic.name}"`,
+        url: '',
+      },
+      extractedContent: {
+        summary: summary.content,
+        fullText: summary.content,
+        tags: ['ai-team-summary', topic.name],
+      },
+    };
+
+    aiOfficeStore.addResource(summaryAsResource as any);
+    setExportedSummaries((prev) => new Set([...prev, summary.id]));
+  };
+
+  const isExported = (summaryId: string) => {
+    return (
+      exportedSummaries.has(summaryId) ||
+      aiOfficeStore.resources.some((r) => r._id === `summary-${summaryId}`)
+    );
   };
 
   const formatDate = (dateStr: string) => {
@@ -195,25 +241,56 @@ export default function SummaryDialog({ topic, onClose }: SummaryDialogProps) {
                       </p>
                     )}
                   </div>
-                  <button
-                    onClick={() => handleDeleteSummary(selectedSummary.id)}
-                    className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
-                    title="Delete summary"
-                  >
-                    <svg
-                      className="h-5 w-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  <div className="flex items-center gap-2">
+                    {/* Export to AI Office Button */}
+                    <button
+                      onClick={() => handleExportToAIOffice(selectedSummary)}
+                      disabled={isExported(selectedSummary.id)}
+                      className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                        isExported(selectedSummary.id)
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                      }`}
+                      title={
+                        isExported(selectedSummary.id)
+                          ? 'Already in AI Office'
+                          : 'Export to AI Office'
+                      }
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    </svg>
-                  </button>
+                      {isExported(selectedSummary.id) ? (
+                        <>
+                          <CheckCircle className="h-4 w-4" />
+                          Exported
+                        </>
+                      ) : (
+                        <>
+                          <FileText className="h-4 w-4" />
+                          Add to AI Office
+                        </>
+                      )}
+                    </button>
+
+                    {/* Delete Button */}
+                    <button
+                      onClick={() => handleDeleteSummary(selectedSummary.id)}
+                      className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                      title="Delete summary"
+                    >
+                      <svg
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 <div className="prose prose-sm max-w-none">
                   <div className="whitespace-pre-wrap rounded-lg bg-gray-50 p-4 text-gray-700">

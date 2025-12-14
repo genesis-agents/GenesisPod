@@ -310,4 +310,60 @@ export class CollectionsController {
     }
     return this.collectionsService.batchUpdateStatus(req.user.id, dto);
   }
+
+  // ========== AI Organize Endpoints ==========
+
+  /**
+   * 获取AI整理统计数据（需要认证）
+   */
+  @Get("ai/stats")
+  @UseGuards(JwtAuthGuard)
+  async getAIOrganizeStats(@Request() req: any) {
+    if (!req.user?.id) {
+      throw new UnauthorizedException("User authentication required");
+    }
+    return this.collectionsService.getAIOrganizeStats(req.user.id);
+  }
+
+  /**
+   * AI批量生成标签（需要认证）
+   */
+  @Post("ai/batch-tags")
+  @UseGuards(JwtAuthGuard)
+  async aiBatchTags(
+    @Request() req: any,
+    @Body() body: { collectionId?: string },
+  ) {
+    if (!req.user?.id) {
+      throw new UnauthorizedException("User authentication required");
+    }
+    return this.collectionsService.aiBatchGenerateTags(
+      req.user.id,
+      body.collectionId,
+    );
+  }
+
+  /**
+   * AI智能分类建议（需要认证）
+   */
+  @Post("ai/smart-classify")
+  @UseGuards(JwtAuthGuard)
+  async aiSmartClassify(@Request() req: any) {
+    if (!req.user?.id) {
+      throw new UnauthorizedException("User authentication required");
+    }
+    return this.collectionsService.aiSmartClassify(req.user.id);
+  }
+
+  /**
+   * AI主题聚类发现（需要认证）
+   */
+  @Post("ai/theme-cluster")
+  @UseGuards(JwtAuthGuard)
+  async aiThemeCluster(@Request() req: any) {
+    if (!req.user?.id) {
+      throw new UnauthorizedException("User authentication required");
+    }
+    return this.collectionsService.aiThemeCluster(req.user.id);
+  }
 }

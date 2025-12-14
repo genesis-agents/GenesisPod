@@ -4,7 +4,10 @@ import {
   ForbiddenException,
   Logger,
 } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+import { AiChatService } from "../../ai/ai-core/ai-chat.service";
+import { AIModelService } from "../../ai/ai-office/ai-model.service";
 import {
   CreateCollectionDto,
   UpdateCollectionDto,
@@ -29,7 +32,11 @@ import {
 export class CollectionsService {
   private readonly logger = new Logger(CollectionsService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private aiChatService: AiChatService,
+    private aiModelService: AIModelService,
+  ) {}
 
   /**
    * 创建收藏集
@@ -268,7 +275,95 @@ export class CollectionsService {
       `Resource ${dto.resourceId} added to collection ${collectionId}`,
     );
 
+    // 异步生成AI标签（不阻塞返回）
+    this.generateAutoTags(
+      item.id,
+      item.resource
+        ? {
+            title: item.resource.title,
+            abstract: item.resource.abstract ?? undefined,
+            type: item.resource.type ?? undefined,
+          }
+        : null,
+    ).catch((err: Error) => {
+      this.logger.warn(`Failed to generate auto-tags: ${err.message}`);
+    });
+
     return { success: true, item };
+  }
+
+  /**
+   * AI自动生成标签
+   * 使用配置的默认文本模型，不硬编码模型名称
+   */
+  private async generateAutoTags(
+    itemId: string,
+    resource: { title: string; abstract?: string; type?: string } | null,
+  ) {
+    if (!resource) return;
+
+    try {
+      // 获取配置的默认文本模型
+      const model = await this.aiModelService.getDefaultTextModel();
+      const content = `Title: ${resource.title}\n${resource.abstract ? `Abstract: ${resource.abstract}` : ""}`;
+
+      const response = await this.aiChatService.generateChatCompletionWithKey({
+        provider: model.provider,
+        modelId: model.modelId,
+        apiKey: model.apiKey || "",
+        apiEndpoint: model.apiEndpoint || undefined,
+        messages: [
+          {
+            role: "system",
+            content:
+              'You are a tagging assistant. Generate 3-5 relevant tags for the given content. Return ONLY a JSON array of strings, no other text. Example: ["machine learning", "NLP", "deep learning"]',
+          },
+          {
+            role: "user",
+            content: `Generate tags for:\n${content}`,
+          },
+        ],
+        temperature: 0.3,
+        maxTokens: 200,
+      });
+
+      // Parse the response to extract tags
+      const tagsText = response.content.trim();
+      let tags: string[] = [];
+
+      try {
+        // Try to parse as JSON array
+        tags = JSON.parse(tagsText);
+        if (!Array.isArray(tags)) {
+          tags = [];
+        }
+      } catch {
+        // Fallback: extract words that look like tags
+        const matches = tagsText.match(/"([^"]+)"/g);
+        if (matches) {
+          tags = matches.map((m) => m.replace(/"/g, ""));
+        }
+      }
+
+      // Limit to 5 tags and clean up
+      tags = tags
+        .slice(0, 5)
+        .map((t) => t.toLowerCase().trim())
+        .filter((t) => t.length > 0 && t.length <= 30);
+
+      if (tags.length > 0) {
+        await this.prisma.collectionItem.update({
+          where: { id: itemId },
+          data: { tags },
+        });
+        this.logger.log(
+          `Auto-tags generated for item ${itemId} using ${model.displayName}: ${tags.join(", ")}`,
+        );
+      }
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Auto-tagging failed for item ${itemId}: ${errMsg}`);
+    }
   }
 
   /**
@@ -623,6 +718,378 @@ export class CollectionsService {
       recentItems,
       byStatus: statusCounts,
     };
+  }
+
+  // ========== AI Organize Methods ==========
+
+  /**
+   * 获取AI整理统计数据
+   */
+  async getAIOrganizeStats(userId: string) {
+    const [totalCount, untaggedCount, unclassifiedCount] = await Promise.all([
+      // 总数
+      this.prisma.collectionItem.count({
+        where: { collection: { userId } },
+      }),
+      // 没有标签的数量
+      this.prisma.collectionItem.count({
+        where: {
+          collection: { userId },
+          OR: [{ tags: { equals: [] } }, { tags: { equals: Prisma.DbNull } }],
+        },
+      }),
+      // 在默认收藏集中的数量（未分类）
+      this.prisma.collectionItem.count({
+        where: {
+          collection: {
+            userId,
+            name: { in: ["默认收藏", "Default", "Uncategorized"] },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      totalCount,
+      untaggedCount,
+      unclassifiedCount,
+    };
+  }
+
+  /**
+   * AI批量生成标签
+   * 使用配置的默认文本模型，不硬编码模型名称
+   */
+  async aiBatchGenerateTags(userId: string, collectionId?: string) {
+    // 获取配置的默认文本模型
+    const model = await this.aiModelService.getDefaultTextModel();
+    this.logger.log(`AI batch tagging using model: ${model.displayName}`);
+
+    // 获取没有标签的收藏项
+    const whereClause: Record<string, unknown> = {
+      collection: { userId },
+      OR: [{ tags: { equals: [] } }, { tags: { equals: Prisma.DbNull } }],
+    };
+
+    if (collectionId) {
+      whereClause.collectionId = collectionId;
+    }
+
+    const items = await this.prisma.collectionItem.findMany({
+      where: whereClause,
+      include: {
+        resource: {
+          select: {
+            id: true,
+            title: true,
+            abstract: true,
+            type: true,
+          },
+        },
+      },
+      take: 50, // 限制每次处理数量
+    });
+
+    if (items.length === 0) {
+      return { taggedCount: 0, message: "No items without tags found" };
+    }
+
+    let taggedCount = 0;
+    const errors: string[] = [];
+
+    // 并行处理（每批5个）
+    const batchSize = 5;
+    for (let i = 0; i < items.length; i += batchSize) {
+      const batch = items.slice(i, i + batchSize);
+      const results = await Promise.allSettled(
+        batch.map(async (item) => {
+          if (!item.resource) return null;
+
+          const content = `Title: ${item.resource.title}\n${item.resource.abstract ? `Abstract: ${item.resource.abstract}` : ""}`;
+
+          try {
+            const response =
+              await this.aiChatService.generateChatCompletionWithKey({
+                provider: model.provider,
+                modelId: model.modelId,
+                apiKey: model.apiKey || "",
+                apiEndpoint: model.apiEndpoint || undefined,
+                messages: [
+                  {
+                    role: "system",
+                    content:
+                      'You are a tagging assistant. Generate 3-5 relevant tags for the given content. Return ONLY a JSON array of strings, no other text. Example: ["machine learning", "NLP"]',
+                  },
+                  {
+                    role: "user",
+                    content: `Generate tags for:\n${content}`,
+                  },
+                ],
+                temperature: 0.3,
+                maxTokens: 200,
+              });
+
+            let tags: string[] = [];
+            try {
+              tags = JSON.parse(response.content.trim());
+              if (!Array.isArray(tags)) tags = [];
+            } catch {
+              const matches = response.content.match(/"([^"]+)"/g);
+              if (matches) {
+                tags = matches.map((m) => m.replace(/"/g, ""));
+              }
+            }
+
+            tags = tags
+              .slice(0, 5)
+              .map((t) => t.toLowerCase().trim())
+              .filter((t) => t.length > 0 && t.length <= 30);
+
+            if (tags.length > 0) {
+              await this.prisma.collectionItem.update({
+                where: { id: item.id },
+                data: { tags },
+              });
+              return true;
+            }
+            return false;
+          } catch (err: unknown) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            this.logger.warn(`Failed to tag item ${item.id}: ${errMsg}`);
+            return false;
+          }
+        }),
+      );
+
+      results.forEach((result) => {
+        if (result.status === "fulfilled" && result.value) {
+          taggedCount++;
+        }
+      });
+    }
+
+    this.logger.log(
+      `AI batch tagging completed: ${taggedCount}/${items.length} items tagged using ${model.displayName}`,
+    );
+
+    return {
+      taggedCount,
+      totalProcessed: items.length,
+      errors: errors.length > 0 ? errors : undefined,
+    };
+  }
+
+  /**
+   * AI智能分类建议
+   * 使用配置的默认文本模型，不硬编码模型名称
+   */
+  async aiSmartClassify(userId: string) {
+    // 获取配置的默认文本模型
+    const model = await this.aiModelService.getDefaultTextModel();
+    this.logger.log(`AI smart classify using model: ${model.displayName}`);
+
+    // 获取用户的所有收藏集
+    const collections = await this.prisma.collection.findMany({
+      where: { userId },
+      select: { id: true, name: true, description: true },
+    });
+
+    if (collections.length <= 1) {
+      return {
+        suggestions: [],
+        message: "Need at least 2 collections for smart classification",
+      };
+    }
+
+    // 获取默认收藏集中的项目
+    const defaultItems = await this.prisma.collectionItem.findMany({
+      where: {
+        collection: {
+          userId,
+          name: { in: ["默认收藏", "Default", "Uncategorized"] },
+        },
+      },
+      include: {
+        resource: {
+          select: {
+            id: true,
+            title: true,
+            abstract: true,
+            type: true,
+          },
+        },
+      },
+      take: 20,
+    });
+
+    if (defaultItems.length === 0) {
+      return { suggestions: [], message: "No uncategorized items to classify" };
+    }
+
+    const collectionDescriptions = collections
+      .filter((c) => !["默认收藏", "Default", "Uncategorized"].includes(c.name))
+      .map((c) => `- ${c.name}: ${c.description || "No description"}`)
+      .join("\n");
+
+    const suggestions: Array<{
+      itemId: string;
+      resourceTitle: string;
+      suggestedCollection: string;
+      confidence: number;
+    }> = [];
+
+    // 批量处理
+    for (const item of defaultItems.slice(0, 10)) {
+      if (!item.resource) continue;
+
+      try {
+        const response = await this.aiChatService.generateChatCompletionWithKey(
+          {
+            provider: model.provider,
+            modelId: model.modelId,
+            apiKey: model.apiKey || "",
+            apiEndpoint: model.apiEndpoint || undefined,
+            messages: [
+              {
+                role: "system",
+                content: `You are a classification assistant. Given a resource and a list of collections, suggest the best matching collection. Return ONLY a JSON object with "collection" (string) and "confidence" (number 0-1).`,
+              },
+              {
+                role: "user",
+                content: `Resource: ${item.resource.title}\n${item.resource.abstract || ""}\n\nAvailable collections:\n${collectionDescriptions}\n\nWhich collection fits best?`,
+              },
+            ],
+            temperature: 0.3,
+            maxTokens: 200,
+          },
+        );
+
+        try {
+          const result = JSON.parse(response.content.trim());
+          if (result.collection) {
+            suggestions.push({
+              itemId: item.id,
+              resourceTitle: item.resource.title,
+              suggestedCollection: result.collection,
+              confidence: result.confidence || 0.5,
+            });
+          }
+        } catch {
+          // Parse error, skip
+        }
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        this.logger.warn(`Classification failed for ${item.id}: ${errMsg}`);
+      }
+    }
+
+    return {
+      suggestions,
+      totalProcessed: defaultItems.length,
+    };
+  }
+
+  /**
+   * AI主题聚类发现
+   * 使用配置的默认文本模型，不硬编码模型名称
+   */
+  async aiThemeCluster(userId: string) {
+    // 获取配置的默认文本模型
+    const model = await this.aiModelService.getDefaultTextModel();
+    this.logger.log(`AI theme cluster using model: ${model.displayName}`);
+
+    // 获取用户所有收藏项的标题和摘要
+    const items = await this.prisma.collectionItem.findMany({
+      where: { collection: { userId } },
+      include: {
+        resource: {
+          select: {
+            id: true,
+            title: true,
+            abstract: true,
+          },
+        },
+      },
+      take: 100,
+    });
+
+    if (items.length < 5) {
+      return {
+        clusters: [],
+        message: "Need at least 5 items for theme clustering",
+      };
+    }
+
+    // 构建内容摘要
+    const contentSummary = items
+      .filter((item) => item.resource)
+      .slice(0, 50)
+      .map((item, idx) => `${idx + 1}. ${item.resource!.title}`)
+      .join("\n");
+
+    try {
+      const response = await this.aiChatService.generateChatCompletionWithKey({
+        provider: model.provider,
+        modelId: model.modelId,
+        apiKey: model.apiKey || "",
+        apiEndpoint: model.apiEndpoint || undefined,
+        messages: [
+          {
+            role: "system",
+            content: `You are a theme discovery assistant. Analyze the given list of resource titles and identify 3-7 main themes or topics. Return ONLY a JSON array of objects with "name" (theme name) and "keywords" (array of related keywords).`,
+          },
+          {
+            role: "user",
+            content: `Analyze these resources and identify main themes:\n\n${contentSummary}`,
+          },
+        ],
+        temperature: 0.5,
+        maxTokens: 1000,
+      });
+
+      let clusters: Array<{
+        name: string;
+        keywords: string[];
+        count?: number;
+      }> = [];
+
+      try {
+        clusters = JSON.parse(response.content.trim());
+        if (!Array.isArray(clusters)) clusters = [];
+
+        // 计算每个主题的资源数量
+        clusters = clusters.map((cluster) => {
+          const keywords = cluster.keywords || [];
+          const matchCount = items.filter((item) => {
+            const title = item.resource?.title?.toLowerCase() || "";
+            return keywords.some(
+              (kw: string) =>
+                title.includes(kw.toLowerCase()) ||
+                cluster.name.toLowerCase().includes(kw.toLowerCase()),
+            );
+          }).length;
+
+          return {
+            ...cluster,
+            count: matchCount || Math.floor(items.length / clusters.length),
+          };
+        });
+      } catch {
+        this.logger.warn("Failed to parse theme clusters response");
+      }
+
+      return {
+        clusters,
+        totalItems: items.length,
+      };
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Theme clustering failed: ${errMsg}`);
+      return {
+        clusters: [],
+        error: errMsg,
+      };
+    }
   }
 
   /**
