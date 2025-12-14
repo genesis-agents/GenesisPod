@@ -3,10 +3,16 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Inject,
+  forwardRef,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { GenerateReportDto } from "./dto/generate-report.dto";
+import {
+  DocumentExportService,
+  ExportFormat,
+} from "../../ai/ai-office/document-export.service";
 import axios from "axios";
 
 interface ReportSection {
@@ -23,7 +29,11 @@ interface AIReportResponse {
 
 @Injectable()
 export class ReportsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(forwardRef(() => DocumentExportService))
+    private documentExportService: DocumentExportService,
+  ) {}
 
   /**
    * 生成报告
@@ -228,6 +238,7 @@ export class ReportsService {
 
   /**
    * 导出文档为各种格式
+   * 使用 NestJS 依赖注入的 DocumentExportService
    */
   async exportDocument(dto: any, res: any) {
     try {
@@ -241,8 +252,15 @@ export class ReportsService {
         });
       }
 
-      // 验证格式
-      const validFormats = ["word", "ppt", "pdf", "markdown"];
+      // 验证格式并映射到新的格式名称
+      const formatMapping: Record<string, ExportFormat> = {
+        word: "docx",
+        ppt: "pptx",
+        pdf: "pdf",
+        markdown: "markdown",
+      };
+
+      const validFormats = Object.keys(formatMapping);
       if (!validFormats.includes(format)) {
         return res.status(400).json({
           success: false,
@@ -250,41 +268,22 @@ export class ReportsService {
         });
       }
 
-      // 导入并使用导出服务
-      const { documentExportService } = await import(
-        "../../../services/document-export.service"
-      );
-      const buffer = await documentExportService.exportDocument({
+      // 使用注入的 DocumentExportService
+      const exportFormat = formatMapping[format];
+      const result = await this.documentExportService.exportDocument({
         title,
         content,
-        format,
+        format: exportFormat,
+        documentType: format === "ppt" ? "PPT" : "REPORT",
       });
 
       // 设置响应头
-      const contentType =
-        format === "word"
-          ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-          : format === "ppt"
-            ? "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-            : format === "pdf"
-              ? "application/pdf"
-              : "text/markdown";
-
-      const filename =
-        format === "word"
-          ? `${title}.docx`
-          : format === "ppt"
-            ? `${title}.pptx`
-            : format === "pdf"
-              ? `${title}.pdf`
-              : `${title}.md`;
-
-      res.setHeader("Content-Type", contentType);
+      res.setHeader("Content-Type", result.mimeType);
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename="${encodeURIComponent(filename)}"`,
+        `attachment; filename="${encodeURIComponent(result.filename)}"`,
       );
-      return res.send(buffer);
+      return res.send(result.buffer);
     } catch (error) {
       console.error("Export error:", error);
       return res.status(500).json({

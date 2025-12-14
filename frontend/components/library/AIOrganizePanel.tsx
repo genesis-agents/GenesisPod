@@ -54,6 +54,7 @@ export default function AIOrganizePanel({
   activeTab = 'bookmarks',
 }: AIOrganizePanelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [resultsModal, setResultsModal] = useState<TaskType | null>(null);
   const [stats, setStats] = useState({
     untaggedCount: 0,
     unclassifiedCount: 0,
@@ -748,6 +749,15 @@ export default function AIOrganizePanel({
                     {taskStates['notes-keypoints'].message}
                   </div>
                 )}
+                {taskStates['notes-keypoints'].status === 'success' &&
+                  taskStates['notes-keypoints'].results && (
+                    <button
+                      onClick={() => setResultsModal('notes-keypoints')}
+                      className="mt-2 w-full rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100"
+                    >
+                      View Results / 查看结果
+                    </button>
+                  )}
               </div>
 
               {/* Find Connections */}
@@ -794,6 +804,15 @@ export default function AIOrganizePanel({
                     {taskStates['notes-connections'].message}
                   </div>
                 )}
+                {taskStates['notes-connections'].status === 'success' &&
+                  taskStates['notes-connections'].results && (
+                    <button
+                      onClick={() => setResultsModal('notes-connections')}
+                      className="mt-2 w-full rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                    >
+                      View Results / 查看结果
+                    </button>
+                  )}
               </div>
 
               {/* Summarize All */}
@@ -838,6 +857,15 @@ export default function AIOrganizePanel({
                     {taskStates['notes-summarize'].message}
                   </div>
                 )}
+                {taskStates['notes-summarize'].status === 'success' &&
+                  taskStates['notes-summarize'].results && (
+                    <button
+                      onClick={() => setResultsModal('notes-summarize')}
+                      className="mt-2 w-full rounded-lg border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700 hover:bg-teal-100"
+                    >
+                      View Results / 查看结果
+                    </button>
+                  )}
               </div>
             </div>
           )}
@@ -887,6 +915,15 @@ export default function AIOrganizePanel({
                     {taskStates['images-autotag'].message}
                   </div>
                 )}
+                {taskStates['images-autotag'].status === 'success' &&
+                  taskStates['images-autotag'].results && (
+                    <button
+                      onClick={() => setResultsModal('images-autotag')}
+                      className="mt-2 w-full rounded-lg border border-pink-200 bg-pink-50 px-3 py-1.5 text-xs font-medium text-pink-700 hover:bg-pink-100"
+                    >
+                      View Results / 查看结果
+                    </button>
+                  )}
               </div>
 
               {/* Style Analysis */}
@@ -931,6 +968,15 @@ export default function AIOrganizePanel({
                     {taskStates['images-style'].message}
                   </div>
                 )}
+                {taskStates['images-style'].status === 'success' &&
+                  taskStates['images-style'].results && (
+                    <button
+                      onClick={() => setResultsModal('images-style')}
+                      className="mt-2 w-full rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100"
+                    >
+                      View Results / 查看结果
+                    </button>
+                  )}
               </div>
 
               {/* Visual Clusters */}
@@ -975,6 +1021,15 @@ export default function AIOrganizePanel({
                     {taskStates['images-cluster'].message}
                   </div>
                 )}
+                {taskStates['images-cluster'].status === 'success' &&
+                  taskStates['images-cluster'].results && (
+                    <button
+                      onClick={() => setResultsModal('images-cluster')}
+                      className="mt-2 w-full rounded-lg border border-fuchsia-200 bg-fuchsia-50 px-3 py-1.5 text-xs font-medium text-fuchsia-700 hover:bg-fuchsia-100"
+                    >
+                      View Results / 查看结果
+                    </button>
+                  )}
               </div>
             </div>
           )}
@@ -1032,270 +1087,326 @@ export default function AIOrganizePanel({
                 )}
             </>
           )}
+        </div>
+      )}
 
-          {/* Results Display - Notes Tab */}
-          {activeTab === 'notes' && (
-            <>
-              {/* Key Points Results */}
-              {taskStates['notes-keypoints'].status === 'success' &&
-                taskStates['notes-keypoints'].results?.keyPoints?.length >
-                  0 && (
-                  <div className="mt-4 rounded-lg border border-green-100 bg-green-50/50 p-4">
-                    <h4 className="mb-3 font-medium text-green-900">
-                      Key Insights Extracted
-                    </h4>
-                    <div className="space-y-2">
-                      {taskStates['notes-keypoints'].results.keyPoints.map(
-                        (point: any, index: number) => (
-                          <div
-                            key={index}
-                            className="rounded-lg bg-white p-3 shadow-sm"
-                          >
-                            <div className="flex items-start gap-2">
-                              <span
-                                className={`mt-1 h-2 w-2 flex-shrink-0 rounded-full ${
-                                  point.importance === 'high'
-                                    ? 'bg-red-500'
-                                    : point.importance === 'medium'
-                                      ? 'bg-amber-500'
-                                      : 'bg-blue-500'
-                                }`}
-                              />
-                              <div>
-                                <p className="font-medium text-gray-900">
-                                  {point.title}
+      {/* Results Modal - Bilingual Popup */}
+      {resultsModal && taskStates[resultsModal]?.results && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setResultsModal(null)}
+        >
+          <div
+            className="max-h-[80vh] w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {resultsModal === 'notes-keypoints' &&
+                    'Key Points / 关键要点'}
+                  {resultsModal === 'notes-connections' &&
+                    'Connections / 笔记关联'}
+                  {resultsModal === 'notes-summarize' && 'Summary / 总结摘要'}
+                  {resultsModal === 'images-autotag' && 'Auto Tags / 自动标签'}
+                  {resultsModal === 'images-style' &&
+                    'Style Analysis / 风格分析'}
+                  {resultsModal === 'images-cluster' &&
+                    'Visual Themes / 视觉主题'}
+                </h3>
+                <p className="text-sm text-gray-500">
+                  {resultsModal === 'notes-keypoints' &&
+                    'Key insights extracted from your notes / 从笔记中提取的关键见解'}
+                  {resultsModal === 'notes-connections' &&
+                    'Hidden connections between notes / 笔记之间的隐藏关联'}
+                  {resultsModal === 'notes-summarize' &&
+                    'Comprehensive summary of all notes / 所有笔记的综合总结'}
+                  {resultsModal === 'images-autotag' &&
+                    'AI-generated tags for your images / AI为图片生成的标签'}
+                  {resultsModal === 'images-style' &&
+                    'Art styles and themes detected / 检测到的艺术风格和主题'}
+                  {resultsModal === 'images-cluster' &&
+                    'Images grouped by visual similarity / 按视觉相似度分组的图片'}
+                </p>
+              </div>
+              <button
+                onClick={() => setResultsModal(null)}
+                className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="max-h-[60vh] overflow-y-auto p-6">
+              {/* Notes Key Points */}
+              {resultsModal === 'notes-keypoints' && (
+                <div className="space-y-4">
+                  {taskStates[resultsModal].results.keyPoints?.length > 0 ? (
+                    taskStates[resultsModal].results.keyPoints.map(
+                      (point: any, index: number) => (
+                        <div
+                          key={index}
+                          className="rounded-lg border border-green-100 bg-green-50 p-4"
+                        >
+                          <div className="mb-2 flex items-start gap-2">
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green-500 text-xs font-bold text-white">
+                              {index + 1}
+                            </span>
+                            <div className="flex-1">
+                              <p className="font-medium text-green-900">
+                                {point.insight || point.title || point}
+                              </p>
+                              {point.source && (
+                                <p className="mt-1 text-xs text-green-600">
+                                  Source / 来源: {point.source}
                                 </p>
-                                <p className="mt-1 text-sm text-gray-600">
-                                  {point.insight}
-                                </p>
-                              </div>
+                              )}
                             </div>
                           </div>
-                        )
-                      )}
-                    </div>
-                  </div>
-                )}
-
-              {/* Connections Results */}
-              {taskStates['notes-connections'].status === 'success' &&
-                taskStates['notes-connections'].results?.connections?.length >
-                  0 && (
-                  <div className="mt-4 rounded-lg border border-emerald-100 bg-emerald-50/50 p-4">
-                    <h4 className="mb-3 font-medium text-emerald-900">
-                      Discovered Connections
-                    </h4>
-                    <div className="space-y-2">
-                      {taskStates['notes-connections'].results.connections.map(
-                        (conn: any, index: number) => (
-                          <div
-                            key={index}
-                            className="rounded-lg bg-white p-3 shadow-sm"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`rounded-full px-2 py-0.5 text-xs ${
-                                  conn.strength === 'strong'
-                                    ? 'bg-emerald-100 text-emerald-700'
-                                    : conn.strength === 'moderate'
-                                      ? 'bg-yellow-100 text-yellow-700'
-                                      : 'bg-gray-100 text-gray-600'
-                                }`}
-                              >
-                                {conn.strength}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                {conn.theme}
-                              </span>
-                            </div>
-                            <p className="mt-2 text-sm text-gray-700">
-                              {conn.relationship}
-                            </p>
-                          </div>
-                        )
-                      )}
-                    </div>
-                  </div>
-                )}
-
-              {/* Summary Results */}
-              {taskStates['notes-summarize'].status === 'success' &&
-                taskStates['notes-summarize'].results?.summary && (
-                  <div className="mt-4 rounded-lg border border-teal-100 bg-teal-50/50 p-4">
-                    <h4 className="mb-3 font-medium text-teal-900">
-                      Notes Summary
-                    </h4>
-                    <p className="mb-3 text-sm text-gray-700">
-                      {taskStates['notes-summarize'].results.summary}
+                        </div>
+                      )
+                    )
+                  ) : (
+                    <p className="text-center text-gray-500">
+                      No key points found / 未找到关键要点
                     </p>
-                    {taskStates['notes-summarize'].results.themes?.length >
-                      0 && (
-                      <div className="mb-2">
-                        <span className="text-xs font-medium text-gray-500">
-                          Main Themes:
-                        </span>
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {taskStates['notes-summarize'].results.themes.map(
-                            (theme: string, i: number) => (
-                              <span
-                                key={i}
-                                className="rounded-full bg-teal-100 px-2 py-0.5 text-xs text-teal-700"
-                              >
-                                {theme}
-                              </span>
-                            )
+                  )}
+                </div>
+              )}
+
+              {/* Notes Connections */}
+              {resultsModal === 'notes-connections' && (
+                <div className="space-y-4">
+                  {taskStates[resultsModal].results.connections?.length > 0 ? (
+                    taskStates[resultsModal].results.connections.map(
+                      (conn: any, index: number) => (
+                        <div
+                          key={index}
+                          className="rounded-lg border border-emerald-100 bg-emerald-50 p-4"
+                        >
+                          <div className="mb-2 flex items-center gap-2">
+                            <Link2 className="h-4 w-4 text-emerald-600" />
+                            <span className="font-medium text-emerald-900">
+                              Connection #{index + 1}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="rounded-lg bg-white p-2">
+                              <p className="text-xs text-gray-500">
+                                Note 1 / 笔记1
+                              </p>
+                              <p className="text-sm font-medium text-gray-800">
+                                {conn.note1 || conn.from || 'N/A'}
+                              </p>
+                            </div>
+                            <div className="rounded-lg bg-white p-2">
+                              <p className="text-xs text-gray-500">
+                                Note 2 / 笔记2
+                              </p>
+                              <p className="text-sm font-medium text-gray-800">
+                                {conn.note2 || conn.to || 'N/A'}
+                              </p>
+                            </div>
+                          </div>
+                          {conn.reason && (
+                            <p className="mt-2 text-sm text-emerald-700">
+                              Reason / 关联原因: {conn.reason}
+                            </p>
                           )}
                         </div>
-                      </div>
-                    )}
-                    {taskStates['notes-summarize'].results.suggestedActions
-                      ?.length > 0 && (
-                      <div>
-                        <span className="text-xs font-medium text-gray-500">
-                          Suggested Actions:
-                        </span>
-                        <ul className="mt-1 list-inside list-disc text-sm text-gray-600">
-                          {taskStates[
-                            'notes-summarize'
-                          ].results.suggestedActions.map(
-                            (action: string, i: number) => (
-                              <li key={i}>{action}</li>
-                            )
-                          )}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                )}
-            </>
-          )}
+                      )
+                    )
+                  ) : (
+                    <p className="text-center text-gray-500">
+                      No connections found / 未找到关联
+                    </p>
+                  )}
+                </div>
+              )}
 
-          {/* Results Display - Images Tab */}
-          {activeTab === 'images' && (
-            <>
-              {/* Auto Tag Results */}
-              {taskStates['images-autotag'].status === 'success' &&
-                taskStates['images-autotag'].results?.tags?.length > 0 && (
-                  <div className="mt-4 rounded-lg border border-pink-100 bg-pink-50/50 p-4">
-                    <h4 className="mb-3 font-medium text-pink-900">
-                      Generated Tags
-                    </h4>
-                    <div className="space-y-2">
-                      {taskStates['images-autotag'].results.tags
-                        .slice(0, 5)
-                        .map((item: any, index: number) => (
-                          <div
-                            key={index}
-                            className="rounded-lg bg-white p-2 shadow-sm"
-                          >
-                            <div className="flex flex-wrap gap-1">
-                              {item.tags?.map((tag: string, i: number) => (
+              {/* Notes Summary */}
+              {resultsModal === 'notes-summarize' && (
+                <div className="space-y-4">
+                  {taskStates[resultsModal].results.summary ? (
+                    <div className="rounded-lg border border-teal-100 bg-teal-50 p-4">
+                      <p className="whitespace-pre-wrap leading-relaxed text-teal-900">
+                        {taskStates[resultsModal].results.summary}
+                      </p>
+                      {taskStates[resultsModal].results.topics && (
+                        <div className="mt-4 border-t border-teal-200 pt-3">
+                          <p className="mb-2 text-xs font-medium text-teal-700">
+                            Main Topics / 主要主题:
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {taskStates[resultsModal].results.topics.map(
+                              (topic: string, i: number) => (
                                 <span
                                   key={i}
-                                  className="rounded-full bg-pink-100 px-2 py-0.5 text-xs text-pink-700"
+                                  className="rounded-full bg-teal-200 px-3 py-1 text-xs text-teal-800"
                                 >
-                                  {tag}
+                                  {topic}
+                                </span>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-center text-gray-500">
+                      No summary generated / 未生成摘要
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Images Auto Tag */}
+              {resultsModal === 'images-autotag' && (
+                <div className="space-y-4">
+                  {taskStates[resultsModal].results.images?.length > 0 ? (
+                    taskStates[resultsModal].results.images.map(
+                      (img: any, index: number) => (
+                        <div
+                          key={index}
+                          className="rounded-lg border border-pink-100 bg-pink-50 p-4"
+                        >
+                          <p className="mb-2 truncate font-medium text-pink-900">
+                            {img.prompt?.substring(0, 50) ||
+                              img.title ||
+                              `Image #${index + 1}`}
+                            ...
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {(img.tags || []).map((tag: string, i: number) => (
+                              <span
+                                key={i}
+                                className="rounded-full bg-pink-200 px-2.5 py-0.5 text-xs font-medium text-pink-800"
+                              >
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    )
+                  ) : (
+                    <p className="text-center text-gray-500">
+                      No images tagged / 未标记图片
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Images Style Analysis */}
+              {resultsModal === 'images-style' && (
+                <div className="space-y-4">
+                  {taskStates[resultsModal].results.styles?.length > 0 ? (
+                    taskStates[resultsModal].results.styles.map(
+                      (style: any, index: number) => (
+                        <div
+                          key={index}
+                          className="rounded-lg border border-rose-100 bg-rose-50 p-4"
+                        >
+                          <div className="mb-2 flex items-center justify-between">
+                            <span className="font-medium text-rose-900">
+                              {style.name ||
+                                style.style ||
+                                `Style ${index + 1}`}
+                            </span>
+                            <span className="rounded-full bg-rose-200 px-2 py-0.5 text-xs text-rose-800">
+                              {style.count || 0} images / 张图片
+                            </span>
+                          </div>
+                          {style.description && (
+                            <p className="text-sm text-rose-700">
+                              {style.description}
+                            </p>
+                          )}
+                          {style.colors && (
+                            <div className="mt-2 flex gap-1">
+                              {style.colors.map((color: string, i: number) => (
+                                <div
+                                  key={i}
+                                  className="h-6 w-6 rounded-full border border-white shadow-sm"
+                                  style={{ backgroundColor: color }}
+                                  title={color}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    )
+                  ) : (
+                    <p className="text-center text-gray-500">
+                      No styles identified / 未识别到风格
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Images Visual Clusters */}
+              {resultsModal === 'images-cluster' && (
+                <div className="space-y-4">
+                  {taskStates[resultsModal].results.clusters?.length > 0 ? (
+                    taskStates[resultsModal].results.clusters.map(
+                      (cluster: any, index: number) => (
+                        <div
+                          key={index}
+                          className="rounded-lg border border-fuchsia-100 bg-fuchsia-50 p-4"
+                        >
+                          <div className="mb-2 flex items-center justify-between">
+                            <span className="font-medium text-fuchsia-900">
+                              {cluster.theme ||
+                                cluster.name ||
+                                `Theme ${index + 1}`}
+                            </span>
+                            <span className="rounded-full bg-fuchsia-200 px-2 py-0.5 text-xs text-fuchsia-800">
+                              {cluster.count || cluster.images?.length || 0}{' '}
+                              images / 张图片
+                            </span>
+                          </div>
+                          {cluster.description && (
+                            <p className="text-sm text-fuchsia-700">
+                              {cluster.description}
+                            </p>
+                          )}
+                          {cluster.keywords && (
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {cluster.keywords.map((kw: string, i: number) => (
+                                <span
+                                  key={i}
+                                  className="rounded bg-fuchsia-200/50 px-1.5 py-0.5 text-xs text-fuchsia-700"
+                                >
+                                  {kw}
                                 </span>
                               ))}
                             </div>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-
-              {/* Style Analysis Results */}
-              {taskStates['images-style'].status === 'success' &&
-                taskStates['images-style'].results?.styles?.length > 0 && (
-                  <div className="mt-4 rounded-lg border border-rose-100 bg-rose-50/50 p-4">
-                    <h4 className="mb-3 font-medium text-rose-900">
-                      Identified Styles
-                    </h4>
-                    <div className="space-y-2">
-                      {taskStates['images-style'].results.styles.map(
-                        (style: any, index: number) => (
-                          <div
-                            key={index}
-                            className="rounded-lg bg-white p-3 shadow-sm"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium text-gray-900">
-                                {style.name}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                {style.count} images
-                              </span>
-                            </div>
-                            <p className="mt-1 text-sm text-gray-600">
-                              {style.description}
-                            </p>
-                          </div>
-                        )
-                      )}
-                    </div>
-                    {taskStates['images-style'].results.colorPalettes?.length >
-                      0 && (
-                      <div className="mt-3">
-                        <span className="text-xs font-medium text-gray-500">
-                          Color Palettes:
-                        </span>
-                        <div className="mt-1 flex flex-wrap gap-2">
-                          {taskStates['images-style'].results.colorPalettes.map(
-                            (palette: any, i: number) => (
-                              <div key={i} className="flex items-center gap-1">
-                                <span className="text-xs text-gray-600">
-                                  {palette.name}:
-                                </span>
-                                {palette.colors
-                                  ?.slice(0, 4)
-                                  .map((color: string, j: number) => (
-                                    <span
-                                      key={j}
-                                      className="h-4 w-4 rounded-full border border-gray-200"
-                                      style={{ backgroundColor: color }}
-                                      title={color}
-                                    />
-                                  ))}
-                              </div>
-                            )
                           )}
                         </div>
-                      </div>
-                    )}
-                  </div>
-                )}
+                      )
+                    )
+                  ) : (
+                    <p className="text-center text-gray-500">
+                      No visual themes found / 未找到视觉主题
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
 
-              {/* Visual Theme Clusters Results */}
-              {taskStates['images-cluster'].status === 'success' &&
-                taskStates['images-cluster'].results?.clusters?.length > 0 && (
-                  <div className="mt-4 rounded-lg border border-fuchsia-100 bg-fuchsia-50/50 p-4">
-                    <h4 className="mb-3 font-medium text-fuchsia-900">
-                      Visual Theme Clusters
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {taskStates['images-cluster'].results.clusters.map(
-                        (cluster: any, index: number) => (
-                          <div
-                            key={index}
-                            className="rounded-lg bg-white p-3 shadow-sm"
-                          >
-                            <span className="font-medium text-gray-900">
-                              {cluster.name}
-                            </span>
-                            <span className="ml-2 text-xs text-gray-500">
-                              ({cluster.count} images)
-                            </span>
-                            <p className="mt-1 text-xs text-gray-600">
-                              {cluster.description}
-                            </p>
-                          </div>
-                        )
-                      )}
-                    </div>
-                  </div>
-                )}
-            </>
-          )}
+            {/* Modal Footer */}
+            <div className="border-t border-gray-100 px-6 py-4">
+              <button
+                onClick={() => setResultsModal(null)}
+                className="w-full rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+              >
+                Close / 关闭
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -755,6 +755,103 @@ JSON output:`;
     }
   }
 
+  /**
+   * 通用翻译接口（用于文本选择工具栏等场景）
+   * POST /api/v1/ai/translate
+   */
+  @Post("translate")
+  async translate(
+    @Body()
+    body: {
+      text: string;
+      targetLanguage: string;
+      sourceLanguage?: string;
+    },
+  ) {
+    this.logger.log(
+      `Translation request: ${body.text?.substring(0, 50)}... -> ${body.targetLanguage}`,
+    );
+
+    if (!body.text || body.text.trim().length === 0) {
+      throw new BadRequestException("Text is required for translation");
+    }
+
+    if (!body.targetLanguage) {
+      throw new BadRequestException("Target language is required");
+    }
+
+    // Map language codes to full names for better translation
+    const languageNames: Record<string, string> = {
+      zh: "Simplified Chinese",
+      en: "English",
+      ja: "Japanese",
+      ko: "Korean",
+      fr: "French",
+      de: "German",
+      es: "Spanish",
+      pt: "Portuguese",
+      ru: "Russian",
+      ar: "Arabic",
+      "zh-CN": "Simplified Chinese",
+      "zh-TW": "Traditional Chinese",
+    };
+
+    const targetLangName =
+      languageNames[body.targetLanguage] || body.targetLanguage;
+    const sourceLangName = body.sourceLanguage
+      ? languageNames[body.sourceLanguage] || body.sourceLanguage
+      : "auto-detect";
+
+    try {
+      // Use fast model for translation
+      const modelConfig = await this.getFastModelConfig();
+      this.logger.log(
+        `[Translate] Using model: ${modelConfig.name} (${modelConfig.modelId})`,
+      );
+
+      const prompt = `You are a professional translator. Translate the following text to ${targetLangName}.
+${sourceLangName !== "auto-detect" ? `The source language is ${sourceLangName}.` : ""}
+
+Important rules:
+1. Provide ONLY the translation, no explanations or notes
+2. Preserve the original formatting (paragraphs, line breaks)
+3. Keep technical terms accurate
+4. Maintain the tone and style of the original
+
+Text to translate:
+${body.text}
+
+Translation:`;
+
+      const result = await this.aiChatService.generateChatCompletionWithKey({
+        provider: modelConfig.provider,
+        modelId: modelConfig.modelId,
+        apiKey: modelConfig.apiKey ?? "",
+        apiEndpoint: modelConfig.apiEndpoint ?? undefined,
+        messages: [{ role: "user", content: prompt }],
+        maxTokens: 2000,
+        temperature: 0.3,
+      });
+
+      return {
+        success: true,
+        translation: result.content.trim(),
+        translatedText: result.content.trim(), // Alias for compatibility
+        sourceLanguage: body.sourceLanguage || "auto",
+        targetLanguage: body.targetLanguage,
+        model: result.model,
+      };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      this.logger.error(`Translation error: ${errorMessage}`);
+      throw new BadRequestException(`Translation failed: ${errorMessage}`);
+    }
+  }
+
   @Post("translate-single")
   async translateSingle(@Body() body: TranslateSingleRequest) {
     this.logger.log(

@@ -14,6 +14,7 @@ import {
   isStructuredAISummary,
   convertToStructuredSummary,
 } from '@/components/features/StructuredAISummary';
+import TextSelectionToolbar from '@/components/ui/TextSelectionToolbar';
 
 // Dynamic import for PDF viewer (client-side only)
 const PDFViewerClient = dynamic(
@@ -74,6 +75,8 @@ export default function ResourcePage() {
     undefined
   );
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [showAskAI, setShowAskAI] = useState(false);
+  const [askAIText, setAskAIText] = useState('');
 
   useEffect(() => {
     loadResource();
@@ -313,16 +316,38 @@ export default function ResourcePage() {
               </div>
             )}
 
-            {/* Abstract */}
+            {/* Abstract - with Text Selection Toolbar */}
             {resource.abstract && (
-              <div className="mt-6 rounded-lg bg-gray-50 p-4">
-                <h3 className="mb-2 text-sm font-semibold text-gray-700">
-                  Abstract
-                </h3>
-                <p className="leading-relaxed text-gray-700">
-                  {resource.abstract}
-                </p>
-              </div>
+              <TextSelectionToolbar
+                resourceId={resource.id}
+                onAddToNotes={(text, note) => {
+                  console.log('Added to notes:', { text, note });
+                  // Refresh notes if on notes tab
+                  if (activeTab === 'notes') {
+                    // Component will auto-refresh
+                  }
+                }}
+                onTranslate={(text, lang, translation) => {
+                  console.log('Translated:', { text, lang, translation });
+                }}
+                onHighlight={(text, color) => {
+                  console.log('Highlighted:', { text, color });
+                }}
+                onAskAI={(text) => {
+                  setAskAIText(text);
+                  setShowAskAI(true);
+                  setActiveTab('ai');
+                }}
+              >
+                <div className="mt-6 rounded-lg bg-gray-50 p-4">
+                  <h3 className="mb-2 text-sm font-semibold text-gray-700">
+                    Abstract
+                  </h3>
+                  <p className="select-text leading-relaxed text-gray-700">
+                    {resource.abstract}
+                  </p>
+                </div>
+              </TextSelectionToolbar>
             )}
 
             {/* Links */}
@@ -564,6 +589,79 @@ export default function ResourcePage() {
               {/* AI Tab Content */}
               {activeTab === 'ai' && (
                 <div className="space-y-4">
+                  {/* Quick Ask AI from Text Selection */}
+                  {showAskAI && askAIText && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                      <div className="mb-3 flex items-center justify-between">
+                        <h4 className="text-sm font-medium text-red-800">
+                          Ask about selected text
+                        </h4>
+                        <button
+                          onClick={() => {
+                            setShowAskAI(false);
+                            setAskAIText('');
+                          }}
+                          className="text-red-400 hover:text-red-600"
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="mb-3 rounded border-l-4 border-yellow-400 bg-yellow-50 p-2">
+                        <p className="line-clamp-3 text-sm text-gray-700">
+                          {askAIText}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            // TODO: Integrate with chat functionality
+                            window.open(
+                              `/ai-office?question=${encodeURIComponent(`Explain this: ${askAIText}`)}`,
+                              '_blank'
+                            );
+                          }}
+                          className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm text-white transition-colors hover:bg-red-700"
+                        >
+                          Explain this
+                        </button>
+                        <button
+                          onClick={() => {
+                            window.open(
+                              `/ai-office?question=${encodeURIComponent(`Summarize this: ${askAIText}`)}`,
+                              '_blank'
+                            );
+                          }}
+                          className="flex-1 rounded-lg bg-gray-600 px-3 py-2 text-sm text-white transition-colors hover:bg-gray-700"
+                        >
+                          Summarize
+                        </button>
+                        <button
+                          onClick={() => {
+                            window.open(
+                              `/ai-office?question=${encodeURIComponent(`What are the key points in: ${askAIText}`)}`,
+                              '_blank'
+                            );
+                          }}
+                          className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50"
+                        >
+                          Key Points
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {resource.structuredAISummary ? (
                     <StructuredAISummaryRouter
                       summary={resource.structuredAISummary}
