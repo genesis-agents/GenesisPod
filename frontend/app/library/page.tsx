@@ -1314,20 +1314,25 @@ function LibraryPageContent() {
 
         {/* Main content area */}
         <div className="px-8 py-6">
-          {/* AI Organize Panel - Only show in Bookmarks tab */}
-          {activeTab === 'bookmarks' && (
-            <AIOrganizePanel
-              collections={collections.map((c) => ({
-                id: c.id,
-                name: c.name,
-                itemCount: c.items?.length || 0,
-              }))}
-              onRefresh={() => {
+          {/* AI Organize Panel - Show on all tabs */}
+          <AIOrganizePanel
+            collections={collections.map((c) => ({
+              id: c.id,
+              name: c.name,
+              itemCount: c.items?.length || 0,
+            }))}
+            onRefresh={() => {
+              // Refresh based on active tab
+              if (activeTab === 'bookmarks') {
                 loadItems(1, false);
                 loadTagsAndStats();
-              }}
-            />
-          )}
+              } else if (activeTab === 'images') {
+                loadBookmarkedImages();
+              }
+              // Notes tab refreshes via its own component
+            }}
+            activeTab={activeTab}
+          />
 
           {/* Bookmarks and All Content View */}
           {activeTab === 'bookmarks' &&
