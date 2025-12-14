@@ -435,4 +435,48 @@ export class AiImageController {
       message: `Cleaned up ${result.totalDeleted} images from ${result.usersCleaned} users`,
     };
   }
+
+  // ===== AI Organization Endpoints =====
+
+  /**
+   * 自动为图片打标签
+   * POST /api/v1/ai-image/ai/auto-tag
+   */
+  @Post("ai/auto-tag")
+  @UseGuards(JwtAuthGuard)
+  async autoTagImages(@Request() req: any) {
+    const userId = req.user?.id;
+    if (!userId) {
+      return { success: false, message: "User not authenticated" };
+    }
+    return this.aiImageService.autoTagImages(userId);
+  }
+
+  /**
+   * 分析图片风格
+   * POST /api/v1/ai-image/ai/analyze-styles
+   */
+  @Post("ai/analyze-styles")
+  @UseGuards(JwtAuthGuard)
+  async analyzeStyles(@Request() req: any) {
+    const userId = req.user?.id;
+    if (!userId) {
+      return { success: false, message: "User not authenticated" };
+    }
+    return this.aiImageService.analyzeStyles(userId);
+  }
+
+  /**
+   * 按视觉主题聚类图片
+   * POST /api/v1/ai-image/ai/cluster-themes
+   */
+  @Post("ai/cluster-themes")
+  @UseGuards(JwtAuthGuard)
+  async clusterVisualThemes(@Request() req: any) {
+    const userId = req.user?.id;
+    if (!userId) {
+      return { success: false, message: "User not authenticated" };
+    }
+    return this.aiImageService.clusterVisualThemes(userId);
+  }
 }

@@ -204,4 +204,48 @@ export class NotesController {
     }
     return this.notesService.linkGraphNode(id, userId, nodeId, nodeType);
   }
+
+  // ===== AI Organization Endpoints =====
+
+  /**
+   * 提取笔记要点
+   * POST /api/v1/notes/ai/extract-keypoints
+   */
+  @Post("ai/extract-keypoints")
+  @UseGuards(JwtAuthGuard)
+  async extractKeyPoints(@Request() req: any) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.notesService.extractKeyPoints(userId);
+  }
+
+  /**
+   * 发现笔记关联
+   * POST /api/v1/notes/ai/find-connections
+   */
+  @Post("ai/find-connections")
+  @UseGuards(JwtAuthGuard)
+  async findConnections(@Request() req: any) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.notesService.findConnections(userId);
+  }
+
+  /**
+   * 生成笔记综合摘要
+   * POST /api/v1/notes/ai/summarize
+   */
+  @Post("ai/summarize")
+  @UseGuards(JwtAuthGuard)
+  async summarizeNotes(@Request() req: any) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.notesService.summarizeNotes(userId);
+  }
 }

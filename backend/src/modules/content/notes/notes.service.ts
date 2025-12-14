@@ -6,6 +6,8 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { CreateNoteDto, UpdateNoteDto, AddHighlightDto } from "./dto";
+import { AiChatService } from "../../ai/ai-core/ai-chat.service";
+import { AIModelService } from "../../ai/ai-office/ai-model.service";
 
 /**
  * 笔记服务
@@ -20,7 +22,11 @@ import { CreateNoteDto, UpdateNoteDto, AddHighlightDto } from "./dto";
 export class NotesService {
   private readonly logger = new Logger(NotesService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private aiChatService: AiChatService,
+    private aiModelService: AIModelService,
+  ) {}
 
   /**
    * 创建笔记
@@ -525,5 +531,230 @@ export class NotesService {
     this.logger.log(`Graph node ${nodeId} linked to note ${noteId}`);
 
     return updated;
+  }
+
+  // ===== AI Organization Methods =====
+
+  /**
+   * 提取笔记要点
+   */
+  async extractKeyPoints(userId: string) {
+    this.logger.log(`Extracting key points for user ${userId}`);
+
+    // Get user's recent notes
+    const notes = await this.prisma.note.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        title: true,
+        content: true,
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 20,
+    });
+
+    if (notes.length === 0) {
+      return { keyPoints: [], message: "No notes found to analyze" };
+    }
+
+    try {
+      const model = await this.aiModelService.getDefaultTextModel();
+
+      // Combine notes content for analysis
+      const notesContent = notes
+        .map(
+          (n) =>
+            `[${n.title || "Untitled"}]: ${n.content?.slice(0, 500) || ""}`,
+        )
+        .join("\n\n");
+
+      const response = await this.aiChatService.generateChatCompletionWithKey({
+        provider: model.provider,
+        modelId: model.modelId,
+        apiKey: model.apiKey || "",
+        apiEndpoint: model.apiEndpoint || undefined,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are an expert at analyzing notes and extracting key insights. Output JSON format only.",
+          },
+          {
+            role: "user",
+            content: `Analyze these notes and extract 5-10 key points or insights. Return JSON: {"keyPoints": [{"title": "...", "insight": "...", "importance": "high|medium|low", "sourceNotes": ["noteId1", "noteId2"]}]}\n\nNotes:\n${notesContent}`,
+          },
+        ],
+        temperature: 0.3,
+        maxTokens: 1000,
+      });
+
+      try {
+        const result = JSON.parse(response.content);
+        this.logger.log(
+          `Extracted ${result.keyPoints?.length || 0} key points for user ${userId}`,
+        );
+        return result;
+      } catch {
+        return {
+          keyPoints: [
+            {
+              title: "Analysis Complete",
+              insight: response.content,
+              importance: "medium",
+            },
+          ],
+        };
+      }
+    } catch (err) {
+      this.logger.error(
+        `Failed to extract key points: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      throw err;
+    }
+  }
+
+  /**
+   * 发现笔记之间的关联
+   */
+  async findConnections(userId: string) {
+    this.logger.log(`Finding connections for user ${userId}`);
+
+    // Get user's notes
+    const notes = await this.prisma.note.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        tags: true,
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 30,
+    });
+
+    if (notes.length < 2) {
+      return {
+        connections: [],
+        message: "Need at least 2 notes to find connections",
+      };
+    }
+
+    try {
+      const model = await this.aiModelService.getDefaultTextModel();
+
+      const notesContent = notes
+        .map(
+          (n) =>
+            `[ID:${n.id}][${n.title || "Untitled"}]: ${n.content?.slice(0, 300) || ""}`,
+        )
+        .join("\n\n");
+
+      const response = await this.aiChatService.generateChatCompletionWithKey({
+        provider: model.provider,
+        modelId: model.modelId,
+        apiKey: model.apiKey || "",
+        apiEndpoint: model.apiEndpoint || undefined,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are an expert at finding thematic and conceptual connections between notes. Output JSON format only.",
+          },
+          {
+            role: "user",
+            content: `Analyze these notes and find meaningful connections between them. Return JSON: {"connections": [{"noteIds": ["id1", "id2"], "relationship": "description of connection", "strength": "strong|moderate|weak", "theme": "common theme"}]}\n\nNotes:\n${notesContent}`,
+          },
+        ],
+        temperature: 0.4,
+        maxTokens: 1000,
+      });
+
+      try {
+        const result = JSON.parse(response.content);
+        this.logger.log(
+          `Found ${result.connections?.length || 0} connections for user ${userId}`,
+        );
+        return result;
+      } catch {
+        return { connections: [], rawAnalysis: response.content };
+      }
+    } catch (err) {
+      this.logger.error(
+        `Failed to find connections: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      throw err;
+    }
+  }
+
+  /**
+   * 生成所有笔记的综合摘要
+   */
+  async summarizeNotes(userId: string) {
+    this.logger.log(`Summarizing notes for user ${userId}`);
+
+    // Get user's notes
+    const notes = await this.prisma.note.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        createdAt: true,
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 50,
+    });
+
+    if (notes.length === 0) {
+      return { summary: "No notes found to summarize", highlights: [] };
+    }
+
+    try {
+      const model = await this.aiModelService.getDefaultTextModel();
+
+      const notesContent = notes
+        .map(
+          (n) =>
+            `[${n.title || "Untitled"}] (${new Date(n.createdAt).toLocaleDateString()}): ${n.content?.slice(0, 400) || ""}`,
+        )
+        .join("\n\n");
+
+      const response = await this.aiChatService.generateChatCompletionWithKey({
+        provider: model.provider,
+        modelId: model.modelId,
+        apiKey: model.apiKey || "",
+        apiEndpoint: model.apiEndpoint || undefined,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are an expert at synthesizing and summarizing information. Output JSON format only.",
+          },
+          {
+            role: "user",
+            content: `Create a comprehensive summary of all these notes, identifying main themes, key learnings, and areas of focus. Return JSON: {"summary": "comprehensive summary...", "themes": ["theme1", "theme2"], "highlights": [{"point": "key point", "category": "category"}], "suggestedActions": ["action1", "action2"]}\n\nNotes:\n${notesContent}`,
+          },
+        ],
+        temperature: 0.5,
+        maxTokens: 1500,
+      });
+
+      try {
+        const result = JSON.parse(response.content);
+        this.logger.log(`Generated summary for user ${userId}`);
+        return result;
+      } catch {
+        return {
+          summary: response.content,
+          themes: [],
+          highlights: [],
+        };
+      }
+    } catch (err) {
+      this.logger.error(
+        `Failed to summarize notes: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      throw err;
+    }
   }
 }

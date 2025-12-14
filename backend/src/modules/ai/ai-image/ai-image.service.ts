@@ -3,6 +3,8 @@ import {
   Logger,
   BadRequestException,
   MessageEvent,
+  Inject,
+  forwardRef,
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { HttpService } from "@nestjs/axios";
@@ -14,6 +16,8 @@ import {
 } from "../../../common/content-processing";
 import { R2StorageService } from "../../core/storage/r2-storage.service";
 import { AIModelType, Prisma } from "@prisma/client";
+import { AiChatService } from "../ai-core/ai-chat.service";
+import { AIModelService } from "../ai-office/ai-model.service";
 
 // 处理步骤类型
 export interface ProcessingStep {
@@ -517,6 +521,9 @@ export class AiImageService {
     private readonly infographicTemplate: InfographicTemplateService,
     private readonly dataFetchingService: DataFetchingService,
     private readonly r2Storage: R2StorageService,
+    private readonly aiChatService: AiChatService,
+    @Inject(forwardRef(() => AIModelService))
+    private readonly aiModelService: AIModelService,
   ) {}
 
   /**
@@ -4649,5 +4656,224 @@ Generate the edited version of this image now.`;
     const result = await this.prisma.generatedImage.deleteMany({});
     this.logger.log(`Admin deleted all ${result.count} images`);
     return result.count;
+  }
+
+  // ===== AI Organization Methods =====
+
+  /**
+   * 自动为图片打标签
+   */
+  async autoTagImages(userId: string) {
+    this.logger.log(`Auto-tagging images for user ${userId}`);
+
+    // Get user's bookmarked images without tags
+    const images = await this.prisma.generatedImage.findMany({
+      where: {
+        userId,
+        isBookmarked: true,
+      },
+      select: {
+        id: true,
+        prompt: true,
+        enhancedPrompt: true,
+        imageUrl: true,
+      },
+      take: 20,
+    });
+
+    if (images.length === 0) {
+      return { taggedCount: 0, message: "No images found to tag" };
+    }
+
+    try {
+      const model = await this.aiModelService.getDefaultTextModel();
+
+      const imageDescriptions = images
+        .map(
+          (img) =>
+            `[ID:${img.id}] Prompt: ${img.prompt || img.enhancedPrompt || "No prompt"}`,
+        )
+        .join("\n");
+
+      const response = await this.aiChatService.generateChatCompletionWithKey({
+        provider: model.provider,
+        modelId: model.modelId,
+        apiKey: model.apiKey || "",
+        apiEndpoint: model.apiEndpoint || undefined,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are an expert at categorizing and tagging images. Output JSON format only.",
+          },
+          {
+            role: "user",
+            content: `Analyze these image prompts and suggest tags for each. Return JSON: {"tags": [{"imageId": "id", "tags": ["tag1", "tag2", "tag3"]}]}\n\nImages:\n${imageDescriptions}`,
+          },
+        ],
+        temperature: 0.3,
+        maxTokens: 1000,
+      });
+
+      try {
+        const result = JSON.parse(response.content);
+        this.logger.log(
+          `Generated tags for ${result.tags?.length || 0} images for user ${userId}`,
+        );
+        return { taggedCount: result.tags?.length || 0, tags: result.tags };
+      } catch {
+        return { taggedCount: 0, rawResponse: response.content };
+      }
+    } catch (err) {
+      this.logger.error(
+        `Failed to auto-tag images: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      throw err;
+    }
+  }
+
+  /**
+   * 分析图片风格
+   */
+  async analyzeStyles(userId: string) {
+    this.logger.log(`Analyzing image styles for user ${userId}`);
+
+    // Get user's bookmarked images
+    const images = await this.prisma.generatedImage.findMany({
+      where: {
+        userId,
+        isBookmarked: true,
+      },
+      select: {
+        id: true,
+        prompt: true,
+        enhancedPrompt: true,
+      },
+      take: 30,
+    });
+
+    if (images.length === 0) {
+      return { styles: [], message: "No images found to analyze" };
+    }
+
+    try {
+      const model = await this.aiModelService.getDefaultTextModel();
+
+      const imageDescriptions = images
+        .map(
+          (img) =>
+            `[ID:${img.id}] ${img.prompt || img.enhancedPrompt || "No description"}`,
+        )
+        .join("\n");
+
+      const response = await this.aiChatService.generateChatCompletionWithKey({
+        provider: model.provider,
+        modelId: model.modelId,
+        apiKey: model.apiKey || "",
+        apiEndpoint: model.apiEndpoint || undefined,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are an expert at analyzing art styles and visual design. Output JSON format only.",
+          },
+          {
+            role: "user",
+            content: `Analyze the art styles and visual characteristics of these images based on their prompts. Return JSON: {"styles": [{"name": "style name", "description": "style characteristics", "count": number, "imageIds": ["id1"]}], "colorPalettes": [{"name": "palette name", "colors": ["color1"], "imageIds": ["id1"]}]}\n\nImages:\n${imageDescriptions}`,
+          },
+        ],
+        temperature: 0.4,
+        maxTokens: 1000,
+      });
+
+      try {
+        const result = JSON.parse(response.content);
+        this.logger.log(
+          `Identified ${result.styles?.length || 0} styles for user ${userId}`,
+        );
+        return result;
+      } catch {
+        return { styles: [], rawAnalysis: response.content };
+      }
+    } catch (err) {
+      this.logger.error(
+        `Failed to analyze styles: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      throw err;
+    }
+  }
+
+  /**
+   * 按视觉主题聚类图片
+   */
+  async clusterVisualThemes(userId: string) {
+    this.logger.log(`Clustering visual themes for user ${userId}`);
+
+    // Get user's bookmarked images
+    const images = await this.prisma.generatedImage.findMany({
+      where: {
+        userId,
+        isBookmarked: true,
+      },
+      select: {
+        id: true,
+        prompt: true,
+        enhancedPrompt: true,
+      },
+      take: 30,
+    });
+
+    if (images.length < 2) {
+      return {
+        clusters: [],
+        message: "Need at least 2 images to create clusters",
+      };
+    }
+
+    try {
+      const model = await this.aiModelService.getDefaultTextModel();
+
+      const imageDescriptions = images
+        .map(
+          (img) =>
+            `[ID:${img.id}] ${img.prompt || img.enhancedPrompt || "No description"}`,
+        )
+        .join("\n");
+
+      const response = await this.aiChatService.generateChatCompletionWithKey({
+        provider: model.provider,
+        modelId: model.modelId,
+        apiKey: model.apiKey || "",
+        apiEndpoint: model.apiEndpoint || undefined,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are an expert at organizing and grouping visual content by themes. Output JSON format only.",
+          },
+          {
+            role: "user",
+            content: `Group these images into visual theme clusters based on their prompts. Return JSON: {"clusters": [{"name": "theme name", "description": "what unifies this cluster", "imageIds": ["id1", "id2"], "count": number}]}\n\nImages:\n${imageDescriptions}`,
+          },
+        ],
+        temperature: 0.4,
+        maxTokens: 1000,
+      });
+
+      try {
+        const result = JSON.parse(response.content);
+        this.logger.log(
+          `Found ${result.clusters?.length || 0} visual theme clusters for user ${userId}`,
+        );
+        return result;
+      } catch {
+        return { clusters: [], rawAnalysis: response.content };
+      }
+    } catch (err) {
+      this.logger.error(
+        `Failed to cluster themes: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      throw err;
+    }
   }
 }

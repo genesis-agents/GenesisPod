@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { MulterModule } from "@nestjs/platform-express";
 import { AiImageController } from "./ai-image.controller";
@@ -12,6 +12,8 @@ import { BrandKitService } from "./brand-kit.service";
 import { BrandKitController } from "./brand-kit.controller";
 import { ExportService } from "./export.service";
 import { ExportController } from "./export.controller";
+import { AiCoreModule } from "../ai-core/ai-core.module";
+import { AiOfficeModule } from "../ai-office/ai-office.module";
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { ExportController } from "./export.controller";
     MulterModule.register({
       limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
     }),
+    AiCoreModule,
+    forwardRef(() => AiOfficeModule),
   ],
   controllers: [
     AiImageController,

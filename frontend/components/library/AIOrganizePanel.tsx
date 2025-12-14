@@ -29,7 +29,16 @@ interface AIOrganizePanelProps {
   activeTab?: 'bookmarks' | 'notes' | 'images';
 }
 
-type TaskType = 'batch-tags' | 'smart-classify' | 'theme-cluster';
+type TaskType =
+  | 'batch-tags'
+  | 'smart-classify'
+  | 'theme-cluster'
+  | 'notes-keypoints'
+  | 'notes-connections'
+  | 'notes-summarize'
+  | 'images-autotag'
+  | 'images-style'
+  | 'images-cluster';
 type TaskStatus = 'idle' | 'running' | 'success' | 'error';
 
 interface TaskState {
@@ -54,6 +63,12 @@ export default function AIOrganizePanel({
     'batch-tags': { status: 'idle', message: '' },
     'smart-classify': { status: 'idle', message: '' },
     'theme-cluster': { status: 'idle', message: '' },
+    'notes-keypoints': { status: 'idle', message: '' },
+    'notes-connections': { status: 'idle', message: '' },
+    'notes-summarize': { status: 'idle', message: '' },
+    'images-autotag': { status: 'idle', message: '' },
+    'images-style': { status: 'idle', message: '' },
+    'images-cluster': { status: 'idle', message: '' },
   });
   const [selectedCollection, setSelectedCollection] = useState<string>('all');
 
@@ -202,6 +217,234 @@ export default function AIOrganizePanel({
       updateTaskState('theme-cluster', {
         status: 'error',
         message: err.message || 'Failed to analyze themes',
+      });
+    }
+  };
+
+  // ===== Notes Tab Handlers =====
+
+  // 提取笔记要点
+  const handleExtractKeyPoints = async () => {
+    updateTaskState('notes-keypoints', {
+      status: 'running',
+      message: 'Extracting key insights from your notes...',
+    });
+
+    try {
+      const response = await fetch(
+        `${config.apiBaseUrl}/api/v1/notes/ai/extract-keypoints`,
+        {
+          method: 'POST',
+          headers: {
+            ...getAuthHeader(),
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to extract key points');
+      }
+
+      const result = await response.json();
+      updateTaskState('notes-keypoints', {
+        status: 'success',
+        message: `Extracted ${result.keyPoints?.length || 0} key insights`,
+        results: result,
+      });
+      onRefresh();
+    } catch (err: any) {
+      updateTaskState('notes-keypoints', {
+        status: 'error',
+        message: err.message || 'Failed to extract key points',
+      });
+    }
+  };
+
+  // 发现笔记关联
+  const handleAnalyzeConnections = async () => {
+    updateTaskState('notes-connections', {
+      status: 'running',
+      message: 'Finding connections between your notes...',
+    });
+
+    try {
+      const response = await fetch(
+        `${config.apiBaseUrl}/api/v1/notes/ai/find-connections`,
+        {
+          method: 'POST',
+          headers: {
+            ...getAuthHeader(),
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to analyze connections');
+      }
+
+      const result = await response.json();
+      updateTaskState('notes-connections', {
+        status: 'success',
+        message: `Found ${result.connections?.length || 0} connections`,
+        results: result,
+      });
+    } catch (err: any) {
+      updateTaskState('notes-connections', {
+        status: 'error',
+        message: err.message || 'Failed to analyze connections',
+      });
+    }
+  };
+
+  // 生成笔记摘要
+  const handleSummarizeNotes = async () => {
+    updateTaskState('notes-summarize', {
+      status: 'running',
+      message: 'Generating comprehensive summary...',
+    });
+
+    try {
+      const response = await fetch(
+        `${config.apiBaseUrl}/api/v1/notes/ai/summarize`,
+        {
+          method: 'POST',
+          headers: {
+            ...getAuthHeader(),
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to summarize notes');
+      }
+
+      const result = await response.json();
+      updateTaskState('notes-summarize', {
+        status: 'success',
+        message: 'Summary generated successfully',
+        results: result,
+      });
+    } catch (err: any) {
+      updateTaskState('notes-summarize', {
+        status: 'error',
+        message: err.message || 'Failed to summarize notes',
+      });
+    }
+  };
+
+  // ===== Images Tab Handlers =====
+
+  // 图片自动打标签
+  const handleAutoTagImages = async () => {
+    updateTaskState('images-autotag', {
+      status: 'running',
+      message: 'Analyzing images and generating tags...',
+    });
+
+    try {
+      const response = await fetch(
+        `${config.apiBaseUrl}/api/v1/ai-image/ai/auto-tag`,
+        {
+          method: 'POST',
+          headers: {
+            ...getAuthHeader(),
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to auto-tag images');
+      }
+
+      const result = await response.json();
+      updateTaskState('images-autotag', {
+        status: 'success',
+        message: `Tagged ${result.taggedCount || 0} images`,
+        results: result,
+      });
+      onRefresh();
+    } catch (err: any) {
+      updateTaskState('images-autotag', {
+        status: 'error',
+        message: err.message || 'Failed to auto-tag images',
+      });
+    }
+  };
+
+  // 图片风格分析
+  const handleAnalyzeStyles = async () => {
+    updateTaskState('images-style', {
+      status: 'running',
+      message: 'Analyzing art styles and color palettes...',
+    });
+
+    try {
+      const response = await fetch(
+        `${config.apiBaseUrl}/api/v1/ai-image/ai/analyze-styles`,
+        {
+          method: 'POST',
+          headers: {
+            ...getAuthHeader(),
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to analyze styles');
+      }
+
+      const result = await response.json();
+      updateTaskState('images-style', {
+        status: 'success',
+        message: `Identified ${result.styles?.length || 0} styles`,
+        results: result,
+      });
+    } catch (err: any) {
+      updateTaskState('images-style', {
+        status: 'error',
+        message: err.message || 'Failed to analyze styles',
+      });
+    }
+  };
+
+  // 视觉主题聚类
+  const handleClusterVisualThemes = async () => {
+    updateTaskState('images-cluster', {
+      status: 'running',
+      message: 'Clustering images by visual themes...',
+    });
+
+    try {
+      const response = await fetch(
+        `${config.apiBaseUrl}/api/v1/ai-image/ai/cluster-themes`,
+        {
+          method: 'POST',
+          headers: {
+            ...getAuthHeader(),
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to cluster themes');
+      }
+
+      const result = await response.json();
+      updateTaskState('images-cluster', {
+        status: 'success',
+        message: `Found ${result.clusters?.length || 0} visual themes`,
+        results: result,
+      });
+    } catch (err: any) {
+      updateTaskState('images-cluster', {
+        status: 'error',
+        message: err.message || 'Failed to cluster themes',
       });
     }
   };
@@ -474,10 +717,37 @@ export default function AIOrganizePanel({
                 <p className="mb-3 text-xs text-gray-500">
                   Extract key insights and main ideas from your notes
                 </p>
-                <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-green-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-600">
-                  <Zap className="h-4 w-4" />
-                  Extract
+                <button
+                  onClick={handleExtractKeyPoints}
+                  disabled={taskStates['notes-keypoints'].status === 'running'}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-green-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {taskStates['notes-keypoints'].status === 'running' ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Extracting...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="h-4 w-4" />
+                      Extract
+                    </>
+                  )}
                 </button>
+                {taskStates['notes-keypoints'].message && (
+                  <div
+                    className={`mt-2 flex items-center gap-1 text-xs ${
+                      taskStates['notes-keypoints'].status === 'error'
+                        ? 'text-red-600'
+                        : taskStates['notes-keypoints'].status === 'success'
+                          ? 'text-green-600'
+                          : 'text-gray-500'
+                    }`}
+                  >
+                    {getStatusIcon(taskStates['notes-keypoints'].status)}
+                    {taskStates['notes-keypoints'].message}
+                  </div>
+                )}
               </div>
 
               {/* Find Connections */}
@@ -491,10 +761,39 @@ export default function AIOrganizePanel({
                 <p className="mb-3 text-xs text-gray-500">
                   Find hidden connections between your notes
                 </p>
-                <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-600">
-                  <Zap className="h-4 w-4" />
-                  Analyze
+                <button
+                  onClick={handleAnalyzeConnections}
+                  disabled={
+                    taskStates['notes-connections'].status === 'running'
+                  }
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {taskStates['notes-connections'].status === 'running' ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="h-4 w-4" />
+                      Analyze
+                    </>
+                  )}
                 </button>
+                {taskStates['notes-connections'].message && (
+                  <div
+                    className={`mt-2 flex items-center gap-1 text-xs ${
+                      taskStates['notes-connections'].status === 'error'
+                        ? 'text-red-600'
+                        : taskStates['notes-connections'].status === 'success'
+                          ? 'text-green-600'
+                          : 'text-gray-500'
+                    }`}
+                  >
+                    {getStatusIcon(taskStates['notes-connections'].status)}
+                    {taskStates['notes-connections'].message}
+                  </div>
+                )}
               </div>
 
               {/* Summarize All */}
@@ -508,10 +807,37 @@ export default function AIOrganizePanel({
                 <p className="mb-3 text-xs text-gray-500">
                   Generate a comprehensive summary of all notes
                 </p>
-                <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-600">
-                  <Zap className="h-4 w-4" />
-                  Summarize
+                <button
+                  onClick={handleSummarizeNotes}
+                  disabled={taskStates['notes-summarize'].status === 'running'}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {taskStates['notes-summarize'].status === 'running' ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Summarizing...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="h-4 w-4" />
+                      Summarize
+                    </>
+                  )}
                 </button>
+                {taskStates['notes-summarize'].message && (
+                  <div
+                    className={`mt-2 flex items-center gap-1 text-xs ${
+                      taskStates['notes-summarize'].status === 'error'
+                        ? 'text-red-600'
+                        : taskStates['notes-summarize'].status === 'success'
+                          ? 'text-green-600'
+                          : 'text-gray-500'
+                    }`}
+                  >
+                    {getStatusIcon(taskStates['notes-summarize'].status)}
+                    {taskStates['notes-summarize'].message}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -530,10 +856,37 @@ export default function AIOrganizePanel({
                 <p className="mb-3 text-xs text-gray-500">
                   AI detects content and generates relevant tags
                 </p>
-                <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-pink-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-pink-600">
-                  <Zap className="h-4 w-4" />
-                  Tag Images
+                <button
+                  onClick={handleAutoTagImages}
+                  disabled={taskStates['images-autotag'].status === 'running'}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-pink-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-pink-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {taskStates['images-autotag'].status === 'running' ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Tagging...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="h-4 w-4" />
+                      Tag Images
+                    </>
+                  )}
                 </button>
+                {taskStates['images-autotag'].message && (
+                  <div
+                    className={`mt-2 flex items-center gap-1 text-xs ${
+                      taskStates['images-autotag'].status === 'error'
+                        ? 'text-red-600'
+                        : taskStates['images-autotag'].status === 'success'
+                          ? 'text-green-600'
+                          : 'text-gray-500'
+                    }`}
+                  >
+                    {getStatusIcon(taskStates['images-autotag'].status)}
+                    {taskStates['images-autotag'].message}
+                  </div>
+                )}
               </div>
 
               {/* Style Analysis */}
@@ -547,10 +900,37 @@ export default function AIOrganizePanel({
                 <p className="mb-3 text-xs text-gray-500">
                   Identify art styles, color palettes, and themes
                 </p>
-                <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-rose-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-600">
-                  <Zap className="h-4 w-4" />
-                  Analyze
+                <button
+                  onClick={handleAnalyzeStyles}
+                  disabled={taskStates['images-style'].status === 'running'}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-rose-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {taskStates['images-style'].status === 'running' ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="h-4 w-4" />
+                      Analyze
+                    </>
+                  )}
                 </button>
+                {taskStates['images-style'].message && (
+                  <div
+                    className={`mt-2 flex items-center gap-1 text-xs ${
+                      taskStates['images-style'].status === 'error'
+                        ? 'text-red-600'
+                        : taskStates['images-style'].status === 'success'
+                          ? 'text-green-600'
+                          : 'text-gray-500'
+                    }`}
+                  >
+                    {getStatusIcon(taskStates['images-style'].status)}
+                    {taskStates['images-style'].message}
+                  </div>
+                )}
               </div>
 
               {/* Visual Clusters */}
@@ -564,10 +944,37 @@ export default function AIOrganizePanel({
                 <p className="mb-3 text-xs text-gray-500">
                   Group images by visual similarity and themes
                 </p>
-                <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-fuchsia-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-fuchsia-600">
-                  <Zap className="h-4 w-4" />
-                  Cluster
+                <button
+                  onClick={handleClusterVisualThemes}
+                  disabled={taskStates['images-cluster'].status === 'running'}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-fuchsia-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-fuchsia-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {taskStates['images-cluster'].status === 'running' ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Clustering...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="h-4 w-4" />
+                      Cluster
+                    </>
+                  )}
                 </button>
+                {taskStates['images-cluster'].message && (
+                  <div
+                    className={`mt-2 flex items-center gap-1 text-xs ${
+                      taskStates['images-cluster'].status === 'error'
+                        ? 'text-red-600'
+                        : taskStates['images-cluster'].status === 'success'
+                          ? 'text-green-600'
+                          : 'text-gray-500'
+                    }`}
+                  >
+                    {getStatusIcon(taskStates['images-cluster'].status)}
+                    {taskStates['images-cluster'].message}
+                  </div>
+                )}
               </div>
             </div>
           )}
