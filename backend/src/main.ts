@@ -1,5 +1,5 @@
 import { NestFactory } from "@nestjs/core";
-import { ValidationPipe } from "@nestjs/common";
+import { ValidationPipe, LogLevel } from "@nestjs/common";
 import helmet from "helmet";
 import { Request, Response, NextFunction } from "express";
 import * as express from "express";
@@ -9,7 +9,15 @@ import { isWorkspaceAiV2Enabled } from "./common/utils/feature-flags";
 // Force reload after CORS fix
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // 根据环境配置日志级别 - 生产环境只输出警告和错误
+  const isProduction = process.env.NODE_ENV === "production";
+  const logLevels: LogLevel[] = isProduction
+    ? ["error", "warn"]
+    : ["error", "warn", "log", "debug", "verbose"];
+
+  const app = await NestFactory.create(AppModule, {
+    logger: logLevels,
+  });
 
   // 增加请求体大小限制，支持大型字幕数据
   app.use(express.json({ limit: "50mb" }));
@@ -104,6 +112,9 @@ async function bootstrap() {
   console.log(`🚀 DeepDive Backend running on http://localhost:${port}`);
   console.log(`📚 API Docs: http://localhost:${port}/api/v1`);
   console.log(`🧩 Workspace AI v2 enabled: ${isWorkspaceAiV2Enabled()}`);
+  console.log(
+    `📋 Log level: ${isProduction ? "error,warn (production)" : "all (development)"}`,
+  );
 }
 
 void bootstrap();
