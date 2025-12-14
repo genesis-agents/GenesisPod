@@ -103,11 +103,18 @@ export class DataSourceSeederService implements OnModuleInit {
       keywords: ["tech", "investing", "venture capital", "markets"],
     },
     {
-      name: "Valley 101",
+      name: "Dwarkesh Patel",
       channelId: "UChnNjLyx_5rk_iDPQ2BQDQA",
-      handle: "@valley101podcast",
-      description: "Phoenix地区新闻播客",
-      keywords: ["phoenix", "arizona", "news", "podcast"],
+      handle: "@DwarkeshPatel",
+      description: "Dwarkesh Podcast - 深度科技访谈，AI、技术、创业、地缘政治",
+      keywords: [
+        "ai",
+        "technology",
+        "interviews",
+        "podcast",
+        "startups",
+        "geopolitics",
+      ],
     },
     {
       name: "Bloomberg Technology",
