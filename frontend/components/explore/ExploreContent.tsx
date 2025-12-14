@@ -11,6 +11,7 @@ import PDFThumbnail from '@/components/ui/PDFThumbnail';
 import PDFViewer from '@/components/ui/PDFViewer';
 import HTMLViewer from '@/components/ui/HTMLViewer';
 import ReaderView from '@/components/ui/ReaderView';
+import TextSelectionToolbar from '@/components/ui/TextSelectionToolbar';
 import NotesList from '@/components/features/NotesList';
 import CommentsList from '@/components/features/CommentsList';
 import SimilarResourcesList from '@/components/features/SimilarResourcesList';
@@ -3083,11 +3084,24 @@ function HomeContent() {
                 {/* Display preview - 使用客户端渲染避免浏览器阻止iframe */}
                 {selectedResource.type === 'PAPER' &&
                 selectedResource.pdfUrl ? (
-                  <PDFViewer
-                    url={selectedResource.pdfUrl}
-                    title={selectedResource.title}
-                    className="h-full w-full"
-                  />
+                  <TextSelectionToolbar
+                    resourceId={selectedResource.id}
+                    onAddToNotes={(text) => {
+                      console.log('Added to notes from PDF:', text);
+                    }}
+                    onAskAI={(text) => {
+                      // Switch to AI panel and set the question
+                      setIsAiPanelCollapsed(false);
+                      setAiInput(`Explain this: ${text}`);
+                    }}
+                    showClipboardFAB={true}
+                  >
+                    <PDFViewer
+                      url={selectedResource.pdfUrl}
+                      title={selectedResource.title}
+                      className="h-full w-full"
+                    />
+                  </TextSelectionToolbar>
                 ) : selectedResource.type === 'YOUTUBE' ||
                   selectedResource.type === 'YOUTUBE_VIDEO' ? (
                   // YouTube 视频播放器
@@ -3132,20 +3146,42 @@ function HomeContent() {
                   })()
                 ) : selectedResource.sourceUrl ? (
                   htmlViewMode === 'reader' ? (
-                    <ReaderView
-                      url={selectedResource.sourceUrl}
-                      title={selectedResource.title}
-                      category={selectedResource.type}
-                      isImportedResource={true}
-                      className="h-full w-full"
-                      onArticleLoaded={handleArticleLoaded}
-                    />
+                    <TextSelectionToolbar
+                      resourceId={selectedResource.id}
+                      onAddToNotes={(text) => {
+                        console.log('Added to notes from Reader:', text);
+                      }}
+                      onAskAI={(text) => {
+                        setIsAiPanelCollapsed(false);
+                        setAiInput(`Explain this: ${text}`);
+                      }}
+                    >
+                      <ReaderView
+                        url={selectedResource.sourceUrl}
+                        title={selectedResource.title}
+                        category={selectedResource.type}
+                        isImportedResource={true}
+                        className="h-full w-full"
+                        onArticleLoaded={handleArticleLoaded}
+                      />
+                    </TextSelectionToolbar>
                   ) : (
-                    <HTMLViewer
-                      url={selectedResource.sourceUrl}
-                      title={selectedResource.title}
-                      className="h-full w-full"
-                    />
+                    <TextSelectionToolbar
+                      resourceId={selectedResource.id}
+                      onAddToNotes={(text) => {
+                        console.log('Added to notes from HTML:', text);
+                      }}
+                      onAskAI={(text) => {
+                        setIsAiPanelCollapsed(false);
+                        setAiInput(`Explain this: ${text}`);
+                      }}
+                    >
+                      <HTMLViewer
+                        url={selectedResource.sourceUrl}
+                        title={selectedResource.title}
+                        className="h-full w-full"
+                      />
+                    </TextSelectionToolbar>
                   )
                 ) : (
                   <div className="flex h-full w-full items-center justify-center bg-gray-50">

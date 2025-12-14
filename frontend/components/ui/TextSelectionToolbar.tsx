@@ -12,6 +12,8 @@ interface TextSelectionToolbarProps {
   containerRef?: React.RefObject<HTMLElement>;
   className?: string;
   children: React.ReactNode;
+  /** 是否显示剪贴板悬浮按钮（用于无法检测文本选择的嵌入内容如PDF） */
+  showClipboardFAB?: boolean;
 }
 
 interface Position {
@@ -57,6 +59,7 @@ export default function TextSelectionToolbar({
   containerRef,
   className = '',
   children,
+  showClipboardFAB = false,
 }: TextSelectionToolbarProps) {
   const [selectedText, setSelectedText] = useState('');
   const [showToolbar, setShowToolbar] = useState(false);
@@ -71,9 +74,12 @@ export default function TextSelectionToolbar({
   const [selectedLang, setSelectedLang] = useState('zh');
   const [successMessage, setSuccessMessage] = useState('');
   const [savingNote, setSavingNote] = useState(false);
+  const [showFABMenu, setShowFABMenu] = useState(false);
+  const [clipboardText, setClipboardText] = useState('');
 
   const contentRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const fabRef = useRef<HTMLDivElement>(null);
 
   // Handle text selection
   const handleMouseUp = useCallback(
@@ -758,6 +764,204 @@ export default function TextSelectionToolbar({
             {mode === 'highlight' && renderHighlightMode()}
             {mode === 'success' && renderSuccessMode()}
           </div>
+        </div>
+      )}
+
+      {/* Floating Action Button for clipboard-based operations (for embedded content like PDF) */}
+      {showClipboardFAB && (
+        <div ref={fabRef} className="absolute bottom-4 right-4 z-50">
+          {/* FAB Menu */}
+          {showFABMenu && clipboardText && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 absolute bottom-14 right-0 mb-2 w-72 rounded-xl border border-gray-200 bg-white p-3 shadow-xl duration-200">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700">
+                  Clipboard Content
+                </span>
+                <button
+                  onClick={() => {
+                    setShowFABMenu(false);
+                    setClipboardText('');
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Preview */}
+              <div className="mb-3 max-h-24 overflow-y-auto rounded-lg border-l-4 border-blue-400 bg-blue-50 p-2">
+                <p className="text-xs text-gray-700">{clipboardText}</p>
+              </div>
+
+              {/* Actions */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedText(clipboardText);
+                    setMode('translate');
+                    setShowToolbar(true);
+                    setToolbarPosition({
+                      x: window.innerWidth / 2,
+                      y: window.innerHeight / 2,
+                    });
+                    setShowFABMenu(false);
+                  }}
+                  className="flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-700 transition-colors hover:bg-gray-50"
+                >
+                  <svg
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
+                    />
+                  </svg>
+                  Translate
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedText(clipboardText);
+                    setMode('note');
+                    setShowToolbar(true);
+                    setToolbarPosition({
+                      x: window.innerWidth / 2,
+                      y: window.innerHeight / 2,
+                    });
+                    setShowFABMenu(false);
+                  }}
+                  className="flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-700 transition-colors hover:bg-gray-50"
+                >
+                  <svg
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    />
+                  </svg>
+                  Add Note
+                </button>
+                {onAskAI && (
+                  <button
+                    onClick={() => {
+                      onAskAI(clipboardText);
+                      setShowFABMenu(false);
+                      setClipboardText('');
+                    }}
+                    className="col-span-2 flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-red-500 to-red-600 px-3 py-2 text-xs text-white transition-colors hover:from-red-600 hover:to-red-700"
+                  >
+                    <svg
+                      className="h-3.5 w-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                      />
+                    </svg>
+                    Ask AI
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* FAB Button */}
+          <button
+            onClick={async () => {
+              try {
+                const text = await navigator.clipboard.readText();
+                if (text && text.trim().length > 0) {
+                  setClipboardText(text.trim());
+                  setShowFABMenu(true);
+                } else {
+                  // Show hint
+                  setClipboardText('');
+                  setShowFABMenu(true);
+                }
+              } catch {
+                // Clipboard access denied
+                setClipboardText('');
+                setShowFABMenu(true);
+              }
+            }}
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg transition-all hover:scale-105 hover:shadow-xl"
+            title="Paste & process text (Copy text first, then click)"
+          >
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+              />
+            </svg>
+          </button>
+
+          {/* No clipboard content hint */}
+          {showFABMenu && !clipboardText && (
+            <div className="animate-in fade-in absolute bottom-14 right-0 mb-2 w-64 rounded-xl border border-gray-200 bg-white p-4 shadow-xl duration-200">
+              <div className="text-center">
+                <svg
+                  className="mx-auto h-10 w-10 text-gray-300"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                  />
+                </svg>
+                <p className="mt-2 text-sm font-medium text-gray-700">
+                  No text in clipboard
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Select text in the document and copy it (Ctrl+C), then click
+                  the button again.
+                </p>
+                <button
+                  onClick={() => setShowFABMenu(false)}
+                  className="mt-3 rounded-lg bg-gray-100 px-4 py-2 text-xs text-gray-600 hover:bg-gray-200"
+                >
+                  Got it
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
