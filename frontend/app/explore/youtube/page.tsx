@@ -16,7 +16,7 @@ import {
   AIContextBuilder,
   type Resource as AIResource,
 } from '@/lib/ai-office/context-builder';
-import ReactMarkdown from 'react-markdown';
+import AIMessageRenderer from '@/components/ui/AIMessageRenderer';
 import KeyMomentsPanel, {
   type KeyMoment,
 } from '@/components/explore/youtube/KeyMomentsPanel';
@@ -1384,10 +1384,10 @@ function YouTubeTLDWContent() {
                             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                           >
                             <div
-                              className={`max-w-[85%] rounded-lg px-3 py-2 ${
+                              className={`max-w-[90%] rounded-xl px-4 py-3 ${
                                 msg.role === 'user'
-                                  ? 'bg-gradient-to-br from-red-500 to-red-600 text-white'
-                                  : 'bg-gray-100 text-gray-800'
+                                  ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md'
+                                  : 'border border-gray-100 bg-white text-gray-800 shadow-sm'
                               }`}
                               onContextMenu={
                                 msg.role === 'assistant'
@@ -1395,14 +1395,15 @@ function YouTubeTLDWContent() {
                                   : undefined
                               }
                             >
-                              <div className="prose-sm prose max-w-none text-sm leading-relaxed [&>*]:my-0.5 [&>ol]:my-0.5 [&>p]:my-0.5 [&>ul]:my-0.5">
-                                <ReactMarkdown>{msg.content}</ReactMarkdown>
-                              </div>
+                              <AIMessageRenderer
+                                content={msg.content}
+                                isDark={msg.role === 'user'}
+                              />
                               <div
-                                className={`mt-1 text-[11px] ${
+                                className={`mt-2 border-t pt-2 text-[11px] ${
                                   msg.role === 'user'
-                                    ? 'text-red-100'
-                                    : 'text-gray-500'
+                                    ? 'border-white/20 text-red-100'
+                                    : 'border-gray-100 text-gray-400'
                                 }`}
                               >
                                 {new Date(msg.timestamp).toLocaleTimeString()}

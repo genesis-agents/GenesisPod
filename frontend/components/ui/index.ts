@@ -14,3 +14,4 @@ export { default as HTMLViewer } from './HTMLViewer';
 export { default as ReaderView } from './ReaderView';
 export { default as TextSelectionToolbar } from './TextSelectionToolbar';
 export { default as TextHighlighter } from './TextHighlighter';
+export { default as AIMessageRenderer } from './AIMessageRenderer';
