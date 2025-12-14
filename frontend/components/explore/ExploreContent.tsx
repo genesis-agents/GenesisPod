@@ -3095,6 +3095,7 @@ function HomeContent() {
                       setAiInput(`Explain this: ${text}`);
                     }}
                     showClipboardFAB={true}
+                    className="h-full w-full flex-1"
                   >
                     <PDFViewer
                       url={selectedResource.pdfUrl}
@@ -3155,6 +3156,7 @@ function HomeContent() {
                         setIsAiPanelCollapsed(false);
                         setAiInput(`Explain this: ${text}`);
                       }}
+                      className="h-full w-full flex-1"
                     >
                       <ReaderView
                         url={selectedResource.sourceUrl}
@@ -3175,6 +3177,7 @@ function HomeContent() {
                         setIsAiPanelCollapsed(false);
                         setAiInput(`Explain this: ${text}`);
                       }}
+                      className="h-full w-full flex-1"
                     >
                       <HTMLViewer
                         url={selectedResource.sourceUrl}
