@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { config } from '@/lib/utils/config';
+import TableOfContents from './TableOfContents';
 
 interface ReaderViewProps {
   url: string;
@@ -610,255 +611,267 @@ export default function ReaderView({
           </div>
         )}
 
-        {/* 文章内容 - 优化的阅读样式 */}
+        {/* 文章内容 - 带左侧导航的布局 */}
         {article && !loading && !error && (
-          <article
-            className="mx-auto px-4 py-8 sm:px-6 md:px-8 lg:px-12"
-            style={{ maxWidth: '720px' }}
-          >
-            {/* 文章元信息 - 紧凑的头部设计 */}
-            <header className={`mb-6 ${currentTheme.border}`}>
-              <h1
-                className={`mb-3 font-serif font-bold leading-snug tracking-tight ${currentFontSize.heading} ${currentTheme.heading}`}
-                style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
-              >
-                {article.title || propTitle || '无标题'}
-              </h1>
+          <div className="flex h-full">
+            {/* 左侧目录导航 */}
+            <TableOfContents
+              content={article.content}
+              containerRef={contentRef}
+              theme={theme}
+              className="hidden lg:block"
+              defaultCollapsed={false}
+            />
 
-              {/* 元信息行 - 单行紧凑显示 */}
+            {/* 文章内容区域 */}
+            <article
+              className="mx-auto flex-1 px-4 py-8 sm:px-6 md:px-8 lg:px-12"
+              style={{ maxWidth: '720px' }}
+            >
+              {/* 文章元信息 - 紧凑的头部设计 */}
+              <header className={`mb-6 ${currentTheme.border}`}>
+                <h1
+                  className={`mb-3 font-serif font-bold leading-snug tracking-tight ${currentFontSize.heading} ${currentTheme.heading}`}
+                  style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
+                >
+                  {article.title || propTitle || '无标题'}
+                </h1>
+
+                {/* 元信息行 - 单行紧凑显示 */}
+                <div
+                  className={`flex flex-wrap items-center gap-2 text-sm ${currentTheme.secondary}`}
+                >
+                  {article.siteName && (
+                    <span className="font-medium">{article.siteName}</span>
+                  )}
+                  {article.siteName && article.byline && <span>·</span>}
+                  {article.byline && <span>{article.byline}</span>}
+                  {(article.siteName || article.byline) && article.length && (
+                    <span>·</span>
+                  )}
+                  {article.length && (
+                    <span>{Math.ceil(article.length / 1000)} min read</span>
+                  )}
+                </div>
+
+                {/* 摘要 - 突出显示 */}
+                {article.excerpt && (
+                  <p
+                    className={`mt-4 border-l-4 border-blue-500 pl-4 text-base italic leading-relaxed ${currentTheme.secondary}`}
+                  >
+                    {article.excerpt}
+                  </p>
+                )}
+
+                {/* 分隔线 */}
+                <div className={`mt-6 border-b ${currentTheme.border}`} />
+              </header>
+
+              {/* 文章正文 - 优化排版 */}
               <div
-                className={`flex flex-wrap items-center gap-2 text-sm ${currentTheme.secondary}`}
+                className={`article-content
+                ${currentFontSize.body} leading-relaxed
+                ${currentTheme.text}`}
+                style={{
+                  fontFamily:
+                    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                }}
               >
-                {article.siteName && (
-                  <span className="font-medium">{article.siteName}</span>
-                )}
-                {article.siteName && article.byline && <span>·</span>}
-                {article.byline && <span>{article.byline}</span>}
-                {(article.siteName || article.byline) && article.length && (
-                  <span>·</span>
-                )}
-                {article.length && (
-                  <span>{Math.ceil(article.length / 1000)} min read</span>
+                {/* 智能处理 HTML 内容 */}
+                {article.content.includes('<p>') ||
+                article.content.includes('<div>') ||
+                article.content.includes('<h') ? (
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: processHtmlContent(
+                        article.content,
+                        currentTheme,
+                        theme
+                      ),
+                    }}
+                    className="processed-html"
+                  />
+                ) : (
+                  // 纯文本内容：智能识别格式并转换
+                  <div className="plain-text-content">
+                    {processPlainTextContent(
+                      article.content,
+                      currentTheme,
+                      currentFontSize,
+                      theme
+                    )}
+                  </div>
                 )}
               </div>
 
-              {/* 摘要 - 突出显示 */}
-              {article.excerpt && (
-                <p
-                  className={`mt-4 border-l-4 border-blue-500 pl-4 text-base italic leading-relaxed ${currentTheme.secondary}`}
-                >
-                  {article.excerpt}
-                </p>
-              )}
+              {/* 文章底部样式 */}
+              <style jsx global>{`
+                .article-content h1,
+                .article-content h2 {
+                  font-family: Georgia, 'Times New Roman', serif;
+                  font-weight: 700;
+                  margin-top: 2rem;
+                  margin-bottom: 0.75rem;
+                  line-height: 1.3;
+                }
+                .article-content h1 {
+                  font-size: 1.5rem;
+                }
+                .article-content h2 {
+                  font-size: 1.25rem;
+                }
+                .article-content h3 {
+                  font-size: 1.125rem;
+                  font-weight: 600;
+                  margin-top: 1.5rem;
+                  margin-bottom: 0.5rem;
+                }
 
-              {/* 分隔线 */}
-              <div className={`mt-6 border-b ${currentTheme.border}`} />
-            </header>
+                .article-content p {
+                  margin-bottom: 1.25rem;
+                  line-height: 1.75;
+                }
 
-            {/* 文章正文 - 优化排版 */}
-            <div
-              className={`article-content
-                ${currentFontSize.body} leading-relaxed
-                ${currentTheme.text}`}
-              style={{
-                fontFamily:
-                  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-              }}
-            >
-              {/* 智能处理 HTML 内容 */}
-              {article.content.includes('<p>') ||
-              article.content.includes('<div>') ||
-              article.content.includes('<h') ? (
-                <div
-                  dangerouslySetInnerHTML={{
-                    __html: processHtmlContent(
-                      article.content,
-                      currentTheme,
-                      theme
-                    ),
-                  }}
-                  className="processed-html"
-                />
-              ) : (
-                // 纯文本内容：智能识别格式并转换
-                <div className="plain-text-content">
-                  {processPlainTextContent(
-                    article.content,
-                    currentTheme,
-                    currentFontSize,
-                    theme
-                  )}
-                </div>
-              )}
-            </div>
+                .article-content p:empty,
+                .article-content br + br {
+                  display: none;
+                }
 
-            {/* 文章底部样式 */}
-            <style jsx global>{`
-              .article-content h1,
-              .article-content h2 {
-                font-family: Georgia, 'Times New Roman', serif;
-                font-weight: 700;
-                margin-top: 2rem;
-                margin-bottom: 0.75rem;
-                line-height: 1.3;
-              }
-              .article-content h1 {
-                font-size: 1.5rem;
-              }
-              .article-content h2 {
-                font-size: 1.25rem;
-              }
-              .article-content h3 {
-                font-size: 1.125rem;
-                font-weight: 600;
-                margin-top: 1.5rem;
-                margin-bottom: 0.5rem;
-              }
+                .article-content a {
+                  color: #2563eb;
+                  text-decoration: none;
+                  font-weight: 500;
+                }
+                .article-content a:hover {
+                  text-decoration: underline;
+                }
 
-              .article-content p {
-                margin-bottom: 1.25rem;
-                line-height: 1.75;
-              }
+                .article-content strong,
+                .article-content b {
+                  font-weight: 600;
+                  color: ${theme === 'dark'
+                    ? '#f3f4f6'
+                    : theme === 'sepia'
+                      ? '#3D2E1C'
+                      : '#111827'};
+                }
 
-              .article-content p:empty,
-              .article-content br + br {
-                display: none;
-              }
+                .article-content blockquote {
+                  border-left: 4px solid #3b82f6;
+                  padding-left: 1rem;
+                  margin: 1.5rem 0;
+                  font-style: italic;
+                  color: ${theme === 'dark'
+                    ? '#9ca3af'
+                    : theme === 'sepia'
+                      ? '#8B7355'
+                      : '#6b7280'};
+                }
 
-              .article-content a {
-                color: #2563eb;
-                text-decoration: none;
-                font-weight: 500;
-              }
-              .article-content a:hover {
-                text-decoration: underline;
-              }
+                .article-content ul,
+                .article-content ol {
+                  margin: 1rem 0;
+                  padding-left: 1.5rem;
+                }
+                .article-content li {
+                  margin-bottom: 0.5rem;
+                  line-height: 1.7;
+                }
 
-              .article-content strong,
-              .article-content b {
-                font-weight: 600;
-                color: ${theme === 'dark'
-                  ? '#f3f4f6'
-                  : theme === 'sepia'
-                    ? '#3D2E1C'
-                    : '#111827'};
-              }
+                .article-content img {
+                  max-width: 100%;
+                  height: auto;
+                  border-radius: 0.5rem;
+                  margin: 1.5rem auto;
+                  display: block;
+                }
 
-              .article-content blockquote {
-                border-left: 4px solid #3b82f6;
-                padding-left: 1rem;
-                margin: 1.5rem 0;
-                font-style: italic;
-                color: ${theme === 'dark'
-                  ? '#9ca3af'
-                  : theme === 'sepia'
-                    ? '#8B7355'
-                    : '#6b7280'};
-              }
+                .article-content hr {
+                  border: none;
+                  border-top: 1px solid
+                    ${theme === 'dark'
+                      ? '#374151'
+                      : theme === 'sepia'
+                        ? '#E8DFD0'
+                        : '#e5e7eb'};
+                  margin: 2rem 0;
+                }
 
-              .article-content ul,
-              .article-content ol {
-                margin: 1rem 0;
-                padding-left: 1.5rem;
-              }
-              .article-content li {
-                margin-bottom: 0.5rem;
-                line-height: 1.7;
-              }
-
-              .article-content img {
-                max-width: 100%;
-                height: auto;
-                border-radius: 0.5rem;
-                margin: 1.5rem auto;
-                display: block;
-              }
-
-              .article-content hr {
-                border: none;
-                border-top: 1px solid
-                  ${theme === 'dark'
+                .article-content pre,
+                .article-content code {
+                  font-family:
+                    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
+                    monospace;
+                  font-size: 0.875rem;
+                }
+                .article-content code {
+                  background: ${theme === 'dark'
                     ? '#374151'
                     : theme === 'sepia'
-                      ? '#E8DFD0'
-                      : '#e5e7eb'};
-                margin: 2rem 0;
-              }
+                      ? '#EDE5D8'
+                      : '#f3f4f6'};
+                  padding: 0.125rem 0.375rem;
+                  border-radius: 0.25rem;
+                }
+                .article-content pre {
+                  background: ${theme === 'dark' ? '#111827' : '#1f2937'};
+                  color: #f3f4f6;
+                  padding: 1rem;
+                  border-radius: 0.5rem;
+                  overflow-x: auto;
+                  margin: 1.5rem 0;
+                }
+                .article-content pre code {
+                  background: none;
+                  padding: 0;
+                }
 
-              .article-content pre,
-              .article-content code {
-                font-family:
-                  ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
-                  monospace;
-                font-size: 0.875rem;
-              }
-              .article-content code {
-                background: ${theme === 'dark'
-                  ? '#374151'
-                  : theme === 'sepia'
-                    ? '#EDE5D8'
-                    : '#f3f4f6'};
-                padding: 0.125rem 0.375rem;
-                border-radius: 0.25rem;
-              }
-              .article-content pre {
-                background: ${theme === 'dark' ? '#111827' : '#1f2937'};
-                color: #f3f4f6;
-                padding: 1rem;
-                border-radius: 0.5rem;
-                overflow-x: auto;
-                margin: 1.5rem 0;
-              }
-              .article-content pre code {
-                background: none;
-                padding: 0;
-              }
-
-              .article-content table {
-                width: 100%;
-                border-collapse: collapse;
-                margin: 1.5rem 0;
-              }
-              .article-content th,
-              .article-content td {
-                border: 1px solid
-                  ${theme === 'dark'
-                    ? '#374151'
+                .article-content table {
+                  width: 100%;
+                  border-collapse: collapse;
+                  margin: 1.5rem 0;
+                }
+                .article-content th,
+                .article-content td {
+                  border: 1px solid
+                    ${theme === 'dark'
+                      ? '#374151'
+                      : theme === 'sepia'
+                        ? '#E8DFD0'
+                        : '#e5e7eb'};
+                  padding: 0.75rem;
+                  text-align: left;
+                }
+                .article-content th {
+                  background: ${theme === 'dark'
+                    ? '#1f2937'
                     : theme === 'sepia'
-                      ? '#E8DFD0'
-                      : '#e5e7eb'};
-                padding: 0.75rem;
-                text-align: left;
-              }
-              .article-content th {
-                background: ${theme === 'dark'
-                  ? '#1f2937'
-                  : theme === 'sepia'
-                    ? '#EDE5D8'
-                    : '#f9fafb'};
-                font-weight: 600;
-              }
+                      ? '#EDE5D8'
+                      : '#f9fafb'};
+                  font-weight: 600;
+                }
 
-              /* 清理多余空白 */
-              .processed-html > div > *:first-child {
-                margin-top: 0;
-              }
-              .processed-html > div > *:last-child {
-                margin-bottom: 0;
-              }
+                /* 清理多余空白 */
+                .processed-html > div > *:first-child {
+                  margin-top: 0;
+                }
+                .processed-html > div > *:last-child {
+                  margin-bottom: 0;
+                }
 
-              /* 元信息样式（如日期、来源等短文本）*/
-              .article-content .meta-info {
-                font-size: 0.875rem;
-                color: ${theme === 'dark'
-                  ? '#9ca3af'
-                  : theme === 'sepia'
-                    ? '#8B7355'
-                    : '#6b7280'};
-                margin-bottom: 0.5rem;
-              }
-            `}</style>
-          </article>
+                /* 元信息样式（如日期、来源等短文本）*/
+                .article-content .meta-info {
+                  font-size: 0.875rem;
+                  color: ${theme === 'dark'
+                    ? '#9ca3af'
+                    : theme === 'sepia'
+                      ? '#8B7355'
+                      : '#6b7280'};
+                  margin-bottom: 0.5rem;
+                }
+              `}</style>
+            </article>
+          </div>
         )}
       </div>
     </div>
