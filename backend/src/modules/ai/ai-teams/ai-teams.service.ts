@@ -177,22 +177,27 @@ export class AiTeamsService {
 
     // 批量计算未读消息数
     const topicIds = topics.map((t) => t.id);
-    const unreadCounts = await this.prisma.$queryRaw<
-      Array<{ topic_id: string; unread_count: bigint }>
-    >`
-      SELECT
-        tm.topic_id,
-        COUNT(*) as unread_count
-      FROM topic_messages tm
-      LEFT JOIN topic_members tmem ON tm.topic_id = tmem.topic_id AND tmem.user_id = ${userId}
-      WHERE tm.topic_id = ANY(${topicIds}::uuid[])
-        AND tm.deleted_at IS NULL
-        AND (
-          tmem.last_read_at IS NULL
-          OR tm.created_at > tmem.last_read_at
-        )
-      GROUP BY tm.topic_id
-    `;
+    let unreadCounts: Array<{ topic_id: string; unread_count: bigint }> = [];
+
+    // 只有当有topics时才执行查询，避免空数组导致SQL错误
+    if (topicIds.length > 0) {
+      unreadCounts = await this.prisma.$queryRaw<
+        Array<{ topic_id: string; unread_count: bigint }>
+      >`
+        SELECT
+          tm.topic_id,
+          COUNT(*) as unread_count
+        FROM topic_messages tm
+        LEFT JOIN topic_members tmem ON tm.topic_id = tmem.topic_id AND tmem.user_id = ${userId}
+        WHERE tm.topic_id = ANY(${topicIds}::uuid[])
+          AND tm.deleted_at IS NULL
+          AND (
+            tmem.last_read_at IS NULL
+            OR tm.created_at > tmem.last_read_at
+          )
+        GROUP BY tm.topic_id
+      `;
+    }
 
     const unreadMap = new Map<string, number>();
     unreadCounts.forEach((row) => {

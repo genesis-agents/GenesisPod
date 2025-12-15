@@ -3,6 +3,7 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  Logger,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
@@ -15,6 +16,7 @@ import { PrismaService } from "../prisma/prisma.service";
  */
 @Injectable()
 export class AdminGuard implements CanActivate {
+  private readonly logger = new Logger(AdminGuard.name);
   // 管理员邮箱列表（从环境变量读取）
   private readonly adminEmails: string[];
 
@@ -27,6 +29,9 @@ export class AdminGuard implements CanActivate {
       .split(",")
       .map((e) => e.trim())
       .filter((e) => e.length > 0);
+    this.logger.log(
+      `AdminGuard initialized with ${this.adminEmails.length} admin email(s)`,
+    );
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -47,11 +52,18 @@ export class AdminGuard implements CanActivate {
       throw new ForbiddenException("User not found");
     }
 
-    // 检查role字段或邮箱白名单
+    // 检查role字段或邮箱白名单（邮箱比较不区分大小写）
     const isAdmin =
-      dbUser.role === "ADMIN" || this.adminEmails.includes(dbUser.email);
+      dbUser.role === "ADMIN" ||
+      this.adminEmails.some(
+        (email) => email.toLowerCase() === dbUser.email.toLowerCase(),
+      );
 
     if (!isAdmin) {
+      this.logger.warn(
+        `Admin access denied for user ${dbUser.email} (role: ${dbUser.role}). ` +
+          `Admin emails configured: ${this.adminEmails.length > 0 ? this.adminEmails.join(", ") : "none"}`,
+      );
       throw new ForbiddenException("Admin access required");
     }
 

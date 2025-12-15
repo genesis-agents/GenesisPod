@@ -36,7 +36,7 @@ export default function KnowledgeGraphView({
   );
 
   useEffect(() => {
-    if (!svgRef.current || nodes.length === 0) return;
+    if (!svgRef.current || !nodes || nodes.length === 0) return;
 
     const width = svgRef.current.clientWidth;
     const height = svgRef.current.clientHeight;
