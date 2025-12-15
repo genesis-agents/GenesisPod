@@ -15,6 +15,7 @@ import { NotesService } from "./notes.service";
 import { CreateNoteDto, UpdateNoteDto, AddHighlightDto } from "./dto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { OptionalJwtAuthGuard } from "../../../common/guards/optional-jwt-auth.guard";
+import { parsePagination } from "../../../common/utils/pagination.utils";
 
 /**
  * 笔记控制器
@@ -64,9 +65,8 @@ export class NotesController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    const skipNum = skip ? parseInt(skip, 10) : 0;
-    const takeNum = take ? parseInt(take, 10) : 50;
-    return this.notesService.getUserNotes(userId, skipNum, takeNum, source);
+    const pagination = parsePagination(skip, take);
+    return this.notesService.getUserNotes(userId, pagination.skip, pagination.take, source);
   }
 
   /**

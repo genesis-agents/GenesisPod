@@ -8,6 +8,10 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { ConfigService } from "@nestjs/config";
 import * as crypto from "crypto";
+import {
+  mapWithConcurrency,
+  ConcurrencyLimits,
+} from "../../../common/utils/concurrency.utils";
 
 export interface UploadResult {
   success: boolean;
@@ -340,13 +344,15 @@ export class R2StorageService implements OnModuleInit {
   }
 
   /**
-   * 批量上传图片
+   * 批量上传图片（带并发限制）
    */
   async uploadMultiple(
     images: Array<{ base64: string; prefix?: string }>,
   ): Promise<UploadResult[]> {
-    return Promise.all(
-      images.map((img) => this.uploadBase64Image(img.base64, img.prefix)),
+    return mapWithConcurrency(
+      images,
+      (img) => this.uploadBase64Image(img.base64, img.prefix),
+      ConcurrencyLimits.FILE,
     );
   }
 }

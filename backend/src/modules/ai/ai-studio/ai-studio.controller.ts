@@ -27,6 +27,7 @@ import {
   SearchSourcesDto,
 } from "./dto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { parsePagination } from "../../../common/utils/pagination.utils";
 
 @Controller("ai-studio")
 @UseGuards(JwtAuthGuard)
@@ -67,11 +68,11 @@ export class AiStudioController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
+    const pagination = parsePagination(skip, take);
     return this.studioService.getProjects(userId, {
       status,
       search,
-      take: take ? parseInt(take) : undefined,
-      skip: skip ? parseInt(skip) : undefined,
+      ...pagination,
     });
   }
 

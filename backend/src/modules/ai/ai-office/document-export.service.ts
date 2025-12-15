@@ -584,12 +584,179 @@ export class DocumentExportService {
    * 添加图表到幻灯片（pptxgenjs）
    */
   private async addChartToSlide(
-    _slide: any,
+    slide: any,
     chartType: string,
-    _chartData: any,
+    chartData: any,
   ): Promise<void> {
-    // TODO: 实现各种图表类型
-    // 这需要根据 chartType 使用 pptxgenjs 的图表 API
     this.logger.log(`[addChartToSlide] Adding ${chartType} chart`);
+
+    const chartOptions = {
+      x: 0.5,
+      y: 1.5,
+      w: 9,
+      h: 4,
+      showTitle: false,
+      chartColors: ["0077C0", "00A4BD", "36B37E", "FF8B00", "6554C0"],
+    };
+
+    try {
+      switch (chartType.toLowerCase()) {
+        case "bar":
+          slide.addChart("bar", chartData, {
+            ...chartOptions,
+            barDir: "bar",
+            barGrouping: "clustered",
+          });
+          break;
+
+        case "line":
+          slide.addChart("line", chartData, {
+            ...chartOptions,
+            lineDataSymbol: "circle",
+            lineDataSymbolSize: 8,
+          });
+          break;
+
+        case "pie":
+          slide.addChart("pie", chartData, {
+            ...chartOptions,
+            showPercent: true,
+            showLegend: true,
+            legendPos: "r",
+          });
+          break;
+
+        case "doughnut":
+          slide.addChart("doughnut", chartData, {
+            ...chartOptions,
+            showPercent: true,
+            holeSize: 50,
+          });
+          break;
+
+        case "area":
+          slide.addChart("area", chartData, {
+            ...chartOptions,
+          });
+          break;
+
+        case "flow":
+          // 流程图使用形状绘制
+          this.addFlowDiagram(slide, chartData);
+          break;
+
+        case "matrix":
+          // 矩阵图使用形状绘制
+          this.addMatrixDiagram(slide, chartData);
+          break;
+
+        default:
+          this.logger.warn(
+            `[addChartToSlide] Unknown chart type: ${chartType}`,
+          );
+      }
+    } catch (err) {
+      this.logger.error(
+        `[addChartToSlide] Failed to add chart: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  /**
+   * 添加流程图到幻灯片
+   */
+  private addFlowDiagram(slide: any, data: any): void {
+    const steps = data?.steps || ["步骤1", "步骤2", "步骤3"];
+    const stepWidth = 2;
+    const startX = 1;
+    const y = 2.5;
+
+    steps.forEach((step: string, index: number) => {
+      const x = startX + index * (stepWidth + 0.5);
+
+      // 添加步骤框
+      slide.addShape("rect", {
+        x,
+        y,
+        w: stepWidth,
+        h: 1,
+        fill: { color: "0077C0" },
+        line: { type: "none" },
+      });
+
+      // 添加步骤文字
+      slide.addText(step, {
+        x,
+        y,
+        w: stepWidth,
+        h: 1,
+        fontSize: 14,
+        color: "FFFFFF",
+        align: "center",
+        valign: "middle",
+      });
+
+      // 添加箭头（除了最后一个）
+      if (index < steps.length - 1) {
+        slide.addShape("rightArrow", {
+          x: x + stepWidth + 0.1,
+          y: y + 0.3,
+          w: 0.3,
+          h: 0.4,
+          fill: { color: "333333" },
+        });
+      }
+    });
+  }
+
+  /**
+   * 添加矩阵图到幻灯片
+   */
+  private addMatrixDiagram(slide: any, data: any): void {
+    const items = data?.items || [
+      { label: "高优先", quadrant: 1 },
+      { label: "中等", quadrant: 2 },
+      { label: "低优先", quadrant: 3 },
+      { label: "待定", quadrant: 4 },
+    ];
+
+    // 绘制矩阵背景
+    const matrixX = 1.5;
+    const matrixY = 1.5;
+    const quadrantSize = 3.5;
+
+    // 四个象限背景
+    const colors = ["36B37E", "0077C0", "FF8B00", "6554C0"];
+    [
+      [0, 0],
+      [1, 0],
+      [0, 1],
+      [1, 1],
+    ].forEach(([col, row], index) => {
+      slide.addShape("rect", {
+        x: matrixX + col * quadrantSize,
+        y: matrixY + row * quadrantSize,
+        w: quadrantSize,
+        h: quadrantSize,
+        fill: { color: colors[index], transparency: 70 },
+        line: { color: "CCCCCC", width: 1 },
+      });
+    });
+
+    // 添加项目到对应象限
+    items.forEach((item: { label: string; quadrant: number }) => {
+      const quadrant = item.quadrant || 1;
+      const col = (quadrant - 1) % 2;
+      const row = Math.floor((quadrant - 1) / 2);
+
+      slide.addText(item.label, {
+        x: matrixX + col * quadrantSize + 0.2,
+        y: matrixY + row * quadrantSize + 0.2,
+        w: quadrantSize - 0.4,
+        h: 0.5,
+        fontSize: 12,
+        color: "333333",
+      });
+    });
   }
 }

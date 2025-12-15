@@ -3,6 +3,7 @@ import { HttpModule } from "@nestjs/axios";
 import { MulterModule } from "@nestjs/platform-express";
 import { AiImageController } from "./ai-image.controller";
 import { AiImageService } from "./ai-image.service";
+import { AiImageAnalyticsService } from "./ai-image-analytics.service";
 import { InfographicTemplateService } from "./infographic-template.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { StorageModule } from "../../core/storage/storage.module";
@@ -35,6 +36,7 @@ import { AiOfficeModule } from "../ai-office/ai-office.module";
   ],
   providers: [
     AiImageService,
+    AiImageAnalyticsService,
     InfographicTemplateService,
     // DeepDive Engine v2.1 新增
     AgentExecutorService,
@@ -43,6 +45,7 @@ import { AiOfficeModule } from "../ai-office/ai-office.module";
   ],
   exports: [
     AiImageService,
+    AiImageAnalyticsService,
     InfographicTemplateService,
     // DeepDive Engine v2.1 新增
     AgentExecutorService,
