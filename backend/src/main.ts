@@ -6,9 +6,39 @@ import * as express from "express";
 import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { isWorkspaceAiV2Enabled } from "./common/utils/feature-flags";
-// Force reload after CORS fix
+
+/**
+ * 验证必需的环境变量
+ * 启动时检查，缺失则拒绝启动
+ */
+function validateEnvConfig(): void {
+  const required: string[] = ["DATABASE_URL", "JWT_SECRET"];
+  const recommended: string[] = ["ADMIN_EMAILS", "STORAGE_ADMIN_KEY"];
+
+  const missing = required.filter((key) => !process.env[key]);
+  const missingRecommended = recommended.filter((key) => !process.env[key]);
+
+  if (missing.length > 0) {
+    console.error("❌ Missing required environment variables:");
+    missing.forEach((key) => console.error(`   - ${key}`));
+    console.error(
+      "\nPlease set these variables before starting the application.",
+    );
+    process.exit(1);
+  }
+
+  if (missingRecommended.length > 0) {
+    console.warn("⚠️  Missing recommended environment variables:");
+    missingRecommended.forEach((key) => console.warn(`   - ${key}`));
+    console.warn("   These should be set in production.\n");
+  }
+
+  console.log("✅ Environment configuration validated");
+}
 
 async function bootstrap() {
+  // 验证环境配置
+  validateEnvConfig();
   // 根据环境配置日志级别 - 生产环境只输出警告和错误
   const isProduction = process.env.NODE_ENV === "production";
   const logLevels: LogLevel[] = isProduction

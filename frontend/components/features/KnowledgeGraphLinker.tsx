@@ -92,10 +92,25 @@ export default function KnowledgeGraphLinker({
     async (nodeId: string) => {
       if (!confirm('确定要移除此节点关联吗？')) return;
 
-      // TODO: Implement unlink API endpoint
-      onNodeUnlinked?.(nodeId);
+      try {
+        const response = await fetch(
+          `${config.apiBaseUrl}/api/v1/notes/${noteId}/graph-nodes/${encodeURIComponent(nodeId)}`,
+          {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
+
+        if (response.ok) {
+          onNodeUnlinked?.(nodeId);
+        } else {
+          console.error('Failed to unlink node:', await response.text());
+        }
+      } catch (err) {
+        console.error('Failed to unlink node:', err);
+      }
     },
-    [onNodeUnlinked]
+    [noteId, onNodeUnlinked]
   );
 
   if (loading) {

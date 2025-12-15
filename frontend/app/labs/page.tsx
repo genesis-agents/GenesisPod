@@ -155,14 +155,13 @@ export default function Labs() {
     categoryColor: string
   ) => {
     const isEnabled = aiFeatures[feature.key];
-    const isDarkMode = feature.key === 'darkModeEnabled';
 
     return (
       <div
         key={feature.key}
         className={`rounded-lg border bg-white p-5 transition-all ${
           isEnabled ? 'border-violet-200 shadow-md' : 'border-gray-200'
-        } ${isDarkMode ? 'opacity-60' : ''}`}
+        }`}
       >
         <div className="flex items-start justify-between">
           <div className="flex flex-1 items-start gap-4">
@@ -183,14 +182,9 @@ export default function Labs() {
                     Beta
                   </span>
                 )}
-                {isDarkMode && (
-                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
-                    Coming Soon
-                  </span>
-                )}
               </div>
               <p className="text-sm text-gray-600">{feature.description}</p>
-              {isEnabled && !isDarkMode && (
+              {isEnabled && (
                 <p className="mt-2 text-xs font-medium text-green-600">
                   Enabled
                 </p>
@@ -203,17 +197,15 @@ export default function Labs() {
               type="checkbox"
               checked={isEnabled}
               onChange={() =>
-                !isDarkMode &&
                 setAIFeature(
                   feature.key,
                   !isEnabled as AIFeatureSettings[typeof feature.key]
                 )
               }
-              disabled={isDarkMode}
               className="peer sr-only"
             />
             <div
-              className={`peer h-6 w-11 rounded-full after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 ${
+              className={`peer h-6 w-11 rounded-full after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 ${
                 isEnabled
                   ? 'bg-violet-600 peer-focus:ring-violet-300'
                   : 'bg-gray-200 peer-focus:ring-gray-300'

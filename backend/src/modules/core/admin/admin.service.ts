@@ -45,10 +45,16 @@ const DEFAULT_EXTERNAL_PROVIDERS: ExternalProvider[] = [
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
 
-  // 管理员邮箱列表
-  private readonly adminEmails = ["hello.junjie.duan@gmail.com"];
+  // 管理员邮箱列表（从环境变量读取）
+  private readonly adminEmails: string[];
 
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) {
+    const emails = process.env.ADMIN_EMAILS || "";
+    this.adminEmails = emails
+      .split(",")
+      .map((e) => e.trim())
+      .filter((e) => e.length > 0);
+  }
 
   /**
    * 获取所有用户列表

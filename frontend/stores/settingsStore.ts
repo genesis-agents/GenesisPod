@@ -20,7 +20,6 @@ export interface AIFeatureSettings {
 
   // UI Experiments
   compactViewEnabled: boolean;
-  darkModeEnabled: boolean;
 }
 
 export interface Notification {
@@ -68,7 +67,6 @@ const DEFAULT_AI_FEATURES: AIFeatureSettings = {
   semanticSearchEnabled: false, // Beta
   smartRecommendationsEnabled: false, // Beta
   compactViewEnabled: false,
-  darkModeEnabled: false,
 };
 
 // System notifications that are added on first load
@@ -235,11 +233,5 @@ export const AI_FEATURE_INFO: {
     category: 'ui',
     icon: 'layout',
   },
-  {
-    key: 'darkModeEnabled',
-    name: 'Dark Mode',
-    description: 'Switch to dark color scheme (Coming Soon)',
-    category: 'ui',
-    icon: 'moon',
-  },
+  // Dark Mode 已移除 - 功能尚未实现，避免用户困惑
 ];
