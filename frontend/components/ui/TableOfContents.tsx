@@ -205,17 +205,18 @@ export default function TableOfContents({
   }, [handleScroll, containerRef]);
 
   // Calculate and update TOC position based on container position
+  // Use a fixed anchor point (collapsed button width) to prevent position drift
   useEffect(() => {
     const updatePosition = () => {
       const container = containerRef.current;
       if (!container) return;
 
       const containerRect = container.getBoundingClientRect();
-      // Position TOC to the left of the container, with some padding
-      // Use the container's left edge minus the TOC width and some margin
-      const tocWidth = isCollapsed ? 40 : 256; // collapsed button is 40px, expanded panel is 256px (w-64)
+      // Always use the collapsed button width (40px) as anchor point
+      // This prevents position drift when expanding/collapsing
+      const anchorWidth = 40;
       const margin = 16;
-      const left = Math.max(margin, containerRect.left - tocWidth - margin);
+      const left = Math.max(margin, containerRect.left - anchorWidth - margin);
       const top = containerRect.top + 32; // 32px from top of container
 
       setTocPosition({ top, left });
@@ -229,7 +230,7 @@ export default function TableOfContents({
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', updatePosition, true);
     };
-  }, [containerRef, isCollapsed]);
+  }, [containerRef]); // Remove isCollapsed from dependencies to prevent recalculation on toggle
 
   // Scroll to heading on click
   const scrollToHeading = (id: string) => {
@@ -319,21 +320,23 @@ export default function TableOfContents({
         left: `${tocPosition.left}px`,
       }}
     >
-      {/* Collapsed state - floating button */}
-      {isCollapsed && (
-        <button
-          onClick={() => setIsCollapsed(false)}
-          className={`flex h-10 w-10 items-center justify-center rounded-full border ${styles.border} ${styles.buttonBg} ${styles.shadow} transition-all duration-200 hover:scale-105`}
-          title="展开目录"
-        >
+      {/* Toggle button - always rendered as anchor point */}
+      <button
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className={`flex h-10 w-10 items-center justify-center rounded-full border ${styles.border} ${styles.buttonBg} ${styles.shadow} transition-all duration-200 hover:scale-105`}
+        title={isCollapsed ? '展开目录' : '收起目录'}
+      >
+        {isCollapsed ? (
           <List className={`h-5 w-5 ${styles.text}`} />
-        </button>
-      )}
+        ) : (
+          <X className={`h-4 w-4 ${styles.text}`} />
+        )}
+      </button>
 
-      {/* Expanded state - floating panel */}
+      {/* Expanded panel - positioned relative to button, expands to the right */}
       {!isCollapsed && (
         <div
-          className={`w-64 rounded-xl border ${styles.border} ${styles.bg} ${styles.shadow} overflow-hidden`}
+          className={`absolute left-12 top-0 w-64 rounded-xl border ${styles.border} ${styles.bg} ${styles.shadow} animate-in fade-in slide-in-from-left-2 overflow-hidden duration-200`}
         >
           {/* Header */}
           <div
@@ -342,13 +345,6 @@ export default function TableOfContents({
             <span className={`text-sm font-medium ${styles.header}`}>
               本页目录
             </span>
-            <button
-              onClick={() => setIsCollapsed(true)}
-              className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${styles.textHover}`}
-              title="收起目录"
-            >
-              <X className={`h-4 w-4 ${styles.text}`} />
-            </button>
           </div>
 
           {/* TOC List */}

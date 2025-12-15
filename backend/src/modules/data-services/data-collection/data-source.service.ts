@@ -19,6 +19,7 @@ export interface CreateDataSourceDto {
   languages?: string[];
   minQualityScore?: number;
   deduplicationConfig?: any;
+  status?: DataSourceStatus;
   createdBy?: string;
 }
 
@@ -87,7 +88,7 @@ export class DataSourceService {
         languages: dto.languages || ["en"],
         minQualityScore: dto.minQualityScore || 0,
         deduplicationConfig: dto.deduplicationConfig || {},
-        status: "ACTIVE",
+        status: dto.status || "ACTIVE",
         isVerified: false,
         createdBy: dto.createdBy,
       },

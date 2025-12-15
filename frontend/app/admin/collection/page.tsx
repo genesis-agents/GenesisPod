@@ -564,6 +564,12 @@ export default function ConfigPage() {
             ? 'RSS' // YouTube uses RSS feeds
             : 'API';
 
+      // For RSS and YouTube types, set rssUrl in crawlerConfig
+      // This is required for the backend RSS service to fetch data
+      if (newSourceForm.type === 'RSS' || newSourceForm.type === 'YOUTUBE') {
+        crawlerConfig.rssUrl = newSourceForm.baseUrl;
+      }
+
       await createDataSource({
         name: newSourceForm.name,
         description: newSourceForm.description,
