@@ -16,3 +16,5 @@ export { default as TextSelectionToolbar } from './TextSelectionToolbar';
 export { default as TextHighlighter } from './TextHighlighter';
 export { default as AIMessageRenderer } from './AIMessageRenderer';
 export { default as TableOfContents } from './TableOfContents';
+export { Modal } from './Modal';
+export type { ModalProps } from './Modal';

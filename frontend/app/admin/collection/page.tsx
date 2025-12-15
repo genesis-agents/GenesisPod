@@ -37,6 +37,7 @@ import {
   CollectionTask,
 } from '@/lib/api/data-collection';
 import BatchCollectionDrawer from '@/components/admin/data-collection/BatchCollectionDrawer';
+import { Modal } from '@/components/ui';
 
 // Extended type for edit form with schedule fields
 interface EditFormData extends Partial<DataSource> {
@@ -835,915 +836,834 @@ export default function ConfigPage() {
       </div>
 
       {/* Manage Sources Modal */}
-      {showSourcesModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-2xl">
-            <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {CATEGORIES.find((c) => c.id === showSourcesModal)?.name}{' '}
-                  Sources
-                </h3>
-                <p className="mt-0.5 text-sm text-gray-500">
-                  Manage data sources for this category
-                </p>
-              </div>
-              <button
-                onClick={() => setShowSourcesModal(null)}
-                className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6">
-              {groupedSources.find((g) => g.id === showSourcesModal)?.sources
-                .length === 0 ? (
-                <div className="py-12 text-center">
-                  <Database className="mx-auto h-12 w-12 text-gray-300" />
-                  <p className="mt-3 text-sm text-gray-500">
-                    No sources configured
-                  </p>
-                  <button
-                    onClick={() => {
-                      setShowSourcesModal(null);
-                      setShowAddSourceModal(showSourcesModal);
-                    }}
-                    className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                  >
-                    Add First Source
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {groupedSources
-                    .find((g) => g.id === showSourcesModal)
-                    ?.sources.map((source) => (
-                      <div
-                        key={source.id}
-                        className="rounded-lg border border-gray-200 bg-white p-4 hover:border-gray-300"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-semibold text-gray-900">
-                                {source.name}
-                              </h4>
-                              {source.status === 'ACTIVE' && (
-                                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                                  Active
-                                </span>
-                              )}
-                              {source.status === 'PAUSED' && (
-                                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
-                                  Paused
-                                </span>
-                              )}
-                            </div>
-                            <p className="mt-1 text-sm text-gray-600">
-                              {source.description}
-                            </p>
-                            <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
-                              <span className="flex items-center gap-1">
-                                <Database className="h-3.5 w-3.5" />
-                                {source.totalCollected.toLocaleString()}{' '}
-                                collected
-                              </span>
-                              <span>
-                                Last sync:{' '}
-                                {formatRelativeTime(source.lastSuccessAt)}
-                              </span>
-                              <a
-                                href={source.baseUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1 text-blue-600 hover:text-blue-700"
-                              >
-                                <ExternalLink className="h-3.5 w-3.5" />
-                                {source.baseUrl}
-                              </a>
-                            </div>
-                          </div>
-                          <div className="ml-4 flex items-center gap-2">
-                            <button
-                              onClick={() => handleRunNow(source)}
-                              className="rounded-lg bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
-                            >
-                              <Zap className="-mt-0.5 mr-1 inline h-3.5 w-3.5" />
-                              Run
-                            </button>
-                            <button
-                              onClick={() => handleEdit(source)}
-                              className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                            >
-                              <Settings className="-mt-0.5 mr-1 inline h-3.5 w-3.5" />
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleToggleStatus(source)}
-                              className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                            >
-                              {source.status === 'ACTIVE' ? (
-                                <>
-                                  <Pause className="-mt-0.5 mr-1 inline h-3.5 w-3.5" />
-                                  Pause
-                                </>
-                              ) : (
-                                <>
-                                  <Play className="-mt-0.5 mr-1 inline h-3.5 w-3.5" />
-                                  Resume
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        </div>
+      <Modal
+        open={!!showSourcesModal}
+        onClose={() => setShowSourcesModal(null)}
+        title={`${CATEGORIES.find((c) => c.id === showSourcesModal)?.name} Sources`}
+        subtitle="Manage data sources for this category"
+        size="2xl"
+      >
+        {groupedSources.find((g) => g.id === showSourcesModal)?.sources
+          .length === 0 ? (
+          <div className="py-12 text-center">
+            <Database className="mx-auto h-12 w-12 text-gray-300" />
+            <p className="mt-3 text-sm text-gray-500">No sources configured</p>
+            <button
+              onClick={() => {
+                setShowSourcesModal(null);
+                setShowAddSourceModal(showSourcesModal);
+              }}
+              className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              Add First Source
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {groupedSources
+              .find((g) => g.id === showSourcesModal)
+              ?.sources.map((source) => (
+                <div
+                  key={source.id}
+                  className="rounded-lg border border-gray-200 bg-white p-4 hover:border-gray-300"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold text-gray-900">
+                          {source.name}
+                        </h4>
+                        {source.status === 'ACTIVE' && (
+                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                            Active
+                          </span>
+                        )}
+                        {source.status === 'PAUSED' && (
+                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                            Paused
+                          </span>
+                        )}
                       </div>
-                    ))}
+                      <p className="mt-1 text-sm text-gray-600">
+                        {source.description}
+                      </p>
+                      <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <Database className="h-3.5 w-3.5" />
+                          {source.totalCollected.toLocaleString()} collected
+                        </span>
+                        <span>
+                          Last sync: {formatRelativeTime(source.lastSuccessAt)}
+                        </span>
+                        <a
+                          href={source.baseUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-blue-600 hover:text-blue-700"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          {source.baseUrl}
+                        </a>
+                      </div>
+                    </div>
+                    <div className="ml-4 flex items-center gap-2">
+                      <button
+                        onClick={() => handleRunNow(source)}
+                        className="rounded-lg bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
+                      >
+                        <Zap className="-mt-0.5 mr-1 inline h-3.5 w-3.5" />
+                        Run
+                      </button>
+                      <button
+                        onClick={() => handleEdit(source)}
+                        className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        <Settings className="-mt-0.5 mr-1 inline h-3.5 w-3.5" />
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleToggleStatus(source)}
+                        className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        {source.status === 'ACTIVE' ? (
+                          <>
+                            <Pause className="-mt-0.5 mr-1 inline h-3.5 w-3.5" />
+                            Pause
+                          </>
+                        ) : (
+                          <>
+                            <Play className="-mt-0.5 mr-1 inline h-3.5 w-3.5" />
+                            Resume
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
+      </Modal>
+
+      {/* Add Source Modal */}
+      <Modal
+        open={!!showAddSourceModal}
+        onClose={() => {
+          setShowAddSourceModal(null);
+          setNewSourceForm({
+            name: '',
+            description: '',
+            baseUrl: '',
+            apiEndpoint: '',
+            type: 'RSS',
+            template: '',
+            scheduleFrequency: 'daily',
+            scheduleTime: '06:00',
+            minDurationMinutes: 15,
+          });
+        }}
+        title={`Add ${CATEGORIES.find((c) => c.id === showAddSourceModal)?.name} Source`}
+        subtitle="Configure a new data source for collection"
+        size="lg"
+        contentClassName="space-y-6"
+        footer={
+          <>
+            <button
+              onClick={() => {
+                setShowAddSourceModal(null);
+                setNewSourceForm({
+                  name: '',
+                  description: '',
+                  baseUrl: '',
+                  apiEndpoint: '',
+                  type: 'RSS',
+                  template: '',
+                  scheduleFrequency: 'daily',
+                  scheduleTime: '06:00',
+                  minDurationMinutes: 15,
+                });
+              }}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAddSource}
+              disabled={!newSourceForm.name || !newSourceForm.baseUrl}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <CheckCircle className="-mt-0.5 mr-1.5 inline h-4 w-4" />
+              Add Source
+            </button>
+          </>
+        }
+      >
+        {/* Templates */}
+        {showAddSourceModal &&
+          SOURCE_TEMPLATES[showAddSourceModal] &&
+          SOURCE_TEMPLATES[showAddSourceModal].length > 0 && (
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                Quick Templates
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {SOURCE_TEMPLATES[showAddSourceModal].map(
+                  (
+                    template: { name: string; url: string; type: string },
+                    idx: number
+                  ) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleSelectTemplate(template)}
+                      className="rounded-lg border border-gray-200 px-3 py-2 text-left text-sm hover:border-blue-500 hover:bg-blue-50"
+                    >
+                      <div className="font-medium text-gray-900">
+                        {template.name}
+                      </div>
+                      <div className="truncate text-xs text-gray-500">
+                        {template.url}
+                      </div>
+                    </button>
+                  )
+                )}
+              </div>
+            </div>
+          )}
+
+        {/* Form */}
+        <div className="space-y-4">
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">
+              Source Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={newSourceForm.name}
+              onChange={(e) =>
+                setNewSourceForm({
+                  ...newSourceForm,
+                  name: e.target.value,
+                })
+              }
+              placeholder="e.g., Google AI Blog"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">
+              Description
+            </label>
+            <textarea
+              value={newSourceForm.description}
+              onChange={(e) =>
+                setNewSourceForm({
+                  ...newSourceForm,
+                  description: e.target.value,
+                })
+              }
+              placeholder="Brief description of this data source"
+              rows={2}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">
+              Source Type <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={newSourceForm.type}
+              onChange={(e) =>
+                setNewSourceForm({
+                  ...newSourceForm,
+                  type: e.target.value,
+                })
+              }
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="RSS">RSS Feed</option>
+              <option value="YOUTUBE">YouTube Channel</option>
+              <option value="CUSTOM">Custom API</option>
+              <option value="ARXIV">arXiv API</option>
+              <option value="GITHUB">GitHub</option>
+              <option value="HACKERNEWS">HackerNews</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">
+              Base URL <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="url"
+              value={newSourceForm.baseUrl}
+              onChange={(e) =>
+                setNewSourceForm({
+                  ...newSourceForm,
+                  baseUrl: e.target.value,
+                })
+              }
+              placeholder="https://example.com/rss"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">
+              API Endpoint (Optional)
+            </label>
+            <input
+              type="text"
+              value={newSourceForm.apiEndpoint}
+              onChange={(e) =>
+                setNewSourceForm({
+                  ...newSourceForm,
+                  apiEndpoint: e.target.value,
+                })
+              }
+              placeholder="/api/v1/data"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Schedule Configuration */}
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-gray-500" />
+              <span className="text-sm font-medium text-gray-700">
+                Collection Schedule
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-2 block text-xs font-medium text-gray-600">
+                  Frequency
+                </label>
+                <select
+                  value={newSourceForm.scheduleFrequency}
+                  onChange={(e) =>
+                    setNewSourceForm({
+                      ...newSourceForm,
+                      scheduleFrequency: e.target.value,
+                    })
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="manual">Manual Only</option>
+                  <option value="hourly">Every Hour</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                </select>
+              </div>
+              {(newSourceForm.scheduleFrequency === 'daily' ||
+                newSourceForm.scheduleFrequency === 'weekly') && (
+                <div>
+                  <label className="mb-2 block text-xs font-medium text-gray-600">
+                    Time (UTC+8)
+                  </label>
+                  <input
+                    type="time"
+                    value={newSourceForm.scheduleTime}
+                    onChange={(e) =>
+                      setNewSourceForm({
+                        ...newSourceForm,
+                        scheduleTime: e.target.value,
+                      })
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
                 </div>
               )}
             </div>
+            <p className="mt-2 text-xs text-gray-500">
+              {newSourceForm.scheduleFrequency === 'manual'
+                ? 'You will need to manually trigger collection'
+                : newSourceForm.scheduleFrequency === 'hourly'
+                  ? 'Collection will run every hour automatically'
+                  : `Collection will run ${newSourceForm.scheduleFrequency} at ${newSourceForm.scheduleTime}`}
+            </p>
           </div>
-        </div>
-      )}
 
-      {/* Add Source Modal */}
-      {showAddSourceModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl">
-            <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
+          {/* YouTube Duration Filter - Only show for YouTube type */}
+          {newSourceForm.type === 'YOUTUBE' && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <Video className="h-4 w-4 text-red-500" />
+                <span className="text-sm font-medium text-gray-700">
+                  Video Duration Filter
+                </span>
+              </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Add{' '}
-                  {CATEGORIES.find((c) => c.id === showAddSourceModal)?.name}{' '}
-                  Source
-                </h3>
-                <p className="mt-0.5 text-sm text-gray-500">
-                  Configure a new data source for collection
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setShowAddSourceModal(null);
-                  setNewSourceForm({
-                    name: '',
-                    description: '',
-                    baseUrl: '',
-                    apiEndpoint: '',
-                    type: 'RSS',
-                    template: '',
-                    scheduleFrequency: 'daily',
-                    scheduleTime: '06:00',
-                    minDurationMinutes: 15,
-                  });
-                }}
-                className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 space-y-6 overflow-y-auto p-6">
-              {/* Templates */}
-              {SOURCE_TEMPLATES[showAddSourceModal] &&
-                SOURCE_TEMPLATES[showAddSourceModal].length > 0 && (
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
-                      Quick Templates
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {SOURCE_TEMPLATES[showAddSourceModal].map(
-                        (template, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => handleSelectTemplate(template)}
-                            className="rounded-lg border border-gray-200 px-3 py-2 text-left text-sm hover:border-blue-500 hover:bg-blue-50"
-                          >
-                            <div className="font-medium text-gray-900">
-                              {template.name}
-                            </div>
-                            <div className="truncate text-xs text-gray-500">
-                              {template.url}
-                            </div>
-                          </button>
-                        )
-                      )}
-                    </div>
-                  </div>
-                )}
-
-              {/* Form */}
-              <div className="space-y-4">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Source Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={newSourceForm.name}
-                    onChange={(e) =>
-                      setNewSourceForm({
-                        ...newSourceForm,
-                        name: e.target.value,
-                      })
-                    }
-                    placeholder="e.g., Google AI Blog"
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Description
-                  </label>
-                  <textarea
-                    value={newSourceForm.description}
-                    onChange={(e) =>
-                      setNewSourceForm({
-                        ...newSourceForm,
-                        description: e.target.value,
-                      })
-                    }
-                    placeholder="Brief description of this data source"
-                    rows={2}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Source Type <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={newSourceForm.type}
-                    onChange={(e) =>
-                      setNewSourceForm({
-                        ...newSourceForm,
-                        type: e.target.value,
-                      })
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="RSS">RSS Feed</option>
-                    <option value="YOUTUBE">YouTube Channel</option>
-                    <option value="CUSTOM">Custom API</option>
-                    <option value="ARXIV">arXiv API</option>
-                    <option value="GITHUB">GitHub</option>
-                    <option value="HACKERNEWS">HackerNews</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Base URL <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="url"
-                    value={newSourceForm.baseUrl}
-                    onChange={(e) =>
-                      setNewSourceForm({
-                        ...newSourceForm,
-                        baseUrl: e.target.value,
-                      })
-                    }
-                    placeholder="https://example.com/rss"
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    API Endpoint (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={newSourceForm.apiEndpoint}
-                    onChange={(e) =>
-                      setNewSourceForm({
-                        ...newSourceForm,
-                        apiEndpoint: e.target.value,
-                      })
-                    }
-                    placeholder="/api/v1/data"
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* Schedule Configuration */}
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                  <div className="mb-3 flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm font-medium text-gray-700">
-                      Collection Schedule
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="mb-2 block text-xs font-medium text-gray-600">
-                        Frequency
-                      </label>
-                      <select
-                        value={newSourceForm.scheduleFrequency}
-                        onChange={(e) =>
-                          setNewSourceForm({
-                            ...newSourceForm,
-                            scheduleFrequency: e.target.value,
-                          })
-                        }
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      >
-                        <option value="manual">Manual Only</option>
-                        <option value="hourly">Every Hour</option>
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                      </select>
-                    </div>
-                    {(newSourceForm.scheduleFrequency === 'daily' ||
-                      newSourceForm.scheduleFrequency === 'weekly') && (
-                      <div>
-                        <label className="mb-2 block text-xs font-medium text-gray-600">
-                          Time (UTC+8)
-                        </label>
-                        <input
-                          type="time"
-                          value={newSourceForm.scheduleTime}
-                          onChange={(e) =>
-                            setNewSourceForm({
-                              ...newSourceForm,
-                              scheduleTime: e.target.value,
-                            })
-                          }
-                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                      </div>
-                    )}
-                  </div>
-                  <p className="mt-2 text-xs text-gray-500">
-                    {newSourceForm.scheduleFrequency === 'manual'
-                      ? 'You will need to manually trigger collection'
-                      : newSourceForm.scheduleFrequency === 'hourly'
-                        ? 'Collection will run every hour automatically'
-                        : `Collection will run ${newSourceForm.scheduleFrequency} at ${newSourceForm.scheduleTime}`}
-                  </p>
-                </div>
-
-                {/* YouTube Duration Filter - Only show for YouTube type */}
-                {newSourceForm.type === 'YOUTUBE' && (
-                  <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-                    <div className="mb-3 flex items-center gap-2">
-                      <Video className="h-4 w-4 text-red-500" />
-                      <span className="text-sm font-medium text-gray-700">
-                        Video Duration Filter
-                      </span>
-                    </div>
-                    <div>
-                      <label className="mb-2 block text-xs font-medium text-gray-600">
-                        Minimum Video Duration (minutes)
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="180"
-                        value={newSourceForm.minDurationMinutes}
-                        onChange={(e) =>
-                          setNewSourceForm({
-                            ...newSourceForm,
-                            minDurationMinutes: parseInt(e.target.value) || 0,
-                          })
-                        }
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                    </div>
-                    <p className="mt-2 text-xs text-gray-500">
-                      {newSourceForm.minDurationMinutes > 0
-                        ? `Videos shorter than ${newSourceForm.minDurationMinutes} minutes will be skipped`
-                        : 'All videos will be collected (no duration filter)'}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex flex-shrink-0 items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
-              <button
-                onClick={() => {
-                  setShowAddSourceModal(null);
-                  setNewSourceForm({
-                    name: '',
-                    description: '',
-                    baseUrl: '',
-                    apiEndpoint: '',
-                    type: 'RSS',
-                    template: '',
-                    scheduleFrequency: 'daily',
-                    scheduleTime: '06:00',
-                    minDurationMinutes: 15,
-                  });
-                }}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddSource}
-                disabled={!newSourceForm.name || !newSourceForm.baseUrl}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <CheckCircle className="-mt-0.5 mr-1.5 inline h-4 w-4" />
-                Add Source
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Source Modal */}
-      {editingSource && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-2xl">
-            <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Edit Data Source
-                </h3>
-                <p className="mt-0.5 text-sm text-gray-500">
-                  {editingSource.name}
-                </p>
-              </div>
-              <button
-                onClick={handleCancelEdit}
-                className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 space-y-6 overflow-y-auto p-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Name
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.name || ''}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, name: e.target.value })
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Description
-                  </label>
-                  <textarea
-                    value={editForm.description || ''}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, description: e.target.value })
-                    }
-                    rows={2}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Base URL
-                  </label>
-                  <input
-                    type="url"
-                    value={editForm.baseUrl || ''}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, baseUrl: e.target.value })
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    API Endpoint
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.apiEndpoint || ''}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, apiEndpoint: e.target.value })
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Keywords (comma-separated)
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.keywords?.join(', ') || ''}
-                    onChange={(e) =>
-                      setEditForm({
-                        ...editForm,
-                        keywords: e.target.value
-                          .split(',')
-                          .map((k) => k.trim())
-                          .filter(Boolean),
-                      })
-                    }
-                    placeholder="AI, machine learning, deep learning"
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Minimum Quality Score (0-100)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={editForm.minQualityScore || 0}
-                    onChange={(e) =>
-                      setEditForm({
-                        ...editForm,
-                        minQualityScore: parseInt(e.target.value) || 0,
-                      })
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* Schedule Configuration */}
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                  <div className="mb-3 flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm font-medium text-gray-700">
-                      Collection Schedule
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="mb-2 block text-xs font-medium text-gray-600">
-                        Frequency
-                      </label>
-                      <select
-                        value={(editForm as any).scheduleFrequency || 'manual'}
-                        onChange={(e) =>
-                          setEditForm({
-                            ...editForm,
-                            scheduleFrequency: e.target.value,
-                          })
-                        }
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      >
-                        <option value="manual">Manual Only</option>
-                        <option value="hourly">Every Hour</option>
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                      </select>
-                    </div>
-                    {(editForm.scheduleFrequency === 'daily' ||
-                      editForm.scheduleFrequency === 'weekly') && (
-                      <div>
-                        <label className="mb-2 block text-xs font-medium text-gray-600">
-                          Time (UTC+8)
-                        </label>
-                        <input
-                          type="time"
-                          value={editForm.scheduleTime || '06:00'}
-                          onChange={(e) =>
-                            setEditForm({
-                              ...editForm,
-                              scheduleTime: e.target.value,
-                            })
-                          }
-                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                      </div>
-                    )}
-                  </div>
-                  <p className="mt-2 text-xs text-gray-500">
-                    {editForm.scheduleFrequency === 'manual' ||
-                    !editForm.scheduleFrequency
-                      ? 'You will need to manually trigger collection'
-                      : editForm.scheduleFrequency === 'hourly'
-                        ? 'Collection will run every hour automatically'
-                        : `Collection will run ${editForm.scheduleFrequency} at ${editForm.scheduleTime || '06:00'}`}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-shrink-0 items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
-              <button
-                onClick={handleCancelEdit}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveEdit}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-              >
-                <Save className="-mt-0.5 mr-1.5 inline h-4 w-4" />
-                Save Changes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Run Now Modal */}
-      {runNowSource && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl">
-            <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Run Collection Now
-                </h3>
-                <p className="mt-0.5 text-sm text-gray-500">
-                  {runNowSource.name}
-                </p>
-              </div>
-              <button
-                onClick={handleCancelRunNow}
-                disabled={isRunning}
-                className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 space-y-4 overflow-y-auto p-6">
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-                <p className="text-sm text-blue-900">
-                  Configure collection parameters for this manual run. The task
-                  will execute immediately.
-                </p>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  Max Results
+                <label className="mb-2 block text-xs font-medium text-gray-600">
+                  Minimum Video Duration (minutes)
                 </label>
                 <input
                   type="number"
-                  min="1"
-                  max="100"
-                  value={runNowConfig.maxResults || 10}
+                  min="0"
+                  max="180"
+                  value={newSourceForm.minDurationMinutes}
                   onChange={(e) =>
-                    setRunNowConfig({
-                      ...runNowConfig,
-                      maxResults: parseInt(e.target.value) || 10,
+                    setNewSourceForm({
+                      ...newSourceForm,
+                      minDurationMinutes: parseInt(e.target.value) || 0,
                     })
                   }
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  disabled={isRunning}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
+              <p className="mt-2 text-xs text-gray-500">
+                {newSourceForm.minDurationMinutes > 0
+                  ? `Videos shorter than ${newSourceForm.minDurationMinutes} minutes will be skipped`
+                  : 'All videos will be collected (no duration filter)'}
+              </p>
+            </div>
+          )}
+        </div>
+      </Modal>
 
+      {/* Edit Source Modal */}
+      <Modal
+        open={!!editingSource}
+        onClose={handleCancelEdit}
+        title="Edit Data Source"
+        subtitle={editingSource?.name}
+        size="xl"
+        contentClassName="space-y-6"
+        footer={
+          <>
+            <button
+              onClick={handleCancelEdit}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveEdit}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              <Save className="-mt-0.5 mr-1.5 inline h-4 w-4" />
+              Save Changes
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">
+              Name
+            </label>
+            <input
+              type="text"
+              value={editForm.name || ''}
+              onChange={(e) =>
+                setEditForm({ ...editForm, name: e.target.value })
+              }
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">
+              Description
+            </label>
+            <textarea
+              value={editForm.description || ''}
+              onChange={(e) =>
+                setEditForm({ ...editForm, description: e.target.value })
+              }
+              rows={2}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">
+              Base URL
+            </label>
+            <input
+              type="url"
+              value={editForm.baseUrl || ''}
+              onChange={(e) =>
+                setEditForm({ ...editForm, baseUrl: e.target.value })
+              }
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">
+              API Endpoint
+            </label>
+            <input
+              type="text"
+              value={editForm.apiEndpoint || ''}
+              onChange={(e) =>
+                setEditForm({ ...editForm, apiEndpoint: e.target.value })
+              }
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">
+              Keywords (comma-separated)
+            </label>
+            <input
+              type="text"
+              value={editForm.keywords?.join(', ') || ''}
+              onChange={(e) =>
+                setEditForm({
+                  ...editForm,
+                  keywords: e.target.value
+                    .split(',')
+                    .map((k) => k.trim())
+                    .filter(Boolean),
+                })
+              }
+              placeholder="AI, machine learning, deep learning"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">
+              Minimum Quality Score (0-100)
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={editForm.minQualityScore || 0}
+              onChange={(e) =>
+                setEditForm({
+                  ...editForm,
+                  minQualityScore: parseInt(e.target.value) || 0,
+                })
+              }
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Schedule Configuration */}
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-gray-500" />
+              <span className="text-sm font-medium text-gray-700">
+                Collection Schedule
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  Keywords (Optional)
+                <label className="mb-2 block text-xs font-medium text-gray-600">
+                  Frequency
                 </label>
-                <input
-                  type="text"
-                  value={runNowConfig.keywords || ''}
+                <select
+                  value={(editForm as any).scheduleFrequency || 'manual'}
                   onChange={(e) =>
-                    setRunNowConfig({
-                      ...runNowConfig,
-                      keywords: e.target.value,
+                    setEditForm({
+                      ...editForm,
+                      scheduleFrequency: e.target.value,
                     })
                   }
-                  placeholder="AI, machine learning"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  disabled={isRunning}
-                />
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="manual">Manual Only</option>
+                  <option value="hourly">Every Hour</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                </select>
               </div>
+              {(editForm.scheduleFrequency === 'daily' ||
+                editForm.scheduleFrequency === 'weekly') && (
+                <div>
+                  <label className="mb-2 block text-xs font-medium text-gray-600">
+                    Time (UTC+8)
+                  </label>
+                  <input
+                    type="time"
+                    value={editForm.scheduleTime || '06:00'}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        scheduleTime: e.target.value,
+                      })
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              )}
             </div>
-
-            <div className="flex flex-shrink-0 items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
-              <button
-                onClick={handleCancelRunNow}
-                disabled={isRunning}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleRunNowSubmit}
-                disabled={isRunning}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-              >
-                {isRunning ? (
-                  <>
-                    <Activity className="-mt-0.5 mr-1.5 inline h-4 w-4 animate-spin" />
-                    Starting...
-                  </>
-                ) : (
-                  <>
-                    <Zap className="-mt-0.5 mr-1.5 inline h-4 w-4" />
-                    Run Collection
-                  </>
-                )}
-              </button>
-            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              {editForm.scheduleFrequency === 'manual' ||
+              !editForm.scheduleFrequency
+                ? 'You will need to manually trigger collection'
+                : editForm.scheduleFrequency === 'hourly'
+                  ? 'Collection will run every hour automatically'
+                  : `Collection will run ${editForm.scheduleFrequency} at ${editForm.scheduleTime || '06:00'}`}
+            </p>
           </div>
         </div>
-      )}
+      </Modal>
+
+      {/* Run Now Modal */}
+      <Modal
+        open={!!runNowSource}
+        onClose={handleCancelRunNow}
+        closeButtonDisabled={isRunning}
+        title="Run Collection Now"
+        subtitle={runNowSource?.name}
+        size="lg"
+        contentClassName="space-y-4"
+        footer={
+          <>
+            <button
+              onClick={handleCancelRunNow}
+              disabled={isRunning}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleRunNowSubmit}
+              disabled={isRunning}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {isRunning ? (
+                <>
+                  <Activity className="-mt-0.5 mr-1.5 inline h-4 w-4 animate-spin" />
+                  Starting...
+                </>
+              ) : (
+                <>
+                  <Zap className="-mt-0.5 mr-1.5 inline h-4 w-4" />
+                  Run Collection
+                </>
+              )}
+            </button>
+          </>
+        }
+      >
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <p className="text-sm text-blue-900">
+            Configure collection parameters for this manual run. The task will
+            execute immediately.
+          </p>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-gray-700">
+            Max Results
+          </label>
+          <input
+            type="number"
+            min="1"
+            max="100"
+            value={runNowConfig.maxResults || 10}
+            onChange={(e) =>
+              setRunNowConfig({
+                ...runNowConfig,
+                maxResults: parseInt(e.target.value) || 10,
+              })
+            }
+            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            disabled={isRunning}
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-gray-700">
+            Keywords (Optional)
+          </label>
+          <input
+            type="text"
+            value={runNowConfig.keywords || ''}
+            onChange={(e) =>
+              setRunNowConfig({
+                ...runNowConfig,
+                keywords: e.target.value,
+              })
+            }
+            placeholder="AI, machine learning"
+            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            disabled={isRunning}
+          />
+        </div>
+      </Modal>
 
       {/* Progress Modal */}
-      {showProgressModal &&
-        selectedTaskId &&
-        runningTasks.get(selectedTaskId) && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl">
-              <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Collection Progress
-                  </h3>
-                  <p className="mt-0.5 text-sm text-gray-500">
-                    Task: {runningTasks.get(selectedTaskId)?.name}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowProgressModal(false)}
-                  className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
+      <Modal
+        open={
+          !!(
+            showProgressModal &&
+            selectedTaskId &&
+            runningTasks.get(selectedTaskId)
+          )
+        }
+        onClose={() => setShowProgressModal(false)}
+        title="Collection Progress"
+        subtitle={
+          selectedTaskId
+            ? `Task: ${runningTasks.get(selectedTaskId)?.name || ''}`
+            : ''
+        }
+        size="lg"
+        contentClassName="space-y-6"
+        footer={
+          <button
+            onClick={() => setShowProgressModal(false)}
+            className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
+          >
+            Close
+          </button>
+        }
+      >
+        {selectedTaskId &&
+          (() => {
+            const task = runningTasks.get(selectedTaskId);
+            if (!task) return null;
+            const statusColors: Record<string, string> = {
+              PENDING: 'bg-gray-100 text-gray-700',
+              RUNNING: 'bg-blue-100 text-blue-700',
+              COMPLETED: 'bg-emerald-100 text-emerald-700',
+              FAILED: 'bg-red-100 text-red-700',
+              CANCELLED: 'bg-gray-100 text-gray-700',
+              PAUSED: 'bg-yellow-100 text-yellow-700',
+            };
 
-              <div className="flex-1 space-y-6 overflow-y-auto p-6">
-                {(() => {
-                  const task = runningTasks.get(selectedTaskId)!;
-                  const statusColors = {
-                    PENDING: 'bg-gray-100 text-gray-700',
-                    RUNNING: 'bg-blue-100 text-blue-700',
-                    COMPLETED: 'bg-emerald-100 text-emerald-700',
-                    FAILED: 'bg-red-100 text-red-700',
-                    CANCELLED: 'bg-gray-100 text-gray-700',
-                    PAUSED: 'bg-yellow-100 text-yellow-700',
-                  };
-
-                  return (
-                    <>
-                      {/* Status Badge */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <span
-                            className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${statusColors[task.status]}`}
-                          >
-                            {task.status === 'RUNNING' && (
-                              <Activity className="mr-1.5 inline h-4 w-4 animate-spin" />
-                            )}
-                            {task.status === 'COMPLETED' && (
-                              <CheckCircle className="mr-1.5 inline h-4 w-4" />
-                            )}
-                            {task.status === 'FAILED' && (
-                              <AlertCircle className="mr-1.5 inline h-4 w-4" />
-                            )}
-                            {task.status}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Progress Bar */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="font-medium text-gray-700">
-                            Progress
-                          </span>
-                          <span className="text-gray-600">
-                            {Math.round(task.progress)}%
-                          </span>
-                        </div>
-                        <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-200">
-                          <div
-                            className={`h-full transition-all duration-500 ${
-                              task.status === 'COMPLETED'
-                                ? 'bg-emerald-500'
-                                : task.status === 'FAILED'
-                                  ? 'bg-red-500'
-                                  : 'bg-blue-500'
-                            }`}
-                            style={{ width: `${task.progress}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Statistics */}
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                          <div className="text-2xl font-bold text-gray-900">
-                            {task.totalItems.toLocaleString()}
-                          </div>
-                          <div className="mt-1 text-xs text-gray-500">
-                            Total Items
-                          </div>
-                        </div>
-                        <div className="rounded-lg border border-gray-200 bg-emerald-50 p-4">
-                          <div className="text-2xl font-bold text-emerald-700">
-                            {task.successItems.toLocaleString()}
-                          </div>
-                          <div className="mt-1 text-xs text-gray-500">
-                            Success
-                          </div>
-                        </div>
-                        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                          <div className="text-2xl font-bold text-gray-600">
-                            {task.duplicateItems.toLocaleString()}
-                          </div>
-                          <div className="mt-1 text-xs text-gray-500">
-                            Duplicates
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Error Message */}
-                      {task.status === 'FAILED' && task.errorMessage && (
-                        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-                          <div className="flex items-start gap-3">
-                            <AlertCircle className="mt-0.5 h-5 w-5 text-red-600" />
-                            <div className="flex-1">
-                              <div className="font-medium text-red-900">
-                                Error
-                              </div>
-                              <div className="mt-1 text-sm text-red-700">
-                                {task.errorMessage}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+            return (
+              <>
+                {/* Status Badge */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${statusColors[task.status]}`}
+                    >
+                      {task.status === 'RUNNING' && (
+                        <Activity className="mr-1.5 inline h-4 w-4 animate-spin" />
                       )}
+                      {task.status === 'COMPLETED' && (
+                        <CheckCircle className="mr-1.5 inline h-4 w-4" />
+                      )}
+                      {task.status === 'FAILED' && (
+                        <AlertCircle className="mr-1.5 inline h-4 w-4" />
+                      )}
+                      {task.status}
+                    </span>
+                  </div>
+                </div>
 
-                      {/* Timing Info */}
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        {task.startedAt && (
-                          <div>
-                            <span className="text-gray-500">Started:</span>{' '}
-                            <span className="font-medium text-gray-900">
-                              {new Date(task.startedAt).toLocaleTimeString()}
-                            </span>
-                          </div>
-                        )}
-                        {task.completedAt && (
-                          <div>
-                            <span className="text-gray-500">Completed:</span>{' '}
-                            <span className="font-medium text-gray-900">
-                              {new Date(task.completedAt).toLocaleTimeString()}
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                {/* Progress Bar */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium text-gray-700">Progress</span>
+                    <span className="text-gray-600">
+                      {Math.round(task.progress)}%
+                    </span>
+                  </div>
+                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-200">
+                    <div
+                      className={`h-full transition-all duration-500 ${
+                        task.status === 'COMPLETED'
+                          ? 'bg-emerald-500'
+                          : task.status === 'FAILED'
+                            ? 'bg-red-500'
+                            : 'bg-blue-500'
+                      }`}
+                      style={{ width: `${task.progress}%` }}
+                    />
+                  </div>
+                </div>
 
-                      {/* Log Area - Simplified */}
-                      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                        <div className="mb-2 text-sm font-medium text-gray-900">
-                          Activity Log
+                {/* Statistics */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <div className="text-2xl font-bold text-gray-900">
+                      {task.totalItems.toLocaleString()}
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500">
+                      Total Items
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 bg-emerald-50 p-4">
+                    <div className="text-2xl font-bold text-emerald-700">
+                      {task.successItems.toLocaleString()}
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500">Success</div>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <div className="text-2xl font-bold text-gray-600">
+                      {task.duplicateItems.toLocaleString()}
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500">Duplicates</div>
+                  </div>
+                </div>
+
+                {/* Error Message */}
+                {task.status === 'FAILED' && task.errorMessage && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="mt-0.5 h-5 w-5 text-red-600" />
+                      <div className="flex-1">
+                        <div className="font-medium text-red-900">Error</div>
+                        <div className="mt-1 text-sm text-red-700">
+                          {task.errorMessage}
                         </div>
-                        <div className="space-y-1 font-mono text-xs text-gray-600">
-                          {task.startedAt && (
-                            <div>
-                              [{new Date(task.startedAt).toLocaleTimeString()}]
-                              Task started
-                            </div>
-                          )}
-                          {task.status === 'COMPLETED' && task.completedAt && (
-                            <div className="text-emerald-600">
-                              [{new Date(task.completedAt).toLocaleTimeString()}
-                              ] ✓ Collection completed - {task.successItems}{' '}
-                              items collected
-                            </div>
-                          )}
-                          {task.status === 'FAILED' && (
-                            <div className="text-red-600">
-                              [{new Date().toLocaleTimeString()}] ✗ Collection
-                              failed
-                            </div>
-                          )}
-                        </div>
                       </div>
-                    </>
-                  );
-                })()}
-              </div>
+                    </div>
+                  </div>
+                )}
 
-              <div className="flex flex-shrink-0 items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
-                <button
-                  onClick={() => setShowProgressModal(false)}
-                  className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+                {/* Timing Info */}
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  {task.startedAt && (
+                    <div>
+                      <span className="text-gray-500">Started:</span>{' '}
+                      <span className="font-medium text-gray-900">
+                        {new Date(task.startedAt).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  )}
+                  {task.completedAt && (
+                    <div>
+                      <span className="text-gray-500">Completed:</span>{' '}
+                      <span className="font-medium text-gray-900">
+                        {new Date(task.completedAt).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Log Area - Simplified */}
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <div className="mb-2 text-sm font-medium text-gray-900">
+                    Activity Log
+                  </div>
+                  <div className="space-y-1 font-mono text-xs text-gray-600">
+                    {task.startedAt && (
+                      <div>
+                        [{new Date(task.startedAt).toLocaleTimeString()}] Task
+                        started
+                      </div>
+                    )}
+                    {task.status === 'COMPLETED' && task.completedAt && (
+                      <div className="text-emerald-600">
+                        [{new Date(task.completedAt).toLocaleTimeString()}] ✓
+                        Collection completed - {task.successItems} items
+                        collected
+                      </div>
+                    )}
+                    {task.status === 'FAILED' && (
+                      <div className="text-red-600">
+                        [{new Date().toLocaleTimeString()}] ✗ Collection failed
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+      </Modal>
 
       {/* Batch Collection Drawer */}
       {batchCategory && (
