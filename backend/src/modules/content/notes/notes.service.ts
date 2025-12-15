@@ -691,9 +691,22 @@ export class NotesService {
           `Found ${result.connections?.length || 0} connections for user ${userId}`,
         );
 
-        // 创建 ID 到标题的映射
+        // 创建 ID 到标题的映射，如果没有标题则使用内容前30个字符
         const noteMap = new Map(
-          notes.map((n) => [n.id, n.title || "Untitled"]),
+          notes.map((n) => {
+            let displayTitle = n.title;
+            if (!displayTitle || displayTitle.trim() === "") {
+              // 使用内容的前30个字符作为标题
+              const contentPreview = (n.content || "")
+                .replace(/[#>*_~`\[\]]/g, "") // 移除 markdown 符号
+                .trim()
+                .slice(0, 30);
+              displayTitle = contentPreview
+                ? `${contentPreview}${contentPreview.length >= 30 ? "..." : ""}`
+                : "Untitled Note";
+            }
+            return [n.id, displayTitle];
+          }),
         );
 
         // 丰富连接数据，添加笔记标题
