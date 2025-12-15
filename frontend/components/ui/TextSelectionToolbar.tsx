@@ -64,6 +64,7 @@ export default function TextSelectionToolbar({
 }: TextSelectionToolbarProps) {
   const [selectedText, setSelectedText] = useState('');
   const [prevSelectedText, setPrevSelectedText] = useState(''); // Track previous text for comparison
+  const selectedTextRef = useRef(''); // Ref to always have current selected text (avoids stale closure issues)
   const [showToolbar, setShowToolbar] = useState(false);
   const [toolbarPosition, setToolbarPosition] = useState<Position>({
     x: 0,
@@ -122,6 +123,8 @@ export default function TextSelectionToolbar({
         setPrevSelectedText(text);
       }
 
+      // Update both state and ref (ref for immediate access in callbacks)
+      selectedTextRef.current = text;
       setSelectedText(text);
 
       // Position toolbar above selection
@@ -168,7 +171,9 @@ export default function TextSelectionToolbar({
   // Copy to clipboard
   const handleCopy = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(selectedText);
+      // Use ref to get the most current selected text
+      const textToCopy = selectedTextRef.current;
+      await navigator.clipboard.writeText(textToCopy);
       setSuccessMessage('Copied!');
       setMode('success');
       setTimeout(() => {
@@ -178,7 +183,7 @@ export default function TextSelectionToolbar({
     } catch (err) {
       console.error('Failed to copy:', err);
     }
-  }, [selectedText]);
+  }, []);
 
   // Translate text
   const handleTranslate = useCallback(
@@ -188,8 +193,8 @@ export default function TextSelectionToolbar({
       setTranslating(true);
       setSelectedLang(targetLang);
 
-      // Capture current text for this translation request
-      const textToTranslate = selectedText;
+      // Use ref to get the most current selected text (avoids stale closure)
+      const textToTranslate = selectedTextRef.current;
 
       if (!textToTranslate || textToTranslate.length < 2) {
         setTranslation('No text selected');
@@ -226,13 +231,16 @@ export default function TextSelectionToolbar({
         setTranslating(false);
       }
     },
-    [selectedText, onTranslate]
+    [onTranslate]
   );
 
   // Add to notes
   const handleAddToNotes = useCallback(async () => {
+    // Use ref to get the most current selected text (avoids stale closure)
+    const currentSelectedText = selectedTextRef.current;
+
     if (!resourceId) {
-      onAddToNotes?.(selectedText, noteText);
+      onAddToNotes?.(currentSelectedText, noteText);
       setSuccessMessage('Added to notes!');
       setMode('success');
       setTimeout(() => {
@@ -253,15 +261,15 @@ export default function TextSelectionToolbar({
         body: JSON.stringify({
           resourceId,
           content: noteText
-            ? `${noteText}\n\n> ${selectedText}`
-            : `> ${selectedText}`,
+            ? `${noteText}\n\n> ${currentSelectedText}`
+            : `> ${currentSelectedText}`,
           tags: ['quote', 'selection'],
           isPublic: false,
         }),
       });
 
       if (response.ok) {
-        onAddToNotes?.(selectedText, noteText);
+        onAddToNotes?.(currentSelectedText, noteText);
         setSuccessMessage('Added to notes!');
         setMode('success');
         setTimeout(() => {
@@ -288,13 +296,15 @@ export default function TextSelectionToolbar({
     } finally {
       setSavingNote(false);
     }
-  }, [resourceId, selectedText, noteText, onAddToNotes]);
+  }, [resourceId, noteText, onAddToNotes]);
 
   // Highlight text
   const handleHighlight = useCallback(
     (color: string) => {
+      // Use ref to get the most current selected text (avoids stale closure)
+      const currentSelectedText = selectedTextRef.current;
       if (onHighlight) {
-        onHighlight(selectedText, color);
+        onHighlight(currentSelectedText, color);
         setSuccessMessage('Highlighted!');
       } else {
         // Highlight feature not implemented yet
@@ -306,15 +316,16 @@ export default function TextSelectionToolbar({
         setMode('main');
       }, 1000);
     },
-    [selectedText, onHighlight]
+    [onHighlight]
   );
 
   // Ask AI
   const handleAskAI = useCallback(() => {
-    onAskAI?.(selectedText);
+    // Use ref to get the most current selected text (avoids stale closure)
+    onAskAI?.(selectedTextRef.current);
     setShowToolbar(false);
     setMode('main');
-  }, [selectedText, onAskAI]);
+  }, [onAskAI]);
 
   // Close toolbar
   const handleClose = useCallback(() => {
@@ -323,6 +334,7 @@ export default function TextSelectionToolbar({
     setNoteText('');
     setTranslation('');
     setPrevSelectedText('');
+    selectedTextRef.current = '';
     window.getSelection()?.removeAllRanges();
   }, []);
 
@@ -558,7 +570,7 @@ export default function TextSelectionToolbar({
               onClick={() => {
                 setMode('note');
                 setNoteText(
-                  `Translation (${selectedLang}):\n${translation}\n\nOriginal:\n${selectedText}`
+                  `Translation (${selectedLang}):\n${translation}\n\nOriginal:\n${selectedTextRef.current}`
                 );
               }}
               className="flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-200"
@@ -849,6 +861,7 @@ export default function TextSelectionToolbar({
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => {
+                    selectedTextRef.current = clipboardText;
                     setSelectedText(clipboardText);
                     setTranslation(''); // Clear stale translation
                     setMode('translate');
@@ -878,6 +891,7 @@ export default function TextSelectionToolbar({
                 </button>
                 <button
                   onClick={() => {
+                    selectedTextRef.current = clipboardText;
                     setSelectedText(clipboardText);
                     setMode('note');
                     setShowToolbar(true);
