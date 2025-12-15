@@ -29,6 +29,23 @@ const NotesList = dynamicImport(
   { ssr: false }
 );
 
+const KnowledgeGraphView = dynamicImport(
+  () => import('@/components/shared/views/KnowledgeGraphView'),
+  { ssr: false, loading: () => <GraphLoadingSkeleton /> }
+);
+
+// Graph loading skeleton
+function GraphLoadingSkeleton() {
+  return (
+    <div className="flex h-[600px] items-center justify-center rounded-lg border border-gray-200 bg-gradient-to-br from-gray-50 to-gray-100">
+      <div className="text-center">
+        <div className="mx-auto h-12 w-12 animate-pulse rounded-full bg-gradient-to-r from-purple-400 to-blue-400" />
+        <p className="mt-4 text-gray-600">Loading knowledge graph...</p>
+      </div>
+    </div>
+  );
+}
+
 const CollectionModal = dynamicImport(
   () => import('@/components/library/CollectionModal'),
   { ssr: false }
@@ -91,22 +108,23 @@ function LibraryPageContent() {
   const searchParams = useSearchParams();
   const tabParam = searchParams?.get('tab');
 
-  const [activeTab, setActiveTab] = useState<'bookmarks' | 'notes' | 'images'>(
-    () => {
-      // Initialize from URL parameter if present
-      if (tabParam === 'images' || tabParam === 'notes') {
-        return tabParam;
-      }
-      return 'bookmarks';
+  const [activeTab, setActiveTab] = useState<
+    'bookmarks' | 'notes' | 'images' | 'graph'
+  >(() => {
+    // Initialize from URL parameter if present
+    if (tabParam === 'images' || tabParam === 'notes' || tabParam === 'graph') {
+      return tabParam;
     }
-  );
+    return 'bookmarks';
+  });
 
   // Update activeTab when URL parameter changes
   useEffect(() => {
     if (
       tabParam === 'images' ||
       tabParam === 'notes' ||
-      tabParam === 'bookmarks'
+      tabParam === 'bookmarks' ||
+      tabParam === 'graph'
     ) {
       setActiveTab(tabParam);
     }
@@ -175,6 +193,31 @@ function LibraryPageContent() {
   const [selectedImage, setSelectedImage] = useState<BookmarkedImage | null>(
     null
   );
+
+  // Knowledge Graph state
+  const [graphData, setGraphData] = useState<{
+    nodes: Array<{
+      id: string;
+      label: string;
+      type:
+        | 'User'
+        | 'Collection'
+        | 'Resource'
+        | 'Note'
+        | 'Author'
+        | 'Topic'
+        | 'Tag';
+      properties: Record<string, unknown>;
+    }>;
+    edges: Array<{
+      source: string;
+      target: string;
+      type: string;
+      weight?: number;
+    }>;
+  } | null>(null);
+  const [graphLoading, setGraphLoading] = useState(false);
+  const [graphError, setGraphError] = useState<string | null>(null);
 
   // API hooks
   const collectionsApi = useCollections();
@@ -380,6 +423,42 @@ function LibraryPageContent() {
     }
   }, []);
 
+  // Load knowledge graph data
+  const loadGraphData = useCallback(async () => {
+    setGraphLoading(true);
+    setGraphError(null);
+    try {
+      // 构建 API URL，包含用户个性化参数
+      const params = new URLSearchParams();
+      // 如果选中了特定收藏集，则筛选该收藏集的内容
+      if (
+        activeCollectionId &&
+        !['recent', 'reading', 'completed'].includes(activeCollectionId) &&
+        !activeCollectionId.startsWith('tag:')
+      ) {
+        params.append('collectionId', activeCollectionId);
+      }
+      const queryString = params.toString();
+      const url = `${config.apiUrl}/knowledge-graph/overview${queryString ? `?${queryString}` : ''}`;
+
+      const response = await fetch(url, {
+        headers: { ...getAuthHeader() },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch knowledge graph');
+      }
+
+      const data = await response.json();
+      setGraphData(data);
+    } catch (err) {
+      console.error('Error fetching graph:', err);
+      setGraphError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setGraphLoading(false);
+    }
+  }, [activeCollectionId]);
+
   // Initial load
   useEffect(() => {
     loadCollections();
@@ -393,6 +472,8 @@ function LibraryPageContent() {
       loadBookmarkedImages();
     } else if (activeTab === 'images') {
       loadBookmarkedImages();
+    } else if (activeTab === 'graph') {
+      loadGraphData();
     }
   }, [
     activeCollectionId,
@@ -401,6 +482,7 @@ function LibraryPageContent() {
     sortOrder,
     activeTab,
     loadBookmarkedImages,
+    loadGraphData,
   ]);
 
   // Infinite scroll observer
@@ -1297,27 +1379,15 @@ function LibraryPageContent() {
                           {selectionMode ? 'Cancel' : 'Select'}
                         </button>
                       )}
-                    {/* View Graph button - 传递当前收藏集 ID */}
-                    <Link
-                      href={
-                        activeCollectionId &&
-                        !['recent', 'reading', 'completed'].includes(
-                          activeCollectionId
-                        ) &&
-                        !activeCollectionId.startsWith('tag:')
-                          ? `/knowledge-graph?collectionId=${activeCollectionId}`
-                          : '/knowledge-graph'
-                      }
-                      className="flex items-center gap-1.5 rounded border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-600 transition-all hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700"
-                      title={
-                        activeCollectionId &&
-                        !['recent', 'reading', 'completed'].includes(
-                          activeCollectionId
-                        ) &&
-                        !activeCollectionId.startsWith('tag:')
-                          ? 'View collection as Knowledge Graph'
-                          : 'View Knowledge Graph'
-                      }
+                    {/* View Graph button - 切换到 Graph Tab */}
+                    <button
+                      onClick={() => setActiveTab('graph')}
+                      className={`flex items-center gap-1.5 rounded border px-3 py-2 text-xs font-medium transition-all ${
+                        activeTab === 'graph'
+                          ? 'border-purple-500 bg-purple-50 text-purple-700'
+                          : 'border-gray-300 bg-white text-gray-600 hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700'
+                      }`}
+                      title="View Knowledge Graph"
                     >
                       <svg
                         className="h-4 w-4"
@@ -1333,7 +1403,7 @@ function LibraryPageContent() {
                         />
                       </svg>
                       Graph
-                    </Link>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1371,6 +1441,16 @@ function LibraryPageContent() {
               >
                 Images
               </button>
+              <button
+                onClick={() => setActiveTab('graph')}
+                className={`border-b-2 px-0 py-3 text-sm font-semibold transition-all ${
+                  activeTab === 'graph'
+                    ? 'border-purple-600 text-gray-900'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Graph
+              </button>
             </div>
           </div>
         </div>
@@ -1391,6 +1471,8 @@ function LibraryPageContent() {
                 loadTagsAndStats();
               } else if (activeTab === 'images') {
                 loadBookmarkedImages();
+              } else if (activeTab === 'graph') {
+                loadGraphData();
               }
               // Notes tab refreshes via its own component
             }}
@@ -1758,6 +1840,171 @@ function LibraryPageContent() {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Knowledge Graph View */}
+          {activeTab === 'graph' && (
+            <div className="rounded-lg border border-gray-200 bg-white">
+              {/* Graph Header */}
+              <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    Knowledge Graph
+                  </h3>
+                  {activeCollectionId &&
+                    !['recent', 'reading', 'completed'].includes(
+                      activeCollectionId
+                    ) &&
+                    !activeCollectionId.startsWith('tag:') && (
+                      <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">
+                        Filtered by Collection
+                      </span>
+                    )}
+                  {graphData && (
+                    <span className="text-xs text-gray-500">
+                      {graphData.nodes.length} nodes · {graphData.edges.length}{' '}
+                      edges
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={loadGraphData}
+                    disabled={graphLoading}
+                    className="flex items-center gap-1.5 rounded border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-all hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {graphLoading ? (
+                      <>
+                        <svg
+                          className="h-3 w-3 animate-spin"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          />
+                        </svg>
+                        Loading...
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="h-3 w-3"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                          />
+                        </svg>
+                        Refresh
+                      </>
+                    )}
+                  </button>
+                  <Link
+                    href="/knowledge-graph"
+                    className="flex items-center gap-1.5 rounded border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-all hover:bg-gray-50"
+                    title="Open in full screen"
+                  >
+                    <svg
+                      className="h-3 w-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                      />
+                    </svg>
+                    Full Screen
+                  </Link>
+                </div>
+              </div>
+
+              {/* Graph Content */}
+              <div className="h-[600px]">
+                {graphLoading ? (
+                  <GraphLoadingSkeleton />
+                ) : graphError ? (
+                  <div className="flex h-full items-center justify-center">
+                    <div className="text-center">
+                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+                        <svg
+                          className="h-6 w-6 text-red-500"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                          />
+                        </svg>
+                      </div>
+                      <p className="mt-3 text-sm text-gray-600">{graphError}</p>
+                      <button
+                        onClick={loadGraphData}
+                        className="mt-3 rounded-lg bg-blue-500 px-4 py-2 text-sm text-white hover:bg-blue-600"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  </div>
+                ) : graphData && graphData.nodes.length > 0 ? (
+                  <KnowledgeGraphView
+                    nodes={graphData.nodes}
+                    edges={graphData.edges}
+                  />
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-8">
+                    <div className="text-center">
+                      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-purple-100 to-blue-100">
+                        <svg
+                          className="h-8 w-8 text-purple-500"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.5}
+                            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                          />
+                        </svg>
+                      </div>
+                      <h3 className="mt-4 text-lg font-semibold text-gray-900">
+                        No Graph Data
+                      </h3>
+                      <p className="mt-2 max-w-sm text-sm text-gray-600">
+                        {activeCollectionId
+                          ? 'Add resources to this collection to visualize connections.'
+                          : 'Add some resources to your library to see their relationships.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
