@@ -1037,14 +1037,17 @@ function HomeContent() {
     // Get restrictions for current tab
     const restrictions = FILE_RESTRICTIONS[activeTab];
     if (!restrictions) {
-      alert('当前标签页不支持文件上传');
+      setToast({ message: '当前标签页不支持文件上传', type: 'error' });
       return;
     }
 
     // Check file size
     if (file.size > restrictions.maxSize) {
       const maxSizeMB = restrictions.maxSize / (1024 * 1024);
-      alert(`文件大小超过限制（最大 ${maxSizeMB}MB）`);
+      setToast({
+        message: `文件大小超过限制（最大 ${maxSizeMB}MB）`,
+        type: 'error',
+      });
       return;
     }
 
@@ -1062,7 +1065,10 @@ function HomeContent() {
     });
 
     if (!isValidType) {
-      alert(`请上传${restrictions.label}（${restrictions.accept}）`);
+      setToast({
+        message: `请上传${restrictions.label}（${restrictions.accept}）`,
+        type: 'error',
+      });
       return;
     }
 
@@ -1102,9 +1108,10 @@ function HomeContent() {
       console.log('File uploaded successfully:', data);
 
       // Show success message
-      alert(
-        `文件 "${file.name}" 上传成功！\n\n文件将保存为资源，您可以在列表中查看。`
-      );
+      setToast({
+        message: `文件 "${file.name}" 上传成功！`,
+        type: 'success',
+      });
 
       // Refresh resources list
       await fetchResources();
@@ -1112,7 +1119,7 @@ function HomeContent() {
       console.error('File upload error:', error);
       const errorMessage =
         error instanceof Error ? error.message : '文件上传失败';
-      alert(errorMessage);
+      setToast({ message: errorMessage, type: 'error' });
     } finally {
       setUploadingFile(false);
       setSelectedFile(null);
@@ -1480,7 +1487,10 @@ function HomeContent() {
       }
     } catch (error) {
       console.error('Failed to save note:', error);
-      alert('Failed to save note: Network error or server unreachable');
+      setToast({
+        message: '保存笔记失败：网络错误或服务器无响应',
+        type: 'error',
+      });
     } finally {
       setSavingNote(false);
     }
@@ -1536,7 +1546,7 @@ function HomeContent() {
   // Save conversation to notes
   const saveConversationToNotes = async () => {
     if (!selectedResource || aiMessages.length === 0) {
-      alert('No conversation to save');
+      setToast({ message: '没有可保存的对话', type: 'error' });
       return;
     }
 
@@ -1567,11 +1577,11 @@ function HomeContent() {
 
       if (!response.ok) throw new Error('Failed to save conversation');
 
-      alert('Conversation saved to notes successfully!');
+      setToast({ message: '对话已保存到笔记！', type: 'success' });
       setNotesRefreshKey((prev) => prev + 1); // Refresh notes list
     } catch (error) {
       console.error('Failed to save conversation:', error);
-      alert('Failed to save conversation. Please try again.');
+      setToast({ message: '保存对话失败，请重试', type: 'error' });
     }
   };
 
@@ -1980,17 +1990,13 @@ function HomeContent() {
     e.stopPropagation();
     if (!isAdmin) return;
 
-    if (
-      !confirm(
-        'Are you sure you want to delete this resource? This action cannot be undone.'
-      )
-    ) {
+    if (!confirm('确定要删除这个资源吗？此操作无法撤销。')) {
       return;
     }
 
     try {
       const response = await fetch(
-        `${config.apiBaseUrl}/api/v1/admin/resources/${resourceId}`,
+        `${config.apiUrl}/admin/resources/${resourceId}`,
         {
           method: 'DELETE',
           headers: getAuthHeader(),
@@ -2005,12 +2011,17 @@ function HomeContent() {
           setSelectedResource(null);
           setViewMode('list');
         }
+        setToast({ message: '资源已删除', type: 'success' });
       } else {
-        alert('Failed to delete resource');
+        const errorData = await response.json().catch(() => ({}));
+        setToast({
+          message: errorData.message || '删除资源失败',
+          type: 'error',
+        });
       }
     } catch (err) {
       console.error('Failed to delete resource:', err);
-      alert('Failed to delete resource');
+      setToast({ message: '删除资源失败：网络错误', type: 'error' });
     }
   };
 
