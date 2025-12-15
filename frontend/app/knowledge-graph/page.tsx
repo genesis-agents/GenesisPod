@@ -1,14 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import dynamic from 'next/dynamic';
+import dynamicImport from 'next/dynamic';
 import Sidebar from '@/components/layout/Sidebar';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader, getCurrentUser } from '@/lib/utils/auth';
 
+export const dynamic = 'force-dynamic';
+
 // 懒加载 D3 图谱组件
-const KnowledgeGraphView = dynamic(
+const KnowledgeGraphView = dynamicImport(
   () => import('@/components/shared/views/KnowledgeGraphView'),
   { ssr: false, loading: () => <GraphLoadingSkeleton /> }
 );
@@ -126,7 +128,7 @@ function EmptyState({ onBuild }: { onBuild: () => void }) {
   );
 }
 
-export default function KnowledgeGraphPage() {
+function KnowledgeGraphPageContent() {
   const searchParams = useSearchParams();
   const [graphData, setGraphData] = useState<GraphOverview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -357,5 +359,22 @@ export default function KnowledgeGraphPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function KnowledgeGraphPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-screen items-center justify-center bg-gray-100">
+          <div className="text-center">
+            <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-purple-600 border-t-transparent"></div>
+            <p className="text-gray-500">Loading...</p>
+          </div>
+        </div>
+      }
+    >
+      <KnowledgeGraphPageContent />
+    </Suspense>
   );
 }
