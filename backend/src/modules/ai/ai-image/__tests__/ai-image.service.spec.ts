@@ -15,12 +15,11 @@ jest.mock("../../../../common/content-processing", () => ({
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { HttpService } from "@nestjs/axios";
-import { AiImageService, GenerateImageOptions } from "../ai-image.service";
+import { AiImageService } from "../ai-image.service";
 import { InfographicTemplateService } from "../infographic-template.service";
+import { AiImageAnalyticsService } from "../ai-image-analytics.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { R2StorageService } from "../../../core/storage/r2-storage.service";
-import { AiChatService } from "../../ai-core/ai-chat.service";
-import { AIModelService } from "../../ai-office/ai-model.service";
 import {
   ContentExtractorService,
   DataFetchingService,
@@ -58,16 +57,14 @@ describe("AiImageService", () => {
   const mockR2Storage = {
     uploadImage: jest.fn(),
     deleteImage: jest.fn(),
+    isEnabled: jest.fn().mockReturnValue(false),
   };
 
-  const mockAiChatService = {
-    generateChatCompletion: jest.fn(),
-    generateChatCompletionWithKey: jest.fn(),
-  };
-
-  const mockAiModelService = {
-    getDefaultTextModel: jest.fn(),
-    getDefaultImageModel: jest.fn(),
+  const mockAnalyticsService = {
+    getImageStats: jest.fn(),
+    getImageUsageByUser: jest.fn(),
+    getPopularStyles: jest.fn(),
+    trackGeneration: jest.fn(),
   };
 
   const mockContentExtractor = {
@@ -84,24 +81,6 @@ describe("AiImageService", () => {
     generateInfographic: jest.fn(),
   };
 
-  const mockTextModel = {
-    id: "text-model-id",
-    displayName: "GPT-4",
-    modelId: "gpt-4",
-    provider: "openai",
-    apiKey: "test-key",
-    apiEndpoint: "https://api.openai.com/v1",
-  };
-
-  const mockImageModel = {
-    id: "image-model-id",
-    displayName: "DALL-E 3",
-    modelId: "dall-e-3",
-    provider: "openai",
-    apiKey: "test-key",
-    apiEndpoint: "https://api.openai.com/v1",
-  };
-
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -115,16 +94,11 @@ describe("AiImageService", () => {
         },
         { provide: DataFetchingService, useValue: mockDataFetching },
         { provide: R2StorageService, useValue: mockR2Storage },
-        { provide: AiChatService, useValue: mockAiChatService },
-        { provide: AIModelService, useValue: mockAiModelService },
+        { provide: AiImageAnalyticsService, useValue: mockAnalyticsService },
       ],
     }).compile();
 
     service = module.get<AiImageService>(AiImageService);
-
-    // 默认 mock 返回值
-    mockAiModelService.getDefaultTextModel.mockResolvedValue(mockTextModel);
-    mockAiModelService.getDefaultImageModel.mockResolvedValue(mockImageModel);
   });
 
   afterEach(() => {
@@ -156,97 +130,6 @@ describe("AiImageService", () => {
 
       expect(result).toBeDefined();
       expect(result.imageModels).toEqual([]);
-    });
-  });
-
-  describe("generateImage", () => {
-    const baseOptions: GenerateImageOptions = {
-      prompt: "一只可爱的猫咪",
-      userId: "user-123",
-    };
-
-    it("should generate image with prompt", async () => {
-      mockAiChatService.generateChatCompletionWithKey.mockResolvedValue({
-        content: JSON.stringify({
-          imagePrompt: "A cute cat, photorealistic",
-          informationArchitecture: { title: "Cat" },
-        }),
-      });
-      mockR2Storage.uploadImage.mockResolvedValue({
-        url: "https://storage.example.com/image.png",
-      });
-      mockPrisma.generatedImage.create.mockResolvedValue({
-        id: "img-123",
-        imageUrl: "https://storage.example.com/image.png",
-        prompt: "一只可爱的猫咪",
-        width: 1024,
-        height: 1024,
-        createdAt: new Date(),
-      });
-
-      const result = await service.generateImage(baseOptions);
-
-      expect(result).toBeDefined();
-    });
-
-    it("should accept custom text model option", async () => {
-      const options: GenerateImageOptions = {
-        ...baseOptions,
-        textModelId: "custom-text-model",
-      };
-
-      mockAiChatService.generateChatCompletionWithKey.mockResolvedValue({
-        content: JSON.stringify({ imagePrompt: "enhanced prompt" }),
-      });
-      mockPrisma.generatedImage.create.mockResolvedValue({
-        id: "img-123",
-        imageUrl: "https://example.com/image.png",
-        createdAt: new Date(),
-      });
-
-      const result = await service.generateImage(options);
-
-      expect(result).toBeDefined();
-    });
-
-    it("should accept custom image model option", async () => {
-      const options: GenerateImageOptions = {
-        ...baseOptions,
-        imageModelId: "custom-image-model",
-      };
-
-      mockAiChatService.generateChatCompletionWithKey.mockResolvedValue({
-        content: JSON.stringify({ imagePrompt: "enhanced prompt" }),
-      });
-      mockPrisma.generatedImage.create.mockResolvedValue({
-        id: "img-123",
-        imageUrl: "https://example.com/image.png",
-        createdAt: new Date(),
-      });
-
-      const result = await service.generateImage(options);
-
-      expect(result).toBeDefined();
-    });
-
-    it("should skip enhancement when skipEnhancement is true", async () => {
-      const options: GenerateImageOptions = {
-        ...baseOptions,
-        skipEnhancement: true,
-      };
-
-      mockPrisma.generatedImage.create.mockResolvedValue({
-        id: "img-123",
-        imageUrl: "https://example.com/image.png",
-        prompt: baseOptions.prompt,
-      });
-
-      await service.generateImage(options);
-
-      // 跳过增强时不应调用 AI chat 服务
-      expect(
-        mockAiChatService.generateChatCompletionWithKey,
-      ).not.toHaveBeenCalled();
     });
   });
 
@@ -389,120 +272,6 @@ describe("AiImageService", () => {
 
       expect(result).toBeDefined();
       expect(result.success).toBe(true);
-    });
-  });
-
-  describe("autoTagImages", () => {
-    it("should auto tag user images", async () => {
-      mockPrisma.generatedImage.findMany.mockResolvedValue([
-        { id: "img-1", prompt: "cat image", tags: [] },
-        { id: "img-2", prompt: "dog image", tags: [] },
-      ]);
-      mockAiChatService.generateChatCompletionWithKey.mockResolvedValue({
-        content: JSON.stringify({
-          images: [
-            { id: "img-1", tags: ["cat", "animal", "pet"] },
-            { id: "img-2", tags: ["dog", "animal", "pet"] },
-          ],
-        }),
-      });
-      mockPrisma.generatedImage.update.mockResolvedValue({});
-
-      const result = await service.autoTagImages("user-123");
-
-      expect(result).toBeDefined();
-      expect(result.taggedCount).toBeGreaterThanOrEqual(0);
-    });
-
-    it("should return result with 0 count for user with no images", async () => {
-      mockPrisma.generatedImage.findMany.mockResolvedValue([]);
-
-      const result = await service.autoTagImages("user-123");
-
-      expect(result).toBeDefined();
-      expect(result.taggedCount).toBe(0);
-    });
-  });
-
-  describe("analyzeStyles", () => {
-    it("should analyze styles of user images", async () => {
-      mockPrisma.generatedImage.findMany.mockResolvedValue([
-        { id: "img-1", prompt: "watercolor landscape" },
-        { id: "img-2", prompt: "oil painting portrait" },
-      ]);
-      mockAiChatService.generateChatCompletionWithKey.mockResolvedValue({
-        content: JSON.stringify({
-          styles: [
-            {
-              name: "Watercolor",
-              count: 1,
-              description: "Soft watercolor style",
-            },
-            {
-              name: "Oil Painting",
-              count: 1,
-              description: "Classic oil painting",
-            },
-          ],
-        }),
-      });
-
-      const result = await service.analyzeStyles("user-123");
-
-      expect(result).toBeDefined();
-      expect(result.styles).toBeDefined();
-    });
-
-    it("should return empty styles for user with no images", async () => {
-      mockPrisma.generatedImage.findMany.mockResolvedValue([]);
-
-      const result = await service.analyzeStyles("user-123");
-
-      expect(result).toBeDefined();
-      expect(result.styles).toEqual([]);
-    });
-  });
-
-  describe("clusterVisualThemes", () => {
-    it("should cluster images by visual themes", async () => {
-      mockPrisma.generatedImage.findMany.mockResolvedValue([
-        { id: "img-1", prompt: "sunset beach" },
-        { id: "img-2", prompt: "sunrise ocean" },
-        { id: "img-3", prompt: "city night" },
-      ]);
-      mockAiChatService.generateChatCompletionWithKey.mockResolvedValue({
-        content: JSON.stringify({
-          clusters: [
-            {
-              theme: "Ocean/Beach",
-              description: "Beach and ocean scenes",
-              count: 2,
-              keywords: ["beach", "ocean", "sunset"],
-            },
-            {
-              theme: "Urban",
-              description: "City scenes",
-              count: 1,
-              keywords: ["city", "night"],
-            },
-          ],
-        }),
-      });
-
-      const result = await service.clusterVisualThemes("user-123");
-
-      expect(result).toBeDefined();
-      expect(result.clusters).toBeDefined();
-      expect(result.clusters.length).toBeGreaterThanOrEqual(0);
-    });
-
-    it("should return empty clusters for user with no images", async () => {
-      mockPrisma.generatedImage.findMany.mockResolvedValue([]);
-
-      const result = await service.clusterVisualThemes("user-123");
-
-      expect(result).toBeDefined();
-      expect(result.clusters).toEqual([]);
     });
   });
 

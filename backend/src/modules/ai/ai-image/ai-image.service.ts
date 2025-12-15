@@ -3,8 +3,6 @@ import {
   Logger,
   BadRequestException,
   MessageEvent,
-  Inject,
-  forwardRef,
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { HttpService } from "@nestjs/axios";
@@ -16,8 +14,7 @@ import {
 } from "../../../common/content-processing";
 import { R2StorageService } from "../../core/storage/r2-storage.service";
 import { AIModelType, Prisma } from "@prisma/client";
-import { AiChatService } from "../ai-core/ai-chat.service";
-import { AIModelService } from "../ai-office/ai-model.service";
+import { AiImageAnalyticsService } from "./ai-image-analytics.service";
 
 // 处理步骤类型
 export interface ProcessingStep {
@@ -510,9 +507,6 @@ import {
   InfographicSection,
 } from "./infographic-template.service";
 
-// 导入分析服务（用于代码拆分）
-import { AiImageAnalyticsService } from "./ai-image-analytics.service";
-
 @Injectable()
 export class AiImageService {
   private readonly logger = new Logger(AiImageService.name);
@@ -524,9 +518,6 @@ export class AiImageService {
     private readonly infographicTemplate: InfographicTemplateService,
     private readonly dataFetchingService: DataFetchingService,
     private readonly r2Storage: R2StorageService,
-    private readonly aiChatService: AiChatService,
-    @Inject(forwardRef(() => AIModelService))
-    private readonly aiModelService: AIModelService,
     private readonly analyticsService: AiImageAnalyticsService,
   ) {}
 

@@ -1,4 +1,4 @@
-import { Injectable, LoggerService, LogLevel } from "@nestjs/common";
+import { Injectable, LoggerService } from "@nestjs/common";
 
 /**
  * 日志级别
@@ -189,9 +189,20 @@ export function logRequest(
   duration: number,
   metadata?: Record<string, unknown>,
 ): void {
-  const level = statusCode >= 500 ? LogLevelEnum.ERROR : statusCode >= 400 ? LogLevelEnum.WARN : LogLevelEnum.INFO;
+  const logLevel =
+    statusCode >= 500
+      ? LogLevelEnum.ERROR
+      : statusCode >= 400
+        ? LogLevelEnum.WARN
+        : LogLevelEnum.INFO;
 
-  logger.log(`${method} ${path} ${statusCode}`, {
+  const logMethod =
+    logLevel === LogLevelEnum.ERROR
+      ? "error"
+      : logLevel === LogLevelEnum.WARN
+        ? "warn"
+        : "log";
+  logger[logMethod](`${method} ${path} ${statusCode}`, {
     ...metadata,
     method,
     path,

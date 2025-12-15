@@ -17,7 +17,6 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiQuery,
-  ApiParam,
 } from "@nestjs/swagger";
 import { AiStudioService } from "./ai-studio.service";
 import { AiStudioSourceService } from "./ai-studio-source.service";
@@ -55,7 +54,10 @@ export class AiStudioController {
    * Create a new research project
    */
   @Post("projects")
-  @ApiOperation({ summary: "创建研究项目", description: "创建一个新的专题研究项目" })
+  @ApiOperation({
+    summary: "创建研究项目",
+    description: "创建一个新的专题研究项目",
+  })
   @ApiResponse({ status: 201, description: "项目创建成功" })
   @ApiResponse({ status: 401, description: "未认证" })
   async createProject(@Request() req: any, @Body() dto: CreateProjectDto) {
@@ -70,8 +72,16 @@ export class AiStudioController {
    * Get all projects for the current user
    */
   @Get("projects")
-  @ApiOperation({ summary: "获取项目列表", description: "获取当前用户的所有研究项目" })
-  @ApiQuery({ name: "status", required: false, enum: ["ACTIVE", "ARCHIVED"], description: "项目状态" })
+  @ApiOperation({
+    summary: "获取项目列表",
+    description: "获取当前用户的所有研究项目",
+  })
+  @ApiQuery({
+    name: "status",
+    required: false,
+    enum: ["ACTIVE", "ARCHIVED"],
+    description: "项目状态",
+  })
   @ApiQuery({ name: "search", required: false, description: "搜索关键词" })
   @ApiQuery({ name: "take", required: false, description: "每页数量" })
   @ApiQuery({ name: "skip", required: false, description: "跳过数量" })
