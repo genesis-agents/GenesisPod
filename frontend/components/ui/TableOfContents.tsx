@@ -216,7 +216,11 @@ export default function TableOfContents({
       // This prevents position drift when expanding/collapsing
       const anchorWidth = 40;
       const margin = 16;
-      const left = Math.max(margin, containerRect.left - anchorWidth - margin);
+      // Minimum left position to avoid overlapping with sidebar
+      // Sidebar expanded ~200px, collapsed ~64px, so we use a safe minimum to handle both cases
+      const minLeft = 120;
+      const calculatedLeft = containerRect.left - anchorWidth - margin;
+      const left = Math.max(minLeft, calculatedLeft);
       const top = containerRect.top + 32; // 32px from top of container
 
       setTocPosition({ top, left });

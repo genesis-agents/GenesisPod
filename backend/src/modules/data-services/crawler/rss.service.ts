@@ -11,6 +11,15 @@ export interface CollectionResult {
   success: number;
   duplicates: number;
   failed: number;
+  skipped?: number; // 因时长过滤等原因跳过的数量
+}
+
+/**
+ * RSS采集过滤选项
+ */
+export interface RssFeedFilterOptions {
+  /** 最小视频时长（秒），仅对YouTube有效 */
+  minDurationSeconds?: number;
 }
 
 interface RssFeedItem {
@@ -47,16 +56,98 @@ export class RssService {
   }
 
   /**
+   * 从YouTube视频URL获取视频时长（秒）
+   * 通过解析YouTube视频页面获取时长信息
+   * @param videoUrl YouTube视频URL
+   * @returns 视频时长（秒），获取失败返回null
+   */
+  private async getYouTubeVideoDuration(
+    videoUrl: string,
+  ): Promise<number | null> {
+    try {
+      // 从URL提取视频ID
+      const videoIdMatch = videoUrl.match(
+        /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
+      );
+      if (!videoIdMatch) {
+        this.logger.debug(`Cannot extract video ID from URL: ${videoUrl}`);
+        return null;
+      }
+      const videoId = videoIdMatch[1];
+
+      // 使用oEmbed API获取视频信息（不需要API密钥）
+      // 注意：oEmbed不返回时长，需要解析视频页面
+      const response = await fetch(
+        `https://www.youtube.com/watch?v=${videoId}`,
+        {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+          },
+        },
+      );
+
+      if (!response.ok) {
+        this.logger.debug(
+          `Failed to fetch YouTube page for ${videoId}: ${response.status}`,
+        );
+        return null;
+      }
+
+      const html = await response.text();
+
+      // 从ytInitialPlayerResponse中提取时长
+      // 格式: "lengthSeconds":"123"
+      const durationMatch = html.match(/"lengthSeconds":\s*"(\d+)"/);
+      if (durationMatch) {
+        const durationSeconds = parseInt(durationMatch[1], 10);
+        this.logger.debug(
+          `Video ${videoId} duration: ${durationSeconds}s (${Math.floor(durationSeconds / 60)}m ${durationSeconds % 60}s)`,
+        );
+        return durationSeconds;
+      }
+
+      // 备用方案：从approxDurationMs提取
+      const approxDurationMatch = html.match(/"approxDurationMs":\s*"(\d+)"/);
+      if (approxDurationMatch) {
+        const durationSeconds = Math.floor(
+          parseInt(approxDurationMatch[1], 10) / 1000,
+        );
+        this.logger.debug(
+          `Video ${videoId} duration (approx): ${durationSeconds}s`,
+        );
+        return durationSeconds;
+      }
+
+      this.logger.debug(`Could not extract duration for video ${videoId}`);
+      return null;
+    } catch (error) {
+      this.logger.warn(`Error fetching YouTube video duration: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * 检查URL是否为YouTube视频链接
+   */
+  private isYouTubeVideoUrl(url: string): boolean {
+    return url.includes("youtube.com/watch") || url.includes("youtu.be/");
+  }
+
+  /**
    * 从RSS源获取最新文章
    * @param rssUrl RSS订阅地址
    * @param maxItems 最大获取数量
    * @param category 资源类型（BLOG/NEWS等）
+   * @param filterOptions 过滤选项（如最小视频时长）
    * @returns 成功采集的数量
    */
   async fetchRssFeed(
     rssUrl: string,
     maxItems: number = 10,
     category: string = "BLOG",
+    filterOptions?: RssFeedFilterOptions,
   ): Promise<CollectionResult> {
     try {
       this.logger.log(`Fetching RSS feed from ${rssUrl}`);
@@ -76,6 +167,17 @@ export class RssService {
       let successCount = 0;
       let duplicateCount = 0;
       let failedCount = 0;
+      let skippedCount = 0;
+
+      // 检查是否为YouTube RSS源（需要时长过滤）
+      const isYouTubeFeed = rssUrl.includes("youtube.com/feeds/videos.xml");
+      const minDuration = filterOptions?.minDurationSeconds;
+
+      if (isYouTubeFeed && minDuration) {
+        this.logger.log(
+          `YouTube feed detected, will filter videos shorter than ${minDuration}s (${Math.floor(minDuration / 60)}m)`,
+        );
+      }
 
       // 处理每个feed项目
       const itemsToProcess = feed.items.slice(0, maxItems);
@@ -87,6 +189,28 @@ export class RssService {
             this.logger.warn(`Skipping item without title or link`);
             failedCount++;
             continue;
+          }
+
+          // YouTube视频时长过滤（在去重检查之前进行，节省API调用）
+          if (
+            isYouTubeFeed &&
+            minDuration &&
+            this.isYouTubeVideoUrl(item.link)
+          ) {
+            const videoDuration = await this.getYouTubeVideoDuration(item.link);
+            if (videoDuration !== null && videoDuration < minDuration) {
+              this.logger.log(
+                `⏭️ Skipping short video: "${item.title?.substring(0, 50)}..." (${Math.floor(videoDuration / 60)}m ${videoDuration % 60}s < ${Math.floor(minDuration / 60)}m minimum)`,
+              );
+              skippedCount++;
+              continue;
+            }
+            // 如果无法获取时长，继续处理（不跳过）
+            if (videoDuration === null) {
+              this.logger.debug(
+                `Could not determine duration for "${item.title?.substring(0, 50)}...", processing anyway`,
+              );
+            }
           }
 
           // URL去重检查 - 双重检查确保无重复
@@ -228,8 +352,10 @@ export class RssService {
         }
       }
 
+      const skippedInfo =
+        skippedCount > 0 ? `, ${skippedCount} filtered by duration` : "";
       this.logger.log(
-        `📊 RSS collection completed: ${successCount} new items, ${duplicateCount} duplicates skipped, ${failedCount} failed`,
+        `📊 RSS collection completed: ${successCount} new items, ${duplicateCount} duplicates skipped, ${failedCount} failed${skippedInfo}`,
       );
 
       // 如果全是重复的，记录更详细的信息
@@ -239,10 +365,18 @@ export class RssService {
         );
       }
 
+      // 如果有视频因时长被过滤，记录详细信息
+      if (skippedCount > 0) {
+        this.logger.log(
+          `⏭️ ${skippedCount} videos were filtered out due to minimum duration requirement`,
+        );
+      }
+
       return {
         success: successCount,
         duplicates: duplicateCount,
         failed: failedCount,
+        skipped: skippedCount,
       };
     } catch (error) {
       // 提供更友好的错误信息

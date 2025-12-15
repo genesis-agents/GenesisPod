@@ -464,11 +464,12 @@ describe("CollectionTaskService", () => {
       // Act
       await service.execute("task-123");
 
-      // Assert
+      // Assert - 4th parameter is undefined for non-YouTube sources (no filterOptions)
       expect(rssService.fetchRssFeed).toHaveBeenCalledWith(
         "https://example.com/feed",
         10,
         "tech",
+        undefined,
       );
     });
 

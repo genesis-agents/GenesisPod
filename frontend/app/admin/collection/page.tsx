@@ -267,6 +267,7 @@ export default function ConfigPage() {
     template: '',
     scheduleFrequency: 'daily', // manual | hourly | daily | weekly
     scheduleTime: '06:00', // HH:mm format for daily/weekly
+    minDurationMinutes: 15, // YouTube视频最小时长（分钟），默认15分钟
   });
   const [runningTasks, setRunningTasks] = useState<Map<string, CollectionTask>>(
     new Map()
@@ -570,6 +571,15 @@ export default function ConfigPage() {
         crawlerConfig.rssUrl = newSourceForm.baseUrl;
       }
 
+      // For YouTube, add minimum duration filter (convert minutes to seconds)
+      if (
+        newSourceForm.type === 'YOUTUBE' &&
+        newSourceForm.minDurationMinutes > 0
+      ) {
+        crawlerConfig.minDurationSeconds =
+          newSourceForm.minDurationMinutes * 60;
+      }
+
       await createDataSource({
         name: newSourceForm.name,
         description: newSourceForm.description,
@@ -597,6 +607,7 @@ export default function ConfigPage() {
         template: '',
         scheduleFrequency: 'daily',
         scheduleTime: '06:00',
+        minDurationMinutes: 15,
       });
       alert('Data source added successfully!');
     } catch (err) {
@@ -982,6 +993,7 @@ export default function ConfigPage() {
                     template: '',
                     scheduleFrequency: 'daily',
                     scheduleTime: '06:00',
+                    minDurationMinutes: 15,
                   });
                 }}
                 className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
@@ -1173,6 +1185,41 @@ export default function ConfigPage() {
                         : `Collection will run ${newSourceForm.scheduleFrequency} at ${newSourceForm.scheduleTime}`}
                   </p>
                 </div>
+
+                {/* YouTube Duration Filter - Only show for YouTube type */}
+                {newSourceForm.type === 'YOUTUBE' && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                    <div className="mb-3 flex items-center gap-2">
+                      <Video className="h-4 w-4 text-red-500" />
+                      <span className="text-sm font-medium text-gray-700">
+                        Video Duration Filter
+                      </span>
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-xs font-medium text-gray-600">
+                        Minimum Video Duration (minutes)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="180"
+                        value={newSourceForm.minDurationMinutes}
+                        onChange={(e) =>
+                          setNewSourceForm({
+                            ...newSourceForm,
+                            minDurationMinutes: parseInt(e.target.value) || 0,
+                          })
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                    <p className="mt-2 text-xs text-gray-500">
+                      {newSourceForm.minDurationMinutes > 0
+                        ? `Videos shorter than ${newSourceForm.minDurationMinutes} minutes will be skipped`
+                        : 'All videos will be collected (no duration filter)'}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1189,6 +1236,7 @@ export default function ConfigPage() {
                     template: '',
                     scheduleFrequency: 'daily',
                     scheduleTime: '06:00',
+                    minDurationMinutes: 15,
                   });
                 }}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"

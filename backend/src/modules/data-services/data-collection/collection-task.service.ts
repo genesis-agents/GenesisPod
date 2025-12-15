@@ -282,10 +282,25 @@ export class CollectionTaskService {
           const crawlerConfigRss = dataSource.crawlerConfig as any;
           const rssUrl = crawlerConfigRss?.rssUrl || dataSource.baseUrl;
           this.logger.log(`Fetching RSS feed from: ${rssUrl}`);
+
+          // 构建过滤选项（YouTube视频时长过滤等）
+          const filterOptions: { minDurationSeconds?: number } = {};
+          if (
+            sourceType === "YOUTUBE" &&
+            crawlerConfigRss?.minDurationSeconds
+          ) {
+            filterOptions.minDurationSeconds =
+              crawlerConfigRss.minDurationSeconds;
+            this.logger.log(
+              `YouTube filter: min duration ${crawlerConfigRss.minDurationSeconds}s (${Math.floor(crawlerConfigRss.minDurationSeconds / 60)}m)`,
+            );
+          }
+
           collectedCount = await this.rssService.fetchRssFeed(
             rssUrl,
             maxResults,
             dataSource.category,
+            Object.keys(filterOptions).length > 0 ? filterOptions : undefined,
           );
           break;
 
