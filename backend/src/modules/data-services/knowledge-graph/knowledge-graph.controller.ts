@@ -85,10 +85,32 @@ export class KnowledgeGraphController {
   /**
    * 获取知识图谱概览
    * GET /api/v1/knowledge-graph/overview
+   *
+   * Query params:
+   * - userId: 用户ID，传入时返回用户个性化的知识图谱
+   * - collectionId: 收藏集ID，筛选特定收藏集的内容
+   * - includeNotes: 是否包含笔记节点（默认 true）
    */
   @Get("overview")
-  async getOverview() {
-    this.logger.log("Fetching knowledge graph overview");
+  async getOverview(
+    @Query("userId") userId?: string,
+    @Query("collectionId") collectionId?: string,
+    @Query("includeNotes") includeNotes?: string,
+  ) {
+    const includeNotesFlag = includeNotes !== "false";
+
+    if (userId) {
+      this.logger.log(
+        `Fetching personalized knowledge graph for user ${userId}` +
+          (collectionId ? ` (collection: ${collectionId})` : ""),
+      );
+      return this.kgService.getUserGraphOverview(userId, {
+        collectionId,
+        includeNotes: includeNotesFlag,
+      });
+    }
+
+    this.logger.log("Fetching global knowledge graph overview");
     return this.kgService.getGraphOverview();
   }
 

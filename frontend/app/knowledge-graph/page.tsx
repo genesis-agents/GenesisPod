@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Sidebar from '@/components/layout/Sidebar';
 import { config } from '@/lib/utils/config';
-import { getAuthHeader } from '@/lib/utils/auth';
+import { getAuthHeader, getCurrentUser } from '@/lib/utils/auth';
 
 // 懒加载 D3 图谱组件
 const KnowledgeGraphView = dynamic(
@@ -15,11 +16,31 @@ const KnowledgeGraphView = dynamic(
 interface GraphNode {
   id: string;
   label: string;
-  type: 'Resource' | 'Author' | 'Topic' | 'Tag';
+  type:
+    | 'User'
+    | 'Collection'
+    | 'Resource'
+    | 'Note'
+    | 'Author'
+    | 'Topic'
+    | 'Tag';
   properties: {
     title?: string;
     username?: string;
     name?: string;
+    // 用户个性化数据
+    readStatus?: string;
+    readProgress?: number;
+    userNote?: string;
+    userTags?: string[];
+    addedAt?: string;
+    // Collection 属性
+    description?: string;
+    icon?: string;
+    color?: string;
+    itemCount?: number;
+    // Note 属性
+    contentPreview?: string;
   };
 }
 
@@ -27,6 +48,7 @@ interface GraphLink {
   source: string;
   target: string;
   type: string;
+  weight?: number;
 }
 
 interface GraphOverview {
@@ -38,6 +60,8 @@ interface GraphOverview {
     totalTopics: number;
     totalTags: number;
     totalEdges: number;
+    totalCollections?: number;
+    totalNotes?: number;
   };
 }
 
@@ -103,24 +127,45 @@ function EmptyState({ onBuild }: { onBuild: () => void }) {
 }
 
 export default function KnowledgeGraphPage() {
+  const searchParams = useSearchParams();
   const [graphData, setGraphData] = useState<GraphOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [building, setBuilding] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // 从 URL 获取 collectionId 参数
+  const collectionId = searchParams.get('collectionId');
+
+  // 获取当前用户 ID
+  useEffect(() => {
+    const user = getCurrentUser();
+    if (user?.id) {
+      setUserId(user.id);
+    }
+  }, []);
 
   const fetchGraphOverview = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(
-        `${config.apiUrl}/knowledge-graph/overview`,
-        {
-          headers: {
-            ...getAuthHeader(),
-          },
-        }
-      );
+      // 构建 API URL，包含用户个性化参数
+      const params = new URLSearchParams();
+      if (userId) {
+        params.append('userId', userId);
+      }
+      if (collectionId) {
+        params.append('collectionId', collectionId);
+      }
+      const queryString = params.toString();
+      const url = `${config.apiUrl}/knowledge-graph/overview${queryString ? `?${queryString}` : ''}`;
+
+      const response = await fetch(url, {
+        headers: {
+          ...getAuthHeader(),
+        },
+      });
 
       if (!response.ok) {
         throw new Error('Failed to fetch knowledge graph');
@@ -165,9 +210,13 @@ export default function KnowledgeGraphPage() {
     }
   };
 
+  // 当 userId 或 collectionId 变化时重新获取数据
   useEffect(() => {
-    fetchGraphOverview();
-  }, []);
+    // 等待 userId 加载完成后再获取数据
+    if (userId !== null) {
+      fetchGraphOverview();
+    }
+  }, [userId, collectionId]);
 
   const hasData = graphData && graphData.nodes && graphData.nodes.length > 0;
 
@@ -187,11 +236,25 @@ export default function KnowledgeGraphPage() {
           </div>
           <div className="flex items-center gap-3">
             {hasData && (
-              <div className="flex items-center gap-4 text-sm text-gray-600">
+              <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
+                {graphData.stats?.totalCollections !== undefined &&
+                  graphData.stats.totalCollections > 0 && (
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-indigo-500" />
+                      {graphData.stats.totalCollections} Collections
+                    </span>
+                  )}
                 <span className="flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-blue-500" />
                   {graphData.stats?.totalResources || 0} Resources
                 </span>
+                {graphData.stats?.totalNotes !== undefined &&
+                  graphData.stats.totalNotes > 0 && (
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-amber-500" />
+                      {graphData.stats.totalNotes} Notes
+                    </span>
+                  )}
                 <span className="flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-green-500" />
                   {graphData.stats?.totalAuthors || 0} Authors

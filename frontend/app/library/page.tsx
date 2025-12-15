@@ -1297,11 +1297,27 @@ function LibraryPageContent() {
                           {selectionMode ? 'Cancel' : 'Select'}
                         </button>
                       )}
-                    {/* View Graph button */}
+                    {/* View Graph button - 传递当前收藏集 ID */}
                     <Link
-                      href="/knowledge-graph"
+                      href={
+                        activeCollectionId &&
+                        !['recent', 'reading', 'completed'].includes(
+                          activeCollectionId
+                        ) &&
+                        !activeCollectionId.startsWith('tag:')
+                          ? `/knowledge-graph?collectionId=${activeCollectionId}`
+                          : '/knowledge-graph'
+                      }
                       className="flex items-center gap-1.5 rounded border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-600 transition-all hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700"
-                      title="View Knowledge Graph"
+                      title={
+                        activeCollectionId &&
+                        !['recent', 'reading', 'completed'].includes(
+                          activeCollectionId
+                        ) &&
+                        !activeCollectionId.startsWith('tag:')
+                          ? 'View collection as Knowledge Graph'
+                          : 'View Knowledge Graph'
+                      }
                     >
                       <svg
                         className="h-4 w-4"

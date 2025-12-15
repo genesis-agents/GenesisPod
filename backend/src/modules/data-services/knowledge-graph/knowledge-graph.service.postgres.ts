@@ -63,6 +63,20 @@ export class KnowledgeGraphService {
   }
 
   /**
+   * 获取用户个性化的知识图谱
+   * 基于用户的 Library 收藏数据构建
+   */
+  async getUserGraphOverview(
+    userId: string,
+    options?: {
+      collectionId?: string;
+      includeNotes?: boolean;
+    },
+  ): Promise<any> {
+    return this.graphService.getUserGraphOverview(userId, options);
+  }
+
+  /**
    * 查找相似资源（基于共享的主题和标签）
    */
   async findSimilarResources(

@@ -427,19 +427,393 @@ export class GraphService {
   }
 
   /**
-   * 获取图谱概览（包含实际节点和边用于可视化）
+   * 获取用户个人知识图谱（基于 Library 收藏）
+   * P0 改进：整合 Library 数据，展示用户的个人知识体系
    */
-  async getGraphOverview(): Promise<{
+  async getUserGraphOverview(
+    userId: string,
+    options?: {
+      collectionId?: string;
+      includeNotes?: boolean;
+    },
+  ): Promise<{
     nodes: Array<{
       id: string;
       label: string;
-      type: "Resource" | "Author" | "Topic" | "Tag";
+      type:
+        | "User"
+        | "Collection"
+        | "Resource"
+        | "Note"
+        | "Author"
+        | "Topic"
+        | "Tag";
       properties: Record<string, any>;
     }>;
     edges: Array<{
       source: string;
       target: string;
       type: string;
+      weight?: number;
+    }>;
+    stats: {
+      totalCollections: number;
+      totalResources: number;
+      totalNotes: number;
+      totalAuthors: number;
+      totalTopics: number;
+      totalTags: number;
+      totalEdges: number;
+    };
+  }> {
+    const nodes: Array<{
+      id: string;
+      label: string;
+      type:
+        | "User"
+        | "Collection"
+        | "Resource"
+        | "Note"
+        | "Author"
+        | "Topic"
+        | "Tag";
+      properties: Record<string, any>;
+    }> = [];
+    const edges: Array<{
+      source: string;
+      target: string;
+      type: string;
+      weight?: number;
+    }> = [];
+
+    // 用于去重
+    const authorSet = new Set<string>();
+    const topicSet = new Set<string>();
+    const tagSet = new Set<string>();
+    const resourceIds = new Set<string>();
+
+    // 1. 获取用户信息
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, username: true, email: true },
+    });
+
+    if (!user) {
+      this.logger.warn(`User ${userId} not found for graph overview`);
+      return {
+        nodes: [],
+        edges: [],
+        stats: {
+          totalCollections: 0,
+          totalResources: 0,
+          totalNotes: 0,
+          totalAuthors: 0,
+          totalTopics: 0,
+          totalTags: 0,
+          totalEdges: 0,
+        },
+      };
+    }
+
+    // 添加用户节点（作为图谱中心）
+    nodes.push({
+      id: `user-${userId}`,
+      label: user.username || "Me",
+      type: "User",
+      properties: {
+        username: user.username,
+        email: user.email,
+      },
+    });
+
+    // 2. 获取用户的收藏集
+    const collectionsQuery: { userId: string; id?: string } = { userId };
+    if (options?.collectionId) {
+      collectionsQuery.id = options.collectionId;
+    }
+
+    const collections = await this.prisma.collection.findMany({
+      where: collectionsQuery,
+      include: {
+        items: {
+          include: {
+            resource: {
+              select: {
+                id: true,
+                title: true,
+                type: true,
+                authors: true,
+                categories: true,
+                tags: true,
+                primaryCategory: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // 3. 处理每个收藏集
+    for (const collection of collections) {
+      // 添加收藏集节点
+      nodes.push({
+        id: `collection-${collection.id}`,
+        label: collection.name,
+        type: "Collection",
+        properties: {
+          name: collection.name,
+          description: collection.description,
+          icon: collection.icon,
+          color: collection.color,
+          itemCount: collection.items.length,
+        },
+      });
+
+      // 用户 -> 收藏集
+      edges.push({
+        source: `user-${userId}`,
+        target: `collection-${collection.id}`,
+        type: "OWNS",
+      });
+
+      // 4. 处理收藏集中的资源
+      for (const item of collection.items) {
+        const resource = item.resource;
+        if (!resource) continue;
+
+        // 添加资源节点（去重）
+        if (!resourceIds.has(resource.id)) {
+          resourceIds.add(resource.id);
+          nodes.push({
+            id: resource.id,
+            label: resource.title || "Untitled",
+            type: "Resource",
+            properties: {
+              title: resource.title,
+              resourceType: resource.type,
+              // 用户个性化数据
+              readStatus: item.readStatus,
+              readProgress: item.readProgress,
+              userNote: item.note,
+              userTags: item.tags,
+              addedAt: item.addedAt,
+            },
+          });
+        }
+
+        // 收藏集 -> 资源
+        edges.push({
+          source: `collection-${collection.id}`,
+          target: resource.id,
+          type: "CONTAINS",
+        });
+
+        // 处理作者
+        const authors = (resource.authors as any[]) || [];
+        for (const author of authors) {
+          const authorName =
+            author?.name || author?.username || author?.displayName;
+          if (authorName && !authorSet.has(authorName)) {
+            authorSet.add(authorName);
+            nodes.push({
+              id: `author-${authorName}`,
+              label: authorName,
+              type: "Author",
+              properties: { name: authorName },
+            });
+          }
+          if (authorName) {
+            edges.push({
+              source: `author-${authorName}`,
+              target: resource.id,
+              type: "AUTHORED",
+            });
+          }
+        }
+
+        // 处理主分类
+        if (
+          resource.primaryCategory &&
+          !topicSet.has(resource.primaryCategory)
+        ) {
+          topicSet.add(resource.primaryCategory);
+          nodes.push({
+            id: `topic-${resource.primaryCategory}`,
+            label: resource.primaryCategory,
+            type: "Topic",
+            properties: { name: resource.primaryCategory },
+          });
+        }
+        if (resource.primaryCategory) {
+          edges.push({
+            source: resource.id,
+            target: `topic-${resource.primaryCategory}`,
+            type: "BELONGS_TO",
+          });
+        }
+
+        // 处理分类
+        const categories = (resource.categories as string[]) || [];
+        for (const category of categories) {
+          if (category && !topicSet.has(category)) {
+            topicSet.add(category);
+            nodes.push({
+              id: `topic-${category}`,
+              label: category,
+              type: "Topic",
+              properties: { name: category },
+            });
+          }
+          if (category) {
+            edges.push({
+              source: resource.id,
+              target: `topic-${category}`,
+              type: "BELONGS_TO",
+            });
+          }
+        }
+
+        // 处理标签
+        const tags = (resource.tags as string[]) || [];
+        for (const tag of tags) {
+          if (tag && !tagSet.has(tag)) {
+            tagSet.add(tag);
+            nodes.push({
+              id: `tag-${tag}`,
+              label: tag,
+              type: "Tag",
+              properties: { name: tag },
+            });
+          }
+          if (tag) {
+            edges.push({
+              source: resource.id,
+              target: `tag-${tag}`,
+              type: "TAGGED_WITH",
+            });
+          }
+        }
+      }
+    }
+
+    // 5. 获取用户的笔记（如果启用）
+    let notesCount = 0;
+    if (options?.includeNotes !== false) {
+      const notes = await this.prisma.note.findMany({
+        where: { userId },
+        select: {
+          id: true,
+          title: true,
+          content: true,
+          resourceId: true,
+          tags: true,
+          createdAt: true,
+        },
+        take: 50, // 限制笔记数量
+      });
+
+      notesCount = notes.length;
+
+      for (const note of notes) {
+        // 添加笔记节点
+        nodes.push({
+          id: `note-${note.id}`,
+          label: note.title || note.content?.substring(0, 50) || "Note",
+          type: "Note",
+          properties: {
+            title: note.title,
+            contentPreview: note.content?.substring(0, 200),
+            tags: note.tags,
+            createdAt: note.createdAt,
+          },
+        });
+
+        // 用户 -> 笔记
+        edges.push({
+          source: `user-${userId}`,
+          target: `note-${note.id}`,
+          type: "CREATED",
+        });
+
+        // 笔记 -> 资源（如果有关联）
+        if (note.resourceId && resourceIds.has(note.resourceId)) {
+          edges.push({
+            source: `note-${note.id}`,
+            target: note.resourceId,
+            type: "ANNOTATES",
+          });
+        }
+      }
+    }
+
+    // 6. 添加资源间的相似关系（基于共同主题/标签）
+    const resourceArray = Array.from(resourceIds);
+    for (let i = 0; i < resourceArray.length; i++) {
+      for (let j = i + 1; j < resourceArray.length; j++) {
+        const r1 = nodes.find((n) => n.id === resourceArray[i]);
+        const r2 = nodes.find((n) => n.id === resourceArray[j]);
+
+        if (r1 && r2) {
+          // 简单的相似度计算：检查共同边
+          const r1Topics = edges
+            .filter((e) => e.source === r1.id && e.type === "BELONGS_TO")
+            .map((e) => e.target);
+          const r2Topics = edges
+            .filter((e) => e.source === r2.id && e.type === "BELONGS_TO")
+            .map((e) => e.target);
+
+          const commonTopics = r1Topics.filter((t) => r2Topics.includes(t));
+
+          if (commonTopics.length >= 2) {
+            edges.push({
+              source: r1.id,
+              target: r2.id,
+              type: "SIMILAR_TO",
+              weight: commonTopics.length,
+            });
+          }
+        }
+      }
+    }
+
+    return {
+      nodes,
+      edges,
+      stats: {
+        totalCollections: collections.length,
+        totalResources: resourceIds.size,
+        totalNotes: notesCount,
+        totalAuthors: authorSet.size,
+        totalTopics: topicSet.size,
+        totalTags: tagSet.size,
+        totalEdges: edges.length,
+      },
+    };
+  }
+
+  /**
+   * 获取图谱概览（包含实际节点和边用于可视化）
+   * 支持用户个性化：传入 userId 时返回用户的知识图谱
+   */
+  async getGraphOverview(userId?: string): Promise<{
+    nodes: Array<{
+      id: string;
+      label: string;
+      type:
+        | "User"
+        | "Collection"
+        | "Resource"
+        | "Note"
+        | "Author"
+        | "Topic"
+        | "Tag";
+      properties: Record<string, any>;
+    }>;
+    edges: Array<{
+      source: string;
+      target: string;
+      type: string;
+      weight?: number;
     }>;
     stats: {
       totalResources: number;
@@ -447,8 +821,16 @@ export class GraphService {
       totalTopics: number;
       totalTags: number;
       totalEdges: number;
+      totalCollections?: number;
+      totalNotes?: number;
     };
   }> {
+    // 如果提供了 userId，返回用户个性化的知识图谱
+    if (userId) {
+      return this.getUserGraphOverview(userId);
+    }
+
+    // 否则返回全局概览（向后兼容）
     // 限制查询数量以提高性能
     const MAX_RESOURCES = 100;
 
@@ -470,13 +852,21 @@ export class GraphService {
     const nodes: Array<{
       id: string;
       label: string;
-      type: "Resource" | "Author" | "Topic" | "Tag";
+      type:
+        | "User"
+        | "Collection"
+        | "Resource"
+        | "Note"
+        | "Author"
+        | "Topic"
+        | "Tag";
       properties: Record<string, any>;
     }> = [];
     const edges: Array<{
       source: string;
       target: string;
       type: string;
+      weight?: number;
     }> = [];
 
     // 用于去重

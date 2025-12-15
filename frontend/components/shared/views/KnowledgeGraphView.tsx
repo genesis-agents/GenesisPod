@@ -6,11 +6,31 @@ import * as d3 from 'd3';
 interface GraphNode {
   id: string;
   label: string;
-  type: 'Resource' | 'Author' | 'Topic' | 'Tag';
+  type:
+    | 'User'
+    | 'Collection'
+    | 'Resource'
+    | 'Note'
+    | 'Author'
+    | 'Topic'
+    | 'Tag';
   properties: {
     title?: string;
     username?: string;
     name?: string;
+    // 用户个性化数据
+    readStatus?: string;
+    readProgress?: number;
+    userNote?: string;
+    userTags?: string[];
+    addedAt?: string;
+    // Collection 属性
+    description?: string;
+    icon?: string;
+    color?: string;
+    itemCount?: number;
+    // Note 属性
+    contentPreview?: string;
   };
 }
 
@@ -58,11 +78,27 @@ export default function KnowledgeGraphView({
 
     const g = svg.append('g');
 
-    // 颜色映射
+    // 颜色映射 - 包含所有节点类型
     const colorScale = d3
       .scaleOrdinal<string>()
-      .domain(['Resource', 'Author', 'Topic', 'Tag'])
-      .range(['#3b82f6', '#10b981', '#f59e0b', '#ef4444']);
+      .domain([
+        'User',
+        'Collection',
+        'Resource',
+        'Note',
+        'Author',
+        'Topic',
+        'Tag',
+      ])
+      .range([
+        '#8b5cf6', // User: 紫色
+        '#6366f1', // Collection: 靛蓝色
+        '#3b82f6', // Resource: 蓝色
+        '#f59e0b', // Note: 琥珀色
+        '#10b981', // Author: 绿色
+        '#ec4899', // Topic: 粉色
+        '#ef4444', // Tag: 红色
+      ]);
 
     // 节点大小映射
     const sizeScale = d3
@@ -107,7 +143,15 @@ export default function KnowledgeGraphView({
     } else {
       // Grouped layout - organize nodes by type in horizontal bands
       // This is more appropriate for knowledge graphs than tree layouts
-      const typeOrder = ['Author', 'Resource', 'Topic', 'Tag'];
+      const typeOrder = [
+        'User',
+        'Collection',
+        'Resource',
+        'Note',
+        'Author',
+        'Topic',
+        'Tag',
+      ];
       const nodesByType: Record<string, GraphNode[]> = {};
 
       // Group nodes by type
@@ -157,9 +201,13 @@ export default function KnowledgeGraphView({
       .attr('fill', 'none')
       .attr('stroke', (d) => {
         // 根据关系类型设置颜色
-        if (d.type === 'AUTHORED') return '#10b981'; // green for author
-        if (d.type === 'BELONGS_TO') return '#f59e0b'; // orange for topic
-        if (d.type === 'TAGGED_WITH') return '#ef4444'; // red for tag
+        if (d.type === 'OWNS') return '#8b5cf6'; // 紫色 - 用户拥有
+        if (d.type === 'CONTAINS') return '#6366f1'; // 靛蓝 - 收藏集包含
+        if (d.type === 'HAS_NOTE') return '#f59e0b'; // 琥珀 - 关联笔记
+        if (d.type === 'AUTHORED') return '#10b981'; // 绿色 - 作者
+        if (d.type === 'BELONGS_TO') return '#ec4899'; // 粉色 - 主题
+        if (d.type === 'TAGGED_WITH') return '#ef4444'; // 红色 - 标签
+        if (d.type === 'SIMILAR_TO') return '#06b6d4'; // 青色 - 相似资源
         return '#94a3b8';
       })
       .attr('stroke-opacity', 0.5)
@@ -208,12 +256,17 @@ export default function KnowledgeGraphView({
     node
       .append('text')
       .text((d) => {
+        if (d.type === 'User') return d.properties.username || 'Me';
+        if (d.type === 'Collection')
+          return d.properties.name?.substring(0, 15) || d.label || d.id;
         if (d.type === 'Resource')
           return d.properties.title?.substring(0, 20) || d.id;
+        if (d.type === 'Note')
+          return d.properties.contentPreview?.substring(0, 15) || 'Note';
         if (d.type === 'Author') return d.properties.username || d.id;
         if (d.type === 'Topic' || d.type === 'Tag')
           return d.properties.name || d.id;
-        return d.id;
+        return d.label || d.id;
       })
       .attr('x', 12)
       .attr('y', 4)
@@ -309,8 +362,11 @@ export default function KnowledgeGraphView({
     };
   }, [nodes, edges, layout]);
 
-  const nodeTypeLabels = {
+  const nodeTypeLabels: Record<string, string> = {
+    User: '我',
+    Collection: '收藏集',
     Resource: '资源',
+    Note: '笔记',
     Author: '作者',
     Topic: '主题',
     Tag: '标签',
@@ -350,18 +406,34 @@ export default function KnowledgeGraphView({
             </div>
 
             {/* 图例 */}
-            <div className="flex gap-3">
-              {(['Resource', 'Author', 'Topic', 'Tag'] as const).map((type) => {
-                const color = {
+            <div className="flex flex-wrap gap-3">
+              {(
+                [
+                  'User',
+                  'Collection',
+                  'Resource',
+                  'Note',
+                  'Author',
+                  'Topic',
+                  'Tag',
+                ] as const
+              ).map((type) => {
+                const color: Record<string, string> = {
+                  User: 'bg-purple-500',
+                  Collection: 'bg-indigo-500',
                   Resource: 'bg-blue-500',
+                  Note: 'bg-amber-500',
                   Author: 'bg-green-500',
-                  Topic: 'bg-orange-500',
+                  Topic: 'bg-pink-500',
                   Tag: 'bg-red-500',
-                }[type];
+                };
+                // 只显示存在于当前图谱中的节点类型
+                const hasType = nodes.some((n) => n.type === type);
+                if (!hasType) return null;
 
                 return (
                   <div key={type} className="flex items-center gap-2">
-                    <div className={`h-3 w-3 rounded-full ${color}`} />
+                    <div className={`h-3 w-3 rounded-full ${color[type]}`} />
                     <span className="text-sm text-gray-600">
                       {nodeTypeLabels[type]}
                     </span>
@@ -396,14 +468,38 @@ export default function KnowledgeGraphView({
                   {nodeTypeLabels[selectedNode.type]}
                 </div>
                 <h3 className="mt-1 text-lg font-bold text-gray-900">
+                  {selectedNode.type === 'User' &&
+                    (selectedNode.properties.username || '我的知识库')}
+                  {selectedNode.type === 'Collection' &&
+                    (selectedNode.properties.name || selectedNode.label)}
                   {selectedNode.type === 'Resource' &&
                     selectedNode.properties.title}
+                  {selectedNode.type === 'Note' &&
+                    (selectedNode.properties.contentPreview?.substring(0, 30) ||
+                      '笔记')}
                   {selectedNode.type === 'Author' &&
                     selectedNode.properties.username}
                   {(selectedNode.type === 'Topic' ||
                     selectedNode.type === 'Tag') &&
                     selectedNode.properties.name}
                 </h3>
+                {/* 显示额外信息 */}
+                {selectedNode.type === 'Collection' &&
+                  selectedNode.properties.description && (
+                    <p className="mt-1 line-clamp-2 text-sm text-gray-500">
+                      {selectedNode.properties.description}
+                    </p>
+                  )}
+                {selectedNode.type === 'Resource' &&
+                  selectedNode.properties.readStatus && (
+                    <span className="mt-1 inline-block rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                      {selectedNode.properties.readStatus === 'read'
+                        ? '已读'
+                        : selectedNode.properties.readStatus === 'reading'
+                          ? '阅读中'
+                          : '待读'}
+                    </span>
+                  )}
               </div>
               <button
                 onClick={() => setSelectedNode(null)}
