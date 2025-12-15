@@ -1,0 +1,455 @@
+'use client';
+
+import { useMemo, useState, useCallback } from 'react';
+import {
+  TeamMission,
+  AgentTask,
+  TopicAIMember,
+  MissionStatus,
+  AgentTaskStatus,
+} from '@/types/ai-teams';
+
+interface TeamCanvasViewProps {
+  mission: TeamMission | null;
+  aiMembers: TopicAIMember[];
+  typingAIs: Set<string>;
+  onAgentClick?: (agent: TopicAIMember) => void;
+  onTaskClick?: (task: AgentTask) => void;
+}
+
+// Agent node colors based on status
+const getAgentStatusColor = (
+  isLeader: boolean,
+  isWorking: boolean,
+  hasCompletedTasks: boolean,
+  hasActiveTasks: boolean
+): { bg: string; border: string; glow: string } => {
+  if (isWorking) {
+    return {
+      bg: 'fill-blue-500',
+      border: 'stroke-blue-600',
+      glow: 'drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]',
+    };
+  }
+  if (isLeader) {
+    return {
+      bg: 'fill-purple-500',
+      border: 'stroke-purple-600',
+      glow: 'drop-shadow-[0_0_6px_rgba(168,85,247,0.4)]',
+    };
+  }
+  if (hasCompletedTasks) {
+    return {
+      bg: 'fill-green-500',
+      border: 'stroke-green-600',
+      glow: '',
+    };
+  }
+  if (hasActiveTasks) {
+    return {
+      bg: 'fill-yellow-500',
+      border: 'stroke-yellow-600',
+      glow: '',
+    };
+  }
+  return {
+    bg: 'fill-gray-400',
+    border: 'stroke-gray-500',
+    glow: '',
+  };
+};
+
+// Task connection colors
+const getTaskConnectionColor = (status: AgentTaskStatus): string => {
+  switch (status) {
+    case 'IN_PROGRESS':
+      return 'stroke-blue-400';
+    case 'COMPLETED':
+      return 'stroke-green-400';
+    case 'AWAITING_REVIEW':
+      return 'stroke-purple-400';
+    case 'REVISION_NEEDED':
+      return 'stroke-orange-400';
+    case 'BLOCKED':
+      return 'stroke-red-400';
+    default:
+      return 'stroke-gray-300';
+  }
+};
+
+// Calculate node positions in a radial layout
+function calculateNodePositions(
+  leaderId: string | null,
+  agents: TopicAIMember[],
+  width: number,
+  height: number
+): Map<string, { x: number; y: number }> {
+  const positions = new Map<string, { x: number; y: number }>();
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const radius = Math.min(width, height) * 0.35;
+
+  // Find leader and workers
+  const leader = agents.find((a) => a.id === leaderId);
+  const workers = agents.filter((a) => a.id !== leaderId);
+
+  // Position leader at top-center
+  if (leader) {
+    positions.set(leader.id, { x: centerX, y: 60 });
+  }
+
+  // Position workers in a circle/arc below the leader
+  const workerCount = workers.length;
+  if (workerCount > 0) {
+    const startAngle = Math.PI * 0.2; // Start slightly from left
+    const endAngle = Math.PI * 0.8; // End slightly before right
+    const angleStep =
+      workerCount > 1 ? (endAngle - startAngle) / (workerCount - 1) : 0;
+
+    workers.forEach((worker, index) => {
+      const angle =
+        workerCount > 1 ? startAngle + index * angleStep : Math.PI / 2;
+      const x = centerX + radius * Math.cos(angle - Math.PI / 2);
+      const y = centerY + radius * 0.7 * Math.sin(angle - Math.PI / 2) + 40;
+      positions.set(worker.id, { x, y });
+    });
+  }
+
+  return positions;
+}
+
+export default function TeamCanvasView({
+  mission,
+  aiMembers,
+  typingAIs,
+  onAgentClick,
+  onTaskClick,
+}: TeamCanvasViewProps) {
+  const [hoveredAgent, setHoveredAgent] = useState<string | null>(null);
+  const [hoveredTask, setHoveredTask] = useState<string | null>(null);
+  const [canvasSize] = useState({ width: 400, height: 350 });
+
+  // Calculate agent positions
+  const nodePositions = useMemo(() => {
+    return calculateNodePositions(
+      mission?.leaderId || null,
+      aiMembers,
+      canvasSize.width,
+      canvasSize.height
+    );
+  }, [mission?.leaderId, aiMembers, canvasSize]);
+
+  // Get tasks grouped by agent
+  const tasksByAgent = useMemo(() => {
+    const map = new Map<string, AgentTask[]>();
+    if (mission?.tasks) {
+      mission.tasks.forEach((task) => {
+        const existing = map.get(task.assignedToId) || [];
+        existing.push(task);
+        map.set(task.assignedToId, existing);
+      });
+    }
+    return map;
+  }, [mission?.tasks]);
+
+  // Get agent stats
+  const getAgentStats = useCallback(
+    (agentId: string) => {
+      const tasks = tasksByAgent.get(agentId) || [];
+      const completed = tasks.filter((t) => t.status === 'COMPLETED').length;
+      const inProgress = tasks.filter((t) => t.status === 'IN_PROGRESS').length;
+      const total = tasks.length;
+      return { completed, inProgress, total };
+    },
+    [tasksByAgent]
+  );
+
+  // Render connections (task flows)
+  const renderConnections = () => {
+    if (!mission?.tasks || !mission.leaderId) return null;
+
+    const leaderPos = nodePositions.get(mission.leaderId);
+    if (!leaderPos) return null;
+
+    return mission.tasks.map((task) => {
+      const agentPos = nodePositions.get(task.assignedToId);
+      if (!agentPos) return null;
+
+      const isHovered =
+        hoveredTask === task.id || hoveredAgent === task.assignedToId;
+      const connectionColor = getTaskConnectionColor(task.status);
+
+      // Calculate control point for curved line
+      const midX = (leaderPos.x + agentPos.x) / 2;
+      const midY = (leaderPos.y + agentPos.y) / 2 - 20;
+
+      return (
+        <g key={task.id}>
+          {/* Connection line */}
+          <path
+            d={`M ${leaderPos.x} ${leaderPos.y + 20} Q ${midX} ${midY} ${agentPos.x} ${agentPos.y - 20}`}
+            className={`${connectionColor} fill-none transition-all duration-300 ${
+              isHovered ? 'stroke-[3]' : 'stroke-[1.5]'
+            } ${task.status === 'IN_PROGRESS' ? 'animate-pulse' : ''}`}
+            strokeDasharray={task.status === 'PENDING' ? '4 4' : 'none'}
+            onMouseEnter={() => setHoveredTask(task.id)}
+            onMouseLeave={() => setHoveredTask(null)}
+            onClick={() => onTaskClick?.(task)}
+            style={{ cursor: 'pointer' }}
+          />
+          {/* Arrow head */}
+          <circle
+            cx={agentPos.x}
+            cy={agentPos.y - 20}
+            r="3"
+            className={`${connectionColor.replace('stroke-', 'fill-')}`}
+          />
+        </g>
+      );
+    });
+  };
+
+  // Render agent nodes
+  const renderAgentNodes = () => {
+    return aiMembers.map((agent) => {
+      const pos = nodePositions.get(agent.id);
+      if (!pos) return null;
+
+      const isLeader = agent.id === mission?.leaderId;
+      const isWorking = typingAIs.has(agent.id);
+      const stats = getAgentStats(agent.id);
+      const statusColors = getAgentStatusColor(
+        isLeader,
+        isWorking,
+        stats.completed > 0,
+        stats.inProgress > 0
+      );
+      const isHovered = hoveredAgent === agent.id;
+      const nodeRadius = isLeader ? 28 : 24;
+
+      return (
+        <g
+          key={agent.id}
+          transform={`translate(${pos.x}, ${pos.y})`}
+          onMouseEnter={() => setHoveredAgent(agent.id)}
+          onMouseLeave={() => setHoveredAgent(null)}
+          onClick={() => onAgentClick?.(agent)}
+          style={{ cursor: 'pointer' }}
+        >
+          {/* Glow effect for active agents */}
+          {(isWorking || isLeader) && (
+            <circle
+              r={nodeRadius + 6}
+              className={`${statusColors.bg} opacity-20 ${
+                isWorking ? 'animate-ping' : ''
+              }`}
+            />
+          )}
+
+          {/* Main circle */}
+          <circle
+            r={nodeRadius}
+            className={`${statusColors.bg} ${statusColors.border} stroke-2 transition-all duration-300 ${
+              statusColors.glow
+            } ${isHovered ? 'scale-110' : ''}`}
+            style={{
+              transformOrigin: 'center',
+              transform: isHovered ? 'scale(1.1)' : 'scale(1)',
+            }}
+          />
+
+          {/* Agent initial */}
+          <text
+            textAnchor="middle"
+            dy="0.35em"
+            className="fill-white text-sm font-bold"
+          >
+            {agent.displayName?.charAt(0) || 'A'}
+          </text>
+
+          {/* Leader crown */}
+          {isLeader && (
+            <text textAnchor="middle" y={-nodeRadius - 8} className="text-sm">
+              👑
+            </text>
+          )}
+
+          {/* Agent name label */}
+          <text
+            textAnchor="middle"
+            y={nodeRadius + 16}
+            className="fill-gray-700 text-xs font-medium"
+          >
+            {agent.displayName?.length > 8
+              ? agent.displayName.slice(0, 8) + '...'
+              : agent.displayName}
+          </text>
+
+          {/* Task count badge */}
+          {stats.total > 0 && (
+            <g transform={`translate(${nodeRadius - 4}, ${-nodeRadius + 4})`}>
+              <circle r="10" className="fill-white stroke-gray-300 stroke-1" />
+              <text
+                textAnchor="middle"
+                dy="0.35em"
+                className={`text-[10px] font-bold ${
+                  stats.completed === stats.total
+                    ? 'fill-green-600'
+                    : stats.inProgress > 0
+                      ? 'fill-blue-600'
+                      : 'fill-gray-600'
+                }`}
+              >
+                {stats.completed}/{stats.total}
+              </text>
+            </g>
+          )}
+
+          {/* Working indicator */}
+          {isWorking && (
+            <g transform={`translate(${-nodeRadius + 4}, ${-nodeRadius + 4})`}>
+              <circle r="6" className="animate-pulse fill-blue-500" />
+              <circle r="3" className="fill-white" />
+            </g>
+          )}
+        </g>
+      );
+    });
+  };
+
+  // No mission state
+  if (!mission) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center p-4 text-center">
+        <div className="mb-3 text-4xl">🎨</div>
+        <p className="text-sm text-gray-500">
+          创建一个任务后，这里将展示 AI 团队的协作视图
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      {/* Header */}
+      <div className="border-b border-gray-100 px-3 py-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-gray-600">
+            {mission.title}
+          </span>
+          <span
+            className={`rounded-full px-2 py-0.5 text-xs ${
+              mission.status === 'IN_PROGRESS'
+                ? 'bg-blue-100 text-blue-700'
+                : mission.status === 'COMPLETED'
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-gray-100 text-gray-600'
+            }`}
+          >
+            {mission.status === 'IN_PROGRESS'
+              ? '执行中'
+              : mission.status === 'COMPLETED'
+                ? '已完成'
+                : mission.status === 'PLANNING'
+                  ? '规划中'
+                  : mission.status}
+          </span>
+        </div>
+      </div>
+
+      {/* Canvas */}
+      <div className="flex-1 overflow-hidden">
+        <svg
+          viewBox={`0 0 ${canvasSize.width} ${canvasSize.height}`}
+          className="h-full w-full"
+          preserveAspectRatio="xMidYMid meet"
+        >
+          {/* Background grid */}
+          <defs>
+            <pattern
+              id="grid"
+              width="20"
+              height="20"
+              patternUnits="userSpaceOnUse"
+            >
+              <path
+                d="M 20 0 L 0 0 0 20"
+                fill="none"
+                stroke="#f0f0f0"
+                strokeWidth="0.5"
+              />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#grid)" />
+
+          {/* Connections */}
+          {renderConnections()}
+
+          {/* Agent nodes */}
+          {renderAgentNodes()}
+        </svg>
+      </div>
+
+      {/* Legend */}
+      <div className="border-t border-gray-100 px-3 py-2">
+        <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+          <div className="flex items-center gap-1">
+            <div className="h-2 w-2 rounded-full bg-purple-500"></div>
+            <span>Leader</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="h-2 w-2 animate-pulse rounded-full bg-blue-500"></div>
+            <span>工作中</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="h-2 w-2 rounded-full bg-green-500"></div>
+            <span>已完成</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="h-2 w-2 rounded-full bg-gray-400"></div>
+            <span>空闲</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Hovered agent/task info */}
+      {hoveredAgent && (
+        <div className="absolute bottom-20 left-3 right-3 rounded-lg bg-white/95 p-2 shadow-lg backdrop-blur">
+          {(() => {
+            const agent = aiMembers.find((a) => a.id === hoveredAgent);
+            const stats = getAgentStats(hoveredAgent);
+            if (!agent) return null;
+            return (
+              <div className="text-xs">
+                <div className="font-medium text-gray-900">
+                  {agent.displayName}
+                  {agent.id === mission.leaderId && (
+                    <span className="ml-1 text-purple-600">👑 Leader</span>
+                  )}
+                </div>
+                {stats.total > 0 && (
+                  <div className="mt-1 text-gray-500">
+                    任务: {stats.completed}/{stats.total} 完成
+                    {stats.inProgress > 0 && `, ${stats.inProgress} 执行中`}
+                  </div>
+                )}
+                {agent.expertiseAreas && agent.expertiseAreas.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {agent.expertiseAreas.slice(0, 3).map((area) => (
+                      <span
+                        key={area}
+                        className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-600"
+                      >
+                        {area}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+    </div>
+  );
+}

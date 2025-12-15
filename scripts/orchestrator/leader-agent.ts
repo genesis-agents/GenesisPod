@@ -19,7 +19,7 @@ import { spawn, ChildProcess } from 'child_process';
 
 interface Task {
   id: string;
-  type: 'monitoring' | 'merge' | 'docs' | 'code-review' | 'data-validation';
+  type: string; // 动态类型，匹配 config.yml 中的 task_types
   priority: 'critical' | 'high' | 'medium' | 'low';
   status: 'pending' | 'running' | 'completed' | 'failed';
   title: string;
@@ -36,6 +36,7 @@ interface Task {
   parameters: Record<string, unknown>;
   dependencies: string[];
   tags: string[];
+  workflow?: string | null; // 关联的工作流
 }
 
 interface TaskQueue {
@@ -74,6 +75,14 @@ interface LeaderState {
   last_error: string | null;
 }
 
+interface TaskTypeConfig {
+  worker: string;
+  description: string;
+  auto_create_subtasks?: boolean;
+  requires_review?: boolean;
+  auto_trigger?: boolean;
+}
+
 interface Config {
   leader: {
     schedule_interval: number;
@@ -93,10 +102,12 @@ interface Config {
       max_concurrent: number;
       timeout: number;
       description: string;
+      capabilities?: string[];
     }
   >;
-  task_worker_mapping: Record<string, string>;
+  task_types: Record<string, TaskTypeConfig>;
   priority_weights: Record<string, number>;
+  workflows?: Record<string, unknown>;
 }
 
 // ============================================================================
@@ -115,6 +126,24 @@ const AUDIT_LOG_PATH = path.join(LOGS_DIR, 'orchestrator-audit.jsonl');
 // 工具函数
 // ============================================================================
 
+function serializeError(err: unknown): unknown {
+  if (err instanceof Error) {
+    const serialized: Record<string, unknown> = {
+      name: err.name,
+      message: err.message,
+      stack: err.stack,
+    };
+    // 复制额外属性
+    for (const key of Object.keys(err)) {
+      if (!(key in serialized)) {
+        serialized[key] = (err as unknown as Record<string, unknown>)[key];
+      }
+    }
+    return serialized;
+  }
+  return err;
+}
+
 function log(level: 'debug' | 'info' | 'warn' | 'error', message: string, data?: unknown): void {
   const timestamp = new Date().toISOString();
   const emoji = {
@@ -125,8 +154,9 @@ function log(level: 'debug' | 'info' | 'warn' | 'error', message: string, data?:
   }[level];
 
   console.log(`[${timestamp}] ${emoji} [${level.toUpperCase()}] ${message}`);
-  if (data) {
-    console.log(JSON.stringify(data, null, 2));
+  if (data !== undefined) {
+    const serialized = serializeError(data);
+    console.log(JSON.stringify(serialized, null, 2));
   }
 }
 
@@ -204,21 +234,20 @@ class LeaderAgent {
   private loadState(): LeaderState {
     try {
       const content = fs.readFileSync(LEADER_STATE_PATH, 'utf-8');
-      return JSON.parse(content);
+      const state = JSON.parse(content) as LeaderState;
+      // 确保所有 workers 都有状态
+      this.initializeWorkerStatus(state);
+      return state;
     } catch (error) {
       log('warn', 'Leader state not found, creating new one');
-      return {
+      const state: LeaderState = {
         leader_session_id: null,
         status: 'initialized',
         started_at: null,
         last_heartbeat: null,
         current_cycle: 0,
         running_tasks: [],
-        worker_status: {
-          monitoring: 'ready',
-          'merge-to-main': 'ready',
-          'docs-specialist': 'ready',
-        },
+        worker_status: {},
         statistics: {
           cycles_completed: 0,
           tasks_started: 0,
@@ -228,6 +257,19 @@ class LeaderAgent {
         },
         last_error: null,
       };
+      this.initializeWorkerStatus(state);
+      return state;
+    }
+  }
+
+  private initializeWorkerStatus(state: LeaderState): void {
+    // 从配置初始化所有 worker 的状态
+    if (this.config?.workers) {
+      for (const workerName of Object.keys(this.config.workers)) {
+        if (!state.worker_status[workerName]) {
+          state.worker_status[workerName] = 'ready';
+        }
+      }
     }
   }
 
@@ -286,7 +328,14 @@ class LeaderAgent {
   }
 
   private getWorkerForTask(task: Task): string | null {
-    const workerName = this.config.task_worker_mapping[task.type];
+    // 从 task_types 配置中获取 worker 映射
+    const taskTypeConfig = this.config.task_types?.[task.type];
+    if (!taskTypeConfig) {
+      log('warn', `No task type config for: ${task.type}`);
+      return null;
+    }
+
+    const workerName = taskTypeConfig.worker;
     if (!workerName) {
       log('warn', `No worker mapping for task type: ${task.type}`);
       return null;
@@ -446,15 +495,17 @@ ${JSON.stringify(task.parameters, null, 2)}
         '--permission-mode',
         'acceptEdits',
         '--model',
-        `claude-${model}-4-20250514`,
+        model === 'opus' ? 'claude-opus-4-5-20251101' : `claude-${model}-4-20250514`,
       ];
 
       log('debug', `Spawning claude process for ${workerName}`);
 
-      const childProcess = spawn('claude', args, {
+      // 使用 npx 来确保能够找到 claude 命令
+      const childProcess = spawn('npx', ['claude', ...args], {
         cwd: globalThis.process.cwd(),
         env: { ...globalThis.process.env },
         stdio: ['pipe', 'pipe', 'pipe'],
+        shell: true, // 使用 shell 以正确解析 PATH
       });
 
       this.runningProcesses.set(workerName, childProcess);

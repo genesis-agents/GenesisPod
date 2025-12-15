@@ -8,6 +8,9 @@ import {
   AgentTaskStatus,
 } from '@/types/ai-teams';
 import { useAiGroupStore } from '@/stores/aiTeamsStore';
+import TeamCanvasView from './TeamCanvasView';
+
+type ViewMode = 'list' | 'canvas';
 
 interface MissionProgressPanelProps {
   topicId: string;
@@ -134,12 +137,14 @@ export default function MissionProgressPanel({
     fetchMissions,
     cancelMission,
     typingAIs,
+    currentTopic,
   } = useAiGroupStore();
 
   const [expandedMissions, setExpandedMissions] = useState<Set<string>>(
     new Set()
   );
   const [detailMission, setDetailMission] = useState<TeamMission | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   // Load missions on mount
   useEffect(() => {
@@ -260,35 +265,122 @@ export default function MissionProgressPanel({
     );
   }
 
+  // Get the active mission for canvas view
+  const activeMission =
+    missionsList.find(
+      (m) =>
+        m.status === 'IN_PROGRESS' ||
+        m.status === 'PLANNING' ||
+        m.status === 'REVIEW' ||
+        m.status === 'PENDING'
+    ) ||
+    missionsList[0] ||
+    null;
+
+  // Get AI members from current topic
+  const aiMembers = currentTopic?.aiMembers || [];
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
         <h3 className="font-semibold text-gray-900">Team Missions</h3>
-        <button
-          onClick={onCreateMission}
-          className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        <div className="flex items-center gap-2">
+          {/* View Toggle */}
+          <div className="flex rounded-lg bg-gray-100 p-0.5">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+              title="列表视图"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                />
+              </svg>
+            </button>
+            <button
+              onClick={() => setViewMode('canvas')}
+              className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                viewMode === 'canvas'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+              title="Canvas视图"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                />
+              </svg>
+            </button>
+          </div>
+          {/* New Mission Button */}
+          <button
+            onClick={onCreateMission}
+            className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 4v16m8-8H4"
-            />
-          </svg>
-          New
-        </button>
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            New
+          </button>
+        </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-auto">
-        {missionsList.length === 0 ? (
+        {/* Canvas View */}
+        {viewMode === 'canvas' ? (
+          <TeamCanvasView
+            mission={activeMission}
+            aiMembers={aiMembers}
+            typingAIs={typingAIs}
+            onAgentClick={(agent) => {
+              // Could open agent details in the future
+              console.log('Agent clicked:', agent.displayName);
+            }}
+            onTaskClick={(task) => {
+              // Find the mission containing this task and show detail
+              const mission = missionsList.find((m) =>
+                m.tasks?.some((t) => t.id === task.id)
+              );
+              if (mission) {
+                setDetailMission(mission);
+              }
+            }}
+          />
+        ) : missionsList.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center p-4">
             <div className="mb-3 text-4xl">🎯</div>
             <p className="mb-4 text-center text-sm text-gray-500">

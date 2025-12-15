@@ -15,9 +15,10 @@ module.exports = {
   apps: [
     {
       name: 'leader-agent',
-      script: './scripts/orchestrator/leader-agent.ts',
-      interpreter: 'npx',
-      interpreter_args: 'ts-node',
+      script: './node_modules/ts-node/dist/bin.js',
+      args: './scripts/orchestrator/leader-agent.ts',
+      interpreter: 'node',
+      interpreter_args: '',
 
       // 运行配置
       instances: 1,
@@ -50,8 +51,8 @@ module.exports = {
 
       // 信号处理
       kill_timeout: 10000,
-      wait_ready: true,
-      listen_timeout: 10000,
+      // wait_ready: true, // 暂时禁用，因为脚本没有发送 ready 信号
+      // listen_timeout: 10000,
     },
 
     // 可选: 单独的监控 Agent
