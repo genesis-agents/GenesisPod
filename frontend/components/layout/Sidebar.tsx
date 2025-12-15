@@ -305,21 +305,21 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       {/* Main Navigation */}
       <nav className="flex-1 px-3 py-2">
         <div className="space-y-1">
-          {/* Ask AI - Primary AI Chat Entry */}
+          {/* AI Ask - Primary AI Chat Entry */}
           <Link
-            href="/ask"
+            href="/ai-ask"
             onClick={(e) => {
-              if (pathname === '/ask') {
+              if (pathname === '/ai-ask') {
                 e.preventDefault();
-                window.location.href = '/ask';
+                window.location.href = '/ai-ask';
               }
             }}
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-              isActive('/ask') || pathname?.startsWith('/ask')
+              isActive('/ai-ask') || pathname?.startsWith('/ai-ask')
                 ? 'bg-violet-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
-            title="Ask DeepDive AI"
+            title="AI Ask"
           >
             {/* Ask AI Icon - Lightbulb/Inspiration (consistent line style) */}
             <svg

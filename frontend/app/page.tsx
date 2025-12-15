@@ -3817,7 +3817,7 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace('/ask');
+    router.replace('/ai-ask');
   }, [router]);
 
   return (

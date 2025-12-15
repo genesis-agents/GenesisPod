@@ -337,7 +337,7 @@ export default function AIGroupPage() {
                       key={topic.id}
                       topic={topic}
                       currentUserId={user?.id}
-                      onClick={() => router.push(`/ai-group/${topic.id}`)}
+                      onClick={() => router.push(`/ai-teams/${topic.id}`)}
                       onEdit={(topic) => {
                         setEditingTopic(topic);
                       }}
@@ -587,7 +587,7 @@ export default function AIGroupPage() {
           onCreate={async (dto) => {
             const topic = await createTopic(dto);
             setShowCreateDialog(false);
-            router.push(`/ai-group/${topic.id}`);
+            router.push(`/ai-teams/${topic.id}`);
           }}
         />
       )}

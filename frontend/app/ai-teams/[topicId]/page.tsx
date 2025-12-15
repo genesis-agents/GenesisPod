@@ -259,7 +259,7 @@ function MemberPanel({
       {/* Back to Topics - Top */}
       <div className="border-b border-gray-200 px-3 py-2">
         <Link
-          href="/ai-group"
+          href="/ai-teams"
           className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
         >
           <svg
@@ -2148,7 +2148,7 @@ export default function TopicPage() {
         <h2 className="text-xl font-semibold text-gray-700">
           Please sign in to access this topic
         </h2>
-        <Link href="/ai-group" className="text-blue-600 hover:underline">
+        <Link href="/ai-teams" className="text-blue-600 hover:underline">
           Back to AI Teams
         </Link>
       </div>

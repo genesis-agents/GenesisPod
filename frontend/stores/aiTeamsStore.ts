@@ -403,7 +403,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
     set({ currentUserId: userId });
 
     const tokens = getAuthTokens();
-    const newSocket = io(`${API_URL}/ai-group`, {
+    const newSocket = io(`${API_URL}/ai-teams`, {
       auth: { userId, token: tokens?.accessToken },
       query: { userId },
       // 代理环境兼容性配置
