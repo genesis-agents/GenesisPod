@@ -2872,3 +2872,41 @@ model OfficeAgentToolLog {
   @@index([taskId])
   @@map("office_agent_tool_logs")
 }
+
+// ============ 用户反馈系统 ============
+
+enum FeedbackType {
+  BUG
+  FEATURE
+  IMPROVEMENT
+  OTHER
+}
+
+enum FeedbackStatus {
+  PENDING
+  REVIEWED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+model Feedback {
+  id          String         @id @default(uuid())
+  type        FeedbackType
+  status      FeedbackStatus @default(PENDING)
+  title       String         @db.VarChar(500)
+  description String         @db.Text
+  userEmail   String?        @map("user_email") @db.VarChar(255)
+  userAgent   String?        @map("user_agent") @db.Text
+  pageUrl     String?        @map("page_url") @db.Text
+  userId      String?        @map("user_id") // 已登录用户的ID
+  adminNotes  String?        @map("admin_notes") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([type])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("feedbacks")
+}

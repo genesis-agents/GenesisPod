@@ -1,8 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const FEEDBACK_EMAIL = 'hello.junjie.duan@gmail.com';
 const GITHUB_ISSUES_URL =
   'https://github.com/JUNJIE-DUAN/deepdive-engine/issues';
+
+// Get backend URL - same logic as config.ts
+const getBackendUrl = () => {
+  // 1. Use environment variable if set
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  // 2. Railway production uses hardcoded URL
+  if (process.env.RAILWAY_ENVIRONMENT === 'production') {
+    return 'https://deepdive-engine-backend.up.railway.app';
+  }
+  // 3. Development default
+  return 'http://localhost:4000';
+};
 
 interface FeedbackRequest {
   type: 'bug' | 'feature' | 'improvement' | 'other';
@@ -25,65 +38,50 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get backend URL
-    const backendUrl =
-      process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+    const backendUrl = getBackendUrl();
 
-    // Try to send via backend email service first
+    // Send to backend feedback API
     try {
-      const emailResponse = await fetch(`${backendUrl}/api/v1/feedback`, {
+      const response = await fetch(`${backendUrl}/api/v1/feedback`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          to: FEEDBACK_EMAIL,
-          subject: `[DeepDive Feedback] ${getTypeLabel(body.type)}: ${body.title}`,
           type: body.type,
           title: body.title,
           description: body.description,
           userEmail: body.email,
           userAgent: body.userAgent,
           url: body.url,
-          timestamp: new Date().toISOString(),
         }),
       });
 
-      if (emailResponse.ok) {
+      if (response.ok) {
+        const data = await response.json();
         return NextResponse.json({
           success: true,
           message: 'Feedback submitted successfully',
-          method: 'email',
+          feedbackId: data.feedbackId,
         });
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Backend feedback error:', errorData);
       }
-    } catch (emailError) {
-      console.warn(
-        'Email service unavailable, falling back to log:',
-        emailError
-      );
+    } catch (backendError) {
+      console.error('Backend feedback service error:', backendError);
     }
 
-    // Fallback: Log feedback (in production, this could write to a database)
-    console.log('='.repeat(60));
-    console.log('NEW FEEDBACK RECEIVED');
-    console.log('='.repeat(60));
-    console.log(`Type: ${body.type}`);
-    console.log(`Title: ${body.title}`);
-    console.log(`Description: ${body.description}`);
-    console.log(`User Email: ${body.email || 'Not provided'}`);
-    console.log(`Timestamp: ${new Date().toISOString()}`);
-    console.log(`Target Email: ${FEEDBACK_EMAIL}`);
-    console.log('='.repeat(60));
-
-    // Return success with info about GitHub issues as alternative
-    return NextResponse.json({
-      success: true,
-      message:
-        'Feedback recorded. For faster response, consider opening a GitHub issue.',
-      githubIssuesUrl: GITHUB_ISSUES_URL,
-      method: 'log',
-      feedbackId: `FB-${Date.now()}`,
-    });
+    // Fallback: Return error and suggest GitHub Issues
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          'Failed to submit feedback. Please try again or open a GitHub issue.',
+        githubIssuesUrl: GITHUB_ISSUES_URL,
+      },
+      { status: 500 }
+    );
   } catch (error) {
     console.error('Feedback submission error:', error);
     return NextResponse.json(
@@ -97,22 +95,8 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function getTypeLabel(type: string): string {
-  switch (type) {
-    case 'bug':
-      return 'Bug Report';
-    case 'feature':
-      return 'Feature Request';
-    case 'improvement':
-      return 'Improvement';
-    default:
-      return 'Feedback';
-  }
-}
-
 export async function GET() {
   return NextResponse.json({
-    feedbackEmail: FEEDBACK_EMAIL,
     githubIssuesUrl: GITHUB_ISSUES_URL,
     types: ['bug', 'feature', 'improvement', 'other'],
   });

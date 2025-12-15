@@ -16,6 +16,7 @@ import { ContentProcessingModule } from "./common/content-processing";
 // Core modules
 import { AuthModule } from "./modules/core/auth/auth.module";
 import { AdminModule } from "./modules/core/admin/admin.module";
+import { FeedbackModule } from "./modules/core/feedback/feedback.module";
 import { StorageModule } from "./modules/core/storage/storage.module";
 // AI modules
 import { AiCoreModule } from "./modules/ai/ai-core/ai-core.module";
@@ -86,6 +87,7 @@ import { WechatWorkModule } from "./modules/integrations/wechat-work/wechat-work
     // Core modules
     AuthModule,
     AdminModule,
+    FeedbackModule,
     StorageModule,
 
     // AI modules (ai-* prefix)

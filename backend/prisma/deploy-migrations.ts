@@ -124,6 +124,9 @@ async function getCustomMigrations(): Promise<string[]> {
     "20251205_add_topic_join_requests",
     "20251205_cleanup_duplicate_resources",
     "20251208_add_simulation_team_white",
+    "20251215_add_composite_indexes",
+    "20251215_add_jsonb_gin_indexes",
+    "20251215_add_feedback_table",
   ];
 
   const migrations: string[] = [];

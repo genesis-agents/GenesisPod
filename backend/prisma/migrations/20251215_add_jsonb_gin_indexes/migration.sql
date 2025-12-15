@@ -27,9 +27,9 @@ CREATE INDEX IF NOT EXISTS "collection_items_tags_gin_idx"
 CREATE INDEX IF NOT EXISTS "office_documents_metadata_gin_idx"
   ON "office_documents" USING GIN ("metadata" jsonb_path_ops);
 
--- Research source metadata
-CREATE INDEX IF NOT EXISTS "research_sources_metadata_gin_idx"
-  ON "research_sources" USING GIN ("metadata" jsonb_path_ops)
+-- Research project source metadata
+CREATE INDEX IF NOT EXISTS "research_project_sources_metadata_gin_idx"
+  ON "research_project_sources" USING GIN ("metadata" jsonb_path_ops)
   WHERE "metadata" IS NOT NULL;
 
 -- Resource AI insights - used for AI-powered filtering
