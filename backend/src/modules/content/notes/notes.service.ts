@@ -533,6 +533,46 @@ export class NotesService {
     return updated;
   }
 
+  /**
+   * 解除知识图谱节点关联
+   */
+  async unlinkGraphNode(noteId: string, userId: string, nodeId: string) {
+    // 验证所有权
+    const note = await this.prisma.note.findUnique({
+      where: { id: noteId },
+    });
+
+    if (!note) {
+      throw new NotFoundException("Note not found");
+    }
+
+    if (note.userId !== userId) {
+      throw new ForbiddenException("You can only modify your own notes");
+    }
+
+    // 获取现有图谱节点
+    const currentNodes = (note.graphNodes as any[]) || [];
+
+    // 过滤掉要移除的节点
+    const filteredNodes = currentNodes.filter((node: any) => node.id !== nodeId);
+
+    // 如果没有变化,直接返回
+    if (filteredNodes.length === currentNodes.length) {
+      return note;
+    }
+
+    const updated = await this.prisma.note.update({
+      where: { id: noteId },
+      data: {
+        graphNodes: filteredNodes,
+      },
+    });
+
+    this.logger.log(`Graph node ${nodeId} unlinked from note ${noteId}`);
+
+    return updated;
+  }
+
   // ===== AI Organization Methods =====
 
   /**

@@ -4,6 +4,7 @@ import {
   ExecutionContext,
   ForbiddenException,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
 
 /**
@@ -14,10 +15,19 @@ import { PrismaService } from "../prisma/prisma.service";
  */
 @Injectable()
 export class AdminGuard implements CanActivate {
-  // 管理员邮箱列表（硬编码，也可以从配置读取）
-  private readonly adminEmails = ["hello.junjie.duan@gmail.com"];
+  // 管理员邮箱列表（从环境变量读取）
+  private readonly adminEmails: string[];
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private configService: ConfigService,
+  ) {
+    const emails = this.configService.get<string>("ADMIN_EMAILS", "");
+    this.adminEmails = emails
+      .split(",")
+      .map((e) => e.trim())
+      .filter((e) => e.length > 0);
+  }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();

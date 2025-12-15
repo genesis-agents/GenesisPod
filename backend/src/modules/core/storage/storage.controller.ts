@@ -14,19 +14,26 @@ import {
   DatabaseAnalysis,
 } from "./storage.service";
 
-const ADMIN_KEY = "deepdive-admin-cleanup-2024";
-
 @Controller("storage")
 export class StorageController {
   private readonly logger = new Logger(StorageController.name);
+  private readonly adminKey: string;
 
-  constructor(private readonly storageService: StorageService) {}
+  constructor(private readonly storageService: StorageService) {
+    this.adminKey =
+      process.env.STORAGE_ADMIN_KEY || "deepdive-admin-cleanup-2024";
+    if (!process.env.STORAGE_ADMIN_KEY) {
+      this.logger.warn(
+        "STORAGE_ADMIN_KEY not set, using default key. Please set it in production!",
+      );
+    }
+  }
 
   /**
    * Validate admin key
    */
   private validateKey(key: string): void {
-    if (key !== ADMIN_KEY) {
+    if (key !== this.adminKey) {
       throw new BadRequestException("Invalid admin key");
     }
   }

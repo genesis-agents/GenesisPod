@@ -205,6 +205,23 @@ export class NotesController {
     return this.notesService.linkGraphNode(id, userId, nodeId, nodeType);
   }
 
+  /**
+   * 解除知识图谱节点关联
+   */
+  @Delete(":id/graph-nodes/:nodeId")
+  @UseGuards(JwtAuthGuard)
+  async unlinkGraphNode(
+    @Param("id") id: string,
+    @Param("nodeId") nodeId: string,
+    @Request() req: any,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.notesService.unlinkGraphNode(id, userId, nodeId);
+  }
+
   // ===== AI Organization Endpoints =====
 
   /**
