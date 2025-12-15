@@ -114,7 +114,7 @@ export default function KnowledgeGraphPage() {
       setError(null);
 
       const response = await fetch(
-        `${config.apiBaseUrl}/knowledge-graph/overview`,
+        `${config.apiUrl}/knowledge-graph/overview`,
         {
           headers: {
             ...getAuthHeader(),
@@ -142,7 +142,7 @@ export default function KnowledgeGraphPage() {
       setError(null);
 
       const response = await fetch(
-        `${config.apiBaseUrl}/knowledge-graph/build-all`,
+        `${config.apiUrl}/knowledge-graph/build-all`,
         {
           method: 'POST',
           headers: {
