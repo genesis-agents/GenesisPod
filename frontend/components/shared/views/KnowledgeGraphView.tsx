@@ -135,19 +135,41 @@ export default function KnowledgeGraphView({
       simulation = d3.forceSimulation(nodes as any);
     }
 
-    // 绘制边
+    // 计算每条边的权重（基于源节点和目标节点的连接数）
+    const nodeConnectionCount = new Map<string, number>();
+    edges.forEach((e) => {
+      nodeConnectionCount.set(
+        e.source as string,
+        (nodeConnectionCount.get(e.source as string) || 0) + 1
+      );
+      nodeConnectionCount.set(
+        e.target as string,
+        (nodeConnectionCount.get(e.target as string) || 0) + 1
+      );
+    });
+
+    // 绘制边 - 使用曲线路径
     const link = g
       .append('g')
-      .selectAll('line')
+      .selectAll('path')
       .data(edges)
-      .join('line')
-      .attr('stroke', '#cbd5e1')
-      .attr('stroke-opacity', 0.6)
+      .join('path')
+      .attr('fill', 'none')
+      .attr('stroke', (d) => {
+        // 根据关系类型设置颜色
+        if (d.type === 'AUTHORED') return '#10b981'; // green for author
+        if (d.type === 'BELONGS_TO') return '#f59e0b'; // orange for topic
+        if (d.type === 'TAGGED_WITH') return '#ef4444'; // red for tag
+        return '#94a3b8';
+      })
+      .attr('stroke-opacity', 0.5)
       .attr('stroke-width', (d) => {
-        // 根据关系类型调整粗细
-        if (d.type === 'AUTHORED') return 2;
-        if (d.type === 'BELONGS_TO') return 1.5;
-        return 1;
+        // 根据连接强度调整粗细（源和目标节点的平均连接数）
+        const sourceCount = nodeConnectionCount.get(d.source as string) || 1;
+        const targetCount = nodeConnectionCount.get(d.target as string) || 1;
+        const avgConnections = (sourceCount + targetCount) / 2;
+        // 映射到1-4的粗细范围
+        return Math.min(Math.max(avgConnections / 3, 1), 4);
       });
 
     // 绘制节点
@@ -228,11 +250,36 @@ export default function KnowledgeGraphView({
 
     // 更新位置
     simulation.on('tick', () => {
-      link
-        .attr('x1', (d: any) => d.source.x)
-        .attr('y1', (d: any) => d.source.y)
-        .attr('x2', (d: any) => d.target.x)
-        .attr('y2', (d: any) => d.target.y);
+      // 使用二次贝塞尔曲线绘制边
+      link.attr('d', (d: any) => {
+        const sourceX = d.source.x;
+        const sourceY = d.source.y;
+        const targetX = d.target.x;
+        const targetY = d.target.y;
+
+        // 计算中点
+        const midX = (sourceX + targetX) / 2;
+        const midY = (sourceY + targetY) / 2;
+
+        // 计算垂直于连线的偏移量，产生曲线效果
+        const dx = targetX - sourceX;
+        const dy = targetY - sourceY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        // 根据距离计算曲率，距离越远曲线越明显
+        const curvature = Math.min(distance * 0.15, 40);
+
+        // 垂直方向的偏移（归一化后乘以曲率）
+        const offsetX = distance > 0 ? (-dy / distance) * curvature : 0;
+        const offsetY = distance > 0 ? (dx / distance) * curvature : 0;
+
+        // 控制点
+        const controlX = midX + offsetX;
+        const controlY = midY + offsetY;
+
+        // 返回二次贝塞尔曲线路径
+        return `M ${sourceX},${sourceY} Q ${controlX},${controlY} ${targetX},${targetY}`;
+      });
 
       node.attr('transform', (d: any) => `translate(${d.x},${d.y})`);
     });
