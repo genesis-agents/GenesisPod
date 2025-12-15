@@ -181,6 +181,7 @@ export class AiTeamsService {
 
     // 只有当有topics时才执行查询，避免空数组导致SQL错误
     if (topicIds.length > 0) {
+      // 使用 Prisma.join 和类型转换来避免 text/uuid 类型不匹配错误
       unreadCounts = await this.prisma.$queryRaw<
         Array<{ topic_id: string; unread_count: bigint }>
       >`
@@ -188,8 +189,8 @@ export class AiTeamsService {
           tm.topic_id,
           COUNT(*) as unread_count
         FROM topic_messages tm
-        LEFT JOIN topic_members tmem ON tm.topic_id = tmem.topic_id AND tmem.user_id = ${userId}
-        WHERE tm.topic_id = ANY(${topicIds}::uuid[])
+        LEFT JOIN topic_members tmem ON tm.topic_id = tmem.topic_id AND tmem.user_id::text = ${userId}
+        WHERE tm.topic_id::text IN (${Prisma.join(topicIds)})
           AND tm.deleted_at IS NULL
           AND (
             tmem.last_read_at IS NULL
