@@ -193,7 +193,7 @@ const getTaskConnectionColor = (status: AgentTaskStatus): string => {
   }
 };
 
-// Calculate positions for radial layout
+// Calculate positions using a clean hierarchical grid layout
 function calculateNodePositions(
   leaderId: string | null,
   agents: TopicAIMember[],
@@ -202,30 +202,50 @@ function calculateNodePositions(
 ): Map<string, { x: number; y: number }> {
   const positions = new Map<string, { x: number; y: number }>();
   const centerX = width / 2;
-  const centerY = height / 2;
-  const radius = Math.min(width, height) * 0.32;
 
   const leader = agents.find((a) => a.id === leaderId);
   const workers = agents.filter((a) => a.id !== leaderId);
 
+  // Node sizing
+  const nodeRadius = 35;
+  const horizontalSpacing = 120; // Space between nodes horizontally
+  const verticalSpacing = 140; // Space between rows
+
   // Position leader at top center
+  const leaderY = 80;
   if (leader) {
-    positions.set(leader.id, { x: centerX, y: 100 });
+    positions.set(leader.id, { x: centerX, y: leaderY });
   }
 
-  // Position workers in arc below leader
+  // Position workers in organized rows below leader
   const workerCount = workers.length;
   if (workerCount > 0) {
-    const startAngle = Math.PI * 0.15;
-    const endAngle = Math.PI * 0.85;
-    const angleStep =
-      workerCount > 1 ? (endAngle - startAngle) / (workerCount - 1) : 0;
+    // Calculate optimal columns per row based on canvas width
+    const maxNodesPerRow = Math.max(
+      2,
+      Math.floor((width - 100) / horizontalSpacing)
+    );
+    const nodesPerRow = Math.min(workerCount, maxNodesPerRow);
+    const rows = Math.ceil(workerCount / nodesPerRow);
+
+    // Starting Y position for workers (below leader with connection space)
+    const startY = leaderY + verticalSpacing + 40;
 
     workers.forEach((worker, index) => {
-      const angle =
-        workerCount > 1 ? startAngle + index * angleStep : Math.PI / 2;
-      const x = centerX + radius * Math.cos(angle - Math.PI / 2);
-      const y = centerY + radius * 0.8 * Math.sin(angle - Math.PI / 2) + 80;
+      const row = Math.floor(index / nodesPerRow);
+      const col = index % nodesPerRow;
+
+      // Calculate how many nodes in this row
+      const nodesInThisRow =
+        row === rows - 1 ? workerCount - (rows - 1) * nodesPerRow : nodesPerRow;
+
+      // Center the row
+      const rowWidth = (nodesInThisRow - 1) * horizontalSpacing;
+      const rowStartX = centerX - rowWidth / 2;
+
+      const x = rowStartX + col * horizontalSpacing;
+      const y = startY + row * verticalSpacing;
+
       positions.set(worker.id, { x, y });
     });
   }
