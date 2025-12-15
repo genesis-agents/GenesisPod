@@ -32,10 +32,10 @@ CREATE INDEX IF NOT EXISTS "research_project_sources_metadata_gin_idx"
   ON "research_project_sources" USING GIN ("metadata" jsonb_path_ops)
   WHERE "metadata" IS NOT NULL;
 
--- Resource AI insights - used for AI-powered filtering
-CREATE INDEX IF NOT EXISTS "resources_ai_insights_gin_idx"
-  ON "resources" USING GIN ("ai_insights" jsonb_path_ops)
-  WHERE "ai_insights" IS NOT NULL;
+-- Resource key insights - used for AI-powered filtering
+CREATE INDEX IF NOT EXISTS "resources_key_insights_gin_idx"
+  ON "resources" USING GIN ("key_insights" jsonb_path_ops)
+  WHERE "key_insights" IS NOT NULL;
 
 -- Import task metadata
 CREATE INDEX IF NOT EXISTS "import_tasks_metadata_gin_idx"
