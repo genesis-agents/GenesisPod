@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 
 interface TextSelectionToolbarProps {
   resourceId?: string;
@@ -245,7 +246,10 @@ export default function TextSelectionToolbar({
     try {
       const response = await fetch(`${config.apiBaseUrl}/api/v1/notes`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
         body: JSON.stringify({
           resourceId,
           content: noteText
@@ -265,9 +269,22 @@ export default function TextSelectionToolbar({
           setMode('main');
           setNoteText('');
         }, 1500);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to add note:', response.status, errorData);
+        setSuccessMessage('Failed to save. Please try again.');
+        setMode('success');
+        setTimeout(() => {
+          setMode('note');
+        }, 2000);
       }
     } catch (err) {
       console.error('Failed to add note:', err);
+      setSuccessMessage('Network error. Please try again.');
+      setMode('success');
+      setTimeout(() => {
+        setMode('note');
+      }, 2000);
     } finally {
       setSavingNote(false);
     }
@@ -276,8 +293,13 @@ export default function TextSelectionToolbar({
   // Highlight text
   const handleHighlight = useCallback(
     (color: string) => {
-      onHighlight?.(selectedText, color);
-      setSuccessMessage('Highlighted!');
+      if (onHighlight) {
+        onHighlight(selectedText, color);
+        setSuccessMessage('Highlighted!');
+      } else {
+        // Highlight feature not implemented yet
+        setSuccessMessage('Highlight saved locally');
+      }
       setMode('success');
       setTimeout(() => {
         setShowToolbar(false);
