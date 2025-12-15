@@ -674,7 +674,27 @@ export class NotesService {
         this.logger.log(
           `Found ${result.connections?.length || 0} connections for user ${userId}`,
         );
-        return result;
+
+        // 创建 ID 到标题的映射
+        const noteMap = new Map(
+          notes.map((n) => [n.id, n.title || "Untitled"]),
+        );
+
+        // 丰富连接数据，添加笔记标题
+        const enrichedConnections = (result.connections || []).map(
+          (conn: any) => {
+            const noteIds = conn.noteIds || [];
+            return {
+              ...conn,
+              note1Title: noteMap.get(noteIds[0]) || noteIds[0] || "Unknown",
+              note2Title: noteMap.get(noteIds[1]) || noteIds[1] || "Unknown",
+              noteId1: noteIds[0],
+              noteId2: noteIds[1],
+            };
+          },
+        );
+
+        return { connections: enrichedConnections };
       } catch {
         return { connections: [], rawAnalysis: response.content };
       }

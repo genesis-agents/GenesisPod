@@ -1181,42 +1181,95 @@ export default function AIOrganizePanel({
                 <div className="space-y-4">
                   {taskStates[resultsModal].results.connections?.length > 0 ? (
                     taskStates[resultsModal].results.connections.map(
-                      (conn: any, index: number) => (
-                        <div
-                          key={index}
-                          className="rounded-lg border border-emerald-100 bg-emerald-50 p-4"
-                        >
-                          <div className="mb-2 flex items-center gap-2">
-                            <Link2 className="h-4 w-4 text-emerald-600" />
-                            <span className="font-medium text-emerald-900">
-                              Connection #{index + 1}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="rounded-lg bg-white p-2">
-                              <p className="text-xs text-gray-500">
-                                Note 1 / 笔记1
-                              </p>
-                              <p className="text-sm font-medium text-gray-800">
-                                {conn.note1 || conn.from || 'N/A'}
-                              </p>
+                      (conn: any, index: number) => {
+                        // 优先使用带标题的字段，fallback到ID
+                        const note1Display =
+                          conn.note1Title ||
+                          conn.noteIds?.[0] ||
+                          conn.note1 ||
+                          conn.from ||
+                          'Unknown';
+                        const note2Display =
+                          conn.note2Title ||
+                          conn.noteIds?.[1] ||
+                          conn.note2 ||
+                          conn.to ||
+                          'Unknown';
+                        const relationship =
+                          conn.relationship || conn.reason || conn.description;
+                        const theme = conn.theme;
+                        const strength = conn.strength;
+
+                        return (
+                          <div
+                            key={index}
+                            className="rounded-lg border border-emerald-100 bg-emerald-50 p-4"
+                          >
+                            <div className="mb-3 flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Link2 className="h-4 w-4 text-emerald-600" />
+                                <span className="font-medium text-emerald-900">
+                                  Connection #{index + 1}
+                                </span>
+                              </div>
+                              {strength && (
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                                    strength === 'strong'
+                                      ? 'bg-emerald-200 text-emerald-800'
+                                      : strength === 'moderate'
+                                        ? 'bg-yellow-200 text-yellow-800'
+                                        : 'bg-gray-200 text-gray-600'
+                                  }`}
+                                >
+                                  {strength === 'strong'
+                                    ? 'Strong / 强'
+                                    : strength === 'moderate'
+                                      ? 'Moderate / 中'
+                                      : 'Weak / 弱'}
+                                </span>
+                              )}
                             </div>
-                            <div className="rounded-lg bg-white p-2">
-                              <p className="text-xs text-gray-500">
-                                Note 2 / 笔记2
+
+                            {/* 关联描述 */}
+                            {relationship && (
+                              <p className="mb-3 text-sm leading-relaxed text-emerald-800">
+                                {relationship}
                               </p>
-                              <p className="text-sm font-medium text-gray-800">
-                                {conn.note2 || conn.to || 'N/A'}
-                              </p>
+                            )}
+
+                            {/* 主题标签 */}
+                            {theme && (
+                              <div className="mb-3">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-200 px-2.5 py-1 text-xs font-medium text-emerald-800">
+                                  <span className="text-emerald-600">#</span>
+                                  {theme}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* 关联的笔记 */}
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="rounded-lg bg-white p-2.5 shadow-sm">
+                                <p className="mb-1 text-xs text-gray-400">
+                                  Note 1
+                                </p>
+                                <p className="line-clamp-2 text-sm font-medium text-gray-700">
+                                  {note1Display}
+                                </p>
+                              </div>
+                              <div className="rounded-lg bg-white p-2.5 shadow-sm">
+                                <p className="mb-1 text-xs text-gray-400">
+                                  Note 2
+                                </p>
+                                <p className="line-clamp-2 text-sm font-medium text-gray-700">
+                                  {note2Display}
+                                </p>
+                              </div>
                             </div>
                           </div>
-                          {conn.reason && (
-                            <p className="mt-2 text-sm text-emerald-700">
-                              Reason / 关联原因: {conn.reason}
-                            </p>
-                          )}
-                        </div>
-                      )
+                        );
+                      }
                     )
                   ) : (
                     <p className="text-center text-gray-500">
