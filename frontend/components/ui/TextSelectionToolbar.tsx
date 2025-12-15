@@ -182,8 +182,19 @@ export default function TextSelectionToolbar({
   // Translate text
   const handleTranslate = useCallback(
     async (targetLang: string) => {
+      // IMPORTANT: Clear any previous translation first to prevent stale data display
+      setTranslation('');
       setTranslating(true);
       setSelectedLang(targetLang);
+
+      // Capture current text for this translation request
+      const textToTranslate = selectedText;
+
+      if (!textToTranslate || textToTranslate.length < 2) {
+        setTranslation('No text selected');
+        setTranslating(false);
+        return;
+      }
 
       try {
         const response = await fetch(
@@ -192,7 +203,7 @@ export default function TextSelectionToolbar({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              text: selectedText,
+              text: textToTranslate,
               targetLanguage: targetLang,
               sourceLanguage: 'auto',
             }),
@@ -201,12 +212,9 @@ export default function TextSelectionToolbar({
 
         if (response.ok) {
           const data = await response.json();
-          setTranslation(data.translation || data.translatedText);
-          onTranslate?.(
-            selectedText,
-            targetLang,
-            data.translation || data.translatedText
-          );
+          const translatedText = data.translation || data.translatedText || '';
+          setTranslation(translatedText);
+          onTranslate?.(textToTranslate, targetLang, translatedText);
         } else {
           setTranslation('Translation failed. Please try again.');
         }
@@ -325,7 +333,10 @@ export default function TextSelectionToolbar({
 
       {/* Translate */}
       <button
-        onClick={() => setMode('translate')}
+        onClick={() => {
+          setTranslation(''); // Clear stale translation when entering translate mode
+          setMode('translate');
+        }}
         className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-gray-700 transition-colors hover:bg-gray-100"
         title="Translate"
       >
@@ -817,6 +828,7 @@ export default function TextSelectionToolbar({
                 <button
                   onClick={() => {
                     setSelectedText(clipboardText);
+                    setTranslation(''); // Clear stale translation
                     setMode('translate');
                     setShowToolbar(true);
                     setToolbarPosition({
