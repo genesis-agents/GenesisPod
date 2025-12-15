@@ -14,12 +14,12 @@ jest.mock("../../../../common/content-processing", () => ({
 }));
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { HttpService } from "@nestjs/axios";
 import { AiImageService } from "../ai-image.service";
 import { InfographicTemplateService } from "../infographic-template.service";
-import { AiImageAnalyticsService } from "../ai-image-analytics.service";
+import { PromptEnhancementService } from "../prompt-enhancement.service";
+import { ImageGenerationService } from "../image-generation.service";
+import { ImageStorageService } from "../image-storage.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { R2StorageService } from "../../../core/storage/r2-storage.service";
 import {
   ContentExtractorService,
   DataFetchingService,
@@ -49,24 +49,6 @@ describe("AiImageService", () => {
     },
   };
 
-  const mockHttpService = {
-    post: jest.fn(),
-    get: jest.fn(),
-  };
-
-  const mockR2Storage = {
-    uploadImage: jest.fn(),
-    deleteImage: jest.fn(),
-    isEnabled: jest.fn().mockReturnValue(false),
-  };
-
-  const mockAnalyticsService = {
-    getImageStats: jest.fn(),
-    getImageUsageByUser: jest.fn(),
-    getPopularStyles: jest.fn(),
-    trackGeneration: jest.fn(),
-  };
-
   const mockContentExtractor = {
     extract: jest.fn(),
   };
@@ -81,20 +63,50 @@ describe("AiImageService", () => {
     generateInfographic: jest.fn(),
   };
 
+  const mockPromptEnhancement = {
+    enhancePrompt: jest.fn(),
+    generateStylePrompt: jest.fn(),
+  };
+
+  const mockImageGeneration = {
+    generateImage: jest.fn(),
+    generateImageVariation: jest.fn(),
+  };
+
+  const mockImageStorage = {
+    saveImage: jest.fn(),
+    getImage: jest.fn().mockResolvedValue(null),
+    deleteImage: jest
+      .fn()
+      .mockResolvedValue({ success: true, message: "Deleted" }),
+    getHistory: jest.fn().mockResolvedValue([]),
+    getBookmarkedImages: jest.fn().mockResolvedValue([]),
+    addBookmark: jest
+      .fn()
+      .mockResolvedValue({ success: true, message: "Bookmarked" }),
+    removeBookmark: jest
+      .fn()
+      .mockResolvedValue({ success: true, message: "Removed" }),
+    cleanupOldImages: jest.fn().mockResolvedValue(0),
+    getImageStats: jest
+      .fn()
+      .mockResolvedValue({ totalImages: 0, totalBookmarks: 0 }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiImageService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: HttpService, useValue: mockHttpService },
         { provide: ContentExtractorService, useValue: mockContentExtractor },
         {
           provide: InfographicTemplateService,
           useValue: mockInfographicTemplate,
         },
         { provide: DataFetchingService, useValue: mockDataFetching },
-        { provide: R2StorageService, useValue: mockR2Storage },
-        { provide: AiImageAnalyticsService, useValue: mockAnalyticsService },
+        { provide: PromptEnhancementService, useValue: mockPromptEnhancement },
+        { provide: ImageGenerationService, useValue: mockImageGeneration },
+        { provide: ImageStorageService, useValue: mockImageStorage },
       ],
     }).compile();
 
@@ -149,17 +161,16 @@ describe("AiImageService", () => {
           createdAt: new Date(),
         },
       ];
-      // getHistory calls findMany twice (bookmarked + unbookmarked)
-      mockPrisma.generatedImage.findMany.mockResolvedValue(mockImages);
+      mockImageStorage.getHistory.mockResolvedValue(mockImages);
 
       const result = await service.getHistory("user-123");
 
-      expect(mockPrisma.generatedImage.findMany).toHaveBeenCalled();
+      expect(mockImageStorage.getHistory).toHaveBeenCalledWith("user-123");
       expect(result.length).toBeGreaterThanOrEqual(0);
     });
 
     it("should return empty array for user with no images", async () => {
-      mockPrisma.generatedImage.findMany.mockResolvedValue([]);
+      mockImageStorage.getHistory.mockResolvedValue([]);
 
       const result = await service.getHistory("user-no-images");
 
@@ -175,17 +186,17 @@ describe("AiImageService", () => {
         prompt: "test prompt",
         createdAt: new Date(),
       };
-      mockPrisma.generatedImage.findUnique.mockResolvedValue(mockImage);
+      mockImageStorage.getImage.mockResolvedValue(mockImage);
 
       const result = await service.getImage("img-123");
 
-      expect(mockPrisma.generatedImage.findUnique).toHaveBeenCalled();
+      expect(mockImageStorage.getImage).toHaveBeenCalledWith("img-123");
       expect(result).toBeDefined();
       expect(result?.id).toBe("img-123");
     });
 
     it("should return null for non-existent image", async () => {
-      mockPrisma.generatedImage.findUnique.mockResolvedValue(null);
+      mockImageStorage.getImage.mockResolvedValue(null);
 
       const result = await service.getImage("non-existent");
 
@@ -195,23 +206,25 @@ describe("AiImageService", () => {
 
   describe("deleteImage", () => {
     it("should delete image owned by user", async () => {
-      mockPrisma.generatedImage.findUnique.mockResolvedValue({
-        id: "img-123",
-        userId: "user-123",
-        imageUrl: "https://example.com/image.png",
+      mockImageStorage.deleteImage.mockResolvedValue({
+        success: true,
+        message: "Deleted successfully",
       });
-      mockPrisma.generatedImage.delete.mockResolvedValue({ id: "img-123" });
 
       const result = await service.deleteImage("img-123", "user-123");
 
+      expect(mockImageStorage.deleteImage).toHaveBeenCalledWith(
+        "img-123",
+        "user-123",
+      );
       expect(result).toBeDefined();
       expect(result.success).toBe(true);
     });
 
     it("should not delete image owned by another user", async () => {
-      mockPrisma.generatedImage.findUnique.mockResolvedValue({
-        id: "img-123",
-        userId: "other-user",
+      mockImageStorage.deleteImage.mockResolvedValue({
+        success: false,
+        message: "Not authorized to delete this image",
       });
 
       const result = await service.deleteImage("img-123", "different-user");
@@ -230,28 +243,30 @@ describe("AiImageService", () => {
           isBookmarked: true,
         },
       ];
-      mockPrisma.generatedImage.findMany.mockResolvedValue(mockImages);
+      mockImageStorage.getBookmarkedImages.mockResolvedValue(mockImages);
 
       const result = await service.getBookmarkedImages("user-123");
 
-      expect(mockPrisma.generatedImage.findMany).toHaveBeenCalled();
+      expect(mockImageStorage.getBookmarkedImages).toHaveBeenCalledWith(
+        "user-123",
+      );
       expect(result).toHaveLength(1);
     });
   });
 
   describe("addBookmark", () => {
     it("should add bookmark to image", async () => {
-      mockPrisma.generatedImage.findUnique.mockResolvedValue({
-        id: "img-123",
-        userId: "user-123",
-      });
-      mockPrisma.generatedImage.update.mockResolvedValue({
-        id: "img-123",
-        bookmarked: true,
+      mockImageStorage.addBookmark.mockResolvedValue({
+        success: true,
+        message: "Bookmarked successfully",
       });
 
       const result = await service.addBookmark("img-123", "user-123");
 
+      expect(mockImageStorage.addBookmark).toHaveBeenCalledWith(
+        "img-123",
+        "user-123",
+      );
       expect(result).toBeDefined();
       expect(result.success).toBe(true);
     });
@@ -259,17 +274,17 @@ describe("AiImageService", () => {
 
   describe("removeBookmark", () => {
     it("should remove bookmark from image", async () => {
-      mockPrisma.generatedImage.findUnique.mockResolvedValue({
-        id: "img-123",
-        userId: "user-123",
-      });
-      mockPrisma.generatedImage.update.mockResolvedValue({
-        id: "img-123",
-        bookmarked: false,
+      mockImageStorage.removeBookmark.mockResolvedValue({
+        success: true,
+        message: "Bookmark removed successfully",
       });
 
       const result = await service.removeBookmark("img-123", "user-123");
 
+      expect(mockImageStorage.removeBookmark).toHaveBeenCalledWith(
+        "img-123",
+        "user-123",
+      );
       expect(result).toBeDefined();
       expect(result.success).toBe(true);
     });
@@ -277,31 +292,31 @@ describe("AiImageService", () => {
 
   describe("cleanupOldImages", () => {
     it("should cleanup old unbookmarked images", async () => {
-      mockPrisma.generatedImage.findMany.mockResolvedValue([
-        { id: "old-img-1", createdAt: new Date("2020-01-01") },
-        { id: "old-img-2", createdAt: new Date("2020-01-02") },
-      ]);
-      mockPrisma.generatedImage.deleteMany.mockResolvedValue({ count: 2 });
+      mockImageStorage.cleanupOldImages.mockResolvedValue(2);
 
       const result = await service.cleanupOldImages("user-123");
 
+      expect(mockImageStorage.cleanupOldImages).toHaveBeenCalledWith(
+        "user-123",
+      );
       expect(result).toBeGreaterThanOrEqual(0);
     });
   });
 
   describe("getImageStats", () => {
     it("should return image statistics", async () => {
-      mockPrisma.generatedImage.count.mockResolvedValue(100);
-      mockPrisma.generatedImage.findMany.mockResolvedValue([]);
-      mockPrisma.generatedImage.groupBy.mockResolvedValue([
-        { userId: "user-1", _count: { id: 10 } },
-        { userId: "user-2", _count: { id: 5 } },
-      ]);
+      const mockStats = {
+        total: 100,
+        bookmarked: 25,
+        users: 10,
+      };
+      mockImageStorage.getImageStats.mockResolvedValue(mockStats);
 
       const result = await service.getImageStats();
 
+      expect(mockImageStorage.getImageStats).toHaveBeenCalled();
       expect(result).toBeDefined();
-      expect(mockPrisma.generatedImage.count).toHaveBeenCalled();
+      expect(result.total).toBe(100);
     });
   });
 });
