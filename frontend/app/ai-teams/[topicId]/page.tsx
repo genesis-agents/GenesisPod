@@ -122,6 +122,11 @@ const MissionProgressPanel = dynamic(
   { ssr: false }
 );
 
+const TeamCanvasModal = dynamic(
+  () => import('@/components/ai-teams/TeamCanvasModal'),
+  { ssr: false }
+);
+
 // Performance constant - messages are limited in store (aiGroupStore.ts)
 const MAX_MESSAGES_IN_MEMORY = 200; // Reference: actual limit is in store
 
@@ -1827,6 +1832,8 @@ export default function TopicPage() {
     sendTyping,
     clearMessages,
     generateAIResponse,
+    missions,
+    fetchMissions,
   } = useAiGroupStore();
 
   // Message selection state
@@ -1892,6 +1899,7 @@ export default function TopicPage() {
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
   const [showMissionDialog, setShowMissionDialog] = useState(false);
   const [showMissionPanel, setShowMissionPanel] = useState(false);
+  const [mainViewMode, setMainViewMode] = useState<'chat' | 'canvas'>('chat');
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastMessageCountRef = useRef(0);
@@ -1966,6 +1974,32 @@ export default function TopicPage() {
 
     return () => clearInterval(syncInterval);
   }, [topicId, isConnected, joinTopicRoom]);
+
+  // Fetch missions when canvas view is shown
+  useEffect(() => {
+    if (mainViewMode === 'canvas' && topicId) {
+      fetchMissions(topicId);
+    }
+  }, [mainViewMode, topicId, fetchMissions]);
+
+  // Get the active mission for canvas view
+  const activeMission = useMemo(() => {
+    const missionsList = missions || [];
+    return (
+      missionsList.find(
+        (m) =>
+          m.status === 'IN_PROGRESS' ||
+          m.status === 'PLANNING' ||
+          m.status === 'REVIEW' ||
+          m.status === 'PENDING'
+      ) ||
+      missionsList[0] ||
+      null
+    );
+  }, [missions]);
+
+  // Get AI members for canvas view
+  const aiMembers = currentTopic?.aiMembers || [];
 
   // Auto-scroll to bottom when new messages arrive (but not when loading older messages)
   useEffect(() => {
@@ -2285,6 +2319,57 @@ export default function TopicPage() {
               </svg>
               AI Team
             </button>
+            {/* View Mode Toggle - Chat/Canvas */}
+            <div className="flex rounded-lg bg-gray-100 p-0.5">
+              <button
+                onClick={() => setMainViewMode('chat')}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  mainViewMode === 'chat'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+                title="聊天视图"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  />
+                </svg>
+                Chat
+              </button>
+              <button
+                onClick={() => setMainViewMode('canvas')}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  mainViewMode === 'canvas'
+                    ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+                title="Canvas协作视图"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"
+                  />
+                </svg>
+                Canvas
+              </button>
+            </div>
             <button
               onClick={() => setShowResources(true)}
               className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
@@ -2351,91 +2436,110 @@ export default function TopicPage() {
           </div>
         </div>
 
-        {/* Messages Area - Virtualized for performance */}
-        <div
-          ref={messagesContainerRef}
-          className="min-h-0 flex-1 overflow-auto"
-        >
-          {/* Load More Button */}
-          {hasMoreMessages && (
-            <div className="py-4 text-center">
-              <button
-                onClick={handleLoadMore}
-                disabled={isLoadingMessages}
-                className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-50"
-              >
-                {isLoadingMessages ? 'Loading...' : 'Load older messages'}
-              </button>
-            </div>
-          )}
-
-          {/* Messages - Virtualized */}
-          {(messages || []).length === 0 && !isLoadingMessages ? (
-            <div className="flex h-full flex-col items-center justify-center text-gray-400">
-              <svg
-                className="mb-4 h-16 w-16"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                />
-              </svg>
-              <p className="text-lg font-medium">No messages yet</p>
-              <p className="mt-1 text-sm">Start the conversation!</p>
-            </div>
-          ) : (
-            <SimpleMessageList
-              messages={messages}
-              currentUserId={user?.id || ''}
-              onReply={setReplyTo}
-              onReact={handleReaction}
-              messagesEndRef={messagesEndRef}
-              findModel={findModel}
-              selectedMessages={selectedMessages}
-              onToggleSelect={handleToggleSelect}
+        {/* Main Content Area - Chat or Canvas */}
+        {mainViewMode === 'canvas' ? (
+          /* Canvas View - Full width embedded */
+          <div className="min-h-0 flex-1 overflow-hidden bg-gradient-to-br from-slate-50 to-blue-50">
+            <TeamCanvasModal
+              isOpen={true}
+              onClose={() => setMainViewMode('chat')}
+              mission={activeMission}
+              aiMembers={aiMembers}
+              typingAIs={typingAIs}
+              embedded={true}
             />
-          )}
+          </div>
+        ) : (
+          /* Chat View - Messages Area */
+          <div
+            ref={messagesContainerRef}
+            className="min-h-0 flex-1 overflow-auto"
+          >
+            {/* Load More Button */}
+            {hasMoreMessages && (
+              <div className="py-4 text-center">
+                <button
+                  onClick={handleLoadMore}
+                  disabled={isLoadingMessages}
+                  className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-50"
+                >
+                  {isLoadingMessages ? 'Loading...' : 'Load older messages'}
+                </button>
+              </div>
+            )}
 
-          {/* Typing Indicators */}
-          {(typingUsers.size > 0 || typingAIs.size > 0) && (
-            <div className="px-4 pb-2 text-sm italic text-gray-400">
-              {Array.from(typingUsers)
-                .map((userId) => {
-                  const member = (currentTopic?.members || []).find(
-                    (m) => m.userId === userId
-                  );
-                  return (
-                    member?.user.fullName || member?.user.username || 'Someone'
-                  );
-                })
-                .concat(
-                  Array.from(typingAIs).map((aiId) => {
-                    const ai = (currentTopic?.aiMembers || []).find(
-                      (a) => a.id === aiId
+            {/* Messages - Virtualized */}
+            {(messages || []).length === 0 && !isLoadingMessages ? (
+              <div className="flex h-full flex-col items-center justify-center text-gray-400">
+                <svg
+                  className="mb-4 h-16 w-16"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  />
+                </svg>
+                <p className="text-lg font-medium">No messages yet</p>
+                <p className="mt-1 text-sm">Start the conversation!</p>
+              </div>
+            ) : (
+              <SimpleMessageList
+                messages={messages}
+                currentUserId={user?.id || ''}
+                onReply={setReplyTo}
+                onReact={handleReaction}
+                messagesEndRef={messagesEndRef}
+                findModel={findModel}
+                selectedMessages={selectedMessages}
+                onToggleSelect={handleToggleSelect}
+              />
+            )}
+
+            {/* Typing Indicators */}
+            {(typingUsers.size > 0 || typingAIs.size > 0) && (
+              <div className="px-4 pb-2 text-sm italic text-gray-400">
+                {Array.from(typingUsers)
+                  .map((userId) => {
+                    const member = (currentTopic?.members || []).find(
+                      (m) => m.userId === userId
                     );
-                    return ai?.displayName || 'AI';
+                    return (
+                      member?.user.fullName ||
+                      member?.user.username ||
+                      'Someone'
+                    );
                   })
-                )
-                .join(', ')}{' '}
-              {typingUsers.size + typingAIs.size > 1 ? 'are' : 'is'} typing...
-            </div>
-          )}
-        </div>
+                  .concat(
+                    Array.from(typingAIs).map((aiId) => {
+                      const ai = (currentTopic?.aiMembers || []).find(
+                        (a) => a.id === aiId
+                      );
+                      return ai?.displayName || 'AI';
+                    })
+                  )
+                  .join(', ')}{' '}
+                {typingUsers.size + typingAIs.size > 1 ? 'are' : 'is'} typing...
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* Message Input */}
-        <MessageInput
-          topic={currentTopic}
-          replyTo={replyTo}
-          onClearReply={() => setReplyTo(null)}
-          onSend={handleSendMessage}
-          onTyping={() => sendTyping(topicId)}
-          findModel={findModel}
-        />
+        {/* Message Input - Hide when in canvas mode */}
+        {mainViewMode === 'chat' && (
+          <MessageInput
+            topic={currentTopic}
+            replyTo={replyTo}
+            onClearReply={() => setReplyTo(null)}
+            onSend={handleSendMessage}
+            onTyping={() => sendTyping(topicId)}
+            findModel={findModel}
+          />
+        )}
       </main>
 
       {/* Mission Progress Panel - Right side panel */}

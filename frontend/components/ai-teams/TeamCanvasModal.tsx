@@ -15,6 +15,7 @@ interface TeamCanvasModalProps {
   mission: TeamMission | null;
   aiMembers: TopicAIMember[];
   typingAIs: Set<string>;
+  embedded?: boolean;
 }
 
 // Status colors for mission
@@ -238,6 +239,7 @@ export default function TeamCanvasModal({
   mission,
   aiMembers,
   typingAIs,
+  embedded = false,
 }: TeamCanvasModalProps) {
   const [selectedAgent, setSelectedAgent] = useState<TopicAIMember | null>(
     null
@@ -484,138 +486,35 @@ export default function TeamCanvasModal({
 
   const statusConfig = mission ? missionStatusConfig[mission.status] : null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="relative flex h-[90vh] w-[95vw] max-w-7xl flex-col rounded-2xl bg-white shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center gap-4">
-            <h2 className="text-xl font-bold text-gray-900">AI Team Canvas</h2>
-            {mission && statusConfig && (
-              <span
-                className={`rounded-full px-3 py-1 text-sm font-medium ${statusConfig.bgColor} ${statusConfig.color}`}
-              >
-                {statusConfig.icon} {statusConfig.label}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            {/* Zoom Controls */}
-            <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-1">
-              <button
-                onClick={handleZoomOut}
-                className="rounded p-1.5 transition-colors hover:bg-gray-200"
-                title="缩小"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M20 12H4"
-                  />
-                </svg>
-              </button>
-              <span className="min-w-[50px] px-2 text-center text-xs font-medium text-gray-600">
-                {Math.round(zoom * 100)}%
-              </span>
-              <button
-                onClick={handleZoomIn}
-                className="rounded p-1.5 transition-colors hover:bg-gray-200"
-                title="放大"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-              </button>
-              <div className="mx-1 h-4 w-px bg-gray-300" />
-              <button
-                onClick={handleResetZoom}
-                className="rounded p-1.5 transition-colors hover:bg-gray-200"
-                title="重置视图"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-              </button>
-            </div>
-            {/* Reset Positions Button */}
-            {customPositions.size > 0 && (
-              <button
-                onClick={handleResetPositions}
-                className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
-                title="重置节点位置"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                  />
-                </svg>
-                重置布局
-              </button>
-            )}
-            {/* Download Button */}
-            {mission && (
-              <button
-                onClick={handleDownloadResults}
-                className="flex items-center gap-2 rounded-lg bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                  />
-                </svg>
-                下载报告
-              </button>
-            )}
-            {/* Close Button */}
+  // Content container - different sizing for modal vs embedded
+  const contentClasses = embedded
+    ? 'relative flex h-full w-full flex-col bg-white'
+    : 'relative flex h-[90vh] w-[95vw] max-w-7xl flex-col rounded-2xl bg-white shadow-2xl';
+
+  const content = (
+    <div className={contentClasses}>
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center gap-4">
+          <h2 className="text-xl font-bold text-gray-900">AI Team Canvas</h2>
+          {mission && statusConfig && (
+            <span
+              className={`rounded-full px-3 py-1 text-sm font-medium ${statusConfig.bgColor} ${statusConfig.color}`}
+            >
+              {statusConfig.icon} {statusConfig.label}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          {/* Zoom Controls */}
+          <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-1">
             <button
-              onClick={onClose}
-              className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+              onClick={handleZoomOut}
+              className="rounded p-1.5 transition-colors hover:bg-gray-200"
+              title="缩小"
             >
               <svg
-                className="h-6 w-6"
+                className="h-4 w-4"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -624,575 +523,675 @@ export default function TeamCanvasModal({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
+                  d="M20 12H4"
+                />
+              </svg>
+            </button>
+            <span className="min-w-[50px] px-2 text-center text-xs font-medium text-gray-600">
+              {Math.round(zoom * 100)}%
+            </span>
+            <button
+              onClick={handleZoomIn}
+              className="rounded p-1.5 transition-colors hover:bg-gray-200"
+              title="放大"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+            </button>
+            <div className="mx-1 h-4 w-px bg-gray-300" />
+            <button
+              onClick={handleResetZoom}
+              className="rounded p-1.5 transition-colors hover:bg-gray-200"
+              title="重置视图"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                 />
               </svg>
             </button>
           </div>
+          {/* Reset Positions Button */}
+          {customPositions.size > 0 && (
+            <button
+              onClick={handleResetPositions}
+              className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
+              title="重置节点位置"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              重置布局
+            </button>
+          )}
+          {/* Download Button */}
+          {mission && (
+            <button
+              onClick={handleDownloadResults}
+              className="flex items-center gap-2 rounded-lg bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                />
+              </svg>
+              下载报告
+            </button>
+          )}
+          {/* Close Button */}
+          <button
+            onClick={onClose}
+            className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+          >
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
         </div>
+      </div>
 
-        {/* Main Content */}
-        <div className="flex flex-1 overflow-hidden">
-          {/* Canvas Area */}
-          <div className="flex-1 overflow-hidden bg-gradient-to-br from-gray-50 to-blue-50/30 p-4">
-            {!mission ? (
-              <div className="flex h-full flex-col items-center justify-center">
-                <div className="mb-4 text-6xl">🎨</div>
-                <p className="text-lg text-gray-500">
-                  创建一个任务后，这里将展示 AI 团队的协作视图
-                </p>
+      {/* Main Content */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Canvas Area */}
+        <div className="flex-1 overflow-hidden bg-gradient-to-br from-gray-50 to-blue-50/30 p-4">
+          {!mission ? (
+            <div className="flex h-full flex-col items-center justify-center">
+              <div className="mb-4 text-6xl">🎨</div>
+              <p className="text-lg text-gray-500">
+                创建一个任务后，这里将展示 AI 团队的协作视图
+              </p>
+            </div>
+          ) : (
+            <div className="h-full w-full">
+              {/* Mission Title */}
+              <div className="mb-4 text-center">
+                <h3 className="text-lg font-semibold text-gray-800">
+                  {mission.title}
+                </h3>
+                {mission.description && (
+                  <p className="mx-auto mt-1 line-clamp-2 max-w-2xl text-sm text-gray-500">
+                    {mission.description}
+                  </p>
+                )}
               </div>
-            ) : (
-              <div className="h-full w-full">
-                {/* Mission Title */}
-                <div className="mb-4 text-center">
-                  <h3 className="text-lg font-semibold text-gray-800">
-                    {mission.title}
-                  </h3>
-                  {mission.description && (
-                    <p className="mx-auto mt-1 line-clamp-2 max-w-2xl text-sm text-gray-500">
-                      {mission.description}
-                    </p>
-                  )}
-                </div>
 
-                {/* SVG Canvas with zoom/pan support */}
-                <svg
-                  viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
-                  className={`h-full w-full ${draggedNode ? 'cursor-grabbing' : isPanning ? 'cursor-move' : 'cursor-default'}`}
-                  preserveAspectRatio="xMidYMid meet"
-                  onMouseMove={(e) => {
-                    handleDragMove(e);
-                    handlePanMove(e);
-                  }}
-                  onMouseUp={() => {
-                    handleDragEnd();
-                    handlePanEnd();
-                  }}
-                  onMouseLeave={() => {
-                    handleDragEnd();
-                    handlePanEnd();
-                  }}
-                  onMouseDown={handlePanStart}
-                  onWheel={handleWheel}
-                >
-                  {/* Background Grid */}
-                  <defs>
-                    <pattern
-                      id="canvas-grid"
-                      width="30"
-                      height="30"
-                      patternUnits="userSpaceOnUse"
-                    >
-                      <path
-                        d="M 30 0 L 0 0 0 30"
-                        fill="none"
-                        stroke="#e5e7eb"
-                        strokeWidth="0.5"
-                      />
-                    </pattern>
-                    {/* Gradient for nodes */}
-                    <linearGradient
-                      id="leader-gradient"
-                      x1="0%"
-                      y1="0%"
-                      x2="100%"
-                      y2="100%"
-                    >
-                      <stop offset="0%" stopColor="#a855f7" />
-                      <stop offset="100%" stopColor="#7c3aed" />
-                    </linearGradient>
-                    <linearGradient
-                      id="worker-gradient"
-                      x1="0%"
-                      y1="0%"
-                      x2="100%"
-                      y2="100%"
-                    >
-                      <stop offset="0%" stopColor="#3b82f6" />
-                      <stop offset="100%" stopColor="#1d4ed8" />
-                    </linearGradient>
-                    {/* Drop shadows */}
-                    <filter
-                      id="shadow"
-                      x="-50%"
-                      y="-50%"
-                      width="200%"
-                      height="200%"
-                    >
-                      <feDropShadow
-                        dx="0"
-                        dy="4"
-                        stdDeviation="6"
-                        floodOpacity="0.15"
-                      />
-                    </filter>
-                  </defs>
-                  <rect width="100%" height="100%" fill="url(#canvas-grid)" />
-
-                  {/* Zoomable/Pannable container */}
-                  <g
-                    transform={`translate(${pan.x / zoom + (canvasWidth * (1 - zoom)) / (2 * zoom)}, ${pan.y / zoom + (canvasHeight * (1 - zoom)) / (2 * zoom)}) scale(${zoom})`}
+              {/* SVG Canvas with zoom/pan support */}
+              <svg
+                viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
+                className={`h-full w-full ${draggedNode ? 'cursor-grabbing' : isPanning ? 'cursor-move' : 'cursor-default'}`}
+                preserveAspectRatio="xMidYMid meet"
+                onMouseMove={(e) => {
+                  handleDragMove(e);
+                  handlePanMove(e);
+                }}
+                onMouseUp={() => {
+                  handleDragEnd();
+                  handlePanEnd();
+                }}
+                onMouseLeave={() => {
+                  handleDragEnd();
+                  handlePanEnd();
+                }}
+                onMouseDown={handlePanStart}
+                onWheel={handleWheel}
+              >
+                {/* Background Grid */}
+                <defs>
+                  <pattern
+                    id="canvas-grid"
+                    width="30"
+                    height="30"
+                    patternUnits="userSpaceOnUse"
                   >
-                    {/* Connection Lines with animated particles */}
-                    {mission.tasks?.map((task, taskIndex) => {
-                      const leaderId = mission.leaderId;
-                      if (!leaderId) return null;
-                      const leaderPos =
-                        customPositions.get(leaderId) ||
-                        nodePositions.get(leaderId);
-                      const agentPos =
-                        customPositions.get(task.assignedToId) ||
-                        nodePositions.get(task.assignedToId);
-                      if (!leaderPos || !agentPos) return null;
+                    <path
+                      d="M 30 0 L 0 0 0 30"
+                      fill="none"
+                      stroke="#e5e7eb"
+                      strokeWidth="0.5"
+                    />
+                  </pattern>
+                  {/* Gradient for nodes */}
+                  <linearGradient
+                    id="leader-gradient"
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="100%"
+                  >
+                    <stop offset="0%" stopColor="#a855f7" />
+                    <stop offset="100%" stopColor="#7c3aed" />
+                  </linearGradient>
+                  <linearGradient
+                    id="worker-gradient"
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="100%"
+                  >
+                    <stop offset="0%" stopColor="#3b82f6" />
+                    <stop offset="100%" stopColor="#1d4ed8" />
+                  </linearGradient>
+                  {/* Drop shadows */}
+                  <filter
+                    id="shadow"
+                    x="-50%"
+                    y="-50%"
+                    width="200%"
+                    height="200%"
+                  >
+                    <feDropShadow
+                      dx="0"
+                      dy="4"
+                      stdDeviation="6"
+                      floodOpacity="0.15"
+                    />
+                  </filter>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#canvas-grid)" />
 
-                      const isHovered = hoveredNode === task.assignedToId;
-                      const connectionColor = getTaskConnectionColor(
-                        task.status
-                      );
-                      const midX = (leaderPos.x + agentPos.x) / 2;
-                      const midY = (leaderPos.y + agentPos.y) / 2 - 30;
-                      const pathId = `path-${task.id}`;
+                {/* Zoomable/Pannable container */}
+                <g
+                  transform={`translate(${pan.x / zoom + (canvasWidth * (1 - zoom)) / (2 * zoom)}, ${pan.y / zoom + (canvasHeight * (1 - zoom)) / (2 * zoom)}) scale(${zoom})`}
+                >
+                  {/* Connection Lines with animated particles */}
+                  {mission.tasks?.map((task, taskIndex) => {
+                    const leaderId = mission.leaderId;
+                    if (!leaderId) return null;
+                    const leaderPos =
+                      customPositions.get(leaderId) ||
+                      nodePositions.get(leaderId);
+                    const agentPos =
+                      customPositions.get(task.assignedToId) ||
+                      nodePositions.get(task.assignedToId);
+                    if (!leaderPos || !agentPos) return null;
 
-                      // Calculate animated particle position
-                      const isActive =
-                        task.status === 'IN_PROGRESS' ||
-                        task.status === 'AWAITING_REVIEW';
-                      // particleOffset could be used for custom animation timing
-                      const _particleOffset =
-                        ((animationTick + taskIndex * 20) % 100) / 100;
+                    const isHovered = hoveredNode === task.assignedToId;
+                    const connectionColor = getTaskConnectionColor(task.status);
+                    const midX = (leaderPos.x + agentPos.x) / 2;
+                    const midY = (leaderPos.y + agentPos.y) / 2 - 30;
+                    const pathId = `path-${task.id}`;
 
-                      return (
-                        <g key={task.id}>
-                          {/* Glow effect for active connections */}
-                          {isActive && (
-                            <path
-                              d={`M ${leaderPos.x} ${leaderPos.y + 40} Q ${midX} ${midY} ${agentPos.x} ${agentPos.y - 40}`}
-                              fill="none"
-                              stroke={connectionColor}
-                              strokeWidth={8}
-                              opacity={0.2}
-                              className="animate-pulse"
-                            />
-                          )}
+                    // Calculate animated particle position
+                    const isActive =
+                      task.status === 'IN_PROGRESS' ||
+                      task.status === 'AWAITING_REVIEW';
+                    // particleOffset could be used for custom animation timing
+                    const _particleOffset =
+                      ((animationTick + taskIndex * 20) % 100) / 100;
 
-                          {/* Main path */}
+                    return (
+                      <g key={task.id}>
+                        {/* Glow effect for active connections */}
+                        {isActive && (
                           <path
-                            id={pathId}
                             d={`M ${leaderPos.x} ${leaderPos.y + 40} Q ${midX} ${midY} ${agentPos.x} ${agentPos.y - 40}`}
                             fill="none"
                             stroke={connectionColor}
-                            strokeWidth={isHovered ? 4 : 2}
-                            strokeDasharray={
-                              task.status === 'PENDING' ? '8 4' : 'none'
-                            }
-                            className="transition-all duration-300"
-                            style={{ cursor: 'pointer' }}
-                            onClick={() => setSelectedTask(task)}
+                            strokeWidth={8}
+                            opacity={0.2}
+                            className="animate-pulse"
                           />
+                        )}
 
-                          {/* Animated particles for active tasks - data flowing */}
-                          {isActive && (
-                            <>
-                              {/* Main particle */}
-                              <circle
-                                r="6"
-                                fill={connectionColor}
-                                opacity={0.9}
-                              >
-                                <animateMotion
-                                  dur={
-                                    task.status === 'IN_PROGRESS' ? '2s' : '3s'
-                                  }
-                                  repeatCount="indefinite"
-                                  path={`M ${leaderPos.x} ${leaderPos.y + 40} Q ${midX} ${midY} ${agentPos.x} ${agentPos.y - 40}`}
-                                />
-                              </circle>
-                              {/* Trail particle 1 */}
-                              <circle
-                                r="4"
-                                fill={connectionColor}
-                                opacity={0.6}
-                              >
-                                <animateMotion
-                                  dur={
-                                    task.status === 'IN_PROGRESS' ? '2s' : '3s'
-                                  }
-                                  repeatCount="indefinite"
-                                  begin="-0.3s"
-                                  path={`M ${leaderPos.x} ${leaderPos.y + 40} Q ${midX} ${midY} ${agentPos.x} ${agentPos.y - 40}`}
-                                />
-                              </circle>
-                              {/* Trail particle 2 */}
-                              <circle
-                                r="3"
-                                fill={connectionColor}
-                                opacity={0.3}
-                              >
-                                <animateMotion
-                                  dur={
-                                    task.status === 'IN_PROGRESS' ? '2s' : '3s'
-                                  }
-                                  repeatCount="indefinite"
-                                  begin="-0.6s"
-                                  path={`M ${leaderPos.x} ${leaderPos.y + 40} Q ${midX} ${midY} ${agentPos.x} ${agentPos.y - 40}`}
-                                />
-                              </circle>
-                            </>
-                          )}
-
-                          {/* Completion checkmark for completed tasks */}
-                          {task.status === 'COMPLETED' && (
-                            <g transform={`translate(${midX}, ${midY})`}>
-                              <circle r="12" fill="#22c55e" />
-                              <path
-                                d="M-4 0 L-1 3 L5 -3"
-                                fill="none"
-                                stroke="white"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </g>
-                          )}
-
-                          {/* Arrow marker */}
-                          <circle
-                            cx={agentPos.x}
-                            cy={agentPos.y - 40}
-                            r={isHovered ? 7 : 5}
-                            fill={connectionColor}
-                            className="transition-all duration-300"
-                          />
-
-                          {/* Task status label on hover */}
-                          {isHovered && (
-                            <g transform={`translate(${midX}, ${midY - 20})`}>
-                              <rect
-                                x="-40"
-                                y="-12"
-                                width="80"
-                                height="24"
-                                rx="4"
-                                fill="white"
-                                stroke={connectionColor}
-                                strokeWidth="1"
-                              />
-                              <text
-                                textAnchor="middle"
-                                dy="0.35em"
-                                fontSize="11"
-                                fill="#374151"
-                                fontWeight="500"
-                              >
-                                {task.status === 'IN_PROGRESS'
-                                  ? '执行中...'
-                                  : task.status === 'COMPLETED'
-                                    ? '已完成'
-                                    : task.status === 'AWAITING_REVIEW'
-                                      ? '待审核'
-                                      : task.status === 'PENDING'
-                                        ? '等待中'
-                                        : task.status}
-                              </text>
-                            </g>
-                          )}
-                        </g>
-                      );
-                    })}
-
-                    {/* Agent Nodes */}
-                    {aiMembers.map((agent) => {
-                      const defaultPos = nodePositions.get(agent.id);
-                      const pos = customPositions.get(agent.id) || defaultPos;
-                      if (!pos) return null;
-
-                      const isLeader = agent.id === mission.leaderId;
-                      const isWorking = typingAIs.has(agent.id);
-                      const stats = getAgentStats(agent.id);
-                      const statusColors = getAgentStatusColor(
-                        isLeader,
-                        isWorking,
-                        stats.completed > 0,
-                        stats.inProgress > 0
-                      );
-                      const isHovered = hoveredNode === agent.id;
-                      const isDragging = draggedNode === agent.id;
-                      const nodeRadius = isLeader ? 40 : 35;
-
-                      return (
-                        <g
-                          key={agent.id}
-                          transform={`translate(${pos.x}, ${pos.y})`}
-                          style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
-                          onMouseEnter={() =>
-                            !draggedNode && setHoveredNode(agent.id)
+                        {/* Main path */}
+                        <path
+                          id={pathId}
+                          d={`M ${leaderPos.x} ${leaderPos.y + 40} Q ${midX} ${midY} ${agentPos.x} ${agentPos.y - 40}`}
+                          fill="none"
+                          stroke={connectionColor}
+                          strokeWidth={isHovered ? 4 : 2}
+                          strokeDasharray={
+                            task.status === 'PENDING' ? '8 4' : 'none'
                           }
-                          onMouseLeave={() =>
-                            !draggedNode && setHoveredNode(null)
-                          }
-                          onMouseDown={(e) => handleDragStart(agent.id, e)}
-                          onClick={() => !isDragging && setSelectedAgent(agent)}
-                        >
-                          {/* Glow effect for working agents */}
-                          {isWorking && (
-                            <circle
-                              r={nodeRadius + 15}
-                              fill={statusColors.fill}
-                              opacity="0.2"
-                              className="animate-ping"
+                          className="transition-all duration-300"
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => setSelectedTask(task)}
+                        />
+
+                        {/* Animated particles for active tasks - data flowing */}
+                        {isActive && (
+                          <>
+                            {/* Main particle */}
+                            <circle r="6" fill={connectionColor} opacity={0.9}>
+                              <animateMotion
+                                dur={
+                                  task.status === 'IN_PROGRESS' ? '2s' : '3s'
+                                }
+                                repeatCount="indefinite"
+                                path={`M ${leaderPos.x} ${leaderPos.y + 40} Q ${midX} ${midY} ${agentPos.x} ${agentPos.y - 40}`}
+                              />
+                            </circle>
+                            {/* Trail particle 1 */}
+                            <circle r="4" fill={connectionColor} opacity={0.6}>
+                              <animateMotion
+                                dur={
+                                  task.status === 'IN_PROGRESS' ? '2s' : '3s'
+                                }
+                                repeatCount="indefinite"
+                                begin="-0.3s"
+                                path={`M ${leaderPos.x} ${leaderPos.y + 40} Q ${midX} ${midY} ${agentPos.x} ${agentPos.y - 40}`}
+                              />
+                            </circle>
+                            {/* Trail particle 2 */}
+                            <circle r="3" fill={connectionColor} opacity={0.3}>
+                              <animateMotion
+                                dur={
+                                  task.status === 'IN_PROGRESS' ? '2s' : '3s'
+                                }
+                                repeatCount="indefinite"
+                                begin="-0.6s"
+                                path={`M ${leaderPos.x} ${leaderPos.y + 40} Q ${midX} ${midY} ${agentPos.x} ${agentPos.y - 40}`}
+                              />
+                            </circle>
+                          </>
+                        )}
+
+                        {/* Completion checkmark for completed tasks */}
+                        {task.status === 'COMPLETED' && (
+                          <g transform={`translate(${midX}, ${midY})`}>
+                            <circle r="12" fill="#22c55e" />
+                            <path
+                              d="M-4 0 L-1 3 L5 -3"
+                              fill="none"
+                              stroke="white"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
                             />
-                          )}
+                          </g>
+                        )}
 
-                          {/* Outer ring for hover */}
-                          <circle
-                            r={nodeRadius + 6}
-                            fill="white"
-                            filter="url(#shadow)"
-                            className={`transition-all duration-300 ${isHovered ? 'opacity-100' : 'opacity-80'}`}
-                          />
+                        {/* Arrow marker */}
+                        <circle
+                          cx={agentPos.x}
+                          cy={agentPos.y - 40}
+                          r={isHovered ? 7 : 5}
+                          fill={connectionColor}
+                          className="transition-all duration-300"
+                        />
 
-                          {/* Main circle */}
-                          <circle
-                            r={nodeRadius}
-                            fill={
-                              isLeader
-                                ? 'url(#leader-gradient)'
-                                : statusColors.fill
-                            }
-                            className={`transition-all duration-300 ${isHovered ? 'scale-110' : ''}`}
-                            style={{ transformOrigin: 'center' }}
-                          />
-
-                          {/* Agent initial/icon */}
-                          <text
-                            textAnchor="middle"
-                            dy="0.35em"
-                            fill="white"
-                            fontSize={isLeader ? '20' : '18'}
-                            fontWeight="bold"
-                          >
-                            {agent.displayName?.charAt(0) || 'A'}
-                          </text>
-
-                          {/* Leader crown */}
-                          {isLeader && (
+                        {/* Task status label on hover */}
+                        {isHovered && (
+                          <g transform={`translate(${midX}, ${midY - 20})`}>
+                            <rect
+                              x="-40"
+                              y="-12"
+                              width="80"
+                              height="24"
+                              rx="4"
+                              fill="white"
+                              stroke={connectionColor}
+                              strokeWidth="1"
+                            />
                             <text
                               textAnchor="middle"
-                              y={-nodeRadius - 12}
-                              fontSize="20"
+                              dy="0.35em"
+                              fontSize="11"
+                              fill="#374151"
+                              fontWeight="500"
                             >
-                              👑
+                              {task.status === 'IN_PROGRESS'
+                                ? '执行中...'
+                                : task.status === 'COMPLETED'
+                                  ? '已完成'
+                                  : task.status === 'AWAITING_REVIEW'
+                                    ? '待审核'
+                                    : task.status === 'PENDING'
+                                      ? '等待中'
+                                      : task.status}
                             </text>
-                          )}
+                          </g>
+                        )}
+                      </g>
+                    );
+                  })}
 
-                          {/* Agent name */}
+                  {/* Agent Nodes */}
+                  {aiMembers.map((agent) => {
+                    const defaultPos = nodePositions.get(agent.id);
+                    const pos = customPositions.get(agent.id) || defaultPos;
+                    if (!pos) return null;
+
+                    const isLeader = agent.id === mission.leaderId;
+                    const isWorking = typingAIs.has(agent.id);
+                    const stats = getAgentStats(agent.id);
+                    const statusColors = getAgentStatusColor(
+                      isLeader,
+                      isWorking,
+                      stats.completed > 0,
+                      stats.inProgress > 0
+                    );
+                    const isHovered = hoveredNode === agent.id;
+                    const isDragging = draggedNode === agent.id;
+                    const nodeRadius = isLeader ? 40 : 35;
+
+                    return (
+                      <g
+                        key={agent.id}
+                        transform={`translate(${pos.x}, ${pos.y})`}
+                        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+                        onMouseEnter={() =>
+                          !draggedNode && setHoveredNode(agent.id)
+                        }
+                        onMouseLeave={() =>
+                          !draggedNode && setHoveredNode(null)
+                        }
+                        onMouseDown={(e) => handleDragStart(agent.id, e)}
+                        onClick={() => !isDragging && setSelectedAgent(agent)}
+                      >
+                        {/* Glow effect for working agents */}
+                        {isWorking && (
+                          <circle
+                            r={nodeRadius + 15}
+                            fill={statusColors.fill}
+                            opacity="0.2"
+                            className="animate-ping"
+                          />
+                        )}
+
+                        {/* Outer ring for hover */}
+                        <circle
+                          r={nodeRadius + 6}
+                          fill="white"
+                          filter="url(#shadow)"
+                          className={`transition-all duration-300 ${isHovered ? 'opacity-100' : 'opacity-80'}`}
+                        />
+
+                        {/* Main circle */}
+                        <circle
+                          r={nodeRadius}
+                          fill={
+                            isLeader
+                              ? 'url(#leader-gradient)'
+                              : statusColors.fill
+                          }
+                          className={`transition-all duration-300 ${isHovered ? 'scale-110' : ''}`}
+                          style={{ transformOrigin: 'center' }}
+                        />
+
+                        {/* Agent initial/icon */}
+                        <text
+                          textAnchor="middle"
+                          dy="0.35em"
+                          fill="white"
+                          fontSize={isLeader ? '20' : '18'}
+                          fontWeight="bold"
+                        >
+                          {agent.displayName?.charAt(0) || 'A'}
+                        </text>
+
+                        {/* Leader crown */}
+                        {isLeader && (
                           <text
                             textAnchor="middle"
-                            y={nodeRadius + 20}
-                            fill="#374151"
-                            fontSize="14"
-                            fontWeight="500"
+                            y={-nodeRadius - 12}
+                            fontSize="20"
                           >
-                            {agent.displayName?.length > 10
-                              ? agent.displayName.slice(0, 10) + '...'
-                              : agent.displayName}
+                            👑
                           </text>
+                        )}
 
-                          {/* Task count badge */}
-                          {stats.total > 0 && (
-                            <g
-                              transform={`translate(${nodeRadius - 5}, ${-nodeRadius + 5})`}
+                        {/* Agent name */}
+                        <text
+                          textAnchor="middle"
+                          y={nodeRadius + 20}
+                          fill="#374151"
+                          fontSize="14"
+                          fontWeight="500"
+                        >
+                          {agent.displayName?.length > 10
+                            ? agent.displayName.slice(0, 10) + '...'
+                            : agent.displayName}
+                        </text>
+
+                        {/* Task count badge */}
+                        {stats.total > 0 && (
+                          <g
+                            transform={`translate(${nodeRadius - 5}, ${-nodeRadius + 5})`}
+                          >
+                            <circle
+                              r="14"
+                              fill="white"
+                              stroke="#e5e7eb"
+                              strokeWidth="2"
+                            />
+                            <text
+                              textAnchor="middle"
+                              dy="0.35em"
+                              fontSize="11"
+                              fontWeight="bold"
+                              fill={
+                                stats.completed === stats.total
+                                  ? '#16a34a'
+                                  : stats.inProgress > 0
+                                    ? '#2563eb'
+                                    : '#6b7280'
+                              }
                             >
-                              <circle
-                                r="14"
-                                fill="white"
-                                stroke="#e5e7eb"
-                                strokeWidth="2"
-                              />
-                              <text
-                                textAnchor="middle"
-                                dy="0.35em"
-                                fontSize="11"
-                                fontWeight="bold"
-                                fill={
-                                  stats.completed === stats.total
-                                    ? '#16a34a'
-                                    : stats.inProgress > 0
-                                      ? '#2563eb'
-                                      : '#6b7280'
-                                }
-                              >
-                                {stats.completed}/{stats.total}
-                              </text>
-                            </g>
-                          )}
+                              {stats.completed}/{stats.total}
+                            </text>
+                          </g>
+                        )}
 
-                          {/* Working indicator */}
-                          {isWorking && (
-                            <g
-                              transform={`translate(${-nodeRadius + 5}, ${-nodeRadius + 5})`}
-                            >
-                              <circle
-                                r="10"
-                                fill="#3b82f6"
-                                className="animate-pulse"
-                              />
-                              <circle r="4" fill="white" />
-                            </g>
-                          )}
-                        </g>
-                      );
-                    })}
-                  </g>
-                  {/* End of Zoomable container */}
-                </svg>
-              </div>
-            )}
-          </div>
+                        {/* Working indicator */}
+                        {isWorking && (
+                          <g
+                            transform={`translate(${-nodeRadius + 5}, ${-nodeRadius + 5})`}
+                          >
+                            <circle
+                              r="10"
+                              fill="#3b82f6"
+                              className="animate-pulse"
+                            />
+                            <circle r="4" fill="white" />
+                          </g>
+                        )}
+                      </g>
+                    );
+                  })}
+                </g>
+                {/* End of Zoomable container */}
+              </svg>
+            </div>
+          )}
+        </div>
 
-          {/* Right Panel - Details */}
-          <div className="w-80 overflow-y-auto border-l border-gray-200 bg-white">
-            {selectedAgent ? (
-              <AgentDetailPanel
-                agent={selectedAgent}
-                isLeader={selectedAgent.id === mission?.leaderId}
-                tasks={tasksByAgent.get(selectedAgent.id) || []}
-                isWorking={typingAIs.has(selectedAgent.id)}
-                onClose={() => setSelectedAgent(null)}
-                onTaskClick={(task) => {
-                  setSelectedTask(task);
-                  setSelectedAgent(null);
-                }}
-                missionTitle={mission?.title}
-              />
-            ) : selectedTask ? (
-              <TaskDetailPanel
-                task={selectedTask}
-                onClose={() => setSelectedTask(null)}
-              />
-            ) : (
-              <div className="p-6">
-                <h3 className="mb-4 text-sm font-semibold text-gray-600">
-                  协作总览
-                </h3>
+        {/* Right Panel - Details */}
+        <div className="w-80 overflow-y-auto border-l border-gray-200 bg-white">
+          {selectedAgent ? (
+            <AgentDetailPanel
+              agent={selectedAgent}
+              isLeader={selectedAgent.id === mission?.leaderId}
+              tasks={tasksByAgent.get(selectedAgent.id) || []}
+              isWorking={typingAIs.has(selectedAgent.id)}
+              onClose={() => setSelectedAgent(null)}
+              onTaskClick={(task) => {
+                setSelectedTask(task);
+                setSelectedAgent(null);
+              }}
+              missionTitle={mission?.title}
+            />
+          ) : selectedTask ? (
+            <TaskDetailPanel
+              task={selectedTask}
+              onClose={() => setSelectedTask(null)}
+            />
+          ) : (
+            <div className="p-6">
+              <h3 className="mb-4 text-sm font-semibold text-gray-600">
+                协作总览
+              </h3>
 
-                {/* Legend */}
-                <div className="space-y-3">
-                  <div className="text-xs font-medium uppercase tracking-wider text-gray-500">
-                    节点状态
+              {/* Legend */}
+              <div className="space-y-3">
+                <div className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                  节点状态
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full bg-purple-500" />
+                    <span className="text-sm text-gray-600">
+                      Leader (负责协调)
+                    </span>
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded-full bg-purple-500" />
-                      <span className="text-sm text-gray-600">
-                        Leader (负责协调)
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 animate-pulse rounded-full bg-blue-500" />
-                      <span className="text-sm text-gray-600">正在工作</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded-full bg-green-500" />
-                      <span className="text-sm text-gray-600">已完成任务</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded-full bg-yellow-500" />
-                      <span className="text-sm text-gray-600">
-                        有进行中任务
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded-full bg-gray-400" />
-                      <span className="text-sm text-gray-600">空闲</span>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 animate-pulse rounded-full bg-blue-500" />
+                    <span className="text-sm text-gray-600">正在工作</span>
                   </div>
-
-                  <div className="mt-6 text-xs font-medium uppercase tracking-wider text-gray-500">
-                    连接线状态
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full bg-green-500" />
+                    <span className="text-sm text-gray-600">已完成任务</span>
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="h-0.5 w-6 bg-blue-400" />
-                      <span className="text-sm text-gray-600">执行中</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="h-0.5 w-6 bg-green-400" />
-                      <span className="text-sm text-gray-600">已完成</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="h-0.5 w-6 bg-purple-400" />
-                      <span className="text-sm text-gray-600">待审核</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-0.5 w-6 bg-gray-300"
-                        style={{ strokeDasharray: '4 2' }}
-                      />
-                      <span className="text-sm text-gray-600">等待中</span>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full bg-yellow-500" />
+                    <span className="text-sm text-gray-600">有进行中任务</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full bg-gray-400" />
+                    <span className="text-sm text-gray-600">空闲</span>
                   </div>
                 </div>
 
-                {/* Quick Stats */}
-                {mission && mission.tasks && mission.tasks.length > 0 && (
-                  <div className="mt-6 rounded-lg bg-gray-50 p-4">
-                    <div className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-500">
-                      任务统计
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-gray-900">
-                          {
-                            mission.tasks.filter(
-                              (t) => t.status === 'COMPLETED'
-                            ).length
-                          }
-                        </div>
-                        <div className="text-xs text-gray-500">已完成</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-blue-600">
-                          {
-                            mission.tasks.filter(
-                              (t) => t.status === 'IN_PROGRESS'
-                            ).length
-                          }
-                        </div>
-                        <div className="text-xs text-gray-500">进行中</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-purple-600">
-                          {
-                            mission.tasks.filter(
-                              (t) => t.status === 'AWAITING_REVIEW'
-                            ).length
-                          }
-                        </div>
-                        <div className="text-xs text-gray-500">待审核</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-gray-400">
-                          {
-                            mission.tasks.filter((t) => t.status === 'PENDING')
-                              .length
-                          }
-                        </div>
-                        <div className="text-xs text-gray-500">等待中</div>
-                      </div>
-                    </div>
+                <div className="mt-6 text-xs font-medium uppercase tracking-wider text-gray-500">
+                  连接线状态
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="h-0.5 w-6 bg-blue-400" />
+                    <span className="text-sm text-gray-600">执行中</span>
                   </div>
-                )}
-
-                <div className="mt-6 text-center text-sm text-gray-400">
-                  点击节点或连接线查看详情
+                  <div className="flex items-center gap-2">
+                    <div className="h-0.5 w-6 bg-green-400" />
+                    <span className="text-sm text-gray-600">已完成</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-0.5 w-6 bg-purple-400" />
+                    <span className="text-sm text-gray-600">待审核</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="h-0.5 w-6 bg-gray-300"
+                      style={{ strokeDasharray: '4 2' }}
+                    />
+                    <span className="text-sm text-gray-600">等待中</span>
+                  </div>
                 </div>
               </div>
-            )}
-          </div>
+
+              {/* Quick Stats */}
+              {mission && mission.tasks && mission.tasks.length > 0 && (
+                <div className="mt-6 rounded-lg bg-gray-50 p-4">
+                  <div className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-500">
+                    任务统计
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-gray-900">
+                        {
+                          mission.tasks.filter((t) => t.status === 'COMPLETED')
+                            .length
+                        }
+                      </div>
+                      <div className="text-xs text-gray-500">已完成</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-600">
+                        {
+                          mission.tasks.filter(
+                            (t) => t.status === 'IN_PROGRESS'
+                          ).length
+                        }
+                      </div>
+                      <div className="text-xs text-gray-500">进行中</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-purple-600">
+                        {
+                          mission.tasks.filter(
+                            (t) => t.status === 'AWAITING_REVIEW'
+                          ).length
+                        }
+                      </div>
+                      <div className="text-xs text-gray-500">待审核</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-gray-400">
+                        {
+                          mission.tasks.filter((t) => t.status === 'PENDING')
+                            .length
+                        }
+                      </div>
+                      <div className="text-xs text-gray-500">等待中</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-6 text-center text-sm text-gray-400">
+                点击节点或连接线查看详情
+              </div>
+            </div>
+          )}
         </div>
       </div>
+    </div>
+  );
+
+  // Return embedded content directly or wrapped in modal overlay
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      {content}
     </div>
   );
 }
