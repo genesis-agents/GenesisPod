@@ -32,9 +32,9 @@ CREATE INDEX IF NOT EXISTS "collection_items_collection_status_idx"
 CREATE INDEX IF NOT EXISTS "topic_messages_topic_created_idx"
   ON "topic_messages" ("topic_id", "created_at" DESC);
 
--- Ask Sessions: user's sessions sorted by access time
+-- Ask Sessions: user's sessions sorted by update time
 CREATE INDEX IF NOT EXISTS "ask_sessions_user_access_idx"
-  ON "ask_sessions" ("user_id", "last_access_at" DESC);
+  ON "ask_sessions" ("user_id", "updated_at" DESC);
 
 -- Research Projects: user's projects sorted by update time
 CREATE INDEX IF NOT EXISTS "research_projects_user_updated_idx"
