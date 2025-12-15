@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo, useCallback } from 'react';
 import { config } from '@/lib/utils/config';
 import {
   useThumbnailGenerator,
@@ -44,7 +44,7 @@ interface ResourceCardProps {
   hasUpvoted?: boolean;
 }
 
-export default function ResourceCard({
+function ResourceCardComponent({
   resource,
   onClick,
   onToggleBookmark,
@@ -549,3 +549,18 @@ export default function ResourceCard({
     </article>
   );
 }
+
+// 使用 memo 优化，只有当 props 变化时才重新渲染
+const ResourceCard = memo(ResourceCardComponent, (prevProps, nextProps) => {
+  // 自定义比较函数：只比较关键属性
+  return (
+    prevProps.resource.id === nextProps.resource.id &&
+    prevProps.isBookmarked === nextProps.isBookmarked &&
+    prevProps.hasUpvoted === nextProps.hasUpvoted &&
+    prevProps.resource.upvoteCount === nextProps.resource.upvoteCount &&
+    prevProps.resource.commentCount === nextProps.resource.commentCount &&
+    prevProps.resource.thumbnailUrl === nextProps.resource.thumbnailUrl
+  );
+});
+
+export default ResourceCard;

@@ -8,23 +8,43 @@ import {
   MaxLength,
   IsObject,
 } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 // ==================== Research Project DTOs ====================
 
 export class CreateProjectDto {
+  @ApiProperty({
+    description: "项目名称",
+    example: "LLM 推理优化研究",
+    maxLength: 500,
+  })
   @IsString()
   @MaxLength(500)
   name!: string;
 
+  @ApiPropertyOptional({
+    description: "项目描述",
+    example: "研究大语言模型推理性能优化的技术方案",
+  })
   @IsOptional()
   @IsString()
   description?: string;
 
+  @ApiPropertyOptional({
+    description: "项目图标 (emoji)",
+    example: "🔬",
+    maxLength: 10,
+  })
   @IsOptional()
   @IsString()
   @MaxLength(10)
   icon?: string;
 
+  @ApiPropertyOptional({
+    description: "项目颜色",
+    example: "#7C3AED",
+    maxLength: 20,
+  })
   @IsOptional()
   @IsString()
   @MaxLength(20)

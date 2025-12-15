@@ -1,7 +1,20 @@
 'use client';
 
 import { Suspense } from 'react';
-import ExploreContent from '@/components/explore/ExploreContent';
+import dynamic from 'next/dynamic';
+
+// 懒加载重型组件 (4207 行)
+const ExploreContent = dynamic(
+  () => import('@/components/explore/ExploreContent'),
+  {
+    loading: () => (
+      <div className="flex h-screen items-center justify-center">
+        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+      </div>
+    ),
+    ssr: false,
+  }
+);
 
 function ExplorePageContent() {
   // ExploreContent handles the id parameter internally

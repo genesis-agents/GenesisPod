@@ -3,12 +3,10 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import dynamicImport from 'next/dynamic';
 import { config } from '@/lib/utils/config';
-import NotesList, { type Note } from '@/components/features/NotesList';
 import Sidebar from '@/components/layout/Sidebar';
 import { Tag, UserStats } from '@/components/library/CollectionNav';
-import CollectionModal from '@/components/library/CollectionModal';
-import BatchActionBar from '@/components/library/BatchActionBar';
 import ReadStatusBadge from '@/components/library/ReadStatusBadge';
 import TagList from '@/components/library/TagList';
 import { getAuthHeader } from '@/lib/utils/auth';
@@ -23,8 +21,36 @@ import {
 import { useResourceStore } from '@/stores/aiOfficeStore';
 import { useImageSourceStore } from '@/stores/imageSourceStore';
 import type { Resource as AIOfficeResource } from '@/types/ai-office';
-import { AddToAIStudioDialog } from '@/components/shared/dialogs/AddToAIStudioDialog';
-import AIOrganizePanel from '@/components/library/AIOrganizePanel';
+import type { Note } from '@/components/features/NotesList';
+
+// 懒加载条件渲染的组件
+const NotesList = dynamicImport(
+  () => import('@/components/features/NotesList'),
+  { ssr: false }
+);
+
+const CollectionModal = dynamicImport(
+  () => import('@/components/library/CollectionModal'),
+  { ssr: false }
+);
+
+const BatchActionBar = dynamicImport(
+  () => import('@/components/library/BatchActionBar'),
+  { ssr: false }
+);
+
+const AddToAIStudioDialog = dynamicImport(
+  () =>
+    import('@/components/shared/dialogs/AddToAIStudioDialog').then(
+      (mod) => mod.AddToAIStudioDialog
+    ),
+  { ssr: false }
+);
+
+const AIOrganizePanel = dynamicImport(
+  () => import('@/components/library/AIOrganizePanel'),
+  { ssr: false }
+);
 
 export const dynamic = 'force-dynamic';
 

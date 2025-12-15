@@ -7,8 +7,21 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { getAuthTokens } from '@/lib/utils/auth';
-import ImageGenerator from '@/components/ai-image/ImageGenerator';
+
+// 懒加载重型组件 (3182 行)
+const ImageGenerator = dynamic(
+  () => import('@/components/ai-image/ImageGenerator'),
+  {
+    loading: () => (
+      <div className="flex h-full items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
+      </div>
+    ),
+    ssr: false,
+  }
+);
 
 // ==================== 自定义图标组件 ====================
 const PlusIcon = ({ className }: { className?: string }) => (

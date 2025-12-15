@@ -6,6 +6,8 @@ import * as express from "express";
 import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { isWorkspaceAiV2Enabled } from "./common/utils/feature-flags";
+import { setupSwagger } from "./common/config/swagger.config";
+import { RequestLoggerInterceptor } from "./common/interceptors/request-logger.interceptor";
 
 /**
  * 验证必需的环境变量
@@ -121,6 +123,11 @@ async function bootstrap() {
   // 启用全局异常过滤器（统一处理所有异常，包括Prisma错误）
   app.useGlobalFilters(new AllExceptionsFilter());
 
+  // 启用请求日志拦截器（生产环境使用结构化日志）
+  if (isProduction) {
+    app.useGlobalInterceptors(new RequestLoggerInterceptor());
+  }
+
   // 添加根路径健康检查（供Railway healthcheck使用，不受全局前缀影响）
   const httpAdapter = app.getHttpAdapter();
   httpAdapter.get("/health", (_req: Request, res: Response) => {
@@ -134,6 +141,11 @@ async function bootstrap() {
 
   // API前缀
   app.setGlobalPrefix("api/v1");
+
+  // 设置 Swagger API 文档（仅开发环境）
+  if (!isProduction) {
+    await setupSwagger(app);
+  }
 
   // Railway uses PORT, fallback to BACKEND_PORT for local dev
   const port = process.env.PORT || process.env.BACKEND_PORT || 4000;
