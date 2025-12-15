@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { List, ChevronRight } from 'lucide-react';
+import { List, ChevronLeft, X } from 'lucide-react';
 
 interface TOCHeading {
   id: string;
@@ -35,7 +35,7 @@ function extractHeadings(html: string): TOCHeading[] {
   while ((match = headingRegex.exec(html)) !== null) {
     const level = parseInt(match[1], 10);
     // Extract text content, removing any nested tags
-    let text = match[3]
+    const text = match[3]
       .replace(/<[^>]+>/g, '') // Remove HTML tags
       .replace(/&nbsp;/g, ' ')
       .replace(/&amp;/g, '&')
@@ -103,17 +103,18 @@ function extractHeadings(html: string): TOCHeading[] {
  * Table of Contents component for document navigation
  *
  * Features:
+ * - Floating/absolute positioned, doesn't affect layout
  * - Extracts headings from HTML content
  * - Highlights current section based on scroll position
  * - Smooth scroll to section on click
- * - Collapsible sidebar
+ * - Collapsible panel
  */
 export default function TableOfContents({
   content,
   containerRef,
   className = '',
   theme = 'light',
-  defaultCollapsed = false,
+  defaultCollapsed = true,
 }: TableOfContentsProps) {
   const [headings, setHeadings] = useState<TOCHeading[]>([]);
   const [activeId, setActiveId] = useState<string>('');
@@ -222,6 +223,8 @@ export default function TableOfContents({
       activeIndicator: 'bg-red-500',
       header: 'text-gray-900',
       headerBg: 'bg-gray-50',
+      shadow: 'shadow-lg',
+      buttonBg: 'bg-white hover:bg-gray-50',
     },
     sepia: {
       bg: 'bg-[#FBF7F0]',
@@ -232,6 +235,8 @@ export default function TableOfContents({
       activeIndicator: 'bg-[#8B4513]',
       header: 'text-[#3D2E1C]',
       headerBg: 'bg-[#F5EFE6]',
+      shadow: 'shadow-lg',
+      buttonBg: 'bg-[#FBF7F0] hover:bg-[#F5EFE6]',
     },
     dark: {
       bg: 'bg-[#1A1A1A]',
@@ -242,6 +247,8 @@ export default function TableOfContents({
       activeIndicator: 'bg-red-500',
       header: 'text-gray-200',
       headerBg: 'bg-gray-800',
+      shadow: 'shadow-2xl',
+      buttonBg: 'bg-gray-800 hover:bg-gray-700',
     },
   };
 
@@ -255,40 +262,42 @@ export default function TableOfContents({
   return (
     <div
       ref={tocRef}
-      className={`flex-shrink-0 transition-all duration-300 ${className} ${
-        isCollapsed ? 'w-10' : 'w-56'
-      }`}
+      className={`fixed left-4 top-1/2 z-50 -translate-y-1/2 ${className}`}
     >
-      <div
-        className={`sticky top-0 h-full overflow-hidden border-r ${styles.bg} ${styles.border}`}
-      >
-        {/* Header with toggle */}
-        <div
-          className={`flex items-center justify-between p-3 ${styles.headerBg} border-b ${styles.border}`}
+      {/* Collapsed state - floating button */}
+      {isCollapsed && (
+        <button
+          onClick={() => setIsCollapsed(false)}
+          className={`flex h-10 w-10 items-center justify-center rounded-full border ${styles.border} ${styles.buttonBg} ${styles.shadow} transition-all duration-200 hover:scale-105`}
+          title="展开目录"
         >
-          {!isCollapsed && (
-            <span className={`text-sm font-medium ${styles.header}`}>本页</span>
-          )}
-          <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className={`flex h-6 w-6 items-center justify-center rounded transition-colors ${styles.textHover}`}
-            title={isCollapsed ? '展开目录' : '收起目录'}
-          >
-            {isCollapsed ? (
-              <List className={`h-4 w-4 ${styles.text}`} />
-            ) : (
-              <ChevronRight
-                className={`h-4 w-4 ${styles.text} transition-transform ${
-                  isCollapsed ? '' : 'rotate-180'
-                }`}
-              />
-            )}
-          </button>
-        </div>
+          <List className={`h-5 w-5 ${styles.text}`} />
+        </button>
+      )}
 
-        {/* TOC List */}
-        {!isCollapsed && (
-          <nav className="max-h-[calc(100vh-200px)] overflow-y-auto p-3">
+      {/* Expanded state - floating panel */}
+      {!isCollapsed && (
+        <div
+          className={`w-64 rounded-xl border ${styles.border} ${styles.bg} ${styles.shadow} overflow-hidden`}
+        >
+          {/* Header */}
+          <div
+            className={`flex items-center justify-between px-4 py-3 ${styles.headerBg} border-b ${styles.border}`}
+          >
+            <span className={`text-sm font-medium ${styles.header}`}>
+              本页目录
+            </span>
+            <button
+              onClick={() => setIsCollapsed(true)}
+              className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${styles.textHover}`}
+              title="收起目录"
+            >
+              <X className={`h-4 w-4 ${styles.text}`} />
+            </button>
+          </div>
+
+          {/* TOC List */}
+          <nav className="max-h-80 overflow-y-auto p-3">
             <ul className="space-y-1">
               {headings.map((heading) => {
                 const isActive = activeId === heading.id;
@@ -305,15 +314,15 @@ export default function TableOfContents({
                   <li key={heading.id}>
                     <button
                       onClick={() => scrollToHeading(heading.id)}
-                      className={`relative flex w-full items-start text-left text-sm leading-snug transition-colors ${indentClass} ${
+                      className={`relative flex w-full items-start rounded-md px-2 py-1.5 text-left text-sm leading-snug transition-all ${indentClass} ${
                         isActive
-                          ? `font-medium ${styles.textActive}`
-                          : `${styles.text} ${styles.textHover}`
+                          ? `font-medium ${styles.textActive} bg-red-50`
+                          : `${styles.text} ${styles.textHover} hover:bg-gray-50`
                       }`}
                     >
                       {isActive && (
                         <span
-                          className={`absolute -left-3 top-1 h-3 w-0.5 rounded-full ${styles.activeIndicator}`}
+                          className={`absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full ${styles.activeIndicator}`}
                         />
                       )}
                       <span className="line-clamp-2">{heading.text}</span>
@@ -323,23 +332,8 @@ export default function TableOfContents({
               })}
             </ul>
           </nav>
-        )}
-
-        {/* Collapsed state - just show icon */}
-        {isCollapsed && (
-          <div className="flex flex-col items-center p-2">
-            <div
-              className={`h-4 w-0.5 rounded-full ${styles.activeIndicator} mb-2`}
-            />
-            <span
-              className={`text-xs ${styles.text} writing-mode-vertical`}
-              style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
-            >
-              目录
-            </span>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

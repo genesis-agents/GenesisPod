@@ -611,21 +611,21 @@ export default function ReaderView({
           </div>
         )}
 
-        {/* 文章内容 - 带左侧导航的布局 */}
+        {/* 文章内容 - 优化的阅读样式 */}
         {article && !loading && !error && (
-          <div className="flex h-full">
-            {/* 左侧目录导航 */}
+          <>
+            {/* 悬浮目录导航 - 不影响主布局 */}
             <TableOfContents
               content={article.content}
               containerRef={contentRef}
               theme={theme}
               className="hidden lg:block"
-              defaultCollapsed={false}
+              defaultCollapsed={true}
             />
 
             {/* 文章内容区域 */}
             <article
-              className="mx-auto flex-1 px-4 py-8 sm:px-6 md:px-8 lg:px-12"
+              className="mx-auto px-4 py-8 sm:px-6 md:px-8 lg:px-12"
               style={{ maxWidth: '720px' }}
             >
               {/* 文章元信息 - 紧凑的头部设计 */}
@@ -871,7 +871,7 @@ export default function ReaderView({
                 }
               `}</style>
             </article>
-          </div>
+          </>
         )}
       </div>
     </div>
