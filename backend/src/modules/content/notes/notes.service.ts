@@ -670,7 +670,23 @@ export class NotesService {
       });
 
       try {
-        const result = JSON.parse(response.content);
+        // 尝试从AI响应中提取JSON
+        let jsonContent = response.content;
+
+        // 如果响应被markdown代码块包裹，提取JSON部分
+        const jsonMatch = jsonContent.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (jsonMatch) {
+          jsonContent = jsonMatch[1].trim();
+        }
+
+        // 尝试找到JSON对象
+        const jsonStart = jsonContent.indexOf("{");
+        const jsonEnd = jsonContent.lastIndexOf("}");
+        if (jsonStart !== -1 && jsonEnd !== -1) {
+          jsonContent = jsonContent.slice(jsonStart, jsonEnd + 1);
+        }
+
+        const result = JSON.parse(jsonContent);
         this.logger.log(
           `Found ${result.connections?.length || 0} connections for user ${userId}`,
         );
@@ -695,7 +711,11 @@ export class NotesService {
         );
 
         return { connections: enrichedConnections };
-      } catch {
+      } catch (parseError) {
+        this.logger.warn(
+          `Failed to parse connections JSON: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+        );
+        this.logger.debug(`Raw AI response: ${response.content}`);
         return { connections: [], rawAnalysis: response.content };
       }
     } catch (err) {
