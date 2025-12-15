@@ -43,6 +43,7 @@ import { Modal } from '@/components/ui';
 interface EditFormData extends Partial<DataSource> {
   scheduleFrequency?: string;
   scheduleTime?: string;
+  minDurationMinutes?: number;
 }
 
 interface RunNowConfig {
@@ -395,6 +396,11 @@ export default function ConfigPage() {
       enabled?: boolean;
     } | null;
 
+    // Extract minDurationSeconds and convert to minutes
+    const minDurationSeconds =
+      (crawlerConfig?.minDurationSeconds as number) || 0;
+    const minDurationMinutes = Math.round(minDurationSeconds / 60);
+
     setEditForm({
       name: source.name,
       description: source.description,
@@ -407,6 +413,7 @@ export default function ConfigPage() {
       crawlerConfig: crawlerConfig || {},
       scheduleFrequency: schedule?.frequency || 'manual',
       scheduleTime: schedule?.time || '06:00',
+      minDurationMinutes,
     });
   };
 
@@ -417,7 +424,7 @@ export default function ConfigPage() {
       // Build updated crawler config with schedule
       const existingConfig =
         (editForm.crawlerConfig as Record<string, unknown>) || {};
-      const updatedCrawlerConfig = {
+      const updatedCrawlerConfig: Record<string, unknown> = {
         ...existingConfig,
         schedule: {
           frequency: editForm.scheduleFrequency || 'manual',
@@ -426,8 +433,22 @@ export default function ConfigPage() {
         },
       };
 
-      // Extract schedule fields from editForm (they're not part of DataSource)
-      const { scheduleFrequency, scheduleTime, ...dataSourceFields } = editForm;
+      // Add minDurationSeconds for YouTube sources
+      if (
+        editingSource.type === 'YOUTUBE' &&
+        editForm.minDurationMinutes !== undefined
+      ) {
+        updatedCrawlerConfig.minDurationSeconds =
+          editForm.minDurationMinutes * 60;
+      }
+
+      // Extract non-DataSource fields from editForm
+      const {
+        scheduleFrequency,
+        scheduleTime,
+        minDurationMinutes,
+        ...dataSourceFields
+      } = editForm;
 
       await updateDataSource(editingSource.id, {
         ...dataSourceFields,
@@ -883,6 +904,16 @@ export default function ConfigPage() {
                             Paused
                           </span>
                         )}
+                        {source.status === 'FAILED' && (
+                          <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                            Failed
+                          </span>
+                        )}
+                        {source.status === 'MAINTENANCE' && (
+                          <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
+                            Maintenance
+                          </span>
+                        )}
                       </div>
                       <p className="mt-1 text-sm text-gray-600">
                         {source.description}
@@ -921,22 +952,54 @@ export default function ConfigPage() {
                         <Settings className="-mt-0.5 mr-1 inline h-3.5 w-3.5" />
                         Edit
                       </button>
-                      <button
-                        onClick={() => handleToggleStatus(source)}
-                        className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                      >
-                        {source.status === 'ACTIVE' ? (
-                          <>
-                            <Pause className="-mt-0.5 mr-1 inline h-3.5 w-3.5" />
-                            Pause
-                          </>
-                        ) : (
-                          <>
-                            <Play className="-mt-0.5 mr-1 inline h-3.5 w-3.5" />
-                            Resume
-                          </>
-                        )}
-                      </button>
+                      {source.status === 'FAILED' ||
+                      source.status === 'MAINTENANCE' ? (
+                        <button
+                          onClick={async () => {
+                            try {
+                              await updateDataSource(source.id, {
+                                status: 'ACTIVE',
+                              });
+                              setSources((prev) =>
+                                prev.map((s) =>
+                                  s.id === source.id
+                                    ? { ...s, status: 'ACTIVE' }
+                                    : s
+                                )
+                              );
+                              setNotification({
+                                type: 'success',
+                                message: `${source.name} has been reset to Active status`,
+                              });
+                              setTimeout(() => setNotification(null), 3000);
+                            } catch (err) {
+                              console.error('Failed to reset status:', err);
+                              alert('Failed to reset source status');
+                            }
+                          }}
+                          className="rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
+                        >
+                          <CheckCircle className="-mt-0.5 mr-1 inline h-3.5 w-3.5" />
+                          Reset
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleToggleStatus(source)}
+                          className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                          {source.status === 'ACTIVE' ? (
+                            <>
+                              <Pause className="-mt-0.5 mr-1 inline h-3.5 w-3.5" />
+                              Pause
+                            </>
+                          ) : (
+                            <>
+                              <Play className="-mt-0.5 mr-1 inline h-3.5 w-3.5" />
+                              Resume
+                            </>
+                          )}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1403,6 +1466,41 @@ export default function ConfigPage() {
                   : `Collection will run ${editForm.scheduleFrequency} at ${editForm.scheduleTime || '06:00'}`}
             </p>
           </div>
+
+          {/* YouTube Duration Filter - Only show for YouTube type */}
+          {editingSource?.type === 'YOUTUBE' && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <Video className="h-4 w-4 text-red-500" />
+                <span className="text-sm font-medium text-gray-700">
+                  Video Duration Filter
+                </span>
+              </div>
+              <div>
+                <label className="mb-2 block text-xs font-medium text-gray-600">
+                  Minimum Video Duration (minutes)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="180"
+                  value={editForm.minDurationMinutes || 0}
+                  onChange={(e) =>
+                    setEditForm({
+                      ...editForm,
+                      minDurationMinutes: parseInt(e.target.value) || 0,
+                    })
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              <p className="mt-2 text-xs text-gray-500">
+                {editForm.minDurationMinutes && editForm.minDurationMinutes > 0
+                  ? `Videos shorter than ${editForm.minDurationMinutes} minutes will be skipped`
+                  : 'All videos will be collected (no duration filter)'}
+              </p>
+            </div>
+          )}
         </div>
       </Modal>
 
