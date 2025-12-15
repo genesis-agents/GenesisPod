@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { List, ChevronLeft, X } from 'lucide-react';
+import { List, X } from 'lucide-react';
 
 interface TOCHeading {
   id: string;
@@ -119,6 +119,12 @@ export default function TableOfContents({
   const [headings, setHeadings] = useState<TOCHeading[]>([]);
   const [activeId, setActiveId] = useState<string>('');
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+  const [tocPosition, setTocPosition] = useState<{ top: number; left: number }>(
+    {
+      top: 100,
+      left: 20,
+    }
+  );
   const tocRef = useRef<HTMLDivElement>(null);
 
   // Extract headings from content
@@ -197,6 +203,33 @@ export default function TableOfContents({
 
     return () => container.removeEventListener('scroll', handleScroll);
   }, [handleScroll, containerRef]);
+
+  // Calculate and update TOC position based on container position
+  useEffect(() => {
+    const updatePosition = () => {
+      const container = containerRef.current;
+      if (!container) return;
+
+      const containerRect = container.getBoundingClientRect();
+      // Position TOC to the left of the container, with some padding
+      // Use the container's left edge minus the TOC width and some margin
+      const tocWidth = isCollapsed ? 40 : 256; // collapsed button is 40px, expanded panel is 256px (w-64)
+      const margin = 16;
+      const left = Math.max(margin, containerRect.left - tocWidth - margin);
+      const top = containerRect.top + 32; // 32px from top of container
+
+      setTocPosition({ top, left });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [containerRef, isCollapsed]);
 
   // Scroll to heading on click
   const scrollToHeading = (id: string) => {
@@ -280,7 +313,11 @@ export default function TableOfContents({
   return (
     <div
       ref={tocRef}
-      className={`absolute -left-2 top-8 z-40 -translate-x-full ${className}`}
+      className={`fixed z-40 ${className}`}
+      style={{
+        top: `${tocPosition.top}px`,
+        left: `${tocPosition.left}px`,
+      }}
     >
       {/* Collapsed state - floating button */}
       {isCollapsed && (

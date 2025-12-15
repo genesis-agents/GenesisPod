@@ -81,7 +81,15 @@ export function AddToAIStudioDialog({
         throw new Error('Failed to fetch projects');
       }
       const data = await response.json();
-      setProjects(data.projects || data || []);
+      // Ensure we always set an array - API might return { projects: [...] } or [...] or { items: [...] }
+      const projectsArray = Array.isArray(data.projects)
+        ? data.projects
+        : Array.isArray(data)
+          ? data
+          : Array.isArray(data.items)
+            ? data.items
+            : [];
+      setProjects(projectsArray);
     } catch (err) {
       setError('Failed to load AI Studio projects');
       console.error('Error fetching projects:', err);
