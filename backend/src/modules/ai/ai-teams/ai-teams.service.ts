@@ -174,32 +174,57 @@ export class AiTeamsService {
       orderBy: { updatedAt: "desc" },
     });
 
-    // 计算每个Topic的未读消息数
-    const topicsWithUnread = await Promise.all(
-      topics.map(async (topic) => {
-        const membership = topic.members.find((m) => m.userId === userId);
-        let unreadCount = 0;
+    // 优化：批量计算所有Topic的未读消息数，避免N+1查询
+    // 收集需要计算未读数的topic和对应的lastReadAt
+    const topicLastReadMap = new Map<string, Date | null>();
+    topics.forEach((topic) => {
+      const membership = topic.members.find((m) => m.userId === userId);
+      topicLastReadMap.set(topic.id, membership?.lastReadAt || null);
+    });
 
-        if (membership?.lastReadAt) {
-          unreadCount = await this.prisma.topicMessage.count({
-            where: {
-              topicId: topic.id,
-              createdAt: { gt: membership.lastReadAt },
-              deletedAt: null,
-            },
-          });
-        } else {
-          unreadCount = topic._count.messages;
-        }
+    // 批量查询所有topic的未读消息数
+    const topicIds = topics.map((t) => t.id);
+    const unreadCounts = await this.prisma.$queryRaw<
+      Array<{ topic_id: string; unread_count: bigint }>
+    >`
+      SELECT
+        tm.topic_id,
+        COUNT(*) as unread_count
+      FROM topic_messages tm
+      LEFT JOIN topic_members tmem ON tm.topic_id = tmem.topic_id AND tmem.user_id = ${userId}
+      WHERE tm.topic_id = ANY(${topicIds}::uuid[])
+        AND tm.deleted_at IS NULL
+        AND (
+          tmem.last_read_at IS NULL
+          OR tm.created_at > tmem.last_read_at
+        )
+      GROUP BY tm.topic_id
+    `;
 
-        return {
-          ...topic,
-          unreadCount,
-          memberCount: topic.members.length,
-          aiMemberCount: topic.aiMembers.length,
-        };
-      }),
-    );
+    // 转换为Map便于查找
+    const unreadMap = new Map<string, number>();
+    unreadCounts.forEach((row) => {
+      unreadMap.set(row.topic_id, Number(row.unread_count));
+    });
+
+    // 组装返回数据
+    const topicsWithUnread = topics.map((topic) => {
+      const membership = topic.members.find((m) => m.userId === userId);
+      let unreadCount = 0;
+
+      if (membership?.lastReadAt) {
+        unreadCount = unreadMap.get(topic.id) || 0;
+      } else {
+        unreadCount = topic._count.messages;
+      }
+
+      return {
+        ...topic,
+        unreadCount,
+        memberCount: topic.members.length,
+        aiMemberCount: topic.aiMembers.length,
+      };
+    });
 
     return topicsWithUnread;
   }

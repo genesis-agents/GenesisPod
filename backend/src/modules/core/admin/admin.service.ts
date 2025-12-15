@@ -1,6 +1,10 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { AIModelType } from "@prisma/client";
+import {
+  mapWithConcurrency,
+  ConcurrencyLimits,
+} from "../../../common/utils/concurrency.utils";
 
 type ExternalProvider = {
   id: string;
@@ -690,7 +694,7 @@ export class AdminService {
   }
 
   /**
-   * 批量更新设置
+   * 批量更新设置（带并发限制）
    */
   async setSettings(
     settings: Array<{
@@ -700,13 +704,14 @@ export class AdminService {
       category?: string;
     }>,
   ) {
-    const results = await Promise.all(
-      settings.map((s) =>
+    const results = await mapWithConcurrency(
+      settings,
+      (s) =>
         this.setSetting(s.key, s.value, {
           description: s.description,
           category: s.category,
         }),
-      ),
+      ConcurrencyLimits.DB,
     );
 
     this.logger.log(`Updated ${results.length} system settings`);

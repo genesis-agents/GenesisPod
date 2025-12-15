@@ -11,6 +11,14 @@ import {
   UseGuards,
   UnauthorizedException,
 } from "@nestjs/common";
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiQuery,
+  ApiParam,
+} from "@nestjs/swagger";
 import { AiStudioService } from "./ai-studio.service";
 import { AiStudioSourceService } from "./ai-studio-source.service";
 import { AiStudioChatService } from "./ai-studio-chat.service";
@@ -27,7 +35,10 @@ import {
   SearchSourcesDto,
 } from "./dto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { parsePagination } from "../../../common/utils/pagination.utils";
 
+@ApiTags("ai-studio")
+@ApiBearerAuth("access-token")
 @Controller("ai-studio")
 @UseGuards(JwtAuthGuard)
 export class AiStudioController {
@@ -44,6 +55,9 @@ export class AiStudioController {
    * Create a new research project
    */
   @Post("projects")
+  @ApiOperation({ summary: "创建研究项目", description: "创建一个新的专题研究项目" })
+  @ApiResponse({ status: 201, description: "项目创建成功" })
+  @ApiResponse({ status: 401, description: "未认证" })
   async createProject(@Request() req: any, @Body() dto: CreateProjectDto) {
     const userId = req.user?.id;
     if (!userId) {
@@ -56,6 +70,12 @@ export class AiStudioController {
    * Get all projects for the current user
    */
   @Get("projects")
+  @ApiOperation({ summary: "获取项目列表", description: "获取当前用户的所有研究项目" })
+  @ApiQuery({ name: "status", required: false, enum: ["ACTIVE", "ARCHIVED"], description: "项目状态" })
+  @ApiQuery({ name: "search", required: false, description: "搜索关键词" })
+  @ApiQuery({ name: "take", required: false, description: "每页数量" })
+  @ApiQuery({ name: "skip", required: false, description: "跳过数量" })
+  @ApiResponse({ status: 200, description: "返回项目列表" })
   async getProjects(
     @Request() req: any,
     @Query("status") status?: "ACTIVE" | "ARCHIVED",
@@ -67,11 +87,11 @@ export class AiStudioController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
+    const pagination = parsePagination(skip, take);
     return this.studioService.getProjects(userId, {
       status,
       search,
-      take: take ? parseInt(take) : undefined,
-      skip: skip ? parseInt(skip) : undefined,
+      ...pagination,
     });
   }
 

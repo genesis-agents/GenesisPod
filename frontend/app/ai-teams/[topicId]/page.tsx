@@ -86,15 +86,41 @@ const CAPABILITY_CONFIG: Record<
 };
 import { useAIModels, AIModel } from '@/hooks/useAIModels';
 import Link from 'next/link';
-import TopicSettingsDialog from '@/components/ai-teams/TopicSettingsDialog';
-import ResourcesPanel from '@/components/ai-teams/ResourcesPanel';
-import SummaryDialog from '@/components/ai-teams/SummaryDialog';
-import MessageSelectionToolbar from '@/components/ai-teams/MessageSelectionToolbar';
-import CreateMissionDialog from '@/components/ai-teams/CreateMissionDialog';
-import MissionProgressPanel from '@/components/ai-teams/MissionProgressPanel';
+import dynamic from 'next/dynamic';
 import Sidebar from '@/components/layout/Sidebar';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+
+// 懒加载条件渲染的对话框和面板组件
+const TopicSettingsDialog = dynamic(
+  () => import('@/components/ai-teams/TopicSettingsDialog'),
+  { ssr: false }
+);
+
+const ResourcesPanel = dynamic(
+  () => import('@/components/ai-teams/ResourcesPanel'),
+  { ssr: false }
+);
+
+const SummaryDialog = dynamic(
+  () => import('@/components/ai-teams/SummaryDialog'),
+  { ssr: false }
+);
+
+const MessageSelectionToolbar = dynamic(
+  () => import('@/components/ai-teams/MessageSelectionToolbar'),
+  { ssr: false }
+);
+
+const CreateMissionDialog = dynamic(
+  () => import('@/components/ai-teams/CreateMissionDialog'),
+  { ssr: false }
+);
+
+const MissionProgressPanel = dynamic(
+  () => import('@/components/ai-teams/MissionProgressPanel'),
+  { ssr: false }
+);
 
 // Performance constant - messages are limited in store (aiGroupStore.ts)
 const MAX_MESSAGES_IN_MEMORY = 200; // Reference: actual limit is in store

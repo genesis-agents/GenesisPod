@@ -2,21 +2,52 @@
 
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { config } from '@/lib/utils/config';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAuthHeader } from '@/lib/utils/auth';
 import Sidebar from '@/components/layout/Sidebar';
 import VersionUpdateBanner from '@/components/layout/VersionUpdateBanner';
 import PDFThumbnail from '@/components/ui/PDFThumbnail';
-import PDFViewer from '@/components/ui/PDFViewer';
-import HTMLViewer from '@/components/ui/HTMLViewer';
-import ReaderView from '@/components/ui/ReaderView';
-import NotesList from '@/components/features/NotesList';
-import CommentsList from '@/components/features/CommentsList';
-import SimilarResourcesList from '@/components/features/SimilarResourcesList';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import ReportWorkspace from '@/components/features/ReportWorkspace';
+
+// 懒加载条件渲染的重型组件
+const PDFViewer = dynamic(() => import('@/components/ui/PDFViewer'), {
+  loading: () => (
+    <div className="flex h-full items-center justify-center">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+    </div>
+  ),
+  ssr: false,
+});
+
+const HTMLViewer = dynamic(() => import('@/components/ui/HTMLViewer'), {
+  ssr: false,
+});
+
+const ReaderView = dynamic(() => import('@/components/ui/ReaderView'), {
+  ssr: false,
+});
+
+const NotesList = dynamic(() => import('@/components/features/NotesList'), {
+  ssr: false,
+});
+
+const CommentsList = dynamic(
+  () => import('@/components/features/CommentsList'),
+  { ssr: false }
+);
+
+const SimilarResourcesList = dynamic(
+  () => import('@/components/features/SimilarResourcesList'),
+  { ssr: false }
+);
+
+const ReportWorkspace = dynamic(
+  () => import('@/components/features/ReportWorkspace'),
+  { ssr: false }
+);
 
 // Extract base64 images from markdown content
 function extractImagesFromMarkdown(content: string): {
@@ -110,9 +141,28 @@ function Base64Image({ src, alt }: { src: string; alt: string }) {
   );
 }
 import { useReportWorkspace } from '@/hooks/useReportWorkspace';
-import FilterPanel from '@/components/features/FilterPanel';
-import { ImportUrlDialog } from '@/components/shared/dialogs/ImportUrlDialog';
-import { ImportFileDialog } from '@/components/shared/dialogs/ImportFileDialog';
+
+// 懒加载对话框组件
+const FilterPanel = dynamic(
+  () => import('@/components/features/FilterPanel'),
+  { ssr: false }
+);
+
+const ImportUrlDialog = dynamic(
+  () =>
+    import('@/components/shared/dialogs/ImportUrlDialog').then(
+      (mod) => mod.ImportUrlDialog
+    ),
+  { ssr: false }
+);
+
+const ImportFileDialog = dynamic(
+  () =>
+    import('@/components/shared/dialogs/ImportFileDialog').then(
+      (mod) => mod.ImportFileDialog
+    ),
+  { ssr: false }
+);
 import ResponsiveNav, {
   type TabType,
   type SortByType,

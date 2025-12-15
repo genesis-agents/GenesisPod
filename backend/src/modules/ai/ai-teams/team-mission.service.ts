@@ -16,6 +16,10 @@ import {
 import { CreateMissionDto } from "./dto/create-mission.dto";
 import { AiChatService } from "../ai-core/ai-chat.service";
 import { AiTeamsGateway } from "./ai-teams.gateway";
+import {
+  mapWithConcurrency,
+  ConcurrencyLimits,
+} from "../../../common/utils/concurrency.utils";
 
 interface TaskBreakdownItem {
   title: string;
@@ -404,9 +408,11 @@ export class TeamMissionService {
       );
     }
 
-    // 并行执行所有可开始的任务
-    await Promise.all(
-      tasksToStart.map((task) => this.executeTask(mission, task)),
+    // 并行执行所有可开始的任务（限制并发数，避免AI调用过载）
+    await mapWithConcurrency(
+      tasksToStart,
+      (task) => this.executeTask(mission, task),
+      ConcurrencyLimits.AI,
     );
   }
 
