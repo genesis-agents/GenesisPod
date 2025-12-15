@@ -62,6 +62,7 @@ export default function TextSelectionToolbar({
   showClipboardFAB = false,
 }: TextSelectionToolbarProps) {
   const [selectedText, setSelectedText] = useState('');
+  const [prevSelectedText, setPrevSelectedText] = useState(''); // Track previous text for comparison
   const [showToolbar, setShowToolbar] = useState(false);
   const [toolbarPosition, setToolbarPosition] = useState<Position>({
     x: 0,
@@ -113,6 +114,13 @@ export default function TextSelectionToolbar({
         return;
       }
 
+      // Clear translation if text changed
+      if (text !== prevSelectedText) {
+        setTranslation('');
+        setNoteText('');
+        setPrevSelectedText(text);
+      }
+
       setSelectedText(text);
 
       // Position toolbar above selection
@@ -127,10 +135,8 @@ export default function TextSelectionToolbar({
 
       setShowToolbar(true);
       setMode('main');
-      setTranslation('');
-      setNoteText('');
     },
-    [mode, containerRef]
+    [mode, containerRef, prevSelectedText]
   );
 
   // Handle click outside to close toolbar
@@ -286,6 +292,7 @@ export default function TextSelectionToolbar({
     setMode('main');
     setNoteText('');
     setTranslation('');
+    setPrevSelectedText('');
     window.getSelection()?.removeAllRanges();
   }, []);
 
