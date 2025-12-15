@@ -126,19 +126,24 @@ export default function TableOfContents({
     const extracted = extractHeadings(content);
     setHeadings(extracted);
 
-    // Also add IDs to actual heading elements in the DOM
-    if (containerRef.current) {
-      const headingElements =
-        containerRef.current.querySelectorAll('h1, h2, h3, h4');
-      let idx = 0;
-      headingElements.forEach((el) => {
-        const text = el.textContent?.trim() || '';
-        if (text.length > 0 && text.length < 150) {
-          el.id = `toc-heading-${idx}`;
-          idx++;
-        }
-      });
-    }
+    // Add IDs to actual heading elements in the DOM after a small delay
+    // to ensure the DOM has been rendered
+    const timeoutId = setTimeout(() => {
+      if (containerRef.current) {
+        const headingElements =
+          containerRef.current.querySelectorAll('h1, h2, h3, h4');
+        let idx = 0;
+        headingElements.forEach((el) => {
+          const text = el.textContent?.trim() || '';
+          if (text.length > 0 && text.length < 150) {
+            el.id = `toc-heading-${idx}`;
+            idx++;
+          }
+        });
+      }
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
   }, [content, containerRef]);
 
   // Track active section based on scroll position
@@ -196,19 +201,32 @@ export default function TableOfContents({
   // Scroll to heading on click
   const scrollToHeading = (id: string) => {
     const element = document.getElementById(id);
-    if (element && containerRef.current) {
-      const container = containerRef.current;
-      const containerRect = container.getBoundingClientRect();
-      const elementRect = element.getBoundingClientRect();
-      const scrollTop =
-        container.scrollTop + elementRect.top - containerRect.top - 80;
-
-      container.scrollTo({
-        top: scrollTop,
+    if (element) {
+      // Try scrollIntoView first as a reliable fallback
+      element.scrollIntoView({
         behavior: 'smooth',
+        block: 'start',
       });
-
       setActiveId(id);
+    } else {
+      // Element not found - try to find by index in DOM
+      const index = parseInt(id.replace('toc-heading-', ''), 10);
+      if (!isNaN(index) && containerRef.current) {
+        const headingElements =
+          containerRef.current.querySelectorAll('h1, h2, h3, h4');
+        const validHeadings = Array.from(headingElements).filter(
+          (el) => (el.textContent?.trim() || '').length > 0
+        );
+        if (validHeadings[index]) {
+          validHeadings[index].scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+          });
+          // Also add the ID for future reference
+          validHeadings[index].id = id;
+          setActiveId(id);
+        }
+      }
     }
   };
 
@@ -262,7 +280,7 @@ export default function TableOfContents({
   return (
     <div
       ref={tocRef}
-      className={`fixed left-4 top-1/2 z-50 -translate-y-1/2 ${className}`}
+      className={`absolute -left-2 top-8 z-40 -translate-x-full ${className}`}
     >
       {/* Collapsed state - floating button */}
       {isCollapsed && (

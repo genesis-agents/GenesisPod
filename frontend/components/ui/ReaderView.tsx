@@ -613,13 +613,16 @@ export default function ReaderView({
 
         {/* 文章内容 - 优化的阅读样式 */}
         {article && !loading && !error && (
-          <>
-            {/* 悬浮目录导航 - 不影响主布局 */}
+          <div
+            className="relative mx-auto w-full"
+            style={{ maxWidth: '900px' }}
+          >
+            {/* 悬浮目录导航 - 放在文章左侧 */}
             <TableOfContents
               content={article.content}
               containerRef={contentRef}
               theme={theme}
-              className="hidden lg:block"
+              className="hidden xl:block"
               defaultCollapsed={true}
             />
 
@@ -871,7 +874,7 @@ export default function ReaderView({
                 }
               `}</style>
             </article>
-          </>
+          </div>
         )}
       </div>
     </div>

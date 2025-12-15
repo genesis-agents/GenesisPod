@@ -104,6 +104,24 @@ const categoryBgColors: Record<string, string> = {
   officeDocuments: 'bg-rose-100',
 };
 
+interface AIDiagnosis {
+  summary: string;
+  issues: Array<{
+    severity: 'critical' | 'warning' | 'info';
+    title: string;
+    description: string;
+    recommendation: string;
+    potentialSavings?: string;
+  }>;
+  cleanupPlan: Array<{
+    step: number;
+    action: string;
+    target: string;
+    expectedSavings: string;
+  }>;
+  overallScore: number;
+}
+
 export default function StoragePage() {
   const [stats, setStats] = useState<StorageStats | null>(null);
   const [dbAnalysis, setDbAnalysis] = useState<DatabaseAnalysis | null>(null);
@@ -117,6 +135,9 @@ export default function StoragePage() {
     text: string;
   } | null>(null);
   const [showDbAnalysis, setShowDbAnalysis] = useState(false);
+  const [aiDiagnosis, setAiDiagnosis] = useState<AIDiagnosis | null>(null);
+  const [diagnosing, setDiagnosing] = useState(false);
+  const [showAIDiagnosis, setShowAIDiagnosis] = useState(false);
 
   // Load storage statistics
   const loadStats = useCallback(async () => {
@@ -156,6 +177,107 @@ export default function StoragePage() {
       setMessage({ type: 'error', text: 'Failed to load database analysis' });
     } finally {
       setAnalyzingDb(false);
+    }
+  }, []);
+
+  // Run AI Diagnosis
+  const runAIDiagnosis = useCallback(async () => {
+    setDiagnosing(true);
+    try {
+      // First ensure we have the latest data
+      const [statsRes, dbRes] = await Promise.all([
+        fetch(`${API_BASE}/api/v1/storage/stats?key=${ADMIN_KEY}`),
+        fetch(`${API_BASE}/api/v1/storage/database-analysis?key=${ADMIN_KEY}`),
+      ]);
+
+      const statsData = await statsRes.json();
+      const dbData = await dbRes.json();
+
+      // Call AI to analyze the data
+      const aiRes = await fetch(`${API_BASE}/api/v1/ai/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: 'system',
+              content: `You are a database storage optimization expert. Analyze the provided storage data and provide actionable recommendations in JSON format.
+
+Return a JSON object with this exact structure:
+{
+  "summary": "Brief overall assessment (1-2 sentences)",
+  "issues": [
+    {
+      "severity": "critical" | "warning" | "info",
+      "title": "Issue title",
+      "description": "Detailed description",
+      "recommendation": "What to do",
+      "potentialSavings": "e.g., ~50MB"
+    }
+  ],
+  "cleanupPlan": [
+    {
+      "step": 1,
+      "action": "Action description",
+      "target": "Target table/category",
+      "expectedSavings": "Expected savings"
+    }
+  ],
+  "overallScore": 0-100
+}
+
+Focus on:
+1. Tables with excessive TOAST data (like generated_images)
+2. Orphaned or stale data
+3. Tables that could benefit from VACUUM
+4. Data that can be safely cleaned up
+5. Cost optimization opportunities`,
+            },
+            {
+              role: 'user',
+              content: `Analyze this storage data and provide optimization recommendations:
+
+**Storage Statistics:**
+- Total Records: ${statsData.totalRecords}
+- Estimated Size: ${statsData.estimatedTotalSizeMB}MB
+- Categories: ${JSON.stringify(statsData.categories?.slice(0, 5), null, 2)}
+
+**Database Analysis:**
+- Total DB Size: ${dbData.totalDatabaseSizeMB}MB
+- Largest Tables: ${JSON.stringify(dbData.largestTables, null, 2)}
+
+Provide detailed analysis and actionable cleanup plan.`,
+            },
+          ],
+        }),
+      });
+
+      if (!aiRes.ok) {
+        throw new Error('AI analysis failed');
+      }
+
+      const aiData = await aiRes.json();
+      const content = aiData.response || aiData.content || '';
+
+      // Parse JSON from response
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const diagnosis = JSON.parse(jsonMatch[0]) as AIDiagnosis;
+        setAiDiagnosis(diagnosis);
+        setShowAIDiagnosis(true);
+        setStats(statsData);
+        setDbAnalysis(dbData);
+      } else {
+        throw new Error('Could not parse AI response');
+      }
+    } catch (error) {
+      console.error('AI Diagnosis failed:', error);
+      setMessage({
+        type: 'error',
+        text: 'AI diagnosis failed. Please try again.',
+      });
+    } finally {
+      setDiagnosing(false);
     }
   }, []);
 
@@ -353,6 +475,18 @@ export default function StoragePage() {
               Analyze DB
             </button>
             <button
+              onClick={runAIDiagnosis}
+              disabled={diagnosing}
+              className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:from-purple-600 hover:to-pink-600 disabled:opacity-50"
+            >
+              {diagnosing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              AI Diagnosis
+            </button>
+            <button
               onClick={handleFullCleanup}
               disabled={cleaning !== null}
               className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-red-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:from-orange-600 hover:to-red-600 disabled:opacity-50"
@@ -418,6 +552,166 @@ export default function StoragePage() {
                 {stats.totalCategories}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* AI Diagnosis Results */}
+        {showAIDiagnosis && aiDiagnosis && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+                <Sparkles className="h-5 w-5 text-purple-600" />
+                AI Storage Diagnosis
+              </h2>
+              <button
+                onClick={() => setShowAIDiagnosis(false)}
+                className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-200"
+              >
+                Hide
+              </button>
+            </div>
+
+            {/* Overall Score */}
+            <div className="rounded-xl bg-gradient-to-r from-purple-500 to-pink-600 p-5 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium opacity-80">
+                    Health Score
+                  </div>
+                  <div className="mt-1 text-4xl font-bold">
+                    {aiDiagnosis.overallScore}/100
+                  </div>
+                </div>
+                <div
+                  className={`flex h-16 w-16 items-center justify-center rounded-full ${
+                    aiDiagnosis.overallScore >= 80
+                      ? 'bg-green-400/30'
+                      : aiDiagnosis.overallScore >= 50
+                        ? 'bg-yellow-400/30'
+                        : 'bg-red-400/30'
+                  }`}
+                >
+                  {aiDiagnosis.overallScore >= 80 ? (
+                    <CheckCircle className="h-8 w-8" />
+                  ) : aiDiagnosis.overallScore >= 50 ? (
+                    <AlertTriangle className="h-8 w-8" />
+                  ) : (
+                    <AlertTriangle className="h-8 w-8" />
+                  )}
+                </div>
+              </div>
+              <p className="mt-3 text-sm opacity-90">{aiDiagnosis.summary}</p>
+            </div>
+
+            {/* Issues */}
+            {aiDiagnosis.issues.length > 0 && (
+              <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
+                <h3 className="mb-4 font-semibold text-gray-900">
+                  Detected Issues ({aiDiagnosis.issues.length})
+                </h3>
+                <div className="space-y-3">
+                  {aiDiagnosis.issues.map((issue, idx) => (
+                    <div
+                      key={idx}
+                      className={`rounded-lg border-l-4 p-4 ${
+                        issue.severity === 'critical'
+                          ? 'border-red-500 bg-red-50'
+                          : issue.severity === 'warning'
+                            ? 'border-yellow-500 bg-yellow-50'
+                            : 'border-blue-500 bg-blue-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <h4
+                          className={`font-medium ${
+                            issue.severity === 'critical'
+                              ? 'text-red-800'
+                              : issue.severity === 'warning'
+                                ? 'text-yellow-800'
+                                : 'text-blue-800'
+                          }`}
+                        >
+                          {issue.title}
+                        </h4>
+                        {issue.potentialSavings && (
+                          <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-gray-600">
+                            Save {issue.potentialSavings}
+                          </span>
+                        )}
+                      </div>
+                      <p
+                        className={`mt-1 text-sm ${
+                          issue.severity === 'critical'
+                            ? 'text-red-700'
+                            : issue.severity === 'warning'
+                              ? 'text-yellow-700'
+                              : 'text-blue-700'
+                        }`}
+                      >
+                        {issue.description}
+                      </p>
+                      <p
+                        className={`mt-2 text-sm font-medium ${
+                          issue.severity === 'critical'
+                            ? 'text-red-800'
+                            : issue.severity === 'warning'
+                              ? 'text-yellow-800'
+                              : 'text-blue-800'
+                        }`}
+                      >
+                        → {issue.recommendation}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Cleanup Plan */}
+            {aiDiagnosis.cleanupPlan.length > 0 && (
+              <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
+                <h3 className="mb-4 font-semibold text-gray-900">
+                  Recommended Cleanup Plan
+                </h3>
+                <div className="space-y-2">
+                  {aiDiagnosis.cleanupPlan.map((step) => (
+                    <div
+                      key={step.step}
+                      className="flex items-center gap-4 rounded-lg bg-gray-50 p-3"
+                    >
+                      <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 text-sm font-bold text-purple-600">
+                        {step.step}
+                      </span>
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">
+                          {step.action}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Target: {step.target}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
+                          {step.expectedSavings}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={handleFullCleanup}
+                  disabled={cleaning !== null}
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2.5 text-sm font-medium text-white transition-all hover:from-purple-600 hover:to-pink-600 disabled:opacity-50"
+                >
+                  {cleaning === 'all' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Zap className="h-4 w-4" />
+                  )}
+                  Execute Cleanup Plan
+                </button>
+              </div>
+            )}
           </div>
         )}
 
