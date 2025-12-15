@@ -969,8 +969,8 @@ export default function ConfigPage() {
       {/* Add Source Modal */}
       {showAddSourceModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl">
+            <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
                   Add{' '}
@@ -1002,7 +1002,7 @@ export default function ConfigPage() {
               </button>
             </div>
 
-            <div className="space-y-6 p-6">
+            <div className="flex-1 space-y-6 overflow-y-auto p-6">
               {/* Templates */}
               {SOURCE_TEMPLATES[showAddSourceModal] &&
                 SOURCE_TEMPLATES[showAddSourceModal].length > 0 && (
@@ -1223,7 +1223,7 @@ export default function ConfigPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+            <div className="flex flex-shrink-0 items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
               <button
                 onClick={() => {
                   setShowAddSourceModal(null);
