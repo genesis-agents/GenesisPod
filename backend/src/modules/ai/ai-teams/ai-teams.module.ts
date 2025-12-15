@@ -11,6 +11,10 @@ import { ContextRouterService } from "./context-router.service";
 import { TeamMissionService } from "./team-mission.service";
 import { UrlParserService } from "./url-parser.service";
 import { ContentExtractionService } from "./content-extraction.service";
+import { AiResponseService } from "./ai-response.service";
+import { TopicMembershipService } from "./topic-membership.service";
+import { TopicPublicService } from "./topic-public.service";
+import { TopicForwardBookmarkService } from "./topic-forward-bookmark.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiCoreModule } from "../ai-core/ai-core.module";
 
@@ -25,6 +29,10 @@ import { AiCoreModule } from "../ai-core/ai-core.module";
     TeamMissionService,
     UrlParserService,
     ContentExtractionService,
+    AiResponseService,
+    TopicMembershipService,
+    TopicPublicService,
+    TopicForwardBookmarkService,
   ],
   exports: [
     AiTeamsService,
@@ -33,6 +41,10 @@ import { AiCoreModule } from "../ai-core/ai-core.module";
     TeamMissionService,
     UrlParserService,
     ContentExtractionService,
+    AiResponseService,
+    TopicMembershipService,
+    TopicPublicService,
+    TopicForwardBookmarkService,
   ],
 })
 export class AiTeamsModule {}

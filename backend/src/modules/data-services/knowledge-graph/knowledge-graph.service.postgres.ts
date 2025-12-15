@@ -89,4 +89,49 @@ export class KnowledgeGraphService {
   }> {
     return this.graphService.buildGraphForAllResources();
   }
+
+  /**
+   * 从资源移除关联节点（标签、分类或作者）
+   */
+  async unlinkNode(
+    resourceId: string,
+    nodeType: "tag" | "category" | "author",
+    nodeName: string,
+  ): Promise<{ success: boolean; message: string }> {
+    await this.graphService.unlinkNode(resourceId, nodeType, nodeName);
+    return {
+      success: true,
+      message: `Successfully unlinked ${nodeType} "${nodeName}" from resource ${resourceId}`,
+    };
+  }
+
+  /**
+   * 从资源移除标签
+   */
+  async unlinkTag(
+    resourceId: string,
+    tagName: string,
+  ): Promise<{ success: boolean; message: string }> {
+    return this.unlinkNode(resourceId, "tag", tagName);
+  }
+
+  /**
+   * 从资源移除分类
+   */
+  async unlinkCategory(
+    resourceId: string,
+    categoryName: string,
+  ): Promise<{ success: boolean; message: string }> {
+    return this.unlinkNode(resourceId, "category", categoryName);
+  }
+
+  /**
+   * 从资源移除作者
+   */
+  async unlinkAuthor(
+    resourceId: string,
+    authorName: string,
+  ): Promise<{ success: boolean; message: string }> {
+    return this.unlinkNode(resourceId, "author", authorName);
+  }
 }

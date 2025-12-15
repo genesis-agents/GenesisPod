@@ -3,26 +3,29 @@
  * 用于监控AI Office的性能指标并提供优化建议
  */
 
+// 性能指标元数据类型
+export type MetricMetadata = Record<string, string | number | boolean>;
+
 // 性能指标接口
 export interface PerformanceMetric {
   name: string;
   duration: number;
   timestamp: number;
-  metadata?: Record<string, any>;
+  metadata?: MetricMetadata;
 }
 
 // 性能监控器类
 class PerformanceMonitor {
   private metrics: PerformanceMetric[] = [];
-  private marks: Map<string, number> = new Map();
+  private marks: Map<string, number | string> = new Map();
 
   /**
    * 开始性能测量
    */
-  start(name: string, metadata?: Record<string, any>): void {
+  start(name: string, metadata?: MetricMetadata): void {
     this.marks.set(name, performance.now());
     if (metadata) {
-      this.marks.set(`${name}_metadata`, metadata as any);
+      this.marks.set(`${name}_metadata`, JSON.stringify(metadata));
     }
   }
 
@@ -31,15 +34,15 @@ class PerformanceMonitor {
    */
   end(name: string): number {
     const startTime = this.marks.get(name);
-    if (!startTime) {
+    if (startTime === undefined || typeof startTime !== 'number') {
       console.warn(`Performance mark "${name}" not found`);
       return 0;
     }
 
     const duration = performance.now() - startTime;
-    const metadata = this.marks.get(`${name}_metadata`) as
-      | Record<string, any>
-      | undefined;
+    const metadataStr = this.marks.get(`${name}_metadata`);
+    const metadata: MetricMetadata | undefined =
+      typeof metadataStr === 'string' ? JSON.parse(metadataStr) : undefined;
 
     const metric: PerformanceMetric = {
       name,
@@ -192,6 +195,17 @@ export function throttle<T extends (...args: any[]) => any>(
   };
 }
 
+// Chrome-specific memory API type
+interface PerformanceMemory {
+  usedJSHeapSize: number;
+  totalJSHeapSize: number;
+  jsHeapSizeLimit: number;
+}
+
+interface PerformanceWithMemory extends Performance {
+  memory?: PerformanceMemory;
+}
+
 /**
  * 内存使用情况检查
  */
@@ -205,7 +219,8 @@ export function checkMemoryUsage(): {
     return null;
   }
 
-  const memory = (performance as any).memory;
+  const perf = performance as PerformanceWithMemory;
+  const memory = perf.memory;
   if (!memory) {
     return null;
   }
@@ -284,6 +299,21 @@ export async function batchProcess<T, R>(
   return results;
 }
 
+// requestIdleCallback type definitions
+interface IdleDeadline {
+  readonly didTimeout: boolean;
+  timeRemaining(): number;
+}
+
+type IdleRequestCallback = (deadline: IdleDeadline) => void;
+
+interface WindowWithIdleCallback {
+  requestIdleCallback?: (
+    callback: IdleRequestCallback,
+    options?: { timeout: number }
+  ) => number;
+}
+
 /**
  * 长任务分片执行
  * 使用requestIdleCallback优化长时间运行的任务
@@ -294,8 +324,9 @@ export function scheduleIdleTask(
 ): void {
   if (typeof window === 'undefined') return;
 
-  if ('requestIdleCallback' in window) {
-    (window as any).requestIdleCallback(task, { timeout });
+  const win = window as WindowWithIdleCallback;
+  if (win.requestIdleCallback) {
+    win.requestIdleCallback(() => task(), { timeout });
   } else {
     // Fallback to setTimeout
     setTimeout(task, 0);

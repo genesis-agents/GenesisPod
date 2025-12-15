@@ -534,55 +534,8 @@ export default function ResourcePage() {
                 )}
               </button>
 
-              {/* Similar Tab */}
-              <button
-                onClick={() => setActiveTab('similar')}
-                className={`group flex h-10 w-10 items-center justify-center rounded-lg transition-all ${
-                  activeTab === 'similar'
-                    ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md shadow-red-500/20'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:shadow'
-                }`}
-                title="Similar Resources"
-              >
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-                  />
-                </svg>
-              </button>
-
-              {/* Image Tab - New! */}
-              <button
-                onClick={() => setActiveTab('image')}
-                className={`group flex h-10 w-10 items-center justify-center rounded-lg transition-all ${
-                  activeTab === 'image'
-                    ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md shadow-red-500/20'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:shadow'
-                }`}
-                title="Generate Images"
-              >
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-              </button>
+              {/* Similar Tab - Hidden until feature is implemented */}
+              {/* Image Tab - Hidden until feature is implemented */}
             </div>
 
             <div className="p-6">
@@ -778,57 +731,8 @@ export default function ResourcePage() {
                 <CommentsList resourceId={resource.id} />
               )}
 
-              {/* Similar Tab Content */}
-              {activeTab === 'similar' && (
-                <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-gray-300">
-                  <div className="text-center">
-                    <svg
-                      className="mx-auto h-12 w-12 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-                      />
-                    </svg>
-                    <p className="mt-2 text-sm text-gray-500">
-                      Similar resources coming soon
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Image Tab Content */}
-              {activeTab === 'image' && (
-                <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-gray-300">
-                  <div className="text-center">
-                    <svg
-                      className="mx-auto h-12 w-12 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                      />
-                    </svg>
-                    <p className="mt-2 text-sm text-gray-500">
-                      Text-to-image generation coming soon
-                    </p>
-                    <p className="mt-1 text-xs text-gray-400">
-                      Generate diagrams, visualizations, and illustrations from
-                      text
-                    </p>
-                  </div>
-                </div>
-              )}
+              {/* Similar Tab Content - Hidden until feature is implemented */}
+              {/* Image Tab Content - Hidden until feature is implemented */}
             </div>
           </div>
         </div>

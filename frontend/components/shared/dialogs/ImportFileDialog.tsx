@@ -9,7 +9,6 @@ import {
   Upload,
   FileText,
   File,
-  FileImage,
 } from 'lucide-react';
 
 type ResourceType =
@@ -60,14 +59,8 @@ const RESOURCE_TYPE_DISPLAY = {
 };
 
 const SUPPORTED_FORMATS = [
-  { ext: '.pdf', name: 'PDF Documents', icon: FileText },
-  { ext: '.html/.htm', name: 'HTML Files', icon: File },
-  {
-    ext: '.png/.jpg',
-    name: 'Images (coming soon)',
-    icon: FileImage,
-    disabled: true,
-  },
+  { ext: '.pdf', name: 'PDF Documents', icon: FileText, disabled: false },
+  { ext: '.html/.htm', name: 'HTML Files', icon: File, disabled: false },
 ];
 
 export function ImportFileDialog({

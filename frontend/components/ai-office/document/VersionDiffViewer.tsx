@@ -34,8 +34,14 @@ export default function VersionDiffViewer({
   // 计算版本对比结果
   const comparison: VersionComparison | null = useMemo(() => {
     try {
-      const oldContent = oldVersion.content.markdown || '';
-      const newContent = newVersion.content.markdown || '';
+      const oldContent =
+        'markdown' in oldVersion.content
+          ? oldVersion.content.markdown || ''
+          : '';
+      const newContent =
+        'markdown' in newVersion.content
+          ? newVersion.content.markdown || ''
+          : '';
 
       const oldMeta = {
         id: oldVersion.id,

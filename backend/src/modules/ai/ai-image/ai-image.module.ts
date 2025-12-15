@@ -7,6 +7,10 @@ import { AiImageAnalyticsService } from "./ai-image-analytics.service";
 import { InfographicTemplateService } from "./infographic-template.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { StorageModule } from "../../core/storage/storage.module";
+// Refactored AI Image Services
+import { PromptEnhancementService } from "./prompt-enhancement.service";
+import { ImageGenerationService } from "./image-generation.service";
+import { ImageStorageService } from "./image-storage.service";
 // DeepDive Engine v2.1 新增服务和控制器
 import { AgentExecutorService } from "./agent-executor.service";
 import { BrandKitService } from "./brand-kit.service";
@@ -38,6 +42,10 @@ import { AiOfficeModule } from "../ai-office/ai-office.module";
     AiImageService,
     AiImageAnalyticsService,
     InfographicTemplateService,
+    // Refactored services
+    PromptEnhancementService,
+    ImageGenerationService,
+    ImageStorageService,
     // DeepDive Engine v2.1 新增
     AgentExecutorService,
     BrandKitService,
@@ -47,6 +55,10 @@ import { AiOfficeModule } from "../ai-office/ai-office.module";
     AiImageService,
     AiImageAnalyticsService,
     InfographicTemplateService,
+    // Refactored services
+    PromptEnhancementService,
+    ImageGenerationService,
+    ImageStorageService,
     // DeepDive Engine v2.1 新增
     AgentExecutorService,
     BrandKitService,

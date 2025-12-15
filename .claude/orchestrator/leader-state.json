@@ -1,0 +1,21 @@
+{
+  "leader_session_id": null,
+  "status": "initialized",
+  "started_at": null,
+  "last_heartbeat": null,
+  "current_cycle": 0,
+  "running_tasks": [],
+  "worker_status": {
+    "monitoring": "ready",
+    "merge-to-main": "ready",
+    "docs-specialist": "ready"
+  },
+  "statistics": {
+    "cycles_completed": 0,
+    "tasks_started": 0,
+    "tasks_completed": 0,
+    "tasks_failed": 0,
+    "total_runtime_seconds": 0
+  },
+  "last_error": null
+}

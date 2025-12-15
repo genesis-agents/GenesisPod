@@ -1,0 +1,164 @@
+/**
+ * Utility functions for Explore component
+ */
+
+import type { Resource, AIInsight } from './types';
+
+/**
+ * Extract base64 images from markdown content
+ */
+export function extractImagesFromMarkdown(content: string): {
+  images: Array<{ alt: string; src: string }>;
+  textContent: string;
+} {
+  const imageRegex =
+    /!\[([^\]]*)\]\s*\(\s*(data:image\/[a-zA-Z]+;base64,[A-Za-z0-9+/=]+)\s*\)/g;
+  const images: Array<{ alt: string; src: string }> = [];
+  let textContent = content;
+
+  let match;
+  while ((match = imageRegex.exec(content)) !== null) {
+    images.push({
+      alt: match[1] || 'Generated Image',
+      src: match[2],
+    });
+  }
+
+  textContent = content.replace(imageRegex, '').trim();
+
+  // Also try standalone base64 data
+  if (images.length === 0 && content.includes('data:image/')) {
+    const standaloneBase64Regex =
+      /(data:image\/[a-zA-Z]+;base64,[A-Za-z0-9+/=]+)/g;
+    let standaloneMatch;
+    while ((standaloneMatch = standaloneBase64Regex.exec(content)) !== null) {
+      images.push({
+        alt: 'Generated Image',
+        src: standaloneMatch[1],
+      });
+    }
+    textContent = content
+      .replace(standaloneBase64Regex, '')
+      .replace(/!\[[^\]]*\]\s*\(\s*\)/g, '')
+      .replace(/!\[[^\]]*\]/g, '')
+      .trim();
+  }
+
+  return { images, textContent };
+}
+
+/**
+ * Extract YouTube video ID from URL
+ */
+export function extractYouTubeVideoId(url: string): string | null {
+  if (!url) return null;
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
+}
+
+/**
+ * Extract arXiv paper ID from URL
+ */
+export function extractArxivId(url: string): string | null {
+  if (!url) return null;
+  // Match arxiv.org/abs/2312.12345 or arxiv.org/pdf/2312.12345
+  const match = url.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Get resource thumbnail URL based on resource type
+ * Priority: thumbnailUrl > dynamically generated > metadata.imageUrl
+ */
+export function getResourceThumbnail(resource: Resource): string | null {
+  // 1. If thumbnailUrl exists, return it
+  if (resource.thumbnailUrl) {
+    return resource.thumbnailUrl;
+  }
+
+  // 2. YouTube video - build thumbnail URL from sourceUrl
+  if (resource.type === 'YOUTUBE' || resource.type === 'YOUTUBE_VIDEO') {
+    const videoId = extractYouTubeVideoId(resource.sourceUrl);
+    if (videoId) {
+      // Use mqdefault (320x180) for list thumbnails, more reliable than maxresdefault
+      return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+    }
+  }
+
+  // 3. arXiv paper - use ar5iv thumbnail service
+  if (resource.type === 'PAPER' && resource.sourceUrl?.includes('arxiv.org')) {
+    const arxivId = extractArxivId(resource.sourceUrl);
+    if (arxivId) {
+      // ar5iv provides HTML rendered version, can get first page preview
+      // or use arxiv-vanity's thumbnail service
+      return `https://arxiv.org/html/${arxivId}/extraction/figure/page_001_figure_001.png`;
+    }
+  }
+
+  // 4. Get imageUrl from metadata (og:image for blogs/news)
+  if (resource.metadata?.imageUrl) {
+    return resource.metadata.imageUrl;
+  }
+
+  // 5. No available thumbnail
+  return null;
+}
+
+/**
+ * Parse markdown format to insights array
+ */
+export function parseMarkdownToInsights(markdown: string): AIInsight[] {
+  const insights: AIInsight[] = [];
+
+  // Split by #### headings (numbered items)
+  const sections = markdown.split(/####\s+\d+\.\s+/);
+
+  for (let i = 1; i < sections.length; i++) {
+    const section = sections[i].trim();
+    if (!section) continue;
+
+    // Extract title (first line before newline or **)
+    const titleMatch = section.match(/^([^\n*]+)/);
+    const title = titleMatch ? titleMatch[1].trim() : '未命名';
+
+    // Extract importance if present
+    let importance: 'high' | 'medium' | 'low' = 'medium';
+    if (
+      section.includes('重要性：高') ||
+      section.includes('importance: high') ||
+      section.includes('**重要性：高**')
+    ) {
+      importance = 'high';
+    } else if (
+      section.includes('重要性：低') ||
+      section.includes('importance: low') ||
+      section.includes('**重要性：低**')
+    ) {
+      importance = 'low';
+    }
+
+    // Extract description (text after the importance line or after first newline)
+    let description = section;
+    // Remove title from description
+    description = description.replace(/^([^\n*]+)/, '');
+    // Remove importance markers
+    description = description.replace(/\*\*重要性：[^*]+\*\*/g, '').trim();
+    description = description.replace(/重要性：[^\n]+/g, '').trim();
+    // Take first few lines as description
+    const lines = description.split('\n').filter((line) => line.trim());
+    description = lines.slice(0, 3).join(' ').substring(0, 200);
+
+    if (title && description) {
+      insights.push({ title, description, importance });
+    }
+  }
+
+  return insights.length > 0 ? insights : [];
+}

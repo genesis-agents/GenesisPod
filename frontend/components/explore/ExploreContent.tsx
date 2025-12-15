@@ -20,98 +20,6 @@ import remarkGfm from 'remark-gfm';
 import ReportWorkspace from '@/components/features/ReportWorkspace';
 import ResourceThumbnail from '@/components/explore/ResourceThumbnail';
 import { InsightChip } from '@/components/explore/InsightBadge';
-
-// Extract base64 images from markdown content
-function extractImagesFromMarkdown(content: string): {
-  images: Array<{ alt: string; src: string }>;
-  textContent: string;
-} {
-  const imageRegex =
-    /!\[([^\]]*)\]\s*\(\s*(data:image\/[a-zA-Z]+;base64,[A-Za-z0-9+/=]+)\s*\)/g;
-  const images: Array<{ alt: string; src: string }> = [];
-  let textContent = content;
-
-  let match;
-  while ((match = imageRegex.exec(content)) !== null) {
-    images.push({
-      alt: match[1] || 'Generated Image',
-      src: match[2],
-    });
-  }
-
-  textContent = content.replace(imageRegex, '').trim();
-
-  // Also try standalone base64 data
-  if (images.length === 0 && content.includes('data:image/')) {
-    const standaloneBase64Regex =
-      /(data:image\/[a-zA-Z]+;base64,[A-Za-z0-9+/=]+)/g;
-    let standaloneMatch;
-    while ((standaloneMatch = standaloneBase64Regex.exec(content)) !== null) {
-      images.push({
-        alt: 'Generated Image',
-        src: standaloneMatch[1],
-      });
-    }
-    textContent = content
-      .replace(standaloneBase64Regex, '')
-      .replace(/!\[[^\]]*\]\s*\(\s*\)/g, '')
-      .replace(/!\[[^\]]*\]/g, '')
-      .trim();
-  }
-
-  return { images, textContent };
-}
-
-// Base64 Image Component
-function Base64Image({ src, alt }: { src: string; alt: string }) {
-  const [imgError, setImgError] = useState<string | null>(null);
-  const [imgLoaded, setImgLoaded] = useState(false);
-
-  if (imgError) {
-    return (
-      <div className="my-3 rounded-lg border border-red-200 bg-red-50 p-4 text-center">
-        <span className="block text-red-600">Image failed to load</span>
-        <span className="mt-1 block text-xs text-gray-500">{imgError}</span>
-        <a
-          href={src}
-          download={`generated-image-${Date.now()}.png`}
-          className="mt-2 inline-block text-sm text-blue-600 hover:underline"
-        >
-          Download Image
-        </a>
-      </div>
-    );
-  }
-
-  return (
-    <div className="my-3">
-      {!imgLoaded && (
-        <div className="flex h-48 items-center justify-center rounded-lg bg-gray-100">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
-        </div>
-      )}
-      <img
-        src={src}
-        alt={alt}
-        className={`max-w-full rounded-lg shadow-md ${imgLoaded ? 'block' : 'hidden'}`}
-        onLoad={() => setImgLoaded(true)}
-        onError={() => {
-          const sizeKB = Math.round(src.length / 1024);
-          setImgError(`Failed to decode (${sizeKB} KB)`);
-        }}
-      />
-      {imgLoaded && (
-        <a
-          href={src}
-          download={`generated-image-${Date.now()}.png`}
-          className="mt-2 inline-block text-sm text-blue-600 hover:underline"
-        >
-          Download Image
-        </a>
-      )}
-    </div>
-  );
-}
 import { useReportWorkspace } from '@/hooks/useReportWorkspace';
 import FilterPanel from '@/components/features/FilterPanel';
 import { ImportUrlDialog } from '@/components/shared/dialogs/ImportUrlDialog';
@@ -130,179 +38,29 @@ import { ThumbsUp, TrendingUp, Clock, Star, ChevronDown } from 'lucide-react';
 import { useAIModels } from '@/hooks/useAIModels';
 import { useImageSourceStore } from '@/stores/imageSourceStore';
 
-interface Resource {
-  id: string;
-  type: string;
-  title: string;
-  abstract?: string;
-  aiSummary?: string;
-  keyInsights?: AIInsight[];
-  methodology?: string;
-  publishedAt: string;
-  sourceUrl: string;
-  pdfUrl?: string;
-  thumbnailUrl?: string;
-  authors?: Array<{ username?: string; platform?: string; name?: string }>;
-  categories?: string[];
-  qualityScore?: string;
-  upvoteCount?: number;
-  viewCount?: number;
-  commentCount?: number;
-  // Source information for display
-  metadata?: {
-    feedTitle?: string;
-    channelName?: string;
-    sourceName?: string;
-    imageUrl?: string;
-    [key: string]: any;
-  };
-  sourceType?: string;
-  // GitHub/原始数据增强
-  rawData?: {
-    readme?: string;
-    description?: string;
-    stars?: number;
-    forks?: number;
-    language?: string;
-    languages?: Record<string, number>;
-    contributors?: Array<any>;
-    [key: string]: any;
-  };
-}
-
-/**
- * 动态获取资源缩略图URL
- * 优先级：thumbnailUrl > 动态生成 > metadata.imageUrl
- */
-function getResourceThumbnail(resource: Resource): string | null {
-  // 1. 如果已有thumbnailUrl，直接返回
-  if (resource.thumbnailUrl) {
-    return resource.thumbnailUrl;
-  }
-
-  // 2. YouTube视频 - 从sourceUrl构建缩略图URL
-  if (resource.type === 'YOUTUBE' || resource.type === 'YOUTUBE_VIDEO') {
-    const videoId = extractYouTubeVideoId(resource.sourceUrl);
-    if (videoId) {
-      // 使用mqdefault (320x180) 作为列表缩略图，比maxresdefault更可靠
-      return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
-    }
-  }
-
-  // 3. arXiv论文 - 使用ar5iv缩略图服务
-  if (resource.type === 'PAPER' && resource.sourceUrl?.includes('arxiv.org')) {
-    const arxivId = extractArxivId(resource.sourceUrl);
-    if (arxivId) {
-      // ar5iv提供HTML渲染版本，可以获取第一页预览
-      // 或使用arxiv-vanity的缩略图服务
-      return `https://arxiv.org/html/${arxivId}/extraction/figure/page_001_figure_001.png`;
-    }
-  }
-
-  // 4. 从metadata中获取imageUrl（博客/新闻的og:image）
-  if (resource.metadata?.imageUrl) {
-    return resource.metadata.imageUrl;
-  }
-
-  // 5. 没有可用的缩略图
-  return null;
-}
-
-/**
- * 从YouTube URL提取视频ID
- */
-function extractYouTubeVideoId(url: string): string | null {
-  if (!url) return null;
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
-    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
-  ];
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match) return match[1];
-  }
-  return null;
-}
-
-/**
- * 从arXiv URL提取论文ID
- */
-function extractArxivId(url: string): string | null {
-  if (!url) return null;
-  // 匹配 arxiv.org/abs/2312.12345 或 arxiv.org/pdf/2312.12345
-  const match = url.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/);
-  return match ? match[1] : null;
-}
-
-interface SearchSuggestion {
-  id: string;
-  title: string;
-  type: string;
-  abstract: string;
-  highlight: string;
-}
-
-interface AIMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-}
-
-interface AIInsight {
-  title: string;
-  description: string;
-  importance: 'high' | 'medium' | 'low';
-}
-
-// Helper function to parse markdown format to insights array
-function parseMarkdownToInsights(markdown: string): AIInsight[] {
-  const insights: AIInsight[] = [];
-
-  // Split by #### headings (numbered items)
-  const sections = markdown.split(/####\s+\d+\.\s+/);
-
-  for (let i = 1; i < sections.length; i++) {
-    const section = sections[i].trim();
-    if (!section) continue;
-
-    // Extract title (first line before newline or **)
-    const titleMatch = section.match(/^([^\n*]+)/);
-    const title = titleMatch ? titleMatch[1].trim() : '未命名';
-
-    // Extract importance if present
-    let importance: 'high' | 'medium' | 'low' = 'medium';
-    if (
-      section.includes('重要性：高') ||
-      section.includes('importance: high') ||
-      section.includes('**重要性：高**')
-    ) {
-      importance = 'high';
-    } else if (
-      section.includes('重要性：低') ||
-      section.includes('importance: low') ||
-      section.includes('**重要性：低**')
-    ) {
-      importance = 'low';
-    }
-
-    // Extract description (text after the importance line or after first newline)
-    let description = section;
-    // Remove title from description
-    description = description.replace(/^([^\n*]+)/, '');
-    // Remove importance markers
-    description = description.replace(/\*\*重要性：[^*]+\*\*/g, '').trim();
-    description = description.replace(/重要性：[^\n]+/g, '').trim();
-    // Take first few lines as description
-    const lines = description.split('\n').filter((line) => line.trim());
-    description = lines.slice(0, 3).join(' ').substring(0, 200);
-
-    if (title && description) {
-      insights.push({ title, description, importance });
-    }
-  }
-
-  return insights.length > 0 ? insights : [];
-}
+// Import extracted modules
+import type { Resource, SearchSuggestion, AIMessage, AIInsight } from './types';
+import { PAGE_SIZE, FILE_RESTRICTIONS, TYPE_MAP } from './constants';
+import {
+  extractImagesFromMarkdown,
+  extractYouTubeVideoId,
+  extractArxivId,
+  getResourceThumbnail,
+  parseMarkdownToInsights,
+} from './utils';
+import { Base64Image } from './Base64Image';
+import {
+  getSourceName,
+  getSourceBadgeColor,
+  convertToAIOfficeResource,
+} from './resourceHelpers';
+import {
+  saveAIAnalysisToDatabase,
+  generateSummary as generateSummaryHelper,
+  generateInsights as generateInsightsHelper,
+} from './aiHelpers';
+import { useBookmarks } from './hooks/useBookmarks';
+import { usePDFText } from './hooks/usePDFText';
 
 function HomeContent() {
   const router = useRouter();
@@ -315,7 +73,6 @@ function HomeContent() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
-  const PAGE_SIZE = 20;
 
   // Infinite scroll ref
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
@@ -366,84 +123,6 @@ function HomeContent() {
     }
   }, [toast]);
 
-  // Helper function to extract source name from resource
-  const getSourceName = (resource: Resource): string | null => {
-    // Try metadata fields first
-    if (resource.metadata?.feedTitle) {
-      return resource.metadata.feedTitle;
-    }
-    if (resource.metadata?.channelName) {
-      return resource.metadata.channelName;
-    }
-    if (resource.metadata?.sourceName) {
-      return resource.metadata.sourceName;
-    }
-    // Try authors (RSS feeds store channel name in author)
-    if (resource.authors && resource.authors.length > 0) {
-      const author = resource.authors[0];
-      if (author.name) return author.name;
-      if (author.username) return author.username;
-    }
-    // Try to extract from sourceUrl domain
-    if (resource.sourceUrl) {
-      try {
-        const url = new URL(resource.sourceUrl);
-        const hostname = url.hostname.replace('www.', '');
-        // Known source domain mappings
-        const domainMap: Record<string, string> = {
-          'youtube.com': 'YouTube',
-          'arxiv.org': 'arXiv',
-          'github.com': 'GitHub',
-          'medium.com': 'Medium',
-          'news.ycombinator.com': 'Hacker News',
-          'substack.com': 'Substack',
-        };
-        if (domainMap[hostname]) {
-          return domainMap[hostname];
-        }
-        // Return cleaned domain name
-        return hostname.split('.')[0];
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  };
-
-  // Get source badge color based on source type or name
-  const getSourceBadgeColor = (
-    sourceName: string,
-    resourceType: string
-  ): string => {
-    const name = sourceName.toLowerCase();
-    if (
-      name.includes('youtube') ||
-      resourceType === 'YOUTUBE_VIDEO' ||
-      resourceType === 'YOUTUBE'
-    ) {
-      return 'bg-red-100 text-red-700';
-    }
-    if (name.includes('arxiv') || resourceType === 'PAPER') {
-      return 'bg-orange-100 text-orange-700';
-    }
-    if (name.includes('github') || resourceType === 'PROJECT') {
-      return 'bg-gray-100 text-gray-700';
-    }
-    if (name.includes('hacker') || resourceType === 'NEWS') {
-      return 'bg-amber-100 text-amber-700';
-    }
-    if (resourceType === 'POLICY') {
-      return 'bg-blue-100 text-blue-700';
-    }
-    if (resourceType === 'REPORT') {
-      return 'bg-purple-100 text-purple-700';
-    }
-    if (resourceType === 'BLOG') {
-      return 'bg-green-100 text-green-700';
-    }
-    return 'bg-gray-100 text-gray-600';
-  };
-
   const { models: allAiModels } = useAIModels();
   // 只显示 CHAT 类型的模型（或 MULTIMODAL，因为它们也支持文本聊天）
   const aiModels = allAiModels.filter(
@@ -460,8 +139,8 @@ function HomeContent() {
     }
   }, [aiModels, aiModel]);
 
-  // PDF text extraction state
-  const [pdfText, setPdfText] = useState<string>('');
+  // PDF text extraction - using custom hook
+  const pdfText = usePDFText(selectedResource);
 
   // Article content from ReaderView for AI analysis
   const [articleTextContent, setArticleTextContent] = useState<string>('');
@@ -491,41 +170,6 @@ function HomeContent() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // File type restrictions per tab
-  const FILE_RESTRICTIONS: Record<
-    string,
-    { accept: string; maxSize: number; label: string }
-  > = {
-    papers: {
-      accept: '.pdf,application/pdf',
-      maxSize: 50 * 1024 * 1024,
-      label: 'PDF文件',
-    },
-    blogs: {
-      accept: 'image/*',
-      maxSize: 10 * 1024 * 1024,
-      label: '图片',
-    },
-    reports: {
-      accept:
-        '.pdf,.doc,.docx,.xlsx,.pptx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      maxSize: 100 * 1024 * 1024,
-      label: '报告文件 (PDF/Word/Excel/PPT)',
-    },
-    youtube: {
-      accept: '.srt,.vtt,text/plain',
-      maxSize: 5 * 1024 * 1024,
-      label: '字幕文件',
-    },
-    news: { accept: 'image/*', maxSize: 10 * 1024 * 1024, label: '图片' },
-    policy: {
-      accept:
-        '.pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      maxSize: 50 * 1024 * 1024,
-      label: '政策文件 (PDF/Word)',
-    },
-  };
-
   // Search suggestions states
   const [searchSuggestions, setSearchSuggestions] = useState<
     SearchSuggestion[]
@@ -534,11 +178,9 @@ function HomeContent() {
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
   const [searchMode, setSearchMode] = useState<'agent' | 'search'>('search');
 
-  // Bookmark states
-  const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
-  const [defaultCollectionId, setDefaultCollectionId] = useState<string | null>(
-    null
-  );
+  // Bookmark states - using custom hook
+  const { bookmarks, defaultCollectionId, isBookmarked, toggleBookmark } =
+    useBookmarks();
 
   // Upvote states
   const [upvotes, setUpvotes] = useState<Set<string>>(new Set());
@@ -555,64 +197,6 @@ function HomeContent() {
     setIsHydrated(true);
   }, []);
 
-  // Helper function to convert page Resource to AI Office Resource
-  const convertToAIOfficeResource = (
-    resource: Resource
-  ): Partial<AIOfficeResource> => {
-    const baseResource = {
-      _id: resource.id,
-      userId: 'current-user', // TODO: Get from auth
-      resourceId: resource.id,
-      status: 'collected' as const,
-      collectedAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    // Determine resource type and create appropriate structure
-    if (resource.type === 'youtube') {
-      return {
-        ...baseResource,
-        resourceType: 'youtube_video',
-        metadata: {
-          title: resource.title,
-          description: resource.abstract || '',
-          thumbnails: {
-            default: resource.thumbnailUrl || '',
-            medium: resource.thumbnailUrl || '',
-            high: resource.thumbnailUrl || '',
-          },
-        },
-        aiAnalysis: {
-          summary: resource.aiSummary || resource.abstract || '',
-        },
-      } as any;
-    } else if (resource.type === 'paper') {
-      return {
-        ...baseResource,
-        resourceType: 'academic_paper',
-        metadata: {
-          title: resource.title,
-          abstract: resource.abstract || '',
-        },
-        aiAnalysis: {
-          summary: resource.aiSummary || resource.abstract || '',
-        },
-      } as any;
-    } else {
-      return {
-        ...baseResource,
-        resourceType: 'web_page',
-        metadata: {
-          title: resource.title,
-          description: resource.abstract || '',
-        },
-        aiAnalysis: {
-          summary: resource.aiSummary || resource.abstract || '',
-        },
-      } as any;
-    }
-  };
-
   // Import states
   const [showImportUrlDialog, setShowImportUrlDialog] = useState(false);
   const [showImportFileDialog, setShowImportFileDialog] = useState(false);
@@ -620,74 +204,6 @@ function HomeContent() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
-
-  // Load bookmarks function
-  const loadBookmarks = useCallback(async () => {
-    // Only load bookmarks if user is authenticated
-    if (!user) {
-      return;
-    }
-
-    try {
-      const authHeaders = getAuthHeader();
-
-      // Get all collections
-      const response = await fetch(`${config.apiBaseUrl}/api/v1/collections`, {
-        headers: authHeaders,
-      });
-
-      if (response.ok) {
-        const collections = await response.json();
-
-        // Find or create default collection
-        let defaultCollection = collections.find(
-          (c: any) => c.name === '我的收藏'
-        );
-
-        if (!defaultCollection) {
-          // Create default collection
-          const createResponse = await fetch(
-            `${config.apiBaseUrl}/api/v1/collections`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...authHeaders,
-              },
-              body: JSON.stringify({
-                name: '我的收藏',
-                description: '默认收藏集',
-                isPublic: false,
-              }),
-            }
-          );
-
-          if (createResponse.ok) {
-            defaultCollection = await createResponse.json();
-          }
-        }
-
-        if (defaultCollection) {
-          setDefaultCollectionId(defaultCollection.id);
-
-          // Load bookmarked resource IDs
-          const bookmarkedIds = new Set<string>(
-            (defaultCollection.items || []).map(
-              (item: any) => item.resourceId as string
-            )
-          );
-          setBookmarks(bookmarkedIds);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load bookmarks:', err);
-    }
-  }, [user]);
-
-  // Load bookmarks from backend API on mount
-  useEffect(() => {
-    loadBookmarks();
-  }, [loadBookmarks]);
 
   useEffect(() => {
     fetchResources();
@@ -763,54 +279,6 @@ function HomeContent() {
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [aiMessages]);
-
-  // Extract PDF text when resource changes
-  useEffect(() => {
-    const extractPdfText = async () => {
-      if (!selectedResource || !selectedResource.pdfUrl) {
-        setPdfText('');
-        return;
-      }
-
-      try {
-        // Dynamically import PDF.js only on client side
-        const pdfjsLib = await import('pdfjs-dist');
-
-        // Configure worker - use unpkg which has latest versions
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
-
-        const pdfUrl = `${config.apiUrl}/proxy/pdf?url=${encodeURIComponent(selectedResource.pdfUrl)}`;
-
-        const loadingTask = pdfjsLib.getDocument(pdfUrl);
-        const pdf = await loadingTask.promise;
-
-        let fullText = '';
-        const maxPages = Math.min(pdf.numPages, 20); // Limit to first 20 pages
-
-        for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
-          const page = await pdf.getPage(pageNum);
-          const textContent = await page.getTextContent();
-          const pageText = textContent.items
-            .map((item: any) => item.str)
-            .join(' ');
-          fullText += pageText + '\n';
-
-          // Break if we have enough text (>15000 chars is enough for AI context)
-          if (fullText.length > 15000) {
-            break;
-          }
-        }
-
-        setPdfText(fullText.substring(0, 15000));
-        console.log('PDF text extracted:', fullText.length, 'characters');
-      } catch (error) {
-        console.error('Failed to extract PDF text:', error);
-        setPdfText('');
-      }
-    };
-
-    extractPdfText();
-  }, [selectedResource]);
 
   const fetchResources = async (loadMore = false) => {
     try {
@@ -1270,126 +738,18 @@ function HomeContent() {
     }
   };
 
-  // Helper function to save AI analysis to database
-  const saveAIAnalysisToDatabase = async (
-    resourceId: string,
-    data: {
-      aiSummary?: string;
-      keyInsights?: AIInsight[];
-      methodology?: string;
-    }
-  ) => {
-    try {
-      const res = await fetch(`${config.apiUrl}/resources/${resourceId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (res.ok) {
-        console.log('AI analysis saved to database for resource:', resourceId);
-      }
-    } catch (error) {
-      console.error('Failed to save AI analysis to database:', error);
-    }
-  };
-
-  // AI Functions - with database caching
+  // AI Functions - using imported helpers with local state
   const generateSummary = async (resource: Resource) => {
-    if (!resource) return;
-
-    // Check if we already have summary in database
-    if (resource.aiSummary) {
-      console.log('Using cached summary from database');
-      setAiSummary(resource.aiSummary);
-      return;
-    }
-
-    try {
-      setAiLoading(true);
-      // Use extracted article content if available, otherwise fallback to abstract/title
-      const content = articleTextContent || resource.abstract || resource.title;
-      console.log('Generating summary with content length:', content.length);
-
-      const res = await fetch('/api/ai-service/ai/summary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: content,
-          max_length: 200,
-          language: 'zh',
-        }),
-      });
-
-      if (!res.ok) {
-        if (res.status === 503) {
-          setAiSummary(
-            '⚠️ AI服务暂不可用\n\n请在 ai-service/.env 文件中配置以下API密钥之一：\n• GROK_API_KEY (推荐)\n• OPENAI_API_KEY\n\n配置后重启 ai-service 即可使用AI功能。'
-          );
-        } else {
-          try {
-            const error = await res.json();
-            setAiSummary(
-              `生成失败: ${error.error || error.detail || error.message || 'AI服务返回错误'}`
-            );
-          } catch {
-            setAiSummary(`生成失败: AI服务返回错误 (${res.status})`);
-          }
-        }
-        return;
-      }
-
-      const data = await res.json();
-      setAiSummary(data.summary);
-
-      // Save to database for future use
-      if (data.summary) {
-        saveAIAnalysisToDatabase(resource.id, { aiSummary: data.summary });
-      }
-    } catch (error) {
-      console.error('Failed to generate summary:', error);
-      setAiSummary(
-        '⚠️ 无法连接到AI服务\n\n请确保 ai-service 已启动：\ncd ai-service && uvicorn main:app --reload'
-      );
-    } finally {
-      setAiLoading(false);
-    }
+    await generateSummaryHelper(
+      resource,
+      articleTextContent,
+      setAiSummary,
+      setAiLoading
+    );
   };
 
   const generateInsights = async (resource: Resource) => {
-    if (!resource) return;
-
-    // Check if we already have insights in database
-    if (resource.keyInsights && resource.keyInsights.length > 0) {
-      console.log('Using cached insights from database');
-      setAiInsights(resource.keyInsights);
-      return;
-    }
-
-    try {
-      // Use extracted article content if available, otherwise fallback to abstract/title
-      const content = articleTextContent || resource.abstract || resource.title;
-      console.log('Generating insights with content length:', content.length);
-
-      const res = await fetch('/api/ai-service/ai/insights', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: content,
-          language: 'zh',
-        }),
-      });
-
-      const data = await res.json();
-      const insights = data.insights || [];
-      setAiInsights(insights);
-
-      // Save to database for future use
-      if (insights.length > 0) {
-        saveAIAnalysisToDatabase(resource.id, { keyInsights: insights });
-      }
-    } catch (error) {
-      console.error('Failed to generate insights:', error);
-    }
+    await generateInsightsHelper(resource, articleTextContent, setAiInsights);
   };
 
   // Handle article loaded from ReaderView
@@ -1852,73 +1212,6 @@ function HomeContent() {
     } finally {
       setAiLoading(false);
     }
-  };
-
-  // Bookmark functions
-  const toggleBookmark = async (resourceId: string, e?: React.MouseEvent) => {
-    if (e) {
-      e.stopPropagation();
-    }
-
-    // Check if user is logged in
-    if (!user) {
-      // Trigger Google OAuth login
-      const { loginWithGoogle } = await import('@/lib/utils/auth');
-      loginWithGoogle();
-      return;
-    }
-
-    if (!defaultCollectionId) {
-      console.error('Default collection not found');
-      return;
-    }
-
-    try {
-      const authHeaders = getAuthHeader();
-      const isCurrentlyBookmarked = bookmarks.has(resourceId);
-
-      if (isCurrentlyBookmarked) {
-        // Remove from collection
-        const response = await fetch(
-          `${config.apiBaseUrl}/api/v1/collections/${defaultCollectionId}/items/${resourceId}`,
-          {
-            method: 'DELETE',
-            headers: authHeaders,
-          }
-        );
-
-        if (response.ok) {
-          const newBookmarks = new Set(bookmarks);
-          newBookmarks.delete(resourceId);
-          setBookmarks(newBookmarks);
-        }
-      } else {
-        // Add to collection
-        const response = await fetch(
-          `${config.apiBaseUrl}/api/v1/collections/${defaultCollectionId}/items`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...authHeaders,
-            },
-            body: JSON.stringify({ resourceId }),
-          }
-        );
-
-        if (response.ok) {
-          const newBookmarks = new Set(bookmarks);
-          newBookmarks.add(resourceId);
-          setBookmarks(newBookmarks);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to toggle bookmark:', err);
-    }
-  };
-
-  const isBookmarked = (resourceId: string) => {
-    return bookmarks.has(resourceId);
   };
 
   // Upvote function

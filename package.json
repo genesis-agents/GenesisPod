@@ -44,11 +44,19 @@
     "db:seed": "cd backend && npx prisma db seed",
     "db:studio": "cd backend && npx prisma studio",
     "pre-commit": "lint-staged",
-    "validate": "npm run format:check && npm run lint && npm run type-check && npm run test"
+    "validate": "npm run format:check && npm run lint && npm run type-check && npm run test",
+    "dear": "npx ts-node scripts/orchestrator/dear.ts",
+    "task": "npx ts-node scripts/orchestrator/dear.ts",
+    "task:status": "npx ts-node scripts/orchestrator/dear.ts status",
+    "team:start": "pm2 start ecosystem.config.js --only leader-agent",
+    "team:stop": "pm2 stop leader-agent",
+    "team:logs": "pm2 logs leader-agent",
+    "team:status": "npx ts-node scripts/orchestrator/status.ts"
   },
   "devDependencies": {
     "@commitlint/cli": "^18.4.3",
     "@commitlint/config-conventional": "^18.4.3",
+    "@types/js-yaml": "^4.0.9",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "concurrently": "^8.2.0",
@@ -75,5 +83,8 @@
     "research"
   ],
   "author": "DeepDive Team",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "js-yaml": "^4.1.1"
+  }
 }

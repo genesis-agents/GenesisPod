@@ -57,6 +57,13 @@ export interface YouTubeMetadata {
   language: string;
 }
 
+export interface TranscriptionSegment {
+  start: number;
+  end: number;
+  text: string;
+  confidence?: number;
+}
+
 export interface YouTubeContent {
   subtitles: {
     [lang: string]: Array<{
@@ -67,7 +74,7 @@ export interface YouTubeContent {
   };
   transcription?: {
     fullText: string;
-    segments: any[];
+    segments: TranscriptionSegment[];
   };
   keyFrames: Array<{
     timestamp: number;
@@ -369,6 +376,36 @@ export interface PaperMetadata {
   pdfUrl?: string;
 }
 
+export interface PaperFigure {
+  id: string;
+  caption: string;
+  url?: string;
+  pageNumber?: number;
+}
+
+export interface PaperTable {
+  id: string;
+  caption: string;
+  data: string[][];
+  pageNumber?: number;
+}
+
+export interface PaperEquation {
+  id: string;
+  latex: string;
+  description?: string;
+}
+
+export interface PaperReference {
+  id: string;
+  title: string;
+  authors: string[];
+  year?: number;
+  venue?: string;
+  doi?: string;
+  url?: string;
+}
+
 export interface PaperContent {
   fullText: string;
   sections: Array<{
@@ -376,10 +413,10 @@ export interface PaperContent {
     content: string;
     level: number;
   }>;
-  figures: any[];
-  tables: any[];
-  equations: any[];
-  references: any[];
+  figures: PaperFigure[];
+  tables: PaperTable[];
+  equations: PaperEquation[];
+  references: PaperReference[];
 }
 
 export interface PaperAIAnalysis {
@@ -414,7 +451,7 @@ export interface WebMetadata {
 export interface WebContent {
   rawHtml?: string;
   cleanedText: string;
-  structuredData?: any;
+  structuredData?: Record<string, unknown>;
   images: Array<{
     src: string;
     alt: string;
@@ -456,6 +493,20 @@ export interface AIConfig {
   professionalLevel: number; // 1-5
 }
 
+// 文档样式类型
+export interface DocumentStyle {
+  fontFamily?: string;
+  fontSize?: number;
+  fontWeight?: 'normal' | 'bold';
+  fontStyle?: 'normal' | 'italic';
+  color?: string;
+  backgroundColor?: string;
+  textAlign?: 'left' | 'center' | 'right' | 'justify';
+  lineHeight?: number;
+  margin?: string;
+  padding?: string;
+}
+
 // Word文档内容
 export interface WordSection {
   id: string;
@@ -464,29 +515,52 @@ export interface WordSection {
   aiGenerated: boolean;
   sourceResources?: string[];
   level?: number;
-  style?: any;
+  style?: DocumentStyle;
 }
 
 export interface WordContent {
   sections: WordSection[];
 }
 
+// Excel单元格值类型
+export type CellValue = string | number | boolean | Date | null;
+
+// Excel图表类型
+export interface ExcelChart {
+  id: string;
+  type: 'bar' | 'line' | 'pie' | 'scatter' | 'area';
+  title?: string;
+  dataRange: string;
+  position: { row: number; col: number };
+  size: { width: number; height: number };
+}
+
 // Excel文档内容
 export interface ExcelSheet {
   name: string;
-  data: any[][];
-  charts?: any[];
+  data: CellValue[][];
+  charts?: ExcelChart[];
 }
 
 export interface ExcelContent {
   sheets: ExcelSheet[];
 }
 
+// PPT元素类型
+export interface PPTElement {
+  id: string;
+  type: 'text' | 'image' | 'shape' | 'chart' | 'table' | 'video';
+  position: { x: number; y: number };
+  size: { width: number; height: number };
+  content: string | Record<string, unknown>;
+  style?: DocumentStyle;
+}
+
 // PPT文档内容
 export interface PPTSlide {
   id: string;
   layout: string;
-  elements: any[];
+  elements: PPTElement[];
   notes?: string;
 }
 
@@ -495,13 +569,20 @@ export interface PPTContent {
   theme?: string;
 }
 
+// 文档版本内容联合类型
+export type DocumentVersionContent =
+  | WordContent
+  | ExcelContent
+  | PPTContent
+  | ArticleContent;
+
 // 文档版本快照
 export interface DocumentVersion {
   id: string;
   timestamp: Date;
   type: 'auto' | 'manual'; // 自动保存 vs 手动保存
   trigger: 'ai_generation' | 'user_edit' | 'manual_save'; // 触发方式
-  content: any; // 快照内容（根据文档类型不同而不同）
+  content: DocumentVersionContent; // 快照内容（根据文档类型不同而不同）
   metadata: {
     title: string;
     wordCount?: number;
@@ -617,13 +698,59 @@ export interface ChatSession {
 // 模板类型定义
 // ============================================================================
 
+// 模板格式配置
+export interface TemplateSectionFormat {
+  width?: number | string;
+  height?: number | string;
+  columns?: number;
+  alignment?: 'left' | 'center' | 'right';
+  spacing?: number;
+}
+
+// 颜色配置
+export interface ColorPalette {
+  primary?: string;
+  secondary?: string;
+  accent?: string;
+  background?: string;
+  text?: string;
+  [key: string]: string | undefined;
+}
+
+// 字体配置
+export interface FontConfig {
+  heading?: string;
+  body?: string;
+  code?: string;
+  sizes?: {
+    h1?: number;
+    h2?: number;
+    h3?: number;
+    body?: number;
+  };
+}
+
+// 模板Sheet定义
+export interface TemplateSheet {
+  name: string;
+  columns: string[];
+  rowTemplate?: Record<string, string>;
+}
+
+// 模板Slide定义
+export interface TemplateSlide {
+  layout: string;
+  placeholders: string[];
+  style?: DocumentStyle;
+}
+
 export interface TemplateSection {
   id: string;
   title: string;
   type: 'ai_generated' | 'data_table' | 'cover_page' | 'custom';
   aiPrompt?: string;
   variables?: string[];
-  format?: any;
+  format?: TemplateSectionFormat;
 }
 
 export interface Template {
@@ -637,13 +764,13 @@ export interface Template {
   compatibleResourceTypes: ResourceType[];
   structure: {
     sections?: TemplateSection[];
-    sheets?: any[];
-    slides?: any[];
+    sheets?: TemplateSheet[];
+    slides?: TemplateSlide[];
   };
   styles: {
     theme?: string;
-    colors?: any;
-    fonts?: any;
+    colors?: ColorPalette;
+    fonts?: FontConfig;
   };
   usage: {
     count: number;
@@ -723,7 +850,30 @@ export interface ChatRequest {
   };
 }
 
+// Chat stream event data types
+export interface ChatTokenData {
+  token: string;
+  messageId?: string;
+}
+
+export interface ChatCompleteData {
+  messageId: string;
+  totalTokens?: number;
+  cost?: number;
+}
+
+export interface ChatErrorData {
+  code: string;
+  message: string;
+}
+
+export type ChatStreamEventData =
+  | ChatTokenData
+  | ChatCompleteData
+  | ChatErrorData
+  | string;
+
 export interface ChatStreamEvent {
   event: 'token' | 'complete' | 'error';
-  data: any;
+  data: ChatStreamEventData;
 }

@@ -1,0 +1,472 @@
+# Leader Agent Orchestrator Configuration
+# ========================================
+# 完整开发团队配置
+
+leader:
+  # 调度间隔 (秒) - 每5分钟检查一次任务队列
+  schedule_interval: 300
+
+  # 最大并发任务数
+  max_concurrent_tasks: 5
+
+  # 单个任务超时时间 (秒) - 30分钟
+  task_timeout: 1800
+
+  # 是否启用自动重试
+  auto_retry: true
+
+  # 最大重试次数
+  max_retries: 3
+
+  # 重试延迟 (秒)
+  retry_delay: 60
+
+  # 指数退避倍数
+  backoff_multiplier: 2
+
+  # 日志级别: debug, info, warn, error
+  log_level: info
+
+# ============================================================================
+# Worker Agent 配置 - 完整开发团队
+# ============================================================================
+
+workers:
+  # ------------------------------------------------------------------------
+  # 产品与规划
+  # ------------------------------------------------------------------------
+  pm:
+    enabled: true
+    model: opus
+    max_concurrent: 1
+    timeout: 900 # 15分钟
+    description: "产品经理 - 需求分析、任务拆分、优先级排序"
+    capabilities:
+      - requirement_analysis
+      - task_breakdown
+      - priority_setting
+      - prd_writing
+      - progress_tracking
+
+  # ------------------------------------------------------------------------
+  # 架构与设计
+  # ------------------------------------------------------------------------
+  architect:
+    enabled: true
+    model: opus
+    max_concurrent: 1
+    timeout: 1200 # 20分钟
+    description: "架构师 - 系统设计、技术选型、规范制定"
+    capabilities:
+      - architecture_design
+      - tech_selection
+      - code_review_architecture
+      - performance_optimization
+      - security_review
+
+  # ------------------------------------------------------------------------
+  # 开发实现
+  # ------------------------------------------------------------------------
+  coder:
+    enabled: true
+    model: sonnet
+    max_concurrent: 3 # 可以并行多个编码任务
+    timeout: 1800 # 30分钟
+    description: "开发者 - 功能实现、Bug修复、代码重构"
+    capabilities:
+      - feature_development
+      - bug_fix
+      - refactoring
+      - technical_research
+
+  # ------------------------------------------------------------------------
+  # 质量保障
+  # ------------------------------------------------------------------------
+  reviewer:
+    enabled: true
+    model: sonnet
+    max_concurrent: 2
+    timeout: 900 # 15分钟
+    description: "代码审查 - 代码质量、安全审计、规范检查"
+    capabilities:
+      - code_review
+      - security_audit
+      - style_check
+      - test_verification
+
+  tester:
+    enabled: true
+    model: sonnet
+    max_concurrent: 2
+    timeout: 1200 # 20分钟
+    description: "测试专家 - 测试设计、测试执行、缺陷报告"
+    capabilities:
+      - test_design
+      - test_execution
+      - bug_reporting
+      - performance_testing
+
+  # ------------------------------------------------------------------------
+  # 运维支持
+  # ------------------------------------------------------------------------
+  monitoring:
+    enabled: true
+    model: sonnet
+    max_concurrent: 1
+    timeout: 600 # 10分钟
+    description: "监控专家 - 系统监控、告警分析、健康检查"
+    capabilities:
+      - health_check
+      - alert_analysis
+      - performance_analysis
+      - report_generation
+
+  merge-to-main:
+    enabled: true
+    model: sonnet
+    max_concurrent: 1
+    timeout: 900 # 15分钟
+    description: "发布管理 - 代码合并、CI/CD监控、回滚"
+    capabilities:
+      - merge_execution
+      - ci_monitoring
+      - rollback
+      - release_management
+
+  docs-specialist:
+    enabled: true
+    model: sonnet
+    max_concurrent: 1
+    timeout: 600 # 10分钟
+    description: "文档专家 - 文档编写、更新、质量检查"
+    capabilities:
+      - doc_analysis
+      - doc_writing
+      - doc_updating
+      - doc_quality_check
+
+# ============================================================================
+# 任务类型配置
+# ============================================================================
+
+task_types:
+  # 需求与规划
+  requirement:
+    worker: pm
+    description: "需求分析和规划"
+    auto_create_subtasks: true
+
+  task_breakdown:
+    worker: pm
+    description: "任务拆分"
+
+  # 架构与设计
+  architecture:
+    worker: architect
+    description: "架构设计"
+
+  tech_selection:
+    worker: architect
+    description: "技术选型"
+
+  # 开发
+  coding:
+    worker: coder
+    description: "代码编写"
+    requires_review: true
+
+  bugfix:
+    worker: coder
+    description: "Bug修复"
+    requires_review: true
+
+  refactor:
+    worker: coder
+    description: "代码重构"
+    requires_review: true
+
+  # 审查
+  review:
+    worker: reviewer
+    description: "代码审查"
+
+  security_audit:
+    worker: reviewer
+    description: "安全审计"
+
+  # 测试
+  testing:
+    worker: tester
+    description: "测试执行"
+
+  test_design:
+    worker: tester
+    description: "测试用例设计"
+
+  test_hardening:
+    worker: tester
+    description: "测试加固 - 针对缺陷补充回归测试和边界测试"
+    auto_trigger: true # 发现缺陷后自动触发
+
+  regression_test:
+    worker: tester
+    description: "回归测试 - 验证修复并防止问题复发"
+
+  # 运维
+  monitoring:
+    worker: monitoring
+    description: "系统监控"
+
+  merge:
+    worker: merge-to-main
+    description: "代码合并"
+
+  docs:
+    worker: docs-specialist
+    description: "文档工作"
+
+# ============================================================================
+# 工作流定义
+# ============================================================================
+
+workflows:
+  # 标准功能开发流程
+  feature_development:
+    name: "功能开发流程"
+    steps:
+      - type: requirement
+        name: "需求分析"
+        output: prd
+
+      - type: architecture
+        name: "技术方案设计"
+        depends_on: [requirement]
+        output: design_doc
+
+      - type: task_breakdown
+        name: "任务拆分"
+        depends_on: [architecture]
+        output: tasks
+
+      - type: coding
+        name: "代码实现"
+        depends_on: [task_breakdown]
+        parallel: true
+
+      - type: review
+        name: "代码审查"
+        depends_on: [coding]
+
+      - type: testing
+        name: "测试验证"
+        depends_on: [review]
+
+      - type: merge
+        name: "合并发布"
+        depends_on: [testing]
+        requires_approval: true
+
+  # 快速Bug修复流程
+  bugfix:
+    name: "Bug修复流程"
+    steps:
+      - type: bugfix
+        name: "修复Bug"
+
+      - type: review
+        name: "代码审查"
+        depends_on: [bugfix]
+
+      - type: testing
+        name: "回归测试"
+        depends_on: [review]
+
+      - type: merge
+        name: "合并发布"
+        depends_on: [testing]
+
+  # 文档更新流程
+  documentation:
+    name: "文档更新流程"
+    steps:
+      - type: docs
+        name: "编写/更新文档"
+
+      - type: review
+        name: "文档审查"
+        depends_on: [docs]
+
+  # 缺陷闭环流程 - Tester发现问题后的完整处理
+  defect_fix:
+    name: "缺陷修复闭环流程"
+    description: "发现缺陷 → 修复 → 审查 → 验证 → 加固"
+    steps:
+      # Step 1: Coder 修复缺陷
+      - type: bugfix
+        name: "修复缺陷"
+        assigned_to: coder
+
+      # Step 2: Reviewer 审查修复
+      - type: review
+        name: "审查修复代码"
+        depends_on: [bugfix]
+        assigned_to: reviewer
+
+      # Step 3: Tester 验证修复
+      - type: regression_test
+        name: "验证修复有效"
+        depends_on: [review]
+        assigned_to: tester
+
+      # Step 4: Tester 加固测试 (并行执行)
+      - type: test_hardening
+        name: "加固测试覆盖"
+        depends_on: [regression_test]
+        assigned_to: tester
+        parallel: true
+        subtasks:
+          - "添加直接回归测试"
+          - "补充边界测试"
+          - "扫描同类模块"
+          - "更新测试清单"
+
+      # Step 5: 合并
+      - type: merge
+        name: "合并修复"
+        depends_on: [test_hardening]
+
+  # 安全缺陷专用流程 (更严格)
+  security_defect_fix:
+    name: "安全缺陷修复流程"
+    description: "安全问题的紧急修复流程"
+    priority_boost: 25 # 自动提升优先级
+    steps:
+      - type: security_audit
+        name: "安全影响评估"
+        assigned_to: reviewer
+
+      - type: bugfix
+        name: "修复安全漏洞"
+        depends_on: [security_audit]
+        assigned_to: coder
+
+      - type: security_audit
+        name: "修复安全审查"
+        depends_on: [bugfix]
+        assigned_to: reviewer
+
+      - type: regression_test
+        name: "安全回归测试"
+        depends_on: [security_audit]
+        assigned_to: tester
+
+      - type: test_hardening
+        name: "安全测试加固"
+        depends_on: [regression_test]
+        assigned_to: tester
+        parameters:
+          focus: security
+          scan_all_endpoints: true
+
+      - type: merge
+        name: "紧急合并"
+        depends_on: [test_hardening]
+        requires_approval: false # 安全修复可快速合并
+
+# ============================================================================
+# 优先级配置
+# ============================================================================
+
+priority_weights:
+  critical: 100 # 生产事故、安全漏洞
+  high: 75 # 重要功能、阻塞性Bug
+  medium: 50 # 正常功能开发
+  low: 25 # 优化、文档、技术债务
+
+# ============================================================================
+# 定时任务
+# ============================================================================
+
+scheduled_tasks:
+  # 每小时系统健康检查
+  - name: hourly-health-check
+    type: monitoring
+    cron: "0 * * * *"
+    priority: medium
+    description: "定时系统健康检查"
+    enabled: true
+
+  # 每天凌晨2点代码质量检查
+  - name: daily-code-quality
+    type: review
+    cron: "0 2 * * *"
+    priority: low
+    description: "每日代码质量检查"
+    enabled: true
+    parameters:
+      scope: "recent_changes"
+      days: 1
+
+  # 每天早上9点生成日报
+  - name: daily-report
+    type: monitoring
+    cron: "0 9 * * *"
+    priority: medium
+    description: "生成每日系统状态报告"
+    enabled: true
+
+  # 每周一文档同步检查
+  - name: weekly-docs-sync
+    type: docs
+    cron: "0 10 * * 1"
+    priority: low
+    description: "检查文档与代码的同步状态"
+    enabled: true
+
+  # 每周五性能测试
+  - name: weekly-performance-test
+    type: testing
+    cron: "0 14 * * 5"
+    priority: low
+    description: "每周性能测试"
+    enabled: false
+    parameters:
+      type: "performance"
+      duration: 300
+
+# ============================================================================
+# 通知配置
+# ============================================================================
+
+notifications:
+  on_failure: true
+  on_success: false
+  on_workflow_complete: true
+
+  channels:
+    console:
+      enabled: true
+
+    slack:
+      enabled: false
+      webhook_url: ""
+      channel: "#dev-alerts"
+
+# ============================================================================
+# 资源限制
+# ============================================================================
+
+limits:
+  max_daily_tasks: 200
+  max_hourly_tasks: 30
+  api_budget_warning: 100 # 美元
+  api_budget_limit: 200 # 美元
+
+# ============================================================================
+# 审计配置
+# ============================================================================
+
+audit:
+  log_path: ".claude/logs/orchestrator-audit.jsonl"
+  retention_days: 30
+  verbose: false

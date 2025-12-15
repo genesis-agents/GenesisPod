@@ -365,7 +365,7 @@ export const useDocumentStore: any = create<DocumentState>()(
           return {
             documents: state.documents.map((d) =>
               d._id === documentId
-                ? {
+                ? ({
                     ...d,
                     content: version.content,
                     currentVersionId: versionId,
@@ -374,7 +374,7 @@ export const useDocumentStore: any = create<DocumentState>()(
                       ...version.metadata,
                     },
                     updatedAt: new Date(),
-                  }
+                  } as typeof d)
                 : d
             ),
           };

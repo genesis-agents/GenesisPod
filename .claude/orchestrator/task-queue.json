@@ -1,0 +1,112 @@
+{
+  "metadata": {
+    "version": "2.0.0",
+    "created_at": "2025-12-15T00:00:00Z",
+    "last_update": "2025-12-15T20:44:15.449Z",
+    "leader_session_id": null,
+    "statistics": {
+      "total_processed": 0,
+      "total_succeeded": 0,
+      "total_failed": 0,
+      "uptime_seconds": 0
+    }
+  },
+  "tasks": [
+    {
+      "id": "task-init-001",
+      "type": "monitoring",
+      "priority": "high",
+      "status": "pending",
+      "title": "初始化系统健康检查",
+      "description": "执行首次系统健康检查，确认所有服务正常运行，检查数据库连接、API可用性、前端构建状态",
+      "created_at": "2025-12-15T00:00:00Z",
+      "started_at": null,
+      "completed_at": null,
+      "assigned_to": null,
+      "result": null,
+      "error": null,
+      "retry_count": 0,
+      "max_retries": 3,
+      "timeout": 600,
+      "parameters": {
+        "check_services": ["backend", "frontend", "database", "redis"],
+        "generate_report": true
+      },
+      "dependencies": [],
+      "tags": ["init", "health-check"]
+    },
+    {
+      "id": "task-init-002",
+      "type": "requirement",
+      "priority": "high",
+      "status": "pending",
+      "title": "分析数据采集功能需求",
+      "description": "分析CLAUDE.md中提到的数据采集问题，梳理需求：1.data_collection_raw_data缺少有效信息 2.缺少resource引用 3.存在重复数据 4.数据不全。输出改进方案和任务拆分",
+      "created_at": "2025-12-15T00:00:00Z",
+      "started_at": null,
+      "completed_at": null,
+      "assigned_to": null,
+      "result": null,
+      "error": null,
+      "retry_count": 0,
+      "max_retries": 3,
+      "timeout": 900,
+      "parameters": {
+        "context": "CLAUDE.md中的数据采集问题",
+        "output": "PRD和任务拆分"
+      },
+      "dependencies": [],
+      "tags": ["data-collection", "requirement"]
+    },
+    {
+      "id": "task-init-003",
+      "type": "review",
+      "priority": "medium",
+      "status": "pending",
+      "title": "代码质量基线检查",
+      "description": "检查当前代码库的质量基线：Lint错误、类型错误、测试覆盖率、安全漏洞扫描",
+      "created_at": "2025-12-15T00:00:00Z",
+      "started_at": null,
+      "completed_at": null,
+      "assigned_to": null,
+      "result": null,
+      "error": null,
+      "retry_count": 0,
+      "max_retries": 3,
+      "timeout": 900,
+      "parameters": {
+        "scope": "full_codebase",
+        "checks": ["lint", "type-check", "test", "security"]
+      },
+      "dependencies": [],
+      "tags": ["init", "code-quality"]
+    },
+    {
+      "id": "task-init-004",
+      "type": "docs",
+      "priority": "low",
+      "status": "pending",
+      "title": "文档完整性检查",
+      "description": "检查项目文档是否完整，识别缺失或过时的文档，检查代码引用是否正确",
+      "created_at": "2025-12-15T00:00:00Z",
+      "started_at": null,
+      "completed_at": null,
+      "assigned_to": null,
+      "result": null,
+      "error": null,
+      "retry_count": 0,
+      "max_retries": 3,
+      "timeout": 600,
+      "parameters": {
+        "scan_paths": ["docs/", "README.md", ".claude/"],
+        "check_links": true,
+        "check_code_refs": true
+      },
+      "dependencies": [],
+      "tags": ["init", "docs"]
+    }
+  ],
+  "completed_tasks": [],
+  "failed_tasks": [],
+  "workflows": []
+}

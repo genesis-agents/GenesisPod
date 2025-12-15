@@ -65,8 +65,8 @@ export class GraphService {
     >`
       WITH target AS (
         SELECT
-          COALESCE(categories, '[]'::json)::jsonb AS categories,
-          COALESCE(tags, '[]'::json)::jsonb AS tags,
+          COALESCE(categories::jsonb, '[]'::jsonb) AS categories,
+          COALESCE(tags::jsonb, '[]'::jsonb) AS tags,
           primary_category
         FROM resources
         WHERE id = ${resourceId}
@@ -77,7 +77,7 @@ export class GraphService {
           -- 计算共同分类数量
           (
             SELECT COUNT(*)
-            FROM jsonb_array_elements_text(COALESCE(r.categories, '[]'::json)::jsonb) AS cat
+            FROM jsonb_array_elements_text(COALESCE(r.categories::jsonb, '[]'::jsonb)) AS cat
             WHERE cat IN (
               SELECT jsonb_array_elements_text(target.categories)
               FROM target
@@ -87,7 +87,7 @@ export class GraphService {
           -- 计算共同标签数量
           (
             SELECT COUNT(*)
-            FROM jsonb_array_elements_text(COALESCE(r.tags, '[]'::json)::jsonb) AS tag
+            FROM jsonb_array_elements_text(COALESCE(r.tags::jsonb, '[]'::jsonb)) AS tag
             WHERE tag IN (
               SELECT jsonb_array_elements_text(target.tags)
               FROM target
@@ -106,14 +106,14 @@ export class GraphService {
           -- 至少有一个共同分类或标签
           EXISTS (
             SELECT 1
-            FROM jsonb_array_elements_text(COALESCE(r.categories, '[]'::json)::jsonb) AS cat
+            FROM jsonb_array_elements_text(COALESCE(r.categories::jsonb, '[]'::jsonb)) AS cat
             WHERE cat IN (
               SELECT jsonb_array_elements_text(target.categories)
             )
           )
           OR EXISTS (
             SELECT 1
-            FROM jsonb_array_elements_text(COALESCE(r.tags, '[]'::json)::jsonb) AS tag
+            FROM jsonb_array_elements_text(COALESCE(r.tags::jsonb, '[]'::jsonb)) AS tag
             WHERE tag IN (
               SELECT jsonb_array_elements_text(target.tags)
             )
@@ -276,7 +276,7 @@ export class GraphService {
       SELECT *
       FROM resources
       WHERE jsonb_path_exists(
-        COALESCE(authors, '[]'::json)::jsonb,
+        COALESCE(authors::jsonb, '[]'::jsonb),
         ('$[*] ? (@.name == "' || ${authorUsername} || '" || @.username == "' || ${authorUsername} || '")')::jsonpath
       )
       ORDER BY quality_score DESC NULLS LAST
@@ -349,7 +349,7 @@ export class GraphService {
       WHERE
         primary_category = ${topicName}
         OR jsonb_path_exists(
-          COALESCE(categories, '[]'::json)::jsonb,
+          COALESCE(categories::jsonb, '[]'::jsonb),
           ('$[*] ? (@ == "' || ${topicName} || '")')::jsonpath
         )
       ORDER BY quality_score DESC NULLS LAST
@@ -440,11 +440,11 @@ export class GraphService {
     const authorsResult = await this.prisma.$queryRaw<Array<{ count: number }>>`
       SELECT COUNT(DISTINCT author_name) as count
       FROM (
-        SELECT jsonb_array_elements(COALESCE(authors, '[]'::json)::jsonb)->>'name' as author_name
+        SELECT jsonb_array_elements(COALESCE(authors::jsonb, '[]'::jsonb))->>'name' as author_name
         FROM resources
         WHERE authors IS NOT NULL
         UNION
-        SELECT jsonb_array_elements(COALESCE(authors, '[]'::json)::jsonb)->>'username' as author_name
+        SELECT jsonb_array_elements(COALESCE(authors::jsonb, '[]'::jsonb))->>'username' as author_name
         FROM resources
         WHERE authors IS NOT NULL
       ) AS all_authors
@@ -460,7 +460,7 @@ export class GraphService {
         FROM resources
         WHERE primary_category IS NOT NULL
         UNION
-        SELECT jsonb_array_elements_text(COALESCE(categories, '[]'::json)::jsonb) as topic
+        SELECT jsonb_array_elements_text(COALESCE(categories::jsonb, '[]'::jsonb)) as topic
         FROM resources
       ) AS all_topics
     `;
@@ -470,7 +470,7 @@ export class GraphService {
     const tagsResult = await this.prisma.$queryRaw<Array<{ count: number }>>`
       SELECT COUNT(DISTINCT tag) as count
       FROM (
-        SELECT jsonb_array_elements_text(COALESCE(tags, '[]'::json)::jsonb) as tag
+        SELECT jsonb_array_elements_text(COALESCE(tags::jsonb, '[]'::jsonb)) as tag
         FROM resources
       ) AS all_tags
     `;
@@ -514,5 +514,119 @@ export class GraphService {
       `✅ PostgreSQL graph: ${resourceCount} resources already indexed`,
     );
     return { success: resourceCount, failed: 0 };
+  }
+
+  /**
+   * 从资源移除标签
+   */
+  async unlinkTag(resourceId: string, tagName: string): Promise<void> {
+    const resource = await this.prisma.resource.findUnique({
+      where: { id: resourceId },
+      select: { tags: true },
+    });
+
+    if (!resource) {
+      throw new Error(`Resource ${resourceId} not found`);
+    }
+
+    const tags = (resource.tags as string[]) || [];
+    const updatedTags = tags.filter((t) => t !== tagName);
+
+    await this.prisma.resource.update({
+      where: { id: resourceId },
+      data: { tags: updatedTags },
+    });
+
+    this.logger.log(`Unlinked tag "${tagName}" from resource ${resourceId}`);
+  }
+
+  /**
+   * 从资源移除分类
+   */
+  async unlinkCategory(
+    resourceId: string,
+    categoryName: string,
+  ): Promise<void> {
+    const resource = await this.prisma.resource.findUnique({
+      where: { id: resourceId },
+      select: { categories: true, primaryCategory: true },
+    });
+
+    if (!resource) {
+      throw new Error(`Resource ${resourceId} not found`);
+    }
+
+    const categories = (resource.categories as string[]) || [];
+    const updatedCategories = categories.filter((c) => c !== categoryName);
+
+    // If removing primary category, set to first remaining category or null
+    const updateData: {
+      categories: string[];
+      primaryCategory?: string | null;
+    } = {
+      categories: updatedCategories,
+    };
+
+    if (resource.primaryCategory === categoryName) {
+      updateData.primaryCategory = updatedCategories[0] || null;
+    }
+
+    await this.prisma.resource.update({
+      where: { id: resourceId },
+      data: updateData,
+    });
+
+    this.logger.log(
+      `Unlinked category "${categoryName}" from resource ${resourceId}`,
+    );
+  }
+
+  /**
+   * 从资源移除作者
+   */
+  async unlinkAuthor(resourceId: string, authorName: string): Promise<void> {
+    const resource = await this.prisma.resource.findUnique({
+      where: { id: resourceId },
+      select: { authors: true },
+    });
+
+    if (!resource) {
+      throw new Error(`Resource ${resourceId} not found`);
+    }
+
+    const authors =
+      (resource.authors as Array<{ name?: string; username?: string }>) || [];
+    const updatedAuthors = authors.filter(
+      (a) => a.name !== authorName && a.username !== authorName,
+    );
+
+    await this.prisma.resource.update({
+      where: { id: resourceId },
+      data: { authors: updatedAuthors },
+    });
+
+    this.logger.log(
+      `Unlinked author "${authorName}" from resource ${resourceId}`,
+    );
+  }
+
+  /**
+   * 批量移除关系
+   */
+  async unlinkNode(
+    resourceId: string,
+    nodeType: "tag" | "category" | "author",
+    nodeName: string,
+  ): Promise<void> {
+    switch (nodeType) {
+      case "tag":
+        return this.unlinkTag(resourceId, nodeName);
+      case "category":
+        return this.unlinkCategory(resourceId, nodeName);
+      case "author":
+        return this.unlinkAuthor(resourceId, nodeName);
+      default:
+        throw new Error(`Unknown node type: ${nodeType}`);
+    }
   }
 }

@@ -2,11 +2,14 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Param,
   Query,
+  Body,
   Logger,
   ParseIntPipe,
   DefaultValuePipe,
+  BadRequestException,
 } from "@nestjs/common";
 import { KnowledgeGraphService } from "./knowledge-graph.service.postgres";
 
@@ -100,5 +103,67 @@ export class KnowledgeGraphController {
   ) {
     this.logger.log(`Finding similar resources for ${id}`);
     return this.kgService.findSimilarResources(id, limit);
+  }
+
+  /**
+   * 从资源移除关联节点
+   * DELETE /api/v1/knowledge-graph/resource/:id/unlink
+   * Body: { nodeType: "tag" | "category" | "author", nodeName: string }
+   */
+  @Delete("resource/:id/unlink")
+  async unlinkNode(
+    @Param("id") id: string,
+    @Body() body: { nodeType: "tag" | "category" | "author"; nodeName: string },
+  ) {
+    const { nodeType, nodeName } = body;
+
+    if (!nodeType || !nodeName) {
+      throw new BadRequestException("nodeType and nodeName are required");
+    }
+
+    if (!["tag", "category", "author"].includes(nodeType)) {
+      throw new BadRequestException(
+        "nodeType must be one of: tag, category, author",
+      );
+    }
+
+    this.logger.log(`Unlinking ${nodeType} "${nodeName}" from resource ${id}`);
+    return this.kgService.unlinkNode(id, nodeType, nodeName);
+  }
+
+  /**
+   * 从资源移除标签
+   * DELETE /api/v1/knowledge-graph/resource/:id/tag/:tagName
+   */
+  @Delete("resource/:id/tag/:tagName")
+  async unlinkTag(@Param("id") id: string, @Param("tagName") tagName: string) {
+    this.logger.log(`Unlinking tag "${tagName}" from resource ${id}`);
+    return this.kgService.unlinkTag(id, tagName);
+  }
+
+  /**
+   * 从资源移除分类
+   * DELETE /api/v1/knowledge-graph/resource/:id/category/:categoryName
+   */
+  @Delete("resource/:id/category/:categoryName")
+  async unlinkCategory(
+    @Param("id") id: string,
+    @Param("categoryName") categoryName: string,
+  ) {
+    this.logger.log(`Unlinking category "${categoryName}" from resource ${id}`);
+    return this.kgService.unlinkCategory(id, categoryName);
+  }
+
+  /**
+   * 从资源移除作者
+   * DELETE /api/v1/knowledge-graph/resource/:id/author/:authorName
+   */
+  @Delete("resource/:id/author/:authorName")
+  async unlinkAuthor(
+    @Param("id") id: string,
+    @Param("authorName") authorName: string,
+  ) {
+    this.logger.log(`Unlinking author "${authorName}" from resource ${id}`);
+    return this.kgService.unlinkAuthor(id, authorName);
   }
 }
