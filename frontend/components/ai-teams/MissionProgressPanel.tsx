@@ -9,6 +9,7 @@ import {
 } from '@/types/ai-teams';
 import { useAiGroupStore } from '@/stores/aiTeamsStore';
 import TeamCanvasView from './TeamCanvasView';
+import TeamCanvasModal from './TeamCanvasModal';
 
 type ViewMode = 'list' | 'canvas';
 
@@ -145,6 +146,7 @@ export default function MissionProgressPanel({
   );
   const [detailMission, setDetailMission] = useState<TeamMission | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [isCanvasModalOpen, setIsCanvasModalOpen] = useState(false);
 
   // Load missions on mount
   useEffect(() => {
@@ -286,6 +288,27 @@ export default function MissionProgressPanel({
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
         <h3 className="font-semibold text-gray-900">Team Missions</h3>
         <div className="flex items-center gap-2">
+          {/* Fullscreen Canvas Button */}
+          <button
+            onClick={() => setIsCanvasModalOpen(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:from-purple-600 hover:to-blue-600"
+            title="全屏Canvas视图"
+          >
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+              />
+            </svg>
+            Canvas
+          </button>
           {/* View Toggle */}
           <div className="flex rounded-lg bg-gray-100 p-0.5">
             <button
@@ -318,7 +341,7 @@ export default function MissionProgressPanel({
                   ? 'bg-white text-gray-900 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
-              title="Canvas视图"
+              title="小窗Canvas预览"
             >
               <svg
                 className="h-4 w-4"
@@ -454,6 +477,15 @@ export default function MissionProgressPanel({
           </div>
         )}
       </div>
+
+      {/* Fullscreen Canvas Modal */}
+      <TeamCanvasModal
+        isOpen={isCanvasModalOpen}
+        onClose={() => setIsCanvasModalOpen(false)}
+        mission={activeMission}
+        aiMembers={aiMembers}
+        typingAIs={typingAIs}
+      />
     </div>
   );
 }
