@@ -427,67 +427,173 @@ export class GraphService {
   }
 
   /**
-   * 获取图谱概览统计
+   * 获取图谱概览（包含实际节点和边用于可视化）
    */
   async getGraphOverview(): Promise<{
-    nodes: Array<{ label: string; count: number }>;
-    relationships: Array<{ type: string; count: number }>;
+    nodes: Array<{
+      id: string;
+      label: string;
+      type: "Resource" | "Author" | "Topic" | "Tag";
+      properties: Record<string, any>;
+    }>;
+    edges: Array<{
+      source: string;
+      target: string;
+      type: string;
+    }>;
+    stats: {
+      totalResources: number;
+      totalAuthors: number;
+      totalTopics: number;
+      totalTags: number;
+      totalEdges: number;
+    };
   }> {
-    // 统计资源数量
-    const resourceCount = await this.prisma.resource.count();
+    // 限制查询数量以提高性能
+    const MAX_RESOURCES = 100;
 
-    // 统计作者数量（去重）
-    const authorsResult = await this.prisma.$queryRaw<Array<{ count: number }>>`
-      SELECT COUNT(DISTINCT author_name) as count
-      FROM (
-        SELECT jsonb_array_elements(COALESCE(authors::jsonb, '[]'::jsonb))->>'name' as author_name
-        FROM resources
-        WHERE authors IS NOT NULL
-        UNION
-        SELECT jsonb_array_elements(COALESCE(authors::jsonb, '[]'::jsonb))->>'username' as author_name
-        FROM resources
-        WHERE authors IS NOT NULL
-      ) AS all_authors
-      WHERE author_name IS NOT NULL
-    `;
-    const authorCount = Number(authorsResult[0]?.count || 0);
+    // 获取资源（限制数量）
+    const resources = await this.prisma.resource.findMany({
+      take: MAX_RESOURCES,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        title: true,
+        type: true,
+        authors: true,
+        categories: true,
+        tags: true,
+        primaryCategory: true,
+      },
+    });
 
-    // 统计主题数量
-    const topicsResult = await this.prisma.$queryRaw<Array<{ count: number }>>`
-      SELECT COUNT(DISTINCT topic) as count
-      FROM (
-        SELECT primary_category as topic
-        FROM resources
-        WHERE primary_category IS NOT NULL
-        UNION
-        SELECT jsonb_array_elements_text(COALESCE(categories::jsonb, '[]'::jsonb)) as topic
-        FROM resources
-      ) AS all_topics
-    `;
-    const topicCount = Number(topicsResult[0]?.count || 0);
+    const nodes: Array<{
+      id: string;
+      label: string;
+      type: "Resource" | "Author" | "Topic" | "Tag";
+      properties: Record<string, any>;
+    }> = [];
+    const edges: Array<{
+      source: string;
+      target: string;
+      type: string;
+    }> = [];
 
-    // 统计标签数量
-    const tagsResult = await this.prisma.$queryRaw<Array<{ count: number }>>`
-      SELECT COUNT(DISTINCT tag) as count
-      FROM (
-        SELECT jsonb_array_elements_text(COALESCE(tags::jsonb, '[]'::jsonb)) as tag
-        FROM resources
-      ) AS all_tags
-    `;
-    const tagCount = Number(tagsResult[0]?.count || 0);
+    // 用于去重
+    const authorSet = new Set<string>();
+    const topicSet = new Set<string>();
+    const tagSet = new Set<string>();
+
+    // 处理每个资源
+    for (const resource of resources) {
+      // 添加资源节点
+      nodes.push({
+        id: resource.id,
+        label: resource.title || "Untitled",
+        type: "Resource",
+        properties: {
+          title: resource.title,
+          resourceType: resource.type,
+        },
+      });
+
+      // 处理作者
+      const authors = (resource.authors as any[]) || [];
+      for (const author of authors) {
+        const authorName =
+          author?.name || author?.username || author?.displayName;
+        if (authorName && !authorSet.has(authorName)) {
+          authorSet.add(authorName);
+          nodes.push({
+            id: `author-${authorName}`,
+            label: authorName,
+            type: "Author",
+            properties: { name: authorName },
+          });
+        }
+        if (authorName) {
+          edges.push({
+            source: `author-${authorName}`,
+            target: resource.id,
+            type: "AUTHORED",
+          });
+        }
+      }
+
+      // 处理主分类
+      if (resource.primaryCategory && !topicSet.has(resource.primaryCategory)) {
+        topicSet.add(resource.primaryCategory);
+        nodes.push({
+          id: `topic-${resource.primaryCategory}`,
+          label: resource.primaryCategory,
+          type: "Topic",
+          properties: { name: resource.primaryCategory },
+        });
+      }
+      if (resource.primaryCategory) {
+        edges.push({
+          source: resource.id,
+          target: `topic-${resource.primaryCategory}`,
+          type: "BELONGS_TO",
+        });
+      }
+
+      // 处理分类
+      const categories = (resource.categories as string[]) || [];
+      for (const category of categories) {
+        if (category && !topicSet.has(category)) {
+          topicSet.add(category);
+          nodes.push({
+            id: `topic-${category}`,
+            label: category,
+            type: "Topic",
+            properties: { name: category },
+          });
+        }
+        if (category) {
+          edges.push({
+            source: resource.id,
+            target: `topic-${category}`,
+            type: "BELONGS_TO",
+          });
+        }
+      }
+
+      // 处理标签
+      const tags = (resource.tags as string[]) || [];
+      for (const tag of tags) {
+        if (tag && !tagSet.has(tag)) {
+          tagSet.add(tag);
+          nodes.push({
+            id: `tag-${tag}`,
+            label: tag,
+            type: "Tag",
+            properties: { name: tag },
+          });
+        }
+        if (tag) {
+          edges.push({
+            source: resource.id,
+            target: `tag-${tag}`,
+            type: "TAGGED_WITH",
+          });
+        }
+      }
+    }
+
+    // 获取总计数
+    const totalResources = await this.prisma.resource.count();
 
     return {
-      nodes: [
-        { label: "Resource", count: resourceCount },
-        { label: "Author", count: authorCount },
-        { label: "Topic", count: topicCount },
-        { label: "Tag", count: tagCount },
-      ],
-      relationships: [
-        { type: "AUTHORED", count: resourceCount }, // 近似值
-        { type: "BELONGS_TO", count: topicCount },
-        { type: "TAGGED_WITH", count: tagCount },
-      ],
+      nodes,
+      edges,
+      stats: {
+        totalResources,
+        totalAuthors: authorSet.size,
+        totalTopics: topicSet.size,
+        totalTags: tagSet.size,
+        totalEdges: edges.length,
+      },
     };
   }
 
