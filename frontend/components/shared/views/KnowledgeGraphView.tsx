@@ -105,25 +105,33 @@ export default function KnowledgeGraphView({
       });
       simulation = d3.forceSimulation(nodes as any);
     } else {
-      // Hierarchical layout (simplified tree)
-      const root = d3
-        .stratify<GraphNode>()
-        .id((d) => d.id)
-        .parentId(() => null)(nodes);
+      // Grouped layout - organize nodes by type in horizontal bands
+      // This is more appropriate for knowledge graphs than tree layouts
+      const typeOrder = ['Author', 'Resource', 'Topic', 'Tag'];
+      const nodesByType: Record<string, GraphNode[]> = {};
 
-      const treeLayout = d3.tree().size([width - 100, height - 100]);
-
-      treeLayout(root as any);
-
+      // Group nodes by type
       nodes.forEach((node) => {
-        const treeNode = root.descendants().find((n) => n.id === node.id);
-        if (treeNode) {
-          (node as any).x = treeNode.x! + 50;
-          (node as any).y = treeNode.y! + 50;
+        if (!nodesByType[node.type]) {
+          nodesByType[node.type] = [];
+        }
+        nodesByType[node.type].push(node);
+      });
+
+      // Position nodes in horizontal bands
+      const bandHeight = height / (typeOrder.length + 1);
+      typeOrder.forEach((type, bandIndex) => {
+        const nodesOfType = nodesByType[type] || [];
+        const nodeSpacing = width / (nodesOfType.length + 1);
+
+        nodesOfType.forEach((node, nodeIndex) => {
+          (node as any).x = nodeSpacing * (nodeIndex + 1);
+          (node as any).y = bandHeight * (bandIndex + 1);
           (node as any).fx = (node as any).x;
           (node as any).fy = (node as any).y;
-        }
+        });
       });
+
       simulation = d3.forceSimulation(nodes as any);
     }
 
