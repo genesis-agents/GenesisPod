@@ -1,9 +1,9 @@
 {
-  "leader_session_id": null,
-  "status": "initialized",
-  "started_at": null,
-  "last_heartbeat": null,
-  "current_cycle": 0,
+  "leader_session_id": "task-1765833011815-5uvf2k5bc",
+  "status": "running",
+  "started_at": "2025-12-15T21:10:11.815Z",
+  "last_heartbeat": "2025-12-15T22:20:12.073Z",
+  "current_cycle": 15,
   "running_tasks": [],
   "worker_status": {
     "monitoring": "ready",
@@ -15,7 +15,7 @@
     "tasks_started": 0,
     "tasks_completed": 0,
     "tasks_failed": 0,
-    "total_runtime_seconds": 0
+    "total_runtime_seconds": 4200
   },
-  "last_error": null
+  "last_error": "Cannot read properties of undefined (reading 'monitoring')"
 }

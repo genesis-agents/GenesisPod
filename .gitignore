@@ -62,6 +62,9 @@ tmp/
 temp/
 *.tmp
 
+# Claude Code logs
+.claude/logs/
+
 # 操作系统
 .DS_Store
 Thumbs.db

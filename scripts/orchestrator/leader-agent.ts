@@ -103,8 +103,9 @@ interface Config {
 // 常量
 // ============================================================================
 
-const BASE_DIR = path.resolve(__dirname, '../../.claude/orchestrator');
-const LOGS_DIR = path.resolve(__dirname, '../../.claude/logs');
+// 使用 process.cwd() 因为始终从项目根目录运行
+const BASE_DIR = path.join(process.cwd(), '.claude/orchestrator');
+const LOGS_DIR = path.join(process.cwd(), '.claude/logs');
 const CONFIG_PATH = path.join(BASE_DIR, 'config.yml');
 const TASK_QUEUE_PATH = path.join(BASE_DIR, 'task-queue.json');
 const LEADER_STATE_PATH = path.join(BASE_DIR, 'leader-state.json');
@@ -450,31 +451,31 @@ ${JSON.stringify(task.parameters, null, 2)}
 
       log('debug', `Spawning claude process for ${workerName}`);
 
-      const process = spawn('claude', args, {
-        cwd: path.resolve(__dirname, '../..'),
+      const childProcess = spawn('claude', args, {
+        cwd: globalThis.process.cwd(),
         env: { ...globalThis.process.env },
         stdio: ['pipe', 'pipe', 'pipe'],
       });
 
-      this.runningProcesses.set(workerName, process);
+      this.runningProcesses.set(workerName, childProcess);
 
       let stdout = '';
       let stderr = '';
 
-      process.stdout?.on('data', (data) => {
+      childProcess.stdout?.on('data', (data) => {
         stdout += data.toString();
       });
 
-      process.stderr?.on('data', (data) => {
+      childProcess.stderr?.on('data', (data) => {
         stderr += data.toString();
       });
 
       const timeoutId = setTimeout(() => {
-        process.kill('SIGTERM');
+        childProcess.kill('SIGTERM');
         reject(new Error(`Task timeout after ${timeout}s`));
       }, timeout * 1000);
 
-      process.on('close', (code) => {
+      childProcess.on('close', (code) => {
         clearTimeout(timeoutId);
         this.runningProcesses.delete(workerName);
 
@@ -485,7 +486,7 @@ ${JSON.stringify(task.parameters, null, 2)}
         }
       });
 
-      process.on('error', (error) => {
+      childProcess.on('error', (error) => {
         clearTimeout(timeoutId);
         this.runningProcesses.delete(workerName);
         reject(error);
@@ -711,12 +712,11 @@ async function main(): Promise<void> {
   await leader.start();
 }
 
-// 如果直接运行此文件
-if (require.main === module) {
-  main().catch((error) => {
-    console.error('Fatal error:', error);
-    globalThis.process.exit(1);
-  });
-}
+// 直接运行
+main().catch((error) => {
+  console.error('Fatal error:', error);
+  globalThis.process.exit(1);
+});
 
-export { LeaderAgent, Task, TaskQueue, LeaderState };
+export { LeaderAgent };
+export type { Task, TaskQueue, LeaderState };

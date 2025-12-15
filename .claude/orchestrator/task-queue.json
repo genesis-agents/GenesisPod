@@ -2,8 +2,8 @@
   "metadata": {
     "version": "2.0.0",
     "created_at": "2025-12-15T00:00:00Z",
-    "last_update": "2025-12-15T20:44:15.449Z",
-    "leader_session_id": null,
+    "last_update": "2025-12-15T21:10:11.816Z",
+    "leader_session_id": "task-1765833011815-5uvf2k5bc",
     "statistics": {
       "total_processed": 0,
       "total_succeeded": 0,
@@ -104,6 +104,26 @@
       },
       "dependencies": [],
       "tags": ["init", "docs"]
+    },
+    {
+      "id": "task-mj7n0xz5-pmf8",
+      "type": "testing",
+      "priority": "medium",
+      "status": "pending",
+      "title": "library的完整功能",
+      "description": "library的完整功能",
+      "created_at": "2025-12-15T21:00:12.930Z",
+      "started_at": null,
+      "completed_at": null,
+      "assigned_to": null,
+      "result": null,
+      "error": null,
+      "retry_count": 0,
+      "max_retries": 3,
+      "timeout": 1800,
+      "workflow": null,
+      "dependencies": [],
+      "tags": ["test"]
     }
   ],
   "completed_tasks": [],
