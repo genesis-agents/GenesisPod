@@ -837,8 +837,8 @@ export default function ConfigPage() {
       {/* Manage Sources Modal */}
       {showSourcesModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-4xl rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-2xl">
+            <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
                   {CATEGORIES.find((c) => c.id === showSourcesModal)?.name}{' '}
@@ -856,7 +856,7 @@ export default function ConfigPage() {
               </button>
             </div>
 
-            <div className="max-h-[600px] overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-6">
               {groupedSources.find((g) => g.id === showSourcesModal)?.sources
                 .length === 0 ? (
                 <div className="py-12 text-center">
@@ -1259,8 +1259,8 @@ export default function ConfigPage() {
       {/* Edit Source Modal */}
       {editingSource && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-3xl rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <div className="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-2xl">
+            <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
                   Edit Data Source
@@ -1277,7 +1277,7 @@ export default function ConfigPage() {
               </button>
             </div>
 
-            <div className="max-h-[70vh] space-y-6 overflow-y-auto p-6">
+            <div className="flex-1 space-y-6 overflow-y-auto p-6">
               <div className="space-y-4">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">
@@ -1436,7 +1436,7 @@ export default function ConfigPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+            <div className="flex flex-shrink-0 items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
               <button
                 onClick={handleCancelEdit}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
@@ -1458,8 +1458,8 @@ export default function ConfigPage() {
       {/* Run Now Modal */}
       {runNowSource && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl">
+            <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
                   Run Collection Now
@@ -1477,7 +1477,7 @@ export default function ConfigPage() {
               </button>
             </div>
 
-            <div className="space-y-4 p-6">
+            <div className="flex-1 space-y-4 overflow-y-auto p-6">
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
                 <p className="text-sm text-blue-900">
                   Configure collection parameters for this manual run. The task
@@ -1525,7 +1525,7 @@ export default function ConfigPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+            <div className="flex flex-shrink-0 items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
               <button
                 onClick={handleCancelRunNow}
                 disabled={isRunning}
@@ -1560,8 +1560,8 @@ export default function ConfigPage() {
         selectedTaskId &&
         runningTasks.get(selectedTaskId) && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
-              <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+            <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl">
+              <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
                     Collection Progress
@@ -1578,7 +1578,7 @@ export default function ConfigPage() {
                 </button>
               </div>
 
-              <div className="space-y-6 p-6">
+              <div className="flex-1 space-y-6 overflow-y-auto p-6">
                 {(() => {
                   const task = runningTasks.get(selectedTaskId)!;
                   const statusColors = {
@@ -1733,7 +1733,7 @@ export default function ConfigPage() {
                 })()}
               </div>
 
-              <div className="flex items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+              <div className="flex flex-shrink-0 items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
                 <button
                   onClick={() => setShowProgressModal(false)}
                   className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
