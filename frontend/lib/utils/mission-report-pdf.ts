@@ -1,58 +1,15 @@
 /**
  * AI Team Mission Report PDF Generator
- * 生成专业的任务执行报告PDF
+ * 使用 HTML 转 PDF 方式生成专业报告
  *
  * 功能特点：
+ * - 完美支持中文显示
  * - 执行摘要 (Executive Summary)
  * - 任务统计图表
  * - 详细任务内容
  * - Agent参与情况
  * - 专业排版设计
- * - 中文字体支持
  */
-
-import jsPDF from 'jspdf';
-
-// Chinese font loading state
-let chineseFontLoaded = false;
-let chineseFontData: string | null = null;
-
-/**
- * Load Chinese font (Noto Sans SC) for PDF generation
- * Uses CDN to load the font and caches it
- */
-async function loadChineseFont(): Promise<string | null> {
-  if (chineseFontData) {
-    return chineseFontData;
-  }
-
-  try {
-    // Use a smaller weight (400) for better file size
-    const fontUrl =
-      'https://fonts.gstatic.com/s/notosanssc/v36/k3kCo84MPvpLmixcA63oeAL7Iqp5IZJF9bmaG9_EnYxNbPzS5HE.ttf';
-
-    const response = await fetch(fontUrl);
-    if (!response.ok) {
-      console.warn('Failed to load Chinese font, falling back to default');
-      return null;
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const base64 = btoa(
-      new Uint8Array(arrayBuffer).reduce(
-        (data, byte) => data + String.fromCharCode(byte),
-        ''
-      )
-    );
-
-    chineseFontData = base64;
-    chineseFontLoaded = true;
-    return base64;
-  } catch (error) {
-    console.warn('Error loading Chinese font:', error);
-    return null;
-  }
-}
 
 // Report data interfaces
 export interface MissionReportData {
@@ -94,838 +51,604 @@ interface ReportStats {
 }
 
 /**
- * Mission Report PDF Generator Class
+ * Calculate statistics from report data
  */
-export class MissionReportPDFGenerator {
-  private pdf: jsPDF;
-  private pageWidth: number;
-  private pageHeight: number;
-  private margin: number;
-  private contentWidth: number;
-  private currentY: number;
-  private pageNumber: number;
+function calculateStats(data: MissionReportData): ReportStats {
+  const tasks = data.tasks || [];
+  const participants = new Map<string, number>();
 
-  // Color scheme
-  private colors = {
-    primary: '#7c3aed', // Purple
-    secondary: '#6366f1', // Indigo
-    success: '#22c55e', // Green
-    warning: '#f59e0b', // Amber
-    error: '#ef4444', // Red
-    text: '#1f2937', // Gray 800
-    textLight: '#6b7280', // Gray 500
-    textMuted: '#9ca3af', // Gray 400
-    border: '#e5e7eb', // Gray 200
-    background: '#f9fafb', // Gray 50
-    white: '#ffffff',
+  tasks.forEach((task) => {
+    const count = participants.get(task.assignedTo) || 0;
+    participants.set(task.assignedTo, count + 1);
+  });
+
+  const completedTasks = tasks.filter((t) => t.status === 'COMPLETED').length;
+  const inProgressTasks = tasks.filter(
+    (t) => t.status === 'IN_PROGRESS'
+  ).length;
+  const pendingTasks = tasks.filter((t) => t.status === 'PENDING').length;
+  const failedTasks = tasks.filter((t) => t.status === 'FAILED').length;
+  const totalRevisions = tasks.reduce(
+    (sum, t) => sum + (t.revisionCount || 0),
+    0
+  );
+
+  let durationMinutes = 0;
+  if (data.mission.createdAt && data.mission.completedAt) {
+    const start = new Date(data.mission.createdAt);
+    const end = new Date(data.mission.completedAt);
+    durationMinutes = Math.round((end.getTime() - start.getTime()) / 60000);
+  }
+
+  return {
+    totalTasks: tasks.length,
+    completedTasks,
+    inProgressTasks,
+    pendingTasks,
+    failedTasks,
+    totalRevisions,
+    avgRevisions: tasks.length > 0 ? totalRevisions / tasks.length : 0,
+    durationMinutes,
+    participantCount: participants.size,
+    participants,
   };
+}
 
-  constructor() {
-    this.pdf = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4',
+/**
+ * Format date string
+ */
+function formatDate(dateStr: string): string {
+  try {
+    const date = new Date(dateStr);
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
     });
-    this.pageWidth = this.pdf.internal.pageSize.getWidth();
-    this.pageHeight = this.pdf.internal.pageSize.getHeight();
-    this.margin = 20;
-    this.contentWidth = this.pageWidth - 2 * this.margin;
-    this.currentY = this.margin;
-    this.pageNumber = 1;
-  }
-
-  /**
-   * Initialize Chinese font support
-   */
-  private async initChineseFont(): Promise<void> {
-    const fontData = await loadChineseFont();
-    if (fontData) {
-      // Add the font to jsPDF
-      this.pdf.addFileToVFS('NotoSansSC-Regular.ttf', fontData);
-      this.pdf.addFont('NotoSansSC-Regular.ttf', 'NotoSansSC', 'normal');
-    }
-  }
-
-  /**
-   * Set font with Chinese support fallback
-   */
-  private setFont(style: 'normal' | 'bold' = 'normal'): void {
-    if (chineseFontLoaded) {
-      this.pdf.setFont('NotoSansSC', style);
-    } else {
-      this.pdf.setFont('helvetica', style);
-    }
-  }
-
-  /**
-   * Generate PDF from report data
-   */
-  async generate(data: MissionReportData): Promise<Blob> {
-    // Load Chinese font first
-    await this.initChineseFont();
-
-    const stats = this.calculateStats(data);
-
-    // Cover Page
-    this.addCoverPage(data);
-
-    // Executive Summary
-    this.addNewPage();
-    this.addExecutiveSummary(data, stats);
-
-    // Task Statistics
-    this.addNewPage();
-    this.addTaskStatistics(stats);
-
-    // Agent Participation
-    this.addAgentParticipation(stats);
-
-    // Final Result
-    if (data.mission.finalResult) {
-      this.addNewPage();
-      this.addFinalResult(data.mission.finalResult);
-    }
-
-    // Detailed Task Reports
-    this.addNewPage();
-    this.addDetailedTasks(data.tasks);
-
-    // Add page numbers
-    this.addPageNumbers();
-
-    return this.pdf.output('blob');
-  }
-
-  /**
-   * Calculate statistics from report data
-   */
-  private calculateStats(data: MissionReportData): ReportStats {
-    const tasks = data.tasks || [];
-    const participants = new Map<string, number>();
-
-    tasks.forEach((task) => {
-      const count = participants.get(task.assignedTo) || 0;
-      participants.set(task.assignedTo, count + 1);
-    });
-
-    const completedTasks = tasks.filter((t) => t.status === 'COMPLETED').length;
-    const inProgressTasks = tasks.filter(
-      (t) => t.status === 'IN_PROGRESS'
-    ).length;
-    const pendingTasks = tasks.filter((t) => t.status === 'PENDING').length;
-    const failedTasks = tasks.filter((t) => t.status === 'FAILED').length;
-    const totalRevisions = tasks.reduce(
-      (sum, t) => sum + (t.revisionCount || 0),
-      0
-    );
-
-    let durationMinutes = 0;
-    if (data.mission.createdAt && data.mission.completedAt) {
-      const start = new Date(data.mission.createdAt);
-      const end = new Date(data.mission.completedAt);
-      durationMinutes = Math.round((end.getTime() - start.getTime()) / 60000);
-    }
-
-    return {
-      totalTasks: tasks.length,
-      completedTasks,
-      inProgressTasks,
-      pendingTasks,
-      failedTasks,
-      totalRevisions,
-      avgRevisions: tasks.length > 0 ? totalRevisions / tasks.length : 0,
-      durationMinutes,
-      participantCount: participants.size,
-      participants,
-    };
-  }
-
-  /**
-   * Add cover page
-   */
-  private addCoverPage(data: MissionReportData) {
-    // Background gradient effect (simplified with rectangles)
-    this.pdf.setFillColor(124, 58, 237); // Primary purple
-    this.pdf.rect(0, 0, this.pageWidth, 100, 'F');
-
-    // Title
-    this.pdf.setTextColor(255, 255, 255);
-    this.pdf.setFontSize(28);
-    this.setFont('bold');
-    this.pdf.text('AI Team Mission Report', this.pageWidth / 2, 50, {
-      align: 'center',
-    });
-
-    // Subtitle
-    this.pdf.setFontSize(14);
-    this.setFont('normal');
-    this.pdf.text('Powered by DeepDive Engine', this.pageWidth / 2, 65, {
-      align: 'center',
-    });
-
-    // Mission title
-    this.pdf.setTextColor(31, 41, 55);
-    this.pdf.setFontSize(16);
-    this.setFont('bold');
-    const titleLines = this.pdf.splitTextToSize(
-      this.truncateText(data.mission.title, 200),
-      this.contentWidth
-    );
-    this.pdf.text(titleLines, this.pageWidth / 2, 130, { align: 'center' });
-
-    // Mission info box
-    const infoY = 160;
-    this.pdf.setFillColor(249, 250, 251);
-    this.pdf.roundedRect(this.margin, infoY, this.contentWidth, 60, 3, 3, 'F');
-
-    this.pdf.setTextColor(107, 114, 128);
-    this.pdf.setFontSize(10);
-    this.setFont('normal');
-
-    const infoItems = [
-      { label: 'Mission ID', value: data.mission.id },
-      { label: 'Status', value: data.mission.status },
-      { label: 'Leader', value: data.mission.leader },
-      { label: 'Created', value: this.formatDate(data.mission.createdAt) },
-      {
-        label: 'Completed',
-        value: data.mission.completedAt
-          ? this.formatDate(data.mission.completedAt)
-          : 'In Progress',
-      },
-    ];
-
-    let infoItemY = infoY + 12;
-    infoItems.forEach((item) => {
-      this.setFont('bold');
-      this.pdf.text(`${item.label}:`, this.margin + 10, infoItemY);
-      this.setFont('normal');
-      this.pdf.text(item.value, this.margin + 45, infoItemY);
-      infoItemY += 10;
-    });
-
-    // Footer
-    this.pdf.setTextColor(156, 163, 175);
-    this.pdf.setFontSize(9);
-    this.pdf.text(
-      `Generated on ${new Date().toLocaleString()}`,
-      this.pageWidth / 2,
-      this.pageHeight - 20,
-      { align: 'center' }
-    );
-  }
-
-  /**
-   * Add executive summary section
-   */
-  private addExecutiveSummary(data: MissionReportData, stats: ReportStats) {
-    this.addSectionTitle('Executive Summary');
-    this.currentY += 5;
-
-    // Summary box
-    this.pdf.setFillColor(249, 250, 251);
-    this.pdf.roundedRect(
-      this.margin,
-      this.currentY,
-      this.contentWidth,
-      70,
-      3,
-      3,
-      'F'
-    );
-
-    const boxY = this.currentY + 8;
-    this.pdf.setTextColor(31, 41, 55);
-    this.pdf.setFontSize(11);
-    this.setFont('normal');
-
-    // Key metrics
-    const metrics = [
-      {
-        label: 'Total Tasks',
-        value: stats.totalTasks.toString(),
-        color: this.colors.primary,
-      },
-      {
-        label: 'Completed',
-        value: stats.completedTasks.toString(),
-        color: this.colors.success,
-      },
-      {
-        label: 'Completion Rate',
-        value: `${Math.round((stats.completedTasks / stats.totalTasks) * 100)}%`,
-        color: this.colors.secondary,
-      },
-      {
-        label: 'AI Agents',
-        value: stats.participantCount.toString(),
-        color: this.colors.primary,
-      },
-      {
-        label: 'Duration',
-        value: `${stats.durationMinutes} min`,
-        color: this.colors.textLight,
-      },
-      {
-        label: 'Revisions',
-        value: stats.totalRevisions.toString(),
-        color: this.colors.warning,
-      },
-    ];
-
-    const colWidth = this.contentWidth / 3;
-    metrics.forEach((metric, index) => {
-      const col = index % 3;
-      const row = Math.floor(index / 3);
-      const x = this.margin + 10 + col * colWidth;
-      const y = boxY + row * 30;
-
-      // Value
-      this.pdf.setTextColor(
-        this.hexToRgb(metric.color).r,
-        this.hexToRgb(metric.color).g,
-        this.hexToRgb(metric.color).b
-      );
-      this.pdf.setFontSize(20);
-      this.setFont('bold');
-      this.pdf.text(metric.value, x, y);
-
-      // Label
-      this.pdf.setTextColor(107, 114, 128);
-      this.pdf.setFontSize(9);
-      this.setFont('normal');
-      this.pdf.text(metric.label, x, y + 6);
-    });
-
-    this.currentY += 80;
-
-    // Mission description
-    this.addSubsectionTitle('Mission Description');
-    this.currentY += 3;
-
-    this.pdf.setTextColor(55, 65, 81);
-    this.pdf.setFontSize(10);
-    this.setFont('normal');
-    const descLines = this.pdf.splitTextToSize(
-      this.truncateText(data.mission.description, 800),
-      this.contentWidth
-    );
-    this.pdf.text(descLines, this.margin, this.currentY);
-    this.currentY += descLines.length * 5 + 10;
-
-    // Overall assessment
-    this.addSubsectionTitle('Overall Assessment');
-    this.currentY += 3;
-
-    const completionRate = (stats.completedTasks / stats.totalTasks) * 100;
-    let assessment = '';
-    let assessmentColor = this.colors.success;
-
-    if (completionRate === 100) {
-      assessment =
-        'All tasks completed successfully. The mission was executed efficiently with full completion.';
-    } else if (completionRate >= 80) {
-      assessment = `Mission largely successful with ${Math.round(completionRate)}% completion rate. Minor tasks remain pending.`;
-      assessmentColor = this.colors.success;
-    } else if (completionRate >= 50) {
-      assessment = `Mission partially complete with ${Math.round(completionRate)}% completion rate. Several tasks require attention.`;
-      assessmentColor = this.colors.warning;
-    } else {
-      assessment = `Mission requires attention with only ${Math.round(completionRate)}% completion rate. Multiple tasks are pending or failed.`;
-      assessmentColor = this.colors.error;
-    }
-
-    this.pdf.setTextColor(55, 65, 81);
-    this.pdf.setFontSize(10);
-    const assessLines = this.pdf.splitTextToSize(assessment, this.contentWidth);
-    this.pdf.text(assessLines, this.margin, this.currentY);
-  }
-
-  /**
-   * Add task statistics section
-   */
-  private addTaskStatistics(stats: ReportStats) {
-    this.addSectionTitle('Task Statistics');
-    this.currentY += 10;
-
-    // Status breakdown chart (simplified bar chart)
-    const chartHeight = 60;
-    const chartY = this.currentY;
-    const barWidth = 30;
-    const maxHeight = 50;
-    const maxValue = Math.max(
-      stats.completedTasks,
-      stats.inProgressTasks,
-      stats.pendingTasks,
-      stats.failedTasks,
-      1
-    );
-
-    const statuses = [
-      { label: 'Completed', value: stats.completedTasks, color: '#22c55e' },
-      { label: 'In Progress', value: stats.inProgressTasks, color: '#3b82f6' },
-      { label: 'Pending', value: stats.pendingTasks, color: '#f59e0b' },
-      { label: 'Failed', value: stats.failedTasks, color: '#ef4444' },
-    ];
-
-    const chartStartX = this.margin + 20;
-
-    statuses.forEach((status, index) => {
-      const x = chartStartX + index * (barWidth + 15);
-      const barHeight = (status.value / maxValue) * maxHeight;
-      const y = chartY + maxHeight - barHeight;
-
-      // Bar
-      const rgb = this.hexToRgb(status.color);
-      this.pdf.setFillColor(rgb.r, rgb.g, rgb.b);
-      this.pdf.roundedRect(x, y, barWidth, barHeight, 2, 2, 'F');
-
-      // Value on top
-      this.pdf.setTextColor(31, 41, 55);
-      this.pdf.setFontSize(12);
-      this.setFont('bold');
-      this.pdf.text(status.value.toString(), x + barWidth / 2, y - 3, {
-        align: 'center',
-      });
-
-      // Label below
-      this.pdf.setTextColor(107, 114, 128);
-      this.pdf.setFontSize(8);
-      this.setFont('normal');
-      this.pdf.text(status.label, x + barWidth / 2, chartY + maxHeight + 8, {
-        align: 'center',
-      });
-    });
-
-    this.currentY = chartY + chartHeight + 20;
-
-    // Summary table
-    this.pdf.setFillColor(249, 250, 251);
-    this.pdf.roundedRect(
-      this.margin,
-      this.currentY,
-      this.contentWidth,
-      40,
-      3,
-      3,
-      'F'
-    );
-
-    const tableY = this.currentY + 10;
-    const summaryItems = [
-      { label: 'Total Tasks Processed', value: stats.totalTasks },
-      { label: 'Total Revisions Made', value: stats.totalRevisions },
-      {
-        label: 'Average Revisions per Task',
-        value: stats.avgRevisions.toFixed(1),
-      },
-      {
-        label: 'Total Processing Time',
-        value: `${stats.durationMinutes} minutes`,
-      },
-    ];
-
-    summaryItems.forEach((item, index) => {
-      const y = tableY + index * 8;
-      this.pdf.setTextColor(107, 114, 128);
-      this.pdf.setFontSize(9);
-      this.setFont('normal');
-      this.pdf.text(item.label, this.margin + 10, y);
-
-      this.pdf.setTextColor(31, 41, 55);
-      this.setFont('bold');
-      this.pdf.text(
-        item.value.toString(),
-        this.margin + this.contentWidth - 10,
-        y,
-        { align: 'right' }
-      );
-    });
-
-    this.currentY += 50;
-  }
-
-  /**
-   * Add agent participation section
-   */
-  private addAgentParticipation(stats: ReportStats) {
-    this.addSubsectionTitle('AI Agent Participation');
-    this.currentY += 5;
-
-    const sortedParticipants = Array.from(stats.participants.entries()).sort(
-      (a, b) => b[1] - a[1]
-    );
-
-    const maxTasks = sortedParticipants[0]?.[1] || 1;
-    const barMaxWidth = 100;
-
-    sortedParticipants.forEach(([agent, taskCount], index) => {
-      if (this.currentY > this.pageHeight - 40) {
-        this.addNewPage();
-      }
-
-      // Agent name
-      this.pdf.setTextColor(31, 41, 55);
-      this.pdf.setFontSize(9);
-      this.setFont('normal');
-      this.pdf.text(this.truncateText(agent, 30), this.margin, this.currentY);
-
-      // Progress bar
-      const barX = this.margin + 55;
-      const barWidth = (taskCount / maxTasks) * barMaxWidth;
-
-      this.pdf.setFillColor(229, 231, 235);
-      this.pdf.roundedRect(barX, this.currentY - 4, barMaxWidth, 5, 1, 1, 'F');
-
-      this.pdf.setFillColor(124, 58, 237);
-      this.pdf.roundedRect(barX, this.currentY - 4, barWidth, 5, 1, 1, 'F');
-
-      // Task count
-      this.pdf.setTextColor(107, 114, 128);
-      this.pdf.text(
-        `${taskCount} tasks`,
-        barX + barMaxWidth + 5,
-        this.currentY
-      );
-
-      this.currentY += 10;
-    });
-
-    this.currentY += 10;
-  }
-
-  /**
-   * Add final result section
-   */
-  private addFinalResult(finalResult: string) {
-    this.addSectionTitle('Final Result');
-    this.currentY += 5;
-
-    // Process markdown-like content
-    const lines = finalResult.split('\n');
-
-    lines.forEach((line) => {
-      if (this.currentY > this.pageHeight - 30) {
-        this.addNewPage();
-      }
-
-      const trimmed = line.trim();
-      if (!trimmed) {
-        this.currentY += 3;
-        return;
-      }
-
-      // Headers
-      if (trimmed.startsWith('# ')) {
-        this.pdf.setTextColor(31, 41, 55);
-        this.pdf.setFontSize(14);
-        this.setFont('bold');
-        this.pdf.text(trimmed.replace(/^# /, ''), this.margin, this.currentY);
-        this.currentY += 8;
-      } else if (trimmed.startsWith('## ')) {
-        this.pdf.setTextColor(55, 65, 81);
-        this.pdf.setFontSize(12);
-        this.setFont('bold');
-        this.pdf.text(trimmed.replace(/^## /, ''), this.margin, this.currentY);
-        this.currentY += 7;
-      } else if (trimmed.startsWith('### ')) {
-        this.pdf.setTextColor(75, 85, 99);
-        this.pdf.setFontSize(11);
-        this.setFont('bold');
-        this.pdf.text(trimmed.replace(/^### /, ''), this.margin, this.currentY);
-        this.currentY += 6;
-      } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-        // List items
-        this.pdf.setTextColor(55, 65, 81);
-        this.pdf.setFontSize(10);
-        this.setFont('normal');
-        const bulletText = `  ${trimmed.replace(/^[-*] /, '')}`;
-        const bulletLines = this.pdf.splitTextToSize(
-          bulletText,
-          this.contentWidth - 10
-        );
-
-        // Bullet point
-        this.pdf.setFillColor(124, 58, 237);
-        this.pdf.circle(this.margin + 3, this.currentY - 1, 1, 'F');
-
-        this.pdf.text(bulletLines, this.margin + 8, this.currentY);
-        this.currentY += bulletLines.length * 5;
-      } else if (trimmed.startsWith('|')) {
-        // Table row (simplified)
-        this.pdf.setTextColor(55, 65, 81);
-        this.pdf.setFontSize(9);
-        this.setFont('normal');
-        const cleanRow = trimmed.replace(/\|/g, '  ').trim();
-        this.pdf.text(cleanRow, this.margin, this.currentY);
-        this.currentY += 5;
-      } else if (trimmed === '---') {
-        // Horizontal rule
-        this.pdf.setDrawColor(229, 231, 235);
-        this.pdf.line(
-          this.margin,
-          this.currentY,
-          this.margin + this.contentWidth,
-          this.currentY
-        );
-        this.currentY += 5;
-      } else {
-        // Regular paragraph
-        this.pdf.setTextColor(55, 65, 81);
-        this.pdf.setFontSize(10);
-        this.setFont('normal');
-        // Remove markdown formatting
-        const cleanText = trimmed
-          .replace(/\*\*(.+?)\*\*/g, '$1')
-          .replace(/\*(.+?)\*/g, '$1')
-          .replace(/`(.+?)`/g, '$1');
-        const textLines = this.pdf.splitTextToSize(
-          cleanText,
-          this.contentWidth
-        );
-        this.pdf.text(textLines, this.margin, this.currentY);
-        this.currentY += textLines.length * 5;
-      }
-    });
-  }
-
-  /**
-   * Add detailed task reports
-   */
-  private addDetailedTasks(tasks: MissionReportData['tasks']) {
-    this.addSectionTitle('Detailed Task Reports');
-    this.currentY += 10;
-
-    tasks.forEach((task, index) => {
-      if (this.currentY > this.pageHeight - 60) {
-        this.addNewPage();
-      }
-
-      // Task header
-      this.pdf.setFillColor(249, 250, 251);
-      this.pdf.roundedRect(
-        this.margin,
-        this.currentY,
-        this.contentWidth,
-        15,
-        2,
-        2,
-        'F'
-      );
-
-      this.pdf.setTextColor(31, 41, 55);
-      this.pdf.setFontSize(11);
-      this.setFont('bold');
-      this.pdf.text(
-        `Task ${index + 1}: ${this.truncateText(task.title, 60)}`,
-        this.margin + 5,
-        this.currentY + 10
-      );
-
-      // Status badge
-      const statusColors: Record<string, string> = {
-        COMPLETED: '#22c55e',
-        IN_PROGRESS: '#3b82f6',
-        PENDING: '#f59e0b',
-        FAILED: '#ef4444',
-      };
-      const statusColor = statusColors[task.status] || '#6b7280';
-      const statusRgb = this.hexToRgb(statusColor);
-      this.pdf.setFillColor(statusRgb.r, statusRgb.g, statusRgb.b);
-      this.pdf.roundedRect(
-        this.margin + this.contentWidth - 30,
-        this.currentY + 4,
-        25,
-        7,
-        2,
-        2,
-        'F'
-      );
-      this.pdf.setTextColor(255, 255, 255);
-      this.pdf.setFontSize(7);
-      this.pdf.text(
-        task.status,
-        this.margin + this.contentWidth - 17.5,
-        this.currentY + 9,
-        { align: 'center' }
-      );
-
-      this.currentY += 20;
-
-      // Task details
-      this.pdf.setTextColor(107, 114, 128);
-      this.pdf.setFontSize(9);
-      this.setFont('normal');
-      this.pdf.text(
-        `Assigned to: ${task.assignedTo}`,
-        this.margin + 5,
-        this.currentY
-      );
-      this.pdf.text(
-        `Revisions: ${task.revisionCount}`,
-        this.margin + 100,
-        this.currentY
-      );
-      this.currentY += 8;
-
-      // Result preview
-      if (task.result) {
-        this.pdf.setTextColor(55, 65, 81);
-        this.pdf.setFontSize(9);
-        const resultPreview = this.truncateText(
-          task.result.replace(/\n/g, ' '),
-          300
-        );
-        const resultLines = this.pdf.splitTextToSize(
-          resultPreview,
-          this.contentWidth - 10
-        );
-        this.pdf.text(resultLines, this.margin + 5, this.currentY);
-        this.currentY += resultLines.length * 4 + 5;
-      }
-
-      // Leader feedback
-      if (task.leaderFeedback) {
-        this.pdf.setFillColor(254, 249, 195);
-        this.pdf.roundedRect(
-          this.margin + 5,
-          this.currentY,
-          this.contentWidth - 10,
-          15,
-          2,
-          2,
-          'F'
-        );
-        this.pdf.setTextColor(146, 64, 14);
-        this.pdf.setFontSize(8);
-        this.setFont('normal');
-        const feedbackText = `Leader: ${this.truncateText(task.leaderFeedback.replace(/\n/g, ' '), 150)}`;
-        this.pdf.text(feedbackText, this.margin + 10, this.currentY + 9);
-        this.currentY += 20;
-      }
-
-      this.currentY += 10;
-    });
-  }
-
-  /**
-   * Add page numbers to all pages
-   */
-  private addPageNumbers() {
-    const totalPages = this.pdf.getNumberOfPages();
-    for (let i = 1; i <= totalPages; i++) {
-      this.pdf.setPage(i);
-      this.pdf.setTextColor(156, 163, 175);
-      this.pdf.setFontSize(9);
-      this.setFont('normal');
-      this.pdf.text(
-        `Page ${i} of ${totalPages}`,
-        this.pageWidth / 2,
-        this.pageHeight - 10,
-        { align: 'center' }
-      );
-    }
-  }
-
-  /**
-   * Helper: Add section title
-   */
-  private addSectionTitle(title: string) {
-    this.pdf.setTextColor(31, 41, 55);
-    this.pdf.setFontSize(16);
-    this.setFont('bold');
-    this.pdf.text(title, this.margin, this.currentY);
-
-    // Underline
-    this.pdf.setDrawColor(124, 58, 237);
-    this.pdf.setLineWidth(0.5);
-    this.pdf.line(
-      this.margin,
-      this.currentY + 2,
-      this.margin + 50,
-      this.currentY + 2
-    );
-
-    this.currentY += 10;
-  }
-
-  /**
-   * Helper: Add subsection title
-   */
-  private addSubsectionTitle(title: string) {
-    this.pdf.setTextColor(55, 65, 81);
-    this.pdf.setFontSize(12);
-    this.setFont('bold');
-    this.pdf.text(title, this.margin, this.currentY);
-    this.currentY += 6;
-  }
-
-  /**
-   * Helper: Add new page
-   */
-  private addNewPage() {
-    this.pdf.addPage();
-    this.currentY = this.margin;
-    this.pageNumber++;
-  }
-
-  /**
-   * Helper: Truncate text
-   */
-  private truncateText(text: string, maxLength: number): string {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength - 3) + '...';
-  }
-
-  /**
-   * Helper: Format date
-   */
-  private formatDate(dateStr: string): string {
-    try {
-      const date = new Date(dateStr);
-      return date.toLocaleString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return dateStr;
-    }
-  }
-
-  /**
-   * Helper: Convert hex color to RGB
-   */
-  private hexToRgb(hex: string): { r: number; g: number; b: number } {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result
-      ? {
-          r: parseInt(result[1], 16),
-          g: parseInt(result[2], 16),
-          b: parseInt(result[3], 16),
-        }
-      : { r: 0, g: 0, b: 0 };
+  } catch {
+    return dateStr;
   }
 }
 
 /**
- * Generate and download mission report PDF
+ * Get status badge color
+ */
+function getStatusColor(status: string): { bg: string; text: string } {
+  const colors: Record<string, { bg: string; text: string }> = {
+    COMPLETED: { bg: '#dcfce7', text: '#166534' },
+    IN_PROGRESS: { bg: '#dbeafe', text: '#1e40af' },
+    PENDING: { bg: '#fef3c7', text: '#92400e' },
+    FAILED: { bg: '#fee2e2', text: '#991b1b' },
+    AWAITING_REVIEW: { bg: '#f3e8ff', text: '#6b21a8' },
+    REVISION_NEEDED: { bg: '#ffedd5', text: '#9a3412' },
+  };
+  return colors[status] || { bg: '#f3f4f6', text: '#374151' };
+}
+
+/**
+ * Escape HTML characters
+ */
+function escapeHtml(text: string): string {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/**
+ * Convert markdown to simple HTML
+ */
+function markdownToHtml(text: string): string {
+  if (!text) return '';
+
+  return text
+    .split('\n')
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return '<br/>';
+
+      // Headers
+      if (trimmed.startsWith('#### ')) {
+        return `<h4 style="font-size: 14px; font-weight: bold; margin: 16px 0 8px 0; color: #374151;">${escapeHtml(trimmed.slice(5))}</h4>`;
+      }
+      if (trimmed.startsWith('### ')) {
+        return `<h3 style="font-size: 16px; font-weight: bold; margin: 20px 0 10px 0; color: #1f2937;">${escapeHtml(trimmed.slice(4))}</h3>`;
+      }
+      if (trimmed.startsWith('## ')) {
+        return `<h2 style="font-size: 18px; font-weight: bold; margin: 24px 0 12px 0; color: #111827;">${escapeHtml(trimmed.slice(3))}</h2>`;
+      }
+      if (trimmed.startsWith('# ')) {
+        return `<h1 style="font-size: 22px; font-weight: bold; margin: 28px 0 14px 0; color: #111827;">${escapeHtml(trimmed.slice(2))}</h1>`;
+      }
+
+      // List items
+      if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+        return `<li style="margin: 4px 0; margin-left: 20px;">${escapeHtml(trimmed.slice(2))}</li>`;
+      }
+
+      // Horizontal rule
+      if (trimmed === '---') {
+        return '<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 16px 0;"/>';
+      }
+
+      // Regular paragraph - handle bold/italic
+      let html = escapeHtml(trimmed);
+      html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+      html = html.replace(
+        /`(.+?)`/g,
+        '<code style="background: #f3f4f6; padding: 2px 4px; border-radius: 3px;">$1</code>'
+      );
+
+      return `<p style="margin: 8px 0; line-height: 1.6;">${html}</p>`;
+    })
+    .join('');
+}
+
+/**
+ * Generate HTML content for the report
+ */
+function generateReportHtml(data: MissionReportData): string {
+  const stats = calculateStats(data);
+  const completionRate =
+    stats.totalTasks > 0
+      ? Math.round((stats.completedTasks / stats.totalTasks) * 100)
+      : 0;
+
+  // Sort participants by task count
+  const sortedParticipants = Array.from(stats.participants.entries()).sort(
+    (a, b) => b[1] - a[1]
+  );
+  const maxTasks = sortedParticipants[0]?.[1] || 1;
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #1f2937;
+      background: white;
+    }
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      padding: 20mm;
+      margin: 0 auto;
+      background: white;
+      page-break-after: always;
+    }
+    .page:last-child {
+      page-break-after: auto;
+    }
+    .cover {
+      text-align: center;
+      padding-top: 60mm;
+    }
+    .cover-header {
+      background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
+      color: white;
+      padding: 40px;
+      margin: -20mm -20mm 40px -20mm;
+      border-radius: 0 0 20px 20px;
+    }
+    .cover-title {
+      font-size: 28px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    .cover-subtitle {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    .mission-title {
+      font-size: 18px;
+      font-weight: bold;
+      color: #1f2937;
+      margin: 40px 0 30px 0;
+      padding: 0 20px;
+    }
+    .info-box {
+      background: #f9fafb;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px auto;
+      max-width: 400px;
+      text-align: left;
+    }
+    .info-row {
+      display: flex;
+      margin: 8px 0;
+    }
+    .info-label {
+      width: 80px;
+      color: #6b7280;
+      font-weight: 500;
+    }
+    .info-value {
+      flex: 1;
+      color: #1f2937;
+    }
+    .section-title {
+      font-size: 18px;
+      font-weight: bold;
+      color: #1f2937;
+      border-bottom: 3px solid #7c3aed;
+      padding-bottom: 8px;
+      margin-bottom: 20px;
+    }
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin: 20px 0;
+    }
+    .metric-card {
+      background: #f9fafb;
+      border-radius: 8px;
+      padding: 15px;
+      text-align: center;
+    }
+    .metric-value {
+      font-size: 24px;
+      font-weight: bold;
+      color: #7c3aed;
+    }
+    .metric-label {
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+    .chart-container {
+      margin: 20px 0;
+    }
+    .bar-chart {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-around;
+      height: 120px;
+      padding: 10px;
+      background: #f9fafb;
+      border-radius: 8px;
+    }
+    .bar-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 60px;
+    }
+    .bar {
+      width: 40px;
+      border-radius: 4px 4px 0 0;
+      transition: height 0.3s;
+    }
+    .bar-value {
+      font-size: 12px;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    .bar-label {
+      font-size: 10px;
+      color: #6b7280;
+      margin-top: 8px;
+      text-align: center;
+    }
+    .participant-row {
+      display: flex;
+      align-items: center;
+      margin: 8px 0;
+    }
+    .participant-name {
+      width: 120px;
+      font-size: 11px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .participant-bar-bg {
+      flex: 1;
+      height: 8px;
+      background: #e5e7eb;
+      border-radius: 4px;
+      margin: 0 10px;
+    }
+    .participant-bar {
+      height: 100%;
+      background: #7c3aed;
+      border-radius: 4px;
+    }
+    .participant-count {
+      width: 60px;
+      font-size: 11px;
+      color: #6b7280;
+    }
+    .task-card {
+      background: #f9fafb;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 15px 0;
+    }
+    .task-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .task-title {
+      font-size: 13px;
+      font-weight: bold;
+      color: #1f2937;
+    }
+    .status-badge {
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 500;
+    }
+    .task-meta {
+      font-size: 11px;
+      color: #6b7280;
+      margin-bottom: 10px;
+    }
+    .task-result {
+      font-size: 11px;
+      color: #374151;
+      background: white;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+    .feedback-box {
+      background: #fef3c7;
+      border-radius: 4px;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 11px;
+      color: #92400e;
+    }
+    .final-result {
+      background: #f9fafb;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+    .footer {
+      text-align: center;
+      color: #9ca3af;
+      font-size: 10px;
+      margin-top: 40px;
+    }
+    .page-break {
+      page-break-before: always;
+    }
+  </style>
+</head>
+<body>
+  <!-- Cover Page -->
+  <div class="page cover">
+    <div class="cover-header">
+      <div class="cover-title">AI Team Mission Report</div>
+      <div class="cover-subtitle">Powered by DeepDive Engine</div>
+    </div>
+
+    <div class="mission-title">${escapeHtml(data.mission.title)}</div>
+
+    <div class="info-box">
+      <div class="info-row">
+        <span class="info-label">任务ID:</span>
+        <span class="info-value">${escapeHtml(data.mission.id)}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">状态:</span>
+        <span class="info-value">${escapeHtml(data.mission.status)}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">负责人:</span>
+        <span class="info-value">${escapeHtml(data.mission.leader)}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">创建时间:</span>
+        <span class="info-value">${formatDate(data.mission.createdAt)}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">完成时间:</span>
+        <span class="info-value">${data.mission.completedAt ? formatDate(data.mission.completedAt) : '进行中'}</span>
+      </div>
+    </div>
+
+    <div class="footer">
+      生成时间: ${new Date().toLocaleString('zh-CN')}
+    </div>
+  </div>
+
+  <!-- Executive Summary -->
+  <div class="page">
+    <div class="section-title">执行摘要</div>
+
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-value">${stats.totalTasks}</div>
+        <div class="metric-label">总任务数</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value" style="color: #22c55e;">${stats.completedTasks}</div>
+        <div class="metric-label">已完成</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value" style="color: #6366f1;">${completionRate}%</div>
+        <div class="metric-label">完成率</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">${stats.participantCount}</div>
+        <div class="metric-label">AI成员</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value" style="color: #6b7280;">${stats.durationMinutes}分钟</div>
+        <div class="metric-label">执行时长</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value" style="color: #f59e0b;">${stats.totalRevisions}</div>
+        <div class="metric-label">修订次数</div>
+      </div>
+    </div>
+
+    <h3 style="font-size: 14px; font-weight: bold; margin: 30px 0 10px 0;">任务描述</h3>
+    <p style="color: #374151; line-height: 1.8;">${escapeHtml(data.mission.description)}</p>
+
+    <h3 style="font-size: 14px; font-weight: bold; margin: 30px 0 10px 0;">任务状态分布</h3>
+    <div class="chart-container">
+      <div class="bar-chart">
+        <div class="bar-item">
+          <div class="bar-value">${stats.completedTasks}</div>
+          <div class="bar" style="height: ${Math.max(10, (stats.completedTasks / Math.max(stats.totalTasks, 1)) * 80)}px; background: #22c55e;"></div>
+          <div class="bar-label">已完成</div>
+        </div>
+        <div class="bar-item">
+          <div class="bar-value">${stats.inProgressTasks}</div>
+          <div class="bar" style="height: ${Math.max(10, (stats.inProgressTasks / Math.max(stats.totalTasks, 1)) * 80)}px; background: #3b82f6;"></div>
+          <div class="bar-label">进行中</div>
+        </div>
+        <div class="bar-item">
+          <div class="bar-value">${stats.pendingTasks}</div>
+          <div class="bar" style="height: ${Math.max(10, (stats.pendingTasks / Math.max(stats.totalTasks, 1)) * 80)}px; background: #f59e0b;"></div>
+          <div class="bar-label">待处理</div>
+        </div>
+        <div class="bar-item">
+          <div class="bar-value">${stats.failedTasks}</div>
+          <div class="bar" style="height: ${Math.max(10, (stats.failedTasks / Math.max(stats.totalTasks, 1)) * 80)}px; background: #ef4444;"></div>
+          <div class="bar-label">失败</div>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="font-size: 14px; font-weight: bold; margin: 30px 0 10px 0;">AI成员参与情况</h3>
+    ${sortedParticipants
+      .map(
+        ([name, count]) => `
+      <div class="participant-row">
+        <span class="participant-name">${escapeHtml(name)}</span>
+        <div class="participant-bar-bg">
+          <div class="participant-bar" style="width: ${(count / maxTasks) * 100}%;"></div>
+        </div>
+        <span class="participant-count">${count} 个任务</span>
+      </div>
+    `
+      )
+      .join('')}
+  </div>
+
+  <!-- Final Result -->
+  ${
+    data.mission.finalResult
+      ? `
+  <div class="page">
+    <div class="section-title">最终成果</div>
+    <div class="final-result">
+      ${markdownToHtml(data.mission.finalResult)}
+    </div>
+  </div>
+  `
+      : ''
+  }
+
+  <!-- Detailed Tasks -->
+  <div class="page">
+    <div class="section-title">详细任务报告</div>
+    ${data.tasks
+      .map(
+        (task, index) => `
+      <div class="task-card">
+        <div class="task-header">
+          <span class="task-title">任务 ${index + 1}: ${escapeHtml(task.title)}</span>
+          <span class="status-badge" style="background: ${getStatusColor(task.status).bg}; color: ${getStatusColor(task.status).text};">
+            ${escapeHtml(task.status)}
+          </span>
+        </div>
+        <div class="task-meta">
+          执行者: ${escapeHtml(task.assignedTo)} | 修订次数: ${task.revisionCount}
+        </div>
+        ${
+          task.result
+            ? `
+          <div class="task-result">
+            ${escapeHtml(task.result.length > 500 ? task.result.substring(0, 500) + '...' : task.result)}
+          </div>
+        `
+            : ''
+        }
+        ${
+          task.leaderFeedback
+            ? `
+          <div class="feedback-box">
+            <strong>Leader 反馈:</strong> ${escapeHtml(task.leaderFeedback.length > 200 ? task.leaderFeedback.substring(0, 200) + '...' : task.leaderFeedback)}
+          </div>
+        `
+            : ''
+        }
+      </div>
+    `
+      )
+      .join('')}
+  </div>
+
+  <div class="footer" style="margin-top: 20px;">
+    © ${new Date().getFullYear()} DeepDive Engine - AI Team Mission Report
+  </div>
+</body>
+</html>
+  `;
+}
+
+/**
+ * Generate and download mission report PDF using html2pdf
  */
 export async function downloadMissionReportPDF(
   data: MissionReportData,
   filename?: string
-) {
-  const generator = new MissionReportPDFGenerator();
-  const blob = await generator.generate(data);
+): Promise<void> {
+  // Dynamically import html2pdf to avoid SSR issues
+  const html2pdf = (await import('html2pdf.js')).default;
 
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename || `mission-report-${data.mission.id}.pdf`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  const html = generateReportHtml(data);
+
+  // Create a temporary container
+  const container = document.createElement('div');
+  container.innerHTML = html;
+  container.style.position = 'absolute';
+  container.style.left = '-9999px';
+  container.style.top = '0';
+  document.body.appendChild(container);
+
+  const options = {
+    margin: 0,
+    filename: filename || `mission-report-${data.mission.id}.pdf`,
+    image: { type: 'jpeg' as const, quality: 0.98 },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+    },
+    jsPDF: {
+      unit: 'mm' as const,
+      format: 'a4' as const,
+      orientation: 'portrait' as const,
+    },
+    pagebreak: { mode: 'css' as const, before: '.page-break', after: '.page' },
+  };
+
+  try {
+    await html2pdf().set(options).from(container).save();
+  } finally {
+    document.body.removeChild(container);
+  }
 }

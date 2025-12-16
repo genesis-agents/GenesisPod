@@ -36,6 +36,7 @@
     "docx": "^9.5.1",
     "framer-motion": "^12.23.25",
     "html2canvas": "^1.4.1",
+    "html2pdf.js": "^0.12.1",
     "jspdf": "^3.0.3",
     "lowlight": "^3.3.0",
     "lucide-react": "^0.553.0",
