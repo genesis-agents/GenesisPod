@@ -621,28 +621,47 @@ export async function downloadMissionReportPDF(
 
   const html = generateReportHtml(data);
 
-  // Use onclone callback to ensure proper rendering
-  // Create a temporary container that's in the normal document flow
+  // Create a loading overlay to cover the screen while rendering
+  const overlay = document.createElement('div');
+  overlay.id = 'pdf-loading-overlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: white;
+    z-index: 999998;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 16px;
+    color: #6b7280;
+  `;
+  overlay.innerHTML = '<div>正在生成 PDF 报告，请稍候...</div>';
+  document.body.appendChild(overlay);
+
+  // Create the content container - must be visible for html2canvas
   const container = document.createElement('div');
   container.id = 'pdf-render-container';
   container.innerHTML = html;
-
-  // Style container for proper capture - use absolute positioning in document flow
   container.style.cssText = `
-    position: absolute;
-    left: 0;
+    position: fixed;
     top: 0;
+    left: 0;
     width: 794px;
     background: white;
-    z-index: -1;
-    opacity: 0;
-    pointer-events: none;
+    z-index: 999999;
   `;
-
   document.body.appendChild(container);
 
-  // Wait for DOM to render
-  await new Promise((resolve) => setTimeout(resolve, 300));
+  // Prevent body scroll
+  const originalOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
+
+  // Wait for DOM and fonts to render
+  await new Promise((resolve) => setTimeout(resolve, 500));
 
   const options = {
     margin: [10, 10, 10, 10] as [number, number, number, number],
@@ -653,15 +672,7 @@ export async function downloadMissionReportPDF(
       useCORS: true,
       logging: false,
       allowTaint: true,
-      // Use onclone to make element visible in the cloned document
-      onclone: (clonedDoc: Document) => {
-        const clonedElement = clonedDoc.getElementById('pdf-render-container');
-        if (clonedElement) {
-          clonedElement.style.opacity = '1';
-          clonedElement.style.zIndex = '1';
-          clonedElement.style.position = 'relative';
-        }
-      },
+      backgroundColor: '#ffffff',
     },
     jsPDF: {
       unit: 'mm' as const,
@@ -684,5 +695,7 @@ export async function downloadMissionReportPDF(
     await html2pdf().set(options).from(container).save();
   } finally {
     document.body.removeChild(container);
+    document.body.removeChild(overlay);
+    document.body.style.overflow = originalOverflow;
   }
 }
