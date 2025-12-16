@@ -1885,13 +1885,12 @@ function TaskDetailPanel({
   );
 }
 
-// Agent Popover - Beautiful floating card for agent details
+// Agent Popover - Centered modal for agent details
 function AgentPopover({
   agent,
   isLeader,
   tasks,
   isWorking,
-  position,
   onClose,
   onTaskClick,
   missionTitle,
@@ -1912,25 +1911,19 @@ function AgentPopover({
     0
   );
 
-  // Calculate popover position - adjust to keep it visible
-  const popoverStyle: React.CSSProperties = {
-    position: 'absolute',
-    left: Math.min(position.x, window.innerWidth - 580),
-    top: Math.max(10, Math.min(position.y - 100, window.innerHeight - 600)),
-    zIndex: 100,
-  };
-
   return (
     <>
-      {/* Backdrop */}
-      <div className="absolute inset-0 z-50" onClick={onClose} />
-      {/* Popover Card */}
+      {/* Backdrop - full screen overlay */}
       <div
-        style={popoverStyle}
-        className="animate-in fade-in zoom-in-95 z-[100] w-[550px] duration-200"
+        className="fixed inset-0 z-[200] bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      {/* Modal Card - centered */}
+      <div
+        className="animate-in fade-in zoom-in-95 fixed left-1/2 top-1/2 z-[201] w-[600px] max-w-[90vw] -translate-x-1/2 -translate-y-1/2 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl">
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
           {/* Header with gradient */}
           <div
             className={`relative px-4 py-3 ${
@@ -1995,13 +1988,13 @@ function AgentPopover({
           </div>
 
           {/* Content */}
-          <div className="max-h-[70vh] overflow-y-auto p-5">
+          <div className="max-h-[60vh] overflow-y-auto p-6">
             {/* Role Info */}
-            <div className="mb-4 rounded-lg border border-gray-100 bg-gray-50 p-4">
-              <div className="mb-1 text-xs font-medium text-gray-500">
+            <div className="mb-5 rounded-xl border border-gray-100 bg-gray-50 p-4">
+              <div className="mb-2 text-sm font-semibold text-gray-600">
                 职责定位
               </div>
-              <div className="text-sm text-gray-700">
+              <div className="text-base leading-relaxed text-gray-700">
                 {isLeader
                   ? '任务规划与分解、工作分配、进度监控、质量审核、成果整合'
                   : '执行分配的任务、产出高质量成果、响应Leader反馈'}
@@ -2010,11 +2003,11 @@ function AgentPopover({
 
             {/* Current Goal */}
             {(inProgressTasks.length > 0 || missionTitle) && (
-              <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 p-4">
-                <div className="mb-1 text-sm font-medium text-blue-600">
+              <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50 p-4">
+                <div className="mb-2 text-sm font-semibold text-blue-600">
                   当前目标
                 </div>
-                <div className="text-sm leading-relaxed text-gray-700">
+                <div className="text-base leading-relaxed text-gray-700">
                   {inProgressTasks.length > 0
                     ? inProgressTasks.map((t) => t.title).join('、')
                     : isLeader
@@ -2119,10 +2112,9 @@ function AgentPopover({
   );
 }
 
-// Task Popover - Beautiful floating card for task details
+// Task Popover - Centered modal for task details
 function TaskPopover({
   task,
-  position,
   onClose,
 }: {
   task: AgentTask;
@@ -2131,27 +2123,21 @@ function TaskPopover({
 }) {
   const statusConfig = taskStatusConfig[task.status];
 
-  // Calculate popover position - adjust to keep it visible
-  const popoverStyle: React.CSSProperties = {
-    position: 'absolute',
-    left: Math.min(position.x, window.innerWidth - 580),
-    top: Math.max(10, Math.min(position.y - 100, window.innerHeight - 550)),
-    zIndex: 100,
-  };
-
   return (
     <>
-      {/* Backdrop */}
-      <div className="absolute inset-0 z-50" onClick={onClose} />
-      {/* Popover Card */}
+      {/* Backdrop - full screen overlay */}
       <div
-        style={popoverStyle}
-        className="animate-in fade-in zoom-in-95 z-[100] w-[550px] duration-200"
+        className="fixed inset-0 z-[200] bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      {/* Modal Card - centered */}
+      <div
+        className="animate-in fade-in zoom-in-95 fixed left-1/2 top-1/2 z-[201] w-[650px] max-w-[90vw] -translate-x-1/2 -translate-y-1/2 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl">
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
           {/* Header */}
-          <div className={`relative px-5 py-4 ${statusConfig.bgColor}`}>
+          <div className={`relative px-6 py-5 ${statusConfig.bgColor}`}>
             <button
               onClick={onClose}
               className="absolute right-2 top-2 rounded-full p-1 text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-700"
@@ -2203,15 +2189,15 @@ function TaskPopover({
           </div>
 
           {/* Content */}
-          <div className="max-h-[70vh] overflow-y-auto p-5">
+          <div className="max-h-[60vh] overflow-y-auto p-6">
             {/* Assignee */}
-            <div className="mb-4 flex items-center gap-3 rounded-xl bg-gray-50 p-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-blue-400 text-sm font-medium text-white">
+            <div className="mb-5 flex items-center gap-4 rounded-xl bg-gray-50 p-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-blue-400 text-base font-medium text-white">
                 {task.assignedTo?.displayName?.charAt(0) || 'A'}
               </div>
               <div>
-                <div className="text-xs text-gray-500">执行者</div>
-                <div className="text-base font-medium text-gray-900">
+                <div className="text-sm text-gray-500">执行者</div>
+                <div className="text-lg font-medium text-gray-900">
                   {task.assignedTo?.displayName || 'Unknown'}
                 </div>
               </div>
@@ -2219,11 +2205,11 @@ function TaskPopover({
 
             {/* Description */}
             {task.description && task.description !== task.title && (
-              <div className="mb-4">
-                <div className="mb-2 text-sm font-medium text-gray-500">
+              <div className="mb-5">
+                <div className="mb-2 text-sm font-semibold text-gray-600">
                   任务描述
                 </div>
-                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm leading-relaxed text-gray-700">
+                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-base leading-relaxed text-gray-700">
                   {task.description}
                 </div>
               </div>
@@ -2231,11 +2217,11 @@ function TaskPopover({
 
             {/* Result */}
             {task.result && (
-              <div className="mb-4">
-                <div className="mb-2 text-sm font-medium text-gray-500">
+              <div className="mb-5">
+                <div className="mb-2 text-sm font-semibold text-gray-600">
                   执行成果
                 </div>
-                <div className="max-h-40 overflow-y-auto rounded-xl border border-green-100 bg-green-50 p-4 text-sm leading-relaxed text-gray-700">
+                <div className="max-h-[200px] overflow-y-auto rounded-xl border border-green-100 bg-green-50 p-4 text-base leading-relaxed text-gray-700">
                   {task.result}
                 </div>
               </div>
@@ -2243,12 +2229,12 @@ function TaskPopover({
 
             {/* Leader Feedback */}
             {task.leaderFeedback && (
-              <div className="mb-4">
-                <div className="mb-2 text-sm font-medium text-gray-500">
+              <div className="mb-5">
+                <div className="mb-2 text-sm font-semibold text-gray-600">
                   Leader 评审
                 </div>
                 <div
-                  className={`rounded-xl border p-4 text-sm leading-relaxed text-gray-700 ${
+                  className={`max-h-[150px] overflow-y-auto rounded-xl border p-4 text-base leading-relaxed text-gray-700 ${
                     task.status === 'COMPLETED'
                       ? 'border-green-200 bg-green-50'
                       : task.status === 'REVISION_NEEDED'
@@ -2262,10 +2248,10 @@ function TaskPopover({
             )}
 
             {/* Timestamps */}
-            <div className="flex gap-6 rounded-lg bg-gray-50 p-3 text-sm text-gray-500">
+            <div className="flex gap-8 rounded-xl bg-gray-50 p-4 text-base text-gray-500">
               {task.startedAt && (
                 <div>
-                  <span className="font-medium text-gray-600">开始:</span>{' '}
+                  <span className="font-semibold text-gray-600">开始:</span>{' '}
                   {new Date(task.startedAt).toLocaleString('zh-CN', {
                     month: 'short',
                     day: 'numeric',
@@ -2276,7 +2262,7 @@ function TaskPopover({
               )}
               {task.completedAt && (
                 <div>
-                  <span className="font-medium text-gray-600">完成:</span>{' '}
+                  <span className="font-semibold text-gray-600">完成:</span>{' '}
                   {new Date(task.completedAt).toLocaleString('zh-CN', {
                     month: 'short',
                     day: 'numeric',

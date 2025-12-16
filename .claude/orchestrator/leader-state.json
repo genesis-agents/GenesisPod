@@ -2,8 +2,8 @@
   "leader_session_id": "task-1765897555879-se8l3areg",
   "status": "running",
   "started_at": "2025-12-16T15:05:55.879Z",
-  "last_heartbeat": "2025-12-16T17:05:57.459Z",
-  "current_cycle": 76,
+  "last_heartbeat": "2025-12-16T17:10:57.475Z",
+  "current_cycle": 77,
   "running_tasks": [],
   "worker_status": {
     "monitoring": "ready",
@@ -16,11 +16,11 @@
     "tester": "ready"
   },
   "statistics": {
-    "cycles_completed": 56,
+    "cycles_completed": 57,
     "tasks_started": 21,
     "tasks_completed": 0,
     "tasks_failed": 7,
-    "total_runtime_seconds": 7201
+    "total_runtime_seconds": 7501
   },
   "last_error": "Cannot read properties of undefined (reading 'monitoring')"
 }
