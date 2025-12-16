@@ -841,6 +841,67 @@ export default function TeamCanvasModal({
                     <stop offset="0%" stopColor="#3b82f6" />
                     <stop offset="100%" stopColor="#1d4ed8" />
                   </linearGradient>
+                  {/* AI Provider Brand Gradients */}
+                  <linearGradient
+                    id="openai-gradient"
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="100%"
+                  >
+                    <stop offset="0%" stopColor="#10a37f" />
+                    <stop offset="100%" stopColor="#0d8a6a" />
+                  </linearGradient>
+                  <linearGradient
+                    id="google-gradient"
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="100%"
+                  >
+                    <stop offset="0%" stopColor="#4285f4" />
+                    <stop offset="100%" stopColor="#3367d6" />
+                  </linearGradient>
+                  <linearGradient
+                    id="xai-gradient"
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="100%"
+                  >
+                    <stop offset="0%" stopColor="#2d2d2d" />
+                    <stop offset="100%" stopColor="#1a1a1a" />
+                  </linearGradient>
+                  <linearGradient
+                    id="anthropic-gradient"
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="100%"
+                  >
+                    <stop offset="0%" stopColor="#d97706" />
+                    <stop offset="100%" stopColor="#b45309" />
+                  </linearGradient>
+                  <linearGradient
+                    id="meta-gradient"
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="100%"
+                  >
+                    <stop offset="0%" stopColor="#0668e1" />
+                    <stop offset="100%" stopColor="#0550b3" />
+                  </linearGradient>
+                  <linearGradient
+                    id="inactive-gradient"
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="100%"
+                  >
+                    <stop offset="0%" stopColor="#9ca3af" />
+                    <stop offset="100%" stopColor="#6b7280" />
+                  </linearGradient>
                   {/* Drop shadows */}
                   <filter
                     id="shadow"
@@ -1104,22 +1165,52 @@ export default function TeamCanvasModal({
                         ? nameParts.slice(1).join(' ').slice(0, 12)
                         : null;
 
-                    // Create short name for inside circle display
-                    // "ChatGPT" -> "GPT", "Gemini" -> "Gemini", "Grok" -> "Grok"
-                    const getShortName = (name: string): string => {
-                      if (name.toLowerCase().includes('chatgpt')) return 'GPT';
-                      if (name.toLowerCase().includes('gpt5')) return 'GPT5';
-                      if (name.toLowerCase().includes('gpt4')) return 'GPT4';
-                      if (name.toLowerCase().includes('gemini'))
-                        return 'Gemini';
-                      if (name.toLowerCase().includes('grok')) return 'Grok';
-                      if (name.toLowerCase().includes('claude'))
-                        return 'Claude';
-                      if (name.toLowerCase().includes('llama')) return 'Llama';
-                      // Default: first 6 chars
-                      return name.length > 6 ? name.slice(0, 6) : name;
+                    // Get AI provider brand info for professional styling
+                    const getProviderBrand = (
+                      name: string
+                    ): { letter: string; color: string; gradient: string } => {
+                      const n = name.toLowerCase();
+                      if (
+                        n.includes('chatgpt') ||
+                        n.includes('openai') ||
+                        n.includes('gpt')
+                      )
+                        return {
+                          letter: 'O',
+                          color: '#10a37f',
+                          gradient: 'url(#openai-gradient)',
+                        };
+                      if (n.includes('gemini') || n.includes('google'))
+                        return {
+                          letter: 'G',
+                          color: '#4285f4',
+                          gradient: 'url(#google-gradient)',
+                        };
+                      if (n.includes('grok') || n.includes('xai'))
+                        return {
+                          letter: 'X',
+                          color: '#1d1d1f',
+                          gradient: 'url(#xai-gradient)',
+                        };
+                      if (n.includes('claude') || n.includes('anthropic'))
+                        return {
+                          letter: 'A',
+                          color: '#d97706',
+                          gradient: 'url(#anthropic-gradient)',
+                        };
+                      if (n.includes('llama') || n.includes('meta'))
+                        return {
+                          letter: 'M',
+                          color: '#0668e1',
+                          gradient: 'url(#meta-gradient)',
+                        };
+                      return {
+                        letter: name.charAt(0).toUpperCase(),
+                        color: '#6b7280',
+                        gradient: '',
+                      };
                     };
-                    const shortName = getShortName(cleanName);
+                    const brand = getProviderBrand(cleanName);
 
                     return (
                       <g
@@ -1161,47 +1252,60 @@ export default function TeamCanvasModal({
                           <>
                             <circle
                               r={nodeRadius + 18}
-                              fill={statusColors.fill}
+                              fill={brand.color}
                               opacity="0.15"
                               className="animate-ping"
                             />
                             <circle
                               r={nodeRadius + 10}
-                              fill={statusColors.fill}
+                              fill={brand.color}
                               opacity="0.25"
                             />
                           </>
                         )}
 
-                        {/* Outer ring for hover */}
+                        {/* Outer ring with shadow */}
                         <circle
-                          r={nodeRadius + 6}
+                          r={nodeRadius + 4}
                           fill="white"
                           filter="url(#shadow)"
-                          className={`transition-all duration-300 ${isHovered || isSelected ? 'opacity-100' : 'opacity-85'}`}
+                          className="transition-all duration-300"
                         />
 
-                        {/* Main circle */}
+                        {/* Brand color ring */}
+                        <circle
+                          r={nodeRadius + 2}
+                          fill="none"
+                          stroke={brand.color}
+                          strokeWidth="3"
+                          opacity={stats.total > 0 ? 1 : 0.4}
+                          className="transition-all duration-300"
+                        />
+
+                        {/* Main circle with brand gradient */}
                         <circle
                           r={nodeRadius}
                           fill={
                             isLeader
                               ? 'url(#leader-gradient)'
-                              : statusColors.fill
+                              : stats.total > 0
+                                ? brand.gradient || brand.color
+                                : 'url(#inactive-gradient)'
                           }
                           className={`transition-all duration-300 ${isHovered ? 'scale-105' : ''}`}
                           style={{ transformOrigin: 'center' }}
                         />
 
-                        {/* Agent name inside circle */}
+                        {/* Brand letter inside circle - clean and professional */}
                         <text
                           textAnchor="middle"
                           dy="0.35em"
                           fill="white"
-                          fontSize={shortName.length > 4 ? '13' : '16'}
-                          fontWeight="bold"
+                          fontSize={isLeader ? '28' : '24'}
+                          fontWeight="700"
+                          fontFamily="system-ui, -apple-system, sans-serif"
                         >
-                          {shortName}
+                          {brand.letter}
                         </text>
 
                         {/* Leader crown */}
@@ -1239,14 +1343,14 @@ export default function TeamCanvasModal({
                           )}
                         </g>
 
-                        {/* Hover visual feedback - enhanced glow ring */}
+                        {/* Hover visual feedback - brand color glow */}
                         {isHovered && !isDragging && (
                           <circle
-                            r={nodeRadius + 8}
+                            r={nodeRadius + 10}
                             fill="none"
-                            stroke={isLeader ? '#a855f7' : '#3b82f6'}
-                            strokeWidth="3"
-                            opacity="0.5"
+                            stroke={isLeader ? '#a855f7' : brand.color}
+                            strokeWidth="4"
+                            opacity="0.6"
                             className="animate-pulse"
                           />
                         )}
