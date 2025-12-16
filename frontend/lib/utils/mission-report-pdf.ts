@@ -8,9 +8,51 @@
  * - 详细任务内容
  * - Agent参与情况
  * - 专业排版设计
+ * - 中文字体支持
  */
 
 import jsPDF from 'jspdf';
+
+// Chinese font loading state
+let chineseFontLoaded = false;
+let chineseFontData: string | null = null;
+
+/**
+ * Load Chinese font (Noto Sans SC) for PDF generation
+ * Uses CDN to load the font and caches it
+ */
+async function loadChineseFont(): Promise<string | null> {
+  if (chineseFontData) {
+    return chineseFontData;
+  }
+
+  try {
+    // Use a smaller weight (400) for better file size
+    const fontUrl =
+      'https://fonts.gstatic.com/s/notosanssc/v36/k3kCo84MPvpLmixcA63oeAL7Iqp5IZJF9bmaG9_EnYxNbPzS5HE.ttf';
+
+    const response = await fetch(fontUrl);
+    if (!response.ok) {
+      console.warn('Failed to load Chinese font, falling back to default');
+      return null;
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const base64 = btoa(
+      new Uint8Array(arrayBuffer).reduce(
+        (data, byte) => data + String.fromCharCode(byte),
+        ''
+      )
+    );
+
+    chineseFontData = base64;
+    chineseFontLoaded = true;
+    return base64;
+  } catch (error) {
+    console.warn('Error loading Chinese font:', error);
+    return null;
+  }
+}
 
 // Report data interfaces
 export interface MissionReportData {
@@ -93,9 +135,35 @@ export class MissionReportPDFGenerator {
   }
 
   /**
+   * Initialize Chinese font support
+   */
+  private async initChineseFont(): Promise<void> {
+    const fontData = await loadChineseFont();
+    if (fontData) {
+      // Add the font to jsPDF
+      this.pdf.addFileToVFS('NotoSansSC-Regular.ttf', fontData);
+      this.pdf.addFont('NotoSansSC-Regular.ttf', 'NotoSansSC', 'normal');
+    }
+  }
+
+  /**
+   * Set font with Chinese support fallback
+   */
+  private setFont(style: 'normal' | 'bold' = 'normal'): void {
+    if (chineseFontLoaded) {
+      this.pdf.setFont('NotoSansSC', style);
+    } else {
+      this.pdf.setFont('helvetica', style);
+    }
+  }
+
+  /**
    * Generate PDF from report data
    */
   async generate(data: MissionReportData): Promise<Blob> {
+    // Load Chinese font first
+    await this.initChineseFont();
+
     const stats = this.calculateStats(data);
 
     // Cover Page
@@ -183,14 +251,14 @@ export class MissionReportPDFGenerator {
     // Title
     this.pdf.setTextColor(255, 255, 255);
     this.pdf.setFontSize(28);
-    this.pdf.setFont('helvetica', 'bold');
+    this.setFont('bold');
     this.pdf.text('AI Team Mission Report', this.pageWidth / 2, 50, {
       align: 'center',
     });
 
     // Subtitle
     this.pdf.setFontSize(14);
-    this.pdf.setFont('helvetica', 'normal');
+    this.setFont('normal');
     this.pdf.text('Powered by DeepDive Engine', this.pageWidth / 2, 65, {
       align: 'center',
     });
@@ -198,7 +266,7 @@ export class MissionReportPDFGenerator {
     // Mission title
     this.pdf.setTextColor(31, 41, 55);
     this.pdf.setFontSize(16);
-    this.pdf.setFont('helvetica', 'bold');
+    this.setFont('bold');
     const titleLines = this.pdf.splitTextToSize(
       this.truncateText(data.mission.title, 200),
       this.contentWidth
@@ -212,7 +280,7 @@ export class MissionReportPDFGenerator {
 
     this.pdf.setTextColor(107, 114, 128);
     this.pdf.setFontSize(10);
-    this.pdf.setFont('helvetica', 'normal');
+    this.setFont('normal');
 
     const infoItems = [
       { label: 'Mission ID', value: data.mission.id },
@@ -229,9 +297,9 @@ export class MissionReportPDFGenerator {
 
     let infoItemY = infoY + 12;
     infoItems.forEach((item) => {
-      this.pdf.setFont('helvetica', 'bold');
+      this.setFont('bold');
       this.pdf.text(`${item.label}:`, this.margin + 10, infoItemY);
-      this.pdf.setFont('helvetica', 'normal');
+      this.setFont('normal');
       this.pdf.text(item.value, this.margin + 45, infoItemY);
       infoItemY += 10;
     });
@@ -269,7 +337,7 @@ export class MissionReportPDFGenerator {
     const boxY = this.currentY + 8;
     this.pdf.setTextColor(31, 41, 55);
     this.pdf.setFontSize(11);
-    this.pdf.setFont('helvetica', 'normal');
+    this.setFont('normal');
 
     // Key metrics
     const metrics = [
@@ -319,13 +387,13 @@ export class MissionReportPDFGenerator {
         this.hexToRgb(metric.color).b
       );
       this.pdf.setFontSize(20);
-      this.pdf.setFont('helvetica', 'bold');
+      this.setFont('bold');
       this.pdf.text(metric.value, x, y);
 
       // Label
       this.pdf.setTextColor(107, 114, 128);
       this.pdf.setFontSize(9);
-      this.pdf.setFont('helvetica', 'normal');
+      this.setFont('normal');
       this.pdf.text(metric.label, x, y + 6);
     });
 
@@ -337,7 +405,7 @@ export class MissionReportPDFGenerator {
 
     this.pdf.setTextColor(55, 65, 81);
     this.pdf.setFontSize(10);
-    this.pdf.setFont('helvetica', 'normal');
+    this.setFont('normal');
     const descLines = this.pdf.splitTextToSize(
       this.truncateText(data.mission.description, 800),
       this.contentWidth
@@ -415,7 +483,7 @@ export class MissionReportPDFGenerator {
       // Value on top
       this.pdf.setTextColor(31, 41, 55);
       this.pdf.setFontSize(12);
-      this.pdf.setFont('helvetica', 'bold');
+      this.setFont('bold');
       this.pdf.text(status.value.toString(), x + barWidth / 2, y - 3, {
         align: 'center',
       });
@@ -423,7 +491,7 @@ export class MissionReportPDFGenerator {
       // Label below
       this.pdf.setTextColor(107, 114, 128);
       this.pdf.setFontSize(8);
-      this.pdf.setFont('helvetica', 'normal');
+      this.setFont('normal');
       this.pdf.text(status.label, x + barWidth / 2, chartY + maxHeight + 8, {
         align: 'center',
       });
@@ -461,11 +529,11 @@ export class MissionReportPDFGenerator {
       const y = tableY + index * 8;
       this.pdf.setTextColor(107, 114, 128);
       this.pdf.setFontSize(9);
-      this.pdf.setFont('helvetica', 'normal');
+      this.setFont('normal');
       this.pdf.text(item.label, this.margin + 10, y);
 
       this.pdf.setTextColor(31, 41, 55);
-      this.pdf.setFont('helvetica', 'bold');
+      this.setFont('bold');
       this.pdf.text(
         item.value.toString(),
         this.margin + this.contentWidth - 10,
@@ -499,7 +567,7 @@ export class MissionReportPDFGenerator {
       // Agent name
       this.pdf.setTextColor(31, 41, 55);
       this.pdf.setFontSize(9);
-      this.pdf.setFont('helvetica', 'normal');
+      this.setFont('normal');
       this.pdf.text(this.truncateText(agent, 30), this.margin, this.currentY);
 
       // Progress bar
@@ -551,26 +619,26 @@ export class MissionReportPDFGenerator {
       if (trimmed.startsWith('# ')) {
         this.pdf.setTextColor(31, 41, 55);
         this.pdf.setFontSize(14);
-        this.pdf.setFont('helvetica', 'bold');
+        this.setFont('bold');
         this.pdf.text(trimmed.replace(/^# /, ''), this.margin, this.currentY);
         this.currentY += 8;
       } else if (trimmed.startsWith('## ')) {
         this.pdf.setTextColor(55, 65, 81);
         this.pdf.setFontSize(12);
-        this.pdf.setFont('helvetica', 'bold');
+        this.setFont('bold');
         this.pdf.text(trimmed.replace(/^## /, ''), this.margin, this.currentY);
         this.currentY += 7;
       } else if (trimmed.startsWith('### ')) {
         this.pdf.setTextColor(75, 85, 99);
         this.pdf.setFontSize(11);
-        this.pdf.setFont('helvetica', 'bold');
+        this.setFont('bold');
         this.pdf.text(trimmed.replace(/^### /, ''), this.margin, this.currentY);
         this.currentY += 6;
       } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
         // List items
         this.pdf.setTextColor(55, 65, 81);
         this.pdf.setFontSize(10);
-        this.pdf.setFont('helvetica', 'normal');
+        this.setFont('normal');
         const bulletText = `  ${trimmed.replace(/^[-*] /, '')}`;
         const bulletLines = this.pdf.splitTextToSize(
           bulletText,
@@ -587,7 +655,7 @@ export class MissionReportPDFGenerator {
         // Table row (simplified)
         this.pdf.setTextColor(55, 65, 81);
         this.pdf.setFontSize(9);
-        this.pdf.setFont('helvetica', 'normal');
+        this.setFont('normal');
         const cleanRow = trimmed.replace(/\|/g, '  ').trim();
         this.pdf.text(cleanRow, this.margin, this.currentY);
         this.currentY += 5;
@@ -605,7 +673,7 @@ export class MissionReportPDFGenerator {
         // Regular paragraph
         this.pdf.setTextColor(55, 65, 81);
         this.pdf.setFontSize(10);
-        this.pdf.setFont('helvetica', 'normal');
+        this.setFont('normal');
         // Remove markdown formatting
         const cleanText = trimmed
           .replace(/\*\*(.+?)\*\*/g, '$1')
@@ -647,7 +715,7 @@ export class MissionReportPDFGenerator {
 
       this.pdf.setTextColor(31, 41, 55);
       this.pdf.setFontSize(11);
-      this.pdf.setFont('helvetica', 'bold');
+      this.setFont('bold');
       this.pdf.text(
         `Task ${index + 1}: ${this.truncateText(task.title, 60)}`,
         this.margin + 5,
@@ -687,7 +755,7 @@ export class MissionReportPDFGenerator {
       // Task details
       this.pdf.setTextColor(107, 114, 128);
       this.pdf.setFontSize(9);
-      this.pdf.setFont('helvetica', 'normal');
+      this.setFont('normal');
       this.pdf.text(
         `Assigned to: ${task.assignedTo}`,
         this.margin + 5,
@@ -730,7 +798,7 @@ export class MissionReportPDFGenerator {
         );
         this.pdf.setTextColor(146, 64, 14);
         this.pdf.setFontSize(8);
-        this.pdf.setFont('helvetica', 'italic');
+        this.setFont('normal');
         const feedbackText = `Leader: ${this.truncateText(task.leaderFeedback.replace(/\n/g, ' '), 150)}`;
         this.pdf.text(feedbackText, this.margin + 10, this.currentY + 9);
         this.currentY += 20;
@@ -749,7 +817,7 @@ export class MissionReportPDFGenerator {
       this.pdf.setPage(i);
       this.pdf.setTextColor(156, 163, 175);
       this.pdf.setFontSize(9);
-      this.pdf.setFont('helvetica', 'normal');
+      this.setFont('normal');
       this.pdf.text(
         `Page ${i} of ${totalPages}`,
         this.pageWidth / 2,
@@ -765,7 +833,7 @@ export class MissionReportPDFGenerator {
   private addSectionTitle(title: string) {
     this.pdf.setTextColor(31, 41, 55);
     this.pdf.setFontSize(16);
-    this.pdf.setFont('helvetica', 'bold');
+    this.setFont('bold');
     this.pdf.text(title, this.margin, this.currentY);
 
     // Underline
@@ -787,7 +855,7 @@ export class MissionReportPDFGenerator {
   private addSubsectionTitle(title: string) {
     this.pdf.setTextColor(55, 65, 81);
     this.pdf.setFontSize(12);
-    this.pdf.setFont('helvetica', 'bold');
+    this.setFont('bold');
     this.pdf.text(title, this.margin, this.currentY);
     this.currentY += 6;
   }
