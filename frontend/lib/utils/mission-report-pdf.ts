@@ -146,46 +146,47 @@ function generateReportHtml(data: MissionReportData): string {
 <body style="margin: 0; padding: 0; ${baseFont} font-size: 12px; line-height: 1.6; color: #1f2937; background: #fff;">
 
   <!-- Cover Page -->
-  <div style="width: 100%; padding: 40px; box-sizing: border-box;">
-    <!-- Header -->
-    <div style="background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%); color: white; padding: 40px; margin: -40px -40px 30px -40px; text-align: center;">
-      <div style="font-size: 32px; font-weight: bold; margin-bottom: 8px;">AI Team Mission Report</div>
-      <div style="font-size: 14px; opacity: 0.9;">Powered by DeepDive Engine</div>
+  <div style="width: 100%; min-height: 900px; box-sizing: border-box; position: relative;">
+    <!-- Header Banner -->
+    <div style="background: #7c3aed; color: white; padding: 60px 40px; text-align: center;">
+      <div style="font-size: 36px; font-weight: bold; margin-bottom: 12px; letter-spacing: 2px;">AI Team Mission Report</div>
+      <div style="font-size: 16px; color: #e9d5ff;">Powered by DeepDive Engine</div>
     </div>
 
-    <!-- Mission Title -->
-    <div style="text-align: center; margin: 40px 0;">
-      <div style="font-size: 20px; font-weight: bold; color: #1f2937; margin-bottom: 20px;">${escapeHtml(data.mission.title)}</div>
+    <!-- Mission Title Box -->
+    <div style="padding: 50px 40px; text-align: center;">
+      <div style="font-size: 22px; font-weight: bold; color: #1f2937; margin-bottom: 30px; line-height: 1.5;">${escapeHtml(data.mission.title)}</div>
+
+      <!-- Info Card -->
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 30px; max-width: 500px; margin: 0 auto; text-align: left;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 12px 0; color: #64748b; width: 100px; font-weight: 500;">任务ID</td>
+            <td style="padding: 12px 0; color: #1e293b; font-family: monospace; font-size: 11px;">${escapeHtml(data.mission.id)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 0; color: #64748b; font-weight: 500;">状态</td>
+            <td style="padding: 12px 0;">${getStatusBadge(data.mission.status)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 0; color: #64748b; font-weight: 500;">负责人</td>
+            <td style="padding: 12px 0; color: #1e293b; font-weight: 600;">${escapeHtml(data.mission.leader)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 0; color: #64748b; font-weight: 500;">创建时间</td>
+            <td style="padding: 12px 0; color: #1e293b;">${formatDate(data.mission.createdAt)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 0; color: #64748b; font-weight: 500;">完成时间</td>
+            <td style="padding: 12px 0; color: #1e293b;">${data.mission.completedAt ? formatDate(data.mission.completedAt) : '—'}</td>
+          </tr>
+        </table>
+      </div>
     </div>
 
-    <!-- Info Box -->
-    <div style="background: #f8fafc; border-radius: 12px; padding: 24px; max-width: 450px; margin: 0 auto;">
-      <table style="width: 100%; border-collapse: collapse;">
-        <tr>
-          <td style="padding: 8px 0; color: #6b7280; width: 100px;">任务ID:</td>
-          <td style="padding: 8px 0; color: #1f2937;">${escapeHtml(data.mission.id)}</td>
-        </tr>
-        <tr>
-          <td style="padding: 8px 0; color: #6b7280;">状态:</td>
-          <td style="padding: 8px 0;">${getStatusBadge(data.mission.status)}</td>
-        </tr>
-        <tr>
-          <td style="padding: 8px 0; color: #6b7280;">负责人:</td>
-          <td style="padding: 8px 0; color: #1f2937;">${escapeHtml(data.mission.leader)}</td>
-        </tr>
-        <tr>
-          <td style="padding: 8px 0; color: #6b7280;">创建时间:</td>
-          <td style="padding: 8px 0; color: #1f2937;">${formatDate(data.mission.createdAt)}</td>
-        </tr>
-        <tr>
-          <td style="padding: 8px 0; color: #6b7280;">完成时间:</td>
-          <td style="padding: 8px 0; color: #1f2937;">${data.mission.completedAt ? formatDate(data.mission.completedAt) : '进行中'}</td>
-        </tr>
-      </table>
-    </div>
-
-    <div style="text-align: center; margin-top: 60px; color: #9ca3af; font-size: 11px;">
-      生成时间: ${new Date().toLocaleString('zh-CN')}
+    <!-- Footer -->
+    <div style="position: absolute; bottom: 40px; left: 0; right: 0; text-align: center; color: #94a3b8; font-size: 11px;">
+      报告生成时间: ${new Date().toLocaleString('zh-CN')}
     </div>
   </div>
 
@@ -266,20 +267,24 @@ function generateReportHtml(data: MissionReportData): string {
 
     <!-- Participants -->
     <div style="margin-top: 30px;">
-      <div style="font-size: 16px; font-weight: bold; color: #1f2937; margin-bottom: 12px;">AI成员参与情况</div>
+      <div style="font-size: 16px; font-weight: bold; color: #1f2937; margin-bottom: 16px;">AI成员参与情况</div>
+      <div style="background: #f8fafc; border-radius: 12px; padding: 20px;">
       ${sortedParticipants
         .map(
           ([name, count]) => `
-        <div style="display: flex; align-items: center; margin: 10px 0;">
-          <div style="width: 140px; font-size: 12px; color: #374151; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(name)}</div>
-          <div style="flex: 1; height: 10px; background: #e5e7eb; border-radius: 5px; margin: 0 12px;">
-            <div style="width: ${(count / maxTasks) * 100}%; height: 100%; background: linear-gradient(90deg, #7c3aed, #6366f1); border-radius: 5px;"></div>
+        <div style="margin: 12px 0;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span style="font-size: 12px; color: #374151; font-weight: 500;">${escapeHtml(name)}</span>
+            <span style="font-size: 12px; color: #7c3aed; font-weight: 600;">${count} 个任务</span>
           </div>
-          <div style="width: 70px; font-size: 12px; color: #6b7280;">${count} 个任务</div>
+          <div style="height: 8px; background: #e2e8f0; border-radius: 4px;">
+            <div style="width: ${(count / maxTasks) * 100}%; height: 100%; background: #7c3aed; border-radius: 4px;"></div>
+          </div>
         </div>
       `
         )
         .join('')}
+      </div>
     </div>
   </div>
 
