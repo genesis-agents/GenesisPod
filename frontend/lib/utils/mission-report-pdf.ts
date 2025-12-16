@@ -611,7 +611,7 @@ function generateReportHtml(data: MissionReportData): string {
 
 /**
  * Generate and download mission report PDF
- * 使用 html2pdf.js 直接从 HTML 字符串生成
+ * 直接在主文档中渲染，确保样式完整
  */
 export async function downloadMissionReportPDF(
   data: MissionReportData,
@@ -622,59 +622,50 @@ export async function downloadMissionReportPDF(
 
   const html = generateReportHtml(data);
 
-  // Create an iframe for isolated rendering
-  const iframe = document.createElement('iframe');
-  iframe.style.cssText = `
+  // Create container directly in body - must be visible for proper rendering
+  const container = document.createElement('div');
+  container.id = 'pdf-render-container';
+  container.innerHTML = html;
+  container.style.cssText = `
     position: fixed;
     left: 0;
     top: 0;
-    width: 210mm;
-    height: 297mm;
-    border: none;
-    visibility: visible;
+    width: 794px;
+    min-height: 100vh;
+    background: white;
     z-index: 99999;
+    overflow: visible;
   `;
-  document.body.appendChild(iframe);
+  document.body.appendChild(container);
 
-  // Get iframe document
-  const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-  if (!iframeDoc) {
-    document.body.removeChild(iframe);
-    throw new Error('无法创建 PDF 渲染环境');
-  }
+  // Prevent body scroll
+  const originalOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
 
-  // Write HTML to iframe
-  iframeDoc.open();
-  iframeDoc.write(html);
-  iframeDoc.close();
-
-  // Wait for content to render
-  await new Promise((resolve) => setTimeout(resolve, 800));
+  // Wait for content and fonts to render
+  await new Promise((resolve) => setTimeout(resolve, 1000));
 
   const options = {
-    margin: [10, 10, 10, 10] as [number, number, number, number],
+    margin: 0,
     filename: filename || `mission-report-${data.mission.id}.pdf`,
     image: { type: 'jpeg' as const, quality: 0.98 },
     html2canvas: {
       scale: 2,
       useCORS: true,
-      logging: true,
+      logging: false,
       allowTaint: true,
       backgroundColor: '#ffffff',
-      windowWidth: iframeDoc.body.scrollWidth,
-      windowHeight: iframeDoc.body.scrollHeight,
+      width: 794,
+      windowWidth: 794,
     },
     jsPDF: {
-      unit: 'mm' as const,
+      unit: 'px' as const,
       format: 'a4' as const,
       orientation: 'portrait' as const,
+      hotfixes: ['px_scaling'],
     },
     pagebreak: {
-      mode: ['avoid-all', 'css', 'legacy'] as (
-        | 'avoid-all'
-        | 'css'
-        | 'legacy'
-      )[],
+      mode: ['css', 'legacy'] as ('css' | 'legacy')[],
       before: '.page-break',
       after: '.page',
       avoid: '.task-card',
@@ -682,9 +673,9 @@ export async function downloadMissionReportPDF(
   };
 
   try {
-    // Use iframe body as source
-    await html2pdf().set(options).from(iframeDoc.body).save();
+    await html2pdf().set(options).from(container).save();
   } finally {
-    document.body.removeChild(iframe);
+    document.body.removeChild(container);
+    document.body.style.overflow = originalOverflow;
   }
 }
