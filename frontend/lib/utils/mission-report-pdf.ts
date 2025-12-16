@@ -610,58 +610,46 @@ function generateReportHtml(data: MissionReportData): string {
 }
 
 /**
- * Generate and download mission report PDF using html2pdf
+ * Generate and download mission report PDF
+ * 使用 html2pdf.js 直接从 HTML 字符串生成
  */
 export async function downloadMissionReportPDF(
   data: MissionReportData,
   filename?: string
 ): Promise<void> {
-  // Dynamically import html2pdf to avoid SSR issues
+  // Dynamically import html2pdf
   const html2pdf = (await import('html2pdf.js')).default;
 
   const html = generateReportHtml(data);
 
-  // Create a loading overlay to cover the screen while rendering
-  const overlay = document.createElement('div');
-  overlay.id = 'pdf-loading-overlay';
-  overlay.style.cssText = `
+  // Create an iframe for isolated rendering
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = `
     position: fixed;
-    top: 0;
     left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: white;
-    z-index: 999998;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-size: 16px;
-    color: #6b7280;
-  `;
-  overlay.innerHTML = '<div>正在生成 PDF 报告，请稍候...</div>';
-  document.body.appendChild(overlay);
-
-  // Create the content container - must be visible for html2canvas
-  const container = document.createElement('div');
-  container.id = 'pdf-render-container';
-  container.innerHTML = html;
-  container.style.cssText = `
-    position: fixed;
     top: 0;
-    left: 0;
-    width: 794px;
-    background: white;
-    z-index: 999999;
+    width: 210mm;
+    height: 297mm;
+    border: none;
+    visibility: visible;
+    z-index: 99999;
   `;
-  document.body.appendChild(container);
+  document.body.appendChild(iframe);
 
-  // Prevent body scroll
-  const originalOverflow = document.body.style.overflow;
-  document.body.style.overflow = 'hidden';
+  // Get iframe document
+  const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+  if (!iframeDoc) {
+    document.body.removeChild(iframe);
+    throw new Error('无法创建 PDF 渲染环境');
+  }
 
-  // Wait for DOM and fonts to render
-  await new Promise((resolve) => setTimeout(resolve, 500));
+  // Write HTML to iframe
+  iframeDoc.open();
+  iframeDoc.write(html);
+  iframeDoc.close();
+
+  // Wait for content to render
+  await new Promise((resolve) => setTimeout(resolve, 800));
 
   const options = {
     margin: [10, 10, 10, 10] as [number, number, number, number],
@@ -670,9 +658,11 @@ export async function downloadMissionReportPDF(
     html2canvas: {
       scale: 2,
       useCORS: true,
-      logging: false,
+      logging: true,
       allowTaint: true,
       backgroundColor: '#ffffff',
+      windowWidth: iframeDoc.body.scrollWidth,
+      windowHeight: iframeDoc.body.scrollHeight,
     },
     jsPDF: {
       unit: 'mm' as const,
@@ -692,10 +682,9 @@ export async function downloadMissionReportPDF(
   };
 
   try {
-    await html2pdf().set(options).from(container).save();
+    // Use iframe body as source
+    await html2pdf().set(options).from(iframeDoc.body).save();
   } finally {
-    document.body.removeChild(container);
-    document.body.removeChild(overlay);
-    document.body.style.overflow = originalOverflow;
+    document.body.removeChild(iframe);
   }
 }
