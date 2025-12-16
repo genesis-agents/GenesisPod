@@ -254,7 +254,9 @@ export default function MissionProgressPanel({
     );
   }
 
-  if (isLoadingMissions) {
+  // Only show full-page loading on initial load (no data yet)
+  // During refresh, keep showing existing data
+  if (isLoadingMissions && (!missions || missions.length === 0)) {
     return (
       <div className="flex h-full flex-col">
         <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
@@ -289,8 +291,18 @@ export default function MissionProgressPanel({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-sm">
-              <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              <svg
+                className="h-4 w-4 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                />
               </svg>
             </div>
             <h3 className="text-sm font-bold text-gray-800">Team Missions</h3>
@@ -302,8 +314,18 @@ export default function MissionProgressPanel({
               className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-sm transition-all hover:shadow-md"
               title="全屏Canvas视图"
             >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                />
               </svg>
             </button>
             {/* View Toggle */}
@@ -317,8 +339,18 @@ export default function MissionProgressPanel({
                 }`}
                 title="列表视图"
               >
-                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                <svg
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                  />
                 </svg>
               </button>
               <button
@@ -330,8 +362,18 @@ export default function MissionProgressPanel({
                 }`}
                 title="小窗Canvas预览"
               >
-                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                <svg
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                  />
                 </svg>
               </button>
             </div>
@@ -341,8 +383,18 @@ export default function MissionProgressPanel({
               className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-sm transition-all hover:shadow-md"
               title="创建新任务"
             >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
               </svg>
             </button>
           </div>
@@ -376,7 +428,9 @@ export default function MissionProgressPanel({
             <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100">
               <span className="text-4xl">🎯</span>
             </div>
-            <h4 className="mb-2 text-base font-semibold text-gray-800">开始您的第一个任务</h4>
+            <h4 className="mb-2 text-base font-semibold text-gray-800">
+              开始您的第一个任务
+            </h4>
             <p className="mb-5 text-center text-sm text-gray-500">
               创建一个任务让AI团队开始协作工作
             </p>
@@ -384,8 +438,18 @@ export default function MissionProgressPanel({
               onClick={onCreateMission}
               className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition-all hover:shadow-xl hover:shadow-indigo-300"
             >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
               </svg>
               创建任务
             </button>
@@ -415,8 +479,18 @@ export default function MissionProgressPanel({
                 <div className="mb-3 flex items-center gap-3 px-1">
                   <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
                   <div className="flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1">
-                    <svg className="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <svg
+                      className="h-3 w-3 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
                     </svg>
                     <span className="text-xs font-medium text-gray-500">
                       历史任务
@@ -548,7 +622,9 @@ function MissionCard({
               {statusConfig.label}
             </span>
             <span className="text-gray-400">•</span>
-            <span className="text-gray-500">👑 {mission.leader?.displayName || 'Unknown'}</span>
+            <span className="text-gray-500">
+              👑 {mission.leader?.displayName || 'Unknown'}
+            </span>
             {tasks.length > 0 && (
               <>
                 <span className="text-gray-400">•</span>
@@ -561,9 +637,11 @@ function MissionCard({
         </div>
 
         {/* Expand Arrow */}
-        <div className={`flex h-7 w-7 items-center justify-center rounded-lg transition-all ${
-          isExpanded ? 'bg-indigo-100' : 'bg-gray-100 group-hover:bg-gray-200'
-        }`}>
+        <div
+          className={`flex h-7 w-7 items-center justify-center rounded-lg transition-all ${
+            isExpanded ? 'bg-indigo-100' : 'bg-gray-100 group-hover:bg-gray-200'
+          }`}
+        >
           <svg
             className={`h-4 w-4 transition-transform ${
               isExpanded ? 'rotate-180 text-indigo-600' : 'text-gray-500'
@@ -572,7 +650,12 @@ function MissionCard({
             stroke="currentColor"
             viewBox="0 0 24 24"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 9l-7 7-7-7"
+            />
           </svg>
         </div>
       </div>
@@ -604,12 +687,18 @@ function MissionCard({
           {tasks.length > 0 && (
             <div className="mb-3 grid grid-cols-2 gap-2">
               <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50/50 p-2.5 text-center">
-                <div className="text-xl font-bold text-blue-600">{inProgressCount}</div>
+                <div className="text-xl font-bold text-blue-600">
+                  {inProgressCount}
+                </div>
                 <div className="text-xs font-medium text-blue-500">执行中</div>
               </div>
               <div className="rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50/50 p-2.5 text-center">
-                <div className="text-xl font-bold text-emerald-600">{completedCount}</div>
-                <div className="text-xs font-medium text-emerald-500">已完成</div>
+                <div className="text-xl font-bold text-emerald-600">
+                  {completedCount}
+                </div>
+                <div className="text-xs font-medium text-emerald-500">
+                  已完成
+                </div>
               </div>
             </div>
           )}

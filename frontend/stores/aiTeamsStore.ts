@@ -1109,7 +1109,12 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
   // ==================== Team Mission ====================
 
   fetchMissions: async (topicId, options) => {
-    set({ isLoadingMissions: true });
+    // Only show loading spinner on initial load (when no data exists)
+    // This prevents blank flashing during refresh/polling
+    const currentMissions = get().missions;
+    if (!currentMissions || currentMissions.length === 0) {
+      set({ isLoadingMissions: true });
+    }
     try {
       const response = await api.getMissions(topicId, options);
       // Backend returns array directly, not { missions: [...] }
@@ -1120,7 +1125,12 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
       set({ missions, isLoadingMissions: false });
     } catch (error) {
       console.error('Failed to fetch missions:', error);
-      set({ missions: [], isLoadingMissions: false });
+      // On error during refresh, keep existing data instead of clearing
+      if (!currentMissions || currentMissions.length === 0) {
+        set({ missions: [], isLoadingMissions: false });
+      } else {
+        set({ isLoadingMissions: false });
+      }
     }
   },
 
