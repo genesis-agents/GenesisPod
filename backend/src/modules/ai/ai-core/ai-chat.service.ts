@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
+import { AIErrorClassifier } from "../../../common/ai-orchestration/error-classifier";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -25,8 +26,66 @@ export interface ChatCompletionResult {
 @Injectable()
 export class AiChatService {
   private readonly logger = new Logger(AiChatService.name);
+  private readonly errorClassifier = new AIErrorClassifier();
+
+  // Retry configuration
+  private readonly MAX_RETRIES = 3;
 
   constructor(private readonly httpService: HttpService) {}
+
+  /**
+   * Execute an async operation with retry logic for network errors
+   * Uses exponential backoff with jitter
+   */
+  private async withRetry<T>(
+    operation: () => Promise<T>,
+    operationName: string,
+    provider?: string,
+  ): Promise<T> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= this.MAX_RETRIES; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        const aiError = this.errorClassifier.classify(error, provider);
+        lastError = aiError;
+
+        this.logger.warn(
+          `[${operationName}] Attempt ${attempt}/${this.MAX_RETRIES} failed: ${aiError.message} (type: ${aiError.type})`,
+        );
+
+        // Only retry if error is retryable and we have attempts left
+        if (aiError.isRetryable() && attempt < this.MAX_RETRIES) {
+          // Exponential backoff with jitter: delay * 2^(attempt-1) + random(0-500)
+          const delay =
+            aiError.getRetryDelay() * Math.pow(2, attempt - 1) +
+            Math.random() * 500;
+          this.logger.log(
+            `[${operationName}] Retrying in ${Math.round(delay)}ms...`,
+          );
+          await this.sleep(delay);
+          continue;
+        }
+
+        // Non-retryable error or max retries exceeded
+        this.logger.error(
+          `[${operationName}] ${aiError.isRetryable() ? "Max retries exceeded" : "Non-retryable error"}: ${aiError.message}`,
+        );
+        throw aiError;
+      }
+    }
+
+    // Should not reach here, but throw last error if we do
+    throw lastError || new Error(`${operationName} failed after all retries`);
+  }
+
+  /**
+   * Sleep for specified milliseconds
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
 
   /**
    * Extract URLs from text content
@@ -1267,7 +1326,7 @@ Format the summary in a clear, structured manner using markdown.`;
   }
 
   /**
-   * Helper method to call OpenAI-compatible APIs
+   * Helper method to call OpenAI-compatible APIs with automatic retry for network errors
    */
   private async callApiWithKey(
     url: string,
@@ -1280,62 +1339,71 @@ Format the summary in a clear, structured manner using markdown.`;
     );
     this.logger.log(`[${modelName}] Request body model: ${body.model}`);
 
-    const response = await firstValueFrom(
-      this.httpService.post(url, body, {
-        headers: {
-          "Content-Type": "application/json",
-          ...headers,
-        },
-        timeout: 120000,
-      }),
-    );
-
-    const data = response.data;
-    const content = data.choices?.[0]?.message?.content;
-
-    // Log response details for debugging
-    this.logger.log(`[${modelName}] Response status: ${response.status}`);
-    this.logger.log(
-      `[${modelName}] Response has choices: ${!!data.choices}, length: ${data.choices?.length || 0}`,
-    );
-    if (data.choices?.[0]) {
-      this.logger.log(
-        `[${modelName}] Choice finish_reason: ${data.choices[0].finish_reason}`,
-      );
-      this.logger.log(
-        `[${modelName}] Message content length: ${content?.length || 0}`,
-      );
-    }
-    if (data.error) {
-      this.logger.error(
-        `[${modelName}] API returned error: ${JSON.stringify(data.error)}`,
-      );
-    }
-
-    if (!content) {
-      const finishReason = data.choices?.[0]?.finish_reason;
-      this.logger.warn(
-        `[${modelName}] API returned empty content (finish_reason=${finishReason}), full response: ${JSON.stringify(data).substring(0, 500)}`,
-      );
-      // 如果是因为max_tokens不足导致的空内容，抛出异常以便尝试下一个模型
-      if (finishReason === "length") {
-        throw new Error(
-          `[${modelName}] Response truncated due to max_tokens limit (finish_reason=length)`,
+    // Wrap API call with retry logic for network errors
+    return await this.withRetry(
+      async () => {
+        const response = await firstValueFrom(
+          this.httpService.post(url, body, {
+            headers: {
+              "Content-Type": "application/json",
+              ...headers,
+            },
+            timeout: 120000,
+          }),
         );
-      }
-      // 其他原因导致的空内容也抛出异常
-      throw new Error(`[${modelName}] No response content received from API.`);
-    }
 
-    return {
-      content,
-      model: modelName,
-      tokensUsed: data.usage?.total_tokens || 0,
-    };
+        const data = response.data;
+        const content = data.choices?.[0]?.message?.content;
+
+        // Log response details for debugging
+        this.logger.log(`[${modelName}] Response status: ${response.status}`);
+        this.logger.log(
+          `[${modelName}] Response has choices: ${!!data.choices}, length: ${data.choices?.length || 0}`,
+        );
+        if (data.choices?.[0]) {
+          this.logger.log(
+            `[${modelName}] Choice finish_reason: ${data.choices[0].finish_reason}`,
+          );
+          this.logger.log(
+            `[${modelName}] Message content length: ${content?.length || 0}`,
+          );
+        }
+        if (data.error) {
+          this.logger.error(
+            `[${modelName}] API returned error: ${JSON.stringify(data.error)}`,
+          );
+        }
+
+        if (!content) {
+          const finishReason = data.choices?.[0]?.finish_reason;
+          this.logger.warn(
+            `[${modelName}] API returned empty content (finish_reason=${finishReason}), full response: ${JSON.stringify(data).substring(0, 500)}`,
+          );
+          // 如果是因为max_tokens不足导致的空内容，抛出异常以便尝试下一个模型
+          if (finishReason === "length") {
+            throw new Error(
+              `[${modelName}] Response truncated due to max_tokens limit (finish_reason=length)`,
+            );
+          }
+          // 其他原因导致的空内容也抛出异常
+          throw new Error(
+            `[${modelName}] No response content received from API.`,
+          );
+        }
+
+        return {
+          content,
+          model: modelName,
+          tokensUsed: data.usage?.total_tokens || 0,
+        };
+      },
+      `${modelName}-API`,
+      modelName,
+    );
   }
 
   /**
-   * Helper method to call Claude API with key
+   * Helper method to call Claude API with key and automatic retry for network errors
    */
   private async callClaudeApiWithKey(
     url: string,
@@ -1346,37 +1414,43 @@ Format the summary in a clear, structured manner using markdown.`;
     maxTokens: number,
     temperature: number,
   ): Promise<ChatCompletionResult> {
-    const response = await firstValueFrom(
-      this.httpService.post(
-        url,
-        {
-          model: modelId,
-          max_tokens: maxTokens,
-          temperature,
-          system: systemPrompt,
-          messages: messages.map((m) => ({
-            role: m.role === "assistant" ? "assistant" : "user",
-            content: m.content,
-          })),
-        },
-        {
-          headers: {
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01",
-            "Content-Type": "application/json",
-          },
-          timeout: 120000,
-        },
-      ),
-    );
+    return await this.withRetry(
+      async () => {
+        const response = await firstValueFrom(
+          this.httpService.post(
+            url,
+            {
+              model: modelId,
+              max_tokens: maxTokens,
+              temperature,
+              system: systemPrompt,
+              messages: messages.map((m) => ({
+                role: m.role === "assistant" ? "assistant" : "user",
+                content: m.content,
+              })),
+            },
+            {
+              headers: {
+                "x-api-key": apiKey,
+                "anthropic-version": "2023-06-01",
+                "Content-Type": "application/json",
+              },
+              timeout: 120000,
+            },
+          ),
+        );
 
-    const data = response.data;
-    return {
-      content: data.content?.[0]?.text || "",
-      model: "claude",
-      tokensUsed:
-        (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0),
-    };
+        const data = response.data;
+        return {
+          content: data.content?.[0]?.text || "",
+          model: "claude",
+          tokensUsed:
+            (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0),
+        };
+      },
+      "Claude-API",
+      "claude",
+    );
   }
 
   /**
@@ -1627,13 +1701,19 @@ Generate an image that fulfills the current request while maintaining consistenc
       }
     }
 
-    const response = await firstValueFrom(
-      this.httpService.post(url, requestBody, {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        timeout: 120000, // Longer timeout for image generation
-      }),
+    // Wrap Gemini API call with retry logic for network errors
+    const response = await this.withRetry(
+      async () =>
+        firstValueFrom(
+          this.httpService.post(url, requestBody, {
+            headers: {
+              "Content-Type": "application/json",
+            },
+            timeout: 120000, // Longer timeout for image generation
+          }),
+        ),
+      "Gemini-API",
+      "gemini",
     );
 
     const data = response.data;
@@ -1923,7 +2003,7 @@ Generate an image that fulfills the current request while maintaining consistenc
   }
 
   /**
-   * Call OpenAI DALL-E 3 API for image generation
+   * Call OpenAI DALL-E 3 API for image generation with automatic retry for network errors
    * DALL-E 3 produces the best infographics and diagrams
    */
   private async callDallE3(
@@ -1935,25 +2015,31 @@ Generate an image that fulfills the current request while maintaining consistenc
     this.logger.log(`Calling DALL-E 3 API for image generation`);
 
     try {
-      const response = await firstValueFrom(
-        this.httpService.post(
-          url,
-          {
-            model: "dall-e-3",
-            prompt: prompt,
-            n: 1,
-            size: "1024x1024",
-            quality: "hd",
-            response_format: "b64_json",
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              "Content-Type": "application/json",
-            },
-            timeout: 120000, // 2 minutes for image generation
-          },
-        ),
+      // Wrap with retry logic for network errors
+      const response = await this.withRetry(
+        async () =>
+          firstValueFrom(
+            this.httpService.post(
+              url,
+              {
+                model: "dall-e-3",
+                prompt: prompt,
+                n: 1,
+                size: "1024x1024",
+                quality: "hd",
+                response_format: "b64_json",
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${apiKey}`,
+                  "Content-Type": "application/json",
+                },
+                timeout: 120000, // 2 minutes for image generation
+              },
+            ),
+          ),
+        "DALL-E-3-API",
+        "dall-e-3",
       );
 
       const data = response.data;
@@ -2025,33 +2111,37 @@ Generate an image that fulfills the current request while maintaining consistenc
     );
 
     try {
-      // Correct request format for Imagen API via Gemini
-      // Use higher resolution for better quality images
-      const response = await firstValueFrom(
-        this.httpService.post(
-          url,
-          {
-            instances: [
+      // Wrap with retry logic for network errors
+      const response = await this.withRetry(
+        async () =>
+          firstValueFrom(
+            this.httpService.post(
+              url,
               {
-                prompt: prompt,
+                instances: [
+                  {
+                    prompt: prompt,
+                  },
+                ],
+                parameters: {
+                  sampleCount: 1,
+                  aspectRatio: "16:9", // Better for infographics
+                  outputOptions: {
+                    mimeType: "image/png",
+                  },
+                },
               },
-            ],
-            parameters: {
-              sampleCount: 1,
-              aspectRatio: "16:9", // Better for infographics
-              outputOptions: {
-                mimeType: "image/png",
+              {
+                headers: {
+                  "x-goog-api-key": apiKey,
+                  "Content-Type": "application/json",
+                },
+                timeout: 120000, // 2 minutes for image generation
               },
-            },
-          },
-          {
-            headers: {
-              "x-goog-api-key": apiKey,
-              "Content-Type": "application/json",
-            },
-            timeout: 120000, // 2 minutes for image generation
-          },
-        ),
+            ),
+          ),
+        "Imagen-API",
+        "imagen",
       );
 
       const data = response.data;

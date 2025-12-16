@@ -315,11 +315,17 @@ export class AIErrorClassifier {
     if (
       error.code === "ECONNREFUSED" ||
       error.code === "ENOTFOUND" ||
-      error.code === "ENETUNREACH"
+      error.code === "ENETUNREACH" ||
+      error.code === "ECONNRESET" ||
+      error.code === "EPIPE" ||
+      error.code === "ETIMEDOUT" ||
+      error.message?.toLowerCase().includes("socket hang up") ||
+      error.message?.toLowerCase().includes("network socket disconnected")
     ) {
       return new AIError(
         AIErrorType.NETWORK_ERROR,
-        "Network error",
+        "Network error: " +
+          (error.code || error.message || "connection failed"),
         undefined,
         error,
         provider,
@@ -358,7 +364,14 @@ export class AIErrorClassifier {
     if (
       message.includes("network") ||
       message.includes("connection") ||
-      message.includes("econnrefused")
+      message.includes("econnrefused") ||
+      message.includes("econnreset") ||
+      message.includes("epipe") ||
+      message.includes("etimedout") ||
+      message.includes("socket hang up") ||
+      message.includes("socket disconnected") ||
+      message.includes("read econnreset") ||
+      message.includes("write econnreset")
     ) {
       return new AIError(
         AIErrorType.NETWORK_ERROR,
