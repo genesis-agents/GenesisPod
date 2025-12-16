@@ -1924,6 +1924,7 @@ export default function TopicPage() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [isInviting, setIsInviting] = useState(false);
   const [inviteError, setInviteError] = useState('');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [inviteSearchResults, setInviteSearchResults] = useState<
     Array<{
       id: string;
@@ -2279,26 +2280,53 @@ export default function TopicPage() {
         <Sidebar className="h-full" />
       </div>
 
-      {/* Member Panel - flex-shrink-0 ensures it never shrinks */}
-      <div className="h-full flex-shrink-0">
-        <MemberPanel
-          topic={currentTopic}
-          onlineUsers={onlineUsers}
-          typingUsers={typingUsers}
-          typingAIs={typingAIs}
-          onMemberClick={(member) => {
-            // Could show member profile or initiate DM
-            console.log('Member clicked:', member);
-          }}
-          onAIClick={(ai) => {
-            // Could show AI config or quick mention
-            console.log('AI clicked:', ai);
-          }}
-          onInviteMember={() => setShowInviteDialog(true)}
-          isOwnerOrAdmin={isOwnerOrAdmin}
-          findModel={findModel}
-          isConnected={isConnected}
-        />
+      {/* Member Panel - Collapsible Sidebar */}
+      <div className="relative h-full flex-shrink-0">
+        {/* Sidebar Content */}
+        <div
+          className={`h-full transition-all duration-300 ${sidebarCollapsed ? 'w-0 overflow-hidden' : 'w-64'}`}
+        >
+          <MemberPanel
+            topic={currentTopic}
+            onlineUsers={onlineUsers}
+            typingUsers={typingUsers}
+            typingAIs={typingAIs}
+            onMemberClick={(member) => {
+              // Could show member profile or initiate DM
+              console.log('Member clicked:', member);
+            }}
+            onAIClick={(ai) => {
+              // Could show AI config or quick mention
+              console.log('AI clicked:', ai);
+            }}
+            onInviteMember={() => setShowInviteDialog(true)}
+            isOwnerOrAdmin={isOwnerOrAdmin}
+            findModel={findModel}
+            isConnected={isConnected}
+          />
+        </div>
+        {/* Toggle Button */}
+        <button
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          className={`absolute top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-gray-300 bg-white shadow-md transition-all hover:bg-gray-100 ${
+            sidebarCollapsed ? 'left-0 translate-x-1/2' : '-right-3'
+          }`}
+          title={sidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'}
+        >
+          <svg
+            className={`h-4 w-4 text-gray-600 transition-transform ${sidebarCollapsed ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
+        </button>
       </div>
 
       {/* Main Chat Area - min-w-0 prevents flex item from overflowing */}
