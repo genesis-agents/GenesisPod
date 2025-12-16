@@ -457,11 +457,23 @@ export default function TeamCanvasModal({
     setPan({ x: 0, y: 0 });
   }, []);
 
-  // Pan handlers
+  // Pan handlers - left click on empty area to pan
   const handlePanStart = useCallback(
     (event: React.MouseEvent<SVGSVGElement>) => {
-      if (event.button === 1 || (event.button === 0 && event.altKey)) {
-        // Middle click or Alt+Left click
+      // Only start panning if clicking directly on SVG (empty area), not on nodes
+      const target = event.target as Element;
+      const isEmptyArea =
+        target.tagName === 'svg' ||
+        target.tagName === 'rect' ||
+        target.closest('pattern');
+
+      if (event.button === 0 && isEmptyArea) {
+        // Left click on empty area
+        setIsPanning(true);
+        setPanStart({ x: event.clientX - pan.x, y: event.clientY - pan.y });
+        event.preventDefault();
+      } else if (event.button === 1) {
+        // Middle click anywhere
         setIsPanning(true);
         setPanStart({ x: event.clientX - pan.x, y: event.clientY - pan.y });
       }
