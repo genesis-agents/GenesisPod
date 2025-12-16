@@ -1103,9 +1103,11 @@ export default function TeamCanvasModal({
                           className="transition-all duration-300"
                         />
 
-                        {/* Status bubble - only visible for active tasks */}
+                        {/* Status bubble - positioned near the assigned agent */}
                         {isActive && (
-                          <g transform={`translate(${midX}, ${midY - 25})`}>
+                          <g
+                            transform={`translate(${agentPos.x}, ${agentPos.y - 70})`}
+                          >
                             {/* Bubble background with shadow */}
                             <filter
                               id={`bubble-shadow-${task.id}`}
@@ -1132,7 +1134,7 @@ export default function TeamCanvasModal({
                               strokeWidth="2"
                               filter={`url(#bubble-shadow-${task.id})`}
                             />
-                            {/* Bubble tail */}
+                            {/* Bubble tail pointing down to node */}
                             <path
                               d="M -5 16 L 0 24 L 5 16"
                               fill="white"
