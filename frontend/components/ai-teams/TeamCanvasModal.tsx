@@ -193,12 +193,13 @@ const getTaskConnectionColor = (status: AgentTaskStatus): string => {
   }
 };
 
-// Calculate positions using a clean hierarchical grid layout
+// Professional hierarchical tree layout algorithm
 function calculateNodePositions(
   leaderId: string | null,
   agents: TopicAIMember[],
   width: number,
-  height: number
+  height: number,
+  tasksByAgent?: Map<string, AgentTask[]>
 ): Map<string, { x: number; y: number }> {
   const positions = new Map<string, { x: number; y: number }>();
   const centerX = width / 2;
@@ -206,44 +207,72 @@ function calculateNodePositions(
   const leader = agents.find((a) => a.id === leaderId);
   const workers = agents.filter((a) => a.id !== leaderId);
 
-  // Node sizing
-  const nodeRadius = 35;
-  const horizontalSpacing = 120; // Space between nodes horizontally
-  const verticalSpacing = 140; // Space between rows
+  // Enhanced node sizing for better readability
+  const leaderRadius = 45;
+  const workerRadius = 38;
+  const minHorizontalSpacing = 140; // Minimum space between nodes
+  const verticalSpacing = 160; // Space between rows
 
-  // Position leader at top center
-  const leaderY = 80;
+  // Position leader at top center with more room
+  const leaderY = 90;
   if (leader) {
     positions.set(leader.id, { x: centerX, y: leaderY });
   }
 
-  // Position workers in organized rows below leader
+  // Smart layout for workers - organize by task status for visual clarity
   const workerCount = workers.length;
   if (workerCount > 0) {
-    // Calculate optimal columns per row based on canvas width
-    const maxNodesPerRow = Math.max(
-      2,
-      Math.floor((width - 100) / horizontalSpacing)
-    );
-    const nodesPerRow = Math.min(workerCount, maxNodesPerRow);
-    const rows = Math.ceil(workerCount / nodesPerRow);
+    // Sort workers by activity: working > has tasks > idle
+    const sortedWorkers = [...workers].sort((a, b) => {
+      const aTasks = tasksByAgent?.get(a.id) || [];
+      const bTasks = tasksByAgent?.get(b.id) || [];
+      const aActive = aTasks.some(t => t.status === 'IN_PROGRESS') ? 2 : aTasks.length > 0 ? 1 : 0;
+      const bActive = bTasks.some(t => t.status === 'IN_PROGRESS') ? 2 : bTasks.length > 0 ? 1 : 0;
+      return bActive - aActive;
+    });
 
-    // Starting Y position for workers (below leader with connection space)
-    const startY = leaderY + verticalSpacing + 40;
+    // Calculate optimal layout based on available space
+    const availableWidth = width - 120; // Padding on sides
+    const maxNodesPerRow = Math.max(2, Math.min(6, Math.floor(availableWidth / minHorizontalSpacing)));
 
-    workers.forEach((worker, index) => {
+    // Determine actual nodes per row based on count
+    let nodesPerRow: number;
+    if (workerCount <= 3) {
+      nodesPerRow = workerCount;
+    } else if (workerCount <= 6) {
+      nodesPerRow = Math.ceil(workerCount / 1); // Single row if possible
+      if (nodesPerRow > maxNodesPerRow) {
+        nodesPerRow = Math.ceil(workerCount / 2);
+      }
+    } else {
+      // For larger teams, use optimal distribution
+      const rows = Math.ceil(workerCount / maxNodesPerRow);
+      nodesPerRow = Math.ceil(workerCount / rows);
+    }
+
+    nodesPerRow = Math.min(nodesPerRow, maxNodesPerRow);
+    const totalRows = Math.ceil(workerCount / nodesPerRow);
+
+    // Calculate spacing based on actual nodes per row
+    const actualSpacing = Math.max(minHorizontalSpacing, availableWidth / (nodesPerRow + 1));
+
+    // Starting Y position for workers
+    const startY = leaderY + verticalSpacing;
+
+    sortedWorkers.forEach((worker, index) => {
       const row = Math.floor(index / nodesPerRow);
       const col = index % nodesPerRow;
 
-      // Calculate how many nodes in this row
-      const nodesInThisRow =
-        row === rows - 1 ? workerCount - (rows - 1) * nodesPerRow : nodesPerRow;
+      // How many nodes in this row
+      const nodesInThisRow = row === totalRows - 1
+        ? workerCount - (totalRows - 1) * nodesPerRow
+        : nodesPerRow;
 
-      // Center the row
-      const rowWidth = (nodesInThisRow - 1) * horizontalSpacing;
+      // Center each row
+      const rowWidth = (nodesInThisRow - 1) * actualSpacing;
       const rowStartX = centerX - rowWidth / 2;
 
-      const x = rowStartX + col * horizontalSpacing;
+      const x = rowStartX + col * actualSpacing;
       const y = startY + row * verticalSpacing;
 
       positions.set(worker.id, { x, y });
@@ -297,15 +326,29 @@ export default function TeamCanvasModal({
   const canvasWidth = 900;
   const canvasHeight = 600;
 
+  // Get tasks grouped by agent (moved up for use in layout)
+  const tasksByAgent = useMemo(() => {
+    const map = new Map<string, AgentTask[]>();
+    if (mission?.tasks) {
+      mission.tasks.forEach((task) => {
+        const existing = map.get(task.assignedToId) || [];
+        existing.push(task);
+        map.set(task.assignedToId, existing);
+      });
+    }
+    return map;
+  }, [mission?.tasks]);
+
   // Calculate node positions (must be before handlers that use it)
   const nodePositions = useMemo(() => {
     return calculateNodePositions(
       mission?.leaderId || null,
       aiMembers,
       canvasWidth,
-      canvasHeight
+      canvasHeight,
+      tasksByAgent
     );
-  }, [mission?.leaderId, aiMembers]);
+  }, [mission?.leaderId, aiMembers, tasksByAgent]);
 
   // Handle drag start
   const handleDragStart = useCallback(
@@ -426,19 +469,6 @@ export default function TeamCanvasModal({
     },
     [customPositions, nodePositions]
   );
-
-  // Get tasks grouped by agent
-  const tasksByAgent = useMemo(() => {
-    const map = new Map<string, AgentTask[]>();
-    if (mission?.tasks) {
-      mission.tasks.forEach((task) => {
-        const existing = map.get(task.assignedToId) || [];
-        existing.push(task);
-        map.set(task.assignedToId, existing);
-      });
-    }
-    return map;
-  }, [mission?.tasks]);
 
   // Get agent stats
   const getAgentStats = useCallback(
@@ -877,35 +907,77 @@ export default function TeamCanvasModal({
                           className="transition-all duration-300"
                         />
 
-                        {/* Task status label on hover */}
-                        {isHovered && (
-                          <g transform={`translate(${midX}, ${midY - 20})`}>
+                        {/* Enhanced message bubble - always visible for active tasks */}
+                        {(isActive || isHovered) && (
+                          <g transform={`translate(${midX}, ${midY - 25})`}>
+                            {/* Bubble background with shadow */}
+                            <filter id={`bubble-shadow-${task.id}`} x="-50%" y="-50%" width="200%" height="200%">
+                              <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.2" />
+                            </filter>
                             <rect
-                              x="-40"
-                              y="-12"
-                              width="80"
-                              height="24"
-                              rx="4"
+                              x="-55"
+                              y="-16"
+                              width="110"
+                              height="32"
+                              rx="8"
                               fill="white"
                               stroke={connectionColor}
-                              strokeWidth="1"
+                              strokeWidth="2"
+                              filter={`url(#bubble-shadow-${task.id})`}
+                            />
+                            {/* Bubble tail */}
+                            <path
+                              d="M -5 16 L 0 24 L 5 16"
+                              fill="white"
+                              stroke={connectionColor}
+                              strokeWidth="2"
+                              strokeLinejoin="round"
+                            />
+                            <rect x="-6" y="14" width="12" height="4" fill="white" />
+                            {/* Status icon and text */}
+                            <g transform="translate(0, 0)">
+                              <text
+                                textAnchor="middle"
+                                dy="0.35em"
+                                fontSize="12"
+                                fill="#374151"
+                                fontWeight="600"
+                              >
+                                {task.status === 'IN_PROGRESS'
+                                  ? '⚡ 执行中...'
+                                  : task.status === 'COMPLETED'
+                                    ? '✅ 已完成'
+                                    : task.status === 'AWAITING_REVIEW'
+                                      ? '🔍 待审核'
+                                      : task.status === 'PENDING'
+                                        ? '⏳ 等待中'
+                                        : task.status === 'REVISION_NEEDED'
+                                          ? '↻ 需修订'
+                                          : task.status}
+                              </text>
+                            </g>
+                          </g>
+                        )}
+
+                        {/* Task title tooltip on hover */}
+                        {isHovered && task.title && (
+                          <g transform={`translate(${midX}, ${midY + 30})`}>
+                            <rect
+                              x={-Math.min(task.title.length * 5, 100)}
+                              y="-12"
+                              width={Math.min(task.title.length * 10, 200)}
+                              height="24"
+                              rx="4"
+                              fill="#1f2937"
+                              opacity="0.9"
                             />
                             <text
                               textAnchor="middle"
                               dy="0.35em"
                               fontSize="11"
-                              fill="#374151"
-                              fontWeight="500"
+                              fill="white"
                             >
-                              {task.status === 'IN_PROGRESS'
-                                ? '执行中...'
-                                : task.status === 'COMPLETED'
-                                  ? '已完成'
-                                  : task.status === 'AWAITING_REVIEW'
-                                    ? '待审核'
-                                    : task.status === 'PENDING'
-                                      ? '等待中'
-                                      : task.status}
+                              {task.title.length > 20 ? task.title.slice(0, 20) + '...' : task.title}
                             </text>
                           </g>
                         )}
@@ -929,8 +1001,23 @@ export default function TeamCanvasModal({
                       stats.inProgress > 0
                     );
                     const isHovered = hoveredNode === agent.id;
+                    const isSelected = selectedAgent?.id === agent.id;
                     const isDragging = draggedNode === agent.id;
-                    const nodeRadius = isLeader ? 40 : 35;
+                    // Increased node sizes for better visibility
+                    const nodeRadius = isLeader ? 48 : 40;
+
+                    // Smart name parsing for better display
+                    const fullName = agent.displayName || 'Agent';
+                    // Extract model name (e.g., "AI-ChatGPT" -> "ChatGPT")
+                    const cleanName = fullName.replace(/^AI-/i, '');
+                    // Split into primary and secondary parts
+                    const nameParts = cleanName.split(/[\s-_]+/);
+                    const primaryName = nameParts[0].length > 10
+                      ? nameParts[0].slice(0, 10)
+                      : nameParts[0];
+                    const secondaryName = nameParts.length > 1
+                      ? nameParts.slice(1).join(' ').slice(0, 12)
+                      : null;
 
                     return (
                       <g
@@ -946,14 +1033,42 @@ export default function TeamCanvasModal({
                         onMouseDown={(e) => handleDragStart(agent.id, e)}
                         onClick={() => !isDragging && setSelectedAgent(agent)}
                       >
+                        {/* Selection ring for selected agent */}
+                        {isSelected && (
+                          <circle
+                            r={nodeRadius + 12}
+                            fill="none"
+                            stroke="#6366f1"
+                            strokeWidth="3"
+                            strokeDasharray="8 4"
+                            opacity="0.8"
+                          >
+                            <animateTransform
+                              attributeName="transform"
+                              type="rotate"
+                              from="0"
+                              to="360"
+                              dur="10s"
+                              repeatCount="indefinite"
+                            />
+                          </circle>
+                        )}
+
                         {/* Glow effect for working agents */}
                         {isWorking && (
-                          <circle
-                            r={nodeRadius + 15}
-                            fill={statusColors.fill}
-                            opacity="0.2"
-                            className="animate-ping"
-                          />
+                          <>
+                            <circle
+                              r={nodeRadius + 18}
+                              fill={statusColors.fill}
+                              opacity="0.15"
+                              className="animate-ping"
+                            />
+                            <circle
+                              r={nodeRadius + 10}
+                              fill={statusColors.fill}
+                              opacity="0.25"
+                            />
+                          </>
                         )}
 
                         {/* Outer ring for hover */}
@@ -961,7 +1076,7 @@ export default function TeamCanvasModal({
                           r={nodeRadius + 6}
                           fill="white"
                           filter="url(#shadow)"
-                          className={`transition-all duration-300 ${isHovered ? 'opacity-100' : 'opacity-80'}`}
+                          className={`transition-all duration-300 ${isHovered || isSelected ? 'opacity-100' : 'opacity-85'}`}
                         />
 
                         {/* Main circle */}
@@ -972,60 +1087,101 @@ export default function TeamCanvasModal({
                               ? 'url(#leader-gradient)'
                               : statusColors.fill
                           }
-                          className={`transition-all duration-300 ${isHovered ? 'scale-110' : ''}`}
+                          className={`transition-all duration-300 ${isHovered ? 'scale-105' : ''}`}
                           style={{ transformOrigin: 'center' }}
                         />
 
-                        {/* Agent initial/icon */}
+                        {/* Agent initial/icon - larger */}
                         <text
                           textAnchor="middle"
                           dy="0.35em"
                           fill="white"
-                          fontSize={isLeader ? '20' : '18'}
+                          fontSize={isLeader ? '24' : '22'}
                           fontWeight="bold"
                         >
-                          {agent.displayName?.charAt(0) || 'A'}
+                          {cleanName.charAt(0).toUpperCase()}
                         </text>
 
                         {/* Leader crown */}
                         {isLeader && (
                           <text
                             textAnchor="middle"
-                            y={-nodeRadius - 12}
-                            fontSize="20"
+                            y={-nodeRadius - 14}
+                            fontSize="22"
                           >
                             👑
                           </text>
                         )}
 
-                        {/* Agent name */}
-                        <text
-                          textAnchor="middle"
-                          y={nodeRadius + 20}
-                          fill="#374151"
-                          fontSize="14"
-                          fontWeight="500"
-                        >
-                          {agent.displayName?.length > 10
-                            ? agent.displayName.slice(0, 10) + '...'
-                            : agent.displayName}
-                        </text>
-
-                        {/* Task count badge */}
-                        {stats.total > 0 && (
-                          <g
-                            transform={`translate(${nodeRadius - 5}, ${-nodeRadius + 5})`}
+                        {/* Agent name - Two-line display */}
+                        <g transform={`translate(0, ${nodeRadius + 16})`}>
+                          {/* Primary name (model type) */}
+                          <text
+                            textAnchor="middle"
+                            fill="#1f2937"
+                            fontSize="13"
+                            fontWeight="600"
                           >
-                            <circle
-                              r="14"
-                              fill="white"
-                              stroke="#e5e7eb"
-                              strokeWidth="2"
+                            {primaryName}
+                          </text>
+                          {/* Secondary name (identifier) */}
+                          {secondaryName && (
+                            <text
+                              textAnchor="middle"
+                              y="15"
+                              fill="#6b7280"
+                              fontSize="11"
+                            >
+                              {secondaryName}
+                            </text>
+                          )}
+                        </g>
+
+                        {/* Full name tooltip on hover */}
+                        {isHovered && fullName.length > 12 && (
+                          <g transform={`translate(0, ${-nodeRadius - (isLeader ? 42 : 28)})`}>
+                            <rect
+                              x={-Math.min(fullName.length * 4, 70) - 8}
+                              y="-14"
+                              width={Math.min(fullName.length * 8, 140) + 16}
+                              height="28"
+                              rx="6"
+                              fill="#1f2937"
+                              opacity="0.95"
                             />
                             <text
                               textAnchor="middle"
                               dy="0.35em"
-                              fontSize="11"
+                              fill="white"
+                              fontSize="12"
+                              fontWeight="500"
+                            >
+                              {fullName.length > 18 ? fullName.slice(0, 18) + '...' : fullName}
+                            </text>
+                          </g>
+                        )}
+
+                        {/* Task count badge - larger */}
+                        {stats.total > 0 && (
+                          <g
+                            transform={`translate(${nodeRadius - 6}, ${-nodeRadius + 6})`}
+                          >
+                            <circle
+                              r="16"
+                              fill="white"
+                              stroke={
+                                stats.completed === stats.total
+                                  ? '#22c55e'
+                                  : stats.inProgress > 0
+                                    ? '#3b82f6'
+                                    : '#d1d5db'
+                              }
+                              strokeWidth="2.5"
+                            />
+                            <text
+                              textAnchor="middle"
+                              dy="0.35em"
+                              fontSize="12"
                               fontWeight="bold"
                               fill={
                                 stats.completed === stats.total
@@ -1040,13 +1196,13 @@ export default function TeamCanvasModal({
                           </g>
                         )}
 
-                        {/* Working indicator */}
+                        {/* Working indicator with ripple */}
                         {isWorking && (
                           <g
-                            transform={`translate(${-nodeRadius + 5}, ${-nodeRadius + 5})`}
+                            transform={`translate(${-nodeRadius + 6}, ${-nodeRadius + 6})`}
                           >
                             <circle
-                              r="10"
+                              r="12"
                               fill="#3b82f6"
                               className="animate-pulse"
                             />
