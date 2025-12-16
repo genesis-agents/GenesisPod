@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import {
   TeamMission,
   AgentTask,
@@ -2209,8 +2210,8 @@ function TaskPopover({
                 <div className="mb-2 text-sm font-semibold text-gray-600">
                   任务描述
                 </div>
-                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-base leading-relaxed text-gray-700">
-                  {task.description}
+                <div className="prose prose-sm max-w-none rounded-xl border border-gray-100 bg-gray-50 p-4 text-gray-700">
+                  <ReactMarkdown>{task.description}</ReactMarkdown>
                 </div>
               </div>
             )}
@@ -2221,8 +2222,8 @@ function TaskPopover({
                 <div className="mb-2 text-sm font-semibold text-gray-600">
                   执行成果
                 </div>
-                <div className="max-h-[200px] overflow-y-auto rounded-xl border border-green-100 bg-green-50 p-4 text-base leading-relaxed text-gray-700">
-                  {task.result}
+                <div className="prose prose-sm max-h-[250px] max-w-none overflow-y-auto rounded-xl border border-green-100 bg-green-50 p-4 text-gray-700">
+                  <ReactMarkdown>{task.result}</ReactMarkdown>
                 </div>
               </div>
             )}
@@ -2234,7 +2235,7 @@ function TaskPopover({
                   Leader 评审
                 </div>
                 <div
-                  className={`max-h-[150px] overflow-y-auto rounded-xl border p-4 text-base leading-relaxed text-gray-700 ${
+                  className={`prose prose-sm max-h-[180px] max-w-none overflow-y-auto rounded-xl border p-4 text-gray-700 ${
                     task.status === 'COMPLETED'
                       ? 'border-green-200 bg-green-50'
                       : task.status === 'REVISION_NEEDED'
@@ -2242,7 +2243,7 @@ function TaskPopover({
                         : 'border-purple-200 bg-purple-50'
                   }`}
                 >
-                  {task.leaderFeedback}
+                  <ReactMarkdown>{task.leaderFeedback}</ReactMarkdown>
                 </div>
               </div>
             )}
