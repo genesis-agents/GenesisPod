@@ -1264,21 +1264,11 @@ export default function TeamCanvasModal({
                           </>
                         )}
 
-                        {/* Outer ring with shadow */}
+                        {/* Outer shadow ring */}
                         <circle
-                          r={nodeRadius + 4}
+                          r={nodeRadius + 3}
                           fill="white"
                           filter="url(#shadow)"
-                          className="transition-all duration-300"
-                        />
-
-                        {/* Brand color ring */}
-                        <circle
-                          r={nodeRadius + 2}
-                          fill="none"
-                          stroke={brand.color}
-                          strokeWidth="3"
-                          opacity={stats.total > 0 ? 1 : 0.4}
                           className="transition-all duration-300"
                         />
 
