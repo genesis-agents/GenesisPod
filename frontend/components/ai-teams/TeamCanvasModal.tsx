@@ -953,9 +953,9 @@ export default function TeamCanvasModal({
                 </defs>
                 <rect width="100%" height="100%" fill="url(#canvas-grid)" />
 
-                {/* Zoomable/Pannable container */}
+                {/* Zoomable/Pannable container - zoom centered on canvas */}
                 <g
-                  transform={`translate(${pan.x / zoom + (canvasWidth * (1 - zoom)) / (2 * zoom)}, ${pan.y / zoom + (canvasHeight * (1 - zoom)) / (2 * zoom)}) scale(${zoom})`}
+                  transform={`translate(${canvasWidth / 2 + pan.x}, ${canvasHeight / 2 + pan.y}) scale(${zoom}) translate(${-canvasWidth / 2}, ${-canvasHeight / 2})`}
                 >
                   {/* Connection Lines with animated particles */}
                   {mission.tasks?.map((task, taskIndex) => {
