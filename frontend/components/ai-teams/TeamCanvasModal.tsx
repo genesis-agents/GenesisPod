@@ -1104,6 +1104,23 @@ export default function TeamCanvasModal({
                         ? nameParts.slice(1).join(' ').slice(0, 12)
                         : null;
 
+                    // Create short name for inside circle display
+                    // "ChatGPT" -> "GPT", "Gemini" -> "Gemini", "Grok" -> "Grok"
+                    const getShortName = (name: string): string => {
+                      if (name.toLowerCase().includes('chatgpt')) return 'GPT';
+                      if (name.toLowerCase().includes('gpt5')) return 'GPT5';
+                      if (name.toLowerCase().includes('gpt4')) return 'GPT4';
+                      if (name.toLowerCase().includes('gemini'))
+                        return 'Gemini';
+                      if (name.toLowerCase().includes('grok')) return 'Grok';
+                      if (name.toLowerCase().includes('claude'))
+                        return 'Claude';
+                      if (name.toLowerCase().includes('llama')) return 'Llama';
+                      // Default: first 6 chars
+                      return name.length > 6 ? name.slice(0, 6) : name;
+                    };
+                    const shortName = getShortName(cleanName);
+
                     return (
                       <g
                         key={agent.id}
@@ -1176,15 +1193,15 @@ export default function TeamCanvasModal({
                           style={{ transformOrigin: 'center' }}
                         />
 
-                        {/* Agent initial/icon - larger */}
+                        {/* Agent name inside circle */}
                         <text
                           textAnchor="middle"
                           dy="0.35em"
                           fill="white"
-                          fontSize={isLeader ? '24' : '22'}
+                          fontSize={shortName.length > 4 ? '13' : '16'}
                           fontWeight="bold"
                         >
-                          {cleanName.charAt(0).toUpperCase()}
+                          {shortName}
                         </text>
 
                         {/* Leader crown */}
