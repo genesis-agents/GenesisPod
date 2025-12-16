@@ -1401,112 +1401,103 @@ function AgentDetailPanel({
   const completedResults = completedTasks.map((t) => t.result).filter(Boolean);
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-gray-100 p-4">
-        <h3 className="font-semibold text-gray-900">Agent 详情</h3>
-        <button onClick={onClose} className="rounded p-1 hover:bg-gray-100">
-          <svg
-            className="h-5 w-5 text-gray-500"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
+    <div className="flex h-full flex-col bg-gradient-to-b from-slate-50 to-white">
+      {/* Enhanced Header with gradient background */}
+      <div className="relative overflow-hidden">
+        <div className={`absolute inset-0 ${
+          isLeader
+            ? 'bg-gradient-to-br from-purple-500/10 via-violet-500/5 to-transparent'
+            : 'bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-transparent'
+        }`} />
+        <div className="relative p-4">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              {/* Enhanced Avatar */}
+              <div className="relative">
+                <div
+                  className={`flex h-16 w-16 items-center justify-center rounded-2xl text-2xl font-bold text-white shadow-lg ${
+                    isLeader
+                      ? 'bg-gradient-to-br from-purple-500 to-violet-600 ring-4 ring-purple-200'
+                      : 'bg-gradient-to-br from-blue-500 to-indigo-600 ring-4 ring-blue-200'
+                  }`}
+                >
+                  {agent.displayName?.charAt(0) || 'A'}
+                </div>
+                {isLeader && (
+                  <div className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-xs shadow-md">
+                    👑
+                  </div>
+                )}
+                {isWorking && (
+                  <div className="absolute -bottom-1 -right-1 h-4 w-4 animate-pulse rounded-full bg-green-500 ring-2 ring-white" />
+                )}
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-gray-900">
+                  {agent.displayName}
+                </h3>
+                <div className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  isLeader
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'bg-blue-100 text-blue-700'
+                }`}>
+                  {isLeader ? '🎯 Team Leader' : '💼 Team Member'}
+                </div>
+                {isWorking && (
+                  <div className="mt-1 flex items-center gap-1.5 text-xs text-green-600">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500"></span>
+                    </span>
+                    正在工作中...
+                  </div>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
-        {/* Agent Info */}
-        <div className="mb-4 flex items-center gap-3">
-          <div
-            className={`flex h-14 w-14 items-center justify-center rounded-full text-2xl text-white ${
-              isLeader
-                ? 'bg-gradient-to-br from-purple-500 to-violet-600'
-                : 'bg-gradient-to-br from-blue-500 to-indigo-600'
-            }`}
-          >
-            {agent.displayName?.charAt(0) || 'A'}
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-gray-900">
-                {agent.displayName}
-              </span>
-              {isLeader && <span className="text-sm">👑</span>}
-            </div>
-            {isWorking && (
-              <div className="flex items-center gap-1 text-xs text-blue-600">
-                <span className="flex gap-0.5">
-                  <span
-                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-500"
-                    style={{ animationDelay: '0ms' }}
-                  />
-                  <span
-                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-500"
-                    style={{ animationDelay: '150ms' }}
-                  />
-                  <span
-                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-500"
-                    style={{ animationDelay: '300ms' }}
-                  />
-                </span>
-                正在工作中...
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* Role & Responsibilities */}
-        <div className="mb-4 rounded-lg border border-purple-100 bg-gradient-to-r from-purple-50 to-blue-50 p-3">
-          <div className="mb-1 flex items-center gap-1 text-xs font-medium text-purple-700">
-            <svg
-              className="h-3.5 w-3.5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-              />
-            </svg>
-            职责定位
+        {/* Role & Responsibilities - Enhanced */}
+        <div className="mb-4 overflow-hidden rounded-xl border border-purple-200/50 bg-gradient-to-br from-purple-50 via-violet-50/50 to-blue-50/30 shadow-sm">
+          <div className="flex items-center gap-2 border-b border-purple-100/50 bg-white/50 px-3 py-2">
+            <div className="flex h-5 w-5 items-center justify-center rounded-md bg-gradient-to-br from-purple-500 to-violet-500">
+              <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <span className="text-xs font-semibold text-purple-700">职责定位</span>
           </div>
-          <div className="text-sm text-gray-700">
+          <div className="p-3 text-sm leading-relaxed text-gray-600">
             {isLeader
               ? '作为Team Leader，负责：任务规划与分解、工作分配、进度监控、质量审核、成果整合'
-              : `作为Team Member，负责：执行分配的任务、产出高质量成果、响应Leader反馈`}
+              : '作为Team Member，负责：执行分配的任务、产出高质量成果、响应Leader反馈'}
           </div>
         </div>
 
-        {/* Current Goal */}
+        {/* Current Goal - Enhanced */}
         {(inProgressTasks.length > 0 || missionTitle) && (
-          <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 p-3">
-            <div className="mb-1 flex items-center gap-1 text-xs font-medium text-blue-700">
-              <svg
-                className="h-3.5 w-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                />
-              </svg>
-              当前目标
+          <div className="mb-4 overflow-hidden rounded-xl border border-blue-200/50 bg-gradient-to-br from-blue-50 via-sky-50/50 to-cyan-50/30 shadow-sm">
+            <div className="flex items-center gap-2 border-b border-blue-100/50 bg-white/50 px-3 py-2">
+              <div className="flex h-5 w-5 items-center justify-center rounded-md bg-gradient-to-br from-blue-500 to-cyan-500">
+                <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <span className="text-xs font-semibold text-blue-700">当前目标</span>
             </div>
-            <div className="text-sm text-gray-700">
+            <div className="p-3 text-sm leading-relaxed text-gray-600">
               {inProgressTasks.length > 0
                 ? inProgressTasks.map((t) => t.title).join('、')
                 : isLeader
@@ -1548,91 +1539,82 @@ function AgentDetailPanel({
           </div>
         )}
 
-        {/* Performance Stats */}
+        {/* Performance Stats - Enhanced Design */}
         {tasks.length > 0 && (
           <div className="mb-4">
-            <div className="mb-2 flex items-center gap-1 text-xs font-medium text-gray-500">
-              <svg
-                className="h-3.5 w-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                />
-              </svg>
-              绩效统计
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500">
+                <svg className="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <span className="text-sm font-semibold text-gray-700">绩效统计</span>
             </div>
-            <div className="grid grid-cols-2 gap-2 text-center">
-              <div className="rounded-lg bg-gray-50 p-2">
-                <div className="text-lg font-bold text-gray-900">
-                  {tasks.length}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="group relative overflow-hidden rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-3 transition-all hover:border-slate-300 hover:shadow-sm">
+                <div className="absolute -right-2 -top-2 h-12 w-12 rounded-full bg-slate-100 opacity-50" />
+                <div className="relative">
+                  <div className="text-2xl font-bold text-slate-700">{tasks.length}</div>
+                  <div className="text-xs font-medium text-slate-500">分配任务</div>
                 </div>
-                <div className="text-xs text-gray-500">分配任务</div>
               </div>
-              <div className="rounded-lg bg-green-50 p-2">
-                <div className="text-lg font-bold text-green-600">
-                  {completedTasks.length}
+              <div className="group relative overflow-hidden rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-3 transition-all hover:border-emerald-300 hover:shadow-sm">
+                <div className="absolute -right-2 -top-2 h-12 w-12 rounded-full bg-emerald-100 opacity-50" />
+                <div className="relative">
+                  <div className="text-2xl font-bold text-emerald-600">{completedTasks.length}</div>
+                  <div className="text-xs font-medium text-emerald-600">已完成</div>
                 </div>
-                <div className="text-xs text-green-600">已完成</div>
               </div>
-              <div className="rounded-lg bg-blue-50 p-2">
-                <div className="text-lg font-bold text-blue-600">
-                  {inProgressTasks.length}
+              <div className="group relative overflow-hidden rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-3 transition-all hover:border-blue-300 hover:shadow-sm">
+                <div className="absolute -right-2 -top-2 h-12 w-12 rounded-full bg-blue-100 opacity-50" />
+                <div className="relative">
+                  <div className="text-2xl font-bold text-blue-600">{inProgressTasks.length}</div>
+                  <div className="text-xs font-medium text-blue-600">进行中</div>
                 </div>
-                <div className="text-xs text-blue-600">进行中</div>
               </div>
-              <div className="rounded-lg bg-orange-50 p-2">
-                <div className="text-lg font-bold text-orange-600">
-                  {totalRevisions}
+              <div className="group relative overflow-hidden rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-3 transition-all hover:border-amber-300 hover:shadow-sm">
+                <div className="absolute -right-2 -top-2 h-12 w-12 rounded-full bg-amber-100 opacity-50" />
+                <div className="relative">
+                  <div className="text-2xl font-bold text-amber-600">{totalRevisions}</div>
+                  <div className="text-xs font-medium text-amber-600">修订次数</div>
                 </div>
-                <div className="text-xs text-orange-600">修订次数</div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Completed Results Summary */}
+        {/* Completed Results Summary - Enhanced */}
         {completedResults.length > 0 && (
           <div className="mb-4">
-            <div className="mb-2 flex items-center gap-1 text-xs font-medium text-gray-500">
-              <svg
-                className="h-3.5 w-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              已完成的成果
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500">
+                <svg className="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <span className="text-sm font-semibold text-gray-700">已完成的成果</span>
             </div>
-            <div className="max-h-32 space-y-2 overflow-y-auto">
+            <div className="max-h-40 space-y-2 overflow-y-auto pr-1">
               {completedTasks.slice(0, 3).map((task) => (
                 <div
                   key={task.id}
-                  className="rounded border border-green-100 bg-green-50 p-2"
+                  className="group rounded-xl border border-emerald-100 bg-gradient-to-r from-emerald-50/80 to-teal-50/50 p-3 transition-all hover:border-emerald-200 hover:shadow-sm"
                 >
-                  <div className="text-xs font-medium text-green-800">
-                    {task.title}
-                  </div>
-                  {task.result && (
-                    <div className="mt-1 line-clamp-2 text-xs text-gray-600">
-                      {task.result.substring(0, 100)}...
+                  <div className="flex items-start gap-2">
+                    <span className="mt-0.5 text-emerald-500">✓</span>
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-emerald-800">{task.title}</div>
+                      {task.result && (
+                        <div className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-gray-500">
+                          {task.result.substring(0, 120)}...
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
               ))}
               {completedTasks.length > 3 && (
-                <div className="text-center text-xs text-gray-400">
+                <div className="py-2 text-center text-xs text-gray-400">
                   还有 {completedTasks.length - 3} 个完成的任务...
                 </div>
               )}
@@ -1640,11 +1622,19 @@ function AgentDetailPanel({
           </div>
         )}
 
-        {/* Task List */}
+        {/* Task List - Enhanced */}
         {tasks.length > 0 && (
           <div>
-            <div className="mb-2 text-xs font-medium text-gray-500">
-              全部任务
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-br from-slate-500 to-gray-600">
+                <svg className="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              </div>
+              <span className="text-sm font-semibold text-gray-700">全部任务</span>
+              <span className="ml-auto rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+                {tasks.length}
+              </span>
             </div>
             <div className="space-y-2">
               {tasks.map((task) => {
@@ -1653,36 +1643,31 @@ function AgentDetailPanel({
                   <div
                     key={task.id}
                     onClick={() => onTaskClick(task)}
-                    className={`cursor-pointer rounded-lg border p-3 transition-colors hover:shadow-sm ${statusConfig.borderColor} ${statusConfig.bgColor}`}
+                    className={`group cursor-pointer rounded-xl border p-3 transition-all hover:shadow-md ${statusConfig.borderColor} ${statusConfig.bgColor}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium text-gray-900">
+                        <div className="truncate text-sm font-medium text-gray-800 group-hover:text-gray-900">
                           {task.title}
                         </div>
-                        <div className="mt-1 flex items-center gap-2">
-                          <span className={`text-xs ${statusConfig.color}`}>
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${statusConfig.bgColor} ${statusConfig.color}`}>
                             {statusConfig.icon} {statusConfig.label}
                           </span>
                           {task.revisionCount > 0 && (
-                            <span className="text-xs text-orange-500">
-                              修订 {task.revisionCount}次
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-600">
+                              ↻ {task.revisionCount}次
                             </span>
                           )}
                         </div>
                       </div>
                       <svg
-                        className="h-4 w-4 shrink-0 text-gray-400"
+                        className="h-4 w-4 shrink-0 text-gray-300 transition-colors group-hover:text-gray-500"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 5l7 7-7 7"
-                        />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     </div>
                   </div>
