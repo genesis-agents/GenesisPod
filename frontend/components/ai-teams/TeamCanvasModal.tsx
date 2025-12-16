@@ -1340,123 +1340,6 @@ export default function TeamCanvasModal({
             />
           )}
         </div>
-
-        {/* Right Panel - Legend & Stats */}
-        <div className="w-64 overflow-y-auto border-l border-gray-200 bg-white">
-          <div className="p-4">
-            <h3 className="mb-4 text-sm font-semibold text-gray-600">
-              协作总览
-            </h3>
-
-            {/* Legend */}
-            <div className="space-y-3">
-              <div className="text-xs font-medium uppercase tracking-wider text-gray-500">
-                节点状态
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-purple-500" />
-                  <span className="text-sm text-gray-600">
-                    Leader (负责协调)
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 animate-pulse rounded-full bg-blue-500" />
-                  <span className="text-sm text-gray-600">正在工作</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-green-500" />
-                  <span className="text-sm text-gray-600">已完成任务</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-yellow-500" />
-                  <span className="text-sm text-gray-600">有进行中任务</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-gray-400" />
-                  <span className="text-sm text-gray-600">空闲</span>
-                </div>
-              </div>
-
-              <div className="mt-4 text-xs font-medium uppercase tracking-wider text-gray-500">
-                连接线状态
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="h-0.5 w-6 bg-blue-400" />
-                  <span className="text-sm text-gray-600">执行中</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-0.5 w-6 bg-green-400" />
-                  <span className="text-sm text-gray-600">已完成</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-0.5 w-6 bg-purple-400" />
-                  <span className="text-sm text-gray-600">待审核</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div
-                    className="h-0.5 w-6 bg-gray-300"
-                    style={{ strokeDasharray: '4 2' }}
-                  />
-                  <span className="text-sm text-gray-600">等待中</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Stats */}
-            {mission && mission.tasks && mission.tasks.length > 0 && (
-              <div className="mt-4 rounded-lg bg-gray-50 p-3">
-                <div className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500">
-                  任务统计
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="text-center">
-                    <div className="text-xl font-bold text-gray-900">
-                      {
-                        mission.tasks.filter((t) => t.status === 'COMPLETED')
-                          .length
-                      }
-                    </div>
-                    <div className="text-xs text-gray-500">已完成</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xl font-bold text-blue-600">
-                      {
-                        mission.tasks.filter((t) => t.status === 'IN_PROGRESS')
-                          .length
-                      }
-                    </div>
-                    <div className="text-xs text-gray-500">进行中</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xl font-bold text-purple-600">
-                      {
-                        mission.tasks.filter(
-                          (t) => t.status === 'AWAITING_REVIEW'
-                        ).length
-                      }
-                    </div>
-                    <div className="text-xs text-gray-500">待审核</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xl font-bold text-gray-400">
-                      {
-                        mission.tasks.filter((t) => t.status === 'PENDING')
-                          .length
-                      }
-                    </div>
-                    <div className="text-xs text-gray-500">等待中</div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="mt-4 text-center text-xs text-gray-400">
-              点击节点或连接线查看详情
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -2112,7 +1995,7 @@ function AgentPopover({
           </div>
 
           {/* Content */}
-          <div className="max-h-80 overflow-y-auto p-4">
+          <div className="max-h-[50vh] overflow-y-auto p-4">
             {/* Role Info */}
             <div className="mb-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
               <div className="mb-1 text-xs font-medium text-gray-500">
@@ -2318,7 +2201,7 @@ function TaskPopover({
           </div>
 
           {/* Content */}
-          <div className="max-h-72 overflow-y-auto p-4">
+          <div className="max-h-[50vh] overflow-y-auto p-4">
             {/* Assignee */}
             <div className="mb-3 flex items-center gap-2 rounded-lg bg-gray-50 p-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-blue-400 text-xs font-medium text-white">
