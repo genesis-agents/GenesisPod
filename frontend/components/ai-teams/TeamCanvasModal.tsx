@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import {
   TeamMission,
@@ -335,6 +335,7 @@ export default function TeamCanvasModal({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const lastWheelTime = useRef(0);
 
   // Animation loop for dynamic effects
   useEffect(() => {
@@ -442,10 +443,19 @@ export default function TeamCanvasModal({
     setCustomPositions(new Map());
   }, []);
 
-  // Zoom handlers - use fixed increments for smoother zooming
+  // Zoom handlers - use fixed increments with throttling for smoother zooming
   const handleWheel = useCallback((event: React.WheelEvent<SVGSVGElement>) => {
     event.preventDefault();
-    const delta = event.deltaY > 0 ? -0.1 : 0.1;
+
+    // Throttle wheel events to max 10 per second (100ms interval)
+    const now = Date.now();
+    if (now - lastWheelTime.current < 100) {
+      return;
+    }
+    lastWheelTime.current = now;
+
+    // Use smaller increment (5% per scroll) for smoother zooming
+    const delta = event.deltaY > 0 ? -0.05 : 0.05;
     setZoom((prev) => Math.max(0.3, Math.min(5, prev + delta)));
   }, []);
 
