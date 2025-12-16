@@ -438,19 +438,19 @@ export default function TeamCanvasModal({
     setCustomPositions(new Map());
   }, []);
 
-  // Zoom handlers
+  // Zoom handlers - use fixed increments for smoother zooming
   const handleWheel = useCallback((event: React.WheelEvent<SVGSVGElement>) => {
     event.preventDefault();
-    const delta = event.deltaY > 0 ? 0.9 : 1.1;
-    setZoom((prev) => Math.max(0.3, Math.min(5, prev * delta)));
+    const delta = event.deltaY > 0 ? -0.1 : 0.1;
+    setZoom((prev) => Math.max(0.3, Math.min(5, prev + delta)));
   }, []);
 
   const handleZoomIn = useCallback(() => {
-    setZoom((prev) => Math.min(5, prev * 1.2));
+    setZoom((prev) => Math.min(5, prev + 0.1));
   }, []);
 
   const handleZoomOut = useCallback(() => {
-    setZoom((prev) => Math.max(0.3, prev * 0.8));
+    setZoom((prev) => Math.max(0.3, prev - 0.1));
   }, []);
 
   const handleResetZoom = useCallback(() => {
