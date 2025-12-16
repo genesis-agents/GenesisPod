@@ -1322,15 +1322,7 @@ export default function TeamCanvasModal({
                           </>
                         )}
 
-                        {/* Outer shadow ring */}
-                        <circle
-                          r={nodeRadius + 3}
-                          fill="white"
-                          filter="url(#shadow)"
-                          className="transition-all duration-300"
-                        />
-
-                        {/* Main circle with brand gradient */}
+                        {/* Main circle with brand gradient and shadow */}
                         <circle
                           r={nodeRadius}
                           fill={
@@ -1340,8 +1332,9 @@ export default function TeamCanvasModal({
                                 ? brand.gradient || brand.color
                                 : 'url(#inactive-gradient)'
                           }
-                          className={`transition-all duration-300 ${isHovered ? 'scale-105' : ''}`}
-                          style={{ transformOrigin: 'center' }}
+                          filter="url(#shadow)"
+                          stroke="white"
+                          strokeWidth="3"
                         />
 
                         {/* Brand logo or letter inside circle */}
@@ -1402,15 +1395,14 @@ export default function TeamCanvasModal({
                           )}
                         </g>
 
-                        {/* Hover visual feedback - brand color glow */}
+                        {/* Hover visual feedback - subtle highlight */}
                         {isHovered && !isDragging && (
                           <circle
-                            r={nodeRadius + 10}
+                            r={nodeRadius + 6}
                             fill="none"
                             stroke={isLeader ? '#a855f7' : brand.color}
-                            strokeWidth="4"
-                            opacity="0.6"
-                            className="animate-pulse"
+                            strokeWidth="3"
+                            opacity="0.5"
                           />
                         )}
 
