@@ -311,6 +311,7 @@ export default function TeamCanvasModal({
   );
   const [selectedTask, setSelectedTask] = useState<AgentTask | null>(null);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+  const [hoveredTask, setHoveredTask] = useState<string | null>(null);
   const [animationTick, setAnimationTick] = useState(0);
   const [draggedNode, setDraggedNode] = useState<string | null>(null);
   const [customPositions, setCustomPositions] = useState<
@@ -874,7 +875,9 @@ export default function TeamCanvasModal({
                       nodePositions.get(task.assignedToId);
                     if (!leaderPos || !agentPos) return null;
 
-                    const isHovered = hoveredNode === task.assignedToId;
+                    const isHovered =
+                      hoveredNode === task.assignedToId ||
+                      hoveredTask === task.id;
                     const connectionColor = getTaskConnectionColor(task.status);
                     const midX = (leaderPos.x + agentPos.x) / 2;
                     const midY = (leaderPos.y + agentPos.y) / 2 - 30;
@@ -902,6 +905,18 @@ export default function TeamCanvasModal({
                           />
                         )}
 
+                        {/* Hover glow effect for connections */}
+                        {isHovered && !isActive && (
+                          <path
+                            d={`M ${leaderPos.x} ${leaderPos.y + 40} Q ${midX} ${midY} ${agentPos.x} ${agentPos.y - 40}`}
+                            fill="none"
+                            stroke={connectionColor}
+                            strokeWidth={10}
+                            opacity={0.15}
+                            className="transition-opacity duration-300"
+                          />
+                        )}
+
                         {/* Main path */}
                         <path
                           id={pathId}
@@ -915,6 +930,8 @@ export default function TeamCanvasModal({
                           className="transition-all duration-300"
                           style={{ cursor: 'pointer' }}
                           onClick={(e) => handleTaskClick(task, e)}
+                          onMouseEnter={() => setHoveredTask(task.id)}
+                          onMouseLeave={() => setHoveredTask(null)}
                         />
 
                         {/* Animated particles for active tasks - data flowing */}
@@ -979,8 +996,8 @@ export default function TeamCanvasModal({
                           className="transition-all duration-300"
                         />
 
-                        {/* Enhanced message bubble - always visible for active tasks */}
-                        {(isActive || isHovered) && (
+                        {/* Status bubble - only visible for active tasks */}
+                        {isActive && (
                           <g transform={`translate(${midX}, ${midY - 25})`}>
                             {/* Bubble background with shadow */}
                             <filter
@@ -1045,31 +1062,6 @@ export default function TeamCanvasModal({
                                           : task.status}
                               </text>
                             </g>
-                          </g>
-                        )}
-
-                        {/* Task title tooltip on hover */}
-                        {isHovered && task.title && (
-                          <g transform={`translate(${midX}, ${midY + 30})`}>
-                            <rect
-                              x={-Math.min(task.title.length * 5, 100)}
-                              y="-12"
-                              width={Math.min(task.title.length * 10, 200)}
-                              height="24"
-                              rx="4"
-                              fill="#1f2937"
-                              opacity="0.9"
-                            />
-                            <text
-                              textAnchor="middle"
-                              dy="0.35em"
-                              fontSize="11"
-                              fill="white"
-                            >
-                              {task.title.length > 20
-                                ? task.title.slice(0, 20) + '...'
-                                : task.title}
-                            </text>
                           </g>
                         )}
                       </g>
@@ -1230,32 +1222,16 @@ export default function TeamCanvasModal({
                           )}
                         </g>
 
-                        {/* Full name tooltip on hover */}
-                        {isHovered && fullName.length > 12 && (
-                          <g
-                            transform={`translate(0, ${-nodeRadius - (isLeader ? 42 : 28)})`}
-                          >
-                            <rect
-                              x={-Math.min(fullName.length * 4, 70) - 8}
-                              y="-14"
-                              width={Math.min(fullName.length * 8, 140) + 16}
-                              height="28"
-                              rx="6"
-                              fill="#1f2937"
-                              opacity="0.95"
-                            />
-                            <text
-                              textAnchor="middle"
-                              dy="0.35em"
-                              fill="white"
-                              fontSize="12"
-                              fontWeight="500"
-                            >
-                              {fullName.length > 18
-                                ? fullName.slice(0, 18) + '...'
-                                : fullName}
-                            </text>
-                          </g>
+                        {/* Hover visual feedback - enhanced glow ring */}
+                        {isHovered && !isDragging && (
+                          <circle
+                            r={nodeRadius + 8}
+                            fill="none"
+                            stroke={isLeader ? '#a855f7' : '#3b82f6'}
+                            strokeWidth="3"
+                            opacity="0.5"
+                            className="animate-pulse"
+                          />
                         )}
 
                         {/* Task count badge - larger */}
