@@ -1,0 +1,145 @@
+/**
+ * AI Provider Logo Utility
+ * Maps AI provider names to their official logo paths and brand colors
+ */
+
+export interface ProviderBrand {
+  name: string;
+  logo: string;
+  color: string;
+  gradient: string;
+}
+
+const PROVIDER_BRANDS: Record<string, ProviderBrand> = {
+  openai: {
+    name: 'OpenAI',
+    logo: '/icons/ai/openai.svg',
+    color: '#10a37f',
+    gradient: 'linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%)',
+  },
+  gpt: {
+    name: 'OpenAI',
+    logo: '/icons/ai/openai.svg',
+    color: '#10a37f',
+    gradient: 'linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%)',
+  },
+  chatgpt: {
+    name: 'OpenAI',
+    logo: '/icons/ai/openai.svg',
+    color: '#10a37f',
+    gradient: 'linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%)',
+  },
+  google: {
+    name: 'Google',
+    logo: '/icons/ai/gemini.svg',
+    color: '#4285f4',
+    gradient: 'linear-gradient(135deg, #4285f4 0%, #9b72cb 50%, #d96570 100%)',
+  },
+  gemini: {
+    name: 'Google Gemini',
+    logo: '/icons/ai/gemini.svg',
+    color: '#4285f4',
+    gradient: 'linear-gradient(135deg, #4285f4 0%, #9b72cb 50%, #d96570 100%)',
+  },
+  anthropic: {
+    name: 'Anthropic',
+    logo: '/icons/ai/claude.svg',
+    color: '#d97706',
+    gradient: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
+  },
+  claude: {
+    name: 'Claude',
+    logo: '/icons/ai/claude.svg',
+    color: '#d97706',
+    gradient: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
+  },
+  xai: {
+    name: 'xAI',
+    logo: '/icons/ai/grok.svg',
+    color: '#000000',
+    gradient: 'linear-gradient(135deg, #1d1d1f 0%, #000000 100%)',
+  },
+  grok: {
+    name: 'Grok',
+    logo: '/icons/ai/grok.svg',
+    color: '#000000',
+    gradient: 'linear-gradient(135deg, #1d1d1f 0%, #000000 100%)',
+  },
+  meta: {
+    name: 'Meta',
+    logo: '/icons/ai/meta.svg',
+    color: '#0668e1',
+    gradient: 'linear-gradient(135deg, #0668e1 0%, #0553b8 100%)',
+  },
+  llama: {
+    name: 'Meta Llama',
+    logo: '/icons/ai/meta.svg',
+    color: '#0668e1',
+    gradient: 'linear-gradient(135deg, #0668e1 0%, #0553b8 100%)',
+  },
+  deepseek: {
+    name: 'DeepSeek',
+    logo: '/icons/ai/deepseek.svg',
+    color: '#4d6bfe',
+    gradient: 'linear-gradient(135deg, #4d6bfe 0%, #3b5bdb 100%)',
+  },
+  mistral: {
+    name: 'Mistral',
+    logo: '/icons/ai/mistral.svg',
+    color: '#f7d046',
+    gradient: 'linear-gradient(135deg, #f7d046 0%, #eb5829 100%)',
+  },
+};
+
+// Default fallback for unknown providers
+const DEFAULT_BRAND: ProviderBrand = {
+  name: 'AI',
+  logo: '',
+  color: '#6b7280',
+  gradient: 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)',
+};
+
+/**
+ * Get provider brand information from a model name or display name
+ * @param name - The model name, display name, or provider name
+ * @returns ProviderBrand object with logo, color, and gradient
+ */
+export function getProviderBrand(name: string): ProviderBrand {
+  const lowerName = name.toLowerCase();
+
+  // Check each provider pattern
+  for (const [key, brand] of Object.entries(PROVIDER_BRANDS)) {
+    if (lowerName.includes(key)) {
+      return brand;
+    }
+  }
+
+  return DEFAULT_BRAND;
+}
+
+/**
+ * Get just the logo path for a provider
+ * @param name - The model name or provider name
+ * @returns Logo path or empty string
+ */
+export function getProviderLogo(name: string): string {
+  return getProviderBrand(name).logo;
+}
+
+/**
+ * Get provider brand color
+ * @param name - The model name or provider name
+ * @returns CSS color value
+ */
+export function getProviderColor(name: string): string {
+  return getProviderBrand(name).color;
+}
+
+/**
+ * Get provider gradient for backgrounds
+ * @param name - The model name or provider name
+ * @returns CSS gradient value
+ */
+export function getProviderGradient(name: string): string {
+  return getProviderBrand(name).gradient;
+}

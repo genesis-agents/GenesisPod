@@ -17,6 +17,7 @@ import {
 import { useUrlDetection } from '@/hooks/useUrlDetection';
 import { LinkPreviewList } from '@/components/ai-teams/LinkPreviewCard';
 import type { ParsedUrl } from '@/lib/api/ai-teams';
+import { getProviderBrand } from '@/lib/ai-provider-logos';
 
 // Helper to get short capability labels and colors
 const CAPABILITY_CONFIG: Record<
@@ -475,33 +476,37 @@ function MemberPanel({
                 const model = findModel(ai.aiModel);
                 const isTyping = typingAIs.has(ai.id);
 
+                const providerBrand = getProviderBrand(
+                  ai.aiModel || ai.displayName
+                );
+
                 return (
                   <button
                     key={ai.id}
                     onClick={() => onAIClick(ai)}
                     className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-gray-100"
                   >
-                    <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-blue-500 to-cyan-500">
-                      {model?.iconUrl ? (
+                    <div
+                      className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full"
+                      style={{ background: providerBrand.gradient }}
+                    >
+                      {providerBrand.logo ? (
+                        <img
+                          src={providerBrand.logo}
+                          alt={providerBrand.name}
+                          className="h-5 w-5"
+                          style={{ filter: 'brightness(0) invert(1)' }}
+                        />
+                      ) : model?.iconUrl ? (
                         <img
                           src={model.iconUrl}
                           alt={model.name}
                           className="h-5 w-5"
                         />
                       ) : (
-                        <svg
-                          className="h-5 w-5 text-white"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                          />
-                        </svg>
+                        <span className="text-sm font-bold text-white">
+                          {ai.displayName.charAt(0).toUpperCase()}
+                        </span>
                       )}
                     </div>
                     <div className="flex-1 overflow-hidden">
@@ -1653,7 +1658,9 @@ function MessageInput({
         {/* Quick AI Mention Buttons - 放在左边，符合操作流程：选AI -> 输入 -> 发送 */}
         <div className="flex items-center gap-1">
           {(topic.aiMembers || []).slice(0, 6).map((ai) => {
-            const model = findModel(ai.aiModel);
+            const providerBrand = getProviderBrand(
+              ai.aiModel || ai.displayName
+            );
             // Keep full display name for @mention to distinguish AI members
             const mentionName = ai.displayName.replace(/\s+/g, '-');
             return (
@@ -1664,17 +1671,19 @@ function MessageInput({
                   // 点击后聚焦输入框
                   setTimeout(() => inputRef.current?.focus(), 0);
                 }}
-                className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 transition-colors hover:bg-purple-100 hover:ring-2 hover:ring-purple-300"
+                className="flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:ring-2 hover:ring-purple-300"
+                style={{ background: providerBrand.gradient }}
                 title={`@${ai.displayName}`}
               >
-                {model?.iconUrl ? (
+                {providerBrand.logo ? (
                   <img
-                    src={model.iconUrl}
-                    alt={model.name}
+                    src={providerBrand.logo}
+                    alt={providerBrand.name}
                     className="h-5 w-5"
+                    style={{ filter: 'brightness(0) invert(1)' }}
                   />
                 ) : (
-                  <span className="text-xs font-medium text-purple-600">
+                  <span className="text-sm font-bold text-white">
                     {ai.displayName.charAt(0)}
                   </span>
                 )}

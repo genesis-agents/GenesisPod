@@ -9,6 +9,7 @@ import {
   MissionStatus,
   AgentTaskStatus,
 } from '@/types/ai-teams';
+import { getProviderBrand as getProviderBrandFromLib } from '@/lib/ai-provider-logos';
 
 interface TeamCanvasModalProps {
   isOpen: boolean;
@@ -905,6 +906,26 @@ export default function TeamCanvasModal({
                     <stop offset="100%" stopColor="#0550b3" />
                   </linearGradient>
                   <linearGradient
+                    id="deepseek-gradient"
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="100%"
+                  >
+                    <stop offset="0%" stopColor="#4d6bfe" />
+                    <stop offset="100%" stopColor="#3b5bdb" />
+                  </linearGradient>
+                  <linearGradient
+                    id="mistral-gradient"
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="100%"
+                  >
+                    <stop offset="0%" stopColor="#f7d046" />
+                    <stop offset="100%" stopColor="#eb5829" />
+                  </linearGradient>
+                  <linearGradient
                     id="inactive-gradient"
                     x1="0%"
                     y1="0%"
@@ -1180,7 +1201,12 @@ export default function TeamCanvasModal({
                     // Get AI provider brand info for professional styling
                     const getProviderBrand = (
                       name: string
-                    ): { letter: string; color: string; gradient: string } => {
+                    ): {
+                      letter: string;
+                      color: string;
+                      gradient: string;
+                      logo: string;
+                    } => {
                       const n = name.toLowerCase();
                       if (
                         n.includes('chatgpt') ||
@@ -1191,35 +1217,55 @@ export default function TeamCanvasModal({
                           letter: 'O',
                           color: '#10a37f',
                           gradient: 'url(#openai-gradient)',
+                          logo: '/icons/ai/openai.svg',
                         };
                       if (n.includes('gemini') || n.includes('google'))
                         return {
                           letter: 'G',
                           color: '#4285f4',
                           gradient: 'url(#google-gradient)',
+                          logo: '/icons/ai/gemini.svg',
                         };
                       if (n.includes('grok') || n.includes('xai'))
                         return {
                           letter: 'X',
                           color: '#1d1d1f',
                           gradient: 'url(#xai-gradient)',
+                          logo: '/icons/ai/grok.svg',
                         };
                       if (n.includes('claude') || n.includes('anthropic'))
                         return {
                           letter: 'A',
                           color: '#d97706',
                           gradient: 'url(#anthropic-gradient)',
+                          logo: '/icons/ai/claude.svg',
                         };
                       if (n.includes('llama') || n.includes('meta'))
                         return {
                           letter: 'M',
                           color: '#0668e1',
                           gradient: 'url(#meta-gradient)',
+                          logo: '/icons/ai/meta.svg',
+                        };
+                      if (n.includes('deepseek'))
+                        return {
+                          letter: 'D',
+                          color: '#4d6bfe',
+                          gradient: 'url(#deepseek-gradient)',
+                          logo: '/icons/ai/deepseek.svg',
+                        };
+                      if (n.includes('mistral'))
+                        return {
+                          letter: 'M',
+                          color: '#f7d046',
+                          gradient: 'url(#mistral-gradient)',
+                          logo: '/icons/ai/mistral.svg',
                         };
                       return {
                         letter: name.charAt(0).toUpperCase(),
                         color: '#6b7280',
                         gradient: '',
+                        logo: '',
                       };
                     };
                     const brand = getProviderBrand(cleanName);
@@ -1298,17 +1344,28 @@ export default function TeamCanvasModal({
                           style={{ transformOrigin: 'center' }}
                         />
 
-                        {/* Brand letter inside circle - clean and professional */}
-                        <text
-                          textAnchor="middle"
-                          dy="0.35em"
-                          fill="white"
-                          fontSize={isLeader ? '28' : '24'}
-                          fontWeight="700"
-                          fontFamily="system-ui, -apple-system, sans-serif"
-                        >
-                          {brand.letter}
-                        </text>
+                        {/* Brand logo or letter inside circle */}
+                        {brand.logo ? (
+                          <image
+                            href={brand.logo}
+                            x={-nodeRadius * 0.5}
+                            y={-nodeRadius * 0.5}
+                            width={nodeRadius}
+                            height={nodeRadius}
+                            style={{ filter: 'brightness(0) invert(1)' }}
+                          />
+                        ) : (
+                          <text
+                            textAnchor="middle"
+                            dy="0.35em"
+                            fill="white"
+                            fontSize={isLeader ? '28' : '24'}
+                            fontWeight="700"
+                            fontFamily="system-ui, -apple-system, sans-serif"
+                          >
+                            {brand.letter}
+                          </text>
+                        )}
 
                         {/* Leader crown */}
                         {isLeader && (
