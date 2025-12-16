@@ -120,6 +120,84 @@ function escapeHtml(text: string): string {
 }
 
 /**
+ * Convert Markdown to HTML for PDF rendering
+ */
+function markdownToHtml(text: string): string {
+  if (!text) return '';
+
+  let html = escapeHtml(text);
+
+  // Headers
+  html = html.replace(
+    /^### (.+)$/gm,
+    '<h3 style="font-size: 14px; font-weight: bold; color: #1e293b; margin: 16px 0 8px 0;">$1</h3>'
+  );
+  html = html.replace(
+    /^## (.+)$/gm,
+    '<h2 style="font-size: 16px; font-weight: bold; color: #1e293b; margin: 20px 0 10px 0;">$1</h2>'
+  );
+  html = html.replace(
+    /^# (.+)$/gm,
+    '<h1 style="font-size: 18px; font-weight: bold; color: #1e293b; margin: 24px 0 12px 0;">$1</h1>'
+  );
+
+  // Bold
+  html = html.replace(
+    /\*\*(.+?)\*\*/g,
+    '<strong style="font-weight: 600;">$1</strong>'
+  );
+
+  // Italic
+  html = html.replace(/\*(.+?)\*/g, '<em style="font-style: italic;">$1</em>');
+
+  // Horizontal rule
+  html = html.replace(
+    /^---$/gm,
+    '<hr style="border: none; border-top: 1px solid #e2e8f0; margin: 16px 0;">'
+  );
+
+  // Unordered lists
+  html = html.replace(
+    /^- (.+)$/gm,
+    '<li style="margin: 4px 0; padding-left: 8px;">$1</li>'
+  );
+  html = html.replace(
+    /(<li[^>]*>.*<\/li>\n?)+/g,
+    '<ul style="margin: 8px 0; padding-left: 20px; list-style-type: disc;">$&</ul>'
+  );
+
+  // Ordered lists (simple)
+  html = html.replace(
+    /^\d+\. (.+)$/gm,
+    '<li style="margin: 4px 0; padding-left: 8px;">$1</li>'
+  );
+
+  // Blockquotes
+  html = html.replace(
+    /^> (.+)$/gm,
+    '<blockquote style="border-left: 3px solid #7c3aed; padding-left: 12px; margin: 8px 0; color: #64748b;">$1</blockquote>'
+  );
+
+  // Line breaks - convert double newlines to paragraphs
+  html = html.replace(/\n\n/g, '</p><p style="margin: 8px 0;">');
+
+  // Single line breaks
+  html = html.replace(/\n/g, '<br>');
+
+  // Wrap in paragraph if not already wrapped
+  if (
+    !html.startsWith('<h') &&
+    !html.startsWith('<ul') &&
+    !html.startsWith('<ol') &&
+    !html.startsWith('<blockquote')
+  ) {
+    html = '<p style="margin: 8px 0;">' + html + '</p>';
+  }
+
+  return html;
+}
+
+/**
  * Generate HTML with pure inline styles
  */
 function generateReportHtml(data: MissionReportData): string {
@@ -296,8 +374,8 @@ function generateReportHtml(data: MissionReportData): string {
     <div style="font-size: 20px; font-weight: bold; color: #1f2937; border-bottom: 3px solid #7c3aed; padding-bottom: 10px; margin-bottom: 30px;">
       最终成果
     </div>
-    <div style="background: #f8fafc; border-radius: 12px; padding: 24px; color: #374151; line-height: 1.8; white-space: pre-wrap;">
-${escapeHtml(data.mission.finalResult)}
+    <div style="background: #f8fafc; border-radius: 12px; padding: 24px; color: #374151; line-height: 1.8;">
+${markdownToHtml(data.mission.finalResult)}
     </div>
   </div>
   `
@@ -324,8 +402,8 @@ ${escapeHtml(data.mission.finalResult)}
         ${
           task.result
             ? `
-          <div style="background: white; border-radius: 8px; padding: 14px; font-size: 12px; color: #374151; line-height: 1.7; white-space: pre-wrap;">
-${escapeHtml(task.result.length > 800 ? task.result.substring(0, 800) + '...' : task.result)}
+          <div style="background: white; border-radius: 8px; padding: 14px; font-size: 12px; color: #374151; line-height: 1.7;">
+${markdownToHtml(task.result.length > 1500 ? task.result.substring(0, 1500) + '...' : task.result)}
           </div>
         `
             : ''
@@ -334,7 +412,7 @@ ${escapeHtml(task.result.length > 800 ? task.result.substring(0, 800) + '...' : 
           task.leaderFeedback
             ? `
           <div style="background: #fef3c7; border-radius: 8px; padding: 14px; margin-top: 12px; font-size: 12px; color: #92400e;">
-            <strong>Leader 反馈:</strong> ${escapeHtml(task.leaderFeedback.length > 300 ? task.leaderFeedback.substring(0, 300) + '...' : task.leaderFeedback)}
+            <strong>Leader 反馈:</strong> ${markdownToHtml(task.leaderFeedback.length > 500 ? task.leaderFeedback.substring(0, 500) + '...' : task.leaderFeedback)}
           </div>
         `
             : ''
