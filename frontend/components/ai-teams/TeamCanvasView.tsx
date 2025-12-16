@@ -105,13 +105,24 @@ function calculateNodePositions(
     const sortedWorkers = [...workers].sort((a, b) => {
       const aTasks = tasksByAgent?.get(a.id) || [];
       const bTasks = tasksByAgent?.get(b.id) || [];
-      const aActive = aTasks.some(t => t.status === 'IN_PROGRESS') ? 2 : aTasks.length > 0 ? 1 : 0;
-      const bActive = bTasks.some(t => t.status === 'IN_PROGRESS') ? 2 : bTasks.length > 0 ? 1 : 0;
+      const aActive = aTasks.some((t) => t.status === 'IN_PROGRESS')
+        ? 2
+        : aTasks.length > 0
+          ? 1
+          : 0;
+      const bActive = bTasks.some((t) => t.status === 'IN_PROGRESS')
+        ? 2
+        : bTasks.length > 0
+          ? 1
+          : 0;
       return bActive - aActive;
     });
 
     const minSpacing = 90;
-    const maxNodesPerRow = Math.max(2, Math.min(4, Math.floor((width - 60) / minSpacing)));
+    const maxNodesPerRow = Math.max(
+      2,
+      Math.min(4, Math.floor((width - 60) / minSpacing))
+    );
     const nodesPerRow = Math.min(workerCount, maxNodesPerRow);
     const totalRows = Math.ceil(workerCount / nodesPerRow);
     const verticalSpacing = 100;
@@ -120,11 +131,15 @@ function calculateNodePositions(
     sortedWorkers.forEach((worker, index) => {
       const row = Math.floor(index / nodesPerRow);
       const col = index % nodesPerRow;
-      const nodesInThisRow = row === totalRows - 1
-        ? workerCount - (totalRows - 1) * nodesPerRow
-        : nodesPerRow;
+      const nodesInThisRow =
+        row === totalRows - 1
+          ? workerCount - (totalRows - 1) * nodesPerRow
+          : nodesPerRow;
 
-      const actualSpacing = Math.min(minSpacing, (width - 60) / (nodesInThisRow + 1));
+      const actualSpacing = Math.min(
+        minSpacing,
+        (width - 60) / (nodesInThisRow + 1)
+      );
       const rowWidth = (nodesInThisRow - 1) * actualSpacing;
       const rowStartX = centerX - rowWidth / 2;
 
@@ -252,12 +267,10 @@ export default function TeamCanvasView({
       const fullName = agent.displayName || 'Agent';
       const cleanName = fullName.replace(/^AI-/i, '');
       const nameParts = cleanName.split(/[\s-_]+/);
-      const primaryName = nameParts[0].length > 8
-        ? nameParts[0].slice(0, 8)
-        : nameParts[0];
-      const secondaryName = nameParts.length > 1
-        ? nameParts.slice(1).join(' ').slice(0, 8)
-        : null;
+      const primaryName =
+        nameParts[0].length > 8 ? nameParts[0].slice(0, 8) : nameParts[0];
+      const secondaryName =
+        nameParts.length > 1 ? nameParts.slice(1).join(' ').slice(0, 8) : null;
 
       return (
         <g
@@ -309,7 +322,11 @@ export default function TeamCanvasView({
 
           {/* Leader crown */}
           {isLeader && (
-            <text textAnchor="middle" y={-nodeRadius - 10} style={{ fontSize: '14px' }}>
+            <text
+              textAnchor="middle"
+              y={-nodeRadius - 10}
+              style={{ fontSize: '14px' }}
+            >
               👑
             </text>
           )}
@@ -342,8 +359,13 @@ export default function TeamCanvasView({
                 r="12"
                 className="fill-white"
                 style={{
-                  stroke: stats.completed === stats.total ? '#22c55e' : stats.inProgress > 0 ? '#3b82f6' : '#d1d5db',
-                  strokeWidth: 2
+                  stroke:
+                    stats.completed === stats.total
+                      ? '#22c55e'
+                      : stats.inProgress > 0
+                        ? '#3b82f6'
+                        : '#d1d5db',
+                  strokeWidth: 2,
                 }}
               />
               <text
@@ -470,14 +492,31 @@ export default function TeamCanvasView({
         </div>
       </div>
 
-      {/* Hovered agent/task info */}
-      {hoveredAgent && (
-        <div className="absolute bottom-20 left-3 right-3 rounded-lg bg-white/95 p-2 shadow-lg backdrop-blur">
-          {(() => {
-            const agent = aiMembers.find((a) => a.id === hoveredAgent);
-            const stats = getAgentStats(hoveredAgent);
-            if (!agent) return null;
-            return (
+      {/* Hovered agent/task info - positioned near the node */}
+      {hoveredAgent &&
+        (() => {
+          const agent = aiMembers.find((a) => a.id === hoveredAgent);
+          const stats = getAgentStats(hoveredAgent);
+          const nodePos = nodePositions.get(hoveredAgent);
+          if (!agent || !nodePos) return null;
+
+          // Calculate tooltip position based on node position
+          // Convert SVG coordinates to percentage for positioning
+          const tooltipX = (nodePos.x / canvasSize.width) * 100;
+          const tooltipY = (nodePos.y / canvasSize.height) * 100;
+
+          // Determine if tooltip should show above or below the node
+          const showAbove = tooltipY > 40;
+
+          return (
+            <div
+              className="pointer-events-none absolute z-10 max-w-[180px] rounded-lg bg-white/95 p-2 shadow-lg backdrop-blur"
+              style={{
+                left: `${Math.min(Math.max(tooltipX, 25), 75)}%`,
+                top: showAbove ? `${tooltipY - 15}%` : `${tooltipY + 20}%`,
+                transform: 'translateX(-50%)',
+              }}
+            >
               <div className="text-xs">
                 <div className="font-medium text-gray-900">
                   {agent.displayName}
@@ -504,10 +543,9 @@ export default function TeamCanvasView({
                   </div>
                 )}
               </div>
-            );
-          })()}
-        </div>
-      )}
+            </div>
+          );
+        })()}
     </div>
   );
 }
