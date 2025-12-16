@@ -2,8 +2,8 @@
   "leader_session_id": "task-1765833011815-5uvf2k5bc",
   "status": "running",
   "started_at": "2025-12-15T21:10:11.815Z",
-  "last_heartbeat": "2025-12-16T19:34:22.988Z",
-  "current_cycle": 96,
+  "last_heartbeat": "2025-12-16T19:39:22.998Z",
+  "current_cycle": 97,
   "running_tasks": [],
   "worker_status": {
     "monitoring": "ready",
@@ -15,7 +15,7 @@
     "tasks_started": 0,
     "tasks_completed": 0,
     "tasks_failed": 0,
-    "total_runtime_seconds": 80651
+    "total_runtime_seconds": 80951
   },
   "last_error": "Cannot read properties of undefined (reading 'monitoring')"
 }
