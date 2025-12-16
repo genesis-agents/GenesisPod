@@ -283,101 +283,69 @@ export default function MissionProgressPanel({
   const aiMembers = currentTopic?.aiMembers || [];
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-        <h3 className="font-semibold text-gray-900">Team Missions</h3>
-        <div className="flex items-center gap-2">
-          {/* Fullscreen Canvas Button */}
-          <button
-            onClick={() => setIsCanvasModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:from-purple-600 hover:to-blue-600"
-            title="全屏Canvas视图"
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-              />
-            </svg>
-            Canvas
-          </button>
-          {/* View Toggle */}
-          <div className="flex rounded-lg bg-gray-100 p-0.5">
+    <div className="flex h-full flex-col bg-gradient-to-b from-slate-50/50 to-white">
+      {/* Enhanced Header */}
+      <div className="border-b border-gray-100 bg-white/80 px-4 py-3 backdrop-blur-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-sm">
+              <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+            </div>
+            <h3 className="text-sm font-bold text-gray-800">Team Missions</h3>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {/* Fullscreen Canvas Button */}
             <button
-              onClick={() => setViewMode('list')}
-              className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
-                viewMode === 'list'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-              title="列表视图"
+              onClick={() => setIsCanvasModalOpen(true)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-sm transition-all hover:shadow-md"
+              title="全屏Canvas视图"
             >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 10h16M4 14h16M4 18h16"
-                />
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
               </svg>
             </button>
-            <button
-              onClick={() => setViewMode('canvas')}
-              className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
-                viewMode === 'canvas'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-              title="小窗Canvas预览"
-            >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            {/* View Toggle */}
+            <div className="flex rounded-lg bg-gray-100 p-0.5">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`flex h-7 w-7 items-center justify-center rounded-md transition-all ${
+                  viewMode === 'list'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
+                title="列表视图"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                />
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                </svg>
+              </button>
+              <button
+                onClick={() => setViewMode('canvas')}
+                className={`flex h-7 w-7 items-center justify-center rounded-md transition-all ${
+                  viewMode === 'canvas'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
+                title="小窗Canvas预览"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </button>
+            </div>
+            {/* New Mission Button */}
+            <button
+              onClick={onCreateMission}
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-sm transition-all hover:shadow-md"
+              title="创建新任务"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
             </button>
           </div>
-          {/* New Mission Button */}
-          <button
-            onClick={onCreateMission}
-            className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-            New
-          </button>
         </div>
       </div>
 
@@ -404,27 +372,20 @@ export default function MissionProgressPanel({
             }}
           />
         ) : missionsList.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center p-4">
-            <div className="mb-3 text-4xl">🎯</div>
-            <p className="mb-4 text-center text-sm text-gray-500">
-              暂无任务，创建一个让AI团队开始工作！
+          <div className="flex h-full flex-col items-center justify-center p-6">
+            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100">
+              <span className="text-4xl">🎯</span>
+            </div>
+            <h4 className="mb-2 text-base font-semibold text-gray-800">开始您的第一个任务</h4>
+            <p className="mb-5 text-center text-sm text-gray-500">
+              创建一个任务让AI团队开始协作工作
             </p>
             <button
               onClick={onCreateMission}
-              className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-2 text-sm font-medium text-white hover:from-blue-700 hover:to-purple-700"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition-all hover:shadow-xl hover:shadow-indigo-300"
             >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               创建任务
             </button>
@@ -448,15 +409,20 @@ export default function MissionProgressPanel({
               </div>
             )}
 
-            {/* Completed Missions */}
+            {/* Completed Missions - Enhanced Section */}
             {completedMissions.length > 0 && (
-              <div className="pt-2">
-                <div className="mb-2 flex items-center gap-2 px-1">
-                  <div className="h-px flex-1 bg-gray-200"></div>
-                  <span className="text-xs font-medium uppercase tracking-wider text-gray-400">
-                    历史任务
-                  </span>
-                  <div className="h-px flex-1 bg-gray-200"></div>
+              <div className="pt-3">
+                <div className="mb-3 flex items-center gap-3 px-1">
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
+                  <div className="flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1">
+                    <svg className="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-xs font-medium text-gray-500">
+                      历史任务
+                    </span>
+                  </div>
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
                 </div>
                 <div className="space-y-2">
                   {completedMissions.slice(0, 5).map((mission) => (
@@ -524,32 +490,43 @@ function MissionCard({
 
   return (
     <div
-      className={`rounded-xl border transition-all ${
+      className={`group overflow-hidden rounded-xl border transition-all ${
         isExpanded
-          ? 'border-blue-300 shadow-md'
+          ? 'border-indigo-200 bg-white shadow-lg ring-1 ring-indigo-100'
           : isCompact
-            ? 'border-gray-100 bg-gray-50/50'
-            : 'border-gray-200 bg-white hover:border-gray-300'
+            ? 'border-gray-100 bg-gradient-to-r from-gray-50 to-slate-50/50 hover:border-gray-200'
+            : 'border-gray-200/80 bg-white shadow-sm hover:border-gray-300 hover:shadow-md'
       }`}
     >
       {/* Card Header */}
       <div
         className={`flex cursor-pointer items-center gap-3 ${
-          isCompact ? 'p-3' : 'p-4'
+          isCompact ? 'p-2.5' : 'p-3.5'
         }`}
         onClick={onToggle}
       >
-        {/* Status Icon */}
+        {/* Status Icon - Enhanced */}
         <div className="relative">
           <div
-            className={`flex items-center justify-center rounded-full text-lg ${
-              isCompact ? 'h-8 w-8' : 'h-10 w-10'
-            } ${statusConfig.bgColor}`}
+            className={`flex items-center justify-center rounded-xl text-base shadow-sm ${
+              isCompact ? 'h-9 w-9' : 'h-11 w-11'
+            } ${
+              isActive
+                ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'
+                : mission.status === 'COMPLETED'
+                  ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white'
+                  : mission.status === 'FAILED'
+                    ? 'bg-gradient-to-br from-red-500 to-rose-600 text-white'
+                    : `${statusConfig.bgColor} text-gray-600`
+            }`}
           >
             {statusConfig.icon}
           </div>
           {isActive && (
-            <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 animate-pulse rounded-full border-2 border-white bg-green-500"></div>
+            <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex h-3.5 w-3.5 rounded-full border-2 border-white bg-green-500"></span>
+            </span>
           )}
         </div>
 
@@ -557,25 +534,26 @@ function MissionCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span
-              className={`truncate font-medium text-gray-900 ${
-                isCompact ? 'text-sm' : ''
+              className={`truncate font-semibold text-gray-800 ${
+                isCompact ? 'text-sm' : 'text-[15px]'
               }`}
             >
               {mission.title}
             </span>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
             <span
-              className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${statusConfig.bgColor} ${statusConfig.color}`}
+              className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${statusConfig.bgColor} ${statusConfig.color}`}
             >
               {statusConfig.label}
             </span>
-          </div>
-          <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
-            <span>👑 {mission.leader?.displayName || 'Unknown'}</span>
+            <span className="text-gray-400">•</span>
+            <span className="text-gray-500">👑 {mission.leader?.displayName || 'Unknown'}</span>
             {tasks.length > 0 && (
               <>
-                <span>•</span>
-                <span>
-                  {completedCount}/{tasks.length} 已完成
+                <span className="text-gray-400">•</span>
+                <span className="font-medium text-gray-600">
+                  {completedCount}/{tasks.length}
                 </span>
               </>
             )}
@@ -583,34 +561,33 @@ function MissionCard({
         </div>
 
         {/* Expand Arrow */}
-        <svg
-          className={`h-5 w-5 shrink-0 text-gray-400 transition-transform ${
-            isExpanded ? 'rotate-180' : ''
-          }`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
+        <div className={`flex h-7 w-7 items-center justify-center rounded-lg transition-all ${
+          isExpanded ? 'bg-indigo-100' : 'bg-gray-100 group-hover:bg-gray-200'
+        }`}>
+          <svg
+            className={`h-4 w-4 transition-transform ${
+              isExpanded ? 'rotate-180 text-indigo-600' : 'text-gray-500'
+            }`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
       </div>
 
-      {/* Progress Bar */}
+      {/* Progress Bar - Enhanced */}
       {!isCompact && tasks.length > 0 && (
-        <div className="px-4 pb-3">
-          <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
+        <div className="px-3.5 pb-3">
+          <div className="h-2 overflow-hidden rounded-full bg-gray-100">
             <div
-              className={`h-full transition-all duration-500 ${
+              className={`h-full transition-all duration-700 ease-out ${
                 mission.status === 'COMPLETED'
-                  ? 'bg-green-500'
+                  ? 'bg-gradient-to-r from-emerald-400 to-teal-500'
                   : mission.status === 'FAILED'
-                    ? 'bg-red-500'
-                    : 'bg-gradient-to-r from-blue-500 to-purple-500'
+                    ? 'bg-gradient-to-r from-red-400 to-rose-500'
+                    : 'bg-gradient-to-r from-blue-400 via-indigo-500 to-purple-500'
               }`}
               style={{
                 width: `${tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0}%`,
@@ -622,32 +599,28 @@ function MissionCard({
 
       {/* Expanded Content - Quick Summary */}
       {isExpanded && (
-        <div className="border-t border-gray-100 p-3">
-          {/* Quick Stats */}
+        <div className="border-t border-gray-100 bg-gradient-to-b from-slate-50/50 to-white p-3.5">
+          {/* Quick Stats - Enhanced */}
           {tasks.length > 0 && (
             <div className="mb-3 grid grid-cols-2 gap-2">
-              <div className="rounded-lg bg-blue-50 p-2 text-center">
-                <div className="text-lg font-semibold text-blue-600">
-                  {inProgressCount}
-                </div>
-                <div className="text-xs text-blue-600">执行中</div>
+              <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50/50 p-2.5 text-center">
+                <div className="text-xl font-bold text-blue-600">{inProgressCount}</div>
+                <div className="text-xs font-medium text-blue-500">执行中</div>
               </div>
-              <div className="rounded-lg bg-green-50 p-2 text-center">
-                <div className="text-lg font-semibold text-green-600">
-                  {completedCount}
-                </div>
-                <div className="text-xs text-green-600">已完成</div>
+              <div className="rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50/50 p-2.5 text-center">
+                <div className="text-xl font-bold text-emerald-600">{completedCount}</div>
+                <div className="text-xs font-medium text-emerald-500">已完成</div>
               </div>
             </div>
           )}
 
-          {/* View Detail Button */}
+          {/* View Detail Button - Enhanced */}
           <button
             onClick={(e) => {
               e.stopPropagation();
               onViewDetail();
             }}
-            className="w-full rounded-lg bg-gray-100 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+            className="w-full rounded-xl bg-gradient-to-r from-gray-800 to-gray-900 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:from-gray-700 hover:to-gray-800 hover:shadow-md"
           >
             查看详情
           </button>
@@ -659,7 +632,7 @@ function MissionCard({
                 e.stopPropagation();
                 onCancel();
               }}
-              className="mt-2 w-full rounded-lg py-2 text-sm text-red-600 hover:bg-red-50"
+              className="mt-2 w-full rounded-xl border border-red-200 bg-red-50 py-2 text-sm font-medium text-red-600 transition-all hover:bg-red-100"
             >
               取消任务
             </button>
