@@ -77,40 +77,59 @@ const getTaskConnectionColor = (status: AgentTaskStatus): string => {
   }
 };
 
-// Calculate node positions in a radial layout
+// Professional hierarchical layout for embedded view
 function calculateNodePositions(
   leaderId: string | null,
   agents: TopicAIMember[],
   width: number,
-  height: number
+  height: number,
+  tasksByAgent?: Map<string, AgentTask[]>
 ): Map<string, { x: number; y: number }> {
   const positions = new Map<string, { x: number; y: number }>();
   const centerX = width / 2;
-  const centerY = height / 2;
-  const radius = Math.min(width, height) * 0.35;
 
   // Find leader and workers
   const leader = agents.find((a) => a.id === leaderId);
   const workers = agents.filter((a) => a.id !== leaderId);
 
   // Position leader at top-center
+  const leaderY = 55;
   if (leader) {
-    positions.set(leader.id, { x: centerX, y: 60 });
+    positions.set(leader.id, { x: centerX, y: leaderY });
   }
 
-  // Position workers in a circle/arc below the leader
+  // Smart layout for workers
   const workerCount = workers.length;
   if (workerCount > 0) {
-    const startAngle = Math.PI * 0.2; // Start slightly from left
-    const endAngle = Math.PI * 0.8; // End slightly before right
-    const angleStep =
-      workerCount > 1 ? (endAngle - startAngle) / (workerCount - 1) : 0;
+    // Sort by activity level
+    const sortedWorkers = [...workers].sort((a, b) => {
+      const aTasks = tasksByAgent?.get(a.id) || [];
+      const bTasks = tasksByAgent?.get(b.id) || [];
+      const aActive = aTasks.some(t => t.status === 'IN_PROGRESS') ? 2 : aTasks.length > 0 ? 1 : 0;
+      const bActive = bTasks.some(t => t.status === 'IN_PROGRESS') ? 2 : bTasks.length > 0 ? 1 : 0;
+      return bActive - aActive;
+    });
 
-    workers.forEach((worker, index) => {
-      const angle =
-        workerCount > 1 ? startAngle + index * angleStep : Math.PI / 2;
-      const x = centerX + radius * Math.cos(angle - Math.PI / 2);
-      const y = centerY + radius * 0.7 * Math.sin(angle - Math.PI / 2) + 40;
+    const minSpacing = 90;
+    const maxNodesPerRow = Math.max(2, Math.min(4, Math.floor((width - 60) / minSpacing)));
+    const nodesPerRow = Math.min(workerCount, maxNodesPerRow);
+    const totalRows = Math.ceil(workerCount / nodesPerRow);
+    const verticalSpacing = 100;
+    const startY = leaderY + 100;
+
+    sortedWorkers.forEach((worker, index) => {
+      const row = Math.floor(index / nodesPerRow);
+      const col = index % nodesPerRow;
+      const nodesInThisRow = row === totalRows - 1
+        ? workerCount - (totalRows - 1) * nodesPerRow
+        : nodesPerRow;
+
+      const actualSpacing = Math.min(minSpacing, (width - 60) / (nodesInThisRow + 1));
+      const rowWidth = (nodesInThisRow - 1) * actualSpacing;
+      const rowStartX = centerX - rowWidth / 2;
+
+      const x = rowStartX + col * actualSpacing;
+      const y = startY + row * verticalSpacing;
       positions.set(worker.id, { x, y });
     });
   }
@@ -129,17 +148,7 @@ export default function TeamCanvasView({
   const [hoveredTask, setHoveredTask] = useState<string | null>(null);
   const [canvasSize] = useState({ width: 400, height: 350 });
 
-  // Calculate agent positions
-  const nodePositions = useMemo(() => {
-    return calculateNodePositions(
-      mission?.leaderId || null,
-      aiMembers,
-      canvasSize.width,
-      canvasSize.height
-    );
-  }, [mission?.leaderId, aiMembers, canvasSize]);
-
-  // Get tasks grouped by agent
+  // Get tasks grouped by agent (moved up for use in layout)
   const tasksByAgent = useMemo(() => {
     const map = new Map<string, AgentTask[]>();
     if (mission?.tasks) {
@@ -151,6 +160,17 @@ export default function TeamCanvasView({
     }
     return map;
   }, [mission?.tasks]);
+
+  // Calculate agent positions with task awareness
+  const nodePositions = useMemo(() => {
+    return calculateNodePositions(
+      mission?.leaderId || null,
+      aiMembers,
+      canvasSize.width,
+      canvasSize.height,
+      tasksByAgent
+    );
+  }, [mission?.leaderId, aiMembers, canvasSize, tasksByAgent]);
 
   // Get agent stats
   const getAgentStats = useCallback(
@@ -209,7 +229,7 @@ export default function TeamCanvasView({
     });
   };
 
-  // Render agent nodes
+  // Render agent nodes with improved name display
   const renderAgentNodes = () => {
     return aiMembers.map((agent) => {
       const pos = nodePositions.get(agent.id);
@@ -225,7 +245,19 @@ export default function TeamCanvasView({
         stats.inProgress > 0
       );
       const isHovered = hoveredAgent === agent.id;
-      const nodeRadius = isLeader ? 28 : 24;
+      // Increased node sizes
+      const nodeRadius = isLeader ? 32 : 28;
+
+      // Smart name parsing for better display
+      const fullName = agent.displayName || 'Agent';
+      const cleanName = fullName.replace(/^AI-/i, '');
+      const nameParts = cleanName.split(/[\s-_]+/);
+      const primaryName = nameParts[0].length > 8
+        ? nameParts[0].slice(0, 8)
+        : nameParts[0];
+      const secondaryName = nameParts.length > 1
+        ? nameParts.slice(1).join(' ').slice(0, 8)
+        : null;
 
       return (
         <g
@@ -239,76 +271,102 @@ export default function TeamCanvasView({
           {/* Glow effect for active agents */}
           {(isWorking || isLeader) && (
             <circle
-              r={nodeRadius + 6}
+              r={nodeRadius + 8}
               className={`${statusColors.bg} opacity-20 ${
                 isWorking ? 'animate-ping' : ''
               }`}
             />
           )}
 
+          {/* Outer ring */}
+          <circle
+            r={nodeRadius + 4}
+            className={`fill-white opacity-90 ${isHovered ? 'opacity-100' : ''}`}
+            style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
+          />
+
           {/* Main circle */}
           <circle
             r={nodeRadius}
             className={`${statusColors.bg} ${statusColors.border} stroke-2 transition-all duration-300 ${
               statusColors.glow
-            } ${isHovered ? 'scale-110' : ''}`}
+            } ${isHovered ? 'scale-105' : ''}`}
             style={{
               transformOrigin: 'center',
-              transform: isHovered ? 'scale(1.1)' : 'scale(1)',
+              transform: isHovered ? 'scale(1.05)' : 'scale(1)',
             }}
           />
 
-          {/* Agent initial */}
+          {/* Agent initial - larger */}
           <text
             textAnchor="middle"
             dy="0.35em"
-            className="fill-white text-sm font-bold"
+            className="fill-white font-bold"
+            style={{ fontSize: isLeader ? '16px' : '14px' }}
           >
-            {agent.displayName?.charAt(0) || 'A'}
+            {cleanName.charAt(0).toUpperCase()}
           </text>
 
           {/* Leader crown */}
           {isLeader && (
-            <text textAnchor="middle" y={-nodeRadius - 8} className="text-sm">
+            <text textAnchor="middle" y={-nodeRadius - 10} style={{ fontSize: '14px' }}>
               👑
             </text>
           )}
 
-          {/* Agent name label */}
-          <text
-            textAnchor="middle"
-            y={nodeRadius + 16}
-            className="fill-gray-700 text-xs font-medium"
-          >
-            {agent.displayName?.length > 8
-              ? agent.displayName.slice(0, 8) + '...'
-              : agent.displayName}
-          </text>
+          {/* Agent name - Two-line display */}
+          <g transform={`translate(0, ${nodeRadius + 12})`}>
+            <text
+              textAnchor="middle"
+              className="fill-gray-800 font-semibold"
+              style={{ fontSize: '11px' }}
+            >
+              {primaryName}
+            </text>
+            {secondaryName && (
+              <text
+                textAnchor="middle"
+                y="12"
+                className="fill-gray-500"
+                style={{ fontSize: '9px' }}
+              >
+                {secondaryName}
+              </text>
+            )}
+          </g>
 
-          {/* Task count badge */}
+          {/* Task count badge - larger */}
           {stats.total > 0 && (
             <g transform={`translate(${nodeRadius - 4}, ${-nodeRadius + 4})`}>
-              <circle r="10" className="fill-white stroke-gray-300 stroke-1" />
+              <circle
+                r="12"
+                className="fill-white"
+                style={{
+                  stroke: stats.completed === stats.total ? '#22c55e' : stats.inProgress > 0 ? '#3b82f6' : '#d1d5db',
+                  strokeWidth: 2
+                }}
+              />
               <text
                 textAnchor="middle"
                 dy="0.35em"
-                className={`text-[10px] font-bold ${
+                className={`font-bold ${
                   stats.completed === stats.total
                     ? 'fill-green-600'
                     : stats.inProgress > 0
                       ? 'fill-blue-600'
                       : 'fill-gray-600'
                 }`}
+                style={{ fontSize: '10px' }}
               >
                 {stats.completed}/{stats.total}
               </text>
             </g>
           )}
 
-          {/* Working indicator */}
+          {/* Working indicator with ripple */}
           {isWorking && (
             <g transform={`translate(${-nodeRadius + 4}, ${-nodeRadius + 4})`}>
-              <circle r="6" className="animate-pulse fill-blue-500" />
+              <circle r="8" className="animate-pulse fill-blue-500" />
               <circle r="3" className="fill-white" />
             </g>
           )}
