@@ -286,6 +286,9 @@ function MemberPanel({
   findModel: (aiModel: string) => AIModel | undefined;
   isConnected: boolean;
 }) {
+  const [membersCollapsed, setMembersCollapsed] = useState(false);
+  const [aiCollapsed, setAiCollapsed] = useState(false);
+
   return (
     <div className="flex h-full w-64 flex-col border-r border-gray-200 bg-white">
       {/* Back to Topics - Top */}
@@ -349,7 +352,23 @@ function MemberPanel({
         {/* Human Members */}
         <div className="mb-4">
           <div className="mb-2 flex items-center justify-between">
-            <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+            <button
+              onClick={() => setMembersCollapsed(!membersCollapsed)}
+              className="flex flex-1 items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500 hover:text-gray-700"
+            >
+              <svg
+                className={`h-3 w-3 transition-transform ${membersCollapsed ? '' : 'rotate-90'}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
               <svg
                 className="h-4 w-4"
                 fill="none"
@@ -363,12 +382,12 @@ function MemberPanel({
                   d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                 />
               </svg>
-              Members ({topic.memberCount}){/* Connection status indicator */}
+              Members ({topic.memberCount})
               <span
                 className={`ml-auto h-2 w-2 rounded-full ${isConnected ? 'bg-green-500' : 'animate-pulse bg-yellow-500'}`}
                 title={isConnected ? 'Connected' : 'Connecting...'}
               />
-            </h3>
+            </button>
             {isOwnerOrAdmin && (
               <button
                 onClick={onInviteMember}
@@ -391,7 +410,7 @@ function MemberPanel({
               </button>
             )}
           </div>
-          <div className="space-y-1">
+          <div className={`space-y-1 ${membersCollapsed ? 'hidden' : ''}`}>
             {(topic.members || []).map((member) => {
               const isOnline = onlineUsers.has(member.userId);
               const isTyping = typingUsers.has(member.userId);
@@ -455,7 +474,23 @@ function MemberPanel({
         {/* AI Members */}
         {topic.aiMembers && topic.aiMembers.length > 0 && (
           <div>
-            <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+            <button
+              onClick={() => setAiCollapsed(!aiCollapsed)}
+              className="mb-2 flex w-full items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500 hover:text-gray-700"
+            >
+              <svg
+                className={`h-3 w-3 transition-transform ${aiCollapsed ? '' : 'rotate-90'}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
               <svg
                 className="h-4 w-4"
                 fill="none"
@@ -470,8 +505,8 @@ function MemberPanel({
                 />
               </svg>
               AI Assistants ({topic.aiMemberCount})
-            </h3>
-            <div className="space-y-1">
+            </button>
+            <div className={`space-y-1 ${aiCollapsed ? 'hidden' : ''}`}>
               {(topic.aiMembers || []).map((ai) => {
                 const model = findModel(ai.aiModel);
                 const isTyping = typingAIs.has(ai.id);

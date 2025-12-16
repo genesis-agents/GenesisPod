@@ -268,6 +268,48 @@ function generateReportHtml(data: MissionReportData): string {
     </div>
   </div>
 
+  <!-- FINAL RESULT / CONCLUSION - Most Important Section -->
+  <div style="width: 100%; padding: 40px; box-sizing: border-box; page-break-before: always;">
+    <div style="font-size: 24px; font-weight: bold; color: #7c3aed; border-bottom: 4px solid #7c3aed; padding-bottom: 12px; margin-bottom: 30px;">
+      最终结论
+    </div>
+
+    ${
+      data.mission.finalResult
+        ? `
+    <div style="background: #faf5ff; border: 2px solid #7c3aed; border-radius: 16px; padding: 30px;">
+      <div style="font-size: 14px; color: #374151; line-height: 1.9;">
+        ${markdownToHtml(data.mission.finalResult)}
+      </div>
+    </div>
+    `
+        : `
+    <div style="background: #f8fafc; border-radius: 16px; padding: 30px; text-align: center;">
+      <div style="font-size: 48px; margin-bottom: 16px;">📋</div>
+      <div style="font-size: 16px; color: #64748b;">任务${data.mission.status === 'COMPLETED' ? '已完成' : '进行中'}，等待最终结论生成</div>
+      <div style="font-size: 13px; color: #94a3b8; margin-top: 8px;">请查看下方任务详情了解当前进度</div>
+    </div>
+    `
+    }
+
+    <!-- Key Achievement Summary -->
+    <div style="margin-top: 30px;">
+      <div style="font-size: 16px; font-weight: bold; color: #1f2937; margin-bottom: 16px;">关键成果摘要</div>
+      <table style="width: 100%; border-collapse: separate; border-spacing: 10px;">
+        <tr>
+          <td style="background: #dcfce7; border-radius: 12px; padding: 20px; text-align: center; width: 50%;">
+            <div style="font-size: 36px; font-weight: bold; color: #166534;">${stats.completedTasks}/${stats.totalTasks}</div>
+            <div style="font-size: 13px; color: #166534; margin-top: 4px;">任务完成</div>
+          </td>
+          <td style="background: #dbeafe; border-radius: 12px; padding: 20px; text-align: center; width: 50%;">
+            <div style="font-size: 36px; font-weight: bold; color: #1e40af;">${completionRate}%</div>
+            <div style="font-size: 13px; color: #1e40af; margin-top: 4px;">完成率</div>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
   <!-- Executive Summary -->
   <div style="width: 100%; padding: 40px; box-sizing: border-box; page-break-before: always;">
     <div style="font-size: 20px; font-weight: bold; color: #1f2937; border-bottom: 3px solid #7c3aed; padding-bottom: 10px; margin-bottom: 30px;">
@@ -366,53 +408,33 @@ function generateReportHtml(data: MissionReportData): string {
     </div>
   </div>
 
-  ${
-    data.mission.finalResult
-      ? `
-  <!-- Final Result -->
+  <!-- Appendix: Task Execution Details -->
   <div style="width: 100%; padding: 40px; box-sizing: border-box; page-break-before: always;">
-    <div style="font-size: 20px; font-weight: bold; color: #1f2937; border-bottom: 3px solid #7c3aed; padding-bottom: 10px; margin-bottom: 30px;">
-      最终成果
+    <div style="font-size: 18px; font-weight: bold; color: #64748b; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">
+      附录：任务执行明细
     </div>
-    <div style="background: #f8fafc; border-radius: 12px; padding: 24px; color: #374151; line-height: 1.8;">
-${markdownToHtml(data.mission.finalResult)}
-    </div>
-  </div>
-  `
-      : ''
-  }
-
-  <!-- Detailed Tasks -->
-  <div style="width: 100%; padding: 40px; box-sizing: border-box; page-break-before: always;">
-    <div style="font-size: 20px; font-weight: bold; color: #1f2937; border-bottom: 3px solid #7c3aed; padding-bottom: 10px; margin-bottom: 30px;">
-      详细任务报告
-    </div>
+    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 20px;">以下为各子任务的执行过程记录，供参考查阅</div>
 
     ${data.tasks
       .map(
         (task, index) => `
-      <div style="background: #f8fafc; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-          <div style="font-size: 15px; font-weight: bold; color: #1f2937;">任务 ${index + 1}: ${escapeHtml(task.title)}</div>
-          ${getStatusBadge(task.status)}
-        </div>
-        <div style="font-size: 12px; color: #6b7280; margin-bottom: 12px;">
-          执行者: ${escapeHtml(task.assignedTo)} | 修订次数: ${task.revisionCount}
-        </div>
+      <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 16px; background: #fafafa;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="width: 70%; vertical-align: top;">
+              <div style="font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 4px;">${index + 1}. ${escapeHtml(task.title)}</div>
+              <div style="font-size: 11px; color: #6b7280;">执行: ${escapeHtml(task.assignedTo)} | 修订: ${task.revisionCount}次</div>
+            </td>
+            <td style="width: 30%; text-align: right; vertical-align: top;">
+              ${getStatusBadge(task.status)}
+            </td>
+          </tr>
+        </table>
         ${
           task.result
             ? `
-          <div style="background: white; border-radius: 8px; padding: 14px; font-size: 12px; color: #374151; line-height: 1.7;">
-${markdownToHtml(task.result.length > 1500 ? task.result.substring(0, 1500) + '...' : task.result)}
-          </div>
-        `
-            : ''
-        }
-        ${
-          task.leaderFeedback
-            ? `
-          <div style="background: #fef3c7; border-radius: 8px; padding: 14px; margin-top: 12px; font-size: 12px; color: #92400e;">
-            <strong>Leader 反馈:</strong> ${markdownToHtml(task.leaderFeedback.length > 500 ? task.leaderFeedback.substring(0, 500) + '...' : task.leaderFeedback)}
+          <div style="background: white; border-radius: 6px; padding: 12px; margin-top: 10px; font-size: 11px; color: #475569; line-height: 1.6; border: 1px solid #e2e8f0;">
+${markdownToHtml(task.result.length > 800 ? task.result.substring(0, 800) + '...(详情略)' : task.result)}
           </div>
         `
             : ''
