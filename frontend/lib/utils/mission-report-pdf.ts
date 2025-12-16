@@ -621,34 +621,63 @@ export async function downloadMissionReportPDF(
 
   const html = generateReportHtml(data);
 
-  // Create a temporary container
-  const container = document.createElement('div');
-  container.innerHTML = html;
-  container.style.position = 'absolute';
-  container.style.left = '-9999px';
-  container.style.top = '0';
-  document.body.appendChild(container);
+  // Create a wrapper element for PDF rendering
+  // Must be visible and at the top for html2canvas to capture properly
+  const wrapper = document.createElement('div');
+  wrapper.id = 'pdf-render-container';
+  wrapper.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 210mm;
+    min-height: 100vh;
+    background: white;
+    z-index: 99999;
+    overflow: auto;
+  `;
+  wrapper.innerHTML = html;
+  document.body.appendChild(wrapper);
+
+  // Prevent body scroll while generating
+  const originalOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
+
+  // Wait for fonts and DOM to fully render
+  await new Promise((resolve) => setTimeout(resolve, 500));
 
   const options = {
-    margin: 0,
+    margin: [10, 10, 10, 10] as [number, number, number, number],
     filename: filename || `mission-report-${data.mission.id}.pdf`,
-    image: { type: 'jpeg' as const, quality: 0.98 },
+    image: { type: 'jpeg' as const, quality: 0.95 },
     html2canvas: {
       scale: 2,
       useCORS: true,
       logging: false,
+      scrollY: -window.scrollY,
+      windowWidth: wrapper.scrollWidth,
+      windowHeight: wrapper.scrollHeight,
     },
     jsPDF: {
       unit: 'mm' as const,
       format: 'a4' as const,
       orientation: 'portrait' as const,
     },
-    pagebreak: { mode: 'css' as const, before: '.page-break', after: '.page' },
+    pagebreak: {
+      mode: ['avoid-all', 'css', 'legacy'] as (
+        | 'avoid-all'
+        | 'css'
+        | 'legacy'
+      )[],
+      before: '.page-break',
+      after: '.page',
+      avoid: '.task-card',
+    },
   };
 
   try {
-    await html2pdf().set(options).from(container).save();
+    await html2pdf().set(options).from(wrapper).save();
   } finally {
-    document.body.removeChild(container);
+    document.body.removeChild(wrapper);
+    document.body.style.overflow = originalOverflow;
   }
 }
