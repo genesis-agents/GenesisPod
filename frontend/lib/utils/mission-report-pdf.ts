@@ -621,41 +621,47 @@ export async function downloadMissionReportPDF(
 
   const html = generateReportHtml(data);
 
-  // Create a wrapper element for PDF rendering
-  // Must be visible and at the top for html2canvas to capture properly
-  const wrapper = document.createElement('div');
-  wrapper.id = 'pdf-render-container';
-  wrapper.style.cssText = `
-    position: fixed;
-    top: 0;
+  // Use onclone callback to ensure proper rendering
+  // Create a temporary container that's in the normal document flow
+  const container = document.createElement('div');
+  container.id = 'pdf-render-container';
+  container.innerHTML = html;
+
+  // Style container for proper capture - use absolute positioning in document flow
+  container.style.cssText = `
+    position: absolute;
     left: 0;
-    width: 210mm;
-    min-height: 100vh;
+    top: 0;
+    width: 794px;
     background: white;
-    z-index: 99999;
-    overflow: auto;
+    z-index: -1;
+    opacity: 0;
+    pointer-events: none;
   `;
-  wrapper.innerHTML = html;
-  document.body.appendChild(wrapper);
 
-  // Prevent body scroll while generating
-  const originalOverflow = document.body.style.overflow;
-  document.body.style.overflow = 'hidden';
+  document.body.appendChild(container);
 
-  // Wait for fonts and DOM to fully render
-  await new Promise((resolve) => setTimeout(resolve, 500));
+  // Wait for DOM to render
+  await new Promise((resolve) => setTimeout(resolve, 300));
 
   const options = {
     margin: [10, 10, 10, 10] as [number, number, number, number],
     filename: filename || `mission-report-${data.mission.id}.pdf`,
-    image: { type: 'jpeg' as const, quality: 0.95 },
+    image: { type: 'jpeg' as const, quality: 0.98 },
     html2canvas: {
       scale: 2,
       useCORS: true,
       logging: false,
-      scrollY: -window.scrollY,
-      windowWidth: wrapper.scrollWidth,
-      windowHeight: wrapper.scrollHeight,
+      allowTaint: true,
+      // Use onclone to make element visible in the cloned document
+      onclone: (clonedDoc: Document) => {
+        const clonedElement = clonedDoc.getElementById('pdf-render-container');
+        if (clonedElement) {
+          clonedElement.style.opacity = '1';
+          clonedElement.style.zIndex = '1';
+          clonedElement.style.position = 'relative';
+        }
+      },
     },
     jsPDF: {
       unit: 'mm' as const,
@@ -675,9 +681,8 @@ export async function downloadMissionReportPDF(
   };
 
   try {
-    await html2pdf().set(options).from(wrapper).save();
+    await html2pdf().set(options).from(container).save();
   } finally {
-    document.body.removeChild(wrapper);
-    document.body.style.overflow = originalOverflow;
+    document.body.removeChild(container);
   }
 }
