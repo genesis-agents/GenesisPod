@@ -1915,8 +1915,8 @@ function AgentPopover({
   // Calculate popover position - adjust to keep it visible
   const popoverStyle: React.CSSProperties = {
     position: 'absolute',
-    left: Math.min(position.x, window.innerWidth - 420),
-    top: Math.max(10, Math.min(position.y - 100, window.innerHeight - 500)),
+    left: Math.min(position.x, window.innerWidth - 580),
+    top: Math.max(10, Math.min(position.y - 100, window.innerHeight - 600)),
     zIndex: 100,
   };
 
@@ -1927,7 +1927,7 @@ function AgentPopover({
       {/* Popover Card */}
       <div
         style={popoverStyle}
-        className="animate-in fade-in zoom-in-95 z-[100] w-96 duration-200"
+        className="animate-in fade-in zoom-in-95 z-[100] w-[550px] duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl">
@@ -1995,9 +1995,9 @@ function AgentPopover({
           </div>
 
           {/* Content */}
-          <div className="max-h-[50vh] overflow-y-auto p-4">
+          <div className="max-h-[70vh] overflow-y-auto p-5">
             {/* Role Info */}
-            <div className="mb-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
+            <div className="mb-4 rounded-lg border border-gray-100 bg-gray-50 p-4">
               <div className="mb-1 text-xs font-medium text-gray-500">
                 职责定位
               </div>
@@ -2010,11 +2010,11 @@ function AgentPopover({
 
             {/* Current Goal */}
             {(inProgressTasks.length > 0 || missionTitle) && (
-              <div className="mb-3 rounded-lg border border-blue-100 bg-blue-50 p-3">
-                <div className="mb-1 text-xs font-medium text-blue-600">
+              <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 p-4">
+                <div className="mb-1 text-sm font-medium text-blue-600">
                   当前目标
                 </div>
-                <div className="text-sm text-gray-700">
+                <div className="text-sm leading-relaxed text-gray-700">
                   {inProgressTasks.length > 0
                     ? inProgressTasks.map((t) => t.title).join('、')
                     : isLeader
@@ -2026,34 +2026,34 @@ function AgentPopover({
 
             {/* Performance Stats */}
             {tasks.length > 0 && (
-              <div className="mb-3">
-                <div className="mb-2 text-xs font-medium text-gray-500">
+              <div className="mb-4">
+                <div className="mb-2 text-sm font-medium text-gray-500">
                   绩效统计
                 </div>
-                <div className="grid grid-cols-4 gap-2 text-center">
-                  <div className="rounded-lg bg-gray-100 p-2">
-                    <div className="text-lg font-bold text-gray-900">
+                <div className="grid grid-cols-4 gap-3 text-center">
+                  <div className="rounded-xl bg-gray-100 p-3">
+                    <div className="text-xl font-bold text-gray-900">
                       {tasks.length}
                     </div>
-                    <div className="text-[10px] text-gray-500">分配</div>
+                    <div className="text-xs text-gray-500">分配</div>
                   </div>
-                  <div className="rounded-lg bg-green-100 p-2">
-                    <div className="text-lg font-bold text-green-600">
+                  <div className="rounded-xl bg-green-100 p-3">
+                    <div className="text-xl font-bold text-green-600">
                       {completedTasks.length}
                     </div>
-                    <div className="text-[10px] text-green-600">完成</div>
+                    <div className="text-xs text-green-600">完成</div>
                   </div>
-                  <div className="rounded-lg bg-blue-100 p-2">
-                    <div className="text-lg font-bold text-blue-600">
+                  <div className="rounded-xl bg-blue-100 p-3">
+                    <div className="text-xl font-bold text-blue-600">
                       {inProgressTasks.length}
                     </div>
-                    <div className="text-[10px] text-blue-600">进行中</div>
+                    <div className="text-xs text-blue-600">进行中</div>
                   </div>
-                  <div className="rounded-lg bg-orange-100 p-2">
-                    <div className="text-lg font-bold text-orange-600">
+                  <div className="rounded-xl bg-orange-100 p-3">
+                    <div className="text-xl font-bold text-orange-600">
                       {totalRevisions}
                     </div>
-                    <div className="text-[10px] text-orange-600">修订</div>
+                    <div className="text-xs text-orange-600">修订</div>
                   </div>
                 </div>
               </div>
@@ -2061,15 +2061,15 @@ function AgentPopover({
 
             {/* Expertise */}
             {agent.expertiseAreas && agent.expertiseAreas.length > 0 && (
-              <div className="mb-3">
-                <div className="mb-2 text-xs font-medium text-gray-500">
+              <div className="mb-4">
+                <div className="mb-2 text-sm font-medium text-gray-500">
                   专长领域
                 </div>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-2">
                   {agent.expertiseAreas.map((area) => (
                     <span
                       key={area}
-                      className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-600"
+                      className="rounded-full bg-indigo-50 px-3 py-1 text-sm text-indigo-600"
                     >
                       {area}
                     </span>
@@ -2081,32 +2081,32 @@ function AgentPopover({
             {/* Task List */}
             {tasks.length > 0 && (
               <div>
-                <div className="mb-2 text-xs font-medium text-gray-500">
+                <div className="mb-3 text-sm font-medium text-gray-500">
                   任务列表
                 </div>
-                <div className="space-y-1.5">
-                  {tasks.slice(0, 5).map((task) => {
+                <div className="space-y-2">
+                  {tasks.slice(0, 6).map((task) => {
                     const config = taskStatusConfig[task.status];
                     return (
                       <div
                         key={task.id}
                         onClick={() => onTaskClick(task)}
-                        className={`cursor-pointer rounded-lg border px-3 py-2 transition-all hover:shadow-sm ${config.borderColor} ${config.bgColor}`}
+                        className={`cursor-pointer rounded-xl border px-4 py-3 transition-all hover:shadow-md ${config.borderColor} ${config.bgColor}`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="truncate text-sm font-medium text-gray-900">
+                          <span className="text-sm font-medium text-gray-900">
                             {task.title}
                           </span>
-                          <span className={`text-xs ${config.color}`}>
-                            {config.icon}
+                          <span className={`text-sm ${config.color}`}>
+                            {config.icon} {config.label}
                           </span>
                         </div>
                       </div>
                     );
                   })}
-                  {tasks.length > 5 && (
-                    <div className="text-center text-xs text-gray-400">
-                      还有 {tasks.length - 5} 个任务...
+                  {tasks.length > 6 && (
+                    <div className="py-2 text-center text-sm text-gray-400">
+                      还有 {tasks.length - 6} 个任务...
                     </div>
                   )}
                 </div>
@@ -2134,8 +2134,8 @@ function TaskPopover({
   // Calculate popover position - adjust to keep it visible
   const popoverStyle: React.CSSProperties = {
     position: 'absolute',
-    left: Math.min(position.x, window.innerWidth - 420),
-    top: Math.max(10, Math.min(position.y - 100, window.innerHeight - 450)),
+    left: Math.min(position.x, window.innerWidth - 580),
+    top: Math.max(10, Math.min(position.y - 100, window.innerHeight - 550)),
     zIndex: 100,
   };
 
@@ -2146,12 +2146,12 @@ function TaskPopover({
       {/* Popover Card */}
       <div
         style={popoverStyle}
-        className="animate-in fade-in zoom-in-95 z-[100] w-96 duration-200"
+        className="animate-in fade-in zoom-in-95 z-[100] w-[550px] duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl">
           {/* Header */}
-          <div className={`relative px-4 py-3 ${statusConfig.bgColor}`}>
+          <div className={`relative px-5 py-4 ${statusConfig.bgColor}`}>
             <button
               onClick={onClose}
               className="absolute right-2 top-2 rounded-full p-1 text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-700"
@@ -2170,9 +2170,9 @@ function TaskPopover({
                 />
               </svg>
             </button>
-            <div className="flex items-start gap-3">
+            <div className="flex items-start gap-4">
               <div
-                className={`flex h-10 w-10 items-center justify-center rounded-full text-lg ${
+                className={`flex h-12 w-12 items-center justify-center rounded-full text-xl ${
                   task.status === 'COMPLETED'
                     ? 'bg-green-500 text-white'
                     : task.status === 'IN_PROGRESS'
@@ -2182,16 +2182,18 @@ function TaskPopover({
               >
                 {statusConfig.icon}
               </div>
-              <div className="flex-1 pr-6">
-                <h3 className="font-semibold text-gray-900">{task.title}</h3>
-                <div className="mt-1 flex items-center gap-2">
+              <div className="flex-1 pr-8">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {task.title}
+                </h3>
+                <div className="mt-2 flex items-center gap-3">
                   <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusConfig.bgColor} ${statusConfig.color} border ${statusConfig.borderColor}`}
+                    className={`rounded-full px-3 py-1 text-sm font-medium ${statusConfig.bgColor} ${statusConfig.color} border ${statusConfig.borderColor}`}
                   >
                     {statusConfig.label}
                   </span>
                   {task.revisionCount > 0 && (
-                    <span className="text-xs text-orange-500">
+                    <span className="text-sm text-orange-500">
                       修订 {task.revisionCount} 次
                     </span>
                   )}
@@ -2201,15 +2203,15 @@ function TaskPopover({
           </div>
 
           {/* Content */}
-          <div className="max-h-[50vh] overflow-y-auto p-4">
+          <div className="max-h-[70vh] overflow-y-auto p-5">
             {/* Assignee */}
-            <div className="mb-3 flex items-center gap-2 rounded-lg bg-gray-50 p-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-blue-400 text-xs font-medium text-white">
+            <div className="mb-4 flex items-center gap-3 rounded-xl bg-gray-50 p-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-blue-400 text-sm font-medium text-white">
                 {task.assignedTo?.displayName?.charAt(0) || 'A'}
               </div>
               <div>
                 <div className="text-xs text-gray-500">执行者</div>
-                <div className="text-sm font-medium text-gray-900">
+                <div className="text-base font-medium text-gray-900">
                   {task.assignedTo?.displayName || 'Unknown'}
                 </div>
               </div>
@@ -2217,11 +2219,11 @@ function TaskPopover({
 
             {/* Description */}
             {task.description && task.description !== task.title && (
-              <div className="mb-3">
-                <div className="mb-1 text-xs font-medium text-gray-500">
+              <div className="mb-4">
+                <div className="mb-2 text-sm font-medium text-gray-500">
                   任务描述
                 </div>
-                <div className="rounded-lg border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">
+                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm leading-relaxed text-gray-700">
                   {task.description}
                 </div>
               </div>
@@ -2229,11 +2231,11 @@ function TaskPopover({
 
             {/* Result */}
             {task.result && (
-              <div className="mb-3">
-                <div className="mb-1 text-xs font-medium text-gray-500">
+              <div className="mb-4">
+                <div className="mb-2 text-sm font-medium text-gray-500">
                   执行成果
                 </div>
-                <div className="max-h-24 overflow-y-auto rounded-lg border border-green-100 bg-green-50 p-2 text-sm text-gray-700">
+                <div className="max-h-40 overflow-y-auto rounded-xl border border-green-100 bg-green-50 p-4 text-sm leading-relaxed text-gray-700">
                   {task.result}
                 </div>
               </div>
@@ -2241,12 +2243,12 @@ function TaskPopover({
 
             {/* Leader Feedback */}
             {task.leaderFeedback && (
-              <div className="mb-3">
-                <div className="mb-1 text-xs font-medium text-gray-500">
+              <div className="mb-4">
+                <div className="mb-2 text-sm font-medium text-gray-500">
                   Leader 评审
                 </div>
                 <div
-                  className={`rounded-lg border p-2 text-sm text-gray-700 ${
+                  className={`rounded-xl border p-4 text-sm leading-relaxed text-gray-700 ${
                     task.status === 'COMPLETED'
                       ? 'border-green-200 bg-green-50'
                       : task.status === 'REVISION_NEEDED'
@@ -2260,10 +2262,10 @@ function TaskPopover({
             )}
 
             {/* Timestamps */}
-            <div className="flex gap-4 text-xs text-gray-400">
+            <div className="flex gap-6 rounded-lg bg-gray-50 p-3 text-sm text-gray-500">
               {task.startedAt && (
                 <div>
-                  <span className="text-gray-500">开始:</span>{' '}
+                  <span className="font-medium text-gray-600">开始:</span>{' '}
                   {new Date(task.startedAt).toLocaleString('zh-CN', {
                     month: 'short',
                     day: 'numeric',
@@ -2274,7 +2276,7 @@ function TaskPopover({
               )}
               {task.completedAt && (
                 <div>
-                  <span className="text-gray-500">完成:</span>{' '}
+                  <span className="font-medium text-gray-600">完成:</span>{' '}
                   {new Date(task.completedAt).toLocaleString('zh-CN', {
                     month: 'short',
                     day: 'numeric',

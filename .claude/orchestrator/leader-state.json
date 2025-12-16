@@ -1,21 +1,26 @@
 {
-  "leader_session_id": "task-1765833011815-5uvf2k5bc",
+  "leader_session_id": "task-1765897555879-se8l3areg",
   "status": "running",
-  "started_at": "2025-12-15T21:10:11.815Z",
-  "last_heartbeat": "2025-12-15T22:20:12.073Z",
-  "current_cycle": 15,
+  "started_at": "2025-12-16T15:05:55.879Z",
+  "last_heartbeat": "2025-12-16T17:05:57.459Z",
+  "current_cycle": 76,
   "running_tasks": [],
   "worker_status": {
     "monitoring": "ready",
     "merge-to-main": "ready",
-    "docs-specialist": "ready"
+    "docs-specialist": "ready",
+    "pm": "ready",
+    "architect": "ready",
+    "coder": "ready",
+    "reviewer": "ready",
+    "tester": "ready"
   },
   "statistics": {
-    "cycles_completed": 0,
-    "tasks_started": 0,
+    "cycles_completed": 56,
+    "tasks_started": 21,
     "tasks_completed": 0,
-    "tasks_failed": 0,
-    "total_runtime_seconds": 4200
+    "tasks_failed": 7,
+    "total_runtime_seconds": 7201
   },
   "last_error": "Cannot read properties of undefined (reading 'monitoring')"
 }
