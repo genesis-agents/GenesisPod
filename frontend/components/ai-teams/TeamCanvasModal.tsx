@@ -10,6 +10,10 @@ import {
   AgentTaskStatus,
 } from '@/types/ai-teams';
 import { getProviderBrand as getProviderBrandFromLib } from '@/lib/ai-provider-logos';
+import {
+  downloadMissionReportPDF,
+  MissionReportData,
+} from '@/lib/utils/mission-report-pdf';
 
 interface TeamCanvasModalProps {
   isOpen: boolean;
@@ -568,54 +572,52 @@ export default function TeamCanvasModal({
     [tasksByAgent]
   );
 
-  // Download results
-  const handleDownloadResults = useCallback(() => {
+  // Download results as PDF
+  const handleDownloadResults = useCallback(async () => {
     if (!mission) return;
 
-    const report = {
+    const reportData: MissionReportData = {
       mission: {
         id: mission.id,
         title: mission.title,
         description: mission.description,
         status: mission.status,
-        leader: mission.leader?.displayName,
+        leader: mission.leader?.displayName || 'Unknown',
         createdAt: mission.createdAt,
-        completedAt: mission.completedAt,
-        finalResult: mission.finalResult,
+        completedAt: mission.completedAt || undefined,
+        finalResult: mission.finalResult || undefined,
       },
-      tasks: mission.tasks?.map((t) => ({
+      tasks: (mission.tasks || []).map((t) => ({
         id: t.id,
         title: t.title,
         description: t.description,
         status: t.status,
-        assignedTo: t.assignedTo?.displayName,
-        result: t.result,
-        leaderFeedback: t.leaderFeedback,
-        revisionCount: t.revisionCount,
-        startedAt: t.startedAt,
-        completedAt: t.completedAt,
+        assignedTo: t.assignedTo?.displayName || 'Unassigned',
+        result: t.result || undefined,
+        leaderFeedback: t.leaderFeedback || undefined,
+        revisionCount: t.revisionCount || 0,
+        startedAt: t.startedAt || undefined,
+        completedAt: t.completedAt || undefined,
       })),
-      summary: {
-        totalTasks: mission.tasks?.length || 0,
-        completedTasks:
-          mission.tasks?.filter((t) => t.status === 'COMPLETED').length || 0,
-        totalRevisions:
-          mission.tasks?.reduce((sum, t) => sum + (t.revisionCount || 0), 0) ||
-          0,
-      },
     };
 
-    const blob = new Blob([JSON.stringify(report, null, 2)], {
-      type: 'application/json',
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `mission-${mission.id}-report.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    try {
+      await downloadMissionReportPDF(reportData);
+    } catch (error) {
+      console.error('Failed to generate PDF report:', error);
+      // Fallback to JSON if PDF generation fails
+      const blob = new Blob([JSON.stringify(reportData, null, 2)], {
+        type: 'application/json',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `mission-${mission.id}-report.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
   }, [mission]);
 
   if (!isOpen) return null;
@@ -729,11 +731,12 @@ export default function TeamCanvasModal({
               重置布局
             </button>
           )}
-          {/* Download Button */}
+          {/* Download PDF Report Button */}
           {mission && (
             <button
               onClick={handleDownloadResults}
               className="flex items-center gap-2 rounded-lg bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100"
+              title="下载PDF格式报告"
             >
               <svg
                 className="h-4 w-4"
@@ -748,7 +751,7 @@ export default function TeamCanvasModal({
                   d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                 />
               </svg>
-              下载报告
+              下载PDF报告
             </button>
           )}
           {/* Close Button */}
