@@ -411,6 +411,102 @@ export const PPT_THEMES: Record<string, PPTTheme> = {
     borderRadius: "medium",
     shadowStyle: "strong",
   },
+
+  // ═══════════════════════════════════════════════════════════════════
+  // 🌟 PREMIUM THEMES - 高级主题（对标 Genspark 专业级设计）
+  // ═══════════════════════════════════════════════════════════════════
+
+  "genspark-pro": {
+    id: "genspark-pro",
+    name: "Genspark Pro",
+    nameZh: "专业深蓝",
+    colors: {
+      primary: "#0A1628", // 深海军蓝
+      secondary: "#1E3A5F", // 中蓝
+      accent: "#00D4FF", // 青色高亮
+      background: "#0A1628", // 深色背景
+      backgroundSecondary: "#1A1A2E", // 渐变过渡色
+      text: "#E5E7EB", // 浅灰正文
+      textLight: "#FFFFFF", // 白色标题
+      textMuted: "#00D4FF", // 青色强调
+    },
+    fonts: {
+      heading: "'Inter', 'SF Pro Display', sans-serif",
+      body: "'Inter', 'Noto Sans SC', sans-serif",
+    },
+    style: "genspark_pro",
+    borderRadius: "large",
+    shadowStyle: "strong",
+  },
+
+  "executive-white": {
+    id: "executive-white",
+    name: "Executive White",
+    nameZh: "商务简约",
+    colors: {
+      primary: "#1A1A1A", // 纯黑
+      secondary: "#374151", // 深灰
+      accent: "#0066FF", // 商务蓝
+      background: "#FFFFFF", // 纯白背景
+      backgroundSecondary: "#F8F9FA", // 浅灰
+      text: "#1A1A1A", // 深黑
+      textLight: "#6B7280", // 中灰
+      textMuted: "#0066FF", // 蓝色强调
+    },
+    fonts: {
+      heading: "'Inter', 'SF Pro Display', sans-serif",
+      body: "'Inter', 'Noto Sans SC', sans-serif",
+    },
+    style: "executive",
+    borderRadius: "medium",
+    shadowStyle: "subtle",
+  },
+
+  "tech-purple": {
+    id: "tech-purple",
+    name: "Tech Purple",
+    nameZh: "科技紫",
+    colors: {
+      primary: "#1E1B4B", // 深紫
+      secondary: "#312E81", // 中紫
+      accent: "#A855F7", // 亮紫
+      background: "#0F0A1A", // 深紫黑
+      backgroundSecondary: "#1E1B4B", // 渐变过渡
+      text: "#E5E7EB", // 浅灰
+      textLight: "#FFFFFF", // 白色
+      textMuted: "#A855F7", // 紫色强调
+    },
+    fonts: {
+      heading: "'Inter', 'SF Pro Display', sans-serif",
+      body: "'Inter', 'Noto Sans SC', sans-serif",
+    },
+    style: "tech_purple",
+    borderRadius: "large",
+    shadowStyle: "strong",
+  },
+
+  "sunset-gradient": {
+    id: "sunset-gradient",
+    name: "Sunset Gradient",
+    nameZh: "日落渐变",
+    colors: {
+      primary: "#1F1135", // 深紫红
+      secondary: "#2D1B4E", // 中紫
+      accent: "#F97316", // 橙色
+      background: "#1F1135", // 深紫红背景
+      backgroundSecondary: "#2D1B4E", // 渐变过渡
+      text: "#F3E8FF", // 浅紫白
+      textLight: "#FFFFFF", // 白色
+      textMuted: "#EC4899", // 粉色强调
+    },
+    fonts: {
+      heading: "'Inter', 'SF Pro Display', sans-serif",
+      body: "'Inter', 'Noto Sans SC', sans-serif",
+    },
+    style: "sunset",
+    borderRadius: "large",
+    shadowStyle: "strong",
+  },
 };
 
 // ============================================

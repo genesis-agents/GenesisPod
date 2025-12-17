@@ -130,7 +130,12 @@ export type DesignStyle =
   | "academic"
   | "business"
   | "genspark"
-  | "tech_gradient";
+  | "tech_gradient"
+  // Premium styles (对标 Genspark)
+  | "genspark_pro"
+  | "executive"
+  | "tech_purple"
+  | "sunset";
 
 export type FontStyle = "sans" | "serif" | "mono" | "rounded";
 

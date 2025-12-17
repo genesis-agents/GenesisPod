@@ -3,6 +3,7 @@
 /**
  * 增强型幻灯片渲染器
  * 根据幻灯片类型渲染不同的可视化组件
+ * V2.0 - 支持高级装饰效果（对标 Genspark）
  */
 
 import React from 'react';
@@ -12,6 +13,7 @@ import type { PPTTemplate } from '@/lib/ai-office/ppt-templates';
 import ChartRenderer from '../visualizations/ChartRenderer';
 import FlowDiagram from '../visualizations/FlowDiagram';
 import MatrixLayout from '../visualizations/MatrixLayout';
+import SlideDecorations, { TitleUnderline } from './SlideDecorations';
 
 interface EnhancedSlideRendererProps {
   slide: EnhancedSlide;
@@ -22,43 +24,50 @@ export default function EnhancedSlideRenderer({
   slide,
   template,
 }: EnhancedSlideRendererProps) {
+  const isPremium = template.category === 'premium';
+
+  // 计算内容内边距
+  const contentPadding = template.style.contentPadding || '48px';
+
   return (
     <div
       className="relative w-full max-w-5xl overflow-hidden rounded-2xl shadow-2xl"
       style={{
         aspectRatio: '16/9',
         backgroundColor: template.colors.background,
-        backgroundImage: template.colors.backgroundOverlay
-          ? template.colors.backgroundOverlay.startsWith('linear')
-            ? template.colors.backgroundOverlay
-            : `linear-gradient(135deg, ${template.colors.background}, ${template.colors.background})`
-          : undefined,
+        // 使用渐变背景（如果有）
+        background:
+          template.colors.backgroundGradient || template.colors.background,
+        // 叠加覆盖层
+        ...(template.colors.backgroundOverlay &&
+        !template.colors.backgroundGradient
+          ? {
+              backgroundImage: template.colors.backgroundOverlay.startsWith(
+                'linear'
+              )
+                ? template.colors.backgroundOverlay
+                : undefined,
+            }
+          : {}),
       }}
     >
-      {/* 顶部装饰条 */}
-      {template.decorations.showTopBar && (
-        <div
-          className="absolute left-0 right-0 top-0 h-2"
-          style={{ backgroundColor: template.colors.decorative }}
-        />
-      )}
-
-      {/* 底部装饰条 */}
-      {template.decorations.showBottomBar && (
-        <div
-          className="absolute bottom-0 left-0 right-0 h-1.5"
-          style={{ backgroundColor: template.colors.decorative }}
-        />
-      )}
+      {/* 装饰元素层 */}
+      <SlideDecorations template={template} />
 
       {/* 主内容区 */}
-      <div className="relative z-10 flex h-full flex-col p-12">
+      <div
+        className="relative z-10 flex h-full flex-col"
+        style={{ padding: contentPadding }}
+      >
         {/* 幻灯片标题 */}
-        <div className="mb-6">
+        <div className="mb-6 flex-shrink-0">
           <h1
-            className="mb-2 font-bold"
             style={{
               fontSize: `${template.typography.title}px`,
+              fontWeight: template.typography.titleWeight || 700,
+              letterSpacing:
+                template.typography.titleLetterSpacing || '-0.01em',
+              lineHeight: 1.1,
               color:
                 template.style.layoutStyle === 'dark'
                   ? template.colors.textLight
@@ -68,16 +77,11 @@ export default function EnhancedSlideRenderer({
           >
             {slide.title}
           </h1>
-          {/* 标题下划线 */}
-          {template.decorations.showTitleUnderline && (
-            <div
-              className="h-1 rounded-full"
-              style={{
-                width: '80px',
-                backgroundColor: template.colors.decorative,
-              }}
-            />
-          )}
+          {/* 渐变标题下划线 */}
+          <TitleUnderline
+            template={template}
+            width={isPremium ? '100px' : '80px'}
+          />
         </div>
 
         {/* 根据幻灯片类型渲染内容 */}

@@ -10,13 +10,21 @@ export interface PPTTemplate {
   nameCn: string;
   description: string;
   descriptionCn: string;
-  category: 'corporate' | 'minimal' | 'modern' | 'creative' | 'academic';
+  category:
+    | 'corporate'
+    | 'minimal'
+    | 'modern'
+    | 'creative'
+    | 'academic'
+    | 'premium';
   // 增强的颜色体系 - 支持深色主题和多层次文字
   colors: {
     primary: string; // 主色
     secondary: string; // 辅色
     accent: string; // 强调色
+    accentSecondary?: string; // 第二强调色（用于渐变）
     background: string; // 背景色
+    backgroundGradient?: string; // 背景渐变（CSS渐变语法）
     backgroundOverlay?: string; // 背景覆盖层（半透明渐变）
     text: string; // 主文字色
     textLight: string; // 浅色文字（用于深色背景）
@@ -24,34 +32,52 @@ export interface PPTTemplate {
     textTertiary: string; // 三级文字（最浅）
     decorative: string; // 装饰色（装饰条、强调线等）
     cardBackground?: string; // 卡片背景色
+    glow?: string; // 光晕颜色
+    border?: string; // 边框颜色
   };
   fonts: {
     heading: string; // 标题字体
     body: string; // 正文字体
+    mono?: string; // 等宽字体（代码/数据）
   };
   // 文字大小层次体系（单位：pt）
   typography: {
     title: number; // 主标题 (26-36pt)
+    titleWeight?: number; // 标题字重
+    titleLetterSpacing?: string; // 标题字间距
     subtitle: number; // 副标题 (18-24pt)
     heading1: number; // 一级标题 (16pt)
     heading2: number; // 二级标题 (13-15pt)
     body: number; // 正文 (12pt)
+    bodyLineHeight?: number; // 正文行高
     caption: number; // 说明文字 (10-11pt)
     small: number; // 小字/页码 (9pt)
   };
-  // 装饰元素配置
+  // 装饰元素配置（增强版）
   decorations: {
     showTopBar: boolean; // 顶部装饰条
     showBottomBar: boolean; // 底部装饰条
     showTitleUnderline: boolean; // 标题下划线
     showCardBorder: boolean; // 卡片左侧边框
     useCardLayout: boolean; // 使用卡片式布局
+    // 高级装饰选项
+    enableGlowEffects?: boolean; // 启用光晕效果
+    enableGradientBars?: boolean; // 渐变装饰条
+    enableCornerAccents?: boolean; // 角落装饰
+    enableGeometricShapes?: boolean; // 几何装饰图形
+    topBarHeight?: string; // 顶部条高度
+    cornerGlowSize?: string; // 角落光晕大小
+    cornerGlowOpacity?: number; // 角落光晕透明度
   };
   style: {
     borderRadius: string; // 圆角大小
     spacing: 'compact' | 'normal' | 'spacious'; // 间距
     imageStyle: 'rounded' | 'sharp' | 'circle'; // 图片样式
     layoutStyle: 'light' | 'dark'; // 明暗风格
+    // 高级样式选项
+    cardShadow?: string; // 卡片阴影
+    cardBorderRadius?: string; // 卡片圆角
+    contentPadding?: string; // 内容内边距
   };
 }
 
@@ -547,6 +573,278 @@ export const PPT_TEMPLATES: Record<string, PPTTemplate> = {
       spacing: 'compact',
       imageStyle: 'sharp',
       layoutStyle: 'light',
+    },
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🌟 PREMIUM THEMES - 高级主题（对标 Genspark 专业级设计）
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // 🌟 11. Genspark Pro - 专业深蓝渐变 + 光效
+  'genspark-pro': {
+    id: 'genspark-pro',
+    name: 'Genspark Pro',
+    nameCn: '专业深蓝',
+    description: 'Premium dark theme with glow effects, inspired by Genspark',
+    descriptionCn: '专业深色主题，渐变光效，对标 Genspark 顶级设计',
+    category: 'premium',
+    colors: {
+      primary: '#0A1628', // 深海军蓝
+      secondary: '#1E3A5F', // 中蓝
+      accent: '#00D4FF', // 青色高亮
+      accentSecondary: '#7B68EE', // 紫色渐变
+      background: '#0A1628', // 深色背景
+      backgroundGradient:
+        'linear-gradient(135deg, #0A1628 0%, #1A1A2E 40%, #16213E 70%, #0F0F1A 100%)',
+      backgroundOverlay: 'rgba(0, 212, 255, 0.03)', // 微妙青色覆盖
+      text: '#E5E7EB', // 浅灰正文
+      textLight: '#FFFFFF', // 白色标题
+      textSecondary: '#00D4FF', // 青色副标题
+      textTertiary: 'rgba(255, 255, 255, 0.6)', // 半透明白
+      decorative: '#00D4FF', // 青色装饰
+      cardBackground: 'rgba(255, 255, 255, 0.05)', // 玻璃态卡片
+      glow: '#00D4FF', // 光晕颜色
+      border: 'rgba(0, 212, 255, 0.2)', // 边框颜色
+    },
+    fonts: {
+      heading: 'Inter, SF Pro Display, -apple-system, sans-serif',
+      body: 'Inter, SF Pro Text, -apple-system, sans-serif',
+      mono: 'SF Mono, Fira Code, monospace',
+    },
+    typography: {
+      title: 48, // 大标题
+      titleWeight: 700,
+      titleLetterSpacing: '-0.02em',
+      subtitle: 24,
+      heading1: 20,
+      heading2: 16,
+      body: 14,
+      bodyLineHeight: 1.6,
+      caption: 12,
+      small: 10,
+    },
+    decorations: {
+      showTopBar: true,
+      showBottomBar: false,
+      showTitleUnderline: true,
+      showCardBorder: true,
+      useCardLayout: true,
+      // 高级装饰
+      enableGlowEffects: true,
+      enableGradientBars: true,
+      enableCornerAccents: true,
+      enableGeometricShapes: false,
+      topBarHeight: '3px',
+      cornerGlowSize: '300px',
+      cornerGlowOpacity: 0.15,
+    },
+    style: {
+      borderRadius: '12px',
+      spacing: 'spacious',
+      imageStyle: 'rounded',
+      layoutStyle: 'dark',
+      cardShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+      cardBorderRadius: '16px',
+      contentPadding: '60px 80px',
+    },
+  },
+
+  // 🌟 12. Executive White - 商务简约白
+  'executive-white': {
+    id: 'executive-white',
+    name: 'Executive White',
+    nameCn: '商务简约',
+    description: 'Clean professional white theme for executive presentations',
+    descriptionCn: '简约商务白，适合高管汇报、董事会演示',
+    category: 'premium',
+    colors: {
+      primary: '#1A1A1A', // 纯黑
+      secondary: '#374151', // 深灰
+      accent: '#0066FF', // 商务蓝
+      accentSecondary: '#3B82F6', // 浅蓝
+      background: '#FFFFFF', // 纯白背景
+      backgroundGradient: 'linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)',
+      backgroundOverlay: 'rgba(0, 102, 255, 0.02)',
+      text: '#1A1A1A', // 深黑
+      textLight: '#FFFFFF', // 白色
+      textSecondary: '#0066FF', // 蓝色强调
+      textTertiary: '#6B7280', // 中灰
+      decorative: '#0066FF', // 蓝色装饰
+      cardBackground: '#F8F9FA', // 浅灰卡片
+      glow: '#0066FF',
+      border: 'rgba(0, 102, 255, 0.1)',
+    },
+    fonts: {
+      heading: 'Inter, SF Pro Display, -apple-system, sans-serif',
+      body: 'Inter, SF Pro Text, -apple-system, sans-serif',
+      mono: 'SF Mono, monospace',
+    },
+    typography: {
+      title: 44,
+      titleWeight: 600,
+      titleLetterSpacing: '-0.01em',
+      subtitle: 22,
+      heading1: 18,
+      heading2: 15,
+      body: 14,
+      bodyLineHeight: 1.7,
+      caption: 12,
+      small: 10,
+    },
+    decorations: {
+      showTopBar: false,
+      showBottomBar: true,
+      showTitleUnderline: false,
+      showCardBorder: true,
+      useCardLayout: true,
+      enableGlowEffects: false,
+      enableGradientBars: true,
+      enableCornerAccents: false,
+      enableGeometricShapes: false,
+      topBarHeight: '2px',
+    },
+    style: {
+      borderRadius: '8px',
+      spacing: 'spacious',
+      imageStyle: 'rounded',
+      layoutStyle: 'light',
+      cardShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+      cardBorderRadius: '12px',
+      contentPadding: '48px 64px',
+    },
+  },
+
+  // 🌟 13. Tech Purple - 科技紫渐变
+  'tech-purple': {
+    id: 'tech-purple',
+    name: 'Tech Purple',
+    nameCn: '科技紫',
+    description: 'Modern tech theme with purple gradient and neon accents',
+    descriptionCn: '现代科技紫，渐变背景，霓虹强调色',
+    category: 'premium',
+    colors: {
+      primary: '#1E1B4B', // 深紫
+      secondary: '#312E81', // 中紫
+      accent: '#A855F7', // 亮紫
+      accentSecondary: '#06B6D4', // 青色
+      background: '#0F0A1A', // 深紫黑
+      backgroundGradient:
+        'linear-gradient(135deg, #1E1B4B 0%, #312E81 30%, #1E1B4B 60%, #0F0A1A 100%)',
+      backgroundOverlay: 'rgba(168, 85, 247, 0.05)',
+      text: '#E5E7EB', // 浅灰
+      textLight: '#FFFFFF', // 白色
+      textSecondary: '#A855F7', // 紫色
+      textTertiary: 'rgba(255, 255, 255, 0.5)',
+      decorative: '#A855F7', // 紫色装饰
+      cardBackground: 'rgba(168, 85, 247, 0.08)', // 紫色玻璃态
+      glow: '#A855F7',
+      border: 'rgba(168, 85, 247, 0.3)',
+    },
+    fonts: {
+      heading: 'Inter, SF Pro Display, -apple-system, sans-serif',
+      body: 'Inter, SF Pro Text, -apple-system, sans-serif',
+      mono: 'JetBrains Mono, Fira Code, monospace',
+    },
+    typography: {
+      title: 46,
+      titleWeight: 700,
+      titleLetterSpacing: '-0.02em',
+      subtitle: 24,
+      heading1: 20,
+      heading2: 16,
+      body: 14,
+      bodyLineHeight: 1.6,
+      caption: 12,
+      small: 10,
+    },
+    decorations: {
+      showTopBar: true,
+      showBottomBar: false,
+      showTitleUnderline: true,
+      showCardBorder: true,
+      useCardLayout: true,
+      enableGlowEffects: true,
+      enableGradientBars: true,
+      enableCornerAccents: true,
+      enableGeometricShapes: true,
+      topBarHeight: '3px',
+      cornerGlowSize: '350px',
+      cornerGlowOpacity: 0.2,
+    },
+    style: {
+      borderRadius: '16px',
+      spacing: 'spacious',
+      imageStyle: 'rounded',
+      layoutStyle: 'dark',
+      cardShadow: '0 8px 32px rgba(168, 85, 247, 0.15)',
+      cardBorderRadius: '20px',
+      contentPadding: '60px 80px',
+    },
+  },
+
+  // 🌟 14. Sunset Gradient - 日落渐变（温暖色调）
+  'sunset-gradient': {
+    id: 'sunset-gradient',
+    name: 'Sunset Gradient',
+    nameCn: '日落渐变',
+    description: 'Warm gradient theme with orange and pink tones',
+    descriptionCn: '温暖渐变主题，橙粉色调，适合创意展示',
+    category: 'premium',
+    colors: {
+      primary: '#1F1135', // 深紫红
+      secondary: '#2D1B4E', // 中紫
+      accent: '#F97316', // 橙色
+      accentSecondary: '#EC4899', // 粉色
+      background: '#1F1135',
+      backgroundGradient:
+        'linear-gradient(135deg, #1F1135 0%, #2D1B4E 30%, #1F1135 70%, #0F0A1A 100%)',
+      backgroundOverlay: 'rgba(249, 115, 22, 0.05)',
+      text: '#F3E8FF', // 浅紫白
+      textLight: '#FFFFFF',
+      textSecondary: '#F97316', // 橙色
+      textTertiary: 'rgba(255, 255, 255, 0.6)',
+      decorative: '#EC4899', // 粉色装饰
+      cardBackground: 'rgba(236, 72, 153, 0.08)',
+      glow: '#F97316',
+      border: 'rgba(249, 115, 22, 0.3)',
+    },
+    fonts: {
+      heading: 'Inter, SF Pro Display, sans-serif',
+      body: 'Inter, SF Pro Text, sans-serif',
+    },
+    typography: {
+      title: 46,
+      titleWeight: 700,
+      titleLetterSpacing: '-0.02em',
+      subtitle: 24,
+      heading1: 20,
+      heading2: 16,
+      body: 14,
+      bodyLineHeight: 1.6,
+      caption: 12,
+      small: 10,
+    },
+    decorations: {
+      showTopBar: true,
+      showBottomBar: false,
+      showTitleUnderline: true,
+      showCardBorder: true,
+      useCardLayout: true,
+      enableGlowEffects: true,
+      enableGradientBars: true,
+      enableCornerAccents: true,
+      topBarHeight: '3px',
+      cornerGlowSize: '300px',
+      cornerGlowOpacity: 0.18,
+    },
+    style: {
+      borderRadius: '16px',
+      spacing: 'spacious',
+      imageStyle: 'rounded',
+      layoutStyle: 'dark',
+      cardShadow: '0 8px 32px rgba(249, 115, 22, 0.12)',
+      cardBorderRadius: '18px',
+      contentPadding: '60px 80px',
     },
   },
 };
