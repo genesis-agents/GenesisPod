@@ -1944,7 +1944,7 @@ export default function TopicPage() {
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
   const [showMissionDialog, setShowMissionDialog] = useState(false);
   const [showMissionPanel, setShowMissionPanel] = useState(false);
-  const [mainViewMode, setMainViewMode] = useState<'chat' | 'canvas'>('chat');
+  const [mainViewMode, setMainViewMode] = useState<'chat' | 'canvas'>('canvas');
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastMessageCountRef = useRef(0);
@@ -2601,17 +2601,15 @@ export default function TopicPage() {
           </div>
         )}
 
-        {/* Message Input - Hide when in canvas mode */}
-        {mainViewMode === 'chat' && (
-          <MessageInput
-            topic={currentTopic}
-            replyTo={replyTo}
-            onClearReply={() => setReplyTo(null)}
-            onSend={handleSendMessage}
-            onTyping={() => sendTyping(topicId)}
-            findModel={findModel}
-          />
-        )}
+        {/* Message Input - Always visible for interaction */}
+        <MessageInput
+          topic={currentTopic}
+          replyTo={replyTo}
+          onClearReply={() => setReplyTo(null)}
+          onSend={handleSendMessage}
+          onTyping={() => sendTyping(topicId)}
+          findModel={findModel}
+        />
       </main>
 
       {/* Mission Progress Panel - Right side panel */}
