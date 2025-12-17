@@ -2353,28 +2353,246 @@ ${taskResults}
       );
 
       if (pendingTasks.length > 0) {
-        // 异步继续执行下一批任务
-        this.executeNextTasks(inProgressMission.id).catch((error) => {
-          this.logger.error(
-            `Failed to continue mission execution: ${error instanceof Error ? error.message : error}`,
-          );
+        // 计算哪些任务可以真正开始（依赖已完成）
+        const tasksCanStart = pendingTasks.filter((task) => {
+          const dependsOnIds = task.dependsOnIds || [];
+          return dependsOnIds.every((depId: string) => {
+            const depTask = updatedMission.tasks.find(
+              (t: any) => t.id === depId,
+            );
+            return depTask?.status === AgentTaskStatus.COMPLETED;
+          });
         });
 
-        // 发送确认消息
-        const resetMsg =
-          stuckInProgressTasks.length > 0
-            ? `\n\n已重置 ${stuckInProgressTasks.length} 个卡住的任务`
-            : "";
+        // 找出阻塞的任务及其原因
+        const blockedTasks = pendingTasks.filter((task) => {
+          const dependsOnIds = task.dependsOnIds || [];
+          return dependsOnIds.some((depId: string) => {
+            const depTask = updatedMission.tasks.find(
+              (t: any) => t.id === depId,
+            );
+            return depTask?.status !== AgentTaskStatus.COMPLETED;
+          });
+        });
+
+        // 找出阻塞依赖中需要处理的任务
+        const blockingTaskIds = new Set<string>();
+        for (const task of blockedTasks) {
+          const dependsOnIds = task.dependsOnIds || [];
+          for (const depId of dependsOnIds) {
+            const depTask = updatedMission.tasks.find(
+              (t: any) => t.id === depId,
+            );
+            if (depTask && depTask.status !== AgentTaskStatus.COMPLETED) {
+              blockingTaskIds.add(depId);
+            }
+          }
+        }
+
+        // 获取阻塞任务的详细信息
+        const blockingTasks = updatedMission.tasks.filter((t: any) =>
+          blockingTaskIds.has(t.id),
+        );
+
+        // 处理阻塞任务（无论是否超时，用户明确要求继续时应尝试恢复）
+        const awaitingReviewBlocking = blockingTasks.filter(
+          (t: any) => t.status === AgentTaskStatus.AWAITING_REVIEW,
+        );
+        const revisionNeededBlocking = blockingTasks.filter(
+          (t: any) => t.status === AgentTaskStatus.REVISION_NEEDED,
+        );
+        const inProgressBlocking = blockingTasks.filter(
+          (t: any) => t.status === AgentTaskStatus.IN_PROGRESS,
+        );
+
+        // 如果有可以开始的任务，执行它们
+        if (tasksCanStart.length > 0) {
+          this.executeNextTasks(inProgressMission.id).catch((error) => {
+            this.logger.error(
+              `Failed to continue mission execution: ${error instanceof Error ? error.message : error}`,
+            );
+          });
+
+          const resetMsg =
+            stuckInProgressTasks.length > 0
+              ? `\n已重置 ${stuckInProgressTasks.length} 个卡住的任务`
+              : "";
+          const blockedMsg =
+            blockedTasks.length > 0
+              ? `\n等待依赖完成的任务：${blockedTasks.length} 个`
+              : "";
+          await this.sendMessageToTopic(
+            topicId,
+            updatedMission.leader?.id || null,
+            `✅ 收到指令，正在继续组织团队完成任务...\n\n可立即执行的任务：${tasksCanStart.length} 个${blockedMsg}${resetMsg}`,
+            MessageContentType.TEXT,
+          );
+
+          return {
+            handled: true,
+            action: "continue_organizing",
+            missionId: inProgressMission.id,
+          };
+        }
+
+        // 所有 pending 任务都被阻塞，需要处理阻塞原因
+        this.logger.warn(
+          `[Leader Command] All ${pendingTasks.length} pending tasks are blocked by dependencies`,
+        );
+
+        // 处理阻塞的 AWAITING_REVIEW 任务
+        if (awaitingReviewBlocking.length > 0) {
+          this.logger.log(
+            `[Leader Command] Re-triggering review for ${awaitingReviewBlocking.length} blocking AWAITING_REVIEW tasks`,
+          );
+          await this.sendMessageToTopic(
+            topicId,
+            updatedMission.leader?.id || null,
+            `🔄 检测到 ${pendingTasks.length} 个待执行任务被阻塞\n正在重新审核 ${awaitingReviewBlocking.length} 个待审核的依赖任务...`,
+            MessageContentType.TEXT,
+          );
+
+          for (const task of awaitingReviewBlocking) {
+            if (task.result) {
+              this.leaderReviewTask(updatedMission, task, task.result).catch(
+                (error) => {
+                  this.logger.error(
+                    `Failed to re-trigger leader review for blocking task ${task.id}: ${error}`,
+                  );
+                },
+              );
+            }
+          }
+
+          return {
+            handled: true,
+            action: "re_review_blocking_tasks",
+            missionId: inProgressMission.id,
+          };
+        }
+
+        // 处理阻塞的 REVISION_NEEDED 任务
+        if (revisionNeededBlocking.length > 0) {
+          this.logger.log(
+            `[Leader Command] Re-triggering revision for ${revisionNeededBlocking.length} blocking REVISION_NEEDED tasks`,
+          );
+          await this.sendMessageToTopic(
+            topicId,
+            updatedMission.leader?.id || null,
+            `🔄 检测到 ${pendingTasks.length} 个待执行任务被阻塞\n正在重新触发 ${revisionNeededBlocking.length} 个需要修订的依赖任务...`,
+            MessageContentType.TEXT,
+          );
+
+          for (const task of revisionNeededBlocking) {
+            if (task.leaderFeedback) {
+              this.executeTaskRevision(
+                updatedMission,
+                task,
+                task.leaderFeedback,
+              ).catch((error) => {
+                this.logger.error(
+                  `Failed to re-trigger revision for blocking task ${task.id}: ${error}`,
+                );
+              });
+            }
+          }
+
+          return {
+            handled: true,
+            action: "re_revision_blocking_tasks",
+            missionId: inProgressMission.id,
+          };
+        }
+
+        // 处理阻塞的 IN_PROGRESS 任务（可能卡住）
+        if (inProgressBlocking.length > 0) {
+          // 检查是否真的卡住（超过阈值）
+          const stuckBlocking = inProgressBlocking.filter(
+            (t: any) =>
+              t.startedAt &&
+              now - new Date(t.startedAt).getTime() > stuckThreshold,
+          );
+
+          if (stuckBlocking.length > 0) {
+            // 重置卡住的任务
+            for (const task of stuckBlocking) {
+              await this.prisma.agentTask.update({
+                where: { id: task.id },
+                data: {
+                  status: AgentTaskStatus.PENDING,
+                  startedAt: null,
+                },
+              });
+            }
+
+            await this.sendMessageToTopic(
+              topicId,
+              updatedMission.leader?.id || null,
+              `🔄 检测到 ${stuckBlocking.length} 个阻塞的任务已卡住，已重置为待执行状态，正在重新执行...`,
+              MessageContentType.TEXT,
+            );
+
+            // 重新执行
+            this.executeNextTasks(inProgressMission.id).catch((error) => {
+              this.logger.error(
+                `Failed to restart blocked tasks: ${error instanceof Error ? error.message : error}`,
+              );
+            });
+
+            return {
+              handled: true,
+              action: "reset_blocking_tasks",
+              missionId: inProgressMission.id,
+            };
+          } else {
+            // 正在执行中，还没卡住
+            await this.sendMessageToTopic(
+              topicId,
+              updatedMission.leader?.id || null,
+              `⏳ ${pendingTasks.length} 个待执行任务正在等待依赖完成\n\n依赖任务正在执行中：${inProgressBlocking.length} 个\n请耐心等待...`,
+              MessageContentType.TEXT,
+            );
+
+            return {
+              handled: true,
+              action: "waiting_for_dependencies",
+              missionId: inProgressMission.id,
+            };
+          }
+        }
+
+        // 其他情况（可能是依赖任务被取消或阻塞等）
+        const cancelledBlocking = blockingTasks.filter(
+          (t: any) =>
+            t.status === AgentTaskStatus.CANCELLED ||
+            t.status === AgentTaskStatus.BLOCKED,
+        );
+        if (cancelledBlocking.length > 0) {
+          await this.sendMessageToTopic(
+            topicId,
+            updatedMission.leader?.id || null,
+            `⚠️ ${pendingTasks.length} 个待执行任务被阻塞\n\n原因：${cancelledBlocking.length} 个依赖任务已取消或被阻塞\n请考虑重新创建任务或取消当前任务`,
+            MessageContentType.TEXT,
+          );
+
+          return {
+            handled: true,
+            action: "blocked_by_cancelled",
+            missionId: inProgressMission.id,
+          };
+        }
+
+        // 未知阻塞原因
         await this.sendMessageToTopic(
           topicId,
           updatedMission.leader?.id || null,
-          `✅ 收到指令，正在继续组织团队完成任务...\n\n待执行任务：${pendingTasks.length} 个${resetMsg}`,
+          `⚠️ ${pendingTasks.length} 个待执行任务被阻塞，正在分析原因...`,
           MessageContentType.TEXT,
         );
 
         return {
           handled: true,
-          action: "continue_organizing",
+          action: "blocked_unknown",
           missionId: inProgressMission.id,
         };
       } else {
