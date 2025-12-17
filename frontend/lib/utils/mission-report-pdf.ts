@@ -939,16 +939,16 @@ function generateReportBodyHtml(data: MissionReportData): string {
 
 /**
  * Generate and download mission report PDF
- * Uses html2canvas with explicit visibility and jsPDF for PDF generation
+ * Uses html-to-image (more reliable than html2canvas) and jsPDF for PDF generation
  */
 export async function downloadMissionReportPDF(
   data: MissionReportData,
   filename?: string,
   debug?: boolean
 ): Promise<void> {
-  // Dynamic imports
-  const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-    import('html2canvas'),
+  // Dynamic imports - use html-to-image instead of html2canvas
+  const [htmlToImage, { default: jsPDF }] = await Promise.all([
+    import('html-to-image'),
     import('jspdf'),
   ]);
 
@@ -1041,93 +1041,83 @@ export async function downloadMissionReportPDF(
       hotfixes: ['px_scaling'],
     });
 
-    // Capture the VISIBLE element
-    const canvas = await html2canvas(container, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      logging: true, // Enable logging for debugging
-      backgroundColor: '#ffffff',
-      width: contentWidth,
-      height: contentHeight,
-      windowWidth: contentWidth,
-      windowHeight: contentHeight,
-      scrollX: 0,
-      scrollY: 0,
-      x: 0,
-      y: 0,
-      foreignObjectRendering: false, // Disable for compatibility
-      removeContainer: false, // Keep container for debugging
-    });
+    // Capture using html-to-image (more reliable than html2canvas)
+    console.log('Starting html-to-image capture...');
+    let imgData: string;
 
-    console.log('Canvas size:', canvas.width, canvas.height);
+    try {
+      imgData = await htmlToImage.toPng(container, {
+        quality: 1.0,
+        pixelRatio: 2,
+        backgroundColor: '#ffffff',
+        width: contentWidth,
+        height: contentHeight,
+        style: {
+          transform: 'none',
+          transformOrigin: 'top left',
+        },
+      });
+      console.log(
+        'html-to-image capture successful, data length:',
+        imgData.length
+      );
+    } catch (captureError) {
+      console.error('html-to-image failed:', captureError);
 
-    // Check if canvas has content
-    const ctx = canvas.getContext('2d');
-    let hasContent = false;
-    if (ctx) {
-      const imageData = ctx.getImageData(
-        0,
-        0,
-        Math.min(canvas.width, 500),
-        Math.min(canvas.height, 500)
-      );
-      hasContent = imageData.data.some(
-        (val, idx) => idx % 4 !== 3 && val !== 255
-      );
-      console.log('Canvas has non-white content:', hasContent);
+      // Clean up before fallback
+      document.body.removeChild(overlay);
+      window.scrollTo(scrollX, scrollY);
+
+      // Fallback: open print window
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        const fullHtml = generateReportHtml(data);
+        printWindow.document.write(fullHtml);
+        printWindow.document.close();
+        alert(
+          '图像捕获失败。请使用浏览器的"打印到PDF"功能 (Ctrl+P) 保存此页面。'
+        );
+      }
+      return;
     }
 
-    // Debug mode: show canvas in a new window
-    if (debug || !hasContent) {
+    // Debug mode: show captured image
+    if (debug) {
       const debugWindow = window.open('', '_blank');
       if (debugWindow) {
-        const canvasDataUrl = canvas.toDataURL();
         debugWindow.document.write(`<!DOCTYPE html>
 <html>
 <head><title>PDF Debug</title></head>
 <body style="margin:0;padding:20px;background:#f0f0f0;">
-  <h2>Debug Info</h2>
-  <p>Canvas size: ${canvas.width} x ${canvas.height}</p>
-  <p>Has content: ${hasContent}</p>
+  <h2>Debug Info - html-to-image</h2>
   <p>Container dimensions: ${container.offsetWidth} x ${container.offsetHeight}</p>
-  <h3>Generated Canvas:</h3>
+  <p>Image data length: ${imgData.length}</p>
+  <h3>Captured Image:</h3>
   <div style="border:2px solid red;display:inline-block;max-width:100%;overflow:auto;">
-    <img src="${canvasDataUrl}" style="max-width:800px;"/>
+    <img src="${imgData}" style="max-width:800px;"/>
   </div>
 </body>
 </html>`);
         debugWindow.document.close();
       }
-
-      if (!hasContent) {
-        // Clean up before fallback
-        document.body.removeChild(overlay);
-        window.scrollTo(scrollX, scrollY);
-
-        // Try alternative method: simple print approach
-        console.warn('html2canvas failed, trying print fallback...');
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-          const fullHtml = generateReportHtml(data);
-          printWindow.document.write(fullHtml);
-          printWindow.document.close();
-          alert(
-            'html2canvas捕获失败。请使用浏览器的"打印到PDF"功能 (Ctrl+P) 保存此页面。'
-          );
-        }
-        return;
-      }
     }
 
-    const imgData = canvas.toDataURL('image/png', 1.0);
+    // Load image to get dimensions
+    const img = new Image();
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = reject;
+      img.src = imgData;
+    });
 
-    // Calculate pages
+    // Calculate pages based on actual image dimensions
     const imgWidth = contentWidth;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const imgHeight = (img.height * imgWidth) / img.width;
     const totalPages = Math.ceil(imgHeight / pageHeight);
 
-    console.log('Total pages:', totalPages, 'Image height:', imgHeight);
+    console.log('Image dimensions:', img.width, 'x', img.height);
+    console.log('Scaled dimensions:', imgWidth, 'x', imgHeight);
+    console.log('Total pages:', totalPages);
 
     for (let i = 0; i < totalPages; i++) {
       if (i > 0) {
