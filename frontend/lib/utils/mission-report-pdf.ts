@@ -283,7 +283,7 @@ function generateTableOfContents(hasFinalResult: boolean): string {
  * 6. Team Execution Report
  * 7. Appendix: Full Task Details (no truncation)
  */
-function generateReportHtml(data: MissionReportData): string {
+export function generateReportHtml(data: MissionReportData): string {
   const stats = calculateStats(data);
   const completionRate =
     stats.totalTasks > 0
@@ -939,33 +939,244 @@ function generateReportBodyHtml(data: MissionReportData): string {
 
 /**
  * Generate and download mission report PDF
- * Uses browser print functionality - most reliable approach
+ * Uses html2canvas with explicit visibility and jsPDF for PDF generation
  */
 export async function downloadMissionReportPDF(
   data: MissionReportData,
-  filename?: string
+  filename?: string,
+  debug?: boolean
 ): Promise<void> {
-  const html = generateReportHtml(data);
+  // Dynamic imports
+  const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+    import('html2canvas'),
+    import('jspdf'),
+  ]);
 
-  // Open a new window with the report
-  const printWindow = window.open('', '_blank', 'width=800,height=600');
-  if (!printWindow) {
-    alert('请允许弹出窗口以导出PDF');
-    return;
+  const bodyHtml = generateReportBodyHtml(data);
+
+  // Save current scroll position
+  const scrollX = window.scrollX;
+  const scrollY = window.scrollY;
+
+  // Create container directly in body (simpler approach)
+  const container = document.createElement('div');
+  container.id = 'pdf-export-container';
+  container.innerHTML = bodyHtml;
+
+  // Use absolute positioning within a fixed overlay
+  container.style.cssText = `
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 794px;
+    background: white;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #1f2937;
+    z-index: 1;
+  `;
+
+  // Create overlay that covers everything
+  const overlay = document.createElement('div');
+  overlay.id = 'pdf-export-overlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: white;
+    z-index: 99998;
+    overflow: hidden;
+  `;
+
+  // Wrapper for scrolling
+  const wrapper = document.createElement('div');
+  wrapper.id = 'pdf-export-wrapper';
+  wrapper.style.cssText = `
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  `;
+
+  wrapper.appendChild(container);
+  overlay.appendChild(wrapper);
+  document.body.appendChild(overlay);
+
+  // Force layout calculation
+  void container.offsetHeight;
+
+  // Wait for rendering
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setTimeout(resolve, 500);
+      });
+    });
+  });
+
+  // Log for debugging
+  console.log(
+    'Container dimensions:',
+    container.offsetWidth,
+    container.offsetHeight
+  );
+  console.log('Container innerHTML length:', container.innerHTML.length);
+  console.log('Container childNodes:', container.childNodes.length);
+
+  try {
+    // Get actual height
+    const contentHeight = container.scrollHeight;
+    const contentWidth = 794;
+    const pageHeight = 1123; // A4 at 96 DPI
+
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'px',
+      format: [contentWidth, pageHeight],
+      hotfixes: ['px_scaling'],
+    });
+
+    // Capture the VISIBLE element
+    const canvas = await html2canvas(container, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      logging: true, // Enable logging for debugging
+      backgroundColor: '#ffffff',
+      width: contentWidth,
+      height: contentHeight,
+      windowWidth: contentWidth,
+      windowHeight: contentHeight,
+      scrollX: 0,
+      scrollY: 0,
+      x: 0,
+      y: 0,
+      foreignObjectRendering: false, // Disable for compatibility
+      removeContainer: false, // Keep container for debugging
+    });
+
+    console.log('Canvas size:', canvas.width, canvas.height);
+
+    // Check if canvas has content
+    const ctx = canvas.getContext('2d');
+    let hasContent = false;
+    if (ctx) {
+      const imageData = ctx.getImageData(
+        0,
+        0,
+        Math.min(canvas.width, 500),
+        Math.min(canvas.height, 500)
+      );
+      hasContent = imageData.data.some(
+        (val, idx) => idx % 4 !== 3 && val !== 255
+      );
+      console.log('Canvas has non-white content:', hasContent);
+    }
+
+    // Debug mode: show canvas in a new window
+    if (debug || !hasContent) {
+      const debugWindow = window.open('', '_blank');
+      if (debugWindow) {
+        const canvasDataUrl = canvas.toDataURL();
+        debugWindow.document.write(`<!DOCTYPE html>
+<html>
+<head><title>PDF Debug</title></head>
+<body style="margin:0;padding:20px;background:#f0f0f0;">
+  <h2>Debug Info</h2>
+  <p>Canvas size: ${canvas.width} x ${canvas.height}</p>
+  <p>Has content: ${hasContent}</p>
+  <p>Container dimensions: ${container.offsetWidth} x ${container.offsetHeight}</p>
+  <h3>Generated Canvas:</h3>
+  <div style="border:2px solid red;display:inline-block;max-width:100%;overflow:auto;">
+    <img src="${canvasDataUrl}" style="max-width:800px;"/>
+  </div>
+</body>
+</html>`);
+        debugWindow.document.close();
+      }
+
+      if (!hasContent) {
+        // Clean up before fallback
+        document.body.removeChild(overlay);
+        window.scrollTo(scrollX, scrollY);
+
+        // Try alternative method: simple print approach
+        console.warn('html2canvas failed, trying print fallback...');
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          const fullHtml = generateReportHtml(data);
+          printWindow.document.write(fullHtml);
+          printWindow.document.close();
+          alert(
+            'html2canvas捕获失败。请使用浏览器的"打印到PDF"功能 (Ctrl+P) 保存此页面。'
+          );
+        }
+        return;
+      }
+    }
+
+    const imgData = canvas.toDataURL('image/png', 1.0);
+
+    // Calculate pages
+    const imgWidth = contentWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const totalPages = Math.ceil(imgHeight / pageHeight);
+
+    console.log('Total pages:', totalPages, 'Image height:', imgHeight);
+
+    for (let i = 0; i < totalPages; i++) {
+      if (i > 0) {
+        pdf.addPage([contentWidth, pageHeight]);
+      }
+
+      // Position image to show current page portion
+      const yOffset = -(i * pageHeight);
+      pdf.addImage(imgData, 'PNG', 0, yOffset, imgWidth, imgHeight);
+    }
+
+    const outputFilename = filename || `mission-report-${data.mission.id}.pdf`;
+    pdf.save(outputFilename);
+  } finally {
+    // Clean up
+    document.body.removeChild(overlay);
+    // Restore scroll position
+    window.scrollTo(scrollX, scrollY);
   }
+}
 
-  // Write the full HTML document
-  printWindow.document.write(html);
-  printWindow.document.close();
+/**
+ * Preview mission report in a new window
+ */
+export function previewMissionReport(data: MissionReportData): Window | null {
+  const html = generateReportHtml(data);
+  const previewWindow = window.open('', '_blank');
+  if (previewWindow) {
+    previewWindow.document.write(html);
+    previewWindow.document.close();
+  }
+  return previewWindow;
+}
 
-  // Wait for content to load
-  await new Promise((resolve) => setTimeout(resolve, 500));
-
-  // Trigger print dialog (user can save as PDF)
-  printWindow.print();
-
-  // Close the window after a delay
-  setTimeout(() => {
-    printWindow.close();
-  }, 1000);
+/**
+ * Download report as HTML file (fallback when PDF fails)
+ */
+export function downloadMissionReportHTML(
+  data: MissionReportData,
+  filename?: string
+): void {
+  const html = generateReportHtml(data);
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename || `mission-report-${data.mission.id}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }

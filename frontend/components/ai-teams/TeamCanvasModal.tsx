@@ -12,6 +12,8 @@ import {
 import { getProviderBrand as getProviderBrandFromLib } from '@/lib/ai-provider-logos';
 import {
   downloadMissionReportPDF,
+  downloadMissionReportHTML,
+  previewMissionReport,
   MissionReportData,
 } from '@/lib/utils/mission-report-pdf';
 
@@ -621,18 +623,22 @@ export default function TeamCanvasModal({
       await downloadMissionReportPDF(reportData);
     } catch (error) {
       console.error('Failed to generate PDF report:', error);
-      // Fallback to JSON if PDF generation fails
-      const blob = new Blob([JSON.stringify(reportData, null, 2)], {
-        type: 'application/json',
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `mission-${mission.id}-report.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      // Fallback to HTML if PDF generation fails
+      const useHtml = window.confirm(
+        'PDF生成失败。是否下载HTML版本？\n\n' +
+          '您可以在浏览器中打开HTML文件后使用"打印到PDF"功能。'
+      );
+      if (useHtml) {
+        downloadMissionReportHTML(reportData);
+      } else {
+        // Open preview in new window
+        const previewWin = previewMissionReport(reportData);
+        if (previewWin) {
+          alert(
+            '报告已在新窗口打开。请使用浏览器的"打印"功能 (Ctrl+P) 保存为PDF。'
+          );
+        }
+      }
     }
   }, [mission]);
 
