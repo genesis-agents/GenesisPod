@@ -683,15 +683,270 @@ function generateReportHtml(data: MissionReportData): string {
 }
 
 /**
+ * Generate body-only HTML content for PDF rendering
+ */
+function generateReportBodyHtml(data: MissionReportData): string {
+  const stats = calculateStats(data);
+  const completionRate =
+    stats.totalTasks > 0
+      ? Math.round((stats.completedTasks / stats.totalTasks) * 100)
+      : 0;
+
+  const sortedParticipants = Array.from(stats.participants.entries()).sort(
+    (a, b) => b[1] - a[1]
+  );
+  const maxTasks = sortedParticipants[0]?.[1] || 1;
+
+  const generatedAt = new Date().toLocaleString('zh-CN');
+  const hasFinalResult = !!data.mission.finalResult;
+
+  return `
+  <!-- Cover Page -->
+  <div style="width: 100%; min-height: 1100px; box-sizing: border-box; position: relative; background: white; page-break-after: always;">
+    <!-- Header Banner -->
+    <div style="background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%); color: white; padding: 60px 40px; text-align: center;">
+      <div style="font-size: 36px; font-weight: bold; margin-bottom: 12px; letter-spacing: 2px;">AI Team Mission Report</div>
+      <div style="font-size: 16px; color: #e9d5ff;">Powered by DeepDive Engine</div>
+    </div>
+
+    <!-- Mission Title Box -->
+    <div style="padding: 40px; text-align: center;">
+      <div style="font-size: 24px; font-weight: bold; color: #1f2937; margin-bottom: 20px; line-height: 1.5;">${escapeHtml(data.mission.title)}</div>
+
+      <!-- Key Stats Preview -->
+      <div style="display: flex; justify-content: center; gap: 20px; margin-bottom: 30px;">
+        <div style="background: #dcfce7; border-radius: 12px; padding: 16px 24px; text-align: center;">
+          <div style="font-size: 28px; font-weight: bold; color: #166534;">${stats.completedTasks}/${stats.totalTasks}</div>
+          <div style="font-size: 11px; color: #166534;">任务完成</div>
+        </div>
+        <div style="background: #dbeafe; border-radius: 12px; padding: 16px 24px; text-align: center;">
+          <div style="font-size: 28px; font-weight: bold; color: #1e40af;">${completionRate}%</div>
+          <div style="font-size: 11px; color: #1e40af;">完成率</div>
+        </div>
+        <div style="background: #faf5ff; border-radius: 12px; padding: 16px 24px; text-align: center;">
+          <div style="font-size: 28px; font-weight: bold; color: #7c3aed;">${stats.durationMinutes}<span style="font-size: 14px;">分</span></div>
+          <div style="font-size: 11px; color: #7c3aed;">执行时长</div>
+        </div>
+      </div>
+
+      <!-- Info Card -->
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 30px; max-width: 500px; margin: 0 auto; text-align: left;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 12px 0; color: #64748b; width: 100px; font-weight: 500;">任务ID</td>
+            <td style="padding: 12px 0; color: #1e293b; font-family: monospace; font-size: 11px;">${escapeHtml(data.mission.id)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 0; color: #64748b; font-weight: 500;">状态</td>
+            <td style="padding: 12px 0;">${getStatusBadge(data.mission.status)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 0; color: #64748b; font-weight: 500;">负责人</td>
+            <td style="padding: 12px 0; color: #1e293b; font-weight: 600;">${escapeHtml(data.mission.leader)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 0; color: #64748b; font-weight: 500;">创建时间</td>
+            <td style="padding: 12px 0; color: #1e293b;">${formatDate(data.mission.createdAt)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 0; color: #64748b; font-weight: 500;">完成时间</td>
+            <td style="padding: 12px 0; color: #1e293b;">${data.mission.completedAt ? formatDate(data.mission.completedAt) : '—'}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Cover Footer -->
+    <div style="position: absolute; bottom: 40px; left: 0; right: 0; text-align: center; color: #94a3b8; font-size: 11px;">
+      报告生成时间: ${generatedAt}
+    </div>
+  </div>
+
+  <!-- Page 2: Executive Summary -->
+  <div style="width: 100%; padding: 40px; box-sizing: border-box; background: white; page-break-after: always;">
+    <div style="font-size: 24px; font-weight: bold; color: #7c3aed; border-bottom: 4px solid #7c3aed; padding-bottom: 12px; margin-bottom: 30px;">
+      执行摘要
+    </div>
+
+    <!-- Core Findings Highlight -->
+    <div style="background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%); border-radius: 16px; padding: 24px; margin-bottom: 30px; border-left: 4px solid #7c3aed;">
+      <div style="font-size: 14px; font-weight: bold; color: #7c3aed; margin-bottom: 12px;">核心要点</div>
+      <ul style="margin: 0; padding-left: 20px; color: #374151; line-height: 2;">
+        <li>共执行 <strong>${stats.totalTasks}</strong> 项子任务，完成率 <strong>${completionRate}%</strong></li>
+        <li>AI团队 <strong>${stats.participantCount}</strong> 名成员协作，总耗时 <strong>${stats.durationMinutes}</strong> 分钟</li>
+        <li>任务修订 <strong>${stats.totalRevisions}</strong> 次，平均每任务 <strong>${stats.avgRevisions.toFixed(1)}</strong> 次</li>
+        ${stats.failedTasks > 0 ? `<li style="color: #dc2626;">有 <strong>${stats.failedTasks}</strong> 项任务执行失败，需关注</li>` : ''}
+      </ul>
+    </div>
+
+    <!-- KPI Cards -->
+    <table style="width: 100%; border-collapse: separate; border-spacing: 12px;">
+      <tr>
+        <td style="background: #f8fafc; border-radius: 10px; padding: 20px; text-align: center; width: 33%;">
+          <div style="font-size: 32px; font-weight: bold; color: #7c3aed;">${stats.totalTasks}</div>
+          <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">总任务数</div>
+        </td>
+        <td style="background: #f8fafc; border-radius: 10px; padding: 20px; text-align: center; width: 33%;">
+          <div style="font-size: 32px; font-weight: bold; color: #22c55e;">${stats.completedTasks}</div>
+          <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">已完成</div>
+        </td>
+        <td style="background: #f8fafc; border-radius: 10px; padding: 20px; text-align: center; width: 33%;">
+          <div style="font-size: 32px; font-weight: bold; color: #6366f1;">${completionRate}%</div>
+          <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">完成率</div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Task Description -->
+    <div style="margin-top: 30px;">
+      <div style="font-size: 16px; font-weight: bold; color: #1f2937; margin-bottom: 12px;">任务描述</div>
+      <div style="background: #f8fafc; border-radius: 8px; padding: 16px; color: #374151; line-height: 1.8;">
+        ${escapeHtml(data.mission.description)}
+      </div>
+    </div>
+  </div>
+
+  ${
+    hasFinalResult
+      ? `
+  <!-- Key Findings & Conclusions -->
+  <div style="width: 100%; padding: 40px; box-sizing: border-box; background: white; page-break-after: always;">
+    <div style="font-size: 24px; font-weight: bold; color: #7c3aed; border-bottom: 4px solid #7c3aed; padding-bottom: 12px; margin-bottom: 30px;">
+      核心发现与结论
+    </div>
+
+    <div style="background: #faf5ff; border: 2px solid #7c3aed; border-radius: 16px; padding: 30px;">
+      <div style="font-size: 14px; color: #374151; line-height: 1.9;">
+        ${markdownToHtml(data.mission.finalResult || '')}
+      </div>
+    </div>
+  </div>
+  `
+      : ''
+  }
+
+  <!-- Team Execution Report -->
+  <div style="width: 100%; padding: 40px; box-sizing: border-box; background: white; page-break-after: always;">
+    <div style="font-size: 20px; font-weight: bold; color: #1f2937; border-bottom: 3px solid #7c3aed; padding-bottom: 10px; margin-bottom: 30px;">
+      团队执行报告
+    </div>
+
+    <!-- Status Distribution -->
+    <div style="margin-bottom: 30px;">
+      <div style="font-size: 16px; font-weight: bold; color: #1f2937; margin-bottom: 12px;">任务状态分布</div>
+      <table style="width: 100%; background: #f8fafc; border-radius: 8px; padding: 20px;">
+        <tr>
+          <td style="text-align: center; padding: 10px;">
+            <div style="display: inline-block; width: 50px; height: ${Math.max(20, (stats.completedTasks / Math.max(stats.totalTasks, 1)) * 80)}px; background: #22c55e; border-radius: 4px 4px 0 0;"></div>
+            <div style="font-size: 14px; font-weight: bold; margin-top: 8px;">${stats.completedTasks}</div>
+            <div style="font-size: 11px; color: #6b7280;">已完成</div>
+          </td>
+          <td style="text-align: center; padding: 10px;">
+            <div style="display: inline-block; width: 50px; height: ${Math.max(20, (stats.inProgressTasks / Math.max(stats.totalTasks, 1)) * 80)}px; background: #3b82f6; border-radius: 4px 4px 0 0;"></div>
+            <div style="font-size: 14px; font-weight: bold; margin-top: 8px;">${stats.inProgressTasks}</div>
+            <div style="font-size: 11px; color: #6b7280;">进行中</div>
+          </td>
+          <td style="text-align: center; padding: 10px;">
+            <div style="display: inline-block; width: 50px; height: ${Math.max(20, (stats.pendingTasks / Math.max(stats.totalTasks, 1)) * 80)}px; background: #f59e0b; border-radius: 4px 4px 0 0;"></div>
+            <div style="font-size: 14px; font-weight: bold; margin-top: 8px;">${stats.pendingTasks}</div>
+            <div style="font-size: 11px; color: #6b7280;">待处理</div>
+          </td>
+          <td style="text-align: center; padding: 10px;">
+            <div style="display: inline-block; width: 50px; height: ${Math.max(20, (stats.failedTasks / Math.max(stats.totalTasks, 1)) * 80)}px; background: #ef4444; border-radius: 4px 4px 0 0;"></div>
+            <div style="font-size: 14px; font-weight: bold; margin-top: 8px;">${stats.failedTasks}</div>
+            <div style="font-size: 11px; color: #6b7280;">失败</div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Participants -->
+    <div style="margin-top: 30px;">
+      <div style="font-size: 16px; font-weight: bold; color: #1f2937; margin-bottom: 16px;">AI成员贡献统计</div>
+      <div style="background: #f8fafc; border-radius: 12px; padding: 20px;">
+      ${sortedParticipants
+        .map(
+          ([name, count]) => `
+        <div style="margin: 12px 0;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span style="font-size: 12px; color: #374151; font-weight: 500;">${escapeHtml(name)}</span>
+            <span style="font-size: 12px; color: #7c3aed; font-weight: 600;">${count} 个任务 (${Math.round((count / stats.totalTasks) * 100)}%)</span>
+          </div>
+          <div style="height: 8px; background: #e2e8f0; border-radius: 4px;">
+            <div style="width: ${(count / maxTasks) * 100}%; height: 100%; background: linear-gradient(90deg, #7c3aed, #a78bfa); border-radius: 4px;"></div>
+          </div>
+        </div>
+      `
+        )
+        .join('')}
+      </div>
+    </div>
+  </div>
+
+  <!-- Appendix: Task Execution Details -->
+  <div style="width: 100%; padding: 40px; box-sizing: border-box; background: white;">
+    <div style="font-size: 18px; font-weight: bold; color: #64748b; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">
+      附录：任务执行明细
+    </div>
+    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 20px;">以下为各子任务的完整执行记录</div>
+
+    ${data.tasks
+      .map(
+        (task, index) => `
+      <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 16px; background: #fafafa; page-break-inside: avoid;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="width: 70%; vertical-align: top;">
+              <div style="font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 4px;">${index + 1}. ${escapeHtml(task.title)}</div>
+              <div style="font-size: 11px; color: #6b7280;">执行: ${escapeHtml(task.assignedTo)} | 修订: ${task.revisionCount}次${task.completedAt ? ` | 完成: ${formatDate(task.completedAt)}` : ''}</div>
+            </td>
+            <td style="width: 30%; text-align: right; vertical-align: top;">
+              ${getStatusBadge(task.status)}
+            </td>
+          </tr>
+        </table>
+        ${
+          task.result
+            ? `
+          <div style="background: white; border-radius: 6px; padding: 12px; margin-top: 10px; font-size: 11px; color: #475569; line-height: 1.6; border: 1px solid #e2e8f0;">
+            ${markdownToHtml(task.result)}
+          </div>
+        `
+            : ''
+        }
+        ${
+          task.leaderFeedback
+            ? `
+          <div style="background: #fef3c7; border-radius: 6px; padding: 10px; margin-top: 8px; font-size: 10px; color: #92400e; border-left: 3px solid #f59e0b;">
+            <strong>负责人反馈:</strong> ${escapeHtml(task.leaderFeedback)}
+          </div>
+        `
+            : ''
+        }
+      </div>
+    `
+      )
+      .join('')}
+
+    <!-- Final Footer -->
+    <div style="text-align: center; padding: 30px; color: #9ca3af; font-size: 11px; border-top: 1px solid #e2e8f0; margin-top: 40px;">
+      <div style="margin-bottom: 8px;">— 报告结束 —</div>
+      © ${new Date().getFullYear()} DeepDive Engine - AI Team Mission Report
+    </div>
+  </div>
+`;
+}
+
+/**
  * Generate and download mission report PDF
- * Uses iframe approach for proper HTML document rendering
+ * Uses body-only HTML injected into visible container
  */
 export async function downloadMissionReportPDF(
   data: MissionReportData,
   filename?: string
 ): Promise<void> {
   const html2pdf = (await import('html2pdf.js')).default;
-  const html = generateReportHtml(data);
+  const bodyHtml = generateReportBodyHtml(data);
 
   // Show loading indicator
   const overlay = document.createElement('div');
@@ -713,38 +968,26 @@ export async function downloadMissionReportPDF(
   overlay.innerHTML = '<div>正在生成 PDF 报告，请稍候...</div>';
   document.body.appendChild(overlay);
 
-  // Create an iframe to properly render the complete HTML document
-  const iframe = document.createElement('iframe');
-  iframe.id = 'mission-report-iframe';
-  iframe.style.cssText = `
-    position: fixed;
+  // Create a container div for the content (body-only HTML, no document structure)
+  const container = document.createElement('div');
+  container.id = 'mission-report-container';
+  container.innerHTML = bodyHtml;
+  container.style.cssText = `
+    position: absolute;
     left: 0;
     top: 0;
     width: 794px;
-    height: 10000px;
-    border: none;
-    z-index: 99998;
     background: white;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #1f2937;
+    z-index: 99998;
   `;
-  document.body.appendChild(iframe);
+  document.body.appendChild(container);
 
-  // Write the HTML document to the iframe
-  const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-  if (!iframeDoc) {
-    document.body.removeChild(iframe);
-    document.body.removeChild(overlay);
-    throw new Error('Failed to access iframe document');
-  }
-
-  iframeDoc.open();
-  iframeDoc.write(html);
-  iframeDoc.close();
-
-  // Wait for iframe content to fully render
-  await new Promise((resolve) => setTimeout(resolve, 1500));
-
-  // Get the body element from the iframe
-  const iframeBody = iframeDoc.body;
+  // Wait for content to render
+  await new Promise((resolve) => setTimeout(resolve, 500));
 
   const options = {
     margin: 10,
@@ -753,11 +996,9 @@ export async function downloadMissionReportPDF(
     html2canvas: {
       scale: 2,
       useCORS: true,
-      logging: false,
+      logging: true,
       letterRendering: true,
       windowWidth: 794,
-      scrollX: 0,
-      scrollY: 0,
     },
     jsPDF: {
       unit: 'mm' as const,
@@ -774,9 +1015,9 @@ export async function downloadMissionReportPDF(
   };
 
   try {
-    await html2pdf().set(options).from(iframeBody).save();
+    await html2pdf().set(options).from(container).save();
   } finally {
-    document.body.removeChild(iframe);
+    document.body.removeChild(container);
     document.body.removeChild(overlay);
   }
 }
