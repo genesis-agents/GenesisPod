@@ -201,7 +201,87 @@ function markdownToHtml(text: string): string {
 }
 
 /**
+ * Generate page header HTML
+ */
+function generatePageHeader(
+  title: string,
+  taskId: string,
+  currentPage: number,
+  totalPages: number
+): string {
+  return `
+    <div style="position: fixed; top: 0; left: 0; right: 0; height: 40px; background: white; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; padding: 0 40px; font-size: 10px; color: #64748b;">
+      <span style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(title)}</span>
+      <span style="font-family: monospace; font-size: 9px;">${escapeHtml(taskId.substring(0, 8))}</span>
+    </div>
+  `;
+}
+
+/**
+ * Generate page footer HTML
+ */
+function generatePageFooter(
+  currentPage: number,
+  totalPages: number,
+  generatedAt: string
+): string {
+  return `
+    <div style="position: fixed; bottom: 0; left: 0; right: 0; height: 30px; background: white; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; padding: 0 40px; font-size: 10px; color: #94a3b8;">
+      <span>${generatedAt}</span>
+      <span>第 ${currentPage} 页 / 共 ${totalPages} 页</span>
+    </div>
+  `;
+}
+
+/**
+ * Generate Table of Contents
+ */
+function generateTableOfContents(hasFinalResult: boolean): string {
+  const sections = [
+    { title: '执行摘要', page: 2 },
+    { title: '目录', page: 3 },
+    ...(hasFinalResult
+      ? [
+          { title: '研究背景与方法', page: 4 },
+          { title: '核心发现与结论', page: 5 },
+        ]
+      : []),
+    { title: '团队执行报告', page: hasFinalResult ? 6 : 4 },
+    { title: '附录：任务执行明细', page: hasFinalResult ? 7 : 5 },
+  ];
+
+  return `
+    <div style="width: 100%; padding: 40px; box-sizing: border-box; page-break-before: always;">
+      <div style="font-size: 24px; font-weight: bold; color: #1f2937; margin-bottom: 30px; text-align: center;">
+        目 录
+      </div>
+      <div style="max-width: 500px; margin: 0 auto;">
+        ${sections
+          .map(
+            (s, i) => `
+          <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 12px 0; border-bottom: 1px dotted #e2e8f0;">
+            <span style="font-size: 14px; color: #374151;">${i + 1}. ${s.title}</span>
+            <span style="font-size: 14px; color: #7c3aed; font-weight: 500;">${s.page}</span>
+          </div>
+        `
+          )
+          .join('')}
+      </div>
+    </div>
+  `;
+}
+
+/**
  * Generate HTML with pure inline styles
+ *
+ * Report Structure (Improved):
+ * 1. Cover Page (enhanced with key stats preview)
+ * 2. Executive Summary (moved to page 2)
+ * 3. Table of Contents
+ * 4. Research Background & Methodology (split from "最终结论")
+ * 5. Key Findings & Conclusions (split from "最终结论")
+ * 6. Team Execution Report
+ * 7. Appendix: Full Task Details (no truncation)
  */
 function generateReportHtml(data: MissionReportData): string {
   const stats = calculateStats(data);
@@ -218,25 +298,53 @@ function generateReportHtml(data: MissionReportData): string {
   const baseFont =
     "font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;";
 
+  const generatedAt = new Date().toLocaleString('zh-CN');
+  const hasFinalResult = !!data.mission.finalResult;
+
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Mission Report</title>
+  <title>Mission Report - ${escapeHtml(data.mission.title)}</title>
+  <style>
+    @page {
+      margin: 50px 0;
+    }
+    @media print {
+      .page-header { display: block !important; }
+      .page-footer { display: block !important; }
+    }
+  </style>
 </head>
 <body style="margin: 0; padding: 0; ${baseFont} font-size: 12px; line-height: 1.6; color: #1f2937; background: #fff;">
 
   <!-- Cover Page -->
   <div style="width: 100%; min-height: 900px; box-sizing: border-box; position: relative;">
     <!-- Header Banner -->
-    <div style="background: #7c3aed; color: white; padding: 60px 40px; text-align: center;">
+    <div style="background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%); color: white; padding: 60px 40px; text-align: center;">
       <div style="font-size: 36px; font-weight: bold; margin-bottom: 12px; letter-spacing: 2px;">AI Team Mission Report</div>
       <div style="font-size: 16px; color: #e9d5ff;">Powered by DeepDive Engine</div>
     </div>
 
     <!-- Mission Title Box -->
-    <div style="padding: 50px 40px; text-align: center;">
-      <div style="font-size: 22px; font-weight: bold; color: #1f2937; margin-bottom: 30px; line-height: 1.5;">${escapeHtml(data.mission.title)}</div>
+    <div style="padding: 40px; text-align: center;">
+      <div style="font-size: 24px; font-weight: bold; color: #1f2937; margin-bottom: 20px; line-height: 1.5;">${escapeHtml(data.mission.title)}</div>
+
+      <!-- Key Stats Preview (NEW) -->
+      <div style="display: flex; justify-content: center; gap: 20px; margin-bottom: 30px;">
+        <div style="background: #dcfce7; border-radius: 12px; padding: 16px 24px; text-align: center;">
+          <div style="font-size: 28px; font-weight: bold; color: #166534;">${stats.completedTasks}/${stats.totalTasks}</div>
+          <div style="font-size: 11px; color: #166534;">任务完成</div>
+        </div>
+        <div style="background: #dbeafe; border-radius: 12px; padding: 16px 24px; text-align: center;">
+          <div style="font-size: 28px; font-weight: bold; color: #1e40af;">${completionRate}%</div>
+          <div style="font-size: 11px; color: #1e40af;">完成率</div>
+        </div>
+        <div style="background: #faf5ff; border-radius: 12px; padding: 16px 24px; text-align: center;">
+          <div style="font-size: 28px; font-weight: bold; color: #7c3aed;">${stats.durationMinutes}<span style="font-size: 14px;">分</span></div>
+          <div style="font-size: 11px; color: #7c3aed;">执行时长</div>
+        </div>
+      </div>
 
       <!-- Info Card -->
       <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 30px; max-width: 500px; margin: 0 auto; text-align: left;">
@@ -265,61 +373,36 @@ function generateReportHtml(data: MissionReportData): string {
       </div>
     </div>
 
-    <!-- Footer -->
+    <!-- Cover Footer -->
     <div style="position: absolute; bottom: 40px; left: 0; right: 0; text-align: center; color: #94a3b8; font-size: 11px;">
-      报告生成时间: ${new Date().toLocaleString('zh-CN')}
+      报告生成时间: ${generatedAt}
     </div>
   </div>
 
-  <!-- FINAL RESULT / CONCLUSION - Most Important Section -->
+  <!-- Page 2: Executive Summary (MOVED TO PAGE 2) -->
   <div style="width: 100%; padding: 40px; box-sizing: border-box; page-break-before: always;">
+    <!-- Page Header -->
+    <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8;">
+      <span>${escapeHtml(data.mission.title.substring(0, 50))}${data.mission.title.length > 50 ? '...' : ''}</span>
+      <span>第 2 页</span>
+    </div>
+
     <div style="font-size: 24px; font-weight: bold; color: #7c3aed; border-bottom: 4px solid #7c3aed; padding-bottom: 12px; margin-bottom: 30px;">
-      最终结论
-    </div>
-
-    ${
-      data.mission.finalResult
-        ? `
-    <div style="background: #faf5ff; border: 2px solid #7c3aed; border-radius: 16px; padding: 30px;">
-      <div style="font-size: 14px; color: #374151; line-height: 1.9;">
-        ${markdownToHtml(data.mission.finalResult)}
-      </div>
-    </div>
-    `
-        : `
-    <div style="background: #f8fafc; border-radius: 16px; padding: 30px; text-align: center;">
-      <div style="font-size: 48px; margin-bottom: 16px;">📋</div>
-      <div style="font-size: 16px; color: #64748b;">任务${data.mission.status === 'COMPLETED' ? '已完成' : '进行中'}，等待最终结论生成</div>
-      <div style="font-size: 13px; color: #94a3b8; margin-top: 8px;">请查看下方任务详情了解当前进度</div>
-    </div>
-    `
-    }
-
-    <!-- Key Achievement Summary -->
-    <div style="margin-top: 30px;">
-      <div style="font-size: 16px; font-weight: bold; color: #1f2937; margin-bottom: 16px;">关键成果摘要</div>
-      <table style="width: 100%; border-collapse: separate; border-spacing: 10px;">
-        <tr>
-          <td style="background: #dcfce7; border-radius: 12px; padding: 20px; text-align: center; width: 50%;">
-            <div style="font-size: 36px; font-weight: bold; color: #166534;">${stats.completedTasks}/${stats.totalTasks}</div>
-            <div style="font-size: 13px; color: #166534; margin-top: 4px;">任务完成</div>
-          </td>
-          <td style="background: #dbeafe; border-radius: 12px; padding: 20px; text-align: center; width: 50%;">
-            <div style="font-size: 36px; font-weight: bold; color: #1e40af;">${completionRate}%</div>
-            <div style="font-size: 13px; color: #1e40af; margin-top: 4px;">完成率</div>
-          </td>
-        </tr>
-      </table>
-    </div>
-  </div>
-
-  <!-- Executive Summary -->
-  <div style="width: 100%; padding: 40px; box-sizing: border-box; page-break-before: always;">
-    <div style="font-size: 20px; font-weight: bold; color: #1f2937; border-bottom: 3px solid #7c3aed; padding-bottom: 10px; margin-bottom: 30px;">
       执行摘要
     </div>
 
-    <!-- Metrics -->
+    <!-- Core Findings Highlight (NEW - 3-5 key points) -->
+    <div style="background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%); border-radius: 16px; padding: 24px; margin-bottom: 30px; border-left: 4px solid #7c3aed;">
+      <div style="font-size: 14px; font-weight: bold; color: #7c3aed; margin-bottom: 12px;">核心要点</div>
+      <ul style="margin: 0; padding-left: 20px; color: #374151; line-height: 2;">
+        <li>共执行 <strong>${stats.totalTasks}</strong> 项子任务，完成率 <strong>${completionRate}%</strong></li>
+        <li>AI团队 <strong>${stats.participantCount}</strong> 名成员协作，总耗时 <strong>${stats.durationMinutes}</strong> 分钟</li>
+        <li>任务修订 <strong>${stats.totalRevisions}</strong> 次，平均每任务 <strong>${stats.avgRevisions.toFixed(1)}</strong> 次</li>
+        ${stats.failedTasks > 0 ? `<li style="color: #dc2626;">有 <strong>${stats.failedTasks}</strong> 项任务执行失败，需关注</li>` : ''}
+      </ul>
+    </div>
+
+    <!-- KPI Cards -->
     <table style="width: 100%; border-collapse: separate; border-spacing: 12px;">
       <tr>
         <td style="background: #f8fafc; border-radius: 10px; padding: 20px; text-align: center; width: 33%;">
@@ -359,8 +442,122 @@ function generateReportHtml(data: MissionReportData): string {
       </div>
     </div>
 
+    <!-- Page Footer -->
+    <div style="margin-top: 40px; padding-top: 8px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8;">
+      <span>报告生成: ${generatedAt}</span>
+      <span>DeepDive Engine</span>
+    </div>
+  </div>
+
+  <!-- Page 3: Table of Contents (NEW) -->
+  ${generateTableOfContents(hasFinalResult)}
+
+  ${
+    hasFinalResult
+      ? `
+  <!-- Page 4: Research Background & Methodology (RENAMED from "最终结论") -->
+  <div style="width: 100%; padding: 40px; box-sizing: border-box; page-break-before: always;">
+    <!-- Page Header -->
+    <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8;">
+      <span>${escapeHtml(data.mission.title.substring(0, 50))}${data.mission.title.length > 50 ? '...' : ''}</span>
+      <span>第 4 页</span>
+    </div>
+
+    <div style="font-size: 24px; font-weight: bold; color: #1f2937; border-bottom: 4px solid #7c3aed; padding-bottom: 12px; margin-bottom: 30px;">
+      研究背景与方法
+    </div>
+
+    <div style="background: #f8fafc; border-radius: 16px; padding: 30px; margin-bottom: 20px;">
+      <div style="font-size: 16px; font-weight: bold; color: #374151; margin-bottom: 16px;">研究范围与数据来源</div>
+      <div style="font-size: 13px; color: #64748b; line-height: 1.8;">
+        本报告基于AI团队协作研究生成。研究数据来源于各子任务执行过程中收集的信息。
+        任务执行周期为 ${formatDate(data.mission.createdAt)} 至 ${data.mission.completedAt ? formatDate(data.mission.completedAt) : '进行中'}。
+      </div>
+    </div>
+
+    <div style="background: #f8fafc; border-radius: 16px; padding: 30px;">
+      <div style="font-size: 16px; font-weight: bold; color: #374151; margin-bottom: 16px;">研究方法论</div>
+      <div style="font-size: 13px; color: #64748b; line-height: 1.8;">
+        采用AI团队分布式协作模式，由 ${escapeHtml(data.mission.leader)} 作为任务负责人统筹协调，
+        ${stats.participantCount} 名AI成员分工执行 ${stats.totalTasks} 项子任务。
+        任务执行过程中进行了 ${stats.totalRevisions} 次修订优化。
+      </div>
+    </div>
+
+    <!-- Page Footer -->
+    <div style="margin-top: 40px; padding-top: 8px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8;">
+      <span>报告生成: ${generatedAt}</span>
+      <span>DeepDive Engine</span>
+    </div>
+  </div>
+
+  <!-- Page 5: Key Findings & Conclusions (SPLIT from "最终结论") -->
+  <div style="width: 100%; padding: 40px; box-sizing: border-box; page-break-before: always;">
+    <!-- Page Header -->
+    <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8;">
+      <span>${escapeHtml(data.mission.title.substring(0, 50))}${data.mission.title.length > 50 ? '...' : ''}</span>
+      <span>第 5 页</span>
+    </div>
+
+    <div style="font-size: 24px; font-weight: bold; color: #7c3aed; border-bottom: 4px solid #7c3aed; padding-bottom: 12px; margin-bottom: 30px;">
+      核心发现与结论
+    </div>
+
+    <div style="background: #faf5ff; border: 2px solid #7c3aed; border-radius: 16px; padding: 30px;">
+      <div style="font-size: 14px; color: #374151; line-height: 1.9;">
+        ${markdownToHtml(data.mission.finalResult || '')}
+      </div>
+    </div>
+
+    <!-- Page Footer -->
+    <div style="margin-top: 40px; padding-top: 8px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8;">
+      <span>报告生成: ${generatedAt}</span>
+      <span>DeepDive Engine</span>
+    </div>
+  </div>
+  `
+      : `
+  <!-- No Final Result - Show placeholder -->
+  <div style="width: 100%; padding: 40px; box-sizing: border-box; page-break-before: always;">
+    <!-- Page Header -->
+    <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8;">
+      <span>${escapeHtml(data.mission.title.substring(0, 50))}${data.mission.title.length > 50 ? '...' : ''}</span>
+      <span>第 4 页</span>
+    </div>
+
+    <div style="font-size: 24px; font-weight: bold; color: #1f2937; border-bottom: 4px solid #7c3aed; padding-bottom: 12px; margin-bottom: 30px;">
+      核心发现与结论
+    </div>
+
+    <div style="background: #f8fafc; border-radius: 16px; padding: 40px; text-align: center;">
+      <div style="font-size: 48px; margin-bottom: 16px;">📋</div>
+      <div style="font-size: 16px; color: #64748b;">任务${data.mission.status === 'COMPLETED' ? '已完成' : '进行中'}，等待最终结论生成</div>
+      <div style="font-size: 13px; color: #94a3b8; margin-top: 8px;">请查看下方任务详情了解当前进度</div>
+    </div>
+
+    <!-- Page Footer -->
+    <div style="margin-top: 40px; padding-top: 8px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8;">
+      <span>报告生成: ${generatedAt}</span>
+      <span>DeepDive Engine</span>
+    </div>
+  </div>
+  `
+  }
+
+  <!-- Team Execution Report -->
+  <div style="width: 100%; padding: 40px; box-sizing: border-box; page-break-before: always;">
+    <!-- Page Header -->
+    <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8;">
+      <span>${escapeHtml(data.mission.title.substring(0, 50))}${data.mission.title.length > 50 ? '...' : ''}</span>
+      <span>团队执行报告</span>
+    </div>
+
+    <div style="font-size: 20px; font-weight: bold; color: #1f2937; border-bottom: 3px solid #7c3aed; padding-bottom: 10px; margin-bottom: 30px;">
+      团队执行报告
+    </div>
+
     <!-- Status Distribution -->
-    <div style="margin-top: 30px;">
+    <div style="margin-bottom: 30px;">
       <div style="font-size: 16px; font-weight: bold; color: #1f2937; margin-bottom: 12px;">任务状态分布</div>
       <table style="width: 100%; background: #f8fafc; border-radius: 8px; padding: 20px;">
         <tr>
@@ -390,7 +587,7 @@ function generateReportHtml(data: MissionReportData): string {
 
     <!-- Participants -->
     <div style="margin-top: 30px;">
-      <div style="font-size: 16px; font-weight: bold; color: #1f2937; margin-bottom: 16px;">AI成员参与情况</div>
+      <div style="font-size: 16px; font-weight: bold; color: #1f2937; margin-bottom: 16px;">AI成员贡献统计</div>
       <div style="background: #f8fafc; border-radius: 12px; padding: 20px;">
       ${sortedParticipants
         .map(
@@ -398,10 +595,10 @@ function generateReportHtml(data: MissionReportData): string {
         <div style="margin: 12px 0;">
           <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
             <span style="font-size: 12px; color: #374151; font-weight: 500;">${escapeHtml(name)}</span>
-            <span style="font-size: 12px; color: #7c3aed; font-weight: 600;">${count} 个任务</span>
+            <span style="font-size: 12px; color: #7c3aed; font-weight: 600;">${count} 个任务 (${Math.round((count / stats.totalTasks) * 100)}%)</span>
           </div>
           <div style="height: 8px; background: #e2e8f0; border-radius: 4px;">
-            <div style="width: ${(count / maxTasks) * 100}%; height: 100%; background: #7c3aed; border-radius: 4px;"></div>
+            <div style="width: ${(count / maxTasks) * 100}%; height: 100%; background: linear-gradient(90deg, #7c3aed, #a78bfa); border-radius: 4px;"></div>
           </div>
         </div>
       `
@@ -409,24 +606,36 @@ function generateReportHtml(data: MissionReportData): string {
         .join('')}
       </div>
     </div>
+
+    <!-- Page Footer -->
+    <div style="margin-top: 40px; padding-top: 8px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8;">
+      <span>报告生成: ${generatedAt}</span>
+      <span>DeepDive Engine</span>
+    </div>
   </div>
 
-  <!-- Appendix: Task Execution Details -->
+  <!-- Appendix: Task Execution Details (FULL CONTENT - NO TRUNCATION) -->
   <div style="width: 100%; padding: 40px; box-sizing: border-box; page-break-before: always;">
+    <!-- Page Header -->
+    <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8;">
+      <span>${escapeHtml(data.mission.title.substring(0, 50))}${data.mission.title.length > 50 ? '...' : ''}</span>
+      <span>附录</span>
+    </div>
+
     <div style="font-size: 18px; font-weight: bold; color: #64748b; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">
       附录：任务执行明细
     </div>
-    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 20px;">以下为各子任务的执行过程记录，供参考查阅</div>
+    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 20px;">以下为各子任务的完整执行记录</div>
 
     ${data.tasks
       .map(
         (task, index) => `
-      <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 16px; background: #fafafa;">
+      <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 16px; background: #fafafa; page-break-inside: avoid;">
         <table style="width: 100%; border-collapse: collapse;">
           <tr>
             <td style="width: 70%; vertical-align: top;">
               <div style="font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 4px;">${index + 1}. ${escapeHtml(task.title)}</div>
-              <div style="font-size: 11px; color: #6b7280;">执行: ${escapeHtml(task.assignedTo)} | 修订: ${task.revisionCount}次</div>
+              <div style="font-size: 11px; color: #6b7280;">执行: ${escapeHtml(task.assignedTo)} | 修订: ${task.revisionCount}次${task.completedAt ? ` | 完成: ${formatDate(task.completedAt)}` : ''}</div>
             </td>
             <td style="width: 30%; text-align: right; vertical-align: top;">
               ${getStatusBadge(task.status)}
@@ -437,7 +646,16 @@ function generateReportHtml(data: MissionReportData): string {
           task.result
             ? `
           <div style="background: white; border-radius: 6px; padding: 12px; margin-top: 10px; font-size: 11px; color: #475569; line-height: 1.6; border: 1px solid #e2e8f0;">
-${markdownToHtml(task.result.length > 800 ? task.result.substring(0, 800) + '...(详情略)' : task.result)}
+            ${markdownToHtml(task.result)}
+          </div>
+        `
+            : ''
+        }
+        ${
+          task.leaderFeedback
+            ? `
+          <div style="background: #fef3c7; border-radius: 6px; padding: 10px; margin-top: 8px; font-size: 10px; color: #92400e; border-left: 3px solid #f59e0b;">
+            <strong>负责人反馈:</strong> ${escapeHtml(task.leaderFeedback)}
           </div>
         `
             : ''
@@ -446,10 +664,17 @@ ${markdownToHtml(task.result.length > 800 ? task.result.substring(0, 800) + '...
     `
       )
       .join('')}
+
+    <!-- Page Footer -->
+    <div style="margin-top: 40px; padding-top: 8px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8;">
+      <span>报告生成: ${generatedAt}</span>
+      <span>DeepDive Engine</span>
+    </div>
   </div>
 
-  <!-- Footer -->
-  <div style="text-align: center; padding: 20px; color: #9ca3af; font-size: 11px;">
+  <!-- Final Footer -->
+  <div style="text-align: center; padding: 30px; color: #9ca3af; font-size: 11px; border-top: 1px solid #e2e8f0;">
+    <div style="margin-bottom: 8px;">— 报告结束 —</div>
     © ${new Date().getFullYear()} DeepDive Engine - AI Team Mission Report
   </div>
 
