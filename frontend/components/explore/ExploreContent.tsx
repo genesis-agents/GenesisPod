@@ -2386,7 +2386,10 @@ function HomeContent() {
               {/* Embedded Content - 移除Preview头部，直接显示内容以最大化阅读区域 */}
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white">
                 {/* Display preview - 使用客户端渲染避免浏览器阻止iframe */}
-                {selectedResource.type === 'PAPER' &&
+                {/* PDF 预览 - 支持 PAPER 和 REPORT 类型，或任何有 pdfUrl 的资源 */}
+                {(selectedResource.type === 'PAPER' ||
+                  selectedResource.type === 'REPORT' ||
+                  selectedResource.pdfUrl) &&
                 selectedResource.pdfUrl ? (
                   <TextSelectionToolbar
                     resourceId={selectedResource.id}
