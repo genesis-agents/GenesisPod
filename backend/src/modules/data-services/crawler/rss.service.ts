@@ -295,11 +295,14 @@ export class RssService {
           }
 
           // YouTube视频时长过滤（在去重检查之前进行，节省API调用）
-          if (
-            isYouTubeFeed &&
-            minDuration &&
-            this.isYouTubeVideoUrl(item.link)
-          ) {
+          const shouldCheckDuration =
+            isYouTubeFeed && minDuration && this.isYouTubeVideoUrl(item.link);
+
+          this.logger.log(
+            `🔍 Duration check: shouldCheck=${shouldCheckDuration}, isYouTubeFeed=${isYouTubeFeed}, minDuration=${minDuration}, link=${item.link}, isYouTubeUrl=${this.isYouTubeVideoUrl(item.link)}`,
+          );
+
+          if (shouldCheckDuration) {
             const videoDuration = await this.getYouTubeVideoDuration(item.link);
             if (videoDuration !== null && videoDuration < minDuration) {
               this.logger.log(
