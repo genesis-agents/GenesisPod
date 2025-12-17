@@ -747,7 +747,7 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
       return false;
     };
 
-    const normalContextMessages = filteredContextMessages.filter((msg) => {
+    let normalContextMessages = filteredContextMessages.filter((msg) => {
       if (isMissionSystemMessage(msg.content)) {
         this.logger.log(
           `[Context Filter] Removing mission message: "${msg.content.substring(0, 50)}..."`,
@@ -759,6 +759,48 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
 
     this.logger.log(
       `[Context Filter] After mission filter: ${filteredContextMessages.length} -> ${normalContextMessages.length} messages`,
+    );
+
+    // ========== Context Size Management ==========
+    // Best practice: Limit both message count AND total context size
+    // to prevent exceeding model's context window
+
+    // 1. Limit message count to last 25 messages (keep most recent context)
+    const MAX_CHAT_CONTEXT_MESSAGES = 25;
+    if (normalContextMessages.length > MAX_CHAT_CONTEXT_MESSAGES) {
+      this.logger.log(
+        `[Context Management] Trimming messages: ${normalContextMessages.length} -> ${MAX_CHAT_CONTEXT_MESSAGES}`,
+      );
+      normalContextMessages = normalContextMessages.slice(
+        -MAX_CHAT_CONTEXT_MESSAGES,
+      );
+    }
+
+    // 2. Calculate and limit total context size
+    // Roughly 4 chars = 1 token, target ~30k tokens = ~120k chars for context
+    // Leave room for system prompt (~5k) and response (~8k tokens)
+    const MAX_TOTAL_CONTEXT_CHARS = 100000;
+    let totalContextChars = normalContextMessages.reduce(
+      (sum, m) => sum + m.content.length,
+      0,
+    );
+
+    // If still too large, progressively trim oldest messages
+    while (
+      totalContextChars > MAX_TOTAL_CONTEXT_CHARS &&
+      normalContextMessages.length > 3
+    ) {
+      const removed = normalContextMessages.shift();
+      if (removed) {
+        totalContextChars -= removed.content.length;
+        this.logger.log(
+          `[Context Management] Removed oldest message (${removed.content.length} chars), remaining: ${normalContextMessages.length} messages, ${totalContextChars} chars`,
+        );
+      }
+    }
+
+    this.logger.log(
+      `[Context Management] Final context: ${normalContextMessages.length} messages, ~${Math.round(totalContextChars / 4)} tokens`,
     );
 
     const chatMessages: ChatMessage[] = normalContextMessages.map((m) => {
@@ -908,12 +950,27 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
           aiModelConfig?.apiEndpoint ||
           this.getDefaultEndpoint(aiMember.aiModel);
 
+        // Determine max_tokens based on model capabilities
+        // Reasoning models and large context models can handle more output
         const isReasoningModel =
           modelId.includes("gpt-5") ||
           modelId.startsWith("o1") ||
           modelId.startsWith("o3") ||
           modelId.includes("gemini-3-pro");
-        const effectiveMaxTokens = isReasoningModel ? 4096 : 1024;
+        const isLargeModel =
+          modelId.includes("gpt-4") ||
+          modelId.includes("claude") ||
+          modelId.includes("gemini");
+
+        // Increased max_tokens to prevent truncation in team conversations
+        // - Reasoning models: 8192 tokens (complex multi-step tasks)
+        // - Large models: 4096 tokens (standard conversations)
+        // - Other models: 2048 tokens (simpler responses)
+        const effectiveMaxTokens = isReasoningModel
+          ? 8192
+          : isLargeModel
+            ? 4096
+            : 2048;
 
         this.logger.log(
           `Calling AI API: provider=${provider}, modelId=${modelId}, maxTokens=${effectiveMaxTokens}`,
@@ -955,7 +1012,7 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
           model: aiMember.aiModel,
           systemPrompt: finalSystemPrompt,
           messages: chatMessages,
-          maxTokens: 1024,
+          maxTokens: 4096, // Increased from 1024 to prevent truncation
           temperature: 0.7,
         });
       }

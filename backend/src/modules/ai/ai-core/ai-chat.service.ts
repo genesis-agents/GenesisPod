@@ -1374,25 +1374,54 @@ Format the summary in a clear, structured manner using markdown.`;
           );
         }
 
+        const finishReason = data.choices?.[0]?.finish_reason;
+
         if (!content) {
-          const finishReason = data.choices?.[0]?.finish_reason;
           this.logger.warn(
             `[${modelName}] API returned empty content (finish_reason=${finishReason}), full response: ${JSON.stringify(data).substring(0, 500)}`,
           );
-          // 如果是因为max_tokens不足导致的空内容，抛出异常以便尝试下一个模型
+          // 如果是因为max_tokens不足导致的空内容，返回提示信息而不是抛出异常
+          // 这样用户可以看到发生了什么，而不是看到错误
           if (finishReason === "length") {
-            throw new Error(
-              `[${modelName}] Response truncated due to max_tokens limit (finish_reason=length)`,
+            this.logger.warn(
+              `[${modelName}] Response truncated due to max_tokens limit - returning truncation message`,
             );
+            return {
+              content:
+                "[响应被截断] AI 的响应超出了最大长度限制。请尝试简化问题或分步骤提问。",
+              model: modelName,
+              tokensUsed: data.usage?.total_tokens || 0,
+            };
           }
-          // 其他原因导致的空内容也抛出异常
-          throw new Error(
-            `[${modelName}] No response content received from API.`,
+          // 其他原因导致的空内容也返回友好提示
+          return {
+            content: `[响应为空] AI 返回了空响应 (原因: ${finishReason || "unknown"})。请重试。`,
+            model: modelName,
+            tokensUsed: data.usage?.total_tokens || 0,
+          };
+        }
+
+        // 如果有内容但是被截断，添加提示
+        let finalContent = content;
+        if (finishReason === "length") {
+          this.logger.warn(
+            `[${modelName}] Response content was truncated (finish_reason=length), content length: ${content.length}`,
           );
+          // 如果内容不是以完整句子结尾，添加截断提示
+          if (
+            !content.endsWith(".") &&
+            !content.endsWith("。") &&
+            !content.endsWith("!") &&
+            !content.endsWith("！") &&
+            !content.endsWith("?") &&
+            !content.endsWith("？")
+          ) {
+            finalContent = content + "\n\n[... 响应因长度限制被截断]";
+          }
         }
 
         return {
-          content,
+          content: finalContent,
           model: modelName,
           tokensUsed: data.usage?.total_tokens || 0,
         };
@@ -1934,19 +1963,51 @@ Generate an image that fulfills the current request while maintaining consistenc
       }
     }
 
+    const finishReason = data.candidates?.[0]?.finishReason;
+
     if (!finalContent) {
-      const finishReason = data.candidates?.[0]?.finishReason;
       this.logger.warn(
         `[Gemini] Empty response (finishReason=${finishReason}), full data: ${JSON.stringify(data).substring(0, 500)}`,
       );
-      // 如果是因为max_tokens不足导致的空内容，抛出异常以便尝试下一个模型
+      // 返回友好提示而不是抛出异常
       if (finishReason === "MAX_TOKENS") {
-        throw new Error(
-          `[Gemini] Response truncated due to max_tokens limit (finishReason=MAX_TOKENS)`,
+        this.logger.warn(
+          `[Gemini] Response truncated due to max_tokens limit - returning truncation message`,
         );
+        return {
+          content:
+            "[响应被截断] AI 的响应超出了最大长度限制。请尝试简化问题或分步骤提问。",
+          model: "gemini",
+          tokensUsed:
+            (data.usageMetadata?.promptTokenCount || 0) +
+            (data.usageMetadata?.candidatesTokenCount || 0),
+        };
       }
-      // 其他原因导致的空内容也抛出异常
-      throw new Error(`[Gemini] No response content received from API.`);
+      return {
+        content: `[响应为空] AI 返回了空响应 (原因: ${finishReason || "unknown"})。请重试。`,
+        model: "gemini",
+        tokensUsed:
+          (data.usageMetadata?.promptTokenCount || 0) +
+          (data.usageMetadata?.candidatesTokenCount || 0),
+      };
+    }
+
+    // 如果有内容但是被截断，添加提示
+    if (finishReason === "MAX_TOKENS") {
+      this.logger.warn(
+        `[Gemini] Response content was truncated (finishReason=MAX_TOKENS), content length: ${finalContent.length}`,
+      );
+      // 如果内容不是以完整句子结尾，添加截断提示
+      if (
+        !finalContent.endsWith(".") &&
+        !finalContent.endsWith("。") &&
+        !finalContent.endsWith("!") &&
+        !finalContent.endsWith("！") &&
+        !finalContent.endsWith("?") &&
+        !finalContent.endsWith("？")
+      ) {
+        finalContent = finalContent + "\n\n[... 响应因长度限制被截断]";
+      }
     }
 
     return {

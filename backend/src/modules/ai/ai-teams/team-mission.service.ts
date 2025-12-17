@@ -82,6 +82,16 @@ export class TeamMissionService {
   ) {
     const modelConfig = await this.getModelConfig(aiModel);
 
+    // Determine appropriate max_tokens based on model
+    const isLargeModel =
+      aiModel.includes("gpt-4") ||
+      aiModel.includes("claude") ||
+      aiModel.includes("gemini") ||
+      aiModel.includes("gpt-5") ||
+      aiModel.startsWith("o1") ||
+      aiModel.startsWith("o3");
+    const defaultMaxTokens = isLargeModel ? 6000 : 4000;
+
     if (modelConfig && modelConfig.apiKey) {
       // Use database API key
       return this.aiChatService.generateChatCompletionWithKey({
@@ -91,7 +101,7 @@ export class TeamMissionService {
         apiEndpoint: modelConfig.apiEndpoint ?? undefined,
         systemPrompt,
         messages: messages as any,
-        maxTokens: options?.maxTokens ?? 4000,
+        maxTokens: options?.maxTokens ?? defaultMaxTokens,
         temperature: options?.temperature ?? 0.7,
       });
     }
@@ -101,7 +111,7 @@ export class TeamMissionService {
       model: aiModel,
       messages: messages as any,
       systemPrompt,
-      maxTokens: options?.maxTokens ?? 4000,
+      maxTokens: options?.maxTokens ?? defaultMaxTokens,
       temperature: options?.temperature ?? 0.7,
     });
   }
