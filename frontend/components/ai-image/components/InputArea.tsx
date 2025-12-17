@@ -46,7 +46,7 @@ export interface InputAreaProps {
   cursorPosition: number;
   onCursorPositionChange: (pos: number) => void;
   filteredSources: ImageSource[];
-  onKeyDown: (e: React.KeyboardEvent) => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
 
   // YouTube mode
   youtubeUrl: string;
@@ -381,7 +381,7 @@ interface PromptInputProps {
   cursorPosition: number;
   onCursorPositionChange: (pos: number) => void;
   filteredSources: ImageSource[];
-  onKeyDown: (e: React.KeyboardEvent) => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   isGenerating: boolean;
   canGenerate: boolean;
   onGenerate: () => void;

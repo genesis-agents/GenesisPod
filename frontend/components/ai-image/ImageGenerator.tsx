@@ -14,7 +14,7 @@ import { getAuthHeader } from '@/lib/utils/auth';
 import { useImageSourceStore } from '@/stores/imageSourceStore';
 
 // Note: The following extracted components are available for future integration:
-// import { InputArea } from './components/InputArea';
+import { InputArea } from './components/InputArea';
 // import { ThumbnailGallery } from './components/ThumbnailGallery';
 // import { InsightsPanel } from './components/InsightsPanel';
 // import { ContextMenu } from './components/ContextMenu';
@@ -1847,6 +1847,30 @@ export default function ImageGenerator({
     );
   }, [sources, mentionQuery]);
 
+  // URL input handlers for InputArea
+  const handleUrlChange = useCallback((index: number, value: string) => {
+    setUrls((prev) => {
+      const newUrls = [...prev];
+      newUrls[index] = value;
+      return newUrls;
+    });
+  }, []);
+
+  const handleAddUrl = useCallback(() => {
+    if (urls.length < 5) {
+      setUrls((prev) => [...prev, '']);
+    }
+  }, [urls.length]);
+
+  const handleRemoveUrl = useCallback((index: number) => {
+    setUrls((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  // File remove handler for InputArea
+  const handleRemoveFile = useCallback((id: string) => {
+    setUploadedFiles((prev) => prev.filter((f) => f.id !== id));
+  }, []);
+
   // ===================== RENDER =====================
 
   return (
@@ -2147,796 +2171,68 @@ export default function ImageGenerator({
             </div>
           )}
 
-          {/* Input Area */}
-          <div className={`flex-shrink-0 ${selectedImage ? '' : ''}`}>
-            {/* Control Bar - Clean Design */}
-            <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 bg-white px-4 py-3">
-              {/* Model Selector */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-600">Model</span>
-                {isLoadingModels ? (
-                  <div className="h-7 w-20 animate-pulse rounded-md bg-gray-100" />
-                ) : models.imageModels.length > 0 ? (
-                  <select
-                    value={selectedImageModelId}
-                    onChange={(e) => setSelectedImageModelId(e.target.value)}
-                    className="h-7 rounded-md border border-gray-200 bg-gray-50 px-2 text-xs text-gray-700 transition-colors hover:border-gray-300 focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-100"
-                    disabled={isGenerating}
-                  >
-                    {models.imageModels.map((model) => (
-                      <option key={model.id} value={model.id}>
-                        {model.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <span className="text-xs text-amber-600">N/A</span>
-                )}
-              </div>
-
-              {/* Divider */}
-              <div className="h-4 w-px bg-gray-200" />
-
-              {/* Template Layout */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-600">
-                  Layout
-                </span>
-                <select
-                  value={templateLayout}
-                  onChange={(e) =>
-                    setTemplateLayout(e.target.value as typeof templateLayout)
-                  }
-                  className="h-7 rounded-md border border-gray-200 bg-gray-50 px-2 text-xs text-gray-700 transition-colors hover:border-gray-300 focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-100"
-                  disabled={isGenerating}
-                  title="Template layout"
-                >
-                  <option value="auto">Auto</option>
-                  <option value="cards">Cards</option>
-                  <option value="center_visual">Center</option>
-                  <option value="timeline">Timeline</option>
-                  <option value="comparison">Compare</option>
-                  <option value="pyramid">Pyramid</option>
-                  <option value="radial">Radial</option>
-                  <option value="statistics">Stats</option>
-                  <option value="checklist">Checklist</option>
-                  <option value="funnel">Funnel</option>
-                  <option value="matrix">Matrix</option>
-                  <option value="ranking">Ranking</option>
-                </select>
-              </div>
-
-              {/* Divider */}
-              <div className="h-4 w-px bg-gray-200" />
-
-              {/* Aspect Ratio */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-600">Ratio</span>
-                <div className="flex rounded-md border border-gray-200 bg-gray-50 p-0.5">
-                  {(['1:1', '16:9', '9:16', '4:3'] as const).map((ratio) => (
-                    <button
-                      key={ratio}
-                      onClick={() => setAspectRatio(ratio)}
-                      disabled={isGenerating}
-                      className={`rounded px-2 py-1 text-xs font-medium transition-all ${
-                        aspectRatio === ratio
-                          ? 'bg-purple-600 text-white shadow-sm'
-                          : 'text-gray-600 hover:bg-gray-100'
-                      }`}
-                    >
-                      {ratio}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Spacer */}
-              <div className="flex-1" />
-
-              {/* Skip AI Toggle */}
-              <label
-                className="flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-xs text-gray-500 transition-colors hover:bg-gray-50"
-                title="Skip AI enhancement for faster generation"
-              >
-                <input
-                  type="checkbox"
-                  checked={skipEnhancement}
-                  onChange={(e) => setSkipEnhancement(e.target.checked)}
-                  className="h-3.5 w-3.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                  disabled={isGenerating}
-                />
-                <span>Skip AI</span>
-              </label>
-
-              {/* Refresh Models */}
-              <button
-                onClick={fetchModels}
-                disabled={isLoadingModels}
-                className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                title="Refresh models"
-              >
-                <svg
-                  className={`h-4 w-4 ${isLoadingModels ? 'animate-spin' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            {/* Source Pool */}
-            <div className="px-3 pt-2">
-              <SourcePool />
-            </div>
-
-            {/* Error Message */}
-            {error && (
-              <div className="mx-3 mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
-                {error}
-              </div>
-            )}
-
-            {/* Input Mode Tabs */}
-            {inputMode !== 'refine' && (
-              <div className="flex border-b border-gray-100 px-4">
-                {[
-                  {
-                    mode: 'prompt' as InputMode,
-                    label: 'Prompt',
-                    icon: 'M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
-                  },
-                  {
-                    mode: 'youtube' as InputMode,
-                    label: 'YouTube',
-                    icon: 'M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-                  },
-                  {
-                    mode: 'url' as InputMode,
-                    label: 'URL',
-                    icon: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1',
-                  },
-                  {
-                    mode: 'files' as InputMode,
-                    label: 'Files',
-                    icon: 'M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12',
-                  },
-                ].map(({ mode, label, icon }) => (
-                  <button
-                    key={mode}
-                    onClick={() => setInputMode(mode)}
-                    className={`relative flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-all ${
-                      inputMode === mode
-                        ? 'text-purple-600'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d={icon}
-                      />
-                    </svg>
-                    {label}
-                    {/* Active indicator */}
-                    {inputMode === mode && (
-                      <span className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full bg-purple-600" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Refine Mode Header */}
-            {inputMode === 'refine' && (
-              <div className="mx-3 mt-2 flex items-center gap-2 rounded-t-lg border border-purple-200 bg-purple-50 px-3 py-2">
-                <svg
-                  className="h-4 w-4 text-purple-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                  />
-                </svg>
-                <span className="text-xs font-medium text-purple-700">
-                  Refine Image
-                </span>
-                <button
-                  onClick={handleCancelRefine}
-                  className="ml-auto text-gray-400 hover:text-gray-600"
-                >
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-            )}
-
-            {/* Input Area Content */}
-            <div className="p-3">
-              {/* Prompt Input */}
-              {inputMode === 'prompt' && (
-                <div className="relative">
-                  <div className="rounded-xl border border-gray-300 bg-white focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500">
-                    <textarea
-                      ref={textareaRef}
-                      value={prompt}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setPrompt(value);
-                        const cursor = e.target.selectionStart || 0;
-                        setCursorPosition(cursor);
-                        const lastAt = value.lastIndexOf('@', cursor);
-                        if (lastAt !== -1 && lastAt < cursor) {
-                          const query = value.slice(lastAt + 1, cursor);
-                          if (!query.includes(' ')) {
-                            setShowMentions(true);
-                            setMentionQuery(query);
-                            return;
-                          }
-                        }
-                        setShowMentions(false);
-                      }}
-                      onKeyDown={handleKeyDown}
-                      placeholder="Describe what you want to create... (Type @ to mention sources, Shift+Enter for new line)"
-                      className="max-h-[200px] min-h-[80px] w-full resize-none bg-transparent px-3 py-3 text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
-                      disabled={isGenerating}
-                      rows={3}
-                    />
-                    <div className="flex items-center justify-between px-3 pb-2">
-                      <span className="text-[10px] text-gray-400">
-                        Enter to generate
-                      </span>
-                      <button
-                        onClick={handleGenerate}
-                        disabled={
-                          !hasValidInput() ||
-                          isGenerating ||
-                          models.imageModels.length === 0
-                        }
-                        className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 px-3 py-1.5 text-xs text-white transition hover:from-purple-700 hover:to-blue-700 disabled:opacity-50"
-                      >
-                        {isGenerating ? (
-                          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                        ) : (
-                          <svg
-                            className="h-3.5 w-3.5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-                            />
-                          </svg>
-                        )}
-                        Generate
-                      </button>
-                    </div>
-                  </div>
-                  {/* Mentions Dropdown */}
-                  {showMentions && filteredSources.length > 0 && (
-                    <div className="absolute bottom-full left-0 z-10 mb-2 w-full max-w-xs overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl">
-                      <div className="border-b border-gray-200 bg-gray-50 px-3 py-1.5 text-[10px] text-gray-500">
-                        Mention source...
-                      </div>
-                      <div className="max-h-40 overflow-y-auto">
-                        {filteredSources.map((source) => (
-                          <button
-                            key={source.id}
-                            onClick={() => {
-                              const lastAt = prompt.lastIndexOf(
-                                '@',
-                                cursorPosition
-                              );
-                              if (lastAt !== -1) {
-                                const newPrompt =
-                                  prompt.slice(0, lastAt) +
-                                  `@[${source.title}]` +
-                                  prompt.slice(cursorPosition);
-                                setPrompt(newPrompt);
-                                setShowMentions(false);
-                                textareaRef.current?.focus();
-                              }
-                            }}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
-                          >
-                            <span className="flex-shrink-0">
-                              {source.type === 'paper'
-                                ? '📄'
-                                : source.type === 'youtube'
-                                  ? '🎬'
-                                  : '🔗'}
-                            </span>
-                            <span className="truncate">{source.title}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* YouTube Input */}
-              {inputMode === 'youtube' && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 focus-within:border-red-500 focus-within:ring-1 focus-within:ring-red-500">
-                    <svg
-                      className="h-4 w-4 flex-shrink-0 text-red-500"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                    </svg>
-                    <input
-                      type="url"
-                      value={youtubeUrl}
-                      onChange={(e) => setYoutubeUrl(e.target.value)}
-                      placeholder="Paste YouTube video URL..."
-                      className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
-                      disabled={isGenerating}
-                    />
-                  </div>
-
-                  {/* Prompt for YouTube */}
-                  <div className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 focus-within:border-red-500 focus-within:ring-1 focus-within:ring-red-500">
-                    <svg
-                      className="h-3.5 w-3.5 flex-shrink-0 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                      />
-                    </svg>
-                    <input
-                      type="text"
-                      value={youtubePrompt}
-                      onChange={(e) => setYoutubePrompt(e.target.value)}
-                      placeholder="Describe what to generate from video..."
-                      className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
-                      disabled={isGenerating}
-                    />
-                  </div>
-
-                  <p className="text-[10px] text-gray-500">
-                    Extract video subtitles and generate an image based on
-                    content
-                  </p>
-                  <div className="flex justify-end">
-                    <button
-                      onClick={handleGenerate}
-                      disabled={
-                        !hasValidInput() ||
-                        isGenerating ||
-                        models.imageModels.length === 0
-                      }
-                      className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-red-600 to-pink-600 px-3 py-1.5 text-xs text-white transition hover:from-red-700 hover:to-pink-700 disabled:opacity-50"
-                    >
-                      {isGenerating ? (
-                        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      ) : (
-                        <svg
-                          className="h-3.5 w-3.5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-                          />
-                        </svg>
-                      )}
-                      Generate
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* URL Input */}
-              {inputMode === 'url' && (
-                <div className="space-y-2">
-                  {urls.map((url, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <div className="flex flex-1 items-center rounded-xl border border-gray-300 bg-white px-3 py-2 focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500">
-                        <svg
-                          className="mr-2 h-3.5 w-3.5 flex-shrink-0 text-gray-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                          />
-                        </svg>
-                        <input
-                          type="text"
-                          value={url}
-                          onChange={(e) => updateUrl(index, e.target.value)}
-                          placeholder="https://example.com/article"
-                          className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
-                          disabled={isGenerating}
-                        />
-                      </div>
-                      {urls.length > 1 && (
-                        <button
-                          onClick={() => removeUrlInput(index)}
-                          className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                        >
-                          <svg
-                            className="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M6 18L18 6M6 6l12 12"
-                            />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  <button
-                    onClick={addUrlInput}
-                    className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-700"
-                  >
-                    <svg
-                      className="h-3 w-3"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 4v16m8-8H4"
-                      />
-                    </svg>
-                    Add URL
-                  </button>
-
-                  {/* Prompt for URLs */}
-                  <div className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500">
-                    <svg
-                      className="h-3.5 w-3.5 flex-shrink-0 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                      />
-                    </svg>
-                    <input
-                      type="text"
-                      value={urlPrompt}
-                      onChange={(e) => setUrlPrompt(e.target.value)}
-                      placeholder="Describe what to generate from URLs..."
-                      className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
-                      disabled={isGenerating}
-                    />
-                  </div>
-
-                  <div className="flex justify-end">
-                    <button
-                      onClick={handleGenerate}
-                      disabled={
-                        !hasValidInput() ||
-                        isGenerating ||
-                        models.imageModels.length === 0
-                      }
-                      className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 px-3 py-1.5 text-xs text-white transition hover:from-purple-700 hover:to-blue-700 disabled:opacity-50"
-                    >
-                      {isGenerating ? (
-                        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      ) : (
-                        <svg
-                          className="h-3.5 w-3.5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-                          />
-                        </svg>
-                      )}
-                      Generate
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Files Input */}
-              {inputMode === 'files' && (
-                <div className="space-y-2">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept=".txt,.md,.html,.json,.pdf,.srt,.vtt,image/*"
-                    onChange={(e) => handleFileSelect(e.target.files)}
-                    className="hidden"
-                  />
-                  <div
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-4 transition-all ${
-                      isDragging
-                        ? 'border-purple-400 bg-purple-50/80 shadow-inner'
-                        : 'border-gray-300 bg-gray-50 hover:border-purple-400'
-                    }`}
-                  >
-                    <svg
-                      className={`mb-1 h-6 w-6 ${isDragging ? 'text-purple-500' : 'text-gray-400'}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                      />
-                    </svg>
-                    <p className="text-xs text-gray-600">
-                      {isDragging ? 'Drop files here' : 'Click or drag files'}
-                    </p>
-                    <p className="mt-0.5 text-[10px] text-gray-400">
-                      PDF, TXT, MD, HTML, JSON, Images (max 50MB)
-                    </p>
-                  </div>
-
-                  {/* Prompt for files */}
-                  <div className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500">
-                    <svg
-                      className="h-3.5 w-3.5 flex-shrink-0 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                      />
-                    </svg>
-                    <input
-                      type="text"
-                      value={filesPrompt}
-                      onChange={(e) => setFilesPrompt(e.target.value)}
-                      placeholder="Describe what to generate from files..."
-                      className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
-                      disabled={isGenerating}
-                    />
-                  </div>
-
-                  {uploadedFiles.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {uploadedFiles.map((uf) => (
-                        <div
-                          key={uf.id}
-                          className="group flex items-center gap-1.5 rounded border border-gray-200 bg-gray-100 px-2 py-1"
-                        >
-                          {uf.preview ? (
-                            <img
-                              src={uf.preview}
-                              alt={uf.file.name}
-                              className="h-5 w-5 rounded object-cover"
-                            />
-                          ) : (
-                            <svg
-                              className="h-4 w-4 text-gray-500"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d={getFileIcon(uf.file)}
-                              />
-                            </svg>
-                          )}
-                          <span className="max-w-[100px] truncate text-[10px] text-gray-600">
-                            {uf.file.name}
-                          </span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeFile(uf.id);
-                            }}
-                            className="text-gray-400 opacity-0 hover:text-gray-600 group-hover:opacity-100"
-                          >
-                            <svg
-                              className="h-3 w-3"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M6 18L18 6M6 6l12 12"
-                              />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="flex justify-end">
-                    <button
-                      onClick={handleGenerate}
-                      disabled={
-                        !hasValidInput() ||
-                        isGenerating ||
-                        models.imageModels.length === 0
-                      }
-                      className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 px-3 py-1.5 text-xs text-white transition hover:from-purple-700 hover:to-blue-700 disabled:opacity-50"
-                    >
-                      {isGenerating ? (
-                        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      ) : (
-                        <svg
-                          className="h-3.5 w-3.5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-                          />
-                        </svg>
-                      )}
-                      Generate
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Refine Input */}
-              {inputMode === 'refine' && refineImage && (
-                <div className="space-y-2">
-                  {/* Reference image preview */}
-                  <div className="flex items-start gap-3 rounded-xl border border-purple-200 bg-purple-50 p-3">
-                    <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg">
-                      <img
-                        src={refineImage.imageUrl}
-                        alt="Reference"
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-purple-700">
-                        Reference Image
-                      </p>
-                      <p className="mt-0.5 line-clamp-2 text-[10px] text-gray-600">
-                        {refineImage.enhancedPrompt || refineImage.prompt}
-                      </p>
-                      <p className="mt-0.5 text-[10px] text-gray-500">
-                        {refineImage.width} x {refineImage.height}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Refine prompt input */}
-                  <div className="rounded-xl border border-gray-300 bg-white focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500">
-                    <textarea
-                      value={refinePrompt}
-                      onChange={(e) => setRefinePrompt(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleGenerate();
-                        }
-                      }}
-                      placeholder="Describe how to refine... (e.g., 'make it more vibrant', 'add snow')"
-                      className="min-h-[60px] w-full resize-none bg-transparent px-3 py-3 text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
-                      disabled={isGenerating}
-                      autoFocus
-                      rows={2}
-                    />
-                    <div className="flex items-center justify-between px-3 pb-2">
-                      <span className="text-[10px] text-gray-400">
-                        Enter to generate
-                      </span>
-                      <button
-                        onClick={handleGenerate}
-                        disabled={
-                          !hasValidInput() ||
-                          isGenerating ||
-                          models.imageModels.length === 0
-                        }
-                        className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-3 py-1.5 text-xs text-white transition hover:from-purple-700 hover:to-pink-700 disabled:opacity-50"
-                      >
-                        {isGenerating ? (
-                          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                        ) : (
-                          <svg
-                            className="h-3.5 w-3.5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                            />
-                          </svg>
-                        )}
-                        Refine
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+          {/* Input Area - Using extracted InputArea component */}
+          <InputArea
+            // Control bar props
+            models={models.imageModels}
+            selectedModelId={selectedImageModelId}
+            onModelChange={setSelectedImageModelId}
+            templateLayout={templateLayout}
+            onLayoutChange={setTemplateLayout}
+            aspectRatio={aspectRatio}
+            onAspectRatioChange={setAspectRatio}
+            skipEnhancement={skipEnhancement}
+            onSkipEnhancementChange={setSkipEnhancement}
+            isLoadingModels={isLoadingModels}
+            onRefreshModels={fetchModels}
+            // Input mode
+            inputMode={inputMode}
+            onInputModeChange={setInputMode}
+            // Prompt mode
+            prompt={prompt}
+            onPromptChange={setPrompt}
+            textareaRef={textareaRef}
+            showMentions={showMentions}
+            onShowMentionsChange={setShowMentions}
+            mentionQuery={mentionQuery}
+            onMentionQueryChange={setMentionQuery}
+            cursorPosition={cursorPosition}
+            onCursorPositionChange={setCursorPosition}
+            filteredSources={filteredSources}
+            onKeyDown={handleKeyDown}
+            // YouTube mode
+            youtubeUrl={youtubeUrl}
+            onYoutubeUrlChange={setYoutubeUrl}
+            youtubePrompt={youtubePrompt}
+            onYoutubePromptChange={setYoutubePrompt}
+            // URL mode
+            urls={urls}
+            onUrlChange={handleUrlChange}
+            onAddUrl={handleAddUrl}
+            onRemoveUrl={handleRemoveUrl}
+            urlPrompt={urlPrompt}
+            onUrlPromptChange={setUrlPrompt}
+            // Files mode
+            uploadedFiles={uploadedFiles}
+            filesPrompt={filesPrompt}
+            onFilesPromptChange={setFilesPrompt}
+            isDragging={isDragging}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onFileSelect={handleFileSelect}
+            onRemoveFile={handleRemoveFile}
+            // Refine mode
+            refineImage={refineImage}
+            refinePrompt={refinePrompt}
+            onRefinePromptChange={setRefinePrompt}
+            onCancelRefine={handleCancelRefine}
+            // Common
+            error={error}
+            isGenerating={isGenerating}
+            onGenerate={handleGenerate}
+            hasValidInput={hasValidInput}
+          />
         </div>
       </div>
 
