@@ -22,37 +22,106 @@ interface TableOfContentsProps {
   defaultCollapsed?: boolean;
 }
 
+// Helper function to decode HTML entities
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) =>
+      String.fromCharCode(parseInt(code, 16))
+    );
+}
+
+// Check if text looks like a valid heading
+function isValidHeadingText(text: string): boolean {
+  if (text.length < 2 || text.length > 150) return false;
+  // Filter out things that look like metadata or navigation
+  if (
+    /^(share|tweet|email|print|subscribe|read more|continue|next|prev)/i.test(
+      text
+    )
+  )
+    return false;
+  if (/^\d+$/.test(text)) return false; // Just numbers
+  if (/^[\d\s,./:-]+$/.test(text)) return false; // Dates or numbers only
+  return true;
+}
+
 // Extract headings from HTML content
 function extractHeadings(html: string): TOCHeading[] {
   const headings: TOCHeading[] = [];
 
-  // Match h1, h2, h3, h4 tags
-  const headingRegex =
-    /<h([1-4])([^>]*)>([^<]*(?:<[^/][^>]*>[^<]*<\/[^>]+>[^<]*)*)<\/h[1-4]>/gi;
+  // Strategy 1: Match h1, h2, h3, h4 tags (most common and reliable)
+  const headingRegex = /<h([1-4])([^>]*)>([\s\S]*?)<\/h[1-4]>/gi;
 
   let match;
-  let index = 0;
   while ((match = headingRegex.exec(html)) !== null) {
     const level = parseInt(match[1], 10);
     // Extract text content, removing any nested tags
-    const text = match[3]
-      .replace(/<[^>]+>/g, '') // Remove HTML tags
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .trim();
+    const text = decodeHtmlEntities(match[3].replace(/<[^>]+>/g, '')).trim();
 
-    if (text.length > 0 && text.length < 150) {
-      // Generate a unique ID
-      const id = `toc-heading-${index}`;
-      headings.push({ id, text, level });
-      index++;
+    if (isValidHeadingText(text)) {
+      headings.push({ id: `toc-heading-${headings.length}`, text, level });
     }
   }
 
-  // If no HTML headings found, try to detect markdown-style or plain text headings
+  // If found enough headings with h-tags, return them
+  if (headings.length >= 2) {
+    return headings;
+  }
+
+  // Strategy 2: Look for <strong> or <b> tags in separate paragraphs (common in reports)
+  // Match patterns like: <p><strong>Section Title</strong></p> or <p><b>Section Title</b></p>
+  const strongHeadingRegex =
+    /<p[^>]*>\s*<(strong|b)[^>]*>([\s\S]*?)<\/\1>\s*<\/p>/gi;
+
+  while ((match = strongHeadingRegex.exec(html)) !== null) {
+    const text = decodeHtmlEntities(match[2].replace(/<[^>]+>/g, '')).trim();
+    // Only treat as heading if it looks like a section title (not too long, starts with capital)
+    if (isValidHeadingText(text) && text.length < 100 && /^[A-Z]/.test(text)) {
+      // Check it's not just emphasized text within a sentence
+      if (!text.includes('.') || text.endsWith(':')) {
+        headings.push({ id: `toc-heading-${headings.length}`, text, level: 2 });
+      }
+    }
+  }
+
+  if (headings.length >= 2) {
+    return headings;
+  }
+
+  // Strategy 3: Look for standalone bold text that appears to be headers
+  // Pattern: <strong>...</strong> or <b>...</b> followed by newline or </p>
+  const standaloneBoldRegex =
+    /<(strong|b)[^>]*>([\s\S]*?)<\/\1>(?:\s*(?:<br\s*\/?>|<\/p>|\n))/gi;
+
+  const boldCandidates: TOCHeading[] = [];
+  while ((match = standaloneBoldRegex.exec(html)) !== null) {
+    const text = decodeHtmlEntities(match[2].replace(/<[^>]+>/g, '')).trim();
+    if (
+      isValidHeadingText(text) &&
+      text.length >= 3 &&
+      text.length < 80 &&
+      /^[A-Z]/.test(text) &&
+      !text.includes('.')
+    ) {
+      boldCandidates.push({
+        id: `toc-heading-${headings.length + boldCandidates.length}`,
+        text,
+        level: 2,
+      });
+    }
+  }
+
+  if (boldCandidates.length >= 2) {
+    return [...headings, ...boldCandidates];
+  }
+
+  // Strategy 4: Fallback to markdown-style or plain text headings
   if (headings.length === 0) {
     const lines = html.split(/\n/);
     for (let i = 0; i < lines.length; i++) {
@@ -62,8 +131,8 @@ function extractHeadings(html: string): TOCHeading[] {
       const mdMatch = line.match(/^(#{1,4})\s+(.+)$/);
       if (mdMatch) {
         const level = mdMatch[1].length;
-        const text = mdMatch[2].trim();
-        if (text.length > 0 && text.length < 150) {
+        const text = decodeHtmlEntities(mdMatch[2]).trim();
+        if (isValidHeadingText(text)) {
           headings.push({ id: `toc-heading-${headings.length}`, text, level });
         }
         continue;
@@ -84,12 +153,30 @@ function extractHeadings(html: string): TOCHeading[] {
         continue;
       }
 
-      // Check for numbered sections like "1. Introduction"
-      const numberedMatch = line.match(/^(\d+\.)\s+([A-Z][^.]*?)$/);
+      // Check for numbered sections like "1. Introduction" or "Section 1:"
+      const numberedMatch = line.match(
+        /^(?:Section\s+)?(\d+\.?)\s+([A-Z][^.]*?)$/i
+      );
       if (numberedMatch && line.length < 100) {
         headings.push({
           id: `toc-heading-${headings.length}`,
-          text: numberedMatch[2].trim(),
+          text: decodeHtmlEntities(numberedMatch[2]).trim(),
+          level: 2,
+        });
+        continue;
+      }
+
+      // Check for colon-terminated headers like "Key Findings:"
+      if (
+        line.length > 5 &&
+        line.length < 60 &&
+        line.endsWith(':') &&
+        /^[A-Z]/.test(line) &&
+        !line.includes('.')
+      ) {
+        headings.push({
+          id: `toc-heading-${headings.length}`,
+          text: line,
           level: 2,
         });
       }
@@ -135,17 +222,63 @@ export default function TableOfContents({
     // Add IDs to actual heading elements in the DOM after a small delay
     // to ensure the DOM has been rendered
     const timeoutId = setTimeout(() => {
-      if (containerRef.current) {
+      if (containerRef.current && extracted.length > 0) {
+        let idx = 0;
+
+        // First, try to match h1-h4 elements
         const headingElements =
           containerRef.current.querySelectorAll('h1, h2, h3, h4');
-        let idx = 0;
         headingElements.forEach((el) => {
           const text = el.textContent?.trim() || '';
-          if (text.length > 0 && text.length < 150) {
+          if (isValidHeadingText(text)) {
             el.id = `toc-heading-${idx}`;
             idx++;
           }
         });
+
+        // If we found headings in DOM matching our extracted count, we're done
+        if (idx >= extracted.length) return;
+
+        // Otherwise, look for strong/b tags that might be headings
+        // Only if we detected strong/b tags as headings in extraction
+        const strongElements = containerRef.current.querySelectorAll(
+          'p > strong:only-child, p > b:only-child'
+        );
+        strongElements.forEach((el) => {
+          const text = el.textContent?.trim() || '';
+          // Match the criteria used in extraction
+          if (
+            isValidHeadingText(text) &&
+            text.length < 100 &&
+            /^[A-Z]/.test(text) &&
+            (!text.includes('.') || text.endsWith(':'))
+          ) {
+            // Assign ID to the parent p element for better scroll targeting
+            const parent = el.parentElement;
+            if (parent && !parent.id) {
+              parent.id = `toc-heading-${idx}`;
+              idx++;
+            }
+          }
+        });
+
+        // Also check for standalone strong/b elements
+        if (idx < extracted.length) {
+          const allBoldElements =
+            containerRef.current.querySelectorAll('strong, b');
+          allBoldElements.forEach((el) => {
+            if (idx >= extracted.length) return;
+            const text = el.textContent?.trim() || '';
+            // Check if this text matches one of our extracted headings
+            const matchesExtracted = extracted.some(
+              (h) => h.text === text && !document.getElementById(h.id)
+            );
+            if (matchesExtracted && !el.id) {
+              el.id = `toc-heading-${idx}`;
+              idx++;
+            }
+          });
+        }
       }
     }, 100);
 
@@ -247,22 +380,56 @@ export default function TableOfContents({
       });
       setActiveId(id);
     } else {
-      // Element not found - try to find by index in DOM
+      // Element not found - try to find by matching text content
       const index = parseInt(id.replace('toc-heading-', ''), 10);
-      if (!isNaN(index) && containerRef.current) {
+      if (!isNaN(index) && containerRef.current && headings[index]) {
+        const targetText = headings[index].text;
+
+        // First try h1-h4 elements
         const headingElements =
           containerRef.current.querySelectorAll('h1, h2, h3, h4');
-        const validHeadings = Array.from(headingElements).filter(
-          (el) => (el.textContent?.trim() || '').length > 0
-        );
-        if (validHeadings[index]) {
-          validHeadings[index].scrollIntoView({
-            behavior: 'smooth',
-            block: 'start',
-          });
-          // Also add the ID for future reference
-          validHeadings[index].id = id;
-          setActiveId(id);
+        let found = false;
+
+        for (const el of Array.from(headingElements)) {
+          if (el.textContent?.trim() === targetText) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            el.id = id;
+            setActiveId(id);
+            found = true;
+            break;
+          }
+        }
+
+        // If not found, try strong/b elements
+        if (!found) {
+          const boldElements =
+            containerRef.current.querySelectorAll('strong, b');
+          for (const el of Array.from(boldElements)) {
+            if (el.textContent?.trim() === targetText) {
+              // Scroll to parent for better positioning
+              const target = el.parentElement || el;
+              target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              target.id = id;
+              setActiveId(id);
+              found = true;
+              break;
+            }
+          }
+        }
+
+        // Final fallback: scroll to nth valid heading element
+        if (!found) {
+          const validHeadings = Array.from(headingElements).filter((el) =>
+            isValidHeadingText(el.textContent?.trim() || '')
+          );
+          if (validHeadings[index]) {
+            validHeadings[index].scrollIntoView({
+              behavior: 'smooth',
+              block: 'start',
+            });
+            validHeadings[index].id = id;
+            setActiveId(id);
+          }
         }
       }
     }
