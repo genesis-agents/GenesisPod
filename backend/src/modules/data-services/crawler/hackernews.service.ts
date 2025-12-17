@@ -42,7 +42,13 @@ export class HackernewsService {
 
     try {
       // 获取热门故事 ID 列表
-      const response = await axios.get(`${this.HN_API_URL}/topstories.json`);
+      const response = await axios.get(`${this.HN_API_URL}/topstories.json`, {
+        timeout: 30000,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        },
+      });
       const storyIds: number[] = response.data || [];
 
       // 限制数量
@@ -83,7 +89,13 @@ export class HackernewsService {
     this.logger.log(`Fetching HackerNews new stories (max: ${maxResults})`);
 
     try {
-      const response = await axios.get(`${this.HN_API_URL}/newstories.json`);
+      const response = await axios.get(`${this.HN_API_URL}/newstories.json`, {
+        timeout: 30000,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        },
+      });
       const storyIds: number[] = response.data || [];
 
       const selectedIds = storyIds.slice(0, maxResults);
@@ -115,7 +127,13 @@ export class HackernewsService {
     this.logger.log(`Fetching HackerNews best stories (max: ${maxResults})`);
 
     try {
-      const response = await axios.get(`${this.HN_API_URL}/beststories.json`);
+      const response = await axios.get(`${this.HN_API_URL}/beststories.json`, {
+        timeout: 30000,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        },
+      });
       const storyIds: number[] = response.data || [];
 
       const selectedIds = storyIds.slice(0, maxResults);
@@ -304,7 +322,13 @@ export class HackernewsService {
    */
   private async fetchItem(id: number): Promise<any> {
     try {
-      const response = await axios.get(`${this.HN_API_URL}/item/${id}.json`);
+      const response = await axios.get(`${this.HN_API_URL}/item/${id}.json`, {
+        timeout: 15000, // 单个项目15秒超时
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        },
+      });
       return response.data;
     } catch (error) {
       this.logger.error(`Failed to fetch item ${id}`, getErrorStack(error));

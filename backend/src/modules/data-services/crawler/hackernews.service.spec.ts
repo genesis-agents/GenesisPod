@@ -195,6 +195,10 @@ describe("HackernewsService", () => {
 
       expect(mockedAxios.get).toHaveBeenCalledWith(
         expect.stringContaining("newstories.json"),
+        expect.objectContaining({
+          timeout: expect.any(Number),
+          headers: expect.any(Object),
+        }),
       );
     });
   });
@@ -207,6 +211,10 @@ describe("HackernewsService", () => {
 
       expect(mockedAxios.get).toHaveBeenCalledWith(
         expect.stringContaining("beststories.json"),
+        expect.objectContaining({
+          timeout: expect.any(Number),
+          headers: expect.any(Object),
+        }),
       );
     });
   });

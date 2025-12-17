@@ -69,7 +69,7 @@ export class GithubService {
         `${this.GITHUB_API_URL}/search/repositories`,
         {
           params,
-          headers: this.getHeaders(),
+          ...this.getAxiosConfig(),
         },
       );
 
@@ -120,7 +120,7 @@ export class GithubService {
         `${this.GITHUB_API_URL}/search/repositories`,
         {
           params,
-          headers: this.getHeaders(),
+          ...this.getAxiosConfig(),
         },
       );
 
@@ -267,23 +267,24 @@ export class GithubService {
     owner: string,
     repo: string,
   ): Promise<any> {
-    const headers = this.getHeaders();
-
     try {
+      const axiosConfig = this.getAxiosConfig();
       // 并行获取多个数据
       const [repoData, readmeData, languagesData, contributorsData] =
         await Promise.allSettled([
-          axios.get(`${this.GITHUB_API_URL}/repos/${owner}/${repo}`, {
-            headers,
-          }),
+          axios.get(
+            `${this.GITHUB_API_URL}/repos/${owner}/${repo}`,
+            axiosConfig,
+          ),
           this.fetchReadme(owner, repo),
-          axios.get(`${this.GITHUB_API_URL}/repos/${owner}/${repo}/languages`, {
-            headers,
-          }),
+          axios.get(
+            `${this.GITHUB_API_URL}/repos/${owner}/${repo}/languages`,
+            axiosConfig,
+          ),
           axios.get(
             `${this.GITHUB_API_URL}/repos/${owner}/${repo}/contributors`,
             {
-              headers,
+              ...axiosConfig,
               params: { per_page: 5 },
             },
           ),
@@ -321,6 +322,7 @@ export class GithubService {
       const response = await axios.get(
         `${this.GITHUB_API_URL}/repos/${owner}/${repo}/readme`,
         {
+          ...this.getAxiosConfig(),
           headers: {
             ...this.getHeaders(),
             Accept: "application/vnd.github.v3.raw", // 获取原始内容
@@ -571,7 +573,8 @@ export class GithubService {
   private getHeaders(): any {
     const headers: any = {
       Accept: "application/vnd.github.v3+json",
-      "User-Agent": "DeepDive-Engine",
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 DeepDive-Engine/1.0",
     };
 
     if (this.githubToken && !this.githubToken.startsWith("your_")) {
@@ -579,5 +582,15 @@ export class GithubService {
     }
 
     return headers;
+  }
+
+  /**
+   * 获取 axios 请求配置
+   */
+  private getAxiosConfig(): any {
+    return {
+      headers: this.getHeaders(),
+      timeout: 30000, // 30秒超时
+    };
   }
 }
