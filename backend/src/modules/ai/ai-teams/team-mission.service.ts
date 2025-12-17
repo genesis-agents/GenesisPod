@@ -1324,13 +1324,21 @@ ${mission.deliverables?.length ? `期望交付物：${mission.deliverables.join(
     task: any,
     searchContext: string = "",
   ): string {
-    const searchSection = searchContext
+    // 限制搜索上下文长度，防止上下文过大
+    const MAX_SEARCH_CONTEXT_LENGTH = 4000;
+    const truncatedSearchContext =
+      searchContext.length > MAX_SEARCH_CONTEXT_LENGTH
+        ? searchContext.substring(0, MAX_SEARCH_CONTEXT_LENGTH) +
+          "\n\n...[搜索结果已截断，仅显示部分内容]"
+        : searchContext;
+
+    const searchSection = truncatedSearchContext
       ? `
 
 【参考资料 - 联网搜索结果】
 以下是通过网络搜索获取的最新相关信息，请参考这些资料完成任务：
 
-${searchContext}
+${truncatedSearchContext}
 
 ---
 
@@ -1464,6 +1472,14 @@ ${searchSection}
     task: any,
     taskResult: string,
   ): string {
+    // 截断任务产出，防止上下文过大导致 Gemini 等模型报错
+    const MAX_RESULT_LENGTH = 6000;
+    const truncatedResult =
+      taskResult.length > MAX_RESULT_LENGTH
+        ? taskResult.substring(0, MAX_RESULT_LENGTH) +
+          "\n\n...[内容已截断，仅显示前6000字符]"
+        : taskResult;
+
     return `你是团队 Leader，请审核以下任务产出。
 
 【任务信息】
@@ -1472,7 +1488,7 @@ ${searchSection}
 负责人：${task.assignedTo.agentName || task.assignedTo.displayName}
 
 【任务产出】
-${taskResult}
+${truncatedResult}
 
 【审核要求】
 1. 评估产出是否满足任务要求
@@ -1487,6 +1503,14 @@ ${taskResult}
     task: any,
     feedback: string,
   ): string {
+    // 截断之前的产出，防止上下文过大
+    const MAX_RESULT_LENGTH = 4000;
+    const previousResult = task.result || "（无记录）";
+    const truncatedPreviousResult =
+      previousResult.length > MAX_RESULT_LENGTH
+        ? previousResult.substring(0, MAX_RESULT_LENGTH) + "\n\n...[内容已截断]"
+        : previousResult;
+
     return `你之前提交的任务需要修改。
 
 【任务信息】
@@ -1494,7 +1518,7 @@ ${taskResult}
 任务描述：${task.description}
 
 【你之前的产出】
-${task.result || "（无记录）"}
+${truncatedPreviousResult}
 
 【Leader 反馈】
 ${feedback}
@@ -1504,12 +1528,18 @@ ${feedback}
   }
 
   private buildLeaderSynthesisPrompt(mission: any): string {
+    // 每个任务结果最多保留2000字符，防止综合时上下文过大
+    const MAX_PER_TASK_LENGTH = 2000;
     const taskResults = mission.tasks
-      .map(
-        (t: any) =>
-          `【${t.title}】by ${t.assignedTo.agentName || t.assignedTo.displayName}
-${t.result || "（无产出）"}`,
-      )
+      .map((t: any) => {
+        const result = t.result || "（无产出）";
+        const truncatedResult =
+          result.length > MAX_PER_TASK_LENGTH
+            ? result.substring(0, MAX_PER_TASK_LENGTH) + "\n...[已截断]"
+            : result;
+        return `【${t.title}】by ${t.assignedTo.agentName || t.assignedTo.displayName}
+${truncatedResult}`;
+      })
       .join("\n\n---\n\n");
 
     return `你是团队 Leader，所有子任务已完成，请整合最终成果。
