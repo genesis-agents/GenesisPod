@@ -52,21 +52,11 @@ export class ProxyController {
       );
     }
 
-    // 安全检查：使用可配置的域名白名单
+    // PDF 是静态文件，允许所有域名访问（用户导入的 PDF 应该能查看）
+    // 仅做基本的 URL 格式验证
     try {
       const urlObj = new URL(url);
-
-      if (!isDomainAllowed(urlObj.hostname)) {
-        this.logger.warn(
-          `PDF proxy blocked - domain not allowed: ${urlObj.hostname}`,
-        );
-        throw new HttpException(
-          `Domain ${urlObj.hostname} is not allowed. Allowed domains: ${WHITELISTED_DOMAINS.join(", ")}`,
-          HttpStatus.FORBIDDEN,
-        );
-      }
-
-      this.logger.log(`Fetching PDF from allowed domain: ${urlObj.hostname}`);
+      this.logger.log(`Fetching PDF from: ${urlObj.hostname}`);
 
       // 从远程服务器获取 PDF
       const response = await axios.get(url, {
