@@ -260,12 +260,21 @@ export class TeamMissionService {
       );
 
       // 调用 AI 生成任务分解 (使用数据库 API Key)
-      const aiResponse = await this.callAIWithConfig(
-        leader.aiModel,
-        [{ role: "user", content: planningPrompt }],
-        this.getLeaderSystemPrompt(leader),
-        { maxTokens: 4000, temperature: 0.7 },
-      );
+      let aiResponse;
+      try {
+        aiResponse = await this.callAIWithConfig(
+          leader.aiModel,
+          [{ role: "user", content: planningPrompt }],
+          this.getLeaderSystemPrompt(leader),
+          { maxTokens: 8000, temperature: 0.7 },
+        );
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        this.logger.error(
+          `[startMission] Planning AI call failed: ${errorMsg}`,
+        );
+        throw new Error(`任务规划失败: ${errorMsg}`);
+      }
 
       // 解析任务分解结果
       const breakdown = this.parseTaskBreakdown(
@@ -471,12 +480,30 @@ export class TeamMissionService {
       const taskPrompt = this.buildTaskExecutionPrompt(mission, task);
 
       // 调用 AI 执行任务 (使用数据库 API Key)
-      const aiResponse = await this.callAIWithConfig(
-        assignedTo.aiModel,
-        [{ role: "user", content: taskPrompt }],
-        this.getAgentSystemPrompt(assignedTo, task),
-        { maxTokens: 4000, temperature: 0.7 },
-      );
+      // 使用更大的 max_tokens (8000) 确保有足够空间生成响应
+      let aiResponse;
+      try {
+        aiResponse = await this.callAIWithConfig(
+          assignedTo.aiModel,
+          [{ role: "user", content: taskPrompt }],
+          this.getAgentSystemPrompt(assignedTo, task),
+          { maxTokens: 8000, temperature: 0.7 },
+        );
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        this.logger.error(
+          `[executeTask] AI call failed for task ${task.id}: ${errorMsg}`,
+        );
+
+        // 任务执行失败，需要 Leader 重新规划
+        await this.handleTaskExecutionFailure(
+          mission,
+          task,
+          assignedTo,
+          errorMsg,
+        );
+        return; // 结束当前任务执行
+      }
 
       // 发送工作汇报消息
       const leaderName = mission.leader.agentName || mission.leader.displayName;
@@ -533,6 +560,158 @@ export class TeamMissionService {
     }
   }
 
+  // ==================== 处理任务执行失败 ====================
+
+  /**
+   * 处理任务执行失败，让 Leader 重新规划
+   * 当 AI 调用失败（如上下文过大）时触发
+   */
+  private async handleTaskExecutionFailure(
+    mission: any,
+    task: any,
+    assignedTo: any,
+    errorMsg: string,
+  ) {
+    const { leader } = mission;
+
+    // 1. 标记当前任务为失败
+    await this.prisma.agentTask.update({
+      where: { id: task.id },
+      data: { status: AgentTaskStatus.CANCELLED },
+    });
+
+    // 2. 发送失败通知到群聊
+    await this.sendMessageToTopic(
+      mission.topicId,
+      assignedTo.id,
+      `❌ **任务执行失败**\n\n任务「${task.title}」执行过程中出现错误：\n\n> ${errorMsg}\n\n正在请求 Leader @${leader.agentName || leader.displayName} 重新规划...`,
+      MessageContentType.TEXT,
+    );
+
+    // 3. 让 Leader 分析失败原因并重新规划
+    const replanPrompt = `## 任务执行失败通知
+
+**失败的任务：** ${task.title}
+**原负责人：** ${assignedTo.agentName || assignedTo.displayName}
+**失败原因：** ${errorMsg}
+**原任务描述：** ${task.description || task.title}
+
+---
+
+作为团队 Leader，请分析这个任务失败的原因，并进行以下操作之一：
+
+1. **任务拆分**：如果任务太复杂或太大，将其拆分为2-3个更小的子任务
+2. **任务简化**：重新定义任务范围，使其更具体、更可执行
+3. **重新分配**：如果原负责人不适合，建议分配给其他团队成员
+
+请以结构化格式回复：
+
+### 分析
+（分析失败原因）
+
+### 解决方案
+（选择: 拆分 / 简化 / 重新分配）
+
+### 新任务
+（用 JSON 格式描述新的任务，格式如下）
+\`\`\`json
+{
+  "action": "split" | "simplify" | "reassign",
+  "newTasks": [
+    {
+      "title": "任务标题",
+      "description": "详细描述",
+      "assignee": "成员名称"
+    }
+  ]
+}
+\`\`\``;
+
+    try {
+      const aiResponse = await this.callAIWithConfig(
+        leader.aiModel,
+        [{ role: "user", content: replanPrompt }],
+        this.getLeaderSystemPrompt(leader),
+        { maxTokens: 4000, temperature: 0.7 },
+      );
+
+      // 发送 Leader 的重新规划消息
+      await this.sendMessageToTopic(
+        mission.topicId,
+        leader.id,
+        `[任务重新规划]\n\n${aiResponse.content}`,
+        MessageContentType.TEXT,
+      );
+
+      // 尝试解析新任务并创建
+      const jsonMatch = aiResponse.content.match(/```json\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        try {
+          const replanData = JSON.parse(jsonMatch[1]);
+          if (replanData.newTasks && Array.isArray(replanData.newTasks)) {
+            // 获取团队成员
+            const teamMemberResult = await this.getTeamMembers(mission.topicId);
+            const teamMembers = teamMemberResult.all || [];
+
+            for (const newTask of replanData.newTasks) {
+              // 找到分配的成员
+              const assignee = teamMembers.find(
+                (m: any) =>
+                  m.agentName === newTask.assignee ||
+                  m.displayName === newTask.assignee,
+              );
+
+              if (assignee) {
+                // 创建新任务
+                await this.prisma.agentTask.create({
+                  data: {
+                    missionId: mission.id,
+                    title: newTask.title,
+                    description: newTask.description || newTask.title,
+                    assignedToId: assignee.id,
+                    status: AgentTaskStatus.PENDING,
+                    priority: TaskPriority.HIGH,
+                    taskType: TaskType.IMPLEMENTATION,
+                  },
+                });
+
+                this.logger.log(
+                  `Created new task "${newTask.title}" assigned to ${assignee.displayName}`,
+                );
+              }
+            }
+
+            // 继续执行下一批任务
+            await this.executeNextTasks(mission.id);
+          }
+        } catch (parseError) {
+          this.logger.warn(
+            `Failed to parse replan JSON: ${parseError}. Manual intervention may be needed.`,
+          );
+        }
+      }
+    } catch (replanError) {
+      this.logger.error(`Replan AI call failed: ${replanError}`);
+      // 重新规划也失败了，发送提示让用户手动处理
+      await this.sendMessageToTopic(
+        mission.topicId,
+        null,
+        `⚠️ **需要人工干预**\n\n任务「${task.title}」执行失败，且自动重新规划也失败了。\n\n请手动取消当前任务或创建新的任务。`,
+        MessageContentType.SYSTEM,
+      );
+    }
+
+    // 记录日志
+    await this.createLog(mission.id, {
+      type: MissionLogType.TASK_FAILED,
+      agentId: assignedTo.id,
+      agentName: assignedTo.agentName || assignedTo.displayName,
+      taskId: task.id,
+      taskTitle: task.title,
+      content: `任务执行失败: ${errorMsg}`,
+    });
+  }
+
   // ==================== Leader 审核任务 ====================
 
   private async leaderReviewTask(mission: any, task: any, taskResult: string) {
@@ -547,12 +726,24 @@ export class TeamMissionService {
       );
 
       // 调用 AI 进行审核 (使用数据库 API Key)
-      const aiResponse = await this.callAIWithConfig(
-        leader.aiModel,
-        [{ role: "user", content: reviewPrompt }],
-        this.getLeaderSystemPrompt(leader),
-        { maxTokens: 1500, temperature: 0.5 },
-      );
+      let aiResponse;
+      try {
+        aiResponse = await this.callAIWithConfig(
+          leader.aiModel,
+          [{ role: "user", content: reviewPrompt }],
+          this.getLeaderSystemPrompt(leader),
+          { maxTokens: 4000, temperature: 0.5 },
+        );
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        this.logger.error(
+          `[reviewTaskResult] Review AI call failed: ${errorMsg}`,
+        );
+        // 审核失败时默认不通过，要求重做
+        aiResponse = {
+          content: `审核失败: ${errorMsg}\n\n不通过。请重新执行任务。`,
+        };
+      }
 
       // 解析审核结果
       const isApproved = this.parseReviewResult(aiResponse.content);
@@ -681,12 +872,23 @@ export class TeamMissionService {
       );
 
       // 调用 AI 执行修改 (使用数据库 API Key)
-      const aiResponse = await this.callAIWithConfig(
-        assignedTo.aiModel,
-        [{ role: "user", content: revisionPrompt }],
-        this.getAgentSystemPrompt(assignedTo, latestTask),
-        { maxTokens: 4000, temperature: 0.7 },
-      );
+      let aiResponse;
+      try {
+        aiResponse = await this.callAIWithConfig(
+          assignedTo.aiModel,
+          [{ role: "user", content: revisionPrompt }],
+          this.getAgentSystemPrompt(assignedTo, latestTask),
+          { maxTokens: 8000, temperature: 0.7 },
+        );
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        this.logger.error(
+          `[handleTaskRevision] Revision AI call failed: ${errorMsg}`,
+        );
+        aiResponse = {
+          content: `[修订失败] AI 无法生成修订响应。\n\n错误原因：${errorMsg}`,
+        };
+      }
 
       // 发送修改后的汇报
       const leaderName = mission.leader.agentName || mission.leader.displayName;
@@ -782,12 +984,26 @@ export class TeamMissionService {
       const synthesisPrompt = this.buildLeaderSynthesisPrompt(mission);
 
       // 调用 AI 生成最终结果 (使用数据库 API Key)
-      const aiResponse = await this.callAIWithConfig(
-        mission.leader.aiModel,
-        [{ role: "user", content: synthesisPrompt }],
-        this.getLeaderSystemPrompt(mission.leader),
-        { maxTokens: 6000, temperature: 0.7 },
-      );
+      let aiResponse;
+      try {
+        aiResponse = await this.callAIWithConfig(
+          mission.leader.aiModel,
+          [{ role: "user", content: synthesisPrompt }],
+          this.getLeaderSystemPrompt(mission.leader),
+          { maxTokens: 10000, temperature: 0.7 },
+        );
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        this.logger.error(`[synthesizeResults] AI call failed: ${errorMsg}`);
+        // 综合失败时，使用简单的结果拼接
+        const taskResults = (mission.tasks || [])
+          .filter((t: any) => t.status === AgentTaskStatus.COMPLETED)
+          .map((t: any) => `### ${t.title}\n${t.result || "无结果"}`)
+          .join("\n\n");
+        aiResponse = {
+          content: `## 任务结果汇总\n\n（由于 AI 综合失败，以下为原始结果）\n\n${taskResults}`,
+        };
+      }
 
       // 发送最终交付消息
       const finalMessage = await this.sendMessageToTopic(

@@ -1380,25 +1380,19 @@ Format the summary in a clear, structured manner using markdown.`;
           this.logger.warn(
             `[${modelName}] API returned empty content (finish_reason=${finishReason}), full response: ${JSON.stringify(data).substring(0, 500)}`,
           );
-          // 如果是因为max_tokens不足导致的空内容，返回提示信息而不是抛出异常
-          // 这样用户可以看到发生了什么，而不是看到错误
+          // 如果是因为max_tokens不足导致的空内容
+          // 这通常意味着上下文太大，没有空间给响应
           if (finishReason === "length") {
-            this.logger.warn(
-              `[${modelName}] Response truncated due to max_tokens limit - returning truncation message`,
+            this.logger.error(
+              `[${modelName}] CRITICAL: Response completely truncated (no content generated). Context may be too large!`,
             );
-            return {
-              content:
-                "[响应被截断] AI 的响应超出了最大长度限制。请尝试简化问题或分步骤提问。",
-              model: modelName,
-              tokensUsed: data.usage?.total_tokens || 0,
-            };
+            // 抛出错误，让调用方知道需要减少上下文或增加 max_tokens
+            throw new Error(
+              `AI 响应被完全截断（上下文可能过大）。请减少上下文消息或简化请求。`,
+            );
           }
-          // 其他原因导致的空内容也返回友好提示
-          return {
-            content: `[响应为空] AI 返回了空响应 (原因: ${finishReason || "unknown"})。请重试。`,
-            model: modelName,
-            tokensUsed: data.usage?.total_tokens || 0,
-          };
+          // 其他原因导致的空内容
+          throw new Error(`AI 返回空响应 (原因: ${finishReason || "unknown"})`);
         }
 
         // 如果有内容但是被截断，添加提示
@@ -1971,25 +1965,14 @@ Generate an image that fulfills the current request while maintaining consistenc
       );
       // 返回友好提示而不是抛出异常
       if (finishReason === "MAX_TOKENS") {
-        this.logger.warn(
-          `[Gemini] Response truncated due to max_tokens limit - returning truncation message`,
+        this.logger.error(
+          `[Gemini] CRITICAL: Response completely truncated (no content generated). Context may be too large!`,
         );
-        return {
-          content:
-            "[响应被截断] AI 的响应超出了最大长度限制。请尝试简化问题或分步骤提问。",
-          model: "gemini",
-          tokensUsed:
-            (data.usageMetadata?.promptTokenCount || 0) +
-            (data.usageMetadata?.candidatesTokenCount || 0),
-        };
+        throw new Error(
+          `AI 响应被完全截断（上下文可能过大）。请减少上下文消息或简化请求。`,
+        );
       }
-      return {
-        content: `[响应为空] AI 返回了空响应 (原因: ${finishReason || "unknown"})。请重试。`,
-        model: "gemini",
-        tokensUsed:
-          (data.usageMetadata?.promptTokenCount || 0) +
-          (data.usageMetadata?.candidatesTokenCount || 0),
-      };
+      throw new Error(`AI 返回空响应 (原因: ${finishReason || "unknown"})`);
     }
 
     // 如果有内容但是被截断，添加提示
