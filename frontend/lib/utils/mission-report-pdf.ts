@@ -939,7 +939,7 @@ function generateReportBodyHtml(data: MissionReportData): string {
 
 /**
  * Generate and download mission report PDF
- * Uses jsPDF + html2canvas with static positioning
+ * Element must be visible during capture - overlay added AFTER clone
  */
 export async function downloadMissionReportPDF(
   data: MissionReportData,
@@ -950,17 +950,18 @@ export async function downloadMissionReportPDF(
 
   const bodyHtml = generateReportBodyHtml(data);
 
-  // Save current scroll position
+  // Save current scroll position and scroll to top
   const scrollX = window.scrollX;
   const scrollY = window.scrollY;
+  window.scrollTo(0, 0);
 
-  // Create container with static positioning (in normal document flow)
+  // Create container - MUST be visible at position 0,0 for html2canvas
   const container = document.createElement('div');
   container.id = 'mission-report-container';
   container.innerHTML = bodyHtml;
   container.style.cssText = `
     position: absolute;
-    left: -9999px;
+    left: 0;
     top: 0;
     width: 794px;
     background: white;
@@ -968,13 +969,29 @@ export async function downloadMissionReportPDF(
     font-size: 12px;
     line-height: 1.6;
     color: #1f2937;
+    z-index: 99998;
   `;
   document.body.appendChild(container);
 
   // Wait for content to render
-  await new Promise((resolve) => setTimeout(resolve, 500));
+  await new Promise((resolve) => setTimeout(resolve, 300));
 
-  // Show loading overlay
+  // Get actual height of content BEFORE adding overlay
+  const contentHeight = container.scrollHeight;
+  const contentWidth = container.offsetWidth;
+  console.log('Container dimensions:', contentWidth, 'x', contentHeight);
+
+  // Start html2canvas - it clones immediately, so overlay won't be in clone
+  const capturePromise = html2canvas(container, {
+    scale: 2,
+    useCORS: true,
+    logging: true,
+    backgroundColor: '#ffffff',
+    width: 794,
+    height: contentHeight,
+  });
+
+  // NOW add overlay (after clone is made)
   const overlay = document.createElement('div');
   overlay.id = 'mission-report-overlay';
   overlay.style.cssText = `
@@ -983,7 +1000,7 @@ export async function downloadMissionReportPDF(
     top: 0;
     right: 0;
     bottom: 0;
-    background: rgba(255, 255, 255, 0.95);
+    background: rgba(255, 255, 255, 0.98);
     z-index: 99999;
     display: flex;
     align-items: center;
@@ -995,40 +1012,23 @@ export async function downloadMissionReportPDF(
   document.body.appendChild(overlay);
 
   try {
-    // Get actual height of content
-    const contentHeight = container.scrollHeight;
-    console.log(
-      'Container dimensions:',
-      container.offsetWidth,
-      'x',
-      contentHeight
-    );
-
-    // Capture with html2canvas - use onclone to make element visible
-    const canvas = await html2canvas(container, {
-      scale: 2,
-      useCORS: true,
-      logging: true,
-      backgroundColor: '#ffffff',
-      width: 794,
-      height: contentHeight,
-      windowWidth: 794,
-      windowHeight: contentHeight,
-      x: 0,
-      y: 0,
-      scrollX: 0,
-      scrollY: 0,
-      onclone: (clonedDoc, clonedElement) => {
-        // Make the cloned element visible for capture
-        clonedElement.style.position = 'absolute';
-        clonedElement.style.left = '0';
-        clonedElement.style.top = '0';
-        clonedElement.style.width = '794px';
-        clonedElement.style.zIndex = '1';
-      },
-    });
-
+    const canvas = await capturePromise;
     console.log('Canvas captured:', canvas.width, 'x', canvas.height);
+
+    // Debug: Check if canvas has content
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      const imageData = ctx.getImageData(
+        0,
+        0,
+        Math.min(100, canvas.width),
+        Math.min(100, canvas.height)
+      );
+      const hasContent = imageData.data.some(
+        (val, i) => i % 4 !== 3 && val !== 255
+      );
+      console.log('Canvas has non-white content:', hasContent);
+    }
 
     // Create PDF
     const pdf = new jsPDF({
@@ -1037,26 +1037,22 @@ export async function downloadMissionReportPDF(
       format: 'a4',
     });
 
-    const pageWidth = 210; // A4 width in mm
-    const pageHeight = 297; // A4 height in mm
+    const pageWidth = 210;
+    const pageHeight = 297;
     const margin = 10;
-    const contentWidth = pageWidth - 2 * margin;
+    const pdfContentWidth = pageWidth - 2 * margin;
 
-    // Calculate image dimensions
-    const imgWidth = contentWidth;
+    const imgWidth = pdfContentWidth;
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-    // Add image to PDF, handling multiple pages
     const imgData = canvas.toDataURL('image/jpeg', 0.95);
     let heightLeft = imgHeight;
     let position = margin;
     let page = 1;
 
-    // First page
     pdf.addImage(imgData, 'JPEG', margin, position, imgWidth, imgHeight);
     heightLeft -= pageHeight - 2 * margin;
 
-    // Additional pages if needed
     while (heightLeft > 0) {
       position = -(pageHeight - 2 * margin) * page + margin;
       pdf.addPage();
@@ -1065,12 +1061,10 @@ export async function downloadMissionReportPDF(
       page++;
     }
 
-    // Save
     pdf.save(filename || `mission-report-${data.mission.id}.pdf`);
   } finally {
     document.body.removeChild(container);
     document.body.removeChild(overlay);
-    // Restore scroll position
     window.scrollTo(scrollX, scrollY);
   }
 }
