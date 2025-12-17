@@ -2,7 +2,10 @@
 
 /**
  * AI Image Generator Component - Professional Three-Column Layout (Light Theme)
- * Refactored version with modular components
+ * - Left: Vertical thumbnail gallery (scroll + selection)
+ * - Center: Large image canvas with tools
+ * - Right: Insights panel + Input area
+ * - Responsive: Mobile uses horizontal thumbnails at top
  */
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
@@ -11,45 +14,1126 @@ import { getAuthHeader } from '@/lib/utils/auth';
 import { useImageSourceStore } from '@/stores/imageSourceStore';
 import SourcePool from './SourcePool';
 
-// Types
-import type {
-  GeneratedImage,
-  AIModel,
-  ModelsResponse,
-  UploadedFile,
-  InputMode,
-  InsightsTab,
-  ImageGeneratorProps,
-  ProcessingStep,
-  StreamingInsights,
-  AspectRatio,
-  TemplateLayout,
-} from './types';
+// ===================== TYPE DEFINITIONS =====================
 
-// Constants
-import {
-  SUPPORTED_FILE_TYPES,
-  SUPPORTED_FILE_EXTENSIONS,
-  MAX_FILE_SIZE,
-  FILE_ACCEPT_STRING,
-  ASPECT_RATIO_STORAGE_KEY,
-  ASPECT_RATIOS,
-} from './constants';
+interface ProcessingStep {
+  step: string;
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  title: string;
+  content?: string;
+  timestamp?: string;
+}
 
-// Utils
-import {
-  processUploadedFiles,
-  getFileIcon,
-  downloadImage,
-  copyImageToClipboard,
-  copyTextToClipboard,
-  extractMentions,
-} from './utils';
+interface PromptDesignJournalEntry {
+  title: string;
+  narrative: string;
+}
 
-// Components
-import { ThumbnailGallery } from './components/ThumbnailGallery';
-import { CanvasToolbar } from './components/CanvasToolbar';
-import { InsightsPanel } from './components/InsightsPanel';
+interface PromptMetric {
+  label: string;
+  value: string;
+  comparison?: string;
+}
+
+interface PromptVisualCue {
+  type?: string;
+  description?: string;
+}
+
+interface PromptSection {
+  title?: string;
+  summary?: string;
+  bullets: string[];
+  metrics: PromptMetric[];
+  visual?: PromptVisualCue;
+}
+
+interface PromptInformationArchitecture {
+  title?: string;
+  subtitle?: string;
+  heroStatement?: string;
+  sections: PromptSection[];
+  callToAction?: string;
+}
+
+interface PromptVisualLanguage {
+  colorPalette: string[];
+  typography?: string;
+  iconography?: string;
+  chartStyle?: string;
+  background?: string;
+  gridSystem?: string;
+}
+
+interface PromptInsights {
+  imagePrompt: string;
+  fallbackPrompt?: string;
+  designJournal: PromptDesignJournalEntry[];
+  informationArchitecture: PromptInformationArchitecture;
+  visualLanguage: PromptVisualLanguage;
+  layoutPlan: string[];
+  qualityChecks: string[];
+  negativeKeywords: string[];
+  styleShiftReasoning: string[];
+  inspiration: string[];
+}
+
+interface GeneratedImage {
+  id: string;
+  prompt: string;
+  enhancedPrompt?: string;
+  promptInsights?: PromptInsights;
+  negativePrompt?: string;
+  imageUrl: string;
+  createdAt: string;
+  width: number;
+  height: number;
+  isBookmarked?: boolean;
+  processingSteps?: ProcessingStep[];
+  extractedContent?: string;
+  textModelUsed?: string;
+  imageModelUsed?: string;
+}
+
+interface AIModel {
+  id: string;
+  name: string;
+  provider: string;
+  modelId: string;
+  icon?: string;
+  isDefault: boolean;
+}
+
+interface ModelsResponse {
+  textModels: AIModel[];
+  imageModels: AIModel[];
+}
+
+interface UploadedFile {
+  file: File;
+  id: string;
+  preview?: string;
+}
+
+type InputMode = 'prompt' | 'youtube' | 'url' | 'files' | 'refine';
+type InsightsTab = 'insights' | 'steps';
+
+interface ImageGeneratorProps {
+  initialImageId?: string;
+}
+
+// ===================== HELPER COMPONENTS =====================
+
+// Thumbnail Gallery Component (Left Side / Top on Mobile)
+function ThumbnailGallery({
+  images,
+  selectedImage,
+  bookmarkedImages,
+  onSelect,
+  onContextMenu,
+  onWheel,
+  isVertical = true,
+}: {
+  images: GeneratedImage[];
+  selectedImage: GeneratedImage | null;
+  bookmarkedImages: Set<string>;
+  onSelect: (img: GeneratedImage) => void;
+  onContextMenu: (e: React.MouseEvent, img: GeneratedImage) => void;
+  onWheel: (e: React.WheelEvent<HTMLDivElement>) => void;
+  isVertical?: boolean;
+}) {
+  const galleryRef = useRef<HTMLDivElement>(null);
+
+  if (images.length === 0) {
+    return (
+      <div
+        className={`flex items-center justify-center ${isVertical ? 'h-full' : 'h-20'}`}
+      >
+        <div className="p-4 text-center">
+          {/* 更精美的空状态图标 */}
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-gray-100 to-gray-50 shadow-inner">
+            <svg
+              className="h-6 w-6 text-gray-300"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+          </div>
+          <p className="text-xs font-medium text-gray-400">
+            {isVertical ? 'History' : 'Images'}
+          </p>
+          <p className="mt-1 text-[10px] leading-tight text-gray-300">
+            {isVertical ? 'Your creations appear here' : 'No images yet'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={galleryRef}
+      onWheel={onWheel}
+      className={`
+        ${
+          isVertical
+            ? 'flex flex-col items-center gap-2 overflow-y-auto overflow-x-hidden px-2 py-2'
+            : 'flex flex-row gap-2 overflow-x-auto overflow-y-hidden px-2 py-2'
+        }
+        scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400
+      `}
+    >
+      {images.map((img, index) => (
+        <button
+          key={img.id}
+          onClick={() => onSelect(img)}
+          onContextMenu={(e) => onContextMenu(e, img)}
+          className={`
+            relative flex-shrink-0 overflow-hidden rounded-lg transition-all duration-200
+            ${isVertical ? 'h-16 w-16' : 'h-14 w-14'}
+            ${
+              selectedImage?.id === img.id
+                ? 'scale-105 ring-2 ring-purple-500 ring-offset-2 ring-offset-white'
+                : 'hover:scale-102 opacity-70 hover:opacity-100'
+            }
+          `}
+        >
+          {/* Number indicator */}
+          <div className="absolute left-0.5 top-0.5 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-[9px] font-medium text-white">
+            {images.length - index}
+          </div>
+          {/* Library indicator */}
+          {bookmarkedImages.has(img.id) && (
+            <div className="absolute right-0.5 top-0.5 z-10">
+              <svg
+                className="h-3 w-3 text-amber-500 drop-shadow"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.5}
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+            </div>
+          )}
+          {/* Time indicator */}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-1 py-0.5">
+            <span className="text-[8px] text-white/90">
+              {new Date(img.createdAt).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </span>
+          </div>
+          <img
+            src={img.imageUrl}
+            alt={img.prompt}
+            className="h-full w-full object-cover"
+          />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Canvas Toolbar Component
+function CanvasToolbar({
+  image,
+  onExpand,
+  onDownload,
+  onRefine,
+  onCopy,
+}: {
+  image: GeneratedImage;
+  onExpand: () => void;
+  onDownload: () => void;
+  onRefine: () => void;
+  onCopy: () => void;
+}) {
+  return (
+    <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 shadow-lg">
+      <button
+        onClick={onExpand}
+        className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-gray-700 transition hover:bg-gray-100"
+        title="View fullscreen"
+      >
+        <svg
+          className="h-4 w-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+          />
+        </svg>
+        <span className="hidden sm:inline">Expand</span>
+      </button>
+      <div className="h-4 w-px bg-gray-300" />
+      <button
+        onClick={onRefine}
+        className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-purple-600 transition hover:bg-purple-50"
+        title="Refine this image"
+      >
+        <svg
+          className="h-4 w-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+          />
+        </svg>
+        <span className="hidden sm:inline">Refine</span>
+      </button>
+      <div className="h-4 w-px bg-gray-300" />
+      <button
+        onClick={onDownload}
+        className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-gray-700 transition hover:bg-gray-100"
+        title="Download image"
+      >
+        <svg
+          className="h-4 w-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+          />
+        </svg>
+        <span className="hidden sm:inline">Download</span>
+      </button>
+      <button
+        onClick={onCopy}
+        className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-gray-700 transition hover:bg-gray-100"
+        title="Copy image"
+      >
+        <svg
+          className="h-4 w-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+          />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+// Insights Panel Component
+function InsightsPanel({
+  image,
+  activeTab,
+  onTabChange,
+  templateLayout = 'auto',
+}: {
+  image: GeneratedImage;
+  activeTab: InsightsTab;
+  onTabChange: (tab: InsightsTab) => void;
+  templateLayout?: string;
+}) {
+  const insights = image.promptInsights;
+
+  // Check if insights has any meaningful content
+  const hasInsightsContent =
+    insights &&
+    (insights.designJournal.length > 0 ||
+      insights.informationArchitecture.sections.length > 0 ||
+      insights.layoutPlan.length > 0 ||
+      insights.visualLanguage.colorPalette.length > 0 ||
+      insights.qualityChecks.length > 0 ||
+      insights.negativeKeywords.length > 0 ||
+      insights.inspiration.length > 0 ||
+      insights.imagePrompt);
+
+  return (
+    <div className="flex h-full flex-col">
+      {/* Tab Headers */}
+      <div className="flex border-b border-gray-200 bg-gray-50">
+        <button
+          onClick={() => onTabChange('insights')}
+          className={`flex-1 px-4 py-2.5 text-xs font-medium transition-all ${
+            activeTab === 'insights'
+              ? 'border-b-2 border-purple-500 bg-white text-purple-600 shadow-sm'
+              : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+          }`}
+        >
+          Prompt Insights
+        </button>
+        <button
+          onClick={() => onTabChange('steps')}
+          className={`flex-1 px-4 py-2.5 text-xs font-medium transition-all ${
+            activeTab === 'steps'
+              ? 'border-b-2 border-purple-500 bg-white text-purple-600 shadow-sm'
+              : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+          }`}
+        >
+          Processing Steps
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      <div className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 flex-1 overflow-y-auto">
+        {activeTab === 'insights' && hasInsightsContent && insights ? (
+          <div className="space-y-4 p-4">
+            {/* Design Journal */}
+            {insights.designJournal.length > 0 && (
+              <InsightCard
+                title="Design Journal"
+                icon="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+              >
+                <div className="space-y-3">
+                  {insights.designJournal.map((entry, idx) => (
+                    <div
+                      key={idx}
+                      className="border-l-2 border-purple-400 pl-3"
+                    >
+                      <p className="text-xs font-medium text-purple-700">
+                        {entry.title}
+                      </p>
+                      <p className="mt-0.5 text-xs text-gray-600">
+                        {entry.narrative}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </InsightCard>
+            )}
+
+            {/* Information Architecture */}
+            {insights.informationArchitecture.sections.length > 0 && (
+              <InsightCard
+                title="Information Architecture"
+                icon="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+              >
+                <div className="space-y-3">
+                  {/* 数据量统计与布局提示 */}
+                  {(() => {
+                    const sectionCount =
+                      insights.informationArchitecture.sections.length;
+                    const totalMetrics =
+                      insights.informationArchitecture.sections.reduce(
+                        (acc, s) => acc + (s.metrics?.length || 0),
+                        0
+                      );
+                    // 根据模板类型显示容量信息
+                    const getLayoutCapacity = () => {
+                      if (templateLayout === 'statistics') {
+                        return { max: 12, type: '指标' };
+                      } else if (
+                        templateLayout === 'cards' ||
+                        templateLayout === 'auto'
+                      ) {
+                        return { max: 15, type: '卡片' };
+                      } else if (templateLayout === 'timeline') {
+                        return { max: 5, type: '阶段' };
+                      } else if (templateLayout === 'ranking') {
+                        return { max: 15, type: '排名项' }; // ranking模板支持15个实体
+                      }
+                      return null;
+                    };
+                    const capacity = getLayoutCapacity();
+                    const isOverCapacity =
+                      capacity &&
+                      ((capacity.type === '指标' &&
+                        totalMetrics > capacity.max) ||
+                        (capacity.type !== '指标' &&
+                          sectionCount > capacity.max));
+
+                    return (
+                      <div className="flex items-center justify-between rounded-md bg-blue-50 px-2.5 py-1.5">
+                        <span className="text-xs text-blue-700">
+                          {sectionCount} 个区块 · {totalMetrics} 个指标
+                        </span>
+                        {isOverCapacity && (
+                          <span className="flex items-center gap-1 text-xs text-amber-600">
+                            <svg
+                              className="h-3.5 w-3.5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                              />
+                            </svg>
+                            超出{capacity.type}容量({capacity.max})
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  {insights.informationArchitecture.title && (
+                    <p className="text-sm font-semibold text-gray-900">
+                      {insights.informationArchitecture.title}
+                    </p>
+                  )}
+                  {insights.informationArchitecture.subtitle && (
+                    <p className="text-xs text-gray-600">
+                      {insights.informationArchitecture.subtitle}
+                    </p>
+                  )}
+                  {insights.informationArchitecture.heroStatement && (
+                    <p className="text-xs italic text-purple-600">
+                      "{insights.informationArchitecture.heroStatement}"
+                    </p>
+                  )}
+                  {insights.informationArchitecture.sections.map(
+                    (section, idx) => {
+                      // 计算该section在当前模板下是否会被截断
+                      const getMaxSections = () => {
+                        if (templateLayout === 'statistics') return 12;
+                        if (templateLayout === 'timeline') return 5;
+                        if (templateLayout === 'matrix') return 4;
+                        if (templateLayout === 'ranking') return 15;
+                        return 15; // cards/auto
+                      };
+                      const willBeTruncated = idx >= getMaxSections();
+
+                      return (
+                        <div
+                          key={idx}
+                          className={`rounded-lg p-2.5 ${
+                            willBeTruncated
+                              ? 'border border-dashed border-amber-300 bg-amber-50/50'
+                              : 'bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            {section.title && (
+                              <p className="text-xs font-medium text-gray-900">
+                                {section.title}
+                              </p>
+                            )}
+                            {willBeTruncated && (
+                              <span className="ml-2 shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">
+                                可能不显示
+                              </span>
+                            )}
+                          </div>
+                          {section.summary && (
+                            <p className="mt-1 text-xs text-gray-600">
+                              {section.summary}
+                            </p>
+                          )}
+                          {section.bullets.length > 0 && (
+                            <ul className="mt-1.5 space-y-0.5">
+                              {section.bullets.map((bullet, bIdx) => (
+                                <li
+                                  key={bIdx}
+                                  className="flex items-start gap-1.5 text-xs text-gray-600"
+                                >
+                                  <span className="mt-0.5 text-purple-500">
+                                    -
+                                  </span>
+                                  {bullet}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          {section.metrics.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {section.metrics.map((metric, mIdx) => (
+                                <div
+                                  key={mIdx}
+                                  className="rounded bg-purple-50 px-2 py-1"
+                                >
+                                  <span className="text-[10px] text-gray-500">
+                                    {metric.label}
+                                  </span>
+                                  <p className="text-xs font-medium text-purple-700">
+                                    {metric.value}
+                                  </p>
+                                  {metric.comparison && (
+                                    <span className="text-[10px] text-green-600">
+                                      {metric.comparison}
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+                  )}
+                </div>
+              </InsightCard>
+            )}
+
+            {/* Layout Plan */}
+            {insights.layoutPlan.length > 0 && (
+              <InsightCard
+                title="Layout Plan"
+                icon="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"
+              >
+                <ul className="space-y-1">
+                  {insights.layoutPlan.map((item, idx) => (
+                    <li
+                      key={idx}
+                      className="flex items-start gap-1.5 text-xs text-gray-600"
+                    >
+                      <span className="font-mono text-blue-500">
+                        {idx + 1}.
+                      </span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </InsightCard>
+            )}
+
+            {/* Visual Language */}
+            {(insights.visualLanguage.colorPalette.length > 0 ||
+              insights.visualLanguage.typography) && (
+              <InsightCard
+                title="Visual Language"
+                icon="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"
+              >
+                <div className="space-y-3">
+                  {/* Color Palette */}
+                  {insights.visualLanguage.colorPalette.length > 0 && (
+                    <div>
+                      <p className="mb-1.5 text-[10px] uppercase tracking-wider text-gray-500">
+                        Color Palette
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {insights.visualLanguage.colorPalette.map(
+                          (color, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-center gap-1.5 rounded bg-gray-100 px-2 py-1"
+                            >
+                              <div
+                                className="h-3 w-3 rounded-full border border-gray-300"
+                                style={{
+                                  backgroundColor: color.startsWith('#')
+                                    ? color
+                                    : undefined,
+                                }}
+                              />
+                              <span className="text-xs text-gray-700">
+                                {color}
+                              </span>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {/* Typography */}
+                  {insights.visualLanguage.typography && (
+                    <div>
+                      <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                        Typography
+                      </p>
+                      <p className="text-xs text-gray-700">
+                        {insights.visualLanguage.typography}
+                      </p>
+                    </div>
+                  )}
+                  {/* Iconography */}
+                  {insights.visualLanguage.iconography && (
+                    <div>
+                      <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                        Iconography
+                      </p>
+                      <p className="text-xs text-gray-700">
+                        {insights.visualLanguage.iconography}
+                      </p>
+                    </div>
+                  )}
+                  {/* Chart Style */}
+                  {insights.visualLanguage.chartStyle && (
+                    <div>
+                      <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                        Chart Style
+                      </p>
+                      <p className="text-xs text-gray-700">
+                        {insights.visualLanguage.chartStyle}
+                      </p>
+                    </div>
+                  )}
+                  {/* Background */}
+                  {insights.visualLanguage.background && (
+                    <div>
+                      <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                        Background
+                      </p>
+                      <p className="text-xs text-gray-700">
+                        {insights.visualLanguage.background}
+                      </p>
+                    </div>
+                  )}
+                  {/* Grid System */}
+                  {insights.visualLanguage.gridSystem && (
+                    <div>
+                      <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                        Grid System
+                      </p>
+                      <p className="text-xs text-gray-700">
+                        {insights.visualLanguage.gridSystem}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </InsightCard>
+            )}
+
+            {/* Quality Checks */}
+            {insights.qualityChecks.length > 0 && (
+              <InsightCard
+                title="Quality Checks"
+                icon="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              >
+                <ul className="space-y-1">
+                  {insights.qualityChecks.map((check, idx) => (
+                    <li
+                      key={idx}
+                      className="flex items-start gap-1.5 text-xs text-gray-600"
+                    >
+                      <svg
+                        className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-green-500"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                      {check}
+                    </li>
+                  ))}
+                </ul>
+              </InsightCard>
+            )}
+
+            {/* Negative Keywords */}
+            {insights.negativeKeywords.length > 0 && (
+              <InsightCard
+                title="Negative Keywords"
+                icon="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+              >
+                <div className="flex flex-wrap gap-1.5">
+                  {insights.negativeKeywords.map((keyword, idx) => (
+                    <span
+                      key={idx}
+                      className="rounded border border-red-200 bg-red-50 px-2 py-0.5 text-xs text-red-600"
+                    >
+                      {keyword}
+                    </span>
+                  ))}
+                </div>
+              </InsightCard>
+            )}
+
+            {/* Inspiration */}
+            {insights.inspiration.length > 0 && (
+              <InsightCard
+                title="Inspiration"
+                icon="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+              >
+                <ul className="space-y-1">
+                  {insights.inspiration.map((item, idx) => (
+                    <li
+                      key={idx}
+                      className="flex items-start gap-1.5 text-xs text-gray-600"
+                    >
+                      <span className="text-yellow-500">*</span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </InsightCard>
+            )}
+
+            {/* Original Input & Final Prompts */}
+            <InsightCard
+              title="Prompts"
+              icon="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            >
+              <div className="space-y-3">
+                {image.prompt && (
+                  <div>
+                    <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                      Original Input
+                    </p>
+                    <p className="rounded bg-gray-50 p-2 text-xs text-gray-700">
+                      {image.prompt}
+                    </p>
+                  </div>
+                )}
+                {insights.imagePrompt && (
+                  <div>
+                    <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                      Final Prompt
+                    </p>
+                    <p className="rounded bg-purple-50 p-2 text-xs text-gray-700">
+                      {insights.imagePrompt}
+                    </p>
+                  </div>
+                )}
+                {insights.fallbackPrompt && (
+                  <div>
+                    <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                      Fallback Prompt
+                    </p>
+                    <p className="rounded bg-gray-50 p-2 text-xs text-gray-600">
+                      {insights.fallbackPrompt}
+                    </p>
+                  </div>
+                )}
+                {image.negativePrompt && (
+                  <div>
+                    <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                      Negative Prompt
+                    </p>
+                    <p className="rounded bg-red-50 p-2 text-xs text-red-600">
+                      {image.negativePrompt}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </InsightCard>
+          </div>
+        ) : activeTab === 'insights' ? (
+          <div className="p-4">
+            {/* Show basic prompt info even without full insights */}
+            {image.prompt || image.enhancedPrompt ? (
+              <div className="space-y-4">
+                <InsightCard
+                  title="Prompts"
+                  icon="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                >
+                  <div className="space-y-3">
+                    {image.prompt && (
+                      <div>
+                        <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                          Original Input
+                        </p>
+                        <p className="rounded bg-gray-50 p-2 text-xs text-gray-700">
+                          {image.prompt}
+                        </p>
+                      </div>
+                    )}
+                    {image.enhancedPrompt && (
+                      <div>
+                        <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                          Final Prompt
+                        </p>
+                        <p className="rounded bg-purple-50 p-2 text-xs text-gray-700">
+                          {image.enhancedPrompt}
+                        </p>
+                      </div>
+                    )}
+                    {image.negativePrompt && (
+                      <div>
+                        <p className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                          Negative Prompt
+                        </p>
+                        <p className="rounded bg-red-50 p-2 text-xs text-red-600">
+                          {image.negativePrompt}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </InsightCard>
+                <div className="flex items-center justify-center text-gray-400">
+                  <div className="text-center">
+                    <svg
+                      className="mx-auto mb-2 h-6 w-6 opacity-50"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                      />
+                    </svg>
+                    <p className="text-[10px]">
+                      Uncheck &quot;Skip AI&quot; for detailed insights
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex h-full items-center justify-center text-gray-400">
+                <div className="text-center">
+                  <svg
+                    className="mx-auto mb-2 h-8 w-8 opacity-50"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                    />
+                  </svg>
+                  <p className="text-xs">No prompt insights available</p>
+                  <p className="mt-1 text-[10px] text-gray-400">
+                    Enable AI enhancement to see insights
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="p-4">
+            {/* Processing Steps */}
+            {image.processingSteps && image.processingSteps.length > 0 ? (
+              <div className="space-y-3">
+                {/* Models Used */}
+                {(image.textModelUsed || image.imageModelUsed) && (
+                  <div className="space-y-1.5 rounded-lg bg-gray-50 p-3">
+                    {image.textModelUsed && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-gray-500">
+                          Text Model:
+                        </span>
+                        <span className="text-xs text-gray-700">
+                          {image.textModelUsed}
+                        </span>
+                      </div>
+                    )}
+                    {image.imageModelUsed && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-gray-500">
+                          Image Model:
+                        </span>
+                        <span className="text-xs text-gray-700">
+                          {image.imageModelUsed}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Steps Timeline */}
+                <div className="space-y-2">
+                  {image.processingSteps.map((step, index) => (
+                    <div key={index} className="flex items-start gap-2">
+                      <div
+                        className={`mt-0.5 h-4 w-4 flex-shrink-0 ${
+                          step.status === 'completed'
+                            ? 'text-green-500'
+                            : step.status === 'processing'
+                              ? 'animate-pulse text-blue-500'
+                              : step.status === 'error'
+                                ? 'text-red-500'
+                                : 'text-gray-300'
+                        }`}
+                      >
+                        {step.status === 'completed' && (
+                          <svg
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                        )}
+                        {step.status === 'processing' && (
+                          <svg
+                            className="animate-spin"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                            />
+                          </svg>
+                        )}
+                        {step.status === 'error' && (
+                          <svg
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        )}
+                        {step.status === 'pending' && (
+                          <svg
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              strokeWidth="2"
+                              className="opacity-30"
+                            />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium text-gray-700">
+                          {step.title}
+                        </p>
+                        {step.content && (
+                          <p className="mt-0.5 line-clamp-2 break-all text-xs text-gray-500">
+                            {step.content}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* Enhanced Prompt */}
+                {image.enhancedPrompt && (
+                  <div className="mt-4 border-t border-gray-200 pt-4">
+                    <p className="mb-1.5 text-[10px] uppercase tracking-wider text-gray-500">
+                      Final Image Prompt
+                    </p>
+                    <p className="rounded bg-gray-50 p-2 text-xs leading-relaxed text-gray-700">
+                      {image.enhancedPrompt}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex h-32 items-center justify-center text-gray-400">
+                <div className="text-center">
+                  <svg
+                    className="mx-auto mb-2 h-8 w-8 opacity-50"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <p className="text-xs">No processing steps recorded</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Insight Card Component
+function InsightCard({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon: string;
+  children: React.ReactNode;
+}) {
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-gray-100"
+      >
+        <svg
+          className="h-4 w-4 flex-shrink-0 text-purple-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d={icon}
+          />
+        </svg>
+        <span className="flex-1 text-xs font-medium text-gray-700">
+          {title}
+        </span>
+        <svg
+          className={`h-4 w-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 9l-7 7-7-7"
+          />
+        </svg>
+      </button>
+      {isExpanded && <div className="bg-white px-3 pb-3">{children}</div>}
+    </div>
+  );
+}
+
+// ===================== MAIN COMPONENT =====================
 
 export default function ImageGenerator({
   initialImageId,
@@ -76,11 +1160,13 @@ export default function ImageGenerator({
     null
   );
   const [error, setError] = useState<string | null>(null);
-
   // SSE streaming state
   const [streamingSteps, setStreamingSteps] = useState<ProcessingStep[]>([]);
-  const [streamingInsights, setStreamingInsights] =
-    useState<StreamingInsights | null>(null);
+  const [streamingInsights, setStreamingInsights] = useState<{
+    textModelUsed?: string;
+    imageModelUsed?: string;
+    renderingMode?: string;
+  } | null>(null);
 
   // Model state
   const [models, setModels] = useState<ModelsResponse>({
@@ -90,15 +1176,31 @@ export default function ImageGenerator({
   const [selectedImageModelId, setSelectedImageModelId] = useState<string>('');
   const [isLoadingModels, setIsLoadingModels] = useState(true);
   const [skipEnhancement, setSkipEnhancement] = useState(false);
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>(() => {
+  const [aspectRatio, setAspectRatio] = useState<
+    '1:1' | '16:9' | '9:16' | '4:3'
+  >(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(ASPECT_RATIO_STORAGE_KEY);
-      if (saved && ASPECT_RATIOS.includes(saved as AspectRatio)) {
-        return saved as AspectRatio;
+      const saved = localStorage.getItem('ai-image-aspect-ratio');
+      if (saved && ['1:1', '16:9', '9:16', '4:3'].includes(saved)) {
+        return saved as '1:1' | '16:9' | '9:16' | '4:3';
       }
     }
     return '1:1';
   });
+  // Template layout selection (auto = AI decides)
+  type TemplateLayout =
+    | 'auto'
+    | 'cards'
+    | 'center_visual'
+    | 'timeline'
+    | 'comparison'
+    | 'pyramid'
+    | 'radial'
+    | 'statistics'
+    | 'checklist'
+    | 'funnel'
+    | 'matrix'
+    | 'ranking'; // 新增：排行榜/横向比较
   const [templateLayout, setTemplateLayout] = useState<TemplateLayout>('auto');
 
   // UI state
@@ -195,7 +1297,7 @@ export default function ImageGenerator({
 
   // Save aspect ratio
   useEffect(() => {
-    localStorage.setItem(ASPECT_RATIO_STORAGE_KEY, aspectRatio);
+    localStorage.setItem('ai-image-aspect-ratio', aspectRatio);
   }, [aspectRatio]);
 
   // ESC key handler
@@ -231,7 +1333,47 @@ export default function ImageGenerator({
   // File handling
   const handleFileSelect = (files: FileList | null) => {
     if (!files) return;
-    const newFiles = processUploadedFiles(files, MAX_FILE_SIZE);
+    const newFiles: UploadedFile[] = [];
+    Array.from(files).forEach((file) => {
+      const supportedTypes = [
+        'text/plain',
+        'text/markdown',
+        'text/html',
+        'application/json',
+        'application/pdf',
+        'text/vtt',
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+      ];
+      const supportedExtensions = [
+        '.txt',
+        '.md',
+        '.html',
+        '.json',
+        '.pdf',
+        '.srt',
+        '.vtt',
+      ];
+      const isSupported =
+        supportedTypes.includes(file.type) ||
+        supportedExtensions.some((ext) =>
+          file.name.toLowerCase().endsWith(ext)
+        ) ||
+        file.type.startsWith('image/');
+
+      if (isSupported && file.size <= 50 * 1024 * 1024) {
+        const uploadedFile: UploadedFile = {
+          file,
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        };
+        if (file.type.startsWith('image/')) {
+          uploadedFile.preview = URL.createObjectURL(file);
+        }
+        newFiles.push(uploadedFile);
+      }
+    });
     setUploadedFiles((prev) => [...prev, ...newFiles]);
   };
 
@@ -258,6 +1400,15 @@ export default function ImageGenerator({
     handleFileSelect(e.dataTransfer.files);
   };
 
+  // File icon helper
+  const getFileIcon = (file: File) => {
+    if (file.type.startsWith('image/'))
+      return 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z';
+    if (file.type === 'application/pdf')
+      return 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z';
+    return 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z';
+  };
+
   // Validation
   const hasValidInput = () => {
     switch (inputMode) {
@@ -273,6 +1424,27 @@ export default function ImageGenerator({
         return refineImage !== null && refinePrompt.trim().length > 0;
       default:
         return false;
+    }
+  };
+
+  // Convert image URL to Base64
+  const imageUrlToBase64 = async (imageUrl: string): Promise<string> => {
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result as string;
+          const base64Data = base64.split(',')[1] || base64;
+          resolve(base64Data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (err) {
+      console.error('Failed to convert image to base64:', err);
+      throw err;
     }
   };
 
@@ -342,16 +1514,18 @@ export default function ImageGenerator({
       params.set('skipEnhancement', String(skipEnhancement));
       if (selectedImageModelId)
         params.set('imageModelId', selectedImageModelId);
+      // Only pass template if user explicitly selected (not auto)
       if (templateLayout !== 'auto')
         params.set('templateLayout', templateLayout);
 
       switch (inputMode) {
         case 'prompt':
           params.set('prompt', prompt.trim());
-          const mentions = extractMentions(prompt);
-          if (mentions.length > 0) {
+          const mentions = prompt.match(/@\[(.*?)\]/g);
+          if (mentions) {
             const extractedUrls: string[] = [];
-            mentions.forEach((title) => {
+            mentions.forEach((mention) => {
+              const title = mention.slice(2, -1);
               const source = sources.find((s) => s.title === title);
               if (source) extractedUrls.push(source.url);
             });
@@ -368,6 +1542,7 @@ export default function ImageGenerator({
           if (urlPrompt.trim()) params.set('prompt', urlPrompt.trim());
           break;
         case 'refine':
+          // Refine mode: send referenceImageUrl to backend (avoids CORS issues)
           if (refineImage) {
             const response = await fetch(
               `${config.apiBaseUrl}/api/v1/ai-image/generate`,
@@ -406,9 +1581,10 @@ export default function ImageGenerator({
           break;
       }
 
-      // Use SSE for streaming generation with POST
+      // Use SSE for streaming generation with POST (supports long prompts)
       const sseUrl = `${config.apiBaseUrl}/api/v1/ai-image/generate/stream`;
 
+      // Convert URLSearchParams to object for POST body
       const bodyData: Record<string, string> = {};
       params.forEach((value, key) => {
         bodyData[key] = value;
@@ -502,14 +1678,33 @@ export default function ImageGenerator({
 
   // Download
   const handleDownload = async (image: GeneratedImage) => {
-    const headers =
-      image.imageUrl.startsWith(config.apiBaseUrl || '') ||
-      image.imageUrl.startsWith('/') ||
-      image.imageUrl.includes(config.apiBaseUrl || '')
-        ? getAuthHeader()
-        : undefined;
+    try {
+      // Include auth header for protected URLs (e.g., /api/v1/ai-image/{id}/image)
+      const headers =
+        image.imageUrl.startsWith(config.apiBaseUrl || '') ||
+        image.imageUrl.startsWith('/') ||
+        image.imageUrl.includes(config.apiBaseUrl || '')
+          ? getAuthHeader()
+          : undefined;
 
-    await downloadImage(image.imageUrl, image.id, headers);
+      const response = await fetch(image.imageUrl, { headers });
+      if (!response.ok) {
+        throw new Error(`Download failed with status ${response.status}`);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ai-image-${image.id}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download failed:', err);
+      // Fallback: open in new tab so the user can manually save
+      window.open(image.imageUrl, '_blank', 'noopener,noreferrer');
+    }
   };
 
   // Context menu
@@ -584,7 +1779,7 @@ export default function ImageGenerator({
   // Copy
   const handleCopyLink = async (image: GeneratedImage) => {
     try {
-      await copyTextToClipboard(image.imageUrl);
+      await navigator.clipboard.writeText(image.imageUrl);
     } catch (err) {
       console.error('Copy link failed:', err);
     }
@@ -593,7 +1788,11 @@ export default function ImageGenerator({
 
   const handleCopyImage = async (image: GeneratedImage) => {
     try {
-      await copyImageToClipboard(image.imageUrl);
+      const response = await fetch(image.imageUrl);
+      const blob = await response.blob();
+      await navigator.clipboard.write([
+        new ClipboardItem({ [blob.type]: blob }),
+      ]);
     } catch (err) {
       console.error('Copy image failed:', err);
     }
@@ -673,6 +1872,7 @@ export default function ImageGenerator({
 
         {/* CENTER: Main Canvas */}
         <div className="flex flex-1 flex-col overflow-hidden bg-white">
+          {/* Canvas Area */}
           <div className="relative flex flex-1 items-center justify-center overflow-auto p-4">
             {selectedImage ? (
               <div className="relative max-h-full max-w-full">
@@ -714,6 +1914,7 @@ export default function ImageGenerator({
               </div>
             ) : isGenerating ? (
               <div className="flex flex-col items-center gap-4 p-8">
+                {/* Spinner */}
                 <div className="relative h-20 w-20">
                   <div className="absolute inset-0 animate-spin rounded-full border-4 border-purple-200 border-t-purple-500" />
                   <div
@@ -730,7 +1931,9 @@ export default function ImageGenerator({
               </div>
             ) : (
               <div className="flex max-w-lg flex-col items-center gap-8 px-6 text-center">
+                {/* 精美的渐变图标 */}
                 <div className="relative">
+                  {/* 背景光晕效果 */}
                   <div className="absolute -inset-4 rounded-full bg-gradient-to-r from-purple-200 via-pink-100 to-blue-200 opacity-60 blur-xl" />
                   <div className="relative flex h-28 w-28 items-center justify-center rounded-3xl bg-gradient-to-br from-purple-500 via-purple-400 to-indigo-500 shadow-xl shadow-purple-200">
                     <svg
@@ -746,6 +1949,7 @@ export default function ImageGenerator({
                         d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                       />
                     </svg>
+                    {/* AI 星星装饰 */}
                     <div className="absolute -right-1 -top-1 flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg">
                       <svg
                         className="h-4 w-4 text-white"
@@ -757,6 +1961,8 @@ export default function ImageGenerator({
                     </div>
                   </div>
                 </div>
+
+                {/* 标题和描述 */}
                 <div className="space-y-3">
                   <h2 className="text-2xl font-bold tracking-tight text-gray-900">
                     Create with AI
@@ -765,6 +1971,8 @@ export default function ImageGenerator({
                     Transform your ideas into stunning visuals
                   </p>
                 </div>
+
+                {/* 简洁的操作提示 */}
                 <p className="text-sm text-gray-400">
                   Use the input panel on the right to get started →
                 </p>
@@ -793,6 +2001,7 @@ export default function ImageGenerator({
           {isGenerating && !selectedImage && (
             <div className="flex-1 overflow-auto border-b border-gray-200 p-4">
               <div className="space-y-3">
+                {/* Header */}
                 <div className="flex items-center gap-2">
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-purple-300 border-t-purple-600" />
                   <span className="text-sm font-medium text-gray-700">
@@ -804,6 +2013,8 @@ export default function ImageGenerator({
                     Text Model: {streamingInsights.textModelUsed}
                   </p>
                 )}
+
+                {/* Real-time Steps */}
                 {streamingSteps.length > 0 && (
                   <div className="space-y-2">
                     {streamingSteps.map((step) => (
@@ -819,6 +2030,7 @@ export default function ImageGenerator({
                                 : 'bg-gray-50'
                         }`}
                       >
+                        {/* Status Icon */}
                         <div className="mt-0.5 flex-shrink-0">
                           {step.status === 'processing' ? (
                             <div className="h-3 w-3 animate-spin rounded-full border-2 border-purple-300 border-t-purple-600" />
@@ -854,6 +2066,8 @@ export default function ImageGenerator({
                             <div className="h-3 w-3 rounded-full bg-gray-300" />
                           )}
                         </div>
+
+                        {/* Content */}
                         <div className="min-w-0 flex-1">
                           <p
                             className={`font-medium ${
@@ -883,9 +2097,10 @@ export default function ImageGenerator({
             </div>
           )}
 
-          {/* Empty State */}
+          {/* Empty State - Insights placeholder */}
           {!selectedImage && !isGenerating && (
             <div className="flex flex-1 flex-col items-center justify-center border-b border-gray-100 bg-gradient-to-b from-gray-50 to-white p-8 text-center">
+              {/* 精美的空状态图标 */}
               <div className="relative mb-5">
                 <div className="absolute -inset-3 rounded-full bg-gradient-to-r from-purple-100 to-blue-100 opacity-50 blur-lg" />
                 <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-gray-100 bg-gradient-to-br from-gray-100 to-white shadow-inner">
@@ -910,6 +2125,7 @@ export default function ImageGenerator({
               <p className="max-w-[200px] text-xs leading-relaxed text-gray-400">
                 Select an image to view details, or generate a new one below
               </p>
+              {/* 装饰性虚线 */}
               <div className="mt-6 flex items-center gap-2">
                 <div className="h-px w-8 bg-gradient-to-r from-transparent to-gray-200" />
                 <div className="h-1.5 w-1.5 rounded-full bg-gray-200" />
@@ -918,20 +2134,1049 @@ export default function ImageGenerator({
             </div>
           )}
 
-          {/* Input Area - This section is very large, needs to be in a separate file
-              For now, I'll just add a note here */}
-          <div className="flex-shrink-0">
-            {/* Note: Input area components would go here */}
-            {/* This includes: Control Bar, Source Pool, Error Message, Input Tabs, and various input modes */}
-            {/* Due to length constraints, these should be extracted to separate components */}
-            <div className="p-4 text-center text-gray-400">
-              Input area components extracted separately
+          {/* Input Area */}
+          <div className={`flex-shrink-0 ${selectedImage ? '' : ''}`}>
+            {/* Control Bar - Clean Design */}
+            <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 bg-white px-4 py-3">
+              {/* Model Selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-600">Model</span>
+                {isLoadingModels ? (
+                  <div className="h-7 w-20 animate-pulse rounded-md bg-gray-100" />
+                ) : models.imageModels.length > 0 ? (
+                  <select
+                    value={selectedImageModelId}
+                    onChange={(e) => setSelectedImageModelId(e.target.value)}
+                    className="h-7 rounded-md border border-gray-200 bg-gray-50 px-2 text-xs text-gray-700 transition-colors hover:border-gray-300 focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-100"
+                    disabled={isGenerating}
+                  >
+                    {models.imageModels.map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {model.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="text-xs text-amber-600">N/A</span>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div className="h-4 w-px bg-gray-200" />
+
+              {/* Template Layout */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-600">
+                  Layout
+                </span>
+                <select
+                  value={templateLayout}
+                  onChange={(e) =>
+                    setTemplateLayout(e.target.value as typeof templateLayout)
+                  }
+                  className="h-7 rounded-md border border-gray-200 bg-gray-50 px-2 text-xs text-gray-700 transition-colors hover:border-gray-300 focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-100"
+                  disabled={isGenerating}
+                  title="Template layout"
+                >
+                  <option value="auto">Auto</option>
+                  <option value="cards">Cards</option>
+                  <option value="center_visual">Center</option>
+                  <option value="timeline">Timeline</option>
+                  <option value="comparison">Compare</option>
+                  <option value="pyramid">Pyramid</option>
+                  <option value="radial">Radial</option>
+                  <option value="statistics">Stats</option>
+                  <option value="checklist">Checklist</option>
+                  <option value="funnel">Funnel</option>
+                  <option value="matrix">Matrix</option>
+                  <option value="ranking">Ranking</option>
+                </select>
+              </div>
+
+              {/* Divider */}
+              <div className="h-4 w-px bg-gray-200" />
+
+              {/* Aspect Ratio */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-600">Ratio</span>
+                <div className="flex rounded-md border border-gray-200 bg-gray-50 p-0.5">
+                  {(['1:1', '16:9', '9:16', '4:3'] as const).map((ratio) => (
+                    <button
+                      key={ratio}
+                      onClick={() => setAspectRatio(ratio)}
+                      disabled={isGenerating}
+                      className={`rounded px-2 py-1 text-xs font-medium transition-all ${
+                        aspectRatio === ratio
+                          ? 'bg-purple-600 text-white shadow-sm'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      {ratio}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Spacer */}
+              <div className="flex-1" />
+
+              {/* Skip AI Toggle */}
+              <label
+                className="flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-xs text-gray-500 transition-colors hover:bg-gray-50"
+                title="Skip AI enhancement for faster generation"
+              >
+                <input
+                  type="checkbox"
+                  checked={skipEnhancement}
+                  onChange={(e) => setSkipEnhancement(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                  disabled={isGenerating}
+                />
+                <span>Skip AI</span>
+              </label>
+
+              {/* Refresh Models */}
+              <button
+                onClick={fetchModels}
+                disabled={isLoadingModels}
+                className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                title="Refresh models"
+              >
+                <svg
+                  className={`h-4 w-4 ${isLoadingModels ? 'animate-spin' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* Source Pool */}
+            <div className="px-3 pt-2">
+              <SourcePool />
+            </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="mx-3 mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+                {error}
+              </div>
+            )}
+
+            {/* Input Mode Tabs */}
+            {inputMode !== 'refine' && (
+              <div className="flex border-b border-gray-100 px-4">
+                {[
+                  {
+                    mode: 'prompt' as InputMode,
+                    label: 'Prompt',
+                    icon: 'M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+                  },
+                  {
+                    mode: 'youtube' as InputMode,
+                    label: 'YouTube',
+                    icon: 'M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+                  },
+                  {
+                    mode: 'url' as InputMode,
+                    label: 'URL',
+                    icon: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1',
+                  },
+                  {
+                    mode: 'files' as InputMode,
+                    label: 'Files',
+                    icon: 'M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12',
+                  },
+                ].map(({ mode, label, icon }) => (
+                  <button
+                    key={mode}
+                    onClick={() => setInputMode(mode)}
+                    className={`relative flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-all ${
+                      inputMode === mode
+                        ? 'text-purple-600'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d={icon}
+                      />
+                    </svg>
+                    {label}
+                    {/* Active indicator */}
+                    {inputMode === mode && (
+                      <span className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full bg-purple-600" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Refine Mode Header */}
+            {inputMode === 'refine' && (
+              <div className="mx-3 mt-2 flex items-center gap-2 rounded-t-lg border border-purple-200 bg-purple-50 px-3 py-2">
+                <svg
+                  className="h-4 w-4 text-purple-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                <span className="text-xs font-medium text-purple-700">
+                  Refine Image
+                </span>
+                <button
+                  onClick={handleCancelRefine}
+                  className="ml-auto text-gray-400 hover:text-gray-600"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            )}
+
+            {/* Input Area Content */}
+            <div className="p-3">
+              {/* Prompt Input */}
+              {inputMode === 'prompt' && (
+                <div className="relative">
+                  <div className="rounded-xl border border-gray-300 bg-white focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500">
+                    <textarea
+                      ref={textareaRef}
+                      value={prompt}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setPrompt(value);
+                        const cursor = e.target.selectionStart || 0;
+                        setCursorPosition(cursor);
+                        const lastAt = value.lastIndexOf('@', cursor);
+                        if (lastAt !== -1 && lastAt < cursor) {
+                          const query = value.slice(lastAt + 1, cursor);
+                          if (!query.includes(' ')) {
+                            setShowMentions(true);
+                            setMentionQuery(query);
+                            return;
+                          }
+                        }
+                        setShowMentions(false);
+                      }}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Describe what you want to create... (Type @ to mention sources, Shift+Enter for new line)"
+                      className="max-h-[200px] min-h-[80px] w-full resize-none bg-transparent px-3 py-3 text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
+                      disabled={isGenerating}
+                      rows={3}
+                    />
+                    <div className="flex items-center justify-between px-3 pb-2">
+                      <span className="text-[10px] text-gray-400">
+                        Enter to generate
+                      </span>
+                      <button
+                        onClick={handleGenerate}
+                        disabled={
+                          !hasValidInput() ||
+                          isGenerating ||
+                          models.imageModels.length === 0
+                        }
+                        className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 px-3 py-1.5 text-xs text-white transition hover:from-purple-700 hover:to-blue-700 disabled:opacity-50"
+                      >
+                        {isGenerating ? (
+                          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        ) : (
+                          <svg
+                            className="h-3.5 w-3.5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+                            />
+                          </svg>
+                        )}
+                        Generate
+                      </button>
+                    </div>
+                  </div>
+                  {/* Mentions Dropdown */}
+                  {showMentions && filteredSources.length > 0 && (
+                    <div className="absolute bottom-full left-0 z-10 mb-2 w-full max-w-xs overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl">
+                      <div className="border-b border-gray-200 bg-gray-50 px-3 py-1.5 text-[10px] text-gray-500">
+                        Mention source...
+                      </div>
+                      <div className="max-h-40 overflow-y-auto">
+                        {filteredSources.map((source) => (
+                          <button
+                            key={source.id}
+                            onClick={() => {
+                              const lastAt = prompt.lastIndexOf(
+                                '@',
+                                cursorPosition
+                              );
+                              if (lastAt !== -1) {
+                                const newPrompt =
+                                  prompt.slice(0, lastAt) +
+                                  `@[${source.title}]` +
+                                  prompt.slice(cursorPosition);
+                                setPrompt(newPrompt);
+                                setShowMentions(false);
+                                textareaRef.current?.focus();
+                              }
+                            }}
+                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
+                          >
+                            <span className="flex-shrink-0">
+                              {source.type === 'paper'
+                                ? '📄'
+                                : source.type === 'youtube'
+                                  ? '🎬'
+                                  : '🔗'}
+                            </span>
+                            <span className="truncate">{source.title}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* YouTube Input */}
+              {inputMode === 'youtube' && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 focus-within:border-red-500 focus-within:ring-1 focus-within:ring-red-500">
+                    <svg
+                      className="h-4 w-4 flex-shrink-0 text-red-500"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                    </svg>
+                    <input
+                      type="url"
+                      value={youtubeUrl}
+                      onChange={(e) => setYoutubeUrl(e.target.value)}
+                      placeholder="Paste YouTube video URL..."
+                      className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
+                      disabled={isGenerating}
+                    />
+                  </div>
+
+                  {/* Prompt for YouTube */}
+                  <div className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 focus-within:border-red-500 focus-within:ring-1 focus-within:ring-red-500">
+                    <svg
+                      className="h-3.5 w-3.5 flex-shrink-0 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                      />
+                    </svg>
+                    <input
+                      type="text"
+                      value={youtubePrompt}
+                      onChange={(e) => setYoutubePrompt(e.target.value)}
+                      placeholder="Describe what to generate from video..."
+                      className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
+                      disabled={isGenerating}
+                    />
+                  </div>
+
+                  <p className="text-[10px] text-gray-500">
+                    Extract video subtitles and generate an image based on
+                    content
+                  </p>
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleGenerate}
+                      disabled={
+                        !hasValidInput() ||
+                        isGenerating ||
+                        models.imageModels.length === 0
+                      }
+                      className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-red-600 to-pink-600 px-3 py-1.5 text-xs text-white transition hover:from-red-700 hover:to-pink-700 disabled:opacity-50"
+                    >
+                      {isGenerating ? (
+                        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      ) : (
+                        <svg
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+                          />
+                        </svg>
+                      )}
+                      Generate
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* URL Input */}
+              {inputMode === 'url' && (
+                <div className="space-y-2">
+                  {urls.map((url, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <div className="flex flex-1 items-center rounded-xl border border-gray-300 bg-white px-3 py-2 focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500">
+                        <svg
+                          className="mr-2 h-3.5 w-3.5 flex-shrink-0 text-gray-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                          />
+                        </svg>
+                        <input
+                          type="text"
+                          value={url}
+                          onChange={(e) => updateUrl(index, e.target.value)}
+                          placeholder="https://example.com/article"
+                          className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
+                          disabled={isGenerating}
+                        />
+                      </div>
+                      {urls.length > 1 && (
+                        <button
+                          onClick={() => removeUrlInput(index)}
+                          className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    onClick={addUrlInput}
+                    className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-700"
+                  >
+                    <svg
+                      className="h-3 w-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                    Add URL
+                  </button>
+
+                  {/* Prompt for URLs */}
+                  <div className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500">
+                    <svg
+                      className="h-3.5 w-3.5 flex-shrink-0 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                      />
+                    </svg>
+                    <input
+                      type="text"
+                      value={urlPrompt}
+                      onChange={(e) => setUrlPrompt(e.target.value)}
+                      placeholder="Describe what to generate from URLs..."
+                      className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
+                      disabled={isGenerating}
+                    />
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleGenerate}
+                      disabled={
+                        !hasValidInput() ||
+                        isGenerating ||
+                        models.imageModels.length === 0
+                      }
+                      className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 px-3 py-1.5 text-xs text-white transition hover:from-purple-700 hover:to-blue-700 disabled:opacity-50"
+                    >
+                      {isGenerating ? (
+                        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      ) : (
+                        <svg
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+                          />
+                        </svg>
+                      )}
+                      Generate
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Files Input */}
+              {inputMode === 'files' && (
+                <div className="space-y-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".txt,.md,.html,.json,.pdf,.srt,.vtt,image/*"
+                    onChange={(e) => handleFileSelect(e.target.files)}
+                    className="hidden"
+                  />
+                  <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-4 transition-all ${
+                      isDragging
+                        ? 'border-purple-400 bg-purple-50/80 shadow-inner'
+                        : 'border-gray-300 bg-gray-50 hover:border-purple-400'
+                    }`}
+                  >
+                    <svg
+                      className={`mb-1 h-6 w-6 ${isDragging ? 'text-purple-500' : 'text-gray-400'}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                      />
+                    </svg>
+                    <p className="text-xs text-gray-600">
+                      {isDragging ? 'Drop files here' : 'Click or drag files'}
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-gray-400">
+                      PDF, TXT, MD, HTML, JSON, Images (max 50MB)
+                    </p>
+                  </div>
+
+                  {/* Prompt for files */}
+                  <div className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500">
+                    <svg
+                      className="h-3.5 w-3.5 flex-shrink-0 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                      />
+                    </svg>
+                    <input
+                      type="text"
+                      value={filesPrompt}
+                      onChange={(e) => setFilesPrompt(e.target.value)}
+                      placeholder="Describe what to generate from files..."
+                      className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
+                      disabled={isGenerating}
+                    />
+                  </div>
+
+                  {uploadedFiles.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {uploadedFiles.map((uf) => (
+                        <div
+                          key={uf.id}
+                          className="group flex items-center gap-1.5 rounded border border-gray-200 bg-gray-100 px-2 py-1"
+                        >
+                          {uf.preview ? (
+                            <img
+                              src={uf.preview}
+                              alt={uf.file.name}
+                              className="h-5 w-5 rounded object-cover"
+                            />
+                          ) : (
+                            <svg
+                              className="h-4 w-4 text-gray-500"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d={getFileIcon(uf.file)}
+                              />
+                            </svg>
+                          )}
+                          <span className="max-w-[100px] truncate text-[10px] text-gray-600">
+                            {uf.file.name}
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeFile(uf.id);
+                            }}
+                            className="text-gray-400 opacity-0 hover:text-gray-600 group-hover:opacity-100"
+                          >
+                            <svg
+                              className="h-3 w-3"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleGenerate}
+                      disabled={
+                        !hasValidInput() ||
+                        isGenerating ||
+                        models.imageModels.length === 0
+                      }
+                      className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 px-3 py-1.5 text-xs text-white transition hover:from-purple-700 hover:to-blue-700 disabled:opacity-50"
+                    >
+                      {isGenerating ? (
+                        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      ) : (
+                        <svg
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+                          />
+                        </svg>
+                      )}
+                      Generate
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Refine Input */}
+              {inputMode === 'refine' && refineImage && (
+                <div className="space-y-2">
+                  {/* Reference image preview */}
+                  <div className="flex items-start gap-3 rounded-xl border border-purple-200 bg-purple-50 p-3">
+                    <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg">
+                      <img
+                        src={refineImage.imageUrl}
+                        alt="Reference"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium text-purple-700">
+                        Reference Image
+                      </p>
+                      <p className="mt-0.5 line-clamp-2 text-[10px] text-gray-600">
+                        {refineImage.enhancedPrompt || refineImage.prompt}
+                      </p>
+                      <p className="mt-0.5 text-[10px] text-gray-500">
+                        {refineImage.width} x {refineImage.height}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Refine prompt input */}
+                  <div className="rounded-xl border border-gray-300 bg-white focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500">
+                    <textarea
+                      value={refinePrompt}
+                      onChange={(e) => setRefinePrompt(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleGenerate();
+                        }
+                      }}
+                      placeholder="Describe how to refine... (e.g., 'make it more vibrant', 'add snow')"
+                      className="min-h-[60px] w-full resize-none bg-transparent px-3 py-3 text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
+                      disabled={isGenerating}
+                      autoFocus
+                      rows={2}
+                    />
+                    <div className="flex items-center justify-between px-3 pb-2">
+                      <span className="text-[10px] text-gray-400">
+                        Enter to generate
+                      </span>
+                      <button
+                        onClick={handleGenerate}
+                        disabled={
+                          !hasValidInput() ||
+                          isGenerating ||
+                          models.imageModels.length === 0
+                        }
+                        className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-3 py-1.5 text-xs text-white transition hover:from-purple-700 hover:to-pink-700 disabled:opacity-50"
+                      >
+                        {isGenerating ? (
+                          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        ) : (
+                          <svg
+                            className="h-3.5 w-3.5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                            />
+                          </svg>
+                        )}
+                        Refine
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Lightbox and Context Menu would go here */}
+      {/* Lightbox Modal */}
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm"
+          onClick={() => setLightboxImage(null)}
+        >
+          <button
+            onClick={() => setLightboxImage(null)}
+            className="absolute right-4 top-4 z-10 rounded-full bg-white/10 p-3 text-white transition hover:bg-white/20"
+          >
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDownload(lightboxImage);
+            }}
+            className="absolute right-20 top-4 z-10 rounded-full bg-white/10 p-3 text-white transition hover:bg-white/20"
+          >
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
+            </svg>
+          </button>
+          <div
+            className="flex max-h-[90vh] max-w-[95vw] flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={lightboxImage.imageUrl}
+              alt={lightboxImage.prompt}
+              className="max-h-[70vh] max-w-[95vw] rounded-t-lg object-contain shadow-2xl"
+              onContextMenu={(e) => handleContextMenu(e, lightboxImage)}
+            />
+            <div className="w-full max-w-[95vw] rounded-b-lg bg-gray-900/95 px-4 py-3">
+              {lightboxImage.enhancedPrompt && (
+                <p className="line-clamp-2 text-sm text-gray-300">
+                  {lightboxImage.enhancedPrompt}
+                </p>
+              )}
+              <div className="mt-1 flex items-center justify-between">
+                <p className="text-xs text-gray-500">
+                  {lightboxImage.width} x {lightboxImage.height} -{' '}
+                  {new Date(lightboxImage.createdAt).toLocaleString()}
+                </p>
+                <p className="text-xs text-gray-600">ESC to close</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          className="fixed z-[110] min-w-[160px] overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-xl"
+          style={{
+            left: Math.min(contextMenu.x, window.innerWidth - 180),
+            top: Math.min(contextMenu.y, window.innerHeight - 320),
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => handleBookmark(contextMenu.image)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
+          >
+            <svg
+              className={`h-3.5 w-3.5 ${bookmarkedImages.has(contextMenu.image.id) ? 'text-amber-500' : 'text-gray-400'}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+            {bookmarkedImages.has(contextMenu.image.id)
+              ? 'Remove from Library'
+              : 'Add to Library'}
+          </button>
+          <button
+            onClick={() => handleRefineImage(contextMenu.image)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-purple-600 hover:bg-gray-100"
+          >
+            <svg
+              className="h-3.5 w-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            Refine Image
+          </button>
+          <div className="my-1 border-t border-gray-200" />
+          <button
+            onClick={() => {
+              handleDownload(contextMenu.image);
+              setContextMenu(null);
+            }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
+          >
+            <svg
+              className="h-3.5 w-3.5 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
+            </svg>
+            Download
+          </button>
+          <button
+            onClick={() => handleCopyImage(contextMenu.image)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
+          >
+            <svg
+              className="h-3.5 w-3.5 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+              />
+            </svg>
+            Copy Image
+          </button>
+          <button
+            onClick={() => handleCopyLink(contextMenu.image)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
+          >
+            <svg
+              className="h-3.5 w-3.5 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+              />
+            </svg>
+            Copy Link
+          </button>
+          <div className="my-1 border-t border-gray-200" />
+          <button
+            onClick={() => handleOpenInNewTab(contextMenu.image)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
+          >
+            <svg
+              className="h-3.5 w-3.5 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+              />
+            </svg>
+            Open in New Tab
+          </button>
+          {!lightboxImage && (
+            <button
+              onClick={() => {
+                setLightboxImage(contextMenu.image);
+                setContextMenu(null);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
+            >
+              <svg
+                className="h-3.5 w-3.5 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                />
+              </svg>
+              View Fullscreen
+            </button>
+          )}
+          <div className="my-1 border-t border-gray-200" />
+          <button
+            onClick={() => handleDelete(contextMenu.image)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-red-600 hover:bg-red-50"
+          >
+            <svg
+              className="h-3.5 w-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
+            </svg>
+            Delete
+          </button>
+        </div>
+      )}
     </div>
   );
 }
