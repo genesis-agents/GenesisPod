@@ -2038,7 +2038,7 @@ ${taskResults}
       // 重置卡住的任务为 PENDING
       if (stuckInProgressTasks.length > 0) {
         this.logger.warn(
-          `[Leader Command] Found ${stuckInProgressTasks.length} stuck tasks, resetting to PENDING`,
+          `[Leader Command] Found ${stuckInProgressTasks.length} stuck IN_PROGRESS tasks, resetting to PENDING`,
         );
         for (const task of stuckInProgressTasks) {
           await this.prisma.agentTask.update({
@@ -2051,14 +2051,113 @@ ${taskResults}
         }
       }
 
+      // 检查卡住的 AWAITING_REVIEW 任务（使用 updatedAt 判断）
+      const stuckAwaitingReviewTasks = inProgressMission.tasks.filter(
+        (t) =>
+          t.status === AgentTaskStatus.AWAITING_REVIEW &&
+          t.updatedAt &&
+          now - new Date(t.updatedAt).getTime() > stuckThreshold,
+      );
+
+      // 检查卡住的 REVISION_NEEDED 任务
+      const stuckRevisionNeededTasks = inProgressMission.tasks.filter(
+        (t) =>
+          t.status === AgentTaskStatus.REVISION_NEEDED &&
+          t.updatedAt &&
+          now - new Date(t.updatedAt).getTime() > stuckThreshold,
+      );
+
       // 重新获取任务状态
       const updatedMission = await this.prisma.teamMission.findUnique({
         where: { id: inProgressMission.id },
-        include: { leader: true, tasks: true },
+        include: {
+          leader: true,
+          tasks: {
+            include: {
+              assignedTo: true,
+            },
+          },
+        },
       });
 
       if (!updatedMission) {
         return { handled: false };
+      }
+
+      // 处理卡住的 AWAITING_REVIEW 任务：重新触发 Leader 审核
+      if (stuckAwaitingReviewTasks.length > 0) {
+        this.logger.warn(
+          `[Leader Command] Found ${stuckAwaitingReviewTasks.length} stuck AWAITING_REVIEW tasks, re-triggering leader review`,
+        );
+
+        await this.sendMessageToTopic(
+          topicId,
+          updatedMission.leader?.id || null,
+          `🔄 收到指令，正在重新审核 ${stuckAwaitingReviewTasks.length} 个卡住的待审核任务...`,
+          MessageContentType.TEXT,
+        );
+
+        // 异步重新触发审核（不阻塞响应）
+        for (const stuckTask of stuckAwaitingReviewTasks) {
+          const fullTask = updatedMission.tasks.find(
+            (t) => t.id === stuckTask.id,
+          );
+          if (fullTask && fullTask.result) {
+            this.leaderReviewTask(
+              updatedMission,
+              fullTask,
+              fullTask.result,
+            ).catch((error) => {
+              this.logger.error(
+                `Failed to re-trigger leader review for task ${stuckTask.id}: ${error}`,
+              );
+            });
+          }
+        }
+
+        return {
+          handled: true,
+          action: "re_review_tasks",
+          missionId: inProgressMission.id,
+        };
+      }
+
+      // 处理卡住的 REVISION_NEEDED 任务：重新触发修订
+      if (stuckRevisionNeededTasks.length > 0) {
+        this.logger.warn(
+          `[Leader Command] Found ${stuckRevisionNeededTasks.length} stuck REVISION_NEEDED tasks, re-triggering revision`,
+        );
+
+        await this.sendMessageToTopic(
+          topicId,
+          updatedMission.leader?.id || null,
+          `🔄 收到指令，正在重新触发 ${stuckRevisionNeededTasks.length} 个卡住的修订任务...`,
+          MessageContentType.TEXT,
+        );
+
+        // 异步重新触发修订（不阻塞响应）
+        for (const stuckTask of stuckRevisionNeededTasks) {
+          const fullTask = updatedMission.tasks.find(
+            (t) => t.id === stuckTask.id,
+          );
+          if (fullTask && fullTask.leaderFeedback) {
+            this.executeTaskRevision(
+              updatedMission,
+              fullTask,
+              fullTask.leaderFeedback,
+            ).catch((error) => {
+              this.logger.error(
+                `Failed to re-trigger revision for task ${stuckTask.id}: ${error}`,
+              );
+            });
+          }
+        }
+
+        return {
+          handled: true,
+          action: "re_revision_tasks",
+          missionId: inProgressMission.id,
+        };
       }
 
       // 检查是否有待执行的任务
@@ -2092,19 +2191,25 @@ ${taskResults}
           missionId: inProgressMission.id,
         };
       } else {
-        // 检查是否有正在执行或等待审核的任务
-        const activeTasks = updatedMission.tasks.filter(
+        // 检查是否有真正正在执行的任务（最近才开始的，未超时）
+        const trulyActiveTasks = updatedMission.tasks.filter(
           (t) =>
-            t.status === AgentTaskStatus.IN_PROGRESS ||
-            t.status === AgentTaskStatus.AWAITING_REVIEW ||
-            t.status === AgentTaskStatus.REVISION_NEEDED,
+            (t.status === AgentTaskStatus.IN_PROGRESS &&
+              t.startedAt &&
+              now - new Date(t.startedAt).getTime() <= stuckThreshold) ||
+            (t.status === AgentTaskStatus.AWAITING_REVIEW &&
+              t.updatedAt &&
+              now - new Date(t.updatedAt).getTime() <= stuckThreshold) ||
+            (t.status === AgentTaskStatus.REVISION_NEEDED &&
+              t.updatedAt &&
+              now - new Date(t.updatedAt).getTime() <= stuckThreshold),
         );
 
-        if (activeTasks.length > 0) {
+        if (trulyActiveTasks.length > 0) {
           await this.sendMessageToTopic(
             topicId,
             updatedMission.leader?.id || null,
-            `⏳ 任务正在执行中...\n\n- 进行中/待审核任务：${activeTasks.length} 个\n- 请耐心等待任务完成`,
+            `⏳ 任务正在执行中...\n\n- 进行中/待审核任务：${trulyActiveTasks.length} 个\n- 请耐心等待任务完成`,
             MessageContentType.TEXT,
           );
 
