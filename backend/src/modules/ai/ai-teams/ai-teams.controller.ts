@@ -420,6 +420,26 @@ export class AiTeamsController {
         }
       }
 
+      // 检测是否 @Leader 并包含任务控制命令（继续执行、重试等）
+      const leader = allAIMembers.find((ai) => ai.isLeader);
+      if (leader && aiMemberIdsSet.has(leader.id)) {
+        // 用户 @了 Leader，检查是否是任务控制命令
+        const commandResult =
+          await this.teamMissionService.handleLeaderMentionCommand(
+            topicId,
+            req.user.id,
+            dto.content,
+          );
+
+        if (commandResult.handled) {
+          this.logger.log(
+            `[Leader Command] Handled: action=${commandResult.action}, missionId=${commandResult.missionId}`,
+          );
+          // 命令已处理，不需要触发 AI 响应
+          return message;
+        }
+      }
+
       // 在 Controller 层统一检测辩论模式
       const debateInfo = this.detectDebateMode(dto.content, aiMembersToRespond);
 
@@ -1062,6 +1082,19 @@ export class AiTeamsController {
     @Param("missionId") missionId: string,
   ) {
     return this.teamMissionService.resumeMission(missionId, req.user.id);
+  }
+
+  @Post(":topicId/missions/:missionId/retry")
+  async retryMission(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("missionId") missionId: string,
+    @Body() body: { mode?: "full" | "continue"; reason?: string },
+  ) {
+    return this.teamMissionService.retryMission(missionId, req.user.id, {
+      mode: body.mode,
+      reason: body.reason,
+    });
   }
 
   @Get(":topicId/missions/:missionId/logs")

@@ -1783,6 +1783,251 @@ ${taskResults}
     return { success: true, message: "任务已恢复", status: previousStatus };
   }
 
+  /**
+   * 重试失败或已取消的任务
+   * 支持两种模式：
+   * 1. 完全重试：重新规划并执行所有任务
+   * 2. 继续执行：仅继续执行未完成的任务
+   */
+  async retryMission(
+    missionId: string,
+    userId: string,
+    options?: { mode?: "full" | "continue"; reason?: string },
+  ) {
+    const mode = options?.mode || "continue";
+
+    const mission = await this.prisma.teamMission.findUnique({
+      where: { id: missionId },
+      include: {
+        leader: true,
+        tasks: {
+          include: { assignedTo: true },
+        },
+        topic: true,
+      },
+    });
+
+    if (!mission) {
+      throw new NotFoundException("任务不存在");
+    }
+
+    // 只有 FAILED 或 CANCELLED 状态的任务可以重试
+    if (
+      mission.status !== MissionStatus.FAILED &&
+      mission.status !== MissionStatus.CANCELLED
+    ) {
+      throw new BadRequestException("只有失败或已取消的任务可以重试");
+    }
+
+    const previousStatus = mission.status;
+
+    if (mode === "full") {
+      // 完全重试：删除所有任务，重新规划
+      await this.prisma.agentTask.deleteMany({
+        where: { missionId },
+      });
+
+      // 重置任务状态
+      await this.prisma.teamMission.update({
+        where: { id: missionId },
+        data: {
+          status: MissionStatus.PENDING,
+          completedTasks: 0,
+          totalTasks: 0,
+          finalResult: null,
+          summary: null,
+          // taskBreakdown will be set during new planning
+        },
+      });
+
+      await this.createLog(missionId, {
+        type: MissionLogType.MISSION_CREATED, // 使用现有类型
+        agentId: mission.leader.id,
+        agentName: mission.leader.agentName || mission.leader.displayName,
+        content: `任务重试（完全重新规划）${options?.reason ? `，原因：${options.reason}` : ""}`,
+      });
+
+      await this.sendMessageToTopic(
+        mission.topicId,
+        null,
+        `🔄 **任务重试**\n\n任务「${mission.title}」将重新规划并执行...${options?.reason ? `\n\n> 重试原因：${options.reason}` : ""}`,
+        MessageContentType.SYSTEM,
+      );
+
+      this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:retried", {
+        missionId,
+        mode: "full",
+        previousStatus,
+      });
+
+      // 重新启动任务
+      this.startMission(missionId, userId).catch((err) => {
+        this.logger.error(`Failed to restart mission ${missionId}: ${err}`);
+      });
+    } else {
+      // 继续执行：将失败/取消的任务标记为 PENDING，继续执行
+      const failedTasks = mission.tasks.filter(
+        (t) =>
+          t.status === AgentTaskStatus.CANCELLED ||
+          t.status === AgentTaskStatus.BLOCKED,
+      );
+
+      if (failedTasks.length === 0) {
+        // 没有失败的任务，检查是否有等待执行的任务
+        const pendingTasks = mission.tasks.filter(
+          (t) => t.status === AgentTaskStatus.PENDING,
+        );
+
+        if (pendingTasks.length === 0) {
+          throw new BadRequestException("没有可以继续执行的任务");
+        }
+      }
+
+      // 将失败的任务重置为 PENDING
+      for (const task of failedTasks) {
+        await this.prisma.agentTask.update({
+          where: { id: task.id },
+          data: {
+            status: AgentTaskStatus.PENDING,
+            result: null,
+            startedAt: null,
+            completedAt: null,
+          },
+        });
+      }
+
+      // 更新任务状态为 IN_PROGRESS
+      await this.prisma.teamMission.update({
+        where: { id: missionId },
+        data: {
+          status: MissionStatus.IN_PROGRESS,
+          summary: null,
+        },
+      });
+
+      await this.createLog(missionId, {
+        type: MissionLogType.TASK_STARTED,
+        agentId: mission.leader.id,
+        agentName: mission.leader.agentName || mission.leader.displayName,
+        content: `任务继续执行，${failedTasks.length} 个任务将重新执行${options?.reason ? `，原因：${options.reason}` : ""}`,
+      });
+
+      await this.sendMessageToTopic(
+        mission.topicId,
+        null,
+        `▶️ **任务继续**\n\n任务「${mission.title}」继续执行，${failedTasks.length} 个任务将重新执行...${options?.reason ? `\n\n> 原因：${options.reason}` : ""}`,
+        MessageContentType.SYSTEM,
+      );
+
+      this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:retried", {
+        missionId,
+        mode: "continue",
+        previousStatus,
+        retriedTaskCount: failedTasks.length,
+      });
+
+      // 继续执行下一批任务
+      this.executeNextTasks(missionId).catch((err) => {
+        this.logger.error(`Failed to continue mission ${missionId}: ${err}`);
+      });
+    }
+
+    return {
+      success: true,
+      message: mode === "full" ? "任务重新开始" : "任务继续执行",
+      mode,
+      previousStatus,
+    };
+  }
+
+  /**
+   * 处理 Leader @消息触发的任务控制命令
+   * 支持的命令：继续执行、重试、重新开始等
+   */
+  async handleLeaderMentionCommand(
+    topicId: string,
+    userId: string,
+    content: string,
+  ): Promise<{ handled: boolean; action?: string; missionId?: string }> {
+    // 检测重试/继续执行关键词
+    const retryKeywords = [
+      "继续执行",
+      "继续",
+      "重试",
+      "再试",
+      "再执行",
+      "重新执行",
+      "重新开始",
+      "restart",
+      "retry",
+      "continue",
+    ];
+
+    const contentLower = content.toLowerCase();
+    const hasRetryKeyword = retryKeywords.some((kw) =>
+      contentLower.includes(kw.toLowerCase()),
+    );
+
+    if (!hasRetryKeyword) {
+      return { handled: false };
+    }
+
+    // 查找该 Topic 最近的失败/取消/暂停任务
+    const recentMission = await this.prisma.teamMission.findFirst({
+      where: {
+        topicId,
+        status: {
+          in: [
+            MissionStatus.FAILED,
+            MissionStatus.CANCELLED,
+            MissionStatus.PAUSED,
+          ],
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      include: { leader: true },
+    });
+
+    if (!recentMission) {
+      // 没有可重试的任务，返回未处理
+      return { handled: false };
+    }
+
+    // 判断是完全重试还是继续执行
+    const fullRetryKeywords = ["重新开始", "重新执行", "restart", "重试"];
+    const isFullRetry = fullRetryKeywords.some((kw) =>
+      contentLower.includes(kw.toLowerCase()),
+    );
+
+    try {
+      if (recentMission.status === MissionStatus.PAUSED) {
+        // 暂停的任务，使用 resume
+        await this.resumeMission(recentMission.id, userId);
+        return {
+          handled: true,
+          action: "resume",
+          missionId: recentMission.id,
+        };
+      } else {
+        // 失败/取消的任务，使用 retry
+        await this.retryMission(recentMission.id, userId, {
+          mode: isFullRetry ? "full" : "continue",
+          reason: "用户通过 @Leader 消息触发",
+        });
+        return {
+          handled: true,
+          action: isFullRetry ? "retry_full" : "retry_continue",
+          missionId: recentMission.id,
+        };
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle leader mention command: ${error instanceof Error ? error.message : error}`,
+      );
+      return { handled: false };
+    }
+  }
+
   // ==================== 设置 Leader ====================
 
   async setLeader(topicId: string, aiMemberId: string) {

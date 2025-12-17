@@ -436,6 +436,29 @@ export async function resumeMission(
 }
 
 /**
+ * 重试失败或已取消的任务
+ * @param mode - 'full' 完全重新规划, 'continue' 继续执行未完成的任务
+ */
+export async function retryMission(
+  topicId: string,
+  missionId: string,
+  options?: { mode?: 'full' | 'continue'; reason?: string }
+): Promise<{
+  success: boolean;
+  message: string;
+  mode: 'full' | 'continue';
+  previousStatus: string;
+}> {
+  return fetchWithAuth(
+    `/api/v1/topics/${topicId}/missions/${missionId}/retry`,
+    {
+      method: 'POST',
+      body: JSON.stringify(options || {}),
+    }
+  );
+}
+
+/**
  * 获取任务执行日志
  */
 export async function getMissionLogs(

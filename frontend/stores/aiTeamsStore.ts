@@ -124,6 +124,11 @@ interface AiGroupState {
   cancelMission: (topicId: string, missionId: string) => Promise<void>;
   pauseMission: (topicId: string, missionId: string) => Promise<void>;
   resumeMission: (topicId: string, missionId: string) => Promise<void>;
+  retryMission: (
+    topicId: string,
+    missionId: string,
+    options?: { mode?: 'full' | 'continue' }
+  ) => Promise<void>;
   setCurrentMission: (mission: TeamMission | null) => void;
 
   // Actions - Team Role
@@ -1195,6 +1200,23 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
       currentMission:
         state.currentMission?.id === missionId
           ? resumedMission || state.currentMission
+          : state.currentMission,
+    }));
+  },
+
+  retryMission: async (topicId, missionId, options) => {
+    await api.retryMission(topicId, missionId, options);
+    // 刷新任务列表以获取最新状态
+    const response = await api.getMissions(topicId);
+    const missions = response.missions || [];
+    const retriedMission = missions.find(
+      (m: TeamMission) => m.id === missionId
+    );
+    set((state) => ({
+      missions,
+      currentMission:
+        state.currentMission?.id === missionId
+          ? retriedMission || state.currentMission
           : state.currentMission,
     }));
   },

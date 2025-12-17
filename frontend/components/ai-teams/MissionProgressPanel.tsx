@@ -143,6 +143,8 @@ export default function MissionProgressPanel({
     isLoadingMissions,
     fetchMissions,
     cancelMission,
+    retryMission,
+    resumeMission,
     typingAIs,
     currentTopic,
   } = useAiGroupStore();
@@ -218,6 +220,23 @@ export default function MissionProgressPanel({
     }
   };
 
+  const handleRetryMission = async (
+    missionId: string,
+    mode: 'full' | 'continue' = 'continue'
+  ) => {
+    const confirmMsg =
+      mode === 'full'
+        ? '确定要重新执行此任务吗？这将重新规划所有子任务。'
+        : '确定要继续执行此任务吗？';
+    if (confirm(confirmMsg)) {
+      await retryMission(topicId, missionId, { mode });
+    }
+  };
+
+  const handleResumeMission = async (missionId: string) => {
+    await resumeMission(topicId, missionId);
+  };
+
   const toggleMissionExpand = (missionId: string) => {
     setExpandedMissions((prev) => {
       const next = new Set(prev);
@@ -256,6 +275,8 @@ export default function MissionProgressPanel({
         typingAIs={typingAIs}
         onBack={() => setDetailMission(null)}
         onCancel={() => handleCancelMission(detailMission.id)}
+        onRetry={(mode) => handleRetryMission(detailMission.id, mode)}
+        onResume={() => handleResumeMission(detailMission.id)}
       />
     );
   }
@@ -744,11 +765,15 @@ function MissionDetailView({
   typingAIs,
   onBack,
   onCancel,
+  onRetry,
+  onResume,
 }: {
   mission: TeamMission;
   typingAIs: Set<string>;
   onBack: () => void;
   onCancel: () => void;
+  onRetry?: (mode: 'full' | 'continue') => void;
+  onResume?: () => void;
 }) {
   const statusConfig = missionStatusConfig[mission.status];
   const tasks = mission.tasks || [];
@@ -757,6 +782,9 @@ function MissionDetailView({
     mission.status === 'PLANNING' ||
     mission.status === 'REVIEW';
   const isPending = mission.status === 'PENDING';
+  const isFailed = mission.status === 'FAILED';
+  const isCancelled = mission.status === 'CANCELLED';
+  const isPaused = mission.status === 'PAUSED';
 
   // Calculate stats
   const completedCount = tasks.filter((t) => t.status === 'COMPLETED').length;
@@ -1004,6 +1032,36 @@ function MissionDetailView({
             className="w-full rounded-lg bg-red-50 py-2.5 text-sm font-medium text-red-600 hover:bg-red-100"
           >
             取消任务
+          </button>
+        </div>
+      )}
+
+      {/* Paused Mission Actions */}
+      {isPaused && onResume && (
+        <div className="border-t border-gray-200 p-4">
+          <button
+            onClick={onResume}
+            className="w-full rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 py-2.5 text-sm font-semibold text-white shadow-sm hover:shadow-md"
+          >
+            ▶️ 继续执行
+          </button>
+        </div>
+      )}
+
+      {/* Failed/Cancelled Mission Actions */}
+      {(isFailed || isCancelled) && onRetry && (
+        <div className="space-y-2 border-t border-gray-200 p-4">
+          <button
+            onClick={() => onRetry('continue')}
+            className="w-full rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 py-2.5 text-sm font-semibold text-white shadow-sm hover:shadow-md"
+          >
+            ▶️ 继续执行未完成任务
+          </button>
+          <button
+            onClick={() => onRetry('full')}
+            className="w-full rounded-lg border border-gray-300 bg-white py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            🔄 重新规划并执行
           </button>
         </div>
       )}
