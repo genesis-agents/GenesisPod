@@ -174,7 +174,18 @@ export default function ResourceThumbnail({
         }
       }
 
-      // 5. 对于 Blogs/News/Reports/Policy，调用后端API动态提取（使用队列和缓存）
+      // 5. PDF 文件 - 不提取缩略图，直接使用默认图标
+      const isPdfUrl = resource.sourceUrl?.toLowerCase().endsWith('.pdf');
+      if (isPdfUrl) {
+        // PDF 文件不提取缩略图，使用 null 触发默认图标显示
+        if (isMounted) {
+          setThumbnailUrl(null);
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      // 6. 对于 Blogs/News/Reports/Policy，调用后端API动态提取（使用队列和缓存）
       // 传递 resourceId 以支持服务端缓存，下次请求直接从数据库获取
       const typesWithThumbnailExtraction = ['BLOG', 'NEWS', 'REPORT', 'POLICY'];
       if (
@@ -197,7 +208,7 @@ export default function ResourceThumbnail({
         }
       }
 
-      // 5. 没有可用缩略图
+      // 7. 没有可用缩略图
       if (isMounted) {
         setThumbnailUrl(null);
         setIsLoading(false);
