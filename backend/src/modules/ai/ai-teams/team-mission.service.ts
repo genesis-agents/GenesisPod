@@ -1042,39 +1042,25 @@ export class TeamMissionService {
       // 构建整合提示词
       const synthesisPrompt = this.buildLeaderSynthesisPrompt(mission);
 
-      // 构建简单的结果拼接（作为 fallback）
-      const simpleTaskResults = (mission.tasks || [])
-        .filter((t: any) => t.status === AgentTaskStatus.COMPLETED)
-        .map((t: any) => `### ${t.title}\n${t.result || "无结果"}`)
-        .join("\n\n");
-
-      // 调用 AI 生成最终结果，设置超时避免等待过长
-      const SYNTHESIS_TIMEOUT = 45000; // 45 秒超时
+      // 调用 AI 生成详尽的最终报告
       let aiResponse;
       try {
-        const aiCallPromise = this.callAIWithConfig(
+        aiResponse = await this.callAIWithConfig(
           mission.leader.aiModel,
           [{ role: "user", content: synthesisPrompt }],
           this.getLeaderSystemPrompt(mission.leader),
-          { maxTokens: 6000, temperature: 0.7 },
+          { maxTokens: 10000, temperature: 0.7 },
         );
-
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(
-            () => reject(new Error("AI synthesis timeout")),
-            SYNTHESIS_TIMEOUT,
-          ),
-        );
-
-        aiResponse = await Promise.race([aiCallPromise, timeoutPromise]);
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        this.logger.warn(
-          `[synthesizeResults] AI call failed/timeout: ${errorMsg}, using simple concatenation`,
-        );
-        // 综合失败或超时时，使用简单的结果拼接
+        this.logger.error(`[synthesizeResults] AI call failed: ${errorMsg}`);
+        // 仅在 AI 调用失败时使用简单拼接
+        const taskResults = (mission.tasks || [])
+          .filter((t: any) => t.status === AgentTaskStatus.COMPLETED)
+          .map((t: any) => `### ${t.title}\n${t.result || "无结果"}`)
+          .join("\n\n");
         aiResponse = {
-          content: `## ${mission.title} - 任务结果汇总\n\n${simpleTaskResults}\n\n---\n**执行总结**：共完成 ${mission.tasks.length} 个子任务`,
+          content: `## 任务结果汇总\n\n（由于 AI 综合失败，以下为原始结果）\n\n${taskResults}`,
         };
       }
 
