@@ -1942,13 +1942,15 @@ ${taskResults}
 
   /**
    * 处理 Leader @消息触发的任务控制命令
-   * 支持的命令：继续执行、重试、重新开始等
+   * 支持的命令：继续执行、重试、重新开始、继续组织等
    */
   async handleLeaderMentionCommand(
     topicId: string,
     userId: string,
     content: string,
   ): Promise<{ handled: boolean; action?: string; missionId?: string }> {
+    const contentLower = content.toLowerCase();
+
     // 检测重试/继续执行关键词
     const retryKeywords = [
       "继续执行",
@@ -1963,11 +1965,198 @@ ${taskResults}
       "continue",
     ];
 
-    const contentLower = content.toLowerCase();
+    // 检测继续组织/完成任务关键词（用于 IN_PROGRESS 状态的 Mission）
+    const continueOrgKeywords = [
+      "组织",
+      "完成任务",
+      "继续组织",
+      "系统组织",
+      "完成整个任务",
+      "分配任务",
+      "委派",
+      "delegate",
+      "organize",
+    ];
+
     const hasRetryKeyword = retryKeywords.some((kw) =>
       contentLower.includes(kw.toLowerCase()),
     );
 
+    const hasContinueOrgKeyword = continueOrgKeywords.some((kw) =>
+      contentLower.includes(kw.toLowerCase()),
+    );
+
+    // 首先检查是否有正在执行的任务（IN_PROGRESS）
+    const inProgressMission = await this.prisma.teamMission.findFirst({
+      where: {
+        topicId,
+        status: MissionStatus.IN_PROGRESS,
+      },
+      orderBy: { createdAt: "desc" },
+      include: { leader: true, tasks: true },
+    });
+
+    if (inProgressMission && (hasRetryKeyword || hasContinueOrgKeyword)) {
+      // 有正在执行的任务，用户要求继续组织
+      this.logger.log(
+        `[Leader Command] Continuing in-progress mission ${inProgressMission.id}`,
+      );
+
+      // 检查是否有卡住的 IN_PROGRESS 任务（超过 5 分钟）
+      const stuckThreshold = 5 * 60 * 1000; // 5 minutes
+      const now = Date.now();
+      const stuckInProgressTasks = inProgressMission.tasks.filter(
+        (t) =>
+          t.status === AgentTaskStatus.IN_PROGRESS &&
+          t.startedAt &&
+          now - new Date(t.startedAt).getTime() > stuckThreshold,
+      );
+
+      // 重置卡住的任务为 PENDING
+      if (stuckInProgressTasks.length > 0) {
+        this.logger.warn(
+          `[Leader Command] Found ${stuckInProgressTasks.length} stuck tasks, resetting to PENDING`,
+        );
+        for (const task of stuckInProgressTasks) {
+          await this.prisma.agentTask.update({
+            where: { id: task.id },
+            data: {
+              status: AgentTaskStatus.PENDING,
+              startedAt: null,
+            },
+          });
+        }
+      }
+
+      // 重新获取任务状态
+      const updatedMission = await this.prisma.teamMission.findUnique({
+        where: { id: inProgressMission.id },
+        include: { leader: true, tasks: true },
+      });
+
+      if (!updatedMission) {
+        return { handled: false };
+      }
+
+      // 检查是否有待执行的任务
+      const pendingTasks = updatedMission.tasks.filter(
+        (t) => t.status === AgentTaskStatus.PENDING,
+      );
+
+      if (pendingTasks.length > 0) {
+        // 异步继续执行下一批任务
+        this.executeNextTasks(inProgressMission.id).catch((error) => {
+          this.logger.error(
+            `Failed to continue mission execution: ${error instanceof Error ? error.message : error}`,
+          );
+        });
+
+        // 发送确认消息
+        const resetMsg =
+          stuckInProgressTasks.length > 0
+            ? `\n\n已重置 ${stuckInProgressTasks.length} 个卡住的任务`
+            : "";
+        await this.sendMessageToTopic(
+          topicId,
+          updatedMission.leader?.id || null,
+          `✅ 收到指令，正在继续组织团队完成任务...\n\n待执行任务：${pendingTasks.length} 个${resetMsg}`,
+          MessageContentType.TEXT,
+        );
+
+        return {
+          handled: true,
+          action: "continue_organizing",
+          missionId: inProgressMission.id,
+        };
+      } else {
+        // 检查是否有正在执行或等待审核的任务
+        const activeTasks = updatedMission.tasks.filter(
+          (t) =>
+            t.status === AgentTaskStatus.IN_PROGRESS ||
+            t.status === AgentTaskStatus.AWAITING_REVIEW ||
+            t.status === AgentTaskStatus.REVISION_NEEDED,
+        );
+
+        if (activeTasks.length > 0) {
+          await this.sendMessageToTopic(
+            topicId,
+            updatedMission.leader?.id || null,
+            `⏳ 任务正在执行中...\n\n- 进行中/待审核任务：${activeTasks.length} 个\n- 请耐心等待任务完成`,
+            MessageContentType.TEXT,
+          );
+
+          return {
+            handled: true,
+            action: "already_executing",
+            missionId: inProgressMission.id,
+          };
+        }
+
+        // 所有任务都已完成，检查是否需要触发 mission 完成
+        const allCompleted = updatedMission.tasks.every(
+          (t) => t.status === AgentTaskStatus.COMPLETED,
+        );
+
+        if (allCompleted && updatedMission.tasks.length > 0) {
+          this.completeMission(inProgressMission.id).catch((error) => {
+            this.logger.error(
+              `Failed to complete mission: ${error instanceof Error ? error.message : error}`,
+            );
+          });
+
+          return {
+            handled: true,
+            action: "completing_mission",
+            missionId: inProgressMission.id,
+          };
+        }
+      }
+    }
+
+    // 检查是否有卡住的 PLANNING 状态任务
+    const planningMission = await this.prisma.teamMission.findFirst({
+      where: {
+        topicId,
+        status: MissionStatus.PLANNING,
+      },
+      orderBy: { createdAt: "desc" },
+      include: { leader: true },
+    });
+
+    if (planningMission && (hasRetryKeyword || hasContinueOrgKeyword)) {
+      // PLANNING 状态卡住，重新触发规划
+      this.logger.warn(
+        `[Leader Command] Mission ${planningMission.id} stuck in PLANNING, restarting planning`,
+      );
+
+      // 重置为 PENDING 状态
+      await this.prisma.teamMission.update({
+        where: { id: planningMission.id },
+        data: { status: MissionStatus.PENDING },
+      });
+
+      // 重新启动
+      this.startMission(planningMission.id, userId).catch((error) => {
+        this.logger.error(
+          `Failed to restart planning: ${error instanceof Error ? error.message : error}`,
+        );
+      });
+
+      await this.sendMessageToTopic(
+        topicId,
+        planningMission.leader?.id || null,
+        `🔄 检测到任务规划中断，正在重新启动规划...`,
+        MessageContentType.TEXT,
+      );
+
+      return {
+        handled: true,
+        action: "restart_planning",
+        missionId: planningMission.id,
+      };
+    }
+
+    // 如果没有重试关键词，返回未处理
     if (!hasRetryKeyword) {
       return { handled: false };
     }
