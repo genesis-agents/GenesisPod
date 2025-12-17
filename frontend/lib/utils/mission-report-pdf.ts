@@ -684,7 +684,7 @@ function generateReportHtml(data: MissionReportData): string {
 
 /**
  * Generate and download mission report PDF
- * Uses direct HTML string method for best compatibility
+ * Uses iframe approach for proper HTML document rendering
  */
 export async function downloadMissionReportPDF(
   data: MissionReportData,
@@ -693,23 +693,7 @@ export async function downloadMissionReportPDF(
   const html2pdf = (await import('html2pdf.js')).default;
   const html = generateReportHtml(data);
 
-  // Create a temporary element with the HTML content FIRST
-  // Must be visible for html2canvas to render
-  const element = document.createElement('div');
-  element.id = 'mission-report-pdf-content';
-  element.innerHTML = html;
-  element.style.cssText = `
-    position: fixed;
-    left: 0;
-    top: 0;
-    width: 794px;
-    background: white;
-    z-index: 99998;
-    overflow: visible;
-  `;
-  document.body.appendChild(element);
-
-  // Show loading indicator AFTER element (higher z-index covers it)
+  // Show loading indicator
   const overlay = document.createElement('div');
   overlay.id = 'mission-report-overlay';
   overlay.style.cssText = `
@@ -729,8 +713,38 @@ export async function downloadMissionReportPDF(
   overlay.innerHTML = '<div>正在生成 PDF 报告，请稍候...</div>';
   document.body.appendChild(overlay);
 
-  // Wait for content to render
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  // Create an iframe to properly render the complete HTML document
+  const iframe = document.createElement('iframe');
+  iframe.id = 'mission-report-iframe';
+  iframe.style.cssText = `
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 794px;
+    height: 10000px;
+    border: none;
+    z-index: 99998;
+    background: white;
+  `;
+  document.body.appendChild(iframe);
+
+  // Write the HTML document to the iframe
+  const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+  if (!iframeDoc) {
+    document.body.removeChild(iframe);
+    document.body.removeChild(overlay);
+    throw new Error('Failed to access iframe document');
+  }
+
+  iframeDoc.open();
+  iframeDoc.write(html);
+  iframeDoc.close();
+
+  // Wait for iframe content to fully render
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+
+  // Get the body element from the iframe
+  const iframeBody = iframeDoc.body;
 
   const options = {
     margin: 10,
@@ -739,10 +753,11 @@ export async function downloadMissionReportPDF(
     html2canvas: {
       scale: 2,
       useCORS: true,
-      logging: true,
+      logging: false,
       letterRendering: true,
+      windowWidth: 794,
       scrollX: 0,
-      scrollY: -window.scrollY,
+      scrollY: 0,
     },
     jsPDF: {
       unit: 'mm' as const,
@@ -759,9 +774,9 @@ export async function downloadMissionReportPDF(
   };
 
   try {
-    await html2pdf().set(options).from(element).save();
+    await html2pdf().set(options).from(iframeBody).save();
   } finally {
-    document.body.removeChild(element);
+    document.body.removeChild(iframe);
     document.body.removeChild(overlay);
   }
 }
