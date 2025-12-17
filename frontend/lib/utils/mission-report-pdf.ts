@@ -150,6 +150,9 @@ function markdownToHtml(text: string): string {
   // Italic
   html = html.replace(/\*(.+?)\*/g, '<em style="font-style: italic;">$1</em>');
 
+  // Remove strikethrough markers (删除线文本在正式报告中应该移除，只保留文字)
+  html = html.replace(/~~(.+?)~~/g, '$1');
+
   // Horizontal rule
   html = html.replace(
     /^---$/gm,

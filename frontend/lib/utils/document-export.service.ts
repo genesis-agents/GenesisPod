@@ -863,6 +863,9 @@ ${latexContent}
     html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
 
+    // 移除删除线标记，只保留文字
+    html = html.replace(/~~(.+?)~~/g, '$1');
+
     // 代码
     html = html.replace(/`(.+?)`/g, '<code>$1</code>');
 
