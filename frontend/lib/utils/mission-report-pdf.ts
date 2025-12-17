@@ -1048,14 +1048,11 @@ export async function downloadMissionReportPDF(
     try {
       imgData = await htmlToImage.toPng(container, {
         quality: 1.0,
-        pixelRatio: 2,
+        pixelRatio: 4, // Increased from 2 to 4 for better clarity
         backgroundColor: '#ffffff',
-        width: contentWidth,
-        height: contentHeight,
-        style: {
-          transform: 'none',
-          transformOrigin: 'top left',
-        },
+        cacheBust: true,
+        includeQueryParams: true,
+        skipFonts: false,
       });
       console.log(
         'html-to-image capture successful, data length:',
@@ -1110,13 +1107,13 @@ export async function downloadMissionReportPDF(
       img.src = imgData;
     });
 
-    // Calculate pages based on actual image dimensions
+    // Calculate pages based on content dimensions (not image dimensions which are scaled by pixelRatio)
     const imgWidth = contentWidth;
-    const imgHeight = (img.height * imgWidth) / img.width;
+    const imgHeight = contentHeight; // Use original content height
     const totalPages = Math.ceil(imgHeight / pageHeight);
 
     console.log('Image dimensions:', img.width, 'x', img.height);
-    console.log('Scaled dimensions:', imgWidth, 'x', imgHeight);
+    console.log('Content dimensions:', contentWidth, 'x', contentHeight);
     console.log('Total pages:', totalPages);
 
     for (let i = 0; i < totalPages; i++) {
@@ -1126,7 +1123,16 @@ export async function downloadMissionReportPDF(
 
       // Position image to show current page portion
       const yOffset = -(i * pageHeight);
-      pdf.addImage(imgData, 'PNG', 0, yOffset, imgWidth, imgHeight);
+      pdf.addImage(
+        imgData,
+        'PNG',
+        0,
+        yOffset,
+        imgWidth,
+        imgHeight,
+        undefined,
+        'FAST'
+      );
     }
 
     const outputFilename = filename || `mission-report-${data.mission.id}.pdf`;
