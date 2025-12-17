@@ -684,7 +684,7 @@ function generateReportHtml(data: MissionReportData): string {
 
 /**
  * Generate and download mission report PDF
- * Uses direct DOM rendering with visible container for html2canvas compatibility
+ * Uses direct HTML string method for best compatibility
  */
 export async function downloadMissionReportPDF(
   data: MissionReportData,
@@ -693,27 +693,23 @@ export async function downloadMissionReportPDF(
   const html2pdf = (await import('html2pdf.js')).default;
   const html = generateReportHtml(data);
 
-  // Create a container div - must be visible for html2canvas to work properly
-  const container = document.createElement('div');
-  container.id = 'mission-report-pdf-container';
-  container.style.cssText = `
+  // Create a temporary element with the HTML content FIRST
+  // Must be visible for html2canvas to render
+  const element = document.createElement('div');
+  element.id = 'mission-report-pdf-content';
+  element.innerHTML = html;
+  element.style.cssText = `
     position: fixed;
     left: 0;
     top: 0;
     width: 794px;
     background: white;
-    z-index: 99999;
-    overflow: auto;
-    max-height: 100vh;
+    z-index: 99998;
+    overflow: visible;
   `;
+  document.body.appendChild(element);
 
-  // Parse and insert HTML content
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-  const bodyContent = doc.body.innerHTML;
-  container.innerHTML = bodyContent;
-
-  // Add loading overlay to hide the container visually from user
+  // Show loading indicator AFTER element (higher z-index covers it)
   const overlay = document.createElement('div');
   overlay.id = 'mission-report-overlay';
   overlay.style.cssText = `
@@ -722,8 +718,8 @@ export async function downloadMissionReportPDF(
     top: 0;
     right: 0;
     bottom: 0;
-    background: rgba(255, 255, 255, 0.95);
-    z-index: 99998;
+    background: rgba(255, 255, 255, 0.98);
+    z-index: 99999;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -731,45 +727,41 @@ export async function downloadMissionReportPDF(
     color: #7c3aed;
   `;
   overlay.innerHTML = '<div>正在生成 PDF 报告，请稍候...</div>';
-
   document.body.appendChild(overlay);
-  document.body.appendChild(container);
 
-  // Wait for content to render and fonts to load
-  await new Promise((resolve) => setTimeout(resolve, 800));
+  // Wait for content to render
+  await new Promise((resolve) => setTimeout(resolve, 1000));
 
   const options = {
-    margin: [10, 0, 10, 0] as [number, number, number, number],
+    margin: 10,
     filename: filename || `mission-report-${data.mission.id}.pdf`,
-    image: { type: 'jpeg' as const, quality: 0.95 },
+    image: { type: 'jpeg' as const, quality: 0.98 },
     html2canvas: {
       scale: 2,
       useCORS: true,
-      logging: false,
-      allowTaint: true,
-      backgroundColor: '#ffffff',
+      logging: true,
+      letterRendering: true,
       scrollX: 0,
-      scrollY: 0,
-      windowWidth: 794,
+      scrollY: -window.scrollY,
     },
     jsPDF: {
-      unit: 'px' as const,
+      unit: 'mm' as const,
       format: 'a4' as const,
       orientation: 'portrait' as const,
-      hotfixes: ['px_scaling'],
     },
     pagebreak: {
-      mode: ['css', 'legacy'] as ('css' | 'legacy')[],
-      before: '.page-break-before',
-      after: '.page-break-after',
-      avoid: '.page-break-inside-avoid',
+      mode: ['avoid-all', 'css', 'legacy'] as (
+        | 'avoid-all'
+        | 'css'
+        | 'legacy'
+      )[],
     },
   };
 
   try {
-    await html2pdf().set(options).from(container).save();
+    await html2pdf().set(options).from(element).save();
   } finally {
-    document.body.removeChild(container);
+    document.body.removeChild(element);
     document.body.removeChild(overlay);
   }
 }
