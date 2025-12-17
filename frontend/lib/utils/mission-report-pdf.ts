@@ -684,6 +684,7 @@ function generateReportHtml(data: MissionReportData): string {
 
 /**
  * Generate and download mission report PDF
+ * Uses direct DOM rendering for better compatibility
  */
 export async function downloadMissionReportPDF(
   data: MissionReportData,
@@ -692,43 +693,41 @@ export async function downloadMissionReportPDF(
   const html2pdf = (await import('html2pdf.js')).default;
   const html = generateReportHtml(data);
 
-  // Create iframe for isolated rendering
-  const iframe = document.createElement('iframe');
-  iframe.style.cssText = `
+  // Create a container div for rendering (more reliable than iframe)
+  const container = document.createElement('div');
+  container.id = 'mission-report-pdf-container';
+  container.style.cssText = `
     position: fixed;
-    left: 0;
+    left: -9999px;
     top: 0;
     width: 794px;
-    height: 1123px;
-    border: none;
-    z-index: 99999;
     background: white;
+    z-index: -1;
   `;
-  document.body.appendChild(iframe);
 
-  const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-  if (!iframeDoc) {
-    document.body.removeChild(iframe);
-    throw new Error('无法创建 PDF 渲染环境');
-  }
+  // Parse and insert HTML content
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const bodyContent = doc.body.innerHTML;
+  container.innerHTML = bodyContent;
 
-  iframeDoc.open();
-  iframeDoc.write(html);
-  iframeDoc.close();
+  document.body.appendChild(container);
 
-  // Wait for content to render
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  // Wait for content to render and fonts to load
+  await new Promise((resolve) => setTimeout(resolve, 500));
 
   const options = {
-    margin: 0,
+    margin: [10, 0, 10, 0] as [number, number, number, number], // top, right, bottom, left margins
     filename: filename || `mission-report-${data.mission.id}.pdf`,
-    image: { type: 'jpeg' as const, quality: 0.98 },
+    image: { type: 'jpeg' as const, quality: 0.95 },
     html2canvas: {
       scale: 2,
       useCORS: true,
       logging: false,
       allowTaint: true,
       backgroundColor: '#ffffff',
+      width: 794,
+      windowWidth: 794,
     },
     jsPDF: {
       unit: 'px' as const,
@@ -738,12 +737,15 @@ export async function downloadMissionReportPDF(
     },
     pagebreak: {
       mode: ['css', 'legacy'] as ('css' | 'legacy')[],
+      before: '.page-break-before',
+      after: '.page-break-after',
+      avoid: '.page-break-inside-avoid',
     },
   };
 
   try {
-    await html2pdf().set(options).from(iframeDoc.body).save();
+    await html2pdf().set(options).from(container).save();
   } finally {
-    document.body.removeChild(iframe);
+    document.body.removeChild(container);
   }
 }
