@@ -422,6 +422,20 @@ export class ProxyController {
       );
     }
 
+    // 检查是否为 PDF 文件 - Reader Mode 不应处理 PDF，应直接在 PDF Viewer 中打开
+    if (url.toLowerCase().endsWith(".pdf")) {
+      this.logger.log(
+        `PDF URL detected in News Reader Mode, returning redirect to PDF viewer: ${url}`,
+      );
+      return {
+        isPdf: true,
+        pdfUrl: url,
+        title: decodeURIComponent(url.split("/").pop() || "PDF Document"),
+        content: "",
+        error: "This is a PDF file. Please use the PDF viewer instead.",
+      };
+    }
+
     // News类别不限制域名，允许访问所有新闻网站
     try {
       let currentUrl = url;

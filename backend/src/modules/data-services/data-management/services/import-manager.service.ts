@@ -734,14 +734,18 @@ export class ImportManagerService {
       const title = metadata.title || url;
       const abstract = metadata.description || null;
 
-      // 为论文类型提取或生成PDF URL
+      // 为论文和报告类型提取或生成PDF URL
+      // 支持 PAPER、REPORT、POLICY 类型，或任何 URL 以 .pdf 结尾的资源
       let pdfUrl: string | null = null;
-      if (resourceType === "PAPER") {
-        if (metadata.pdfUrl) {
-          pdfUrl = metadata.pdfUrl;
-        } else {
-          pdfUrl = this.generatePdfUrl(url);
-        }
+      if (metadata.pdfUrl) {
+        // 如果元数据已有 pdfUrl，直接使用
+        pdfUrl = metadata.pdfUrl;
+      } else if (url.toLowerCase().endsWith(".pdf")) {
+        // 如果 URL 本身就是 PDF，使用该 URL
+        pdfUrl = url;
+      } else if (resourceType === "PAPER") {
+        // 仅对 PAPER 类型尝试生成 PDF URL（如 arXiv）
+        pdfUrl = this.generatePdfUrl(url);
       }
 
       // 检查Resource是否已存在
