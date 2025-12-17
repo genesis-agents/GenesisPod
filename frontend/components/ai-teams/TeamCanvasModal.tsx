@@ -47,6 +47,12 @@ const missionStatusConfig: Record<
     label: '执行中',
     icon: '⚡',
   },
+  PAUSED: {
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-100',
+    label: '已暂停',
+    icon: '⏸️',
+  },
   REVIEW: {
     color: 'text-purple-600',
     bgColor: 'bg-purple-100',

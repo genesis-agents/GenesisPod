@@ -406,6 +406,36 @@ export async function cancelMission(
 }
 
 /**
+ * 暂停任务（可恢复）
+ */
+export async function pauseMission(
+  topicId: string,
+  missionId: string
+): Promise<{ success: boolean; message: string; previousStatus: string }> {
+  return fetchWithAuth(
+    `/api/v1/topics/${topicId}/missions/${missionId}/pause`,
+    {
+      method: 'POST',
+    }
+  );
+}
+
+/**
+ * 恢复已暂停的任务
+ */
+export async function resumeMission(
+  topicId: string,
+  missionId: string
+): Promise<{ success: boolean; message: string; status: string }> {
+  return fetchWithAuth(
+    `/api/v1/topics/${topicId}/missions/${missionId}/resume`,
+    {
+      method: 'POST',
+    }
+  );
+}
+
+/**
  * 获取任务执行日志
  */
 export async function getMissionLogs(

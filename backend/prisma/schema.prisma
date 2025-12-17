@@ -1376,6 +1376,7 @@ enum MissionStatus {
   PENDING // 待开始
   PLANNING // 规划中（Leader正在分解任务）
   IN_PROGRESS // 执行中
+  PAUSED // 已暂停（可恢复）
   REVIEW // 审核中（Leader整合结果）
   COMPLETED // 已完成
   FAILED // 失败

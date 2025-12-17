@@ -122,6 +122,8 @@ interface AiGroupState {
     dto: CreateMissionDto
   ) => Promise<TeamMission>;
   cancelMission: (topicId: string, missionId: string) => Promise<void>;
+  pauseMission: (topicId: string, missionId: string) => Promise<void>;
+  resumeMission: (topicId: string, missionId: string) => Promise<void>;
   setCurrentMission: (mission: TeamMission | null) => void;
 
   // Actions - Team Role
@@ -1162,6 +1164,38 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
       missions: state.missions.map((m) => (m.id === missionId ? mission : m)),
       currentMission:
         state.currentMission?.id === missionId ? mission : state.currentMission,
+    }));
+  },
+
+  pauseMission: async (topicId, missionId) => {
+    await api.pauseMission(topicId, missionId);
+    // 刷新任务列表以获取最新状态
+    const response = await api.getMissions(topicId);
+    const missions = response.missions || [];
+    const pausedMission = missions.find((m: TeamMission) => m.id === missionId);
+    set((state) => ({
+      missions,
+      currentMission:
+        state.currentMission?.id === missionId
+          ? pausedMission || state.currentMission
+          : state.currentMission,
+    }));
+  },
+
+  resumeMission: async (topicId, missionId) => {
+    await api.resumeMission(topicId, missionId);
+    // 刷新任务列表以获取最新状态
+    const response = await api.getMissions(topicId);
+    const missions = response.missions || [];
+    const resumedMission = missions.find(
+      (m: TeamMission) => m.id === missionId
+    );
+    set((state) => ({
+      missions,
+      currentMission:
+        state.currentMission?.id === missionId
+          ? resumedMission || state.currentMission
+          : state.currentMission,
     }));
   },
 

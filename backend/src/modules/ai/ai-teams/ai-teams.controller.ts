@@ -1046,6 +1046,24 @@ export class AiTeamsController {
     return this.teamMissionService.cancelMission(missionId, req.user.id);
   }
 
+  @Post(":topicId/missions/:missionId/pause")
+  async pauseMission(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("missionId") missionId: string,
+  ) {
+    return this.teamMissionService.pauseMission(missionId, req.user.id);
+  }
+
+  @Post(":topicId/missions/:missionId/resume")
+  async resumeMission(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("missionId") missionId: string,
+  ) {
+    return this.teamMissionService.resumeMission(missionId, req.user.id);
+  }
+
   @Get(":topicId/missions/:missionId/logs")
   async getMissionLogs(
     @Param("topicId") _topicId: string,

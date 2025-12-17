@@ -1432,6 +1432,141 @@ ${taskResults}
     return { success: true, message: "任务已取消" };
   }
 
+  /**
+   * 暂停任务（可恢复）
+   */
+  async pauseMission(missionId: string, _userId: string) {
+    const mission = await this.prisma.teamMission.findUnique({
+      where: { id: missionId },
+      include: { leader: true },
+    });
+
+    if (!mission) {
+      throw new NotFoundException("任务不存在");
+    }
+
+    // 只有 IN_PROGRESS 或 PLANNING 状态的任务可以暂停
+    if (
+      mission.status !== MissionStatus.IN_PROGRESS &&
+      mission.status !== MissionStatus.PLANNING
+    ) {
+      throw new BadRequestException(
+        `当前状态(${mission.status})不支持暂停，只有进行中或规划中的任务可以暂停`,
+      );
+    }
+
+    // 记录暂停前的状态，以便恢复
+    const previousStatus = mission.status;
+
+    await this.prisma.teamMission.update({
+      where: { id: missionId },
+      data: {
+        status: MissionStatus.PAUSED,
+        // 将暂停前的状态保存到 metadata 中
+        taskBreakdown: {
+          ...((mission.taskBreakdown as object) || {}),
+          _pausedFromStatus: previousStatus,
+        },
+      },
+    });
+
+    await this.createLog(missionId, {
+      type: MissionLogType.MISSION_FAILED, // 使用现有类型，记录暂停
+      agentId: mission.leader.id,
+      agentName: mission.leader.agentName || mission.leader.displayName,
+      content: `任务已暂停（从状态: ${previousStatus}）`,
+    });
+
+    // 发送暂停消息
+    await this.sendMessageToTopic(
+      mission.topicId,
+      null,
+      `⏸️ **任务已暂停**\n\n任务「${mission.title}」已被用户暂停，可随时恢复继续执行。`,
+      MessageContentType.SYSTEM,
+    );
+
+    this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:paused", {
+      missionId,
+      previousStatus,
+    });
+
+    return { success: true, message: "任务已暂停", previousStatus };
+  }
+
+  /**
+   * 恢复已暂停的任务
+   */
+  async resumeMission(missionId: string, userId: string) {
+    const mission = await this.prisma.teamMission.findUnique({
+      where: { id: missionId },
+      include: {
+        leader: true,
+        tasks: {
+          include: { assignedTo: true },
+        },
+      },
+    });
+
+    if (!mission) {
+      throw new NotFoundException("任务不存在");
+    }
+
+    if (mission.status !== MissionStatus.PAUSED) {
+      throw new BadRequestException("只有已暂停的任务可以恢复");
+    }
+
+    // 获取暂停前的状态
+    const taskBreakdown = (mission.taskBreakdown as any) || {};
+    const previousStatus =
+      taskBreakdown._pausedFromStatus || MissionStatus.IN_PROGRESS;
+
+    // 清除临时状态字段
+    delete taskBreakdown._pausedFromStatus;
+
+    await this.prisma.teamMission.update({
+      where: { id: missionId },
+      data: {
+        status: previousStatus,
+        taskBreakdown: taskBreakdown,
+      },
+    });
+
+    await this.createLog(missionId, {
+      type: MissionLogType.TASK_STARTED, // 使用现有类型，记录恢复
+      agentId: mission.leader.id,
+      agentName: mission.leader.agentName || mission.leader.displayName,
+      content: `任务已恢复（恢复到状态: ${previousStatus}）`,
+    });
+
+    // 发送恢复消息
+    await this.sendMessageToTopic(
+      mission.topicId,
+      null,
+      `▶️ **任务已恢复**\n\n任务「${mission.title}」继续执行...`,
+      MessageContentType.SYSTEM,
+    );
+
+    this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:resumed", {
+      missionId,
+      status: previousStatus,
+    });
+
+    // 如果是 IN_PROGRESS 状态，继续执行下一批任务
+    if (previousStatus === MissionStatus.IN_PROGRESS) {
+      // 异步继续执行，不阻塞返回
+      this.executeNextTasks(missionId).catch((err) => {
+        this.logger.error(`Failed to resume mission ${missionId}: ${err}`);
+      });
+    } else if (previousStatus === MissionStatus.PLANNING) {
+      // 如果是规划中状态暂停的，重新启动规划
+      this.startMission(missionId, userId).catch((err) => {
+        this.logger.error(`Failed to restart planning ${missionId}: ${err}`);
+      });
+    }
+
+    return { success: true, message: "任务已恢复", status: previousStatus };
+  }
+
   // ==================== 设置 Leader ====================
 
   async setLeader(topicId: string, aiMemberId: string) {
