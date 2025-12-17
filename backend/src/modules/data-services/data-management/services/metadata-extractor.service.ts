@@ -54,13 +54,20 @@ export class MetadataExtractorService {
         return await this.extractYouTubeMetadata(url);
       }
 
-      // 获取页面HTML
+      // 先用 HEAD 请求检查文件类型和大小（不下载内容）
+      const headInfo = await this.fetchHeadInfo(url);
+
+      // PDF 和其他二进制文件：只从 URL 提取元数据，不下载内容
+      if (this.isBinaryFile(headInfo.contentType, url)) {
+        this.logger.log(
+          `Binary file detected (${headInfo.contentType}), extracting metadata from URL only`,
+        );
+        return this.extractMetadataFromUrl(url, domain, headInfo);
+      }
+
+      // HTML 页面：下载内容提取元数据
       const html = await this.fetchPageContent(url);
-
-      // 使用cheerio解析HTML
       const metadata = this.parseHtmlMetadata(html, url);
-
-      // 计算内容hash用于重复检测
       const contentHash = this.calculateContentHash(html);
 
       return {
@@ -75,6 +82,160 @@ export class MetadataExtractorService {
         `无法解析URL: ${this.getErrorMessage(error)}`,
       );
     }
+  }
+
+  /**
+   * 使用 HEAD 请求获取文件信息（不下载内容）
+   */
+  private async fetchHeadInfo(
+    url: string,
+  ): Promise<{ contentType: string; contentLength: number | null }> {
+    try {
+      const response = await axios.head(url, {
+        timeout: 10000,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        },
+        validateStatus: (status) => status >= 200 && status < 400,
+      });
+
+      return {
+        contentType: response.headers["content-type"] || "",
+        contentLength: response.headers["content-length"]
+          ? parseInt(response.headers["content-length"], 10)
+          : null,
+      };
+    } catch {
+      // HEAD 请求失败时返回默认值，让后续逻辑继续
+      return { contentType: "", contentLength: null };
+    }
+  }
+
+  /**
+   * 检查是否为二进制文件（PDF、图片等）
+   */
+  private isBinaryFile(contentType: string, url: string): boolean {
+    const binaryTypes = [
+      "application/pdf",
+      "application/octet-stream",
+      "application/zip",
+      "application/x-pdf",
+      "image/",
+      "audio/",
+      "video/",
+    ];
+
+    const binaryExtensions = [
+      ".pdf",
+      ".doc",
+      ".docx",
+      ".xls",
+      ".xlsx",
+      ".ppt",
+      ".pptx",
+      ".zip",
+      ".rar",
+    ];
+
+    // 检查 Content-Type
+    if (binaryTypes.some((type) => contentType.toLowerCase().includes(type))) {
+      return true;
+    }
+
+    // 检查 URL 扩展名
+    const urlLower = url.toLowerCase();
+    if (binaryExtensions.some((ext) => urlLower.endsWith(ext))) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * 从 URL 提取元数据（不下载内容，用于 PDF 等二进制文件）
+   */
+  private extractMetadataFromUrl(
+    url: string,
+    domain: string,
+    headInfo: { contentType: string; contentLength: number | null },
+  ): ParsedUrlMetadata {
+    const urlObj = new URL(url);
+    const pathname = urlObj.pathname;
+
+    // 从 URL 路径提取文件名
+    const filename = decodeURIComponent(pathname.split("/").pop() || "");
+
+    // 清理文件名作为标题（移除扩展名和特殊字符）
+    const title = filename
+      .replace(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx)$/i, "")
+      .replace(/[-_]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    // 生成描述
+    const fileSize = headInfo.contentLength
+      ? this.formatFileSize(headInfo.contentLength)
+      : "未知大小";
+    const fileType = this.getFileTypeFromUrl(url);
+    const description = `${fileType}文件 (${fileSize}) - 来源: ${domain}`;
+
+    // 使用 URL 作为内容 hash（因为不下载内容）
+    const contentHash = this.calculateContentHash(url);
+
+    return {
+      title: title || filename || "未知文件",
+      description,
+      domain,
+      url,
+      contentHash,
+      siteName: domain,
+      language: "unknown",
+      contentType: headInfo.contentType || this.getContentTypeFromUrl(url),
+      pdfUrl: url.toLowerCase().endsWith(".pdf") ? url : undefined,
+    };
+  }
+
+  /**
+   * 格式化文件大小
+   */
+  private formatFileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024)
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  }
+
+  /**
+   * 从 URL 获取文件类型描述
+   */
+  private getFileTypeFromUrl(url: string): string {
+    const urlLower = url.toLowerCase();
+    if (urlLower.endsWith(".pdf")) return "PDF";
+    if (urlLower.endsWith(".doc") || urlLower.endsWith(".docx")) return "Word";
+    if (urlLower.endsWith(".xls") || urlLower.endsWith(".xlsx")) return "Excel";
+    if (urlLower.endsWith(".ppt") || urlLower.endsWith(".pptx"))
+      return "PowerPoint";
+    return "文档";
+  }
+
+  /**
+   * 从 URL 获取 Content-Type
+   */
+  private getContentTypeFromUrl(url: string): string {
+    const urlLower = url.toLowerCase();
+    if (urlLower.endsWith(".pdf")) return "application/pdf";
+    if (urlLower.endsWith(".doc")) return "application/msword";
+    if (urlLower.endsWith(".docx"))
+      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    if (urlLower.endsWith(".xls")) return "application/vnd.ms-excel";
+    if (urlLower.endsWith(".xlsx"))
+      return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    if (urlLower.endsWith(".ppt")) return "application/vnd.ms-powerpoint";
+    if (urlLower.endsWith(".pptx"))
+      return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+    return "application/octet-stream";
   }
 
   /**
