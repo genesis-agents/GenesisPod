@@ -684,7 +684,7 @@ function generateReportHtml(data: MissionReportData): string {
 
 /**
  * Generate and download mission report PDF
- * Uses direct DOM rendering for better compatibility
+ * Uses direct DOM rendering with visible container for html2canvas compatibility
  */
 export async function downloadMissionReportPDF(
   data: MissionReportData,
@@ -693,16 +693,18 @@ export async function downloadMissionReportPDF(
   const html2pdf = (await import('html2pdf.js')).default;
   const html = generateReportHtml(data);
 
-  // Create a container div for rendering (more reliable than iframe)
+  // Create a container div - must be visible for html2canvas to work properly
   const container = document.createElement('div');
   container.id = 'mission-report-pdf-container';
   container.style.cssText = `
     position: fixed;
-    left: -9999px;
+    left: 0;
     top: 0;
     width: 794px;
     background: white;
-    z-index: -1;
+    z-index: 99999;
+    overflow: auto;
+    max-height: 100vh;
   `;
 
   // Parse and insert HTML content
@@ -711,13 +713,33 @@ export async function downloadMissionReportPDF(
   const bodyContent = doc.body.innerHTML;
   container.innerHTML = bodyContent;
 
+  // Add loading overlay to hide the container visually from user
+  const overlay = document.createElement('div');
+  overlay.id = 'mission-report-overlay';
+  overlay.style.cssText = `
+    position: fixed;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.95);
+    z-index: 99998;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: #7c3aed;
+  `;
+  overlay.innerHTML = '<div>正在生成 PDF 报告，请稍候...</div>';
+
+  document.body.appendChild(overlay);
   document.body.appendChild(container);
 
   // Wait for content to render and fonts to load
-  await new Promise((resolve) => setTimeout(resolve, 500));
+  await new Promise((resolve) => setTimeout(resolve, 800));
 
   const options = {
-    margin: [10, 0, 10, 0] as [number, number, number, number], // top, right, bottom, left margins
+    margin: [10, 0, 10, 0] as [number, number, number, number],
     filename: filename || `mission-report-${data.mission.id}.pdf`,
     image: { type: 'jpeg' as const, quality: 0.95 },
     html2canvas: {
@@ -726,7 +748,8 @@ export async function downloadMissionReportPDF(
       logging: false,
       allowTaint: true,
       backgroundColor: '#ffffff',
-      width: 794,
+      scrollX: 0,
+      scrollY: 0,
       windowWidth: 794,
     },
     jsPDF: {
@@ -747,5 +770,6 @@ export async function downloadMissionReportPDF(
     await html2pdf().set(options).from(container).save();
   } finally {
     document.body.removeChild(container);
+    document.body.removeChild(overlay);
   }
 }
