@@ -27,15 +27,20 @@ export class AiResponseService {
   /**
    * 智能上下文管理器 - 对消息进行重要性评分和筛选
    * 确保AI能理解关键对话脉络，而不只是简单取最近N条
+   *
+   * 【重要】上下文隔离策略：
+   * - 任务消息（[任务分解]、[工作汇报]等）会被过滤，不作为对话上下文
+   * - 每次只取最近的相关消息，避免上下文累积超过模型限制
+   *
    * @param topicId Topic ID
    * @param aiMemberId 当前AI成员ID
-   * @param maxMessages 最大消息数
+   * @param maxMessages 最大消息数（默认10，更激进的限制）
    * @param debateOpponentId 辩论对手ID（如果有）- 用于优先包含对手的最新发言
    */
   async buildSmartContext(
     topicId: string,
     aiMemberId: string,
-    maxMessages: number = 15,
+    maxMessages: number = 10, // 从15改为10，更激进的默认限制
     debateOpponentId?: string,
   ): Promise<{
     messages: Array<{
@@ -60,9 +65,44 @@ export class AiResponseService {
     summary: string | null;
     parsedUrlsContext: string;
   }> {
-    // 1. 获取最近50条消息用于评分（比最终输出多，用于智能筛选）
+    // 【关键】任务系统消息的标识模式 - 这些消息不应该作为普通对话上下文
+    const missionMessagePatterns = [
+      /^\[任务规划\]/,
+      /^\[任务分解\]/,
+      /^\[任务分配\]/,
+      /^\[任务进度\]/,
+      /^\[开始工作\]/,
+      /^\[工作汇报\]/,
+      /^\[任务修改\]/,
+      /^\[结果整合\]/,
+      /^\[最终交付\]/,
+      /^\[Leader反馈\]/,
+      /^\[Mission\]/i,
+      /^\[AgentTask\]/i,
+      /^🚀\s*\*\*团队任务已创建\*\*/,
+      /^📋\s*\[任务分配\]/,
+      /^❌\s*任务.*失败/,
+      /^❌\s*任务执行出错/,
+    ];
+
+    const isMissionMessage = (content: string): boolean => {
+      const trimmed = content.trim();
+      return (
+        missionMessagePatterns.some((pattern) => pattern.test(trimmed)) ||
+        trimmed.includes("[任务分解]") ||
+        trimmed.includes("[工作汇报]") ||
+        trimmed.includes("[最终交付]") ||
+        trimmed.includes("[Leader反馈]") ||
+        trimmed.includes("[结果整合]")
+      );
+    };
+
+    // 1. 获取最近30条消息（减少从50条，降低初始数据量）
     const recentMessages = await this.prisma.topicMessage.findMany({
-      where: { topicId, deletedAt: null },
+      where: {
+        topicId,
+        deletedAt: null,
+      },
       include: {
         sender: { select: { username: true, fullName: true } },
         aiMember: { select: { displayName: true } },
@@ -81,15 +121,24 @@ export class AiResponseService {
         },
       },
       orderBy: { createdAt: "desc" },
-      take: 50,
+      take: 30, // 从50减少到30
     });
 
-    if (recentMessages.length === 0) {
+    // 【关键】立即过滤掉任务系统消息，不让它们进入上下文评分
+    const filteredMessages = recentMessages.filter(
+      (msg) => !isMissionMessage(msg.content),
+    );
+
+    this.logger.log(
+      `[SmartContext] Initial messages: ${recentMessages.length}, after mission filter: ${filteredMessages.length}`,
+    );
+
+    if (filteredMessages.length === 0) {
       return { messages: [], summary: null, parsedUrlsContext: "" };
     }
 
-    // 2. 为每条消息计算重要性分数
-    const scoredMessages = recentMessages.map((msg, index) => {
+    // 2. 为每条消息计算重要性分数（使用过滤后的消息）
+    const scoredMessages = filteredMessages.map((msg, index) => {
       let score = 0;
 
       // 时间递减分数（最新消息+5分，逐渐递减）
@@ -102,7 +151,7 @@ export class AiResponseService {
       if (mentionsThisAI) score += 10;
 
       // 被回复的消息 +8分
-      const isRepliedTo = recentMessages.some(
+      const isRepliedTo = filteredMessages.some(
         (other) => other.replyTo?.id === msg.id,
       );
       if (isRepliedTo) score += 8;
@@ -132,7 +181,7 @@ export class AiResponseService {
       if (debateOpponentId && msg.aiMemberId === debateOpponentId) {
         score += 15;
         // 对手最近的3条消息额外加分
-        const opponentMsgs = recentMessages.filter(
+        const opponentMsgs = filteredMessages.filter(
           (m) => m.aiMemberId === debateOpponentId,
         );
         const opponentIndex = opponentMsgs.findIndex((m) => m.id === msg.id);
@@ -149,7 +198,7 @@ export class AiResponseService {
 
     // 3. 按分数排序，取top N，然后按时间重新排序
     // CRITICAL: Always include the latest user message (it contains the current request!)
-    const latestUserMessage = recentMessages.find((m) => m.senderId);
+    const latestUserMessage = filteredMessages.find((m) => m.senderId);
 
     let topMessages = scoredMessages
       .sort((a, b) => b.score - a.score)
@@ -172,7 +221,7 @@ export class AiResponseService {
 
     // 4. 如果消息被截断太多，生成早期消息的摘要
     let summary: string | null = null;
-    const droppedCount = recentMessages.length - topMessages.length;
+    const droppedCount = filteredMessages.length - topMessages.length;
     if (droppedCount > 10) {
       // 获取被丢弃的早期消息的简要摘要
       const droppedMessages = scoredMessages
@@ -284,12 +333,13 @@ export class AiResponseService {
     }
 
     // 使用智能上下文管理器获取消息
-    const MAX_CONTEXT_MESSAGES = 30;
+    // 【关键】更激进的上下文限制，防止累积超过模型限制
+    const MAX_CONTEXT_MESSAGES = 10; // 从30减少到10
     const debateOpponentId = debateRole?.opponent?.id;
     const smartContext = await this.buildSmartContext(
       topicId,
       aiMemberId,
-      Math.min(aiMember.contextWindow || 20, MAX_CONTEXT_MESSAGES),
+      Math.min(aiMember.contextWindow || 10, MAX_CONTEXT_MESSAGES),
       debateOpponentId,
     );
 
@@ -762,11 +812,15 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
     );
 
     // ========== Context Size Management ==========
-    // Best practice: Limit both message count AND total context size
-    // to prevent exceeding model's context window
+    // 【最佳实践】严格限制上下文大小，防止超过模型限制
+    //
+    // 关键策略：
+    // 1. 每次对话只保留最近的少量消息
+    // 2. 任务消息已在 buildSmartContext 中被过滤
+    // 3. 总字符数严格限制，为响应留出足够空间
 
-    // 1. Limit message count to last 25 messages (keep most recent context)
-    const MAX_CHAT_CONTEXT_MESSAGES = 25;
+    // 1. 限制消息数量（更激进：从25减少到10）
+    const MAX_CHAT_CONTEXT_MESSAGES = 10;
     if (normalContextMessages.length > MAX_CHAT_CONTEXT_MESSAGES) {
       this.logger.log(
         `[Context Management] Trimming messages: ${normalContextMessages.length} -> ${MAX_CHAT_CONTEXT_MESSAGES}`,
@@ -776,19 +830,18 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
       );
     }
 
-    // 2. Calculate and limit total context size
-    // Roughly 4 chars = 1 token, target ~30k tokens = ~120k chars for context
-    // Leave room for system prompt (~5k) and response (~8k tokens)
-    const MAX_TOTAL_CONTEXT_CHARS = 100000;
+    // 2. 限制总字符数
+    // 目标：~15k tokens = ~60k chars（更保守，为响应留更多空间）
+    const MAX_TOTAL_CONTEXT_CHARS = 60000;
     let totalContextChars = normalContextMessages.reduce(
       (sum, m) => sum + m.content.length,
       0,
     );
 
-    // If still too large, progressively trim oldest messages
+    // 如果仍然超过限制，从最旧的消息开始删除
     while (
       totalContextChars > MAX_TOTAL_CONTEXT_CHARS &&
-      normalContextMessages.length > 3
+      normalContextMessages.length > 2
     ) {
       const removed = normalContextMessages.shift();
       if (removed) {
@@ -799,8 +852,31 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
       }
     }
 
+    // 3. 对过长的单条消息进行截断（最多2000字符）
+    const MAX_SINGLE_MESSAGE_LENGTH = 2000;
+    normalContextMessages = normalContextMessages.map((msg) => {
+      if (msg.content.length > MAX_SINGLE_MESSAGE_LENGTH) {
+        this.logger.log(
+          `[Context Management] Truncating long message: ${msg.content.length} -> ${MAX_SINGLE_MESSAGE_LENGTH} chars`,
+        );
+        return {
+          ...msg,
+          content:
+            msg.content.substring(0, MAX_SINGLE_MESSAGE_LENGTH) +
+            "\n[... 内容过长已截断 ...]",
+        };
+      }
+      return msg;
+    });
+
+    // 重新计算总字符数
+    totalContextChars = normalContextMessages.reduce(
+      (sum, m) => sum + m.content.length,
+      0,
+    );
+
     this.logger.log(
-      `[Context Management] Final context: ${normalContextMessages.length} messages, ~${Math.round(totalContextChars / 4)} tokens`,
+      `[Context Management] Final context: ${normalContextMessages.length} messages, ${totalContextChars} chars, ~${Math.round(totalContextChars / 4)} tokens`,
     );
 
     const chatMessages: ChatMessage[] = normalContextMessages.map((m) => {
