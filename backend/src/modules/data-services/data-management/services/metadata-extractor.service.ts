@@ -35,8 +35,8 @@ export interface ValidationResult {
 @Injectable()
 export class MetadataExtractorService {
   private readonly logger = new Logger(MetadataExtractorService.name);
-  private readonly REQUEST_TIMEOUT = 5000; // 5秒超时
-  private readonly MAX_CONTENT_LENGTH = 5 * 1024 * 1024; // 5MB最大内容大小
+  private readonly REQUEST_TIMEOUT = 30000; // 30秒超时（大文件需要更长时间）
+  private readonly MAX_CONTENT_LENGTH = 50 * 1024 * 1024; // 50MB最大内容大小（支持大型PDF报告）
 
   constructor() {}
 
