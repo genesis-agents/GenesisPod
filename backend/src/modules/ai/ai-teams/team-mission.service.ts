@@ -541,6 +541,13 @@ export class TeamMissionService {
         agentId: assignedTo.id,
       });
 
+      // 清除Agent工作状态 (任务执行完成)
+      this.aiTeamsGateway.emitToTopic(mission.topicId, "agent:done", {
+        missionId: mission.id,
+        taskId: task.id,
+        agentId: assignedTo.id,
+      });
+
       // Leader 审核
       await this.leaderReviewTask(mission, task, aiResponse.content);
     } catch (error) {
@@ -718,6 +725,15 @@ export class TeamMissionService {
     const { leader } = mission;
 
     try {
+      // 广播 Leader 开始审核 (显示 thinking 状态)
+      this.aiTeamsGateway.emitToTopic(mission.topicId, "agent:working", {
+        missionId: mission.id,
+        taskId: task.id,
+        agentId: leader.id,
+        agentName: leader.agentName || leader.displayName,
+        status: "reviewing",
+      });
+
       // 构建审核提示词
       const reviewPrompt = this.buildLeaderReviewPrompt(
         mission,
@@ -766,6 +782,13 @@ export class TeamMissionService {
         taskTitle: task.title,
         content: isApproved ? "任务审核通过" : "任务需要修改",
         messageId: feedbackMessage?.id,
+      });
+
+      // 清除 Leader 审核状态 (审核完成)
+      this.aiTeamsGateway.emitToTopic(mission.topicId, "agent:done", {
+        missionId: mission.id,
+        taskId: task.id,
+        agentId: leader.id,
       });
 
       if (isApproved) {

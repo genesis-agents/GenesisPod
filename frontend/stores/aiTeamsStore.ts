@@ -815,6 +815,10 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
                 : t
             );
 
+          // 同时清除该Agent的typing状态 (备份机制)
+          const newTypingAIs = new Set(state.typingAIs);
+          newTypingAIs.delete(agentId);
+
           return {
             missions: state.missions.map((m) =>
               m.id === missionId ? { ...m, tasks: updateTasks(m.tasks) } : m
@@ -826,6 +830,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
                     tasks: updateTasks(state.currentMission.tasks),
                   }
                 : state.currentMission,
+            typingAIs: newTypingAIs,
           };
         });
       }
