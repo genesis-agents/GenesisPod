@@ -939,132 +939,33 @@ function generateReportBodyHtml(data: MissionReportData): string {
 
 /**
  * Generate and download mission report PDF
- * Element must be visible during capture - overlay added AFTER clone
+ * Uses browser print functionality - most reliable approach
  */
 export async function downloadMissionReportPDF(
   data: MissionReportData,
   filename?: string
 ): Promise<void> {
-  const html2canvas = (await import('html2canvas')).default;
-  const { jsPDF } = await import('jspdf');
+  const html = generateReportHtml(data);
 
-  const bodyHtml = generateReportBodyHtml(data);
-
-  // Save current scroll position and scroll to top
-  const scrollX = window.scrollX;
-  const scrollY = window.scrollY;
-  window.scrollTo(0, 0);
-
-  // Create container - MUST be visible at position 0,0 for html2canvas
-  const container = document.createElement('div');
-  container.id = 'mission-report-container';
-  container.innerHTML = bodyHtml;
-  container.style.cssText = `
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 794px;
-    background: white;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-    font-size: 12px;
-    line-height: 1.6;
-    color: #1f2937;
-    z-index: 99998;
-  `;
-  document.body.appendChild(container);
-
-  // Wait for content to render
-  await new Promise((resolve) => setTimeout(resolve, 300));
-
-  // Get actual height of content BEFORE adding overlay
-  const contentHeight = container.scrollHeight;
-  const contentWidth = container.offsetWidth;
-  console.log('Container dimensions:', contentWidth, 'x', contentHeight);
-
-  // Start html2canvas - it clones immediately, so overlay won't be in clone
-  const capturePromise = html2canvas(container, {
-    scale: 2,
-    useCORS: true,
-    logging: true,
-    backgroundColor: '#ffffff',
-    width: 794,
-    height: contentHeight,
-  });
-
-  // NOW add overlay (after clone is made)
-  const overlay = document.createElement('div');
-  overlay.id = 'mission-report-overlay';
-  overlay.style.cssText = `
-    position: fixed;
-    left: 0;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(255, 255, 255, 0.98);
-    z-index: 99999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    color: #7c3aed;
-  `;
-  overlay.innerHTML = '<div>正在生成 PDF 报告，请稍候...</div>';
-  document.body.appendChild(overlay);
-
-  try {
-    const canvas = await capturePromise;
-    console.log('Canvas captured:', canvas.width, 'x', canvas.height);
-
-    // Debug: Check if canvas has content
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      const imageData = ctx.getImageData(
-        0,
-        0,
-        Math.min(100, canvas.width),
-        Math.min(100, canvas.height)
-      );
-      const hasContent = imageData.data.some(
-        (val, i) => i % 4 !== 3 && val !== 255
-      );
-      console.log('Canvas has non-white content:', hasContent);
-    }
-
-    // Create PDF
-    const pdf = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4',
-    });
-
-    const pageWidth = 210;
-    const pageHeight = 297;
-    const margin = 10;
-    const pdfContentWidth = pageWidth - 2 * margin;
-
-    const imgWidth = pdfContentWidth;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-    const imgData = canvas.toDataURL('image/jpeg', 0.95);
-    let heightLeft = imgHeight;
-    let position = margin;
-    let page = 1;
-
-    pdf.addImage(imgData, 'JPEG', margin, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight - 2 * margin;
-
-    while (heightLeft > 0) {
-      position = -(pageHeight - 2 * margin) * page + margin;
-      pdf.addPage();
-      pdf.addImage(imgData, 'JPEG', margin, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight - 2 * margin;
-      page++;
-    }
-
-    pdf.save(filename || `mission-report-${data.mission.id}.pdf`);
-  } finally {
-    document.body.removeChild(container);
-    document.body.removeChild(overlay);
-    window.scrollTo(scrollX, scrollY);
+  // Open a new window with the report
+  const printWindow = window.open('', '_blank', 'width=800,height=600');
+  if (!printWindow) {
+    alert('请允许弹出窗口以导出PDF');
+    return;
   }
+
+  // Write the full HTML document
+  printWindow.document.write(html);
+  printWindow.document.close();
+
+  // Wait for content to load
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
+  // Trigger print dialog (user can save as PDF)
+  printWindow.print();
+
+  // Close the window after a delay
+  setTimeout(() => {
+    printWindow.close();
+  }, 1000);
 }
