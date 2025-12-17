@@ -12,6 +12,19 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { useImageSourceStore } from '@/stores/imageSourceStore';
+
+// Note: The following extracted components are available for future integration:
+// import { InputArea } from './components/InputArea';
+// import { ThumbnailGallery } from './components/ThumbnailGallery';
+// import { InsightsPanel } from './components/InsightsPanel';
+// import { ContextMenu } from './components/ContextMenu';
+// import { LightboxModal } from './components/LightboxModal';
+// import { ControlBar } from './components/ControlBar';
+// import { StreamingProgress } from './components/StreamingProgress';
+// import { EmptyState } from './components/EmptyState';
+// Types are available at: import type { ... } from './types';
+// Utilities are available at: import { ... } from './utils';
+
 import SourcePool from './SourcePool';
 
 // ===================== TYPE DEFINITIONS =====================

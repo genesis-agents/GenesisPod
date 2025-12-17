@@ -8,3 +8,5 @@ export { ContextMenu } from './ContextMenu';
 export { ControlBar } from './ControlBar';
 export { StreamingProgress } from './StreamingProgress';
 export { EmptyState } from './EmptyState';
+export { InputArea } from './InputArea';
+export type { InputAreaProps } from './InputArea';
