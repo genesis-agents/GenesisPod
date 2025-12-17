@@ -15,6 +15,7 @@ import {
 } from "@prisma/client";
 import { CreateMissionDto } from "./dto/create-mission.dto";
 import { AiChatService } from "../ai-core/ai-chat.service";
+import { SearchService } from "../ai-core/search.service";
 import { AiTeamsGateway } from "./ai-teams.gateway";
 import {
   mapWithConcurrency,
@@ -46,6 +47,7 @@ export class TeamMissionService {
   constructor(
     private prisma: PrismaService,
     private aiChatService: AiChatService,
+    private searchService: SearchService,
     private aiTeamsGateway: AiTeamsGateway,
   ) {}
 
@@ -476,8 +478,42 @@ export class TeamMissionService {
         status: "started",
       });
 
+      // 检查是否需要联网搜索（检测任务描述中的关键词）
+      let searchContext = "";
+      if (
+        this.needsWebSearch(
+          mission.title,
+          mission.description,
+          task.title,
+          task.description,
+        )
+      ) {
+        const searchQuery = this.buildSearchQuery(
+          mission.title,
+          task.title,
+          task.description,
+        );
+        this.logger.log(
+          `[executeTask] Performing web search for task "${task.title}": ${searchQuery}`,
+        );
+
+        const searchResult = await this.searchService.search(searchQuery, 5);
+        if (searchResult.success && searchResult.results.length > 0) {
+          searchContext = this.searchService.formatResultsForContext(
+            searchResult.results,
+          );
+          this.logger.log(
+            `[executeTask] Found ${searchResult.results.length} search results for task "${task.title}"`,
+          );
+        }
+      }
+
       // 构建任务执行提示词
-      const taskPrompt = this.buildTaskExecutionPrompt(mission, task);
+      const taskPrompt = this.buildTaskExecutionPrompt(
+        mission,
+        task,
+        searchContext,
+      );
 
       // 调用 AI 执行任务 (使用数据库 API Key)
       // 使用更大的 max_tokens (8000) 确保有足够空间生成响应
@@ -1283,13 +1319,30 @@ ${mission.deliverables?.length ? `期望交付物：${mission.deliverables.join(
 - 优先利用并行执行提高效率`;
   }
 
-  private buildTaskExecutionPrompt(mission: any, task: any): string {
+  private buildTaskExecutionPrompt(
+    mission: any,
+    task: any,
+    searchContext: string = "",
+  ): string {
+    const searchSection = searchContext
+      ? `
+
+【参考资料 - 联网搜索结果】
+以下是通过网络搜索获取的最新相关信息，请参考这些资料完成任务：
+
+${searchContext}
+
+---
+
+`
+      : "";
+
     return `你正在执行团队任务中的一个子任务。
 
 【总任务背景】
 标题：${mission.title}
 描述：${mission.description}
-
+${searchSection}
 【你的子任务】
 任务名称：${task.title}
 任务描述：${task.description}
@@ -1298,8 +1351,112 @@ ${mission.deliverables?.length ? `期望交付物：${mission.deliverables.join(
 【要求】
 请认真完成这个任务，输出完整的工作成果。
 - 确保输出内容完整、专业
+- 如果有参考资料，请充分利用并注明来源
 - 如果需要其他成员协助，可以 @他们的名字
 - 完成后会由 Leader 审核`;
+  }
+
+  /**
+   * 检测任务是否需要联网搜索
+   */
+  private needsWebSearch(
+    missionTitle: string,
+    missionDescription: string,
+    taskTitle: string,
+    taskDescription: string,
+  ): boolean {
+    const combinedText =
+      `${missionTitle} ${missionDescription} ${taskTitle} ${taskDescription}`.toLowerCase();
+
+    // 需要最新数据的关键词
+    const realtimeKeywords = [
+      // 中文关键词
+      "最新",
+      "2025年",
+      "2024年",
+      "今年",
+      "近期",
+      "当前",
+      "目前",
+      "现在",
+      "实时",
+      "最近",
+      "新闻",
+      "动态",
+      "趋势",
+      "市场",
+      "调研",
+      "研究",
+      "分析",
+      "报告",
+      "数据",
+      "统计",
+      "行业",
+      "企业",
+      "公司",
+      "进展",
+      "案例",
+      // 英文关键词
+      "latest",
+      "recent",
+      "current",
+      "2025",
+      "2024",
+      "this year",
+      "market",
+      "research",
+      "analysis",
+      "report",
+      "trend",
+      "news",
+      "industry",
+      "company",
+      "enterprise",
+      "case study",
+    ];
+
+    return realtimeKeywords.some((keyword) => combinedText.includes(keyword));
+  }
+
+  /**
+   * 构建搜索查询词
+   */
+  private buildSearchQuery(
+    missionTitle: string,
+    taskTitle: string,
+    taskDescription: string,
+  ): string {
+    // 从任务标题和描述中提取关键信息
+    let query = taskTitle;
+
+    // 如果任务描述不太长，也加入
+    if (taskDescription && taskDescription.length < 100) {
+      query += " " + taskDescription;
+    }
+
+    // 添加任务标题中的关键词
+    if (!query.includes(missionTitle.substring(0, 20))) {
+      // 取任务标题前20字符作为上下文
+      const missionKeywords = missionTitle
+        .replace(/[，。、！？\s]+/g, " ")
+        .trim();
+      if (missionKeywords.length < 50) {
+        query = missionKeywords + " " + query;
+      }
+    }
+
+    // 清理和截断
+    query = query
+      .replace(/[，。、！？【】「」\[\]()（）]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    // 限制查询长度
+    if (query.length > 100) {
+      query = query.substring(0, 100);
+    }
+
+    return query;
   }
 
   private buildLeaderReviewPrompt(
