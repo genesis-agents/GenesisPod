@@ -1878,6 +1878,7 @@ export default function TopicPage() {
     generateAIResponse,
     missions,
     fetchMissions,
+    cancelMission,
   } = useAiGroupStore();
 
   // Message selection state
@@ -2601,15 +2602,126 @@ export default function TopicPage() {
           </div>
         )}
 
-        {/* Message Input - Always visible for interaction */}
-        <MessageInput
-          topic={currentTopic}
-          replyTo={replyTo}
-          onClearReply={() => setReplyTo(null)}
-          onSend={handleSendMessage}
-          onTyping={() => sendTyping(topicId)}
-          findModel={findModel}
-        />
+        {/* Message Input - Only visible in Chat mode */}
+        {mainViewMode === 'chat' ? (
+          <MessageInput
+            topic={currentTopic}
+            replyTo={replyTo}
+            onClearReply={() => setReplyTo(null)}
+            onSend={handleSendMessage}
+            onTyping={() => sendTyping(topicId)}
+            findModel={findModel}
+          />
+        ) : (
+          /* Canvas Action Bar - Quick actions for mission control */
+          <div className="border-t border-gray-200 bg-white px-4 py-3">
+            <div className="flex items-center justify-center gap-3">
+              {/* Switch to Chat */}
+              <button
+                onClick={() => setMainViewMode('chat')}
+                className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
+                title="切换到聊天视图查看详细内容"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  />
+                </svg>
+                查看聊天
+              </button>
+
+              {/* Create Mission */}
+              <button
+                onClick={() => setShowMissionDialog(true)}
+                className="flex items-center gap-2 rounded-lg bg-purple-100 px-4 py-2 text-sm font-medium text-purple-700 transition-colors hover:bg-purple-200"
+                title="创建新的AI Team任务"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                创建任务
+              </button>
+
+              {/* Cancel Mission - only show when mission is active */}
+              {activeMission &&
+                (activeMission.status === 'IN_PROGRESS' ||
+                  activeMission.status === 'PLANNING') && (
+                  <button
+                    onClick={async () => {
+                      if (
+                        confirm(
+                          `确定要取消任务「${activeMission.title}」吗？此操作不可撤销。`
+                        )
+                      ) {
+                        await cancelMission(topicId, activeMission.id);
+                      }
+                    }}
+                    className="flex items-center gap-2 rounded-lg bg-red-100 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-200"
+                    title="取消当前正在执行的任务"
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                    取消任务
+                  </button>
+                )}
+
+              {/* Mission Progress Panel Toggle */}
+              <button
+                onClick={() => setShowMissionPanel(!showMissionPanel)}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  showMissionPanel
+                    ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+                title="显示/隐藏任务进度面板"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                  />
+                </svg>
+                任务面板
+              </button>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Mission Progress Panel - Right side panel */}
