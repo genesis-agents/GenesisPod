@@ -302,11 +302,29 @@ export class CollectionTaskService {
             );
           }
 
+          // 更新进度 - 开始采集
+          await this.updateProgress(
+            id,
+            20,
+            `Connecting to RSS feed: ${rssUrl}`,
+          );
+
           collectedCount = await this.rssService.fetchRssFeed(
             rssUrl,
             maxResults,
             dataSource.category,
             Object.keys(filterOptions).length > 0 ? filterOptions : undefined,
+          );
+
+          // 更新进度 - RSS 解析完成
+          const rssCount =
+            typeof collectedCount === "object"
+              ? collectedCount.success
+              : collectedCount;
+          await this.updateProgress(
+            id,
+            80,
+            `RSS feed processed: ${rssCount} items collected`,
           );
           break;
 

@@ -54,6 +54,16 @@ export class RssService {
           ["content:encoded", "content"],
         ],
       },
+      // 添加请求配置，防止被网站拒绝
+      requestOptions: {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          Accept:
+            "application/rss+xml, application/xml, application/atom+xml, text/xml, */*",
+        },
+      },
+      timeout: 30000, // 30秒超时
     });
   }
 
