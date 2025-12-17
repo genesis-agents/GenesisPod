@@ -71,9 +71,9 @@ export class RssService {
     const MAX_RETRIES = 2;
 
     try {
-      // 从URL提取视频ID
+      // 从URL提取视频ID（支持 watch, shorts, youtu.be 格式）
       const videoIdMatch = videoUrl.match(
-        /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
+        /(?:youtube\.com\/watch\?v=|youtube\.com\/shorts\/|youtu\.be\/)([^&\n?#/]+)/,
       );
       if (!videoIdMatch) {
         this.logger.debug(`Cannot extract video ID from URL: ${videoUrl}`);
@@ -232,10 +232,14 @@ export class RssService {
   }
 
   /**
-   * 检查URL是否为YouTube视频链接
+   * 检查URL是否为YouTube视频链接（包括Shorts）
    */
   private isYouTubeVideoUrl(url: string): boolean {
-    return url.includes("youtube.com/watch") || url.includes("youtu.be/");
+    return (
+      url.includes("youtube.com/watch") ||
+      url.includes("youtu.be/") ||
+      url.includes("youtube.com/shorts/")
+    );
   }
 
   /**
