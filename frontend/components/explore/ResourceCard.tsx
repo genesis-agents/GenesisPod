@@ -40,6 +40,7 @@ export function ResourceCard({
 }: ResourceCardProps) {
   const aiOfficeStore = useResourceStore();
   const addSource = useImageSourceStore((state) => state.addSource);
+  const removeSource = useImageSourceStore((state) => state.removeSource);
   const imageSources = useImageSourceStore((state) => state.sources);
 
   const sourceName = getSourceName(resource);
@@ -258,7 +259,7 @@ export function ResourceCard({
               {isInAIOffice ? 'Added' : 'AI Office'}
             </button>
 
-            {/* Image Button */}
+            {/* Image Button - Single click to add, Double click to remove */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -277,17 +278,26 @@ export function ResourceCard({
                   );
                 }
               }}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                if (isInImagePool) {
+                  removeSource(resource.id);
+                  onToast(
+                    `Removed "${resource.title}" from Image Source Pool`,
+                    'success'
+                  );
+                }
+              }}
               className={`flex items-center gap-2 text-sm transition-colors ${
                 isInImagePool
-                  ? 'cursor-default font-medium text-purple-600'
+                  ? 'cursor-pointer font-medium text-purple-600 hover:text-red-600'
                   : 'text-gray-600 hover:text-purple-600'
               }`}
               title={
                 isInImagePool
-                  ? 'Already in Image Source Pool'
+                  ? 'Double-click to remove from Image Source Pool'
                   : 'Add to Image Source Pool'
               }
-              disabled={isInImagePool}
             >
               <svg
                 className="h-4 w-4"
