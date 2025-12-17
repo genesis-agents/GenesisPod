@@ -939,16 +939,40 @@ function generateReportBodyHtml(data: MissionReportData): string {
 
 /**
  * Generate and download mission report PDF
- * Uses body-only HTML injected into visible container
+ * Uses jsPDF + html2canvas directly for better control
  */
 export async function downloadMissionReportPDF(
   data: MissionReportData,
   filename?: string
 ): Promise<void> {
-  const html2pdf = (await import('html2pdf.js')).default;
+  const html2canvas = (await import('html2canvas')).default;
+  const { jsPDF } = await import('jspdf');
+
   const bodyHtml = generateReportBodyHtml(data);
 
-  // Show loading indicator
+  // Create container - must be visible and in document flow
+  const container = document.createElement('div');
+  container.id = 'mission-report-container';
+  container.innerHTML = bodyHtml;
+  container.style.cssText = `
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 794px;
+    background: white;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #1f2937;
+    z-index: 10000;
+    overflow: visible;
+  `;
+  document.body.appendChild(container);
+
+  // Wait for content to render
+  await new Promise((resolve) => setTimeout(resolve, 300));
+
+  // Show loading overlay AFTER adding content (so it doesn't block capture)
   const overlay = document.createElement('div');
   overlay.id = 'mission-report-overlay';
   overlay.style.cssText = `
@@ -957,8 +981,8 @@ export async function downloadMissionReportPDF(
     top: 0;
     right: 0;
     bottom: 0;
-    background: rgba(255, 255, 255, 0.98);
-    z-index: 99999;
+    background: rgba(255, 255, 255, 0.95);
+    z-index: 10001;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -968,54 +992,74 @@ export async function downloadMissionReportPDF(
   overlay.innerHTML = '<div>正在生成 PDF 报告，请稍候...</div>';
   document.body.appendChild(overlay);
 
-  // Create a container div for the content (body-only HTML, no document structure)
-  const container = document.createElement('div');
-  container.id = 'mission-report-container';
-  container.innerHTML = bodyHtml;
-  container.style.cssText = `
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 794px;
-    background: white;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-    font-size: 12px;
-    line-height: 1.6;
-    color: #1f2937;
-    z-index: 99998;
-  `;
-  document.body.appendChild(container);
-
-  // Wait for content to render
-  await new Promise((resolve) => setTimeout(resolve, 500));
-
-  const options = {
-    margin: 10,
-    filename: filename || `mission-report-${data.mission.id}.pdf`,
-    image: { type: 'jpeg' as const, quality: 0.98 },
-    html2canvas: {
+  try {
+    // Capture with html2canvas
+    const canvas = await html2canvas(container, {
       scale: 2,
       useCORS: true,
       logging: true,
-      letterRendering: true,
+      backgroundColor: '#ffffff',
+      width: 794,
       windowWidth: 794,
-    },
-    jsPDF: {
-      unit: 'mm' as const,
-      format: 'a4' as const,
-      orientation: 'portrait' as const,
-    },
-    pagebreak: {
-      mode: ['avoid-all', 'css', 'legacy'] as (
-        | 'avoid-all'
-        | 'css'
-        | 'legacy'
-      )[],
-    },
-  };
+      onclone: (clonedDoc) => {
+        // Ensure cloned element is visible
+        const clonedContainer = clonedDoc.getElementById(
+          'mission-report-container'
+        );
+        if (clonedContainer) {
+          clonedContainer.style.position = 'absolute';
+          clonedContainer.style.left = '0';
+          clonedContainer.style.top = '0';
+        }
+        // Remove overlay from clone
+        const clonedOverlay = clonedDoc.getElementById(
+          'mission-report-overlay'
+        );
+        if (clonedOverlay) {
+          clonedOverlay.remove();
+        }
+      },
+    });
 
-  try {
-    await html2pdf().set(options).from(container).save();
+    console.log('Canvas captured:', canvas.width, 'x', canvas.height);
+
+    // Create PDF
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    const pageWidth = 210; // A4 width in mm
+    const pageHeight = 297; // A4 height in mm
+    const margin = 10;
+    const contentWidth = pageWidth - 2 * margin;
+
+    // Calculate image dimensions
+    const imgWidth = contentWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+    // Add image to PDF, handling multiple pages
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    let heightLeft = imgHeight;
+    let position = margin;
+    let page = 1;
+
+    // First page
+    pdf.addImage(imgData, 'JPEG', margin, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight - 2 * margin;
+
+    // Additional pages if needed
+    while (heightLeft > 0) {
+      position = -(pageHeight - 2 * margin) * page + margin;
+      pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', margin, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight - 2 * margin;
+      page++;
+    }
+
+    // Save
+    pdf.save(filename || `mission-report-${data.mission.id}.pdf`);
   } finally {
     document.body.removeChild(container);
     document.body.removeChild(overlay);
