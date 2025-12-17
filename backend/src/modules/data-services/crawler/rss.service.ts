@@ -20,6 +20,8 @@ export interface CollectionResult {
 export interface RssFeedFilterOptions {
   /** 最小视频时长（秒），仅对YouTube有效 */
   minDurationSeconds?: number;
+  /** 当无法获取视频时长时是否跳过（默认false，即仍然采集） */
+  skipUnknownDuration?: boolean;
 }
 
 interface RssFeedItem {
@@ -59,11 +61,15 @@ export class RssService {
    * 从YouTube视频URL获取视频时长（秒）
    * 通过解析YouTube视频页面获取时长信息
    * @param videoUrl YouTube视频URL
+   * @param retryCount 重试次数（内部使用）
    * @returns 视频时长（秒），获取失败返回null
    */
   private async getYouTubeVideoDuration(
     videoUrl: string,
+    retryCount: number = 0,
   ): Promise<number | null> {
+    const MAX_RETRIES = 2;
+
     try {
       // 从URL提取视频ID
       const videoIdMatch = videoUrl.match(
@@ -75,57 +81,154 @@ export class RssService {
       }
       const videoId = videoIdMatch[1];
 
-      // 使用oEmbed API获取视频信息（不需要API密钥）
-      // 注意：oEmbed不返回时长，需要解析视频页面
-      const response = await fetch(
-        `https://www.youtube.com/watch?v=${videoId}`,
-        {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-            "Accept-Language": "en-US,en;q=0.9",
-          },
-        },
+      // 尝试多种获取方式
+      const duration = await this.tryGetYouTubeDuration(videoId);
+
+      if (duration !== null) {
+        this.logger.log(
+          `✅ Video ${videoId} duration: ${duration}s (${Math.floor(duration / 60)}m ${duration % 60}s)`,
+        );
+        return duration;
+      }
+
+      // 如果获取失败且还有重试次数，等待后重试
+      if (retryCount < MAX_RETRIES) {
+        this.logger.debug(
+          `Retrying duration fetch for ${videoId} (attempt ${retryCount + 2}/${MAX_RETRIES + 1})`,
+        );
+        await this.sleep(1000 * (retryCount + 1)); // 递增等待时间
+        return this.getYouTubeVideoDuration(videoUrl, retryCount + 1);
+      }
+
+      this.logger.warn(
+        `❌ Could not extract duration for video ${videoId} after ${MAX_RETRIES + 1} attempts`,
       );
-
-      if (!response.ok) {
-        this.logger.debug(
-          `Failed to fetch YouTube page for ${videoId}: ${response.status}`,
-        );
-        return null;
-      }
-
-      const html = await response.text();
-
-      // 从ytInitialPlayerResponse中提取时长
-      // 格式: "lengthSeconds":"123"
-      const durationMatch = html.match(/"lengthSeconds":\s*"(\d+)"/);
-      if (durationMatch) {
-        const durationSeconds = parseInt(durationMatch[1], 10);
-        this.logger.debug(
-          `Video ${videoId} duration: ${durationSeconds}s (${Math.floor(durationSeconds / 60)}m ${durationSeconds % 60}s)`,
-        );
-        return durationSeconds;
-      }
-
-      // 备用方案：从approxDurationMs提取
-      const approxDurationMatch = html.match(/"approxDurationMs":\s*"(\d+)"/);
-      if (approxDurationMatch) {
-        const durationSeconds = Math.floor(
-          parseInt(approxDurationMatch[1], 10) / 1000,
-        );
-        this.logger.debug(
-          `Video ${videoId} duration (approx): ${durationSeconds}s`,
-        );
-        return durationSeconds;
-      }
-
-      this.logger.debug(`Could not extract duration for video ${videoId}`);
       return null;
     } catch (error) {
       this.logger.warn(`Error fetching YouTube video duration: ${error}`);
+
+      // 网络错误时重试
+      if (retryCount < MAX_RETRIES) {
+        this.logger.debug(`Retrying after error (attempt ${retryCount + 2})`);
+        await this.sleep(1000 * (retryCount + 1));
+        return this.getYouTubeVideoDuration(videoUrl, retryCount + 1);
+      }
+
       return null;
     }
+  }
+
+  /**
+   * 尝试多种方式获取YouTube视频时长
+   */
+  private async tryGetYouTubeDuration(videoId: string): Promise<number | null> {
+    // 方式1：直接请求视频页面
+    const pageResponse = await fetch(
+      `https://www.youtube.com/watch?v=${videoId}`,
+      {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept-Language": "en-US,en;q=0.9",
+          Accept:
+            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        },
+      },
+    );
+
+    if (!pageResponse.ok) {
+      this.logger.debug(
+        `Failed to fetch YouTube page for ${videoId}: ${pageResponse.status}`,
+      );
+      return null;
+    }
+
+    const html = await pageResponse.text();
+
+    // 尝试多种提取模式
+    const extractors = [
+      // 模式1: ytInitialPlayerResponse 中的 lengthSeconds
+      () => {
+        const match = html.match(/"lengthSeconds"\s*:\s*"(\d+)"/);
+        return match ? parseInt(match[1], 10) : null;
+      },
+      // 模式2: approxDurationMs
+      () => {
+        const match = html.match(/"approxDurationMs"\s*:\s*"(\d+)"/);
+        return match ? Math.floor(parseInt(match[1], 10) / 1000) : null;
+      },
+      // 模式3: videoDetails 中的 lengthSeconds (不带引号)
+      () => {
+        const match = html.match(/"lengthSeconds"\s*:\s*(\d+)/);
+        return match ? parseInt(match[1], 10) : null;
+      },
+      // 模式4: ISO 8601 duration 格式 (PT1H2M3S)
+      () => {
+        const match = html.match(
+          /"duration"\s*:\s*"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?"/,
+        );
+        if (match) {
+          const hours = parseInt(match[1] || "0", 10);
+          const minutes = parseInt(match[2] || "0", 10);
+          const seconds = parseInt(match[3] || "0", 10);
+          return hours * 3600 + minutes * 60 + seconds;
+        }
+        return null;
+      },
+      // 模式5: microformat 中的 lengthSeconds
+      () => {
+        const microformatMatch = html.match(
+          /microformat.*?"lengthSeconds"\s*:\s*"(\d+)"/s,
+        );
+        return microformatMatch ? parseInt(microformatMatch[1], 10) : null;
+      },
+      // 模式6: 从 videoPrimaryInfoRenderer 提取时间文本 (如 "10:30")
+      () => {
+        const textMatch = html.match(
+          /"lengthText"\s*:\s*\{\s*"accessibility".*?"label"\s*:\s*"([\d,]+ (?:hour|minute|second)s?(?: [\d,]+ (?:hour|minute|second)s?)*)"/,
+        );
+        if (textMatch) {
+          return this.parseYouTubeDurationText(textMatch[1]);
+        }
+        return null;
+      },
+    ];
+
+    for (const extractor of extractors) {
+      const duration = extractor();
+      if (duration !== null && duration > 0) {
+        return duration;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * 解析YouTube时长文本（如 "10 minutes, 30 seconds"）
+   */
+  private parseYouTubeDurationText(text: string): number | null {
+    try {
+      let totalSeconds = 0;
+      const hourMatch = text.match(/(\d+)\s*hour/i);
+      const minuteMatch = text.match(/(\d+)\s*minute/i);
+      const secondMatch = text.match(/(\d+)\s*second/i);
+
+      if (hourMatch) totalSeconds += parseInt(hourMatch[1], 10) * 3600;
+      if (minuteMatch) totalSeconds += parseInt(minuteMatch[1], 10) * 60;
+      if (secondMatch) totalSeconds += parseInt(secondMatch[1], 10);
+
+      return totalSeconds > 0 ? totalSeconds : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * 简单的延迟函数
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
@@ -205,11 +308,20 @@ export class RssService {
               skippedCount++;
               continue;
             }
-            // 如果无法获取时长，继续处理（不跳过）
+            // 处理无法获取时长的情况
             if (videoDuration === null) {
-              this.logger.debug(
-                `Could not determine duration for "${item.title?.substring(0, 50)}...", processing anyway`,
-              );
+              if (filterOptions?.skipUnknownDuration) {
+                // 如果设置了跳过未知时长的视频，则跳过
+                this.logger.log(
+                  `⏭️ Skipping video with unknown duration: "${item.title?.substring(0, 50)}..." (skipUnknownDuration=true)`,
+                );
+                skippedCount++;
+                continue;
+              } else {
+                this.logger.debug(
+                  `Could not determine duration for "${item.title?.substring(0, 50)}...", processing anyway (set skipUnknownDuration=true to skip)`,
+                );
+              }
             }
           }
 

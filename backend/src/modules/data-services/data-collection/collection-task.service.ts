@@ -284,15 +284,21 @@ export class CollectionTaskService {
           this.logger.log(`Fetching RSS feed from: ${rssUrl}`);
 
           // 构建过滤选项（YouTube视频时长过滤等）
-          const filterOptions: { minDurationSeconds?: number } = {};
+          const filterOptions: {
+            minDurationSeconds?: number;
+            skipUnknownDuration?: boolean;
+          } = {};
           if (
             sourceType === "YOUTUBE" &&
             crawlerConfigRss?.minDurationSeconds
           ) {
             filterOptions.minDurationSeconds =
               crawlerConfigRss.minDurationSeconds;
+            // 当设置了最小时长时，默认跳过无法获取时长的视频
+            // 这样可以避免采集到不符合时长要求的视频
+            filterOptions.skipUnknownDuration = true;
             this.logger.log(
-              `YouTube filter: min duration ${crawlerConfigRss.minDurationSeconds}s (${Math.floor(crawlerConfigRss.minDurationSeconds / 60)}m)`,
+              `YouTube filter: min duration ${crawlerConfigRss.minDurationSeconds}s (${Math.floor(crawlerConfigRss.minDurationSeconds / 60)}m), skip unknown duration: true`,
             );
           }
 
