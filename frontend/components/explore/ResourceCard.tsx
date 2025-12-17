@@ -259,11 +259,17 @@ export function ResourceCard({
               {isInAIOffice ? 'Added' : 'AI Office'}
             </button>
 
-            {/* Image Button - Single click to add, Double click to remove */}
+            {/* Image Button - Single click toggle (like AI Office) */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                if (!isInImagePool) {
+                if (isInImagePool) {
+                  removeSource(resource.id);
+                  onToast(
+                    `Removed "${resource.title}" from Image Source Pool`,
+                    'success'
+                  );
+                } else {
                   addSource({
                     id: resource.id,
                     type: resource.type.toLowerCase() as any,
@@ -278,16 +284,6 @@ export function ResourceCard({
                   );
                 }
               }}
-              onDoubleClick={(e) => {
-                e.stopPropagation();
-                if (isInImagePool) {
-                  removeSource(resource.id);
-                  onToast(
-                    `Removed "${resource.title}" from Image Source Pool`,
-                    'success'
-                  );
-                }
-              }}
               className={`flex items-center gap-2 text-sm transition-colors ${
                 isInImagePool
                   ? 'cursor-pointer font-medium text-purple-600 hover:text-red-600'
@@ -295,8 +291,8 @@ export function ResourceCard({
               }`}
               title={
                 isInImagePool
-                  ? 'Double-click to remove from Image Source Pool'
-                  : 'Add to Image Source Pool'
+                  ? '点击移除 Image Source Pool'
+                  : '添加到 Image Source Pool'
               }
             >
               <svg
