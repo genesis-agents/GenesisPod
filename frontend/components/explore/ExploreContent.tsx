@@ -66,6 +66,7 @@ function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const addSource = useImageSourceStore((state) => state.addSource);
+  const removeSource = useImageSourceStore((state) => state.removeSource);
   const imageSources = useImageSourceStore((state) => state.sources);
   const { user, isAdmin, accessToken } = useAuth();
   const [resources, setResources] = useState<Resource[]>([]);
@@ -1873,14 +1874,20 @@ function HomeContent() {
                                   : 'AI Office'}
                               </button>
 
-                              {/* To Image Button */}
+                              {/* To Image Button - Toggle */}
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   const isAlreadyAdded = imageSources.some(
                                     (s) => s.id === resource.id
                                   );
-                                  if (!isAlreadyAdded) {
+                                  if (isAlreadyAdded) {
+                                    removeSource(resource.id);
+                                    setToast({
+                                      message: `Removed "${resource.title}" from Image Source Pool`,
+                                      type: 'success',
+                                    });
+                                  } else {
                                     addSource({
                                       id: resource.id,
                                       type: resource.type.toLowerCase() as any,
@@ -1900,17 +1907,14 @@ function HomeContent() {
                                 }}
                                 className={`flex items-center gap-2 text-sm transition-colors ${
                                   imageSources.some((s) => s.id === resource.id)
-                                    ? 'cursor-default font-medium text-purple-600'
+                                    ? 'cursor-pointer font-medium text-purple-600 hover:text-red-600'
                                     : 'text-gray-600 hover:text-purple-600'
                                 }`}
                                 title={
                                   imageSources.some((s) => s.id === resource.id)
-                                    ? 'Already in Image Source Pool'
+                                    ? 'Click to remove from Image Source Pool'
                                     : 'Add to Image Source Pool'
                                 }
-                                disabled={imageSources.some(
-                                  (s) => s.id === resource.id
-                                )}
                               >
                                 <svg
                                   className="h-4 w-4"
