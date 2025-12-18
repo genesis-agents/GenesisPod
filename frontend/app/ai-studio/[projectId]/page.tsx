@@ -55,6 +55,12 @@ import {
 } from 'lucide-react';
 import { FileUploader } from '@/components/ai-studio/FileUploader';
 import { OutputViewer } from '@/components/ai-studio/outputs/OutputViewer';
+import {
+  CitationProvider,
+  CitedContent,
+  SourceCardHighlight,
+  type SourceReference,
+} from '@/components/ai-studio/citations';
 
 // ==================== 类型定义 ====================
 interface Source {
@@ -504,15 +510,20 @@ function SourcesPanel({
           </div>
         ) : (
           <div className="space-y-1">
-            {uniqueSources.map((source) => (
-              <div
+            {uniqueSources.map((source, index) => (
+              <SourceCardHighlight
                 key={source.id}
+                sourceId={source.id}
                 className={`group relative rounded-lg border p-2.5 transition-all ${
                   selectedIds.has(source.id)
                     ? 'border-purple-300 bg-purple-50'
                     : 'border-transparent hover:border-gray-200 hover:bg-gray-50'
                 }`}
               >
+                {/* Source index badge for citation reference */}
+                <div className="absolute -left-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-gray-200 text-[10px] font-bold text-gray-600">
+                  {index + 1}
+                </div>
                 <div className="flex items-start gap-2">
                   <button
                     onClick={() => onToggleSelect(source.id)}
@@ -563,7 +574,7 @@ function SourcesPanel({
                     </button>
                   </div>
                 </div>
-              </div>
+              </SourceCardHighlight>
             ))}
           </div>
         )}
@@ -1389,62 +1400,21 @@ function ChatPanel({
                 >
                   {msg.role === 'assistant' ? (
                     <div className="text-sm">
-                      <MessageRenderer
+                      {/* Use CitedContent for AI messages to enable clickable citations */}
+                      <CitedContent
                         content={msg.content}
-                        role="assistant"
                         sources={sources.map((s) => ({
+                          id: s.id,
                           title: s.title,
-                          sourceUrl: s.sourceUrl,
+                          content: s.content,
+                          abstract: s.abstract,
                         }))}
+                        markdown={true}
                       />
                     </div>
                   ) : (
                     <div className="whitespace-pre-wrap text-sm">
                       {msg.content}
-                    </div>
-                  )}
-                  {msg.citations && msg.citations.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {msg.citations.map((c, i) => {
-                        // Try to find matching source by title or index
-                        const sourceIndex = parseInt(c) - 1;
-                        const matchedSource =
-                          !isNaN(sourceIndex) &&
-                          sourceIndex >= 0 &&
-                          sourceIndex < sources.length
-                            ? sources[sourceIndex]
-                            : sources.find(
-                                (s) =>
-                                  s.title
-                                    .toLowerCase()
-                                    .includes(c.toLowerCase()) ||
-                                  c
-                                    .toLowerCase()
-                                    .includes(s.title.toLowerCase())
-                              );
-                        const sourceUrl = matchedSource?.sourceUrl;
-
-                        return sourceUrl ? (
-                          <a
-                            key={i}
-                            href={sourceUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700 hover:bg-blue-200 hover:underline"
-                            title={matchedSource?.title || c}
-                          >
-                            [{c}]
-                            <ExternalLink className="h-2.5 w-2.5" />
-                          </a>
-                        ) : (
-                          <span
-                            key={i}
-                            className="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700"
-                          >
-                            [{c}]
-                          </span>
-                        );
-                      })}
                     </div>
                   )}
                   {msg.role === 'assistant' && (
@@ -1832,6 +1802,35 @@ export default function ProjectDetailPage() {
   const [chatLoading, setChatLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>('');
 
+  // Scroll to source callback for citation system
+  const handleScrollToSource = useCallback(
+    (sourceId: string) => {
+      // Expand sources panel if collapsed
+      if (sourcesCollapsed) {
+        setSourcesCollapsed(false);
+      }
+      // Find and scroll to the source element
+      setTimeout(() => {
+        const sourceElement = document.querySelector(
+          `[data-source-id="${sourceId}"]`
+        );
+        if (sourceElement) {
+          sourceElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    },
+    [sourcesCollapsed]
+  );
+
+  // Convert sources to SourceReference format for citation system
+  const sourceReferences: SourceReference[] =
+    project?.sources.map((s) => ({
+      id: s.id,
+      title: s.title,
+      content: s.content,
+      abstract: s.abstract,
+    })) || [];
+
   // Load AI models
   const { models: aiModels, loading: modelsLoading } = useAIModels();
 
@@ -2169,78 +2168,83 @@ export default function ProjectDetailPage() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-gray-100">
-      {/* Top Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push('/studio')}
-            className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
+    <CitationProvider
+      sources={sourceReferences}
+      onScrollToSource={handleScrollToSource}
+    >
+      <div className="flex h-screen flex-col bg-gray-100">
+        {/* Top Header */}
+        <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push('/studio')}
+              className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-xl">{project.icon || '📚'}</span>
+              <h1 className="font-semibold text-gray-900">{project.name}</h1>
+            </div>
+          </div>
           <div className="flex items-center gap-2">
-            <span className="text-xl">{project.icon || '📚'}</span>
-            <h1 className="font-semibold text-gray-900">{project.name}</h1>
+            <button className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50">
+              <Globe className="h-4 w-4" />
+              Share
+            </button>
+            <button className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100">
+              <MoreVertical className="h-5 w-5" />
+            </button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50">
-            <Globe className="h-4 w-4" />
-            Share
-          </button>
-          <button className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100">
-            <MoreVertical className="h-5 w-5" />
-          </button>
+
+        {/* Three-column Layout */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Left: Sources */}
+          <SourcesPanel
+            sources={project.sources}
+            selectedIds={selectedSourceIds}
+            onToggleSelect={handleToggleSource}
+            onAddSource={handleAddSource}
+            onAddSources={handleAddSources}
+            onRemoveSource={handleRemoveSource}
+            collapsed={sourcesCollapsed}
+            onToggleCollapse={() => setSourcesCollapsed(!sourcesCollapsed)}
+            projectId={projectId}
+          />
+
+          {/* Center: Chat */}
+          <ChatPanel
+            chat={project.chats[0] || null}
+            sources={project.sources}
+            selectedSourceIds={selectedSourceIds}
+            onSendMessage={handleSendMessage}
+            onSaveAsNote={handleSaveAsNote}
+            isLoading={chatLoading}
+            models={aiModels.map((m) => ({
+              id: m.id,
+              name: m.name,
+              modelName: m.modelName,
+              icon: m.icon,
+              isDefault: m.isDefault,
+            }))}
+            selectedModel={selectedModel}
+            onModelChange={setSelectedModel}
+          />
+
+          {/* Right: Studio */}
+          <StudioPanel
+            notes={project.notes}
+            outputs={project.outputs}
+            onCreateNote={handleCreateNote}
+            onUpdateNote={handleUpdateNote}
+            onDeleteNote={handleDeleteNote}
+            onGenerateOutput={handleGenerateOutput}
+            onRegenerateOutput={handleRegenerateOutput}
+            selectedSourceIds={selectedSourceIds}
+          />
         </div>
       </div>
-
-      {/* Three-column Layout */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left: Sources */}
-        <SourcesPanel
-          sources={project.sources}
-          selectedIds={selectedSourceIds}
-          onToggleSelect={handleToggleSource}
-          onAddSource={handleAddSource}
-          onAddSources={handleAddSources}
-          onRemoveSource={handleRemoveSource}
-          collapsed={sourcesCollapsed}
-          onToggleCollapse={() => setSourcesCollapsed(!sourcesCollapsed)}
-          projectId={projectId}
-        />
-
-        {/* Center: Chat */}
-        <ChatPanel
-          chat={project.chats[0] || null}
-          sources={project.sources}
-          selectedSourceIds={selectedSourceIds}
-          onSendMessage={handleSendMessage}
-          onSaveAsNote={handleSaveAsNote}
-          isLoading={chatLoading}
-          models={aiModels.map((m) => ({
-            id: m.id,
-            name: m.name,
-            modelName: m.modelName,
-            icon: m.icon,
-            isDefault: m.isDefault,
-          }))}
-          selectedModel={selectedModel}
-          onModelChange={setSelectedModel}
-        />
-
-        {/* Right: Studio */}
-        <StudioPanel
-          notes={project.notes}
-          outputs={project.outputs}
-          onCreateNote={handleCreateNote}
-          onUpdateNote={handleUpdateNote}
-          onDeleteNote={handleDeleteNote}
-          onGenerateOutput={handleGenerateOutput}
-          onRegenerateOutput={handleRegenerateOutput}
-          selectedSourceIds={selectedSourceIds}
-        />
-      </div>
-    </div>
+    </CitationProvider>
   );
 }

@@ -311,21 +311,37 @@ export class AiStudioChatService {
 
   /**
    * Build system prompt with source context
+   * Uses NotebookLM-style numbered citations [1], [2], etc.
    */
   private buildSystemPrompt(sourceContext: string): string {
-    const basePrompt = `你是一个专业的研究助手，帮助用户分析和理解研究资料。你的回答应该：
+    const basePrompt = `你是一个专业的研究助手，帮助用户分析和理解研究资料。
+
+**引用格式要求（非常重要）**：
+- 在回答中引用资料时，必须使用数字标记格式：[1]、[2]、[3] 等
+- 数字对应资料的顺序编号（资料 1 = [1]，资料 2 = [2]）
+- 可以同时引用多个资料：[1, 2] 或 [1, 3, 5]
+- 引用应该紧跟在相关陈述之后
+- 例如："根据最新研究，AI 技术正在快速发展 [1]，这将对多个行业产生深远影响 [2, 3]。"
+
+**回答要求**：
 1. 基于提供的资料内容进行分析和回答
-2. 引用具体的资料来源支持你的观点
+2. 每个关键观点都应该标注引用来源
 3. 如果资料中没有相关信息，请明确说明
 4. 保持客观、准确、专业的态度
-5. 使用清晰的结构组织回答`;
+5. 使用清晰的结构组织回答（可使用 Markdown 格式）`;
 
     if (sourceContext) {
       return `${basePrompt}
 
-以下是用户选择的研究资料，请基于这些资料回答用户的问题：
+---
 
-${sourceContext}`;
+**用户选择的研究资料**：
+
+${sourceContext}
+
+---
+
+请基于以上资料回答用户的问题，并在相关陈述后标注引用 [1]、[2] 等。`;
     }
 
     return `${basePrompt}
