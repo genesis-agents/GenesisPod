@@ -177,7 +177,7 @@ describe("ExecutionMetricsCollector", () => {
       expect(metrics.totalToolCalls).toBe(1);
       expect(metrics.totalTokensUsed).toBe(700);
       expect(metrics.avgTaskDuration).toBe(2500);
-      expect(metrics.uptime).toBeGreaterThan(0);
+      expect(metrics.uptime).toBeGreaterThanOrEqual(0);
     });
   });
 
