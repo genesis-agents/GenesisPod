@@ -1054,6 +1054,112 @@ export class AdminService {
     return this.getSetting(`youtube.${provider}.apiKey`);
   }
 
+  // ============ TTS (Text-to-Speech) Configuration ============
+
+  /**
+   * 获取TTS配置
+   */
+  async getTTSConfig() {
+    const elevenLabsKey = await this.getSetting("tts.elevenlabs.apiKey");
+    const googleKey = await this.getSetting("tts.google.apiKey");
+    const enabled = await this.getSetting("tts.enabled");
+    const provider = await this.getSetting("tts.provider");
+
+    return {
+      enabled: enabled !== false,
+      provider: provider || "elevenlabs",
+      elevenlabs: {
+        apiKey: elevenLabsKey ? this.maskApiKey(elevenLabsKey) : null,
+        hasApiKey: !!elevenLabsKey,
+      },
+      google: {
+        apiKey: googleKey ? this.maskApiKey(googleKey) : null,
+        hasApiKey: !!googleKey,
+      },
+    };
+  }
+
+  /**
+   * 更新TTS配置
+   */
+  async updateTTSConfig(config: {
+    enabled?: boolean;
+    provider?: string;
+    elevenLabsApiKey?: string;
+    googleTTSApiKey?: string;
+  }) {
+    const updates: Array<{
+      key: string;
+      value: any;
+      description?: string;
+      category: string;
+    }> = [];
+
+    if (config.enabled !== undefined) {
+      updates.push({
+        key: "tts.enabled",
+        value: config.enabled,
+        description: "Enable or disable TTS API",
+        category: "tts",
+      });
+    }
+
+    if (config.provider) {
+      updates.push({
+        key: "tts.provider",
+        value: config.provider,
+        description: "TTS API provider (elevenlabs or google)",
+        category: "tts",
+      });
+    }
+
+    // Only update API keys if they are provided and not the masked value
+    if (
+      config.elevenLabsApiKey &&
+      !config.elevenLabsApiKey.includes("*") &&
+      config.elevenLabsApiKey.trim()
+    ) {
+      updates.push({
+        key: "tts.elevenlabs.apiKey",
+        value: config.elevenLabsApiKey,
+        description: "ElevenLabs API Key",
+        category: "tts",
+      });
+    }
+
+    if (
+      config.googleTTSApiKey &&
+      !config.googleTTSApiKey.includes("*") &&
+      config.googleTTSApiKey.trim()
+    ) {
+      updates.push({
+        key: "tts.google.apiKey",
+        value: config.googleTTSApiKey,
+        description: "Google Cloud TTS API Key",
+        category: "tts",
+      });
+    }
+
+    // Save all updates
+    for (const update of updates) {
+      await this.setSetting(update.key, update.value, {
+        description: update.description,
+        category: update.category,
+      });
+    }
+
+    return this.getTTSConfig();
+  }
+
+  /**
+   * 获取TTS API Key（内部使用，返回实际值）
+   */
+  async getTTSApiKey(
+    provider: "elevenlabs" | "google",
+  ): Promise<string | null> {
+    return this.getSetting(`tts.${provider}.apiKey`);
+  }
+
   // ============ External Data Providers Configuration ============
 
   async getExternalProvidersConfig(): Promise<

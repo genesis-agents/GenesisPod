@@ -46,11 +46,9 @@ import {
   Zap,
   Microscope,
   Eye,
-  MoreVertical,
   Copy,
   RefreshCw,
   AlertCircle,
-  Settings,
   Upload,
   Layers,
   Brain,
@@ -2288,15 +2286,7 @@ export default function ProjectDetailPage() {
               <h1 className="font-semibold text-gray-900">{project.name}</h1>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50">
-              <Globe className="h-4 w-4" />
-              Share
-            </button>
-            <button className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100">
-              <MoreVertical className="h-5 w-5" />
-            </button>
-          </div>
+          {/* Future: Share and Settings buttons */}
         </div>
 
         {/* Three-column Layout */}

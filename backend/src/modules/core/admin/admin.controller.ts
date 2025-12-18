@@ -691,6 +691,107 @@ export class AdminController {
     }
   }
 
+  // ============ TTS (Text-to-Speech) Config ============
+
+  /**
+   * 获取TTS配置
+   * GET /api/v1/admin/tts-config
+   */
+  @Get("tts-config")
+  async getTTSConfig() {
+    this.logger.log("Admin: Fetching TTS config");
+    return this.adminService.getTTSConfig();
+  }
+
+  /**
+   * 更新TTS配置
+   * PATCH /api/v1/admin/tts-config
+   */
+  @Patch("tts-config")
+  async updateTTSConfig(
+    @Body()
+    body: {
+      enabled?: boolean;
+      provider?: string;
+      elevenLabsApiKey?: string;
+      googleTTSApiKey?: string;
+    },
+  ) {
+    this.logger.log("Admin: Updating TTS config");
+    return this.adminService.updateTTSConfig(body);
+  }
+
+  /**
+   * 测试TTS API连接
+   * POST /api/v1/admin/tts-config/test
+   */
+  @Post("tts-config/test")
+  async testTTSConnection(
+    @Body()
+    body: {
+      provider: string;
+      apiKey: string;
+    },
+  ) {
+    this.logger.log(`Admin: Testing TTS API connection for ${body.provider}`);
+
+    try {
+      if (body.provider === "elevenlabs") {
+        // Test ElevenLabs API - get available voices
+        const response = await fetch("https://api.elevenlabs.io/v1/voices", {
+          headers: {
+            "xi-api-key": body.apiKey,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          return {
+            success: true,
+            message: `ElevenLabs API 连接成功，发现 ${data.voices?.length || 0} 个可用声音`,
+          };
+        } else {
+          return {
+            success: false,
+            message: `ElevenLabs API 错误: HTTP ${response.status}`,
+          };
+        }
+      }
+
+      if (body.provider === "google") {
+        // Test Google Cloud TTS API - list voices
+        const response = await fetch(
+          `https://texttospeech.googleapis.com/v1/voices?key=${body.apiKey}`,
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          return {
+            success: true,
+            message: `Google TTS API 连接成功，发现 ${data.voices?.length || 0} 个可用声音`,
+          };
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          return {
+            success: false,
+            message: `Google TTS API 错误: ${errorData.error?.message || `HTTP ${response.status}`}`,
+          };
+        }
+      }
+
+      return {
+        success: false,
+        message: `未知的 provider: ${body.provider}`,
+      };
+    } catch (error: any) {
+      this.logger.error(`TTS API test failed: ${error.message}`);
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
   // ============ External Data Providers ============
 
   /**

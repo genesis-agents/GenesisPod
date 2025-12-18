@@ -53,6 +53,14 @@ interface YouTubeConfig {
   supadata: { apiKey: string | null; hasApiKey: boolean };
 }
 
+// TTS (Text-to-Speech) API configuration
+interface TTSConfig {
+  enabled: boolean;
+  provider: string;
+  elevenlabs: { apiKey: string | null; hasApiKey: boolean };
+  google: { apiKey: string | null; hasApiKey: boolean };
+}
+
 // YouTube transcript provider configurations
 const YOUTUBE_PROVIDERS = [
   {
@@ -68,6 +76,38 @@ const YOUTUBE_PROVIDERS = [
     placeholder: 'Enter Supadata API key',
     pricing: '$9/月 (1000次)',
     freeQuota: '100次/月',
+  },
+] as const;
+
+// TTS provider configurations
+const TTS_PROVIDERS = [
+  {
+    id: 'elevenlabs',
+    name: 'ElevenLabs',
+    description: '高质量AI语音合成，支持多种声音和情感',
+    features: ['自然语音', '多种声音', '情感表达', '29种语言'],
+    color: 'from-indigo-500 to-purple-500',
+    bgColor: 'bg-indigo-50',
+    textColor: 'text-indigo-600',
+    url: 'https://elevenlabs.io',
+    signupUrl: 'https://elevenlabs.io/sign-up',
+    placeholder: 'Enter ElevenLabs API key',
+    pricing: '$5/月起',
+    freeQuota: '10,000字符/月',
+  },
+  {
+    id: 'google',
+    name: 'Google Cloud TTS',
+    description: 'Google云端文字转语音，支持40+语言',
+    features: ['40+语言', 'Neural2声音', '高质量', 'SSML支持'],
+    color: 'from-blue-500 to-cyan-500',
+    bgColor: 'bg-blue-50',
+    textColor: 'text-blue-600',
+    url: 'https://cloud.google.com/text-to-speech',
+    signupUrl: 'https://console.cloud.google.com/apis/credentials',
+    placeholder: 'Enter Google Cloud API key',
+    pricing: '按用量计费',
+    freeQuota: '400万字符/月免费',
   },
 ] as const;
 
@@ -388,6 +428,18 @@ export default function ExternalAPISettings() {
     supadata: '',
   });
 
+  // TTS config state
+  const [ttsConfig, setTtsConfig] = useState<TTSConfig>({
+    enabled: true,
+    provider: 'elevenlabs',
+    elevenlabs: { apiKey: null, hasApiKey: false },
+    google: { apiKey: null, hasApiKey: false },
+  });
+  const [ttsApiKeys, setTtsApiKeys] = useState<Record<string, string>>({
+    elevenlabs: '',
+    google: '',
+  });
+
   // Simulation APIs state
   const [simulationAPICategories, setSimulationAPICategories] = useState<
     SimulationAPICategory[]
@@ -409,7 +461,7 @@ export default function ExternalAPISettings() {
     text: string;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<
-    'search' | 'extraction' | 'simulation' | 'youtube'
+    'search' | 'extraction' | 'simulation' | 'youtube' | 'tts'
   >('search');
   const [visibleApiKeys, setVisibleApiKeys] = useState<Record<string, boolean>>(
     {}
@@ -422,7 +474,7 @@ export default function ExternalAPISettings() {
   const loadConfigs = useCallback(async () => {
     setLoading(true);
     try {
-      const [searchRes, extractionRes, providersRes, youtubeRes] =
+      const [searchRes, extractionRes, providersRes, youtubeRes, ttsRes] =
         await Promise.all([
           fetch(`${config.apiUrl}/admin/search-config`, {
             headers: { ...getAuthHeader() },
@@ -437,6 +489,10 @@ export default function ExternalAPISettings() {
             credentials: 'include',
           }),
           fetch(`${config.apiUrl}/admin/youtube-config`, {
+            headers: { ...getAuthHeader() },
+            credentials: 'include',
+          }),
+          fetch(`${config.apiUrl}/admin/tts-config`, {
             headers: { ...getAuthHeader() },
             credentials: 'include',
           }),
@@ -455,6 +511,11 @@ export default function ExternalAPISettings() {
       if (youtubeRes.ok) {
         const data = await youtubeRes.json();
         setYoutubeConfig(data);
+      }
+
+      if (ttsRes.ok) {
+        const data = await ttsRes.json();
+        setTtsConfig(data);
       }
 
       if (providersRes.ok) {
@@ -712,6 +773,106 @@ export default function ExternalAPISettings() {
 
   const getYoutubeProviderStatus = (providerId: string) => {
     const providerConfig = youtubeConfig[providerId as keyof YouTubeConfig] as
+      | { hasApiKey: boolean }
+      | undefined;
+    return providerConfig?.hasApiKey || false;
+  };
+
+  // TTS config handlers
+  const handleSaveTTS = async () => {
+    setSaving(true);
+    setMessage(null);
+
+    try {
+      const res = await fetch(`${config.apiUrl}/admin/tts-config`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          enabled: ttsConfig.enabled,
+          provider: ttsConfig.provider,
+          elevenLabsApiKey: ttsApiKeys.elevenlabs || undefined,
+          googleTTSApiKey: ttsApiKeys.google || undefined,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setTtsConfig(data);
+        setTtsApiKeys({ elevenlabs: '', google: '' });
+        setMessage({ type: 'success', text: 'TTS 配置保存成功' });
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        setMessage({ type: 'error', text: '保存配置失败' });
+      }
+    } catch (err) {
+      console.error('Failed to save TTS config:', err);
+      setMessage({ type: 'error', text: '保存配置失败' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTestTTS = async (providerId: string) => {
+    setTesting(`tts-${providerId}`);
+    setTestResults((prev) => ({
+      ...prev,
+      [`tts-${providerId}`]: { success: false, message: '' },
+    }));
+
+    try {
+      const providerConfig = ttsConfig[providerId as keyof TTSConfig] as
+        | { hasApiKey: boolean }
+        | undefined;
+      const apiKey =
+        ttsApiKeys[providerId] ||
+        (providerConfig?.hasApiKey ? '***use-saved***' : '');
+
+      if (!apiKey) {
+        setTestResults((prev) => ({
+          ...prev,
+          [`tts-${providerId}`]: {
+            success: false,
+            message: '请先输入 API Key',
+          },
+        }));
+        setTesting(null);
+        return;
+      }
+
+      const res = await fetch(`${config.apiUrl}/admin/tts-config/test`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
+        credentials: 'include',
+        body: JSON.stringify({ provider: providerId, apiKey }),
+      });
+
+      const data = await res.json();
+      setTestResults((prev) => ({
+        ...prev,
+        [`tts-${providerId}`]: data,
+      }));
+    } catch (err: any) {
+      setTestResults((prev) => ({
+        ...prev,
+        [`tts-${providerId}`]: {
+          success: false,
+          message: err.message || '测试失败',
+        },
+      }));
+    } finally {
+      setTesting(null);
+    }
+  };
+
+  const getTTSProviderStatus = (providerId: string) => {
+    const providerConfig = ttsConfig[providerId as keyof TTSConfig] as
       | { hasApiKey: boolean }
       | undefined;
     return providerConfig?.hasApiKey || false;
@@ -1287,6 +1448,17 @@ export default function ExternalAPISettings() {
         >
           <Youtube className="h-4 w-4" />
           YouTube 字幕 API
+        </button>
+        <button
+          onClick={() => setActiveTab('tts')}
+          className={`flex items-center gap-2 border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
+            activeTab === 'tts'
+              ? 'border-purple-600 text-purple-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Sparkles className="h-4 w-4" />
+          语音合成 TTS
         </button>
       </div>
 
@@ -2429,6 +2601,290 @@ export default function ExternalAPISettings() {
                   <br />
                   <strong>Supadata</strong> 每月提供 100
                   次免费请求，适合个人使用。
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TTS API Tab */}
+      {activeTab === 'tts' && (
+        <div className="space-y-6">
+          {/* Global TTS Toggle */}
+          <div className="rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50 p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg">
+                  <Sparkles className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">
+                    Text-to-Speech API
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    配置语音合成 API，用于 AI Studio 音频概述功能
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() =>
+                  setTtsConfig((prev) => ({
+                    ...prev,
+                    enabled: !prev.enabled,
+                  }))
+                }
+                className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors ${
+                  ttsConfig.enabled ? 'bg-indigo-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${
+                    ttsConfig.enabled ? 'translate-x-8' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* Provider Cards Grid */}
+          <div className="grid gap-6 md:grid-cols-2">
+            {TTS_PROVIDERS.map((provider) => {
+              const isConfigured = getTTSProviderStatus(provider.id);
+              const isDefault = ttsConfig.provider === provider.id;
+              const testResult = testResults[`tts-${provider.id}`];
+
+              return (
+                <div
+                  key={provider.id}
+                  className={`relative overflow-hidden rounded-xl border-2 bg-white shadow-sm transition-all hover:shadow-md ${
+                    isDefault
+                      ? 'border-indigo-400 ring-2 ring-indigo-100'
+                      : 'border-gray-200'
+                  }`}
+                >
+                  {/* Header */}
+                  <div className={`bg-gradient-to-r ${provider.color} p-4`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20 backdrop-blur">
+                          <Sparkles className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-white">
+                              {provider.name}
+                            </h3>
+                            {isDefault && (
+                              <span className="rounded-full bg-white/30 px-2 py-0.5 text-xs font-medium text-white">
+                                Default
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-white/80">
+                            {provider.description}
+                          </p>
+                        </div>
+                      </div>
+                      <a
+                        href={provider.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-lg bg-white/20 p-2 text-white hover:bg-white/30"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Body */}
+                  <div className="space-y-4 p-4">
+                    {/* Features */}
+                    <div className="flex flex-wrap gap-2">
+                      {provider.features.map((feature) => (
+                        <span
+                          key={feature}
+                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${provider.bgColor} ${provider.textColor}`}
+                        >
+                          {feature}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Pricing Info */}
+                    <div className="rounded-lg bg-gray-50 p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">定价:</span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {provider.pricing}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between">
+                        <span className="text-sm text-gray-600">免费额度:</span>
+                        <span className="text-sm font-medium text-green-600">
+                          {provider.freeQuota}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Status */}
+                    <div className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+                      <span className="text-sm text-gray-600">API Key:</span>
+                      {isConfigured ? (
+                        <span className="flex items-center gap-1.5 text-sm font-medium text-green-600">
+                          <CheckCircle className="h-4 w-4" />
+                          已配置
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1.5 text-sm font-medium text-gray-400">
+                          <XCircle className="h-4 w-4" />
+                          未配置
+                        </span>
+                      )}
+                    </div>
+
+                    {/* API Key Input */}
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <input
+                          type={
+                            visibleApiKeys[`tts-${provider.id}`]
+                              ? 'text'
+                              : 'password'
+                          }
+                          value={ttsApiKeys[provider.id]}
+                          onChange={(e) =>
+                            setTtsApiKeys((prev) => ({
+                              ...prev,
+                              [provider.id]: e.target.value,
+                            }))
+                          }
+                          placeholder={
+                            isConfigured
+                              ? '••••••••••••••••'
+                              : provider.placeholder
+                          }
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 font-mono text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            toggleApiKeyVisibility(`tts-${provider.id}`)
+                          }
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                          title={
+                            visibleApiKeys[`tts-${provider.id}`]
+                              ? '隐藏'
+                              : '显示'
+                          }
+                        >
+                          {visibleApiKeys[`tts-${provider.id}`] ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                      <a
+                        href={provider.signupUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        获取 API Key
+                      </a>
+                    </div>
+
+                    {/* Test Result */}
+                    {testResult && (
+                      <div
+                        className={`rounded-lg p-3 ${
+                          testResult.success
+                            ? 'bg-green-50 text-green-800'
+                            : 'bg-red-50 text-red-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 text-sm">
+                          {testResult.success ? (
+                            <CheckCircle className="h-4 w-4" />
+                          ) : (
+                            <XCircle className="h-4 w-4" />
+                          )}
+                          {testResult.message}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleTestTTS(provider.id)}
+                        disabled={testing === `tts-${provider.id}`}
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${provider.bgColor} ${provider.textColor} border-current hover:opacity-80 disabled:opacity-50`}
+                      >
+                        {testing === `tts-${provider.id}` ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Zap className="h-4 w-4" />
+                        )}
+                        测试连接
+                      </button>
+                      {!isDefault && (
+                        <button
+                          onClick={() =>
+                            setTtsConfig((prev) => ({
+                              ...prev,
+                              provider: provider.id,
+                            }))
+                          }
+                          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                          设为默认
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Save Button */}
+          <div className="flex justify-end">
+            <button
+              onClick={handleSaveTTS}
+              disabled={saving}
+              className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-500/20 hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              保存 TTS 配置
+            </button>
+          </div>
+
+          {/* Info */}
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100">
+                <Sparkles className="h-5 w-5 text-indigo-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">
+                  什么是语音合成 TTS？
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  TTS (Text-to-Speech) 用于将文本转换为语音。AI Studio
+                  使用此功能生成音频概述。
+                  <br />
+                  <strong>ElevenLabs</strong> 提供高质量的 AI
+                  语音，支持多种声音和情感表达。
+                  <br />
+                  <strong>Google Cloud TTS</strong> 支持 40+ 种语言，每月有 400
+                  万字符的免费额度。
                 </p>
               </div>
             </div>
