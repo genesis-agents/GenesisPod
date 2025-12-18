@@ -1034,11 +1034,14 @@ export async function downloadMissionReportPDF(
     const contentWidth = 794;
     const pageHeight = 1123; // A4 at 96 DPI
 
+    // Use mm units for better quality (A4 = 210mm x 297mm)
+    const pdfWidth = 210;
+    const pdfHeight = 297;
     const pdf = new jsPDF({
       orientation: 'portrait',
-      unit: 'px',
-      format: [contentWidth, pageHeight],
-      hotfixes: ['px_scaling'],
+      unit: 'mm',
+      format: 'a4',
+      compress: false, // No compression for better quality
     });
 
     // Capture using html-to-image (more reliable than html2canvas)
@@ -1107,31 +1110,33 @@ export async function downloadMissionReportPDF(
       img.src = imgData;
     });
 
-    // Calculate pages based on content dimensions (not image dimensions which are scaled by pixelRatio)
-    const imgWidth = contentWidth;
-    const imgHeight = contentHeight; // Use original content height
-    const totalPages = Math.ceil(imgHeight / pageHeight);
+    // Calculate dimensions in mm
+    // Image is captured at pixelRatio=4, so actual image size is 4x content size
+    const imgWidthMm = pdfWidth; // Full page width
+    const imgHeightMm = (contentHeight / contentWidth) * pdfWidth; // Maintain aspect ratio
+    const totalPages = Math.ceil(imgHeightMm / pdfHeight);
 
     console.log('Image dimensions:', img.width, 'x', img.height);
     console.log('Content dimensions:', contentWidth, 'x', contentHeight);
+    console.log('PDF dimensions (mm):', imgWidthMm, 'x', imgHeightMm);
     console.log('Total pages:', totalPages);
 
     for (let i = 0; i < totalPages; i++) {
       if (i > 0) {
-        pdf.addPage([contentWidth, pageHeight]);
+        pdf.addPage();
       }
 
-      // Position image to show current page portion
-      const yOffset = -(i * pageHeight);
+      // Position image to show current page portion (in mm)
+      const yOffset = -(i * pdfHeight);
       pdf.addImage(
         imgData,
         'PNG',
         0,
         yOffset,
-        imgWidth,
-        imgHeight,
+        imgWidthMm,
+        imgHeightMm,
         undefined,
-        'FAST'
+        'NONE' // No compression
       );
     }
 
