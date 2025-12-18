@@ -939,215 +939,35 @@ function generateReportBodyHtml(data: MissionReportData): string {
 
 /**
  * Generate and download mission report PDF
- * Uses html-to-image (more reliable than html2canvas) and jsPDF for PDF generation
+ * Uses browser's native print dialog for high-quality PDF output
  */
 export async function downloadMissionReportPDF(
   data: MissionReportData,
   filename?: string,
   debug?: boolean
 ): Promise<void> {
-  // Dynamic imports - use html-to-image instead of html2canvas
-  const [htmlToImage, { default: jsPDF }] = await Promise.all([
-    import('html-to-image'),
-    import('jspdf'),
-  ]);
+  // Browser print is the most reliable method for high-quality PDF
+  const printWindow = window.open('', '_blank', 'width=900,height=700');
+  if (!printWindow) {
+    alert('请允许弹出窗口以导出PDF');
+    return;
+  }
 
-  const bodyHtml = generateReportBodyHtml(data);
+  const fullHtml = generateReportHtml(data);
+  printWindow.document.write(fullHtml);
+  printWindow.document.close();
 
-  // Save current scroll position
-  const scrollX = window.scrollX;
-  const scrollY = window.scrollY;
-
-  // Create container directly in body (simpler approach)
-  const container = document.createElement('div');
-  container.id = 'pdf-export-container';
-  container.innerHTML = bodyHtml;
-
-  // Use absolute positioning within a fixed overlay
-  container.style.cssText = `
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 794px;
-    background: white;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-    font-size: 12px;
-    line-height: 1.6;
-    color: #1f2937;
-    z-index: 1;
-  `;
-
-  // Create overlay that covers everything
-  const overlay = document.createElement('div');
-  overlay.id = 'pdf-export-overlay';
-  overlay.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: white;
-    z-index: 99998;
-    overflow: hidden;
-  `;
-
-  // Wrapper for scrolling
-  const wrapper = document.createElement('div');
-  wrapper.id = 'pdf-export-wrapper';
-  wrapper.style.cssText = `
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    overflow: visible;
-  `;
-
-  wrapper.appendChild(container);
-  overlay.appendChild(wrapper);
-  document.body.appendChild(overlay);
-
-  // Force layout calculation
-  void container.offsetHeight;
-
-  // Wait for rendering
+  // Wait for content to fully load
   await new Promise<void>((resolve) => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setTimeout(resolve, 500);
-      });
-    });
+    printWindow.onload = () => resolve();
+    setTimeout(resolve, 1000); // Fallback timeout
   });
 
-  // Log for debugging
-  console.log(
-    'Container dimensions:',
-    container.offsetWidth,
-    container.offsetHeight
-  );
-  console.log('Container innerHTML length:', container.innerHTML.length);
-  console.log('Container childNodes:', container.childNodes.length);
+  // Auto-trigger print dialog
+  printWindow.focus();
+  printWindow.print();
 
-  try {
-    // Get actual height
-    const contentHeight = container.scrollHeight;
-    const contentWidth = 794;
-    const pageHeight = 1123; // A4 at 96 DPI
-
-    // Use mm units for better quality (A4 = 210mm x 297mm)
-    const pdfWidth = 210;
-    const pdfHeight = 297;
-    const pdf = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4',
-      compress: false, // No compression for better quality
-    });
-
-    // Capture using html-to-image (more reliable than html2canvas)
-    console.log('Starting html-to-image capture...');
-    let imgData: string;
-
-    try {
-      imgData = await htmlToImage.toPng(container, {
-        quality: 1.0,
-        pixelRatio: 4, // Increased from 2 to 4 for better clarity
-        backgroundColor: '#ffffff',
-        cacheBust: true,
-        includeQueryParams: true,
-        skipFonts: false,
-      });
-      console.log(
-        'html-to-image capture successful, data length:',
-        imgData.length
-      );
-    } catch (captureError) {
-      console.error('html-to-image failed:', captureError);
-
-      // Clean up before fallback
-      document.body.removeChild(overlay);
-      window.scrollTo(scrollX, scrollY);
-
-      // Fallback: open print window
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        const fullHtml = generateReportHtml(data);
-        printWindow.document.write(fullHtml);
-        printWindow.document.close();
-        alert(
-          '图像捕获失败。请使用浏览器的"打印到PDF"功能 (Ctrl+P) 保存此页面。'
-        );
-      }
-      return;
-    }
-
-    // Debug mode: show captured image
-    if (debug) {
-      const debugWindow = window.open('', '_blank');
-      if (debugWindow) {
-        debugWindow.document.write(`<!DOCTYPE html>
-<html>
-<head><title>PDF Debug</title></head>
-<body style="margin:0;padding:20px;background:#f0f0f0;">
-  <h2>Debug Info - html-to-image</h2>
-  <p>Container dimensions: ${container.offsetWidth} x ${container.offsetHeight}</p>
-  <p>Image data length: ${imgData.length}</p>
-  <h3>Captured Image:</h3>
-  <div style="border:2px solid red;display:inline-block;max-width:100%;overflow:auto;">
-    <img src="${imgData}" style="max-width:800px;"/>
-  </div>
-</body>
-</html>`);
-        debugWindow.document.close();
-      }
-    }
-
-    // Load image to get dimensions
-    const img = new Image();
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = reject;
-      img.src = imgData;
-    });
-
-    // Calculate dimensions in mm
-    // Image is captured at pixelRatio=4, so actual image size is 4x content size
-    const imgWidthMm = pdfWidth; // Full page width
-    const imgHeightMm = (contentHeight / contentWidth) * pdfWidth; // Maintain aspect ratio
-    const totalPages = Math.ceil(imgHeightMm / pdfHeight);
-
-    console.log('Image dimensions:', img.width, 'x', img.height);
-    console.log('Content dimensions:', contentWidth, 'x', contentHeight);
-    console.log('PDF dimensions (mm):', imgWidthMm, 'x', imgHeightMm);
-    console.log('Total pages:', totalPages);
-
-    for (let i = 0; i < totalPages; i++) {
-      if (i > 0) {
-        pdf.addPage();
-      }
-
-      // Position image to show current page portion (in mm)
-      const yOffset = -(i * pdfHeight);
-      pdf.addImage(
-        imgData,
-        'PNG',
-        0,
-        yOffset,
-        imgWidthMm,
-        imgHeightMm,
-        undefined,
-        'NONE' // No compression
-      );
-    }
-
-    const outputFilename = filename || `mission-report-${data.mission.id}.pdf`;
-    pdf.save(outputFilename);
-  } finally {
-    // Clean up
-    document.body.removeChild(overlay);
-    // Restore scroll position
-    window.scrollTo(scrollX, scrollY);
-  }
+  // Don't auto-close - let user complete the print dialog
 }
 
 /**
