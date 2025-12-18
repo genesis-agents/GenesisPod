@@ -645,9 +645,7 @@ export class GuardrailService {
     }
 
     // 生成限流 key
-    const key = rateLimitConfig.perTool
-      ? `${userId}:${toolType}`
-      : userId;
+    const key = rateLimitConfig.perTool ? `${userId}:${toolType}` : userId;
 
     const allowed = this.rateLimiter.check(key, rateLimitConfig);
 
@@ -700,7 +698,14 @@ export class GuardrailService {
     // 检查阻止的模式
     if (config.blockedPatterns) {
       for (const pattern of config.blockedPatterns) {
-        const regex = new RegExp(pattern);
+        // 处理 (?i) 前缀 - JavaScript 不支持内联标志，转换为 RegExp 标志
+        let regexPattern = pattern;
+        let flags = "";
+        if (pattern.startsWith("(?i)")) {
+          regexPattern = pattern.slice(4);
+          flags = "i";
+        }
+        const regex = new RegExp(regexPattern, flags);
         if (regex.test(content)) {
           return {
             passed: false,
@@ -780,10 +785,7 @@ export class GuardrailService {
    * @param config 隐私配置
    * @returns 检查结果
    */
-  private checkPrivacy(
-    data: unknown,
-    config: PrivacyConfig,
-  ): GuardrailResult {
+  private checkPrivacy(data: unknown, config: PrivacyConfig): GuardrailResult {
     if (!config.detectPII) {
       return { passed: true };
     }
@@ -927,7 +929,12 @@ export class GuardrailService {
     }
 
     // 对象属性检查
-    if (schema.type === "object" && schema.properties && typeof data === "object" && data !== null) {
+    if (
+      schema.type === "object" &&
+      schema.properties &&
+      typeof data === "object" &&
+      data !== null
+    ) {
       const obj = data as Record<string, unknown>;
 
       // 检查必需字段

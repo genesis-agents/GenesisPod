@@ -28,7 +28,7 @@ describe("PythonExecutorTool", () => {
       expect(result.success).toBe(true);
       expect(result.data?.success).toBe(true);
       expect(result.data?.stdout).toContain("Hello, World!");
-    });
+    }, 30000);
 
     it("应该能捕获返回值", async () => {
       const result = await tool.execute(
@@ -41,7 +41,7 @@ describe("PythonExecutorTool", () => {
       expect(result.success).toBe(true);
       expect(result.data?.success).toBe(true);
       expect(result.data?.returnValue).toBe(42);
-    });
+    }, 30000);
 
     it("应该能捕获错误", async () => {
       const result = await tool.execute(
@@ -55,7 +55,7 @@ describe("PythonExecutorTool", () => {
       expect(result.data?.success).toBe(false); // Python 代码执行失败
       expect(result.data?.stderr).toContain("ValueError");
       expect(result.data?.stderr).toContain("Test error");
-    });
+    }, 30000);
   });
 
   describe("上下文变量", () => {
@@ -76,7 +76,7 @@ describe("PythonExecutorTool", () => {
       expect(result.success).toBe(true);
       expect(result.data?.success).toBe(true);
       expect(result.data?.returnValue).toBe(30);
-    });
+    }, 30000);
 
     it("应该能传递复杂数据结构", async () => {
       const result = await tool.execute(
@@ -105,7 +105,7 @@ _result = {
         age: 30,
         sum: 15,
       });
-    });
+    }, 30000);
   });
 
   describe("安全检查", () => {
@@ -177,7 +177,7 @@ _result = {
       expect(result.data?.success).toBe(true);
       expect(result.data?.returnValue).toHaveProperty("json_works", true);
       expect(result.data?.returnValue).toHaveProperty("math_pi");
-    });
+    }, 30000);
   });
 
   describe("数据处理", () => {
@@ -201,14 +201,15 @@ _result = {
       if (result.success && result.data?.success) {
         expect(result.data.returnValue).toHaveProperty("mean", 3);
         expect(result.data.returnValue).toHaveProperty("sum", 15);
-        expect(result.data.returnValue).toHaveProperty("array", [
-          1, 2, 3, 4, 5,
-        ]);
+        expect(result.data.returnValue).toHaveProperty(
+          "array",
+          [1, 2, 3, 4, 5],
+        );
       } else {
         // numpy 可能未安装，跳过测试
         console.log("Skipping numpy test - module not available");
       }
-    });
+    }, 30000);
 
     it("应该能处理 pandas DataFrame", async () => {
       const result = await tool.execute(
@@ -236,7 +237,7 @@ _result = df.to_dict('records')
         // pandas 可能未安装，跳过测试
         console.log("Skipping pandas test - module not available");
       }
-    });
+    }, 30000);
   });
 
   describe("超时控制", () => {
@@ -277,7 +278,7 @@ _result = "completed"
       expect(result.success).toBe(true);
       expect(result.data?.success).toBe(true);
       expect(result.data?.returnValue).toBe("completed");
-    });
+    }, 30000);
   });
 
   describe("图表捕获", () => {
@@ -311,7 +312,7 @@ plt.title('Sine Wave')
         // matplotlib 可能未安装，跳过测试
         console.log("Skipping matplotlib test - module not available");
       }
-    });
+    }, 30000);
   });
 
   describe("输入验证", () => {

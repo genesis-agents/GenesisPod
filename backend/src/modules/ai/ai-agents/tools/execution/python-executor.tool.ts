@@ -219,6 +219,11 @@ export class PythonExecutorTool extends BaseTool<
         error instanceof Error ? error.message : String(error);
       this.logger.error(`Python execution failed: ${errorMessage}`);
 
+      // 超时错误需要向上抛出，以便 BaseTool.execute 正确处理
+      if (errorMessage.includes("timeout")) {
+        throw error;
+      }
+
       return {
         success: false,
         stdout: "",
@@ -255,13 +260,18 @@ export class PythonExecutorTool extends BaseTool<
       let stdout = "";
       let stderr = "";
 
-      // 启动 Python 进程
-      const pythonProcess = spawn("python3", [sandboxPath]);
+      // 启动 Python 进程 (Windows 使用 'python', Unix 使用 'python3')
+      const pythonCmd = process.platform === "win32" ? "python" : "python3";
+      const pythonProcess = spawn(pythonCmd, [sandboxPath]);
 
       // 设置超时
+      let timedOut = false;
       const timeoutId = setTimeout(() => {
-        pythonProcess.kill("SIGTERM");
-        reject(new Error(`Execution timeout after ${timeout}ms`));
+        timedOut = true;
+        // Windows 不支持 SIGTERM，使用 SIGKILL 或直接 kill
+        pythonProcess.kill(
+          process.platform === "win32" ? undefined : "SIGTERM",
+        );
       }, timeout);
 
       // 收集标准输出
@@ -279,6 +289,12 @@ export class PythonExecutorTool extends BaseTool<
         clearTimeout(timeoutId);
 
         const executionTime = Date.now() - startTime;
+
+        // 检查是否超时
+        if (timedOut) {
+          reject(new Error(`Execution timeout after ${timeout}ms`));
+          return;
+        }
 
         if (code === 0) {
           // 解析输出 JSON
