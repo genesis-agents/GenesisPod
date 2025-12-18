@@ -1,6 +1,9 @@
 /**
  * Agent 编排器
  * 负责协调多个 Agent 和工具的执行
+ * 支持两种执行模式:
+ * 1. 计划模式: Agent 生成计划，编排器按步骤执行
+ * 2. 自主模式: LLM 通过 Function Calling 自主选择工具
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -14,7 +17,12 @@ import {
   AgentResult,
   ToolType,
 } from "./agent.types";
-import { ToolContext } from "./tool.interface";
+import { ToolContext, FunctionDefinition } from "./tool.interface";
+import {
+  FunctionCallingExecutor,
+  ExecutionConfig,
+} from "./function-calling-executor";
+import { ILLMAdapter } from "./llm-adapter";
 
 /**
  * Agent 选择结果
@@ -43,6 +51,46 @@ interface OrchestratorConfig {
    * 是否启用工具结果缓存
    */
   enableToolCache?: boolean;
+
+  /**
+   * Function Calling 执行配置
+   */
+  functionCalling?: Partial<ExecutionConfig>;
+}
+
+/**
+ * 自主执行输入
+ */
+export interface AutonomousExecutionInput {
+  /**
+   * 系统提示词
+   */
+  systemPrompt: string;
+
+  /**
+   * 用户提示词
+   */
+  userPrompt: string;
+
+  /**
+   * 可用工具列表（不指定则使用所有已注册工具）
+   */
+  tools?: ToolType[];
+
+  /**
+   * 用户 ID
+   */
+  userId?: string;
+
+  /**
+   * 任务 ID
+   */
+  taskId?: string;
+
+  /**
+   * 执行配置
+   */
+  config?: Partial<ExecutionConfig>;
 }
 
 /**
@@ -53,6 +101,7 @@ interface OrchestratorConfig {
 export class AgentOrchestrator {
   private readonly logger = new Logger(AgentOrchestrator.name);
   private readonly config: Required<OrchestratorConfig>;
+  private readonly functionCallingExecutor: FunctionCallingExecutor;
 
   constructor(
     private readonly agentRegistry: AgentRegistry,
@@ -62,7 +111,18 @@ export class AgentOrchestrator {
       defaultTimeout: 300000, // 5 分钟
       maxConcurrentTools: 3,
       enableToolCache: true,
+      functionCalling: {
+        maxIterations: 10,
+        maxToolCalls: 20,
+        parallelToolCalls: false,
+        enableRetry: true,
+        temperature: 0.7,
+        maxTokens: 4096,
+      },
     };
+    this.functionCallingExecutor = new FunctionCallingExecutor(
+      this.toolRegistry,
+    );
   }
 
   /**
@@ -354,5 +414,101 @@ export class AgentOrchestrator {
     }
 
     return report;
+  }
+
+  // ============================================================================
+  // Function Calling 自主执行模式
+  // ============================================================================
+
+  /**
+   * 自主执行模式
+   * LLM 通过 Function Calling 自主选择和调用工具
+   *
+   * @param llmAdapter LLM 适配器
+   * @param input 执行输入
+   * @yields AgentEvent 事件流
+   *
+   * @example
+   * ```typescript
+   * const adapter = adapterFactory.get('openai');
+   * for await (const event of orchestrator.executeAutonomous(adapter, {
+   *   systemPrompt: 'You are a helpful assistant...',
+   *   userPrompt: 'Search for the latest AI news and summarize',
+   *   tools: [ToolType.WEB_SEARCH, ToolType.TEXT_GENERATION],
+   * })) {
+   *   console.log(event);
+   * }
+   * ```
+   */
+  async *executeAutonomous(
+    llmAdapter: ILLMAdapter,
+    input: AutonomousExecutionInput,
+  ): AsyncGenerator<AgentEvent> {
+    const { systemPrompt, userPrompt, tools, userId, taskId, config } = input;
+
+    // 确定可用工具
+    const availableTools = tools || this.toolRegistry.getRegisteredTypes();
+
+    // 创建执行上下文
+    const context: ToolContext = {
+      taskId: taskId || `task_${Date.now()}`,
+      userId,
+      timeout: this.config.defaultTimeout,
+    };
+
+    // 合并配置
+    const executionConfig: Partial<ExecutionConfig> = {
+      ...this.config.functionCalling,
+      ...config,
+    };
+
+    this.logger.log(
+      `[executeAutonomous] Starting with ${availableTools.length} tools`,
+    );
+
+    // 执行 Function Calling 循环
+    for await (const event of this.functionCallingExecutor.execute(
+      llmAdapter,
+      systemPrompt,
+      userPrompt,
+      availableTools,
+      context,
+      executionConfig,
+    )) {
+      yield event;
+    }
+  }
+
+  /**
+   * 获取所有工具的 Function 定义
+   * 用于传递给 LLM 进行工具选择
+   *
+   * @param tools 工具类型列表（不指定则返回所有）
+   * @returns Function 定义数组
+   */
+  getFunctionDefinitions(tools?: ToolType[]): FunctionDefinition[] {
+    if (tools) {
+      return tools
+        .filter((t) => this.toolRegistry.has(t))
+        .map((t) => this.toolRegistry.get(t).toFunctionDefinition());
+    }
+    return this.functionCallingExecutor.getAllFunctionDefinitions();
+  }
+
+  /**
+   * 获取执行器配置
+   */
+  getFunctionCallingConfig(): Partial<ExecutionConfig> {
+    return { ...this.config.functionCalling };
+  }
+
+  /**
+   * 更新执行器配置
+   */
+  updateFunctionCallingConfig(config: Partial<ExecutionConfig>): void {
+    this.config.functionCalling = {
+      ...this.config.functionCalling,
+      ...config,
+    };
   }
 }

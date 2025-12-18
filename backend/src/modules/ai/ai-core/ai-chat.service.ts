@@ -2577,4 +2577,45 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
       }),
     };
   }
+
+  /**
+   * Simple chat interface for tools
+   * Wraps generateChatCompletion with sensible defaults
+   *
+   * @param options Chat options
+   * @returns Chat result
+   */
+  async chat(options: {
+    messages: ChatMessage[];
+    systemPrompt?: string;
+    maxTokens?: number;
+    temperature?: number;
+    model?: string;
+  }): Promise<{
+    content: string;
+    usage?: { totalTokens: number };
+    model: string;
+  }> {
+    const {
+      messages,
+      systemPrompt,
+      maxTokens = 4096,
+      temperature = 0.7,
+      model = process.env.DEFAULT_AI_MODEL || "gemini",
+    } = options;
+
+    const result = await this.generateChatCompletion({
+      model,
+      systemPrompt,
+      messages,
+      maxTokens,
+      temperature,
+    });
+
+    return {
+      content: result.content,
+      usage: { totalTokens: result.tokensUsed },
+      model: result.model,
+    };
+  }
 }

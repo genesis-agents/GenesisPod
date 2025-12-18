@@ -19,6 +19,47 @@ export interface JSONSchema {
 }
 
 /**
+ * OpenAI Function Calling 格式定义
+ * 用于 LLM 自主选择工具
+ */
+export interface FunctionDefinition {
+  /**
+   * 函数名称（对应工具类型）
+   */
+  name: string;
+
+  /**
+   * 函数描述（帮助 LLM 理解何时使用此工具）
+   */
+  description: string;
+
+  /**
+   * 参数 Schema
+   */
+  parameters: JSONSchema;
+}
+
+/**
+ * 工具调用请求（LLM 返回的工具调用）
+ */
+export interface ToolCallRequest {
+  /**
+   * 调用 ID（用于匹配结果）
+   */
+  id: string;
+
+  /**
+   * 工具名称
+   */
+  name: string;
+
+  /**
+   * 工具参数（JSON 字符串）
+   */
+  arguments: string;
+}
+
+/**
  * 工具执行上下文
  */
 export interface ToolContext {
@@ -136,6 +177,14 @@ export interface ITool<TInput = unknown, TOutput = unknown> {
    * @returns 是否有效
    */
   validateInput?(input: TInput): boolean;
+
+  /**
+   * 转换为 Function Calling 格式
+   * 用于 LLM 自主选择工具
+   *
+   * @returns Function 定义
+   */
+  toFunctionDefinition(): FunctionDefinition;
 }
 
 /**
@@ -214,6 +263,18 @@ export abstract class BaseTool<TInput = unknown, TOutput = unknown>
    */
   validateInput(_input: TInput): boolean {
     return true;
+  }
+
+  /**
+   * 转换为 OpenAI Function Calling 格式
+   * 使 LLM 能够自主选择和调用此工具
+   */
+  toFunctionDefinition(): FunctionDefinition {
+    return {
+      name: this.type,
+      description: this.description,
+      parameters: this.inputSchema,
+    };
   }
 }
 
