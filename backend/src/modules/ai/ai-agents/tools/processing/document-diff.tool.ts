@@ -292,7 +292,11 @@ export class DocumentDiffTool extends BaseTool<
       const changes = this.computeDiff(sourceUnits, targetUnits);
 
       // 计算统计信息
-      const statistics = this.computeStatistics(changes, sourceUnits, targetUnits);
+      const statistics = this.computeStatistics(
+        changes,
+        sourceUnits,
+        targetUnits,
+      );
 
       // 格式化输出
       const formatted = this.formatDiff(
@@ -535,8 +539,8 @@ export class DocumentDiffTool extends BaseTool<
 
   private formatUnified(
     changes: DiffChange[],
-    source: string[],
-    target: string[],
+    _source: string[],
+    _target: string[],
     contextLines: number,
   ): string {
     const lines: string[] = [];
@@ -577,8 +581,8 @@ export class DocumentDiffTool extends BaseTool<
 
   private formatSideBySide(
     changes: DiffChange[],
-    source: string[],
-    target: string[],
+    _source: string[],
+    _target: string[],
   ): string {
     const lines: string[] = [];
     const width = 50;
@@ -604,8 +608,8 @@ export class DocumentDiffTool extends BaseTool<
 
   private formatHTML(
     changes: DiffChange[],
-    source: string[],
-    target: string[],
+    _source: string[],
+    _target: string[],
   ): string {
     const lines: string[] = [];
 

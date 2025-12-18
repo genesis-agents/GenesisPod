@@ -285,8 +285,16 @@ export class EmailSenderTool extends BaseTool<
     input: EmailSenderInput,
     _context: ToolContext,
   ): Promise<EmailSenderOutput> {
-    const { to, cc, bcc, subject, body, isHtml, attachments, scheduledAt } =
-      input;
+    const {
+      to,
+      cc,
+      bcc,
+      subject,
+      body: _body,
+      isHtml: _isHtml,
+      attachments: _attachments,
+      scheduledAt,
+    } = input;
 
     this.logger.log(
       `[doExecute] Sending email to ${to.length} recipient(s): ${subject}`,
@@ -298,11 +306,7 @@ export class EmailSenderTool extends BaseTool<
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       const messageId = `<${Date.now()}.${Math.random().toString(36).substring(7)}@deepdive.ai>`;
-      const allRecipients = [
-        ...to,
-        ...(cc || []),
-        ...(bcc || []),
-      ];
+      const allRecipients = [...to, ...(cc || []), ...(bcc || [])];
 
       // 模拟收件人状态
       const recipients = allRecipients.map((email) => ({
@@ -321,9 +325,7 @@ export class EmailSenderTool extends BaseTool<
         };
       }
 
-      this.logger.log(
-        `[doExecute] Email sent successfully: ${messageId}`,
-      );
+      this.logger.log(`[doExecute] Email sent successfully: ${messageId}`);
 
       return {
         success: true,

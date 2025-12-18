@@ -195,7 +195,7 @@ export class JavaScriptExecutorTool extends BaseTool<
     input: JavaScriptExecutorInput,
     _context: ToolContext,
   ): Promise<JavaScriptExecutorOutput> {
-    const { code, context, options } = input;
+    const { code, context: inputContext, options } = input;
     const timeout = options?.timeout || 30000;
     const captureConsole = options?.captureConsole ?? true;
 
@@ -209,7 +209,7 @@ export class JavaScriptExecutorTool extends BaseTool<
     try {
       // 创建沙箱上下文
       const sandbox: Record<string, unknown> = {
-        ...(context?.variables || {}),
+        ...(inputContext?.variables || {}),
         // 注入 console 捕获
         console: captureConsole
           ? {

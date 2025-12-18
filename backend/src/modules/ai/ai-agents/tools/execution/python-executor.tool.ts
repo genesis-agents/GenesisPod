@@ -256,10 +256,7 @@ export class PythonExecutorTool extends BaseTool<
       let stderr = "";
 
       // 启动 Python 进程
-      const pythonProcess = spawn("python3", [sandboxPath], {
-        timeout,
-        maxBuffer: 10 * 1024 * 1024, // 10MB buffer
-      });
+      const pythonProcess = spawn("python3", [sandboxPath]);
 
       // 设置超时
       const timeoutId = setTimeout(() => {

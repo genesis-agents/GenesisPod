@@ -13,7 +13,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { ToolRegistry } from "../tool.registry";
-import { JSONSchema, ToolContext, ToolResult } from "../tool.interface";
+import { JSONSchema, ToolContext } from "../tool.interface";
 import { ToolType } from "../agent.types";
 
 // ==================== MCP 类型定义 ====================
@@ -841,9 +841,7 @@ export class MCPAdapter {
       return "execution";
     }
     if (
-      [ToolType.SHORT_TERM_MEMORY, ToolType.LONG_TERM_MEMORY].includes(
-        toolType,
-      )
+      [ToolType.SHORT_TERM_MEMORY, ToolType.LONG_TERM_MEMORY].includes(toolType)
     ) {
       return "memory";
     }
@@ -857,9 +855,7 @@ export class MCPAdapter {
     ) {
       return "export";
     }
-    if (
-      [ToolType.AGENT_HANDOFF, ToolType.HUMAN_APPROVAL].includes(toolType)
-    ) {
+    if ([ToolType.AGENT_HANDOFF, ToolType.HUMAN_APPROVAL].includes(toolType)) {
       return "collaboration";
     }
     return "unknown";
@@ -904,9 +900,7 @@ export class MCPAdapter {
   /**
    * 验证提示获取参数
    */
-  private isValidPromptGetParams(
-    params: unknown,
-  ): params is { name: string } {
+  private isValidPromptGetParams(params: unknown): params is { name: string } {
     return (
       typeof params === "object" &&
       params !== null &&

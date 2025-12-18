@@ -297,7 +297,11 @@ export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
     if (!apiKey) {
       this.logger.warn("OPENAI_API_KEY not configured");
     }
-    this.openai = new OpenAI({ apiKey });
+    if (apiKey) {
+      this.openai = new OpenAI({ apiKey });
+    } else {
+      this.openai = null as any;
+    }
   }
 
   /**
@@ -348,9 +352,7 @@ export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
       }
 
       if (input.resourceIds.length > 50) {
-        this.logger.error(
-          "Invalid resourceIds: too many resources (max 50)",
-        );
+        this.logger.error("Invalid resourceIds: too many resources (max 50)");
         return false;
       }
     }
@@ -365,7 +367,14 @@ export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
     input: RAGSearchInput,
     context: ToolContext,
   ): Promise<RAGSearchOutput> {
-    const { query, topK = 5, threshold = 0.7, collectionId, resourceIds, filters } = input;
+    const {
+      query,
+      topK = 5,
+      threshold = 0.7,
+      collectionId,
+      resourceIds,
+      filters,
+    } = input;
 
     this.logger.log(`RAG search query: "${query.substring(0, 100)}..."`);
 
@@ -374,7 +383,9 @@ export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
       const queryEmbedding = await this.generateEmbedding(query);
       const embeddingDimension = queryEmbedding.length;
 
-      this.logger.debug(`Generated embedding with dimension: ${embeddingDimension}`);
+      this.logger.debug(
+        `Generated embedding with dimension: ${embeddingDimension}`,
+      );
 
       // 步骤 2: 执行向量相似度搜索
       const results = await this.searchSimilarChunks({
@@ -388,7 +399,9 @@ export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
         workspaceId: context.workspaceId,
       });
 
-      this.logger.log(`Found ${results.length} results above threshold ${threshold}`);
+      this.logger.log(
+        `Found ${results.length} results above threshold ${threshold}`,
+      );
 
       return {
         results,
@@ -397,7 +410,9 @@ export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
         embeddingDimension,
       };
     } catch (error) {
-      this.logger.error(`RAG search failed: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(
+        `RAG search failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
       throw error;
     }
   }
@@ -558,7 +573,9 @@ export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
     }
 
     const whereClause =
-      whereConditions.length > 0 ? `WHERE ${whereConditions.join(" AND ")}` : "";
+      whereConditions.length > 0
+        ? `WHERE ${whereConditions.join(" AND ")}`
+        : "";
 
     // 构建查询
     // 使用余弦相似度: 1 - (vector <=> query) as similarity

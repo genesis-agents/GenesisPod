@@ -356,10 +356,7 @@ export class HumanApprovalTool extends BaseTool<
 
     // 验证 choose 类型必须有选项
     if (input.type === "choose") {
-      if (
-        !input.options?.choices ||
-        input.options.choices.length === 0
-      ) {
+      if (!input.options?.choices || input.options.choices.length === 0) {
         this.logger.warn("Choices are required for 'choose' type");
         return false;
       }
@@ -472,10 +469,10 @@ export class HumanApprovalTool extends BaseTool<
   private async waitForHumanResponse(
     requestId: string,
     type: ApprovalType,
-    prompt: string,
-    context: ApprovalContext | undefined,
+    _prompt: string,
+    _context: ApprovalContext | undefined,
     options: ApprovalOptions,
-    timeout: number,
+    _timeout: number,
   ): Promise<Omit<HumanApprovalOutput, "respondedAt" | "metadata">> {
     // 模拟延迟（实际应该等待用户响应）
     await new Promise((resolve) => setTimeout(resolve, 500));

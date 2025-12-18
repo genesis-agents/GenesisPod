@@ -129,6 +129,7 @@ export class UserPreferencesTool extends BaseTool<
         description: "偏好键（支持点号路径，如 theme.mode）",
       },
       value: {
+        type: "string",
         description: "偏好值",
       },
       preferences: {
@@ -136,6 +137,7 @@ export class UserPreferencesTool extends BaseTool<
         description: "要合并的偏好对象",
       },
       defaultValue: {
+        type: "string",
         description: "默认值（键不存在时返回）",
       },
     },
@@ -147,7 +149,7 @@ export class UserPreferencesTool extends BaseTool<
     properties: {
       success: { type: "boolean", description: "操作是否成功" },
       operation: { type: "string", description: "操作类型" },
-      value: { description: "获取的值" },
+      value: { type: "string", description: "获取的值" },
       preferences: { type: "object", description: "所有偏好" },
       affectedKeys: {
         type: "array",
@@ -236,7 +238,9 @@ export class UserPreferencesTool extends BaseTool<
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.logger.error(`[doExecute] Preferences operation failed: ${errorMessage}`);
+      this.logger.error(
+        `[doExecute] Preferences operation failed: ${errorMessage}`,
+      );
 
       return {
         success: false,

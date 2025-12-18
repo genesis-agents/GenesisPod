@@ -338,7 +338,9 @@ export class OCRRecognitionTool extends BaseTool<
       const result = await Tesseract.recognize(imageSource, language, {
         logger: (m) => {
           if (m.status === "recognizing text") {
-            this.logger.debug(`OCR progress: ${Math.round(m.progress * 100)}%`);
+            this.logger.debug(
+              `OCR progress: ${Math.round((m.progress || 0) * 100)}%`,
+            );
           }
         },
         tessedit_pageseg_mode: psm,

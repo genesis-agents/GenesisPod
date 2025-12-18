@@ -78,18 +78,16 @@ import {
 } from "./tools";
 
 // 记忆服务导入
-import {
-  ShortTermMemoryService,
-  LongTermMemoryService,
-} from "./core/memory";
+import { ShortTermMemoryService, LongTermMemoryService } from "./core/memory";
 
 // 依赖模块
 import { AiOfficeModule } from "../ai-office/ai-office.module";
 import { AiImageModule } from "../ai-image/ai-image.module";
 import { AiCoreModule } from "../ai-core/ai-core.module";
+import { AiStudioModule } from "../ai-studio/ai-studio.module";
 
 @Module({
-  imports: [AiOfficeModule, AiImageModule, AiCoreModule],
+  imports: [AiOfficeModule, AiImageModule, AiCoreModule, AiStudioModule],
   controllers: [AiAgentsController],
   providers: [
     // 核心服务

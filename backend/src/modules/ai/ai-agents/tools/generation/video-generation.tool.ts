@@ -189,7 +189,8 @@ export class VideoGenerationTool extends BaseTool<
       },
       sourceType: {
         type: "string",
-        description: "源类型：text（文本转视频）、image（图片转视频）、video（视频编辑）",
+        description:
+          "源类型：text（文本转视频）、image（图片转视频）、video（视频编辑）",
         enum: ["text", "image", "video"],
       },
       sourceUrl: {
@@ -210,7 +211,14 @@ export class VideoGenerationTool extends BaseTool<
       style: {
         type: "string",
         description: "视频风格",
-        enum: ["realistic", "anime", "cartoon", "cinematic", "artistic", "minimal"],
+        enum: [
+          "realistic",
+          "anime",
+          "cartoon",
+          "cinematic",
+          "artistic",
+          "minimal",
+        ],
         default: "realistic",
       },
       fps: {
@@ -363,8 +371,8 @@ export class VideoGenerationTool extends BaseTool<
     const {
       generateThumbnail = true,
       outputFormat = "mp4",
-      backgroundMusic,
-      addSubtitles = false,
+      backgroundMusic: _backgroundMusic,
+      addSubtitles: _addSubtitles = false,
     } = options;
 
     try {
@@ -435,9 +443,7 @@ export class VideoGenerationTool extends BaseTool<
         format: outputFormat,
         success: false,
         error:
-          error instanceof Error
-            ? error.message
-            : "Video generation failed",
+          error instanceof Error ? error.message : "Video generation failed",
       };
     }
   }
@@ -497,7 +503,10 @@ export class VideoGenerationTool extends BaseTool<
   /**
    * Mock: 图片转视频
    */
-  private generateImageToVideoMock(sourceUrl: string, duration: number): string {
+  private generateImageToVideoMock(
+    sourceUrl: string,
+    duration: number,
+  ): string {
     const hash = this.simpleHash(sourceUrl + duration);
     return `https://storage.example.com/videos/image-to-video/${hash}.mp4`;
   }
@@ -509,9 +518,7 @@ export class VideoGenerationTool extends BaseTool<
     sourceUrl: string,
     editOperation?: VideoGenerationInput["editOperation"],
   ): string {
-    const hash = this.simpleHash(
-      sourceUrl + (editOperation?.type || "none"),
-    );
+    const hash = this.simpleHash(sourceUrl + (editOperation?.type || "none"));
     return `https://storage.example.com/videos/edited/${hash}.mp4`;
   }
 

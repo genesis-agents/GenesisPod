@@ -365,7 +365,8 @@ export class FileParserTool extends BaseTool<
   ): Promise<FileParserOutput> {
     const pdfParse = await import("pdf-parse");
 
-    const data = await pdfParse.default(buffer, {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = await (pdfParse.default as any)(buffer, {
       max: options?.maxPages || 100,
     });
 
@@ -425,9 +426,11 @@ export class FileParserTool extends BaseTool<
 
       // 获取该标题后的内容（直到下一个同级或更高级标题）
       let content = "";
-      $el.nextUntil(`h1, h2, h3, h4, h5, h6`).each((_: number, sibling: any) => {
-        content += $(sibling).text().trim() + "\n";
-      });
+      $el
+        .nextUntil(`h1, h2, h3, h4, h5, h6`)
+        .each((_: number, sibling: any) => {
+          content += $(sibling).text().trim() + "\n";
+        });
 
       sections.push({
         level,
@@ -459,7 +462,11 @@ export class FileParserTool extends BaseTool<
         // 提取数据行
         const hasTheadOrFirstRowAsHeader = headers.length > 0;
         $(table)
-          .find(hasTheadOrFirstRowAsHeader ? "tbody tr, tr:not(:first-child)" : "tr")
+          .find(
+            hasTheadOrFirstRowAsHeader
+              ? "tbody tr, tr:not(:first-child)"
+              : "tr",
+          )
           .each((_: number, tr: any) => {
             const row: string[] = [];
             $(tr)
@@ -504,7 +511,8 @@ export class FileParserTool extends BaseTool<
   ): Promise<FileParserOutput> {
     const ExcelJS = await import("exceljs");
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(buffer);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await workbook.xlsx.load(buffer as any);
 
     const sections: FileParserOutput["structure"]["sections"] = [];
     const tables: FileParserOutput["tables"] = [];
@@ -532,9 +540,7 @@ export class FileParserTool extends BaseTool<
           if (value !== null && value !== undefined) {
             if (typeof value === "object" && "richText" in value) {
               // 处理富文本
-              cellText = value.richText
-                .map((t: any) => t.text)
-                .join("");
+              cellText = value.richText.map((t: any) => t.text).join("");
             } else if (typeof value === "object" && "text" in value) {
               cellText = value.text;
             } else {
@@ -689,8 +695,11 @@ export class FileParserTool extends BaseTool<
     const sections: FileParserOutput["structure"]["sections"] = [];
     const lines = content.split("\n");
 
-    let currentSection: { level: number; title: string; content: string } | null =
-      null;
+    let currentSection: {
+      level: number;
+      title: string;
+      content: string;
+    } | null = null;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
@@ -699,7 +708,8 @@ export class FileParserTool extends BaseTool<
       const isTitleLike =
         line.length > 0 &&
         line.length < 80 &&
-        (line === line.toUpperCase() || /^[\d一二三四五六七八九十]+[、\.]/.test(line));
+        (line === line.toUpperCase() ||
+          /^[\d一二三四五六七八九十]+[、\.]/.test(line));
 
       if (isTitleLike) {
         if (currentSection) {

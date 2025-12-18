@@ -242,7 +242,7 @@ export class TaskDelegationTool extends BaseTool<
       operation: { type: "string", description: "操作类型" },
       taskId: { type: "string", description: "任务 ID" },
       status: { type: "string", description: "委派状态" },
-      result: { description: "任务结果" },
+      result: { type: "object", description: "任务结果" },
       tasks: { type: "array", description: "任务列表" },
       error: { type: "string", description: "错误信息" },
     },
@@ -322,7 +322,8 @@ export class TaskDelegationTool extends BaseTool<
 
   private delegateTask(task: DelegatedTask): TaskDelegationOutput {
     const taskId =
-      task.taskId || `task_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      task.taskId ||
+      `task_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     const now = new Date().toISOString();
 
     this.taskStore.set(taskId, {
@@ -445,7 +446,9 @@ export class TaskDelegationTool extends BaseTool<
     };
   }
 
-  private listTasks(filter?: TaskDelegationInput["filter"]): TaskDelegationOutput {
+  private listTasks(
+    filter?: TaskDelegationInput["filter"],
+  ): TaskDelegationOutput {
     let tasks = Array.from(this.taskStore.values());
 
     if (filter) {

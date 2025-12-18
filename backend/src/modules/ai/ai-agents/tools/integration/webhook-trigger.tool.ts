@@ -188,6 +188,7 @@ export class WebhookTriggerTool extends BaseTool<
         additionalProperties: { type: "string" },
       },
       payload: {
+        type: "object",
         description: "请求体（JSON 对象）",
       },
       queryParams: {
@@ -251,7 +252,7 @@ export class WebhookTriggerTool extends BaseTool<
       statusCode: { type: "number", description: "HTTP 状态码" },
       statusText: { type: "string", description: "状态文本" },
       headers: { type: "object", description: "响应头" },
-      body: { description: "响应体" },
+      body: { type: "object", description: "响应体" },
       duration: { type: "number", description: "请求耗时（毫秒）" },
       retriesUsed: { type: "number", description: "使用的重试次数" },
       requestId: { type: "string", description: "请求 ID" },
@@ -399,15 +400,15 @@ export class WebhookTriggerTool extends BaseTool<
   }
 
   private async executeRequest(
-    url: string,
+    _url: string,
     method: HttpMethod,
     headers: Record<string, string>,
     payload: unknown,
-    queryParams?: Record<string, string>,
-    timeout?: number,
+    _queryParams?: Record<string, string>,
+    _timeout?: number,
     maxRetries?: number,
-    retryDelay?: number,
-    waitForResponse?: boolean,
+    _retryDelay?: number,
+    _waitForResponse?: boolean,
   ): Promise<{
     statusCode: number;
     statusText: string;
@@ -416,7 +417,9 @@ export class WebhookTriggerTool extends BaseTool<
     retriesUsed: number;
   }> {
     // 模拟请求延迟
-    await new Promise((resolve) => setTimeout(resolve, 200 + Math.random() * 300));
+    await new Promise((resolve) =>
+      setTimeout(resolve, 200 + Math.random() * 300),
+    );
 
     // 模拟响应
     // 实际实现应使用 axios:

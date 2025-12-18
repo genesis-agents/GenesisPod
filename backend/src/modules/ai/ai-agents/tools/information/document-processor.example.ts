@@ -91,7 +91,9 @@ export class DocumentProcessorService {
     try {
       // 检查是否已处理
       if (skipIfExists) {
-        const existingChunks = await this.prisma.$queryRaw<Array<{ count: number }>>`
+        const existingChunks = await this.prisma.$queryRaw<
+          Array<{ count: number }>
+        >`
           SELECT COUNT(*) as count
           FROM chunks
           WHERE resource_id = ${resourceId}::uuid
@@ -110,7 +112,9 @@ export class DocumentProcessorService {
 
       // 1. 分块
       const chunks = this.chunkText(content, chunkSize, chunkOverlap);
-      this.logger.log(`Created ${chunks.length} chunks for document ${resourceId}`);
+      this.logger.log(
+        `Created ${chunks.length} chunks for document ${resourceId}`,
+      );
 
       // 2. 批量处理
       const errors: string[] = [];
@@ -125,8 +129,11 @@ export class DocumentProcessorService {
           chunksCreated += result.chunksCreated;
           embeddingsCreated += result.embeddingsCreated;
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          this.logger.error(`Batch ${i}-${i + batchSize} failed: ${errorMessage}`);
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          this.logger.error(
+            `Batch ${i}-${i + batchSize} failed: ${errorMessage}`,
+          );
           errors.push(`Batch ${i}: ${errorMessage}`);
         }
       }
@@ -144,7 +151,9 @@ export class DocumentProcessorService {
         errors: errors.length > 0 ? errors : undefined,
       };
     } catch (error) {
-      this.logger.error(`Failed to process document ${resourceId}: ${String(error)}`);
+      this.logger.error(
+        `Failed to process document ${resourceId}: ${String(error)}`,
+      );
       throw error;
     }
   }
@@ -253,7 +262,8 @@ export class DocumentProcessorService {
     let chunkSentences: string[] = [];
 
     for (const sentence of sentences) {
-      const potentialChunk = currentChunk + (currentChunk ? " " : "") + sentence;
+      const potentialChunk =
+        currentChunk + (currentChunk ? " " : "") + sentence;
 
       if (potentialChunk.length > chunkSize && currentChunk) {
         // 当前块已满，保存
@@ -329,9 +339,7 @@ export class DocumentProcessorService {
   /**
    * 批量生成 embeddings
    */
-  private async batchGenerateEmbeddings(
-    texts: string[],
-  ): Promise<number[][]> {
+  private async batchGenerateEmbeddings(texts: string[]): Promise<number[][]> {
     try {
       const response = await this.openai.embeddings.create({
         model: "text-embedding-3-small",
@@ -339,7 +347,9 @@ export class DocumentProcessorService {
         encoding_format: "float",
       });
 
-      return response.data.map((item) => item.embedding);
+      return response.data.map(
+        (item: { embedding: number[] }) => item.embedding,
+      );
     } catch (error) {
       this.logger.error(
         `Failed to generate embeddings: ${error instanceof Error ? error.message : String(error)}`,
@@ -427,7 +437,6 @@ export class DocumentProcessorService {
  */
 export async function exampleUsage() {
   // 注意：这只是示例代码，实际使用时需要在 NestJS 模块中正确注入依赖
-
   /*
   // 1. 处理单个文档
   const result = await documentProcessor.processDocument(

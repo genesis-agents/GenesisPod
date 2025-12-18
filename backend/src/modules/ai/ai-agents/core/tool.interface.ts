@@ -9,13 +9,26 @@ import { ToolType } from "./agent.types";
  * JSON Schema 类型（简化版）
  */
 export interface JSONSchema {
-  type: "object" | "string" | "number" | "boolean" | "array";
+  type?: "object" | "string" | "number" | "boolean" | "array";
   properties?: Record<string, JSONSchema>;
   required?: string[];
   items?: JSONSchema;
   description?: string;
   enum?: string[];
   default?: unknown;
+  // Additional JSON Schema properties
+  format?: string;
+  minimum?: number;
+  maximum?: number;
+  minLength?: number;
+  maxLength?: number;
+  minItems?: number;
+  maxItems?: number;
+  pattern?: string;
+  additionalProperties?: JSONSchema | boolean;
+  oneOf?: JSONSchema[];
+  anyOf?: JSONSchema[];
+  allOf?: JSONSchema[];
 }
 
 /**
@@ -514,6 +527,118 @@ export const TOOL_CONFIGS: Record<ToolType, ToolConfig> = {
     name: "人类审批",
     description: "请求人类审批或反馈",
     icon: "✋",
+    category: "collaboration",
+  },
+  [ToolType.VIDEO_GENERATION]: {
+    type: ToolType.VIDEO_GENERATION,
+    name: "视频生成",
+    description: "使用 AI 生成视频内容",
+    icon: "🎬",
+    category: "generation",
+  },
+  [ToolType.SHELL_EXECUTOR]: {
+    type: ToolType.SHELL_EXECUTOR,
+    name: "Shell 命令执行",
+    description: "在安全沙箱中执行 Shell 命令",
+    icon: "🐚",
+    category: "execution",
+  },
+  [ToolType.CONTAINER_EXECUTOR]: {
+    type: ToolType.CONTAINER_EXECUTOR,
+    name: "容器执行",
+    description: "在 Docker 容器中执行代码",
+    icon: "🐳",
+    category: "execution",
+  },
+  [ToolType.MESSAGE_PUSH]: {
+    type: ToolType.MESSAGE_PUSH,
+    name: "消息推送",
+    description: "发送消息到各种渠道",
+    icon: "📨",
+    category: "integration",
+  },
+  [ToolType.CLOUD_STORAGE]: {
+    type: ToolType.CLOUD_STORAGE,
+    name: "云存储",
+    description: "上传和管理云存储文件",
+    icon: "☁️",
+    category: "integration",
+  },
+  [ToolType.GITHUB_INTEGRATION]: {
+    type: ToolType.GITHUB_INTEGRATION,
+    name: "GitHub 集成",
+    description: "与 GitHub 仓库交互",
+    icon: "🐙",
+    category: "integration",
+  },
+  [ToolType.EMAIL_SENDER]: {
+    type: ToolType.EMAIL_SENDER,
+    name: "邮件发送",
+    description: "发送电子邮件",
+    icon: "📧",
+    category: "integration",
+  },
+  [ToolType.CALENDAR_INTEGRATION]: {
+    type: ToolType.CALENDAR_INTEGRATION,
+    name: "日历集成",
+    description: "管理日历事件和提醒",
+    icon: "📅",
+    category: "integration",
+  },
+  [ToolType.WEBHOOK_TRIGGER]: {
+    type: ToolType.WEBHOOK_TRIGGER,
+    name: "Webhook 触发",
+    description: "触发外部 Webhook",
+    icon: "🔗",
+    category: "integration",
+  },
+  [ToolType.ENTITY_MEMORY]: {
+    type: ToolType.ENTITY_MEMORY,
+    name: "实体记忆",
+    description: "记忆和检索实体信息",
+    icon: "👤",
+    category: "memory",
+  },
+  [ToolType.KNOWLEDGE_BASE]: {
+    type: ToolType.KNOWLEDGE_BASE,
+    name: "知识库",
+    description: "管理和查询知识库内容",
+    icon: "📚",
+    category: "memory",
+  },
+  [ToolType.USER_PREFERENCES]: {
+    type: ToolType.USER_PREFERENCES,
+    name: "用户偏好",
+    description: "存储和检索用户偏好设置",
+    icon: "⚙️",
+    category: "memory",
+  },
+  [ToolType.AGENT_COMMUNICATION]: {
+    type: ToolType.AGENT_COMMUNICATION,
+    name: "Agent 通信",
+    description: "Agent 之间的消息通信",
+    icon: "💬",
+    category: "collaboration",
+  },
+  [ToolType.TASK_DELEGATION]: {
+    type: ToolType.TASK_DELEGATION,
+    name: "任务委派",
+    description: "将子任务委派给其他 Agent",
+    icon: "📋",
+    category: "collaboration",
+  },
+  [ToolType.CONSENSUS_MECHANISM]: {
+    type: ToolType.CONSENSUS_MECHANISM,
+    name: "共识机制",
+    description: "多 Agent 投票和共识决策",
+    icon: "🗳️",
+    category: "collaboration",
+  },
+  [ToolType.WORKFLOW_ORCHESTRATION]: {
+    type: ToolType.WORKFLOW_ORCHESTRATION,
+    name: "工作流编排",
+    description: "编排和管理复杂工作流",
+    icon: "🔀",
     category: "collaboration",
   },
 };

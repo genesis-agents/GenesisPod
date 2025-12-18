@@ -314,13 +314,17 @@ export class DataValidationTool extends BaseTool<
     const Ajv = await import("ajv");
     const addFormats = await import("ajv-formats");
 
-    const ajv = new Ajv.default({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ajvOptions: any = {
       allErrors: true,
-      strict: strict,
-      validateFormats: true,
-    });
+    };
+    if (strict) {
+      ajvOptions.strict = true;
+    }
+    const ajv = new Ajv.default(ajvOptions);
 
-    addFormats.default(ajv);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    addFormats.default(ajv as any);
 
     const validate = ajv.compile(schema);
     const valid = validate(data);
@@ -334,10 +338,13 @@ export class DataValidationTool extends BaseTool<
     if (validate.errors) {
       for (const error of validate.errors) {
         errors.push({
-          field: error.instancePath || "root",
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          field:
+            (error as any).instancePath || (error as any).dataPath || "root",
           message: error.message || "Validation failed",
           type: "error",
-          value: error.data,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          value: (error as any).data,
         });
       }
     }
@@ -484,7 +491,9 @@ export class DataValidationTool extends BaseTool<
         return !isNaN(Date.parse(str));
 
       case "phone":
-        return /^[\d\s\-+()]+$/.test(str) && str.replace(/\D/g, "").length >= 10;
+        return (
+          /^[\d\s\-+()]+$/.test(str) && str.replace(/\D/g, "").length >= 10
+        );
 
       case "uuid":
         return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
@@ -516,7 +525,10 @@ export class DataValidationTool extends BaseTool<
     visited.add(obj as object);
 
     if (Array.isArray(obj)) {
-      return obj.reduce((sum, item) => sum + this.countFields(item, visited), 0);
+      return obj.reduce(
+        (sum, item) => sum + this.countFields(item, visited),
+        0,
+      );
     }
 
     let count = 0;

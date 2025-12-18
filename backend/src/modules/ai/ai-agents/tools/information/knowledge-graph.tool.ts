@@ -384,10 +384,7 @@ export class KnowledgeGraphTool extends BaseTool<
     }
 
     // 验证必需参数
-    if (
-      input.queryType === "get_neighbors" ||
-      input.queryType === "traverse"
-    ) {
+    if (input.queryType === "get_neighbors" || input.queryType === "traverse") {
       if (!input.entityId) {
         this.logger.error(
           `entityId is required for queryType: ${input.queryType}`,
@@ -546,7 +543,9 @@ export class KnowledgeGraphTool extends BaseTool<
     const whereConditions: string[] = [];
 
     if (entityId) {
-      whereConditions.push(`(source_id = '${entityId}' OR target_id = '${entityId}')`);
+      whereConditions.push(
+        `(source_id = '${entityId}' OR target_id = '${entityId}')`,
+      );
     }
 
     if (relationshipTypes && relationshipTypes.length > 0) {
@@ -597,7 +596,9 @@ export class KnowledgeGraphTool extends BaseTool<
           >`
           SELECT id, name, type, properties, resource_id
           FROM entities
-          WHERE id = ANY(ARRAY[${Array.from(entityIds).map((id) => `'${id}'`).join(",")}])
+          WHERE id = ANY(ARRAY[${Array.from(entityIds)
+            .map((id) => `'${id}'`)
+            .join(",")}])
         `.catch(() => [])
         : [];
 
@@ -721,7 +722,12 @@ export class KnowledgeGraphTool extends BaseTool<
     input: KnowledgeGraphInput,
     _context: ToolContext,
   ): Promise<KnowledgeGraphOutput> {
-    const { entityId, depth = 1, relationshipTypes, limit = 50 } = input;
+    const {
+      entityId,
+      depth: _depth = 1,
+      relationshipTypes,
+      limit = 50,
+    } = input;
 
     if (!entityId) {
       throw new Error("entityId is required");
@@ -776,7 +782,9 @@ export class KnowledgeGraphTool extends BaseTool<
           >`
           SELECT id, name, type, properties, resource_id
           FROM entities
-          WHERE id = ANY(ARRAY[${Array.from(allEntityIds).map((id) => `'${id}'`).join(",")}])
+          WHERE id = ANY(ARRAY[${Array.from(allEntityIds)
+            .map((id) => `'${id}'`)
+            .join(",")}])
         `.catch(() => [])
         : [];
 

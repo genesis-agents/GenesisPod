@@ -235,8 +235,16 @@ export class CalendarIntegrationTool extends BaseTool<
         properties: {
           title: { type: "string", description: "事件标题" },
           description: { type: "string", description: "事件描述" },
-          startTime: { type: "string", format: "date-time", description: "开始时间" },
-          endTime: { type: "string", format: "date-time", description: "结束时间" },
+          startTime: {
+            type: "string",
+            format: "date-time",
+            description: "开始时间",
+          },
+          endTime: {
+            type: "string",
+            format: "date-time",
+            description: "结束时间",
+          },
           timeZone: { type: "string", description: "时区" },
           location: { type: "string", description: "地点" },
           allDay: { type: "boolean", description: "是否全天事件" },
@@ -336,7 +344,14 @@ export class CalendarIntegrationTool extends BaseTool<
     input: CalendarIntegrationInput,
     _context: ToolContext,
   ): Promise<CalendarIntegrationOutput> {
-    const { operation, provider, calendarId, eventData, eventId, query } = input;
+    const {
+      operation,
+      provider,
+      calendarId: _calendarId,
+      eventData,
+      eventId,
+      query,
+    } = input;
 
     this.logger.log(
       `[doExecute] Calendar operation: ${operation} on ${provider}`,
@@ -349,7 +364,10 @@ export class CalendarIntegrationTool extends BaseTool<
       switch (operation) {
         case "CREATE_EVENT":
         case "CREATE_RECURRING_EVENT":
-          return this.createEvent(eventData!, operation === "CREATE_RECURRING_EVENT");
+          return this.createEvent(
+            eventData!,
+            operation === "CREATE_RECURRING_EVENT",
+          );
 
         case "UPDATE_EVENT":
           return this.updateEvent(eventId!, eventData);
@@ -372,7 +390,9 @@ export class CalendarIntegrationTool extends BaseTool<
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.logger.error(`[doExecute] Calendar operation failed: ${errorMessage}`);
+      this.logger.error(
+        `[doExecute] Calendar operation failed: ${errorMessage}`,
+      );
 
       return {
         success: false,
@@ -410,13 +430,14 @@ export class CalendarIntegrationTool extends BaseTool<
         id: eventId,
         title: eventData?.title || "Updated Event",
         startTime: eventData?.startTime || new Date().toISOString(),
-        endTime: eventData?.endTime || new Date(Date.now() + 3600000).toISOString(),
+        endTime:
+          eventData?.endTime || new Date(Date.now() + 3600000).toISOString(),
         htmlLink: `https://calendar.example.com/event/${eventId}`,
       },
     };
   }
 
-  private deleteEvent(eventId: string): CalendarIntegrationOutput {
+  private deleteEvent(_eventId: string): CalendarIntegrationOutput {
     return {
       success: true,
       operation: "DELETE_EVENT",
@@ -472,17 +493,21 @@ export class CalendarIntegrationTool extends BaseTool<
   ): CalendarIntegrationOutput {
     const duration = query.duration || 60;
     const startTime = new Date(query.timeMin!);
-    const endTime = new Date(query.timeMax!);
+    // const endTime = new Date(query.timeMax!);
 
     // 模拟空闲时间段
     const freeSlots = [
       {
         start: new Date(startTime.getTime() + 3600000).toISOString(),
-        end: new Date(startTime.getTime() + 3600000 + duration * 60000).toISOString(),
+        end: new Date(
+          startTime.getTime() + 3600000 + duration * 60000,
+        ).toISOString(),
       },
       {
         start: new Date(startTime.getTime() + 14400000).toISOString(),
-        end: new Date(startTime.getTime() + 14400000 + duration * 60000).toISOString(),
+        end: new Date(
+          startTime.getTime() + 14400000 + duration * 60000,
+        ).toISOString(),
       },
     ];
 
