@@ -322,6 +322,20 @@ export const TOOL_CONFIGS: Record<ToolType, ToolConfig> = {
     icon: "🔎",
     category: "information",
   },
+  [ToolType.DATABASE_QUERY]: {
+    type: ToolType.DATABASE_QUERY,
+    name: "数据库查询",
+    description: "执行只读 SQL 查询，获取结构化数据",
+    icon: "🗄️",
+    category: "information",
+  },
+  [ToolType.KNOWLEDGE_GRAPH]: {
+    type: ToolType.KNOWLEDGE_GRAPH,
+    name: "知识图谱查询",
+    description: "查询实体关系和知识图谱",
+    icon: "🕸️",
+    category: "information",
+  },
 
   // 内容生成
   [ToolType.TEXT_GENERATION]: {
@@ -343,6 +357,20 @@ export const TOOL_CONFIGS: Record<ToolType, ToolConfig> = {
     name: "代码生成",
     description: "使用 AI 生成代码",
     icon: "💻",
+    category: "generation",
+  },
+  [ToolType.AUDIO_GENERATION]: {
+    type: ToolType.AUDIO_GENERATION,
+    name: "音频生成",
+    description: "将文本转换为语音音频（TTS）",
+    icon: "🔊",
+    category: "generation",
+  },
+  [ToolType.STRUCTURED_OUTPUT]: {
+    type: ToolType.STRUCTURED_OUTPUT,
+    name: "结构化输出",
+    description: "生成 JSON、YAML、XML 等结构化数据",
+    icon: "📋",
     category: "generation",
   },
 
@@ -368,6 +396,34 @@ export const TOOL_CONFIGS: Record<ToolType, ToolConfig> = {
     icon: "📝",
     category: "processing",
   },
+  [ToolType.DATA_VALIDATION]: {
+    type: ToolType.DATA_VALIDATION,
+    name: "数据验证",
+    description: "验证数据的合法性和完整性",
+    icon: "✅",
+    category: "processing",
+  },
+  [ToolType.DATA_CLEANING]: {
+    type: ToolType.DATA_CLEANING,
+    name: "数据清洗",
+    description: "清洗和预处理数据",
+    icon: "🧹",
+    category: "processing",
+  },
+  [ToolType.DOCUMENT_DIFF]: {
+    type: ToolType.DOCUMENT_DIFF,
+    name: "文档对比",
+    description: "对比两个文档或文本的差异",
+    icon: "🔍",
+    category: "processing",
+  },
+  [ToolType.TEMPLATE_RENDER]: {
+    type: ToolType.TEMPLATE_RENDER,
+    name: "模板渲染",
+    description: "使用变量渲染模板内容",
+    icon: "📋",
+    category: "processing",
+  },
 
   // 代码执行
   [ToolType.PYTHON_EXECUTOR]: {
@@ -375,6 +431,27 @@ export const TOOL_CONFIGS: Record<ToolType, ToolConfig> = {
     name: "Python 代码执行",
     description: "在安全沙箱中执行 Python 代码",
     icon: "🐍",
+    category: "execution",
+  },
+  [ToolType.JAVASCRIPT_EXECUTOR]: {
+    type: ToolType.JAVASCRIPT_EXECUTOR,
+    name: "JavaScript 代码执行",
+    description: "在安全沙箱中执行 JavaScript 代码",
+    icon: "📜",
+    category: "execution",
+  },
+  [ToolType.SQL_EXECUTOR]: {
+    type: ToolType.SQL_EXECUTOR,
+    name: "SQL 查询执行",
+    description: "执行 SQL 查询并返回结构化结果",
+    icon: "🗄️",
+    category: "execution",
+  },
+  [ToolType.OCR_RECOGNITION]: {
+    type: ToolType.OCR_RECOGNITION,
+    name: "OCR 文字识别",
+    description: "从图片中提取文字内容",
+    icon: "🔍",
     category: "execution",
   },
 

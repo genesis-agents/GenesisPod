@@ -29,40 +29,86 @@ export enum AgentTaskStatus {
 
 /**
  * 工具类型
+ * 完整的工具类型定义，涵盖 8 大类别共 48 种工具
  */
 export enum ToolType {
-  // 信息获取
+  // ============================================================================
+  // 1. 信息获取 (Information Retrieval)
+  // ============================================================================
   WEB_SEARCH = "web_search",
   WEB_SCRAPER = "web_scraper",
   DATA_FETCH = "data_fetch",
   RAG_SEARCH = "rag_search",
+  DATABASE_QUERY = "database_query",
+  KNOWLEDGE_GRAPH = "knowledge_graph",
 
-  // 内容生成
+  // ============================================================================
+  // 2. 内容生成 (Content Generation)
+  // ============================================================================
   TEXT_GENERATION = "text_generation",
   IMAGE_GENERATION = "image_generation",
   CODE_GENERATION = "code_generation",
+  AUDIO_GENERATION = "audio_generation",
+  VIDEO_GENERATION = "video_generation",
+  STRUCTURED_OUTPUT = "structured_output",
 
-  // 数据处理
+  // ============================================================================
+  // 3. 数据处理 (Data Processing)
+  // ============================================================================
   DATA_ANALYSIS = "data_analysis",
   FILE_CONVERSION = "file_conversion",
   FILE_PARSER = "file_parser",
+  DATA_VALIDATION = "data_validation",
+  DATA_CLEANING = "data_cleaning",
+  DOCUMENT_DIFF = "document_diff",
+  TEMPLATE_RENDER = "template_render",
 
-  // 代码执行
+  // ============================================================================
+  // 4. 代码执行 (Code Execution)
+  // ============================================================================
   PYTHON_EXECUTOR = "python_executor",
+  JAVASCRIPT_EXECUTOR = "javascript_executor",
+  SQL_EXECUTOR = "sql_executor",
+  SHELL_EXECUTOR = "shell_executor",
+  CONTAINER_EXECUTOR = "container_executor",
+  OCR_RECOGNITION = "ocr_recognition",
 
-  // 记忆管理
+  // ============================================================================
+  // 5. 外部集成 (External Integration)
+  // ============================================================================
+  MESSAGE_PUSH = "message_push",
+  CLOUD_STORAGE = "cloud_storage",
+  GITHUB_INTEGRATION = "github_integration",
+  EMAIL_SENDER = "email_sender",
+  CALENDAR_INTEGRATION = "calendar_integration",
+  WEBHOOK_TRIGGER = "webhook_trigger",
+
+  // ============================================================================
+  // 6. 记忆管理 (Memory Management)
+  // ============================================================================
   SHORT_TERM_MEMORY = "short_term_memory",
   LONG_TERM_MEMORY = "long_term_memory",
+  ENTITY_MEMORY = "entity_memory",
+  KNOWLEDGE_BASE = "knowledge_base",
+  USER_PREFERENCES = "user_preferences",
 
-  // 导出
+  // ============================================================================
+  // 7. 导出 (Export)
+  // ============================================================================
   EXPORT_PPTX = "export_pptx",
   EXPORT_DOCX = "export_docx",
   EXPORT_PDF = "export_pdf",
   EXPORT_IMAGE = "export_image",
 
-  // 协作
+  // ============================================================================
+  // 8. Agent 协作 (Agent Collaboration)
+  // ============================================================================
   AGENT_HANDOFF = "agent_handoff",
   HUMAN_APPROVAL = "human_approval",
+  AGENT_COMMUNICATION = "agent_communication",
+  TASK_DELEGATION = "task_delegation",
+  CONSENSUS_MECHANISM = "consensus_mechanism",
+  WORKFLOW_ORCHESTRATION = "workflow_orchestration",
 }
 
 /**
