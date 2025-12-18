@@ -1,6 +1,7 @@
 /**
  * AI Agents Module
  * Agent 矩阵系统的核心模块
+ * 包含 48 种工具的完整注册
  */
 
 import { Module, OnModuleInit } from "@nestjs/common";
@@ -18,27 +19,62 @@ import { DocsAgent } from "./implementations/docs/docs.agent";
 import { DesignerAgent } from "./implementations/designer/designer.agent";
 import { DeveloperAgent } from "./implementations/developer/developer.agent";
 
-// 工具导入
+// 工具导入 - 全部 48 种工具
 import {
+  // 1. Information Gathering (6)
   WebSearchTool,
   WebScraperTool,
   DataFetchTool,
   RAGSearchTool,
+  DatabaseQueryTool,
+  KnowledgeGraphTool,
+  // 2. Content Generation (6)
   TextGenerationTool,
   ImageGenerationTool,
   CodeGenerationTool,
+  AudioGenerationTool,
+  VideoGenerationTool,
+  StructuredOutputTool,
+  // 3. Data Processing (7)
   DataAnalysisTool,
   FileConversionTool,
   FileParserTool,
+  DataValidationTool,
+  DataCleaningTool,
+  DocumentDiffTool,
+  TemplateRenderTool,
+  // 4. Code Execution (6)
   PythonExecutorTool,
+  JavaScriptExecutorTool,
+  SQLExecutorTool,
+  ShellExecutorTool,
+  ContainerExecutorTool,
+  OCRRecognitionTool,
+  // 5. External Integration (6)
+  MessagePushTool,
+  CloudStorageTool,
+  GitHubIntegrationTool,
+  EmailSenderTool,
+  CalendarIntegrationTool,
+  WebhookTriggerTool,
+  // 6. Memory Management (5)
   ShortTermMemoryTool,
   LongTermMemoryTool,
-  AgentHandoffTool,
-  HumanApprovalTool,
+  EntityMemoryTool,
+  KnowledgeBaseTool,
+  UserPreferencesTool,
+  // 7. Export (4)
   ExportPPTXTool,
   ExportDOCXTool,
   ExportPDFTool,
   ExportImageTool,
+  // 8. Agent Collaboration (6)
+  AgentHandoffTool,
+  HumanApprovalTool,
+  AgentCommunicationTool,
+  TaskDelegationTool,
+  ConsensusMechanismTool,
+  WorkflowOrchestrationTool,
 } from "./tools";
 
 // 记忆服务导入
@@ -74,38 +110,71 @@ import { AiCoreModule } from "../ai-core/ai-core.module";
     DesignerAgent,
     DeveloperAgent,
 
-    // Tools - Information Gathering
+    // ========================================================================
+    // Tools - 全部 48 种工具
+    // ========================================================================
+
+    // 1. Information Gathering (6)
     WebSearchTool,
     WebScraperTool,
     DataFetchTool,
     RAGSearchTool,
+    DatabaseQueryTool,
+    KnowledgeGraphTool,
 
-    // Tools - Content Generation
+    // 2. Content Generation (6)
     TextGenerationTool,
     ImageGenerationTool,
     CodeGenerationTool,
+    AudioGenerationTool,
+    VideoGenerationTool,
+    StructuredOutputTool,
 
-    // Tools - Data Processing
+    // 3. Data Processing (7)
     DataAnalysisTool,
     FileConversionTool,
     FileParserTool,
+    DataValidationTool,
+    DataCleaningTool,
+    DocumentDiffTool,
+    TemplateRenderTool,
 
-    // Tools - Code Execution
+    // 4. Code Execution (6)
     PythonExecutorTool,
+    JavaScriptExecutorTool,
+    SQLExecutorTool,
+    ShellExecutorTool,
+    ContainerExecutorTool,
+    OCRRecognitionTool,
 
-    // Tools - Memory
+    // 5. External Integration (6)
+    MessagePushTool,
+    CloudStorageTool,
+    GitHubIntegrationTool,
+    EmailSenderTool,
+    CalendarIntegrationTool,
+    WebhookTriggerTool,
+
+    // 6. Memory Management (5)
     ShortTermMemoryTool,
     LongTermMemoryTool,
+    EntityMemoryTool,
+    KnowledgeBaseTool,
+    UserPreferencesTool,
 
-    // Tools - Agent Collaboration
-    AgentHandoffTool,
-    HumanApprovalTool,
-
-    // Tools - Export
+    // 7. Export (4)
     ExportPPTXTool,
     ExportDOCXTool,
     ExportPDFTool,
     ExportImageTool,
+
+    // 8. Agent Collaboration (6)
+    AgentHandoffTool,
+    HumanApprovalTool,
+    AgentCommunicationTool,
+    TaskDelegationTool,
+    ConsensusMechanismTool,
+    WorkflowOrchestrationTool,
   ],
   exports: [
     AiAgentsService,
@@ -125,32 +194,60 @@ export class AiAgentsModule implements OnModuleInit {
     private readonly docsAgent: DocsAgent,
     private readonly designerAgent: DesignerAgent,
     private readonly developerAgent: DeveloperAgent,
-    // Tools - Information Gathering
+    // Tools - Information Gathering (6)
     private readonly webSearchTool: WebSearchTool,
     private readonly webScraperTool: WebScraperTool,
     private readonly dataFetchTool: DataFetchTool,
     private readonly ragSearchTool: RAGSearchTool,
-    // Tools - Content Generation
+    private readonly databaseQueryTool: DatabaseQueryTool,
+    private readonly knowledgeGraphTool: KnowledgeGraphTool,
+    // Tools - Content Generation (6)
     private readonly textGenerationTool: TextGenerationTool,
     private readonly imageGenerationTool: ImageGenerationTool,
     private readonly codeGenerationTool: CodeGenerationTool,
-    // Tools - Data Processing
+    private readonly audioGenerationTool: AudioGenerationTool,
+    private readonly videoGenerationTool: VideoGenerationTool,
+    private readonly structuredOutputTool: StructuredOutputTool,
+    // Tools - Data Processing (7)
     private readonly dataAnalysisTool: DataAnalysisTool,
     private readonly fileConversionTool: FileConversionTool,
     private readonly fileParserTool: FileParserTool,
-    // Tools - Code Execution
+    private readonly dataValidationTool: DataValidationTool,
+    private readonly dataCleaningTool: DataCleaningTool,
+    private readonly documentDiffTool: DocumentDiffTool,
+    private readonly templateRenderTool: TemplateRenderTool,
+    // Tools - Code Execution (6)
     private readonly pythonExecutorTool: PythonExecutorTool,
-    // Tools - Memory
+    private readonly javaScriptExecutorTool: JavaScriptExecutorTool,
+    private readonly sqlExecutorTool: SQLExecutorTool,
+    private readonly shellExecutorTool: ShellExecutorTool,
+    private readonly containerExecutorTool: ContainerExecutorTool,
+    private readonly ocrRecognitionTool: OCRRecognitionTool,
+    // Tools - External Integration (6)
+    private readonly messagePushTool: MessagePushTool,
+    private readonly cloudStorageTool: CloudStorageTool,
+    private readonly gitHubIntegrationTool: GitHubIntegrationTool,
+    private readonly emailSenderTool: EmailSenderTool,
+    private readonly calendarIntegrationTool: CalendarIntegrationTool,
+    private readonly webhookTriggerTool: WebhookTriggerTool,
+    // Tools - Memory Management (5)
     private readonly shortTermMemoryTool: ShortTermMemoryTool,
     private readonly longTermMemoryTool: LongTermMemoryTool,
-    // Tools - Agent Collaboration
-    private readonly agentHandoffTool: AgentHandoffTool,
-    private readonly humanApprovalTool: HumanApprovalTool,
-    // Tools - Export
+    private readonly entityMemoryTool: EntityMemoryTool,
+    private readonly knowledgeBaseTool: KnowledgeBaseTool,
+    private readonly userPreferencesTool: UserPreferencesTool,
+    // Tools - Export (4)
     private readonly exportPPTXTool: ExportPPTXTool,
     private readonly exportDOCXTool: ExportDOCXTool,
     private readonly exportPDFTool: ExportPDFTool,
     private readonly exportImageTool: ExportImageTool,
+    // Tools - Agent Collaboration (6)
+    private readonly agentHandoffTool: AgentHandoffTool,
+    private readonly humanApprovalTool: HumanApprovalTool,
+    private readonly agentCommunicationTool: AgentCommunicationTool,
+    private readonly taskDelegationTool: TaskDelegationTool,
+    private readonly consensusMechanismTool: ConsensusMechanismTool,
+    private readonly workflowOrchestrationTool: WorkflowOrchestrationTool,
   ) {}
 
   onModuleInit() {
@@ -160,34 +257,62 @@ export class AiAgentsModule implements OnModuleInit {
     this.agentRegistry.register(this.designerAgent);
     this.agentRegistry.register(this.developerAgent);
 
-    // 注册 Tools
+    // 注册 Tools - 全部 48 种工具
     this.toolRegistry.registerMany([
-      // Information Gathering
+      // 1. Information Gathering (6)
       this.webSearchTool,
       this.webScraperTool,
       this.dataFetchTool,
       this.ragSearchTool,
-      // Content Generation
+      this.databaseQueryTool,
+      this.knowledgeGraphTool,
+      // 2. Content Generation (6)
       this.textGenerationTool,
       this.imageGenerationTool,
       this.codeGenerationTool,
-      // Data Processing
+      this.audioGenerationTool,
+      this.videoGenerationTool,
+      this.structuredOutputTool,
+      // 3. Data Processing (7)
       this.dataAnalysisTool,
       this.fileConversionTool,
       this.fileParserTool,
-      // Code Execution
+      this.dataValidationTool,
+      this.dataCleaningTool,
+      this.documentDiffTool,
+      this.templateRenderTool,
+      // 4. Code Execution (6)
       this.pythonExecutorTool,
-      // Memory
+      this.javaScriptExecutorTool,
+      this.sqlExecutorTool,
+      this.shellExecutorTool,
+      this.containerExecutorTool,
+      this.ocrRecognitionTool,
+      // 5. External Integration (6)
+      this.messagePushTool,
+      this.cloudStorageTool,
+      this.gitHubIntegrationTool,
+      this.emailSenderTool,
+      this.calendarIntegrationTool,
+      this.webhookTriggerTool,
+      // 6. Memory Management (5)
       this.shortTermMemoryTool,
       this.longTermMemoryTool,
-      // Agent Collaboration
-      this.agentHandoffTool,
-      this.humanApprovalTool,
-      // Export
+      this.entityMemoryTool,
+      this.knowledgeBaseTool,
+      this.userPreferencesTool,
+      // 7. Export (4)
       this.exportPPTXTool,
       this.exportDOCXTool,
       this.exportPDFTool,
       this.exportImageTool,
+      // 8. Agent Collaboration (6)
+      this.agentHandoffTool,
+      this.humanApprovalTool,
+      this.agentCommunicationTool,
+      this.taskDelegationTool,
+      this.consensusMechanismTool,
+      this.workflowOrchestrationTool,
     ]);
   }
 }
