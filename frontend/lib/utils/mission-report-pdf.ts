@@ -953,21 +953,31 @@ export async function downloadMissionReportPDF(
     return;
   }
 
+  // Add print instructions and button to the HTML
   const fullHtml = generateReportHtml(data);
-  printWindow.document.write(fullHtml);
+  const htmlWithPrintButton = fullHtml.replace(
+    '</body>',
+    `
+    <div id="print-toolbar" style="position: fixed; top: 0; left: 0; right: 0; background: linear-gradient(135deg, #7c3aed, #5b21b6); color: white; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 99999; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+      <span style="font-size: 14px;">报告预览已加载完成，点击右侧按钮导出PDF</span>
+      <button onclick="document.getElementById('print-toolbar').style.display='none'; window.print();" style="background: white; color: #7c3aed; border: none; padding: 8px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px;">
+        导出 PDF
+      </button>
+    </div>
+    <div style="height: 50px;"></div>
+    <style>
+      @media print {
+        #print-toolbar { display: none !important; }
+        body { padding-top: 0 !important; }
+      }
+    </style>
+    </body>`
+  );
+
+  printWindow.document.write(htmlWithPrintButton);
   printWindow.document.close();
 
-  // Wait for content to fully load
-  await new Promise<void>((resolve) => {
-    printWindow.onload = () => resolve();
-    setTimeout(resolve, 1000); // Fallback timeout
-  });
-
-  // Auto-trigger print dialog
-  printWindow.focus();
-  printWindow.print();
-
-  // Don't auto-close - let user complete the print dialog
+  // Don't auto-trigger print - let user click the button when ready
 }
 
 /**
