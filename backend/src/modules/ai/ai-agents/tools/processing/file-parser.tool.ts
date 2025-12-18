@@ -283,7 +283,7 @@ export class FileParserTool extends BaseTool<
 
   validateInput(input: FileParserInput): boolean {
     // 验证必填字段
-    if (!input.file || !input.file.mimeType || !input.file.filename) {
+    if (!input.file?.mimeType || !input.file.filename) {
       return false;
     }
 

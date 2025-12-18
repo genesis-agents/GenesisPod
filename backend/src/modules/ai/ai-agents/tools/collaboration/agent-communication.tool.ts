@@ -496,7 +496,7 @@ export class AgentCommunicationTool extends BaseTool<
           return await this.sendMessage(
             input.fromAgent,
             input.toAgent!,
-            input.message!,
+            input.message,
             context,
           );
 
@@ -506,7 +506,7 @@ export class AgentCommunicationTool extends BaseTool<
         case CommunicationOperation.BROADCAST:
           return await this.broadcastMessage(
             input.fromAgent,
-            input.message!,
+            input.message,
             context,
           );
 
@@ -515,7 +515,7 @@ export class AgentCommunicationTool extends BaseTool<
             input.fromAgent,
             input.toAgent!,
             input.messageId!,
-            input.message!,
+            input.message,
             context,
           );
 
@@ -585,7 +585,10 @@ export class AgentCommunicationTool extends BaseTool<
       inbox.sort((a, b) => {
         const msgA = this.messages.get(a)!;
         const msgB = this.messages.get(b)!;
-        return this.getPriorityValue(msgB.priority) - this.getPriorityValue(msgA.priority);
+        return (
+          this.getPriorityValue(msgB.priority) -
+          this.getPriorityValue(msgA.priority)
+        );
       });
     }
 
@@ -783,7 +786,9 @@ export class AgentCommunicationTool extends BaseTool<
   /**
    * 标记为已读
    */
-  private async markAsRead(messageId: string): Promise<AgentCommunicationOutput> {
+  private async markAsRead(
+    messageId: string,
+  ): Promise<AgentCommunicationOutput> {
     const message = this.messages.get(messageId);
 
     if (!message) {

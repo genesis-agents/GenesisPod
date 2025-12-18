@@ -6,88 +6,291 @@
 // ============================================================================
 // 1. Information Gathering Tools (信息获取)
 // ============================================================================
-export { WebSearchTool } from "./web-search.tool";
-export { WebScraperTool } from "./web-scraper.tool";
-export { DataFetchTool } from "./data-fetch.tool";
-export { RAGSearchTool } from "./information/rag-search.tool";
-export { DatabaseQueryTool } from "./information/database-query.tool";
-export { KnowledgeGraphTool } from "./information/knowledge-graph.tool";
+export {
+  WebSearchTool,
+  WebScraperTool,
+  DataFetchTool,
+  RAGSearchTool,
+  DatabaseQueryTool,
+  KnowledgeGraphTool,
+} from "./information";
+
+export type {
+  WebSearchInput,
+  WebSearchOutput,
+  WebScraperInput,
+  WebScraperOutput,
+  DataFetchInput,
+  DataFetchOutput,
+  RAGSearchInput,
+  RAGSearchResultItem,
+  RAGSearchOutput,
+  DatabaseQueryInput,
+  ColumnInfo,
+  DatabaseQueryOutput,
+  QueryType,
+  KnowledgeGraphInput,
+  GraphNode,
+  GraphEdge,
+  GraphPath,
+  KnowledgeGraphOutput,
+} from "./information";
 
 // ============================================================================
 // 2. Content Generation Tools (内容生成)
 // ============================================================================
-export { TextGenerationTool } from "./text-generation.tool";
-export { ImageGenerationTool } from "./image-generation.tool";
-export { CodeGenerationTool } from "./code-generation.tool";
-export { AudioGenerationTool } from "./generation/audio-generation.tool";
-export { VideoGenerationTool } from "./generation/video-generation.tool";
-export { StructuredOutputTool } from "./generation/structured-output.tool";
+export {
+  TextGenerationTool,
+  ImageGenerationTool,
+  CodeGenerationTool,
+  AudioGenerationTool,
+  VideoGenerationTool,
+  StructuredOutputTool,
+} from "./generation";
+
+export type {
+  TextGenerationInput,
+  TextGenerationOutput,
+  ImageGenerationInput,
+  ImageGenerationOutput,
+  CodeGenerationInput,
+  CodeGenerationOutput,
+  AudioGenerationInput,
+  AudioGenerationOutput,
+  VideoSourceType,
+  VideoResolution,
+  VideoStyle,
+  VideoEditOperation,
+  VideoGenerationInput,
+  VideoGenerationOutput,
+  StructuredOutputInput,
+  StructuredOutputOutput,
+} from "./generation";
 
 // ============================================================================
 // 3. Data Processing Tools (数据处理)
 // ============================================================================
-export { DataAnalysisTool } from "./data-analysis.tool";
-export { FileConversionTool } from "./file-conversion.tool";
-export { FileParserTool } from "./processing/file-parser.tool";
-export { DataValidationTool } from "./processing/data-validation.tool";
-export { DataCleaningTool } from "./processing/data-cleaning.tool";
-export { DocumentDiffTool } from "./processing/document-diff.tool";
-export { TemplateRenderTool } from "./processing/template-render.tool";
+export {
+  DataAnalysisTool,
+  FileConversionTool,
+  FileParserTool,
+  DataValidationTool,
+  DataCleaningTool,
+  DocumentDiffTool,
+  TemplateRenderTool,
+} from "./processing";
+
+export type {
+  DataAnalysisInput,
+  DataAnalysisOutput,
+  SourceFormat,
+  TargetFormat,
+  FileConversionInput,
+  FileConversionOutput,
+  FileParserInput,
+  FileParserOutput,
+  ValidationRule,
+  DataValidationInput,
+  ValidationError,
+  DataValidationOutput,
+  CleaningRule,
+  DataCleaningInput,
+  CleaningStatistics,
+  DataCleaningOutput,
+  DocumentDiffInput,
+  DiffChange,
+  DiffStatistics,
+  DocumentDiffOutput,
+  TemplateRenderInput,
+  TemplateRenderOutput,
+} from "./processing";
 
 // ============================================================================
 // 4. Code Execution Tools (代码执行)
 // ============================================================================
-export { PythonExecutorTool } from "./execution/python-executor.tool";
-export { JavaScriptExecutorTool } from "./execution/javascript-executor.tool";
-export { SQLExecutorTool } from "./execution/sql-executor.tool";
-export { ShellExecutorTool } from "./execution/shell-executor.tool";
-export { ContainerExecutorTool } from "./execution/container-executor.tool";
-export { OCRRecognitionTool } from "./execution/ocr-recognition.tool";
+export {
+  PythonExecutorTool,
+  JavaScriptExecutorTool,
+  SQLExecutorTool,
+  ShellExecutorTool,
+  ContainerExecutorTool,
+  OCRRecognitionTool,
+} from "./execution";
+
+export type {
+  PythonExecutorInput,
+  PythonExecutorOutput,
+  JavaScriptExecutorInput,
+  JavaScriptExecutorOutput,
+  SQLExecutorInput,
+  SQLExecutorOutput,
+  ShellExecutorInput,
+  ShellExecutorOutput,
+  SupportedLanguage,
+  LanguageRuntime,
+  ResourceUsage,
+  ContainerExecutorInput,
+  ContainerExecutorOutput,
+  OCRRecognitionInput,
+  OCRRecognitionOutput,
+} from "./execution";
 
 // ============================================================================
 // 5. External Integration Tools (外部集成)
 // ============================================================================
-export { MessagePushTool } from "./integration/message-push.tool";
-export { CloudStorageTool } from "./integration/cloud-storage.tool";
-export { GitHubIntegrationTool } from "./integration/github-integration.tool";
-export { EmailSenderTool } from "./integration/email-sender.tool";
-export { CalendarIntegrationTool } from "./integration/calendar-integration.tool";
-export { WebhookTriggerTool } from "./integration/webhook-trigger.tool";
+export {
+  MessagePushTool,
+  CloudStorageTool,
+  GitHubIntegrationTool,
+  EmailSenderTool,
+  CalendarIntegrationTool,
+  WebhookTriggerTool,
+} from "./integration";
+
+export type {
+  MessagePushInput,
+  MessagePushOutput,
+  MessagePlatform,
+  MessageFormat,
+  MessageAttachment,
+  SlackConfig,
+  DiscordConfig,
+  EmailConfig,
+  WebhookConfig,
+  DeliveryStatus,
+  CloudStorageInput,
+  CloudStorageOutput,
+  StorageProvider,
+  StorageOperation,
+  FilePermission,
+  S3Config,
+  GCSConfig,
+  AzureConfig,
+  MinIOConfig,
+  UploadFileInfo,
+  ListOptions,
+  FileObject,
+  GitHubIntegrationInput,
+  GitHubIntegrationOutput,
+  GitHubOperation,
+  EmailSenderInput,
+  EmailSenderOutput,
+  EmailAttachment,
+  CalendarIntegrationInput,
+  CalendarIntegrationOutput,
+  CalendarOperation,
+  CalendarProvider,
+  CalendarEvent,
+  CalendarEventAttendee,
+  WebhookTriggerInput,
+  WebhookTriggerOutput,
+  HttpMethod,
+} from "./integration";
 
 // ============================================================================
 // 6. Memory Tools (记忆管理)
 // ============================================================================
-export { ShortTermMemoryTool } from "./memory/short-term-memory.tool";
-export { LongTermMemoryTool } from "./memory/long-term-memory.tool";
-export { EntityMemoryTool } from "./memory/entity-memory.tool";
-export { KnowledgeBaseTool } from "./memory/knowledge-base.tool";
-export { UserPreferencesTool } from "./memory/user-preferences.tool";
+export {
+  ShortTermMemoryTool,
+  LongTermMemoryTool,
+  EntityMemoryTool,
+  KnowledgeBaseTool,
+  UserPreferencesTool,
+} from "./memory";
+
+export type {
+  MemoryOperation,
+  ShortTermMemoryInput,
+  ShortTermMemoryOutput,
+  LongTermMemoryOperation,
+  LongTermMemoryInput,
+  LongTermMemoryOutput,
+  EntityType,
+  RelationType,
+  Entity,
+  EntityRelation,
+  EntityOperation,
+  EntityMemoryInput,
+  EntityMemoryOutput,
+  KnowledgeEntry,
+  KnowledgeOperation,
+  KnowledgeBaseInput,
+  KnowledgeBaseOutput,
+  PreferenceOperation,
+  UserPreferencesInput,
+  UserPreferencesOutput,
+} from "./memory";
 
 // ============================================================================
 // 7. Export Tools (导出)
 // ============================================================================
-export { ExportPPTXTool } from "./export-pptx.tool";
-export { ExportDOCXTool } from "./export-docx.tool";
-export { ExportPDFTool } from "./export-pdf.tool";
-export { ExportImageTool } from "./export-image.tool";
+export {
+  ExportPPTXTool,
+  ExportDOCXTool,
+  ExportPDFTool,
+  ExportImageTool,
+} from "./export";
+
+export type {
+  ExportPPTXInput,
+  ExportPPTXOutput,
+  ExportDOCXInput,
+  ExportDOCXOutput,
+  ExportPDFInput,
+  ExportPDFOutput,
+  ExportImageInput,
+  ExportImageOutput,
+} from "./export";
 
 // ============================================================================
 // 8. Agent Collaboration Tools (Agent 协作)
 // ============================================================================
-export { AgentHandoffTool } from "./collaboration/agent-handoff.tool";
-export { HumanApprovalTool } from "./collaboration/human-approval.tool";
-export { AgentCommunicationTool } from "./collaboration/agent-communication.tool";
-export { TaskDelegationTool } from "./collaboration/task-delegation.tool";
-export { ConsensusMechanismTool } from "./collaboration/consensus-mechanism.tool";
-export { WorkflowOrchestrationTool } from "./collaboration/workflow-orchestration.tool";
+export {
+  AgentHandoffTool,
+  HumanApprovalTool,
+  AgentCommunicationTool,
+  TaskDelegationTool,
+  ConsensusMechanismTool,
+  WorkflowOrchestrationTool,
+} from "./collaboration";
 
-// ============================================================================
-// Re-export from subdirectories
-// ============================================================================
-export * from "./information";
-export * from "./generation";
-export * from "./processing";
-export * from "./execution";
-export * from "./integration";
-export * from "./memory";
-export * from "./collaboration";
+export type {
+  TaskDefinition,
+  HandoffOptions,
+  AgentHandoffInput,
+  HandoffStatus,
+  AgentHandoffOutput,
+  ApprovalType,
+  ChoiceOption,
+  ApprovalContext,
+  ApprovalOptions,
+  HumanApprovalInput,
+  ApprovalResponse,
+  HumanApprovalOutput,
+  MessageType,
+  MessagePriority,
+  MessageStatus,
+  Message,
+  CommunicationOperation,
+  AgentCommunicationInput,
+  AgentCommunicationOutput,
+  DelegationStatus,
+  TaskPriority,
+  DelegatedTask,
+  TaskDelegationInput,
+  TaskDelegationOutput,
+  ConsensusStrategy,
+  VoteValue,
+  Voter,
+  Vote,
+  ConsensusProposal,
+  ConsensusMechanismInput,
+  ConsensusMechanismOutput,
+  WorkflowStatus,
+  StepStatus,
+  ExecutionMode,
+  WorkflowStep,
+  Workflow,
+  WorkflowOrchestrationInput,
+  WorkflowOrchestrationOutput,
+} from "./collaboration";

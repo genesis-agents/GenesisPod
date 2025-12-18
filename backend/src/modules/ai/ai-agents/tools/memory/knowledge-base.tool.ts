@@ -445,13 +445,13 @@ export class KnowledgeBaseTool extends BaseTool<
     try {
       switch (input.operation) {
         case KnowledgeOperation.CREATE:
-          return await this.createEntry(input.entry!, context);
+          return await this.createEntry(input.entry, context);
 
         case KnowledgeOperation.READ:
           return await this.readEntry(input.entryId!);
 
         case KnowledgeOperation.UPDATE:
-          return await this.updateEntry(input.entryId!, input.entry!);
+          return await this.updateEntry(input.entryId!, input.entry);
 
         case KnowledgeOperation.DELETE:
           return await this.deleteEntry(input.entryId!);

@@ -17,32 +17,32 @@ import {
   HttpException,
   HttpStatus,
 } from "@nestjs/common";
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+} from "@nestjs/swagger";
 import { Observable, map, catchError, of } from "rxjs";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AgentOrchestrator } from "./core/agent.orchestrator";
 import { AgentRegistry } from "./core/agent.registry";
-import { AgentType, AgentInput, AgentConfig } from "./core/agent.types";
+import { AgentType, AgentInput, AgentTaskStatus } from "./core/agent.types";
 import { AiAgentsService } from "./ai-agents.service";
+import {
+  ExecuteRequestDto,
+  ExecuteResponseDto,
+  TaskResponseDto,
+  AgentsResponseDto,
+  TemplatesResponseDto,
+  StatusReportResponseDto,
+  ArtifactsResponseDto,
+  CancelResponseDto,
+} from "./dto";
 
-/**
- * 执行请求 DTO
- */
-interface ExecuteRequestDto {
-  agentType?: AgentType;
-  prompt: string;
-  files?: Array<{
-    id: string;
-    name: string;
-    mimeType: string;
-    size: number;
-    url?: string;
-  }>;
-  urls?: string[];
-  resourceIds?: string[];
-  templateId?: string;
-  options?: Record<string, unknown>;
-}
-
+@ApiTags("AI Agents")
+@ApiBearerAuth()
 @Controller("agents")
 @UseGuards(JwtAuthGuard)
 export class AiAgentsController {
@@ -58,7 +58,16 @@ export class AiAgentsController {
    * 获取所有可用的 Agent
    */
   @Get()
-  async getAgents(): Promise<{ agents: AgentConfig[] }> {
+  @ApiOperation({
+    summary: "获取所有可用的 Agent",
+    description: "返回系统中所有已注册的 AI Agent 配置信息",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "成功获取 Agent 列表",
+    type: AgentsResponseDto,
+  })
+  async getAgents(): Promise<AgentsResponseDto> {
     const configs = this.agentRegistry.getAllConfigs();
     return { agents: configs };
   }
@@ -67,7 +76,16 @@ export class AiAgentsController {
    * 获取 Agent 状态报告
    */
   @Get("status")
-  async getStatus(): Promise<Record<string, unknown>> {
+  @ApiOperation({
+    summary: "获取 Agent 状态报告",
+    description: "获取所有 Agent 的运行状态和统计信息",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "成功获取状态报告",
+    type: StatusReportResponseDto,
+  })
+  async getStatus(): Promise<StatusReportResponseDto> {
     const report = this.orchestrator.getStatusReport();
     const agentStats = this.agentRegistry.getStats();
     return {
@@ -80,9 +98,28 @@ export class AiAgentsController {
    * 获取指定 Agent 的模板
    */
   @Get(":type/templates")
+  @ApiOperation({
+    summary: "获取指定 Agent 的模板",
+    description: "获取指定 Agent 类型的所有可用模板",
+  })
+  @ApiParam({
+    name: "type",
+    description: "Agent 类型（小写）",
+    enum: ["slides", "docs", "designer", "developer"],
+    example: "slides",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "成功获取模板列表",
+    type: TemplatesResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: "无效的 Agent 类型",
+  })
   async getTemplates(
     @Param("type") type: string,
-  ): Promise<{ templates: unknown[] }> {
+  ): Promise<TemplatesResponseDto> {
     const agentType = type.toUpperCase() as AgentType;
     if (!Object.values(AgentType).includes(agentType)) {
       throw new HttpException("Invalid agent type", HttpStatus.BAD_REQUEST);
@@ -100,10 +137,27 @@ export class AiAgentsController {
    * 执行 Agent 任务
    */
   @Post("execute")
+  @ApiOperation({
+    summary: "执行 Agent 任务",
+    description: "创建并执行一个 AI Agent 任务，支持文件、URL 和资源引用",
+  })
+  @ApiResponse({
+    status: 201,
+    description: "任务创建成功",
+    type: ExecuteResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: "请求参数错误",
+  })
+  @ApiResponse({
+    status: 401,
+    description: "未授权",
+  })
   async execute(
     @Body() body: ExecuteRequestDto,
     @Req() req: any,
-  ): Promise<{ taskId: string; status: string }> {
+  ): Promise<ExecuteResponseDto> {
     const userId = req.user?.id;
 
     // 构建 Agent 输入
@@ -128,7 +182,7 @@ export class AiAgentsController {
 
     return {
       taskId: task.id,
-      status: "pending",
+      status: AgentTaskStatus.PENDING,
     };
   }
 
@@ -136,7 +190,25 @@ export class AiAgentsController {
    * 获取任务状态
    */
   @Get("tasks/:taskId")
-  async getTask(@Param("taskId") taskId: string): Promise<unknown> {
+  @ApiOperation({
+    summary: "获取任务状态",
+    description: "获取指定任务的详细信息和执行状态",
+  })
+  @ApiParam({
+    name: "taskId",
+    description: "任务 ID",
+    example: "clxxxx12345",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "成功获取任务信息",
+    type: TaskResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: "任务不存在",
+  })
+  async getTask(@Param("taskId") taskId: string): Promise<TaskResponseDto> {
     const task = await this.aiAgentsService.getTask(taskId);
     if (!task) {
       throw new HttpException("Task not found", HttpStatus.NOT_FOUND);
@@ -148,6 +220,19 @@ export class AiAgentsController {
    * 任务进度 SSE 流
    */
   @Sse("tasks/:taskId/stream")
+  @ApiOperation({
+    summary: "任务进度流",
+    description: "通过 Server-Sent Events (SSE) 实时获取任务执行进度",
+  })
+  @ApiParam({
+    name: "taskId",
+    description: "任务 ID",
+    example: "clxxxx12345",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "SSE 流连接成功",
+  })
   streamTask(@Param("taskId") taskId: string): Observable<MessageEvent> {
     return this.aiAgentsService.getTaskStream(taskId).pipe(
       map((event) => ({
@@ -166,9 +251,27 @@ export class AiAgentsController {
    * 取消任务
    */
   @Post("tasks/:taskId/cancel")
+  @ApiOperation({
+    summary: "取消任务",
+    description: "取消正在执行或等待中的任务",
+  })
+  @ApiParam({
+    name: "taskId",
+    description: "任务 ID",
+    example: "clxxxx12345",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "取消操作完成",
+    type: CancelResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: "任务不存在",
+  })
   async cancelTask(
     @Param("taskId") taskId: string,
-  ): Promise<{ success: boolean }> {
+  ): Promise<CancelResponseDto> {
     const success = await this.aiAgentsService.cancelTask(taskId);
     return { success };
   }
@@ -177,17 +280,52 @@ export class AiAgentsController {
    * 获取任务产出物
    */
   @Get("tasks/:taskId/artifacts")
+  @ApiOperation({
+    summary: "获取任务产出物",
+    description: "获取任务生成的所有产出物列表",
+  })
+  @ApiParam({
+    name: "taskId",
+    description: "任务 ID",
+    example: "clxxxx12345",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "成功获取产出物列表",
+    type: ArtifactsResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: "任务不存在",
+  })
   async getArtifacts(
     @Param("taskId") taskId: string,
-  ): Promise<{ artifacts: unknown[] }> {
+  ): Promise<ArtifactsResponseDto> {
     const artifacts = await this.aiAgentsService.getArtifacts(taskId);
-    return { artifacts };
+    return { artifacts: artifacts as any };
   }
 
   /**
    * 下载产出物
    */
   @Get("artifacts/:artifactId/download")
+  @ApiOperation({
+    summary: "下载产出物",
+    description: "下载指定的产出物文件",
+  })
+  @ApiParam({
+    name: "artifactId",
+    description: "产出物 ID",
+    example: "clxxxx67890",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "成功返回文件",
+  })
+  @ApiResponse({
+    status: 404,
+    description: "产出物不存在",
+  })
   async downloadArtifact(
     @Param("artifactId") artifactId: string,
   ): Promise<any> {

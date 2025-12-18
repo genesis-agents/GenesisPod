@@ -148,7 +148,7 @@ export class PromptEnhancementService {
     raw: string,
     fallbackPrompt: string,
   ): PromptEngineeringInsights {
-    if (!raw || !raw.trim()) {
+    if (!raw?.trim()) {
       return createDefaultInsights(fallbackPrompt);
     }
 
@@ -488,7 +488,7 @@ export class PromptEnhancementService {
     }
 
     // HYBRID/HTML_RENDER mode: infographic with structured content
-    let promptParts: string[] = [];
+    const promptParts: string[] = [];
 
     // Use background prompt if available (hybrid mode specific)
     if (

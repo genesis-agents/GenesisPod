@@ -712,7 +712,7 @@ export class UrlParserService {
    */
   private extractMainContent(html: string, result: ParsedUrl): void {
     // 移除 script 和 style 标签
-    let content = html
+    const content = html
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
       .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, "")

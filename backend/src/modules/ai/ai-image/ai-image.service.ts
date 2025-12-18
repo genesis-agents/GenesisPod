@@ -223,7 +223,7 @@ export class AiImageService {
       }
 
       if (hasUrls) {
-        for (const urlInput of urls!) {
+        for (const urlInput of urls) {
           if (!urlInput.trim()) continue;
 
           const { url: trimmedUrl, description: userDescription } =
@@ -292,7 +292,7 @@ export class AiImageService {
       }
 
       if (hasFiles) {
-        for (const file of files!) {
+        for (const file of files) {
           const stepId = `file_${file.filename}`;
           emitStep(stepId, `Processing ${file.filename}`, "processing");
 
@@ -439,7 +439,7 @@ export class AiImageService {
 
         const textModel =
           await this.imageGenerationService.getDefaultTextModel();
-        if (!textModel || !textModel.apiKey) {
+        if (!textModel?.apiKey) {
           emitStep(
             "prompt_generate",
             "No Text Model Available",
@@ -615,7 +615,7 @@ export class AiImageService {
           ? await this.imageGenerationService.getModelById(imageModelId)
           : await this.imageGenerationService.getDefaultImageModel();
 
-        if (!imageModelConfig || !imageModelConfig.apiKey) {
+        if (!imageModelConfig?.apiKey) {
           emitStep("ai_image", "No Image Model Available", "error");
           throw new Error("No image model configured");
         }

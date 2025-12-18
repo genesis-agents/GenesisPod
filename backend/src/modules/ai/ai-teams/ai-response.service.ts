@@ -887,7 +887,7 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
 
       let content = m.content;
 
-      if (m.replyTo && m.replyTo.content) {
+      if (m.replyTo?.content) {
         const replyToSender = m.replyTo.sender
           ? m.replyTo.sender.fullName || m.replyTo.sender.username || "User"
           : m.replyTo.aiMember?.displayName || "AI";

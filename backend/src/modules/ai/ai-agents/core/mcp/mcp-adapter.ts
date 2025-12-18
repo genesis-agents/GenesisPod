@@ -610,7 +610,7 @@ export class MCPAdapter {
    */
   renderPrompt(name: string, args: Record<string, unknown>): string | null {
     const prompt = this.getPrompt(name);
-    if (!prompt || !prompt.template) {
+    if (!prompt?.template) {
       return null;
     }
 

@@ -115,8 +115,7 @@ export class SQLExecutorTool extends BaseTool<
     properties: {
       query: {
         type: "string",
-        description:
-          "SQL 查询语句。使用 $1, $2 等占位符进行参数化查询。",
+        description: "SQL 查询语句。使用 $1, $2 等占位符进行参数化查询。",
       },
       parameters: {
         type: "object",
@@ -296,9 +295,10 @@ export class SQLExecutorTool extends BaseTool<
     try {
       // 使用 Prisma 的 $queryRawUnsafe 执行原始 SQL
       // 注意：这里使用 unsafe 是因为我们已经在 validateInput 中进行了安全检查
-      const rows = (await this.prisma.$queryRawUnsafe(query)) as Array<
-        Record<string, unknown>
-      >;
+      const rows = (await this.prisma.$queryRawUnsafe(query)) as Record<
+        string,
+        unknown
+      >[];
 
       // 限制返回行数
       const limitedRows = rows.slice(0, maxRows);

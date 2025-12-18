@@ -4,9 +4,9 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import { BaseTool, JSONSchema, ToolContext } from "../core/tool.interface";
-import { ToolType } from "../core/agent.types";
-import { AiChatService } from "../../ai-core/ai-chat.service";
+import { BaseTool, JSONSchema, ToolContext } from "../../core/tool.interface";
+import { ToolType } from "../../core/agent.types";
+import { AiChatService } from "../../../ai-core/ai-chat.service";
 
 // ============================================================================
 // Types

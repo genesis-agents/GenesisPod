@@ -457,7 +457,7 @@ export class VideoGenerationTool extends BaseTool<
     resolution: VideoResolution,
   ): number {
     // 基础时间
-    let baseTime = 1000;
+    const baseTime = 1000;
 
     // 源类型系数
     const sourceTypeMultiplier = {

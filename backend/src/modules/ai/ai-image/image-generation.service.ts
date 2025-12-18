@@ -335,7 +335,7 @@ export class ImageGenerationService {
     const parts = candidates[0].content?.parts;
     if (parts) {
       for (const part of parts) {
-        if (part.inlineData && part.inlineData.data) {
+        if (part.inlineData?.data) {
           const responseMimeType = part.inlineData.mimeType || "image/png";
           return `data:${responseMimeType};base64,${part.inlineData.data}`;
         }
@@ -398,7 +398,7 @@ export class ImageGenerationService {
     const parts = candidates[0].content?.parts;
     if (parts) {
       for (const part of parts) {
-        if (part.inlineData && part.inlineData.data) {
+        if (part.inlineData?.data) {
           const mimeType = part.inlineData.mimeType || "image/png";
           return `data:${mimeType};base64,${part.inlineData.data}`;
         }
@@ -574,7 +574,7 @@ export class ImageGenerationService {
     const parts = candidates[0].content?.parts;
     if (parts) {
       for (const part of parts) {
-        if (part.inlineData && part.inlineData.data) {
+        if (part.inlineData?.data) {
           const mimeType = part.inlineData.mimeType || "image/png";
           this.logger.log(`Gemini 2.0 Flash image generated successfully`);
           return `data:${mimeType};base64,${part.inlineData.data}`;

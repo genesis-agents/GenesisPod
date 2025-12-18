@@ -302,7 +302,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
     agent: any,
   ): { innerMonologue: string; publicAction: string } {
     // 清理响应：移除markdown代码块标记
-    let cleanResponse = response
+    const cleanResponse = response
       .replace(/```json\s*/gi, "")
       .replace(/```\s*/g, "")
       .trim();
@@ -625,7 +625,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
 
     const providers = ["market", "finance", "news", "regulation"];
     const missing = providers.filter(
-      (p) => !worldState[p] || (worldState[p] as any)?.error,
+      (p) => !worldState[p] || worldState[p]?.error,
     );
 
     if (missing.length > 0) {
@@ -646,10 +646,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
     worldDelta["last_submissions"] = submissions.length;
 
     // Chaos / Black Swan toggle based on params
-    const chaosProb =
-      (run.params as any)?.chaosProb ??
-      (run.params as any)?.blackSwanProb ??
-      0.1;
+    const chaosProb = run.params?.chaosProb ?? run.params?.blackSwanProb ?? 0.1;
     const chaosTriggered = Math.random() < chaosProb;
     // 非理性因素：对部分队别施加随机偏置
     const irrationalBias = Math.random() < 0.3 ? "irrational_spike" : null;
@@ -761,7 +758,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
     // Missing data
     const worldState = (run.worldState as Record<string, any>) || {};
     const missing = ["market", "finance", "news", "regulation"].filter(
-      (p) => !worldState[p] || (worldState[p] as any)?.error,
+      (p) => !worldState[p] || worldState[p]?.error,
     );
     if (missing.length > 0) {
       keyFindings.push(`外部数据缺失：${missing.join(",")}，裁判标记依据不足`);
@@ -941,7 +938,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
 
     // Check for black swan
     if (!prev.blackSwan && current.blackSwan) {
-      changes.push(`黑天鹅事件: ${(current.blackSwan as any).name}`);
+      changes.push(`黑天鹅事件: ${current.blackSwan.name}`);
       significance = "high";
     }
 

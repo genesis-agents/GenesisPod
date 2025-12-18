@@ -1024,7 +1024,7 @@ export class CollectionsService {
     const contentSummary = items
       .filter((item) => item.resource)
       .slice(0, 50)
-      .map((item, idx) => `${idx + 1}. ${item.resource!.title}`)
+      .map((item, idx) => `${idx + 1}. ${item.resource.title}`)
       .join("\n");
 
     try {

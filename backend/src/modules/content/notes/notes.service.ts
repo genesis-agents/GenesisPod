@@ -34,7 +34,7 @@ export class NotesService {
   async createNote(userId: string, dto: CreateNoteDto) {
     // CRITICAL FIX: Validate resourceId if provided to prevent FOREIGN_KEY_VIOLATION
     // Empty strings or invalid UUIDs should be treated as null
-    let resourceId: string | null = dto.resourceId || null;
+    const resourceId: string | null = dto.resourceId || null;
 
     if (resourceId) {
       // Check if resourceId is a valid UUID and exists
@@ -554,7 +554,9 @@ export class NotesService {
     const currentNodes = (note.graphNodes as any[]) || [];
 
     // 过滤掉要移除的节点
-    const filteredNodes = currentNodes.filter((node: any) => node.id !== nodeId);
+    const filteredNodes = currentNodes.filter(
+      (node: any) => node.id !== nodeId,
+    );
 
     // 如果没有变化,直接返回
     if (filteredNodes.length === currentNodes.length) {

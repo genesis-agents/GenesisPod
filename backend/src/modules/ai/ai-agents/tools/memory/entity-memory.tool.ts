@@ -304,7 +304,8 @@ export class EntityMemoryTool extends BaseTool<
       },
       entityId: {
         type: "string",
-        description: "实体 ID（用于 retrieve, update, delete, add_relation 操作）",
+        description:
+          "实体 ID（用于 retrieve, update, delete, add_relation 操作）",
       },
       entity: {
         type: "object",
@@ -479,19 +480,19 @@ export class EntityMemoryTool extends BaseTool<
     try {
       switch (input.operation) {
         case EntityOperation.STORE:
-          return await this.storeEntity(input.entity!, context);
+          return await this.storeEntity(input.entity, context);
 
         case EntityOperation.RETRIEVE:
           return await this.retrieveEntity(input.entityId!);
 
         case EntityOperation.UPDATE:
-          return await this.updateEntity(input.entityId!, input.entity!);
+          return await this.updateEntity(input.entityId!, input.entity);
 
         case EntityOperation.DELETE:
           return await this.deleteEntity(input.entityId!);
 
         case EntityOperation.ADD_RELATION:
-          return await this.addRelation(input.entityId!, input.relation!);
+          return await this.addRelation(input.entityId!, input.relation);
 
         case EntityOperation.QUERY_RELATIONS:
           return await this.queryRelations(input.entityId!, input.filter);
@@ -580,9 +581,7 @@ export class EntityMemoryTool extends BaseTool<
   /**
    * 检索实体
    */
-  private async retrieveEntity(
-    entityId: string,
-  ): Promise<EntityMemoryOutput> {
+  private async retrieveEntity(entityId: string): Promise<EntityMemoryOutput> {
     const entity = this.entities.get(entityId);
 
     if (!entity) {

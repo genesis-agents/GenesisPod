@@ -518,11 +518,11 @@ export class DataValidationTool extends BaseTool<
     }
 
     // 防止循环引用
-    if (visited.has(obj as object)) {
+    if (visited.has(obj)) {
       return 0;
     }
 
-    visited.add(obj as object);
+    visited.add(obj);
 
     if (Array.isArray(obj)) {
       return obj.reduce(

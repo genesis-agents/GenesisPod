@@ -94,7 +94,7 @@ export class ExportService {
         base64,
         url,
         format: "png",
-        fileSize: Buffer.from(screenshot as string, "base64").length,
+        fileSize: Buffer.from(screenshot, "base64").length,
       };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Unknown error";

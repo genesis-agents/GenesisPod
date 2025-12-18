@@ -230,7 +230,7 @@ export class SlidesAgent extends BaseAgent {
     const pptStream = this.pptOrchestrator.generatePPTStream(pptInput);
 
     // 转换事件流
-    let currentStepIndex = 0;
+    const currentStepIndex = 0;
 
     yield* await this.convertPPTStreamToAgentEvents(
       pptStream,

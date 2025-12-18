@@ -520,7 +520,7 @@ export class OfficeDocumentService {
     document: any,
     trigger: VersionTrigger,
   ): Promise<string> {
-    const metadata = document.metadata as any;
+    const metadata = document.metadata;
     const typeLabel = this.getDocumentTypeLabel(document.type);
 
     switch (trigger) {

@@ -380,7 +380,7 @@ export class RssService {
           for (const existing of recentResources) {
             if (
               this.deduplication.areTitlesSimilar(
-                item.title!,
+                item.title,
                 existing.title,
                 0.9,
               )

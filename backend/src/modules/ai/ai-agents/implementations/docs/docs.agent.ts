@@ -256,7 +256,7 @@ export class DocsAgent extends BaseAgent {
       );
 
       let generatedContent = "";
-      let documentId = "";
+      const documentId = "";
 
       // 处理生成流
       for await (const chunk of generator) {

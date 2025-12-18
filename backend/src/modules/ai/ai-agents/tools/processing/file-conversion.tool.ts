@@ -4,12 +4,12 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { BaseTool, JSONSchema, ToolContext } from "../core/tool.interface";
-import { ToolType } from "../core/agent.types";
+import { BaseTool, JSONSchema, ToolContext } from "../../core/tool.interface";
+import { ToolType } from "../../core/agent.types";
 import {
   DocumentExportService,
   ExportFormat,
-} from "../../ai-office/document-export.service";
+} from "../../../ai-office/document-export.service";
 
 // ============================================================================
 // Types
