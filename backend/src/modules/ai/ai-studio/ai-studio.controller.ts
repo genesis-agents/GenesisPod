@@ -10,6 +10,9 @@ import {
   Request,
   UseGuards,
   UnauthorizedException,
+  UseInterceptors,
+  UploadedFiles,
+  BadRequestException,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -17,7 +20,9 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiQuery,
+  ApiConsumes,
 } from "@nestjs/swagger";
+import { FilesInterceptor } from "@nestjs/platform-express";
 import { AiStudioService } from "./ai-studio.service";
 import { AiStudioSourceService } from "./ai-studio-source.service";
 import { AiStudioChatService } from "./ai-studio-chat.service";
@@ -201,6 +206,51 @@ export class AiStudioController {
       throw new UnauthorizedException("User not authenticated");
     }
     return this.sourceService.addSources(userId, projectId, dto.sources);
+  }
+
+  /**
+   * Upload files as sources
+   */
+  @Post("projects/:projectId/sources/upload")
+  @ApiOperation({
+    summary: "上传文件作为资料",
+    description: "上传 PDF、Word、TXT、Markdown 文件到项目中",
+  })
+  @ApiConsumes("multipart/form-data")
+  @ApiResponse({ status: 201, description: "文件上传成功" })
+  @ApiResponse({ status: 400, description: "不支持的文件类型或文件过大" })
+  @UseInterceptors(
+    FilesInterceptor("files", 10, {
+      limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+      fileFilter: (_req, file, callback) => {
+        const allowedTypes = [
+          "application/pdf",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "application/msword",
+          "text/plain",
+          "text/markdown",
+        ];
+        if (allowedTypes.includes(file.mimetype)) {
+          callback(null, true);
+        } else {
+          callback(
+            new BadRequestException(`Unsupported file type: ${file.mimetype}`),
+            false,
+          );
+        }
+      },
+    }),
+  )
+  async uploadSources(
+    @Request() req: any,
+    @Param("projectId") projectId: string,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.sourceService.uploadFiles(userId, projectId, files);
   }
 
   /**

@@ -42,3 +42,9 @@ export type { HypeCyclePosition } from './HypeCycleChart';
 // Knowledge Graph
 export { default as KnowledgeGraph } from './KnowledgeGraph';
 export type { GraphNode, GraphEdge, GraphData } from './KnowledgeGraph';
+
+// Output Viewer
+export { OutputViewer } from './outputs/OutputViewer';
+
+// File Uploader
+export { FileUploader } from './FileUploader';

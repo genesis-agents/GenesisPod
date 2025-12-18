@@ -51,7 +51,10 @@ import {
   RefreshCw,
   AlertCircle,
   Settings,
+  Upload,
 } from 'lucide-react';
+import { FileUploader } from '@/components/ai-studio/FileUploader';
+import { OutputViewer } from '@/components/ai-studio/outputs/OutputViewer';
 
 // ==================== 类型定义 ====================
 interface Source {
@@ -293,19 +296,24 @@ function SourcesPanel({
   selectedIds,
   onToggleSelect,
   onAddSource,
+  onAddSources,
   onRemoveSource,
   collapsed,
   onToggleCollapse,
+  projectId,
 }: {
   sources: Source[];
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
   onAddSource: (source: Partial<Source>) => void;
+  onAddSources: (sources: Source[]) => void;
   onRemoveSource: (id: string) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
+  projectId: string;
 }) {
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [dialogTab, setDialogTab] = useState<'search' | 'upload'>('search');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMode, setSearchMode] = useState<'quick' | 'deep'>('quick');
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -598,538 +606,606 @@ function SourcesPanel({
               </button>
             </div>
 
-            {/* Search Mode */}
-            <div className="mt-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setSearchMode('quick')}
-                  className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${
-                    searchMode === 'quick'
-                      ? 'bg-purple-100 text-purple-700'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <Zap className="h-4 w-4" />
-                  Quick Search
-                </button>
-                <button
-                  onClick={() => setSearchMode('deep')}
-                  className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${
-                    searchMode === 'deep'
-                      ? 'bg-purple-100 text-purple-700'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <Microscope className="h-4 w-4" />
-                  Deep Research
-                </button>
-              </div>
-              <p className="text-xs text-gray-500">
-                {searchMode === 'quick'
-                  ? 'Fast parallel search across sources'
-                  : 'Multi-round iterative search with AI refinement'}
-              </p>
-            </div>
-
-            {/* Source Toggles */}
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="text-xs text-gray-500">Search in:</span>
-              {[
-                { id: 'local', label: 'Local DB', icon: Database },
-                { id: 'web', label: 'Web', icon: Globe },
-                { id: 'arxiv', label: 'arXiv', icon: FileText },
-                { id: 'github', label: 'GitHub', icon: Github },
-                { id: 'news', label: 'News', icon: Newspaper },
-                { id: 'scholar', label: 'Scholar', icon: BookOpen },
-                { id: 'blogs', label: 'Blogs', icon: FileText },
-                { id: 'reports', label: 'Reports', icon: FileText },
-                { id: 'policy', label: 'Policy', icon: FileText },
-              ].map(({ id, label, icon: Icon }) => (
-                <button
-                  key={id}
-                  onClick={() => toggleSearchSource(id)}
-                  className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                    searchSources.includes(id)
-                      ? 'bg-purple-100 text-purple-700'
-                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                  }`}
-                >
-                  <Icon className="h-3 w-3" />
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {/* Search Input */}
-            <div className="mt-4 flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  placeholder={`Search ${searchSources.join(', ')}...`}
-                  className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                />
-              </div>
+            {/* Dialog Tabs */}
+            <div className="mt-4 flex border-b border-gray-200">
               <button
-                onClick={handleSearch}
-                disabled={
-                  searching || !searchQuery.trim() || searchSources.length === 0
-                }
-                className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+                onClick={() => setDialogTab('search')}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium ${
+                  dialogTab === 'search'
+                    ? 'border-b-2 border-purple-600 text-purple-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
               >
-                {searching ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Search className="h-4 w-4" />
-                )}
-                {searchMode === 'deep' ? 'Deep Search' : 'Search'}
+                <Search className="h-4 w-4" />
+                Search Sources
+              </button>
+              <button
+                onClick={() => setDialogTab('upload')}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium ${
+                  dialogTab === 'upload'
+                    ? 'border-b-2 border-purple-600 text-purple-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Upload className="h-4 w-4" />
+                Upload Files
               </button>
             </div>
 
-            {/* Search Stats */}
-            {searchStats && (
-              <div className="mt-3 rounded-lg bg-gray-50 px-3 py-2">
-                <div className="flex items-center justify-between text-xs text-gray-600">
-                  <span>
-                    Found <strong>{searchStats.totalResults}</strong> results in{' '}
-                    <strong>
-                      {(searchStats.durationMs / 1000).toFixed(1)}s
-                    </strong>
-                  </span>
-                  {searchStats.searchRounds && (
-                    <span className="text-purple-600">
-                      {searchStats.searchRounds} search rounds
-                    </span>
-                  )}
-                </div>
-                {searchStats.queriesExecuted &&
-                  searchStats.queriesExecuted.length > 1 && (
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {searchStats.queriesExecuted.slice(0, 5).map((q, i) => (
-                        <span
-                          key={i}
-                          className="rounded bg-gray-200 px-1.5 py-0.5 text-xs text-gray-600"
-                        >
-                          {q.length > 30 ? `${q.slice(0, 30)}...` : q}
-                        </span>
-                      ))}
-                      {searchStats.queriesExecuted.length > 5 && (
-                        <span className="text-xs text-gray-400">
-                          +{searchStats.queriesExecuted.length - 5} more
-                        </span>
-                      )}
-                    </div>
-                  )}
+            {/* Upload Tab Content */}
+            {dialogTab === 'upload' && (
+              <div className="mt-4">
+                <FileUploader
+                  projectId={projectId}
+                  onFilesUploaded={(newSources) => {
+                    onAddSources(newSources);
+                    setShowAddDialog(false);
+                  }}
+                  onClose={() => setShowAddDialog(false)}
+                />
               </div>
             )}
 
-            {/* Search Results */}
-            <div className="mt-4">
-              {searchResults.length > 0 && (
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-sm text-gray-600">
-                    {searchResults.length} results
-                  </span>
+            {/* Search Tab Content */}
+            {dialogTab === 'search' && (
+              <>
+                {/* Search Mode */}
+                <div className="mt-4 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={async () => {
-                        // Import top 10 results
-                        const toImport = searchResults
-                          .slice(0, 10)
-                          .filter(
-                            (r) =>
-                              !addedIds.has(
-                                r.id || `result-${searchResults.indexOf(r)}`
-                              )
-                          );
-                        for (const result of toImport) {
-                          const resultId =
-                            result.id ||
-                            `result-${searchResults.indexOf(result)}`;
-                          try {
-                            await onAddSource({
-                              title: result.title,
-                              sourceType: result.sourceType || result.source,
-                              sourceUrl: result.sourceUrl,
-                              abstract: result.abstract,
-                              authors: result.authors,
-                              publishedAt: result.publishedAt,
-                              resourceId: result.id,
-                              metadata: result.metadata,
-                            });
-                            setAddedIds((prev) => new Set(prev).add(resultId));
-                          } catch (err) {
-                            console.error('Failed to import:', err);
-                          }
-                        }
-                      }}
-                      className="rounded-lg border border-purple-200 px-3 py-1.5 text-xs font-medium text-purple-600 hover:bg-purple-50"
+                      onClick={() => setSearchMode('quick')}
+                      className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${
+                        searchMode === 'quick'
+                          ? 'bg-purple-100 text-purple-700'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`}
                     >
-                      Import TOP 10
+                      <Zap className="h-4 w-4" />
+                      Quick Search
                     </button>
                     <button
-                      onClick={async () => {
-                        // Import top 20 results
-                        const toImport = searchResults
-                          .slice(0, 20)
-                          .filter(
-                            (r) =>
-                              !addedIds.has(
-                                r.id || `result-${searchResults.indexOf(r)}`
-                              )
-                          );
-                        for (const result of toImport) {
-                          const resultId =
-                            result.id ||
-                            `result-${searchResults.indexOf(result)}`;
-                          try {
-                            await onAddSource({
-                              title: result.title,
-                              sourceType: result.sourceType || result.source,
-                              sourceUrl: result.sourceUrl,
-                              abstract: result.abstract,
-                              authors: result.authors,
-                              publishedAt: result.publishedAt,
-                              resourceId: result.id,
-                              metadata: result.metadata,
-                            });
-                            setAddedIds((prev) => new Set(prev).add(resultId));
-                          } catch (err) {
-                            console.error('Failed to import:', err);
-                          }
-                        }
-                      }}
-                      className="rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-purple-700"
+                      onClick={() => setSearchMode('deep')}
+                      className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${
+                        searchMode === 'deep'
+                          ? 'bg-purple-100 text-purple-700'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`}
                     >
-                      Import TOP 20
+                      <Microscope className="h-4 w-4" />
+                      Deep Research
                     </button>
                   </div>
+                  <p className="text-xs text-gray-500">
+                    {searchMode === 'quick'
+                      ? 'Fast parallel search across sources'
+                      : 'Multi-round iterative search with AI refinement'}
+                  </p>
                 </div>
-              )}
-              <div className="max-h-72 overflow-y-auto">
-                {searchResults.length > 0 ? (
-                  <div className="space-y-2">
-                    {searchResults.map((result, idx) => (
-                      <div
-                        key={result.id || `result-${idx}`}
-                        className="flex items-start gap-3 rounded-lg border border-gray-200 p-3 hover:border-gray-300"
-                      >
-                        <div className="mt-0.5 flex-shrink-0">
-                          {result.source === 'arxiv' ? (
-                            <FileText className="h-4 w-4 text-blue-500" />
-                          ) : result.source === 'github' ? (
-                            <Github className="h-4 w-4 text-gray-700" />
-                          ) : result.source === 'web' ? (
-                            <Globe className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <Database className="h-4 w-4 text-purple-500" />
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          {result.sourceUrl ? (
-                            <a
-                              href={result.sourceUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="line-clamp-1 font-medium text-gray-900 hover:text-purple-600 hover:underline"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {result.title}
-                            </a>
-                          ) : (
-                            <h4 className="line-clamp-1 font-medium text-gray-900">
-                              {result.title}
-                            </h4>
-                          )}
-                          <p className="mt-1 line-clamp-2 text-xs text-gray-500">
-                            {result.abstract}
-                          </p>
-                          <div className="mt-2 flex items-center gap-3 text-xs text-gray-400">
-                            <span className="rounded bg-gray-100 px-1.5 py-0.5">
-                              {result.source || result.sourceType}
+
+                {/* Source Toggles */}
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-gray-500">Search in:</span>
+                  {[
+                    { id: 'local', label: 'Local DB', icon: Database },
+                    { id: 'web', label: 'Web', icon: Globe },
+                    { id: 'arxiv', label: 'arXiv', icon: FileText },
+                    { id: 'github', label: 'GitHub', icon: Github },
+                    { id: 'news', label: 'News', icon: Newspaper },
+                    { id: 'scholar', label: 'Scholar', icon: BookOpen },
+                    { id: 'blogs', label: 'Blogs', icon: FileText },
+                    { id: 'reports', label: 'Reports', icon: FileText },
+                    { id: 'policy', label: 'Policy', icon: FileText },
+                  ].map(({ id, label, icon: Icon }) => (
+                    <button
+                      key={id}
+                      onClick={() => toggleSearchSource(id)}
+                      className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                        searchSources.includes(id)
+                          ? 'bg-purple-100 text-purple-700'
+                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      }`}
+                    >
+                      <Icon className="h-3 w-3" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Search Input */}
+                <div className="mt-4 flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                      placeholder={`Search ${searchSources.join(', ')}...`}
+                      className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    />
+                  </div>
+                  <button
+                    onClick={handleSearch}
+                    disabled={
+                      searching ||
+                      !searchQuery.trim() ||
+                      searchSources.length === 0
+                    }
+                    className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+                  >
+                    {searching ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Search className="h-4 w-4" />
+                    )}
+                    {searchMode === 'deep' ? 'Deep Search' : 'Search'}
+                  </button>
+                </div>
+
+                {/* Search Stats */}
+                {searchStats && (
+                  <div className="mt-3 rounded-lg bg-gray-50 px-3 py-2">
+                    <div className="flex items-center justify-between text-xs text-gray-600">
+                      <span>
+                        Found <strong>{searchStats.totalResults}</strong>{' '}
+                        results in{' '}
+                        <strong>
+                          {(searchStats.durationMs / 1000).toFixed(1)}s
+                        </strong>
+                      </span>
+                      {searchStats.searchRounds && (
+                        <span className="text-purple-600">
+                          {searchStats.searchRounds} search rounds
+                        </span>
+                      )}
+                    </div>
+                    {searchStats.queriesExecuted &&
+                      searchStats.queriesExecuted.length > 1 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {searchStats.queriesExecuted
+                            .slice(0, 5)
+                            .map((q, i) => (
+                              <span
+                                key={i}
+                                className="rounded bg-gray-200 px-1.5 py-0.5 text-xs text-gray-600"
+                              >
+                                {q.length > 30 ? `${q.slice(0, 30)}...` : q}
+                              </span>
+                            ))}
+                          {searchStats.queriesExecuted.length > 5 && (
+                            <span className="text-xs text-gray-400">
+                              +{searchStats.queriesExecuted.length - 5} more
                             </span>
-                            {result.authors && result.authors.length > 0 && (
-                              <span className="max-w-[150px] truncate">
-                                {result.authors.slice(0, 2).join(', ')}
-                                {result.authors.length > 2 && ' et al.'}
-                              </span>
-                            )}
-                            {result.publishedAt && (
-                              <span>
-                                {new Date(
-                                  result.publishedAt
-                                ).toLocaleDateString()}
-                              </span>
-                            )}
-                            {result.metadata?.stars && (
-                              <span className="flex items-center gap-0.5">
-                                <Sparkles className="h-3 w-3" />
-                                {result.metadata.stars.toLocaleString()}
-                              </span>
-                            )}
-                          </div>
+                          )}
                         </div>
-                        <div className="flex flex-col gap-1">
-                          {addedIds.has(result.id || `result-${idx}`) ? (
-                            <div className="flex items-center gap-1 rounded-lg bg-green-100 px-3 py-1.5 text-xs font-medium text-green-700">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Added
+                      )}
+                  </div>
+                )}
+
+                {/* Search Results */}
+                <div className="mt-4">
+                  {searchResults.length > 0 && (
+                    <div className="mb-3 flex items-center justify-between">
+                      <span className="text-sm text-gray-600">
+                        {searchResults.length} results
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={async () => {
+                            // Import top 10 results
+                            const toImport = searchResults
+                              .slice(0, 10)
+                              .filter(
+                                (r) =>
+                                  !addedIds.has(
+                                    r.id || `result-${searchResults.indexOf(r)}`
+                                  )
+                              );
+                            for (const result of toImport) {
+                              const resultId =
+                                result.id ||
+                                `result-${searchResults.indexOf(result)}`;
+                              try {
+                                await onAddSource({
+                                  title: result.title,
+                                  sourceType:
+                                    result.sourceType || result.source,
+                                  sourceUrl: result.sourceUrl,
+                                  abstract: result.abstract,
+                                  authors: result.authors,
+                                  publishedAt: result.publishedAt,
+                                  resourceId: result.id,
+                                  metadata: result.metadata,
+                                });
+                                setAddedIds((prev) =>
+                                  new Set(prev).add(resultId)
+                                );
+                              } catch (err) {
+                                console.error('Failed to import:', err);
+                              }
+                            }
+                          }}
+                          className="rounded-lg border border-purple-200 px-3 py-1.5 text-xs font-medium text-purple-600 hover:bg-purple-50"
+                        >
+                          Import TOP 10
+                        </button>
+                        <button
+                          onClick={async () => {
+                            // Import top 20 results
+                            const toImport = searchResults
+                              .slice(0, 20)
+                              .filter(
+                                (r) =>
+                                  !addedIds.has(
+                                    r.id || `result-${searchResults.indexOf(r)}`
+                                  )
+                              );
+                            for (const result of toImport) {
+                              const resultId =
+                                result.id ||
+                                `result-${searchResults.indexOf(result)}`;
+                              try {
+                                await onAddSource({
+                                  title: result.title,
+                                  sourceType:
+                                    result.sourceType || result.source,
+                                  sourceUrl: result.sourceUrl,
+                                  abstract: result.abstract,
+                                  authors: result.authors,
+                                  publishedAt: result.publishedAt,
+                                  resourceId: result.id,
+                                  metadata: result.metadata,
+                                });
+                                setAddedIds((prev) =>
+                                  new Set(prev).add(resultId)
+                                );
+                              } catch (err) {
+                                console.error('Failed to import:', err);
+                              }
+                            }
+                          }}
+                          className="rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-purple-700"
+                        >
+                          Import TOP 20
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="max-h-72 overflow-y-auto">
+                    {searchResults.length > 0 ? (
+                      <div className="space-y-2">
+                        {searchResults.map((result, idx) => (
+                          <div
+                            key={result.id || `result-${idx}`}
+                            className="flex items-start gap-3 rounded-lg border border-gray-200 p-3 hover:border-gray-300"
+                          >
+                            <div className="mt-0.5 flex-shrink-0">
+                              {result.source === 'arxiv' ? (
+                                <FileText className="h-4 w-4 text-blue-500" />
+                              ) : result.source === 'github' ? (
+                                <Github className="h-4 w-4 text-gray-700" />
+                              ) : result.source === 'web' ? (
+                                <Globe className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <Database className="h-4 w-4 text-purple-500" />
+                              )}
                             </div>
+                            <div className="min-w-0 flex-1">
+                              {result.sourceUrl ? (
+                                <a
+                                  href={result.sourceUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="line-clamp-1 font-medium text-gray-900 hover:text-purple-600 hover:underline"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {result.title}
+                                </a>
+                              ) : (
+                                <h4 className="line-clamp-1 font-medium text-gray-900">
+                                  {result.title}
+                                </h4>
+                              )}
+                              <p className="mt-1 line-clamp-2 text-xs text-gray-500">
+                                {result.abstract}
+                              </p>
+                              <div className="mt-2 flex items-center gap-3 text-xs text-gray-400">
+                                <span className="rounded bg-gray-100 px-1.5 py-0.5">
+                                  {result.source || result.sourceType}
+                                </span>
+                                {result.authors &&
+                                  result.authors.length > 0 && (
+                                    <span className="max-w-[150px] truncate">
+                                      {result.authors.slice(0, 2).join(', ')}
+                                      {result.authors.length > 2 && ' et al.'}
+                                    </span>
+                                  )}
+                                {result.publishedAt && (
+                                  <span>
+                                    {new Date(
+                                      result.publishedAt
+                                    ).toLocaleDateString()}
+                                  </span>
+                                )}
+                                {result.metadata?.stars && (
+                                  <span className="flex items-center gap-0.5">
+                                    <Sparkles className="h-3 w-3" />
+                                    {result.metadata.stars.toLocaleString()}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              {addedIds.has(result.id || `result-${idx}`) ? (
+                                <div className="flex items-center gap-1 rounded-lg bg-green-100 px-3 py-1.5 text-xs font-medium text-green-700">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  Added
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={async () => {
+                                    const resultId =
+                                      result.id || `result-${idx}`;
+                                    setAddingId(resultId);
+                                    try {
+                                      await onAddSource({
+                                        title: result.title,
+                                        sourceType:
+                                          result.sourceType || result.source,
+                                        sourceUrl: result.sourceUrl,
+                                        abstract: result.abstract,
+                                        authors: result.authors,
+                                        publishedAt: result.publishedAt,
+                                        resourceId: result.id,
+                                        metadata: result.metadata,
+                                      });
+                                      setAddedIds((prev) =>
+                                        new Set(prev).add(resultId)
+                                      );
+                                    } catch (err) {
+                                      console.error(
+                                        'Failed to add source:',
+                                        err
+                                      );
+                                    } finally {
+                                      setAddingId(null);
+                                    }
+                                  }}
+                                  disabled={
+                                    addingId === (result.id || `result-${idx}`)
+                                  }
+                                  className="flex items-center gap-1 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+                                >
+                                  {addingId ===
+                                  (result.id || `result-${idx}`) ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Plus className="h-3 w-3" />
+                                  )}
+                                  Add
+                                </button>
+                              )}
+                              <button
+                                onClick={() => setViewingSource(result)}
+                                className="flex items-center justify-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+                              >
+                                <Eye className="h-3 w-3" />
+                                View
+                              </button>
+                              {result.sourceUrl && (
+                                <a
+                                  href={result.sourceUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center justify-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <ExternalLink className="h-3 w-3" />
+                                  Open
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : searching ? (
+                      <div className="flex flex-col items-center justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+                        <p className="mt-3 text-sm text-gray-500">
+                          {searchMode === 'deep'
+                            ? 'Running deep research across multiple rounds...'
+                            : 'Searching across sources...'}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="py-12 text-center">
+                        <Search className="mx-auto h-10 w-10 text-gray-300" />
+                        <p className="mt-3 text-sm text-gray-500">
+                          Search for papers, code, and articles to add to your
+                          research
+                        </p>
+                        <p className="mt-1 text-xs text-gray-400">
+                          Try: "LLM inference optimization", "transformer
+                          attention"
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* View Source Detail Dialog */}
+                {viewingSource && (
+                  <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+                    <div className="max-h-[80vh] w-full max-w-2xl overflow-hidden rounded-xl bg-white shadow-xl">
+                      <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          {viewingSource.source === 'arxiv' ? (
+                            <FileText className="h-5 w-5 text-blue-500" />
+                          ) : viewingSource.source === 'github' ? (
+                            <Github className="h-5 w-5 text-gray-700" />
+                          ) : viewingSource.source === 'web' ? (
+                            <Globe className="h-5 w-5 text-green-500" />
                           ) : (
+                            <Database className="h-5 w-5 text-purple-500" />
+                          )}
+                          <h3 className="font-semibold text-gray-900">
+                            Source Details
+                          </h3>
+                        </div>
+                        <button
+                          onClick={() => setViewingSource(null)}
+                          className="rounded-lg p-1 hover:bg-gray-100"
+                        >
+                          <X className="h-5 w-5 text-gray-500" />
+                        </button>
+                      </div>
+                      <div className="max-h-[60vh] overflow-y-auto p-6">
+                        <h2 className="text-lg font-semibold text-gray-900">
+                          {viewingSource.title}
+                        </h2>
+
+                        {/* Metadata */}
+                        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-gray-500">
+                          <span className="rounded bg-gray-100 px-2 py-0.5">
+                            {viewingSource.source || viewingSource.sourceType}
+                          </span>
+                          {viewingSource.authors &&
+                            viewingSource.authors.length > 0 && (
+                              <span>
+                                {viewingSource.authors.slice(0, 3).join(', ')}
+                                {viewingSource.authors.length > 3 && ' et al.'}
+                              </span>
+                            )}
+                          {viewingSource.publishedAt && (
+                            <span>
+                              {new Date(
+                                viewingSource.publishedAt
+                              ).toLocaleDateString()}
+                            </span>
+                          )}
+                          {viewingSource.metadata?.stars && (
+                            <span className="flex items-center gap-1">
+                              <Sparkles className="h-3.5 w-3.5" />
+                              {viewingSource.metadata.stars.toLocaleString()}{' '}
+                              stars
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Abstract / Content */}
+                        {viewingSource.abstract && (
+                          <div className="mt-4">
+                            <h4 className="text-sm font-medium text-gray-700">
+                              Abstract
+                            </h4>
+                            <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                              {viewingSource.abstract}
+                            </p>
+                          </div>
+                        )}
+
+                        {viewingSource.content && (
+                          <div className="mt-4">
+                            <h4 className="text-sm font-medium text-gray-700">
+                              Content
+                            </h4>
+                            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-gray-600">
+                              {viewingSource.content.length > 2000
+                                ? viewingSource.content.slice(0, 2000) + '...'
+                                : viewingSource.content}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Additional Metadata */}
+                        {viewingSource.metadata &&
+                          Object.keys(viewingSource.metadata).length > 0 && (
+                            <div className="mt-4">
+                              <h4 className="text-sm font-medium text-gray-700">
+                                Additional Info
+                              </h4>
+                              <div className="mt-2 rounded-lg bg-gray-50 p-3">
+                                <pre className="overflow-x-auto text-xs text-gray-600">
+                                  {JSON.stringify(
+                                    viewingSource.metadata,
+                                    null,
+                                    2
+                                  )}
+                                </pre>
+                              </div>
+                            </div>
+                          )}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center justify-between border-t border-gray-200 px-6 py-4">
+                        {viewingSource.sourceUrl ? (
+                          <a
+                            href={viewingSource.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-sm text-purple-600 hover:underline"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                            Open Original
+                          </a>
+                        ) : (
+                          <span className="text-sm text-gray-400">
+                            No source URL
+                          </span>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setViewingSource(null)}
+                            className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                          >
+                            Close
+                          </button>
+                          {!addedIds.has(viewingSource.id) && (
                             <button
                               onClick={async () => {
-                                const resultId = result.id || `result-${idx}`;
+                                const resultId = viewingSource.id;
                                 setAddingId(resultId);
                                 try {
                                   await onAddSource({
-                                    title: result.title,
+                                    title: viewingSource.title,
                                     sourceType:
-                                      result.sourceType || result.source,
-                                    sourceUrl: result.sourceUrl,
-                                    abstract: result.abstract,
-                                    authors: result.authors,
-                                    publishedAt: result.publishedAt,
-                                    resourceId: result.id,
-                                    metadata: result.metadata,
+                                      viewingSource.sourceType ||
+                                      viewingSource.source,
+                                    sourceUrl: viewingSource.sourceUrl,
+                                    abstract: viewingSource.abstract,
+                                    authors: viewingSource.authors,
+                                    publishedAt: viewingSource.publishedAt,
+                                    resourceId: viewingSource.id,
+                                    metadata: viewingSource.metadata,
                                   });
                                   setAddedIds((prev) =>
                                     new Set(prev).add(resultId)
                                   );
+                                  setViewingSource(null);
                                 } catch (err) {
                                   console.error('Failed to add source:', err);
                                 } finally {
                                   setAddingId(null);
                                 }
                               }}
-                              disabled={
-                                addingId === (result.id || `result-${idx}`)
-                              }
-                              className="flex items-center gap-1 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+                              disabled={addingId === viewingSource.id}
+                              className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
                             >
-                              {addingId === (result.id || `result-${idx}`) ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
+                              {addingId === viewingSource.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
                               ) : (
-                                <Plus className="h-3 w-3" />
+                                <Plus className="h-4 w-4" />
                               )}
-                              Add
+                              Add to Sources
                             </button>
                           )}
-                          <button
-                            onClick={() => setViewingSource(result)}
-                            className="flex items-center justify-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
-                          >
-                            <Eye className="h-3 w-3" />
-                            View
-                          </button>
-                          {result.sourceUrl && (
-                            <a
-                              href={result.sourceUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center justify-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                              Open
-                            </a>
-                          )}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                ) : searching ? (
-                  <div className="flex flex-col items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-                    <p className="mt-3 text-sm text-gray-500">
-                      {searchMode === 'deep'
-                        ? 'Running deep research across multiple rounds...'
-                        : 'Searching across sources...'}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="py-12 text-center">
-                    <Search className="mx-auto h-10 w-10 text-gray-300" />
-                    <p className="mt-3 text-sm text-gray-500">
-                      Search for papers, code, and articles to add to your
-                      research
-                    </p>
-                    <p className="mt-1 text-xs text-gray-400">
-                      Try: "LLM inference optimization", "transformer attention"
-                    </p>
+                    </div>
                   </div>
                 )}
-              </div>
-            </div>
-
-            {/* View Source Detail Dialog */}
-            {viewingSource && (
-              <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
-                <div className="max-h-[80vh] w-full max-w-2xl overflow-hidden rounded-xl bg-white shadow-xl">
-                  <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      {viewingSource.source === 'arxiv' ? (
-                        <FileText className="h-5 w-5 text-blue-500" />
-                      ) : viewingSource.source === 'github' ? (
-                        <Github className="h-5 w-5 text-gray-700" />
-                      ) : viewingSource.source === 'web' ? (
-                        <Globe className="h-5 w-5 text-green-500" />
-                      ) : (
-                        <Database className="h-5 w-5 text-purple-500" />
-                      )}
-                      <h3 className="font-semibold text-gray-900">
-                        Source Details
-                      </h3>
-                    </div>
-                    <button
-                      onClick={() => setViewingSource(null)}
-                      className="rounded-lg p-1 hover:bg-gray-100"
-                    >
-                      <X className="h-5 w-5 text-gray-500" />
-                    </button>
-                  </div>
-                  <div className="max-h-[60vh] overflow-y-auto p-6">
-                    <h2 className="text-lg font-semibold text-gray-900">
-                      {viewingSource.title}
-                    </h2>
-
-                    {/* Metadata */}
-                    <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-gray-500">
-                      <span className="rounded bg-gray-100 px-2 py-0.5">
-                        {viewingSource.source || viewingSource.sourceType}
-                      </span>
-                      {viewingSource.authors &&
-                        viewingSource.authors.length > 0 && (
-                          <span>
-                            {viewingSource.authors.slice(0, 3).join(', ')}
-                            {viewingSource.authors.length > 3 && ' et al.'}
-                          </span>
-                        )}
-                      {viewingSource.publishedAt && (
-                        <span>
-                          {new Date(
-                            viewingSource.publishedAt
-                          ).toLocaleDateString()}
-                        </span>
-                      )}
-                      {viewingSource.metadata?.stars && (
-                        <span className="flex items-center gap-1">
-                          <Sparkles className="h-3.5 w-3.5" />
-                          {viewingSource.metadata.stars.toLocaleString()} stars
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Abstract / Content */}
-                    {viewingSource.abstract && (
-                      <div className="mt-4">
-                        <h4 className="text-sm font-medium text-gray-700">
-                          Abstract
-                        </h4>
-                        <p className="mt-2 text-sm leading-relaxed text-gray-600">
-                          {viewingSource.abstract}
-                        </p>
-                      </div>
-                    )}
-
-                    {viewingSource.content && (
-                      <div className="mt-4">
-                        <h4 className="text-sm font-medium text-gray-700">
-                          Content
-                        </h4>
-                        <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-gray-600">
-                          {viewingSource.content.length > 2000
-                            ? viewingSource.content.slice(0, 2000) + '...'
-                            : viewingSource.content}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Additional Metadata */}
-                    {viewingSource.metadata &&
-                      Object.keys(viewingSource.metadata).length > 0 && (
-                        <div className="mt-4">
-                          <h4 className="text-sm font-medium text-gray-700">
-                            Additional Info
-                          </h4>
-                          <div className="mt-2 rounded-lg bg-gray-50 p-3">
-                            <pre className="overflow-x-auto text-xs text-gray-600">
-                              {JSON.stringify(viewingSource.metadata, null, 2)}
-                            </pre>
-                          </div>
-                        </div>
-                      )}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center justify-between border-t border-gray-200 px-6 py-4">
-                    {viewingSource.sourceUrl ? (
-                      <a
-                        href={viewingSource.sourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-sm text-purple-600 hover:underline"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                        Open Original
-                      </a>
-                    ) : (
-                      <span className="text-sm text-gray-400">
-                        No source URL
-                      </span>
-                    )}
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setViewingSource(null)}
-                        className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
-                      >
-                        Close
-                      </button>
-                      {!addedIds.has(viewingSource.id) && (
-                        <button
-                          onClick={async () => {
-                            const resultId = viewingSource.id;
-                            setAddingId(resultId);
-                            try {
-                              await onAddSource({
-                                title: viewingSource.title,
-                                sourceType:
-                                  viewingSource.sourceType ||
-                                  viewingSource.source,
-                                sourceUrl: viewingSource.sourceUrl,
-                                abstract: viewingSource.abstract,
-                                authors: viewingSource.authors,
-                                publishedAt: viewingSource.publishedAt,
-                                resourceId: viewingSource.id,
-                                metadata: viewingSource.metadata,
-                              });
-                              setAddedIds((prev) =>
-                                new Set(prev).add(resultId)
-                              );
-                              setViewingSource(null);
-                            } catch (err) {
-                              console.error('Failed to add source:', err);
-                            } finally {
-                              setAddingId(null);
-                            }
-                          }}
-                          disabled={addingId === viewingSource.id}
-                          className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
-                        >
-                          {addingId === viewingSource.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Plus className="h-4 w-4" />
-                          )}
-                          Add to Sources
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
+              </>
             )}
           </div>
         </div>
@@ -1445,6 +1521,7 @@ function StudioPanel({
   onUpdateNote,
   onDeleteNote,
   onGenerateOutput,
+  onRegenerateOutput,
   selectedSourceIds,
 }: {
   notes: Note[];
@@ -1453,11 +1530,13 @@ function StudioPanel({
   onUpdateNote: (id: string, updates: Partial<Note>) => void;
   onDeleteNote: (id: string) => void;
   onGenerateOutput: (type: string) => void;
+  onRegenerateOutput: (outputId: string) => void;
   selectedSourceIds: Set<string>;
 }) {
   const [activeTab, setActiveTab] = useState<'notes' | 'outputs'>('outputs');
   const [showNewNote, setShowNewNote] = useState(false);
   const [newNoteContent, setNewNoteContent] = useState('');
+  const [viewingOutput, setViewingOutput] = useState<Output | null>(null);
 
   const outputTypes = [
     { type: 'STUDY_GUIDE', icon: BookMarked, label: 'Study Guide' },
@@ -1545,7 +1624,15 @@ function StudioPanel({
                   {outputs.map((output) => (
                     <div
                       key={output.id}
-                      className="rounded-lg border border-gray-200 bg-white p-3"
+                      onClick={() =>
+                        output.status === 'COMPLETED' &&
+                        setViewingOutput(output)
+                      }
+                      className={`rounded-lg border border-gray-200 bg-white p-3 ${
+                        output.status === 'COMPLETED'
+                          ? 'cursor-pointer hover:border-purple-300 hover:shadow-sm'
+                          : ''
+                      }`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-gray-900">
@@ -1561,10 +1648,26 @@ function StudioPanel({
                           <Circle className="h-4 w-4 text-gray-300" />
                         )}
                       </div>
-                      {output.content && (
-                        <p className="mt-1 line-clamp-2 text-xs text-gray-500">
-                          {output.content}
-                        </p>
+                      <p className="mt-1 line-clamp-2 text-xs text-gray-500">
+                        {output.status === 'COMPLETED'
+                          ? 'Click to view'
+                          : output.status === 'GENERATING'
+                            ? 'Generating...'
+                            : output.status === 'FAILED'
+                              ? 'Generation failed'
+                              : 'Queued'}
+                      </p>
+                      {output.status === 'FAILED' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRegenerateOutput(output.id);
+                          }}
+                          className="mt-2 flex items-center gap-1 text-xs text-purple-600 hover:underline"
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          Retry
+                        </button>
                       )}
                     </div>
                   ))}
@@ -1662,6 +1765,53 @@ function StudioPanel({
           </div>
         )}
       </div>
+
+      {/* Output Detail Modal */}
+      {viewingOutput && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="max-h-[85vh] w-full max-w-4xl overflow-hidden rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <h3 className="font-semibold text-gray-900">
+                {viewingOutput.title}
+              </h3>
+              <button
+                onClick={() => setViewingOutput(null)}
+                className="rounded-lg p-1 hover:bg-gray-100"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="max-h-[70vh] overflow-y-auto p-6">
+              <OutputViewer
+                output={viewingOutput}
+                onRegenerate={() => {
+                  onRegenerateOutput(viewingOutput.id);
+                  setViewingOutput(null);
+                }}
+                onExport={(format) => {
+                  // Export functionality
+                  const content = viewingOutput.content || '';
+                  const blob = new Blob(
+                    [format === 'json' ? content : content],
+                    {
+                      type:
+                        format === 'json'
+                          ? 'application/json'
+                          : 'text/markdown',
+                    }
+                  );
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${viewingOutput.title}.${format === 'json' ? 'json' : 'md'}`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1954,6 +2104,47 @@ export default function ProjectDetailPage() {
     }
   };
 
+  // Add multiple sources at once (from file upload)
+  const handleAddSources = (newSources: Source[]) => {
+    if (!project) return;
+    setProject((prev) =>
+      prev
+        ? {
+            ...prev,
+            sources: [...newSources, ...prev.sources],
+          }
+        : null
+    );
+  };
+
+  // Regenerate output
+  const handleRegenerateOutput = async (outputId: string) => {
+    if (!project) return;
+    const output = project.outputs.find((o) => o.id === outputId);
+    if (!output) return;
+    try {
+      // For now, just regenerate by creating a new output of same type
+      const newOutput = await generateOutput(
+        projectId,
+        output.type,
+        Array.from(selectedSourceIds)
+      );
+      setProject((prev) =>
+        prev
+          ? {
+              ...prev,
+              outputs: [
+                newOutput,
+                ...prev.outputs.filter((o) => o.id !== outputId),
+              ],
+            }
+          : null
+      );
+    } catch (err) {
+      console.error('Failed to regenerate output:', err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -2012,9 +2203,11 @@ export default function ProjectDetailPage() {
           selectedIds={selectedSourceIds}
           onToggleSelect={handleToggleSource}
           onAddSource={handleAddSource}
+          onAddSources={handleAddSources}
           onRemoveSource={handleRemoveSource}
           collapsed={sourcesCollapsed}
           onToggleCollapse={() => setSourcesCollapsed(!sourcesCollapsed)}
+          projectId={projectId}
         />
 
         {/* Center: Chat */}
@@ -2044,6 +2237,7 @@ export default function ProjectDetailPage() {
           onUpdateNote={handleUpdateNote}
           onDeleteNote={handleDeleteNote}
           onGenerateOutput={handleGenerateOutput}
+          onRegenerateOutput={handleRegenerateOutput}
           selectedSourceIds={selectedSourceIds}
         />
       </div>

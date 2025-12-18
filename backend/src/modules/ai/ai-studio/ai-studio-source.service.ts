@@ -8,6 +8,7 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
 import { InputJsonValue } from "@prisma/client/runtime/library";
 import { SearchService } from "../ai-core/search.service";
 import { AddSourceDto, SearchSourcesDto } from "./dto";
+import { FileParserService } from "./services/file-parser.service";
 
 @Injectable()
 export class AiStudioSourceService {
@@ -16,6 +17,7 @@ export class AiStudioSourceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly searchService: SearchService,
+    private readonly fileParserService: FileParserService,
   ) {}
 
   /**
@@ -1153,6 +1155,93 @@ export class AiStudioSourceService {
         topics: repo.topics,
       },
     }));
+  }
+
+  /**
+   * Upload and parse files as sources
+   */
+  async uploadFiles(
+    userId: string,
+    projectId: string,
+    files: Express.Multer.File[],
+  ) {
+    // Verify project ownership
+    const project = await this.prisma.researchProject.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project) {
+      throw new NotFoundException("Project not found");
+    }
+
+    if (project.userId !== userId) {
+      throw new ForbiddenException("Access denied");
+    }
+
+    const results: any[] = [];
+    const errors: any[] = [];
+
+    for (const file of files) {
+      try {
+        // Parse file content and upload to BackBlaze
+        const parsed = await this.fileParserService.parseFile(file, userId);
+
+        // Check for duplicates
+        const existing = await this.findDuplicateSource(
+          projectId,
+          parsed.title,
+          parsed.fileUrl,
+          null,
+        );
+
+        if (existing) {
+          this.logger.log(`File already exists: ${parsed.title}`);
+          results.push(existing);
+          continue;
+        }
+
+        // Create source record
+        const source = await this.prisma.researchProjectSource.create({
+          data: {
+            projectId,
+            title: parsed.title,
+            sourceType: "file",
+            sourceUrl: parsed.fileUrl, // 存储 BackBlaze URL
+            abstract: parsed.abstract,
+            content: parsed.content,
+            metadata: {
+              fileName: file.originalname,
+              fileUrl: parsed.fileUrl,
+              storageKey: parsed.metadata.storageKey,
+              ...parsed.metadata,
+            } as any,
+            analysisStatus: "COMPLETED", // File parsing is complete
+          },
+        });
+
+        results.push(source);
+      } catch (error: any) {
+        this.logger.error(
+          `Failed to process file ${file.originalname}: ${error.message}`,
+        );
+        errors.push({
+          fileName: file.originalname,
+          error: error.message,
+        });
+      }
+    }
+
+    // Update source count
+    if (results.length > 0) {
+      await this.prisma.researchProject.update({
+        where: { id: projectId },
+        data: {
+          sourceCount: { increment: results.length },
+        },
+      });
+    }
+
+    return { sources: results, errors };
   }
 
   /**
