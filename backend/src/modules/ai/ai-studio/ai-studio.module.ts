@@ -7,6 +7,7 @@ import { AiStudioService } from "./ai-studio.service";
 import { AiStudioSourceService } from "./ai-studio-source.service";
 import { AiStudioChatService } from "./ai-studio-chat.service";
 import { AiStudioOutputService } from "./ai-studio-output.service";
+import { AiStudioTTSService } from "./ai-studio-tts.service";
 import { FileParserService } from "./services/file-parser.service";
 
 @Module({
@@ -17,6 +18,7 @@ import { FileParserService } from "./services/file-parser.service";
     AiStudioSourceService,
     AiStudioChatService,
     AiStudioOutputService,
+    AiStudioTTSService,
     FileParserService,
   ],
   exports: [
@@ -24,6 +26,7 @@ import { FileParserService } from "./services/file-parser.service";
     AiStudioSourceService,
     AiStudioChatService,
     AiStudioOutputService,
+    AiStudioTTSService,
   ],
 })
 export class AiStudioModule {}

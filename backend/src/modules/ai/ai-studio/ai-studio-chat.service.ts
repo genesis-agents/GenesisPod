@@ -99,6 +99,7 @@ export class AiStudioChatService {
     });
 
     // Get selected sources for context
+    // IMPORTANT: Maintain the order of selectedSourceIds for consistent citation mapping
     let sourceContext: any[] = [];
     if (dto.selectedSourceIds && dto.selectedSourceIds.length > 0) {
       const sources = await this.prisma.researchProjectSource.findMany({
@@ -115,7 +116,12 @@ export class AiStudioChatService {
           aiSummary: true,
         },
       });
-      sourceContext = sources;
+      // Sort sources to match the order of selectedSourceIds
+      // This ensures [1] always refers to the first selected source, [2] to second, etc.
+      const sourceMap = new Map(sources.map((s) => [s.id, s]));
+      sourceContext = dto.selectedSourceIds
+        .map((id) => sourceMap.get(id))
+        .filter(Boolean);
     }
 
     // Build context from sources

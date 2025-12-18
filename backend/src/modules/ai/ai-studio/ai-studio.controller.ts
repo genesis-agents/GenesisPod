@@ -27,6 +27,7 @@ import { AiStudioService } from "./ai-studio.service";
 import { AiStudioSourceService } from "./ai-studio-source.service";
 import { AiStudioChatService } from "./ai-studio-chat.service";
 import { AiStudioOutputService } from "./ai-studio-output.service";
+import { AiStudioTTSService } from "./ai-studio-tts.service";
 import {
   CreateProjectDto,
   UpdateProjectDto,
@@ -51,6 +52,7 @@ export class AiStudioController {
     private readonly sourceService: AiStudioSourceService,
     private readonly chatService: AiStudioChatService,
     private readonly outputService: AiStudioOutputService,
+    private readonly ttsService: AiStudioTTSService,
   ) {}
 
   // ==================== Projects ====================
@@ -519,5 +521,80 @@ export class AiStudioController {
       throw new UnauthorizedException("User not authenticated");
     }
     return this.outputService.regenerateOutput(userId, projectId, outputId);
+  }
+
+  /**
+   * Generate audio for an AUDIO_OVERVIEW output
+   */
+  @Post("projects/:projectId/outputs/:outputId/audio")
+  @ApiOperation({ summary: "Generate audio for an Audio Overview output" })
+  @ApiResponse({ status: 200, description: "Audio generated successfully" })
+  async generateAudio(
+    @Request() req: any,
+    @Param("projectId") projectId: string,
+    @Param("outputId") outputId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+
+    // Get the output
+    const output = await this.outputService.getOutput(
+      userId,
+      projectId,
+      outputId,
+    );
+
+    if (output.type !== "AUDIO_OVERVIEW") {
+      throw new BadRequestException("Output is not an Audio Overview");
+    }
+
+    if (output.status !== "COMPLETED" || !output.content) {
+      throw new BadRequestException("Output is not ready for audio generation");
+    }
+
+    // Check if TTS is available
+    if (!this.ttsService.isAvailable()) {
+      return {
+        available: false,
+        provider: "none",
+        message:
+          "No TTS provider configured. Set ELEVENLABS_API_KEY or GOOGLE_TTS_API_KEY.",
+        // Return script for client-side TTS fallback
+        script: this.ttsService.parseScript(output.content),
+      };
+    }
+
+    // Parse script and generate audio
+    const script = this.ttsService.parseScript(output.content);
+    if (!script) {
+      throw new BadRequestException("Failed to parse audio script");
+    }
+
+    const audio = await this.ttsService.generateAudio(script);
+    if (!audio) {
+      throw new BadRequestException("Failed to generate audio");
+    }
+
+    return {
+      available: true,
+      provider: this.ttsService.getProvider(),
+      audioUrl: audio.audioUrl,
+      duration: audio.duration,
+      script,
+    };
+  }
+
+  /**
+   * Check TTS availability
+   */
+  @Get("tts/status")
+  @ApiOperation({ summary: "Check TTS service availability" })
+  async getTTSStatus() {
+    return {
+      available: this.ttsService.isAvailable(),
+      provider: this.ttsService.getProvider(),
+    };
   }
 }

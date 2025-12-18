@@ -52,6 +52,9 @@ import {
   AlertCircle,
   Settings,
   Upload,
+  Layers,
+  Brain,
+  GraduationCap,
 } from 'lucide-react';
 import { FileUploader } from '@/components/ai-studio/FileUploader';
 import { OutputViewer } from '@/components/ai-studio/outputs/OutputViewer';
@@ -96,6 +99,13 @@ interface ChatMessage {
   content: string;
   timestamp: string;
   citations?: string[];
+  // Sources used for this message (in citation order)
+  sourceContext?: Array<{
+    id: string;
+    title: string;
+    content?: string | null;
+    abstract?: string | null;
+  }>;
 }
 
 interface Chat {
@@ -266,6 +276,18 @@ async function generateOutput(
   return data.output;
 }
 
+async function fetchOutput(
+  projectId: string,
+  outputId: string
+): Promise<Output> {
+  const res = await fetch(
+    `${API_BASE}/api/v1/ai-studio/projects/${projectId}/outputs/${outputId}`,
+    { headers: getAuthHeaders() }
+  );
+  if (!res.ok) throw new Error('Failed to fetch output');
+  return res.json();
+}
+
 async function searchSourcesApi(
   query: string,
   mode: 'quick' | 'deep' = 'quick',
@@ -309,7 +331,8 @@ function SourcesPanel({
   projectId,
 }: {
   sources: Source[];
-  selectedIds: Set<string>;
+  // Array to preserve selection order for citations: [1]=first selected, [2]=second, etc.
+  selectedIds: string[];
   onToggleSelect: (id: string) => void;
   onAddSource: (source: Partial<Source>) => void;
   onAddSources: (sources: Source[]) => void;
@@ -318,6 +341,8 @@ function SourcesPanel({
   onToggleCollapse: () => void;
   projectId: string;
 }) {
+  // Convert to Set for efficient lookups
+  const selectedIdSet = new Set(selectedIds);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [dialogTab, setDialogTab] = useState<'search' | 'upload'>('search');
   const [searchQuery, setSearchQuery] = useState('');
@@ -431,25 +456,31 @@ function SourcesPanel({
 
   const allSelected =
     uniqueSources.length > 0 &&
-    uniqueSources.every((s) => selectedIds.has(s.id));
-  const someSelected = uniqueSources.some((s) => selectedIds.has(s.id));
+    uniqueSources.every((s) => selectedIdSet.has(s.id));
+  const someSelected = uniqueSources.some((s) => selectedIdSet.has(s.id));
 
   const handleSelectAll = () => {
     if (allSelected) {
       // Deselect all
       uniqueSources.forEach((s) => {
-        if (selectedIds.has(s.id)) {
+        if (selectedIdSet.has(s.id)) {
           onToggleSelect(s.id);
         }
       });
     } else {
       // Select all
       uniqueSources.forEach((s) => {
-        if (!selectedIds.has(s.id)) {
+        if (!selectedIdSet.has(s.id)) {
           onToggleSelect(s.id);
         }
       });
     }
+  };
+
+  // Get citation index for a source (based on selection order)
+  const getCitationIndex = (sourceId: string): number | null => {
+    const index = selectedIds.indexOf(sourceId);
+    return index !== -1 ? index + 1 : null;
   };
 
   return (
@@ -510,87 +541,93 @@ function SourcesPanel({
           </div>
         ) : (
           <div className="space-y-1">
-            {uniqueSources.map((source, index) => (
-              <SourceCardHighlight
-                key={source.id}
-                sourceId={source.id}
-                className={`group relative rounded-lg border p-2.5 transition-all ${
-                  selectedIds.has(source.id)
-                    ? 'border-purple-300 bg-purple-50'
-                    : 'border-transparent hover:border-gray-200 hover:bg-gray-50'
-                }`}
-              >
-                {/* Source index badge for citation reference */}
-                <div className="absolute -left-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-gray-200 text-[10px] font-bold text-gray-600">
-                  {index + 1}
-                </div>
-                <div className="flex items-start gap-2">
-                  <button
-                    onClick={() => onToggleSelect(source.id)}
-                    className="mt-0.5 flex-shrink-0"
-                  >
-                    {selectedIds.has(source.id) ? (
-                      <CheckCircle2 className="h-4 w-4 text-purple-600" />
-                    ) : (
-                      <Circle className="h-4 w-4 text-gray-300 group-hover:text-gray-400" />
-                    )}
-                  </button>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      {getSourceIcon(source.sourceType)}
-                      <span className="truncate text-sm font-medium text-gray-900">
-                        {source.title}
-                      </span>
+            {uniqueSources.map((source) => {
+              const citationIndex = getCitationIndex(source.id);
+              const isSelected = selectedIdSet.has(source.id);
+              return (
+                <SourceCardHighlight
+                  key={source.id}
+                  sourceId={source.id}
+                  className={`group relative rounded-lg border p-2.5 transition-all ${
+                    isSelected
+                      ? 'border-purple-300 bg-purple-50'
+                      : 'border-transparent hover:border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  {/* Citation index badge - only shown for selected sources */}
+                  {citationIndex !== null && (
+                    <div className="absolute -left-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-purple-600 text-[10px] font-bold text-white shadow">
+                      {citationIndex}
                     </div>
-                    <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                      {getStatusIcon(source.analysisStatus)}
-                      <span className="truncate">
-                        {source.sourceType}
-                        {source.publishedAt &&
-                          ` · ${new Date(source.publishedAt).toLocaleDateString()}`}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                    {source.sourceUrl && (
-                      <a
-                        href={source.sourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded p-1 hover:bg-gray-200"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <ExternalLink className="h-3.5 w-3.5 text-gray-400" />
-                      </a>
-                    )}
+                  )}
+                  <div className="flex items-start gap-2">
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRemoveSource(source.id);
-                      }}
-                      className="rounded p-1 hover:bg-red-100"
+                      onClick={() => onToggleSelect(source.id)}
+                      className="mt-0.5 flex-shrink-0"
                     >
-                      <Trash2 className="h-3.5 w-3.5 text-gray-400 hover:text-red-500" />
+                      {isSelected ? (
+                        <CheckCircle2 className="h-4 w-4 text-purple-600" />
+                      ) : (
+                        <Circle className="h-4 w-4 text-gray-300 group-hover:text-gray-400" />
+                      )}
                     </button>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        {getSourceIcon(source.sourceType)}
+                        <span className="truncate text-sm font-medium text-gray-900">
+                          {source.title}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+                        {getStatusIcon(source.analysisStatus)}
+                        <span className="truncate">
+                          {source.sourceType}
+                          {source.publishedAt &&
+                            ` · ${new Date(source.publishedAt).toLocaleDateString()}`}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      {source.sourceUrl && (
+                        <a
+                          href={source.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded p-1 hover:bg-gray-200"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ExternalLink className="h-3.5 w-3.5 text-gray-400" />
+                        </a>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRemoveSource(source.id);
+                        }}
+                        className="rounded p-1 hover:bg-red-100"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-gray-400 hover:text-red-500" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </SourceCardHighlight>
-            ))}
+                </SourceCardHighlight>
+              );
+            })}
           </div>
         )}
       </div>
 
       {/* Selected Count */}
-      {selectedIds.size > 0 && (
+      {selectedIds.length > 0 && (
         <div className="border-t border-gray-200 px-4 py-2">
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-500">
-              {selectedIds.size} selected for chat
+              {selectedIds.length} selected for chat
             </span>
             <button
               onClick={() => {
                 uniqueSources.forEach((s) => {
-                  if (selectedIds.has(s.id)) onToggleSelect(s.id);
+                  if (selectedIdSet.has(s.id)) onToggleSelect(s.id);
                 });
               }}
               className="text-purple-600 hover:underline"
@@ -1263,7 +1300,8 @@ function ChatPanel({
 }: {
   chat: Chat | null;
   sources: Source[];
-  selectedSourceIds: Set<string>;
+  // Array to preserve selection order for citations
+  selectedSourceIds: string[];
   onSendMessage: (message: string) => void;
   onSaveAsNote: (content: string) => void;
   isLoading: boolean;
@@ -1307,9 +1345,9 @@ function ChatPanel({
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
         <div className="flex items-center gap-2">
           <h3 className="font-semibold text-gray-900">Chat</h3>
-          {selectedSourceIds.size > 0 && (
+          {selectedSourceIds.length > 0 && (
             <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">
-              Using {selectedSourceIds.size} sources
+              Using {selectedSourceIds.length} sources
             </span>
           )}
         </div>
@@ -1401,14 +1439,19 @@ function ChatPanel({
                   {msg.role === 'assistant' ? (
                     <div className="text-sm">
                       {/* Use CitedContent for AI messages to enable clickable citations */}
+                      {/* Use msg.sourceContext (correct order) if available, fallback to sources */}
                       <CitedContent
                         content={msg.content}
-                        sources={sources.map((s) => ({
-                          id: s.id,
-                          title: s.title,
-                          content: s.content,
-                          abstract: s.abstract,
-                        }))}
+                        sources={
+                          msg.sourceContext && msg.sourceContext.length > 0
+                            ? msg.sourceContext
+                            : sources.map((s) => ({
+                                id: s.id,
+                                title: s.title,
+                                content: s.content,
+                                abstract: s.abstract,
+                              }))
+                        }
                         markdown={true}
                       />
                     </div>
@@ -1463,8 +1506,8 @@ function ChatPanel({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={
-              selectedSourceIds.size > 0
-                ? `Ask about ${selectedSourceIds.size} selected sources...`
+              selectedSourceIds.length > 0
+                ? `Ask about ${selectedSourceIds.length} selected sources...`
                 : 'Ask a question about your research...'
             }
             className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
@@ -1493,6 +1536,7 @@ function StudioPanel({
   onGenerateOutput,
   onRegenerateOutput,
   selectedSourceIds,
+  projectId,
 }: {
   notes: Note[];
   outputs: Output[];
@@ -1501,7 +1545,9 @@ function StudioPanel({
   onDeleteNote: (id: string) => void;
   onGenerateOutput: (type: string) => void;
   onRegenerateOutput: (outputId: string) => void;
-  selectedSourceIds: Set<string>;
+  // Array to preserve selection order for citations
+  selectedSourceIds: string[];
+  projectId: string;
 }) {
   const [activeTab, setActiveTab] = useState<'notes' | 'outputs'>('outputs');
   const [showNewNote, setShowNewNote] = useState(false);
@@ -1517,6 +1563,9 @@ function StudioPanel({
     { type: 'TREND_REPORT', icon: TrendingUp, label: 'Trend Report' },
     { type: 'COMPARISON', icon: GitCompare, label: 'Comparison' },
     { type: 'KNOWLEDGE_GRAPH', icon: Network, label: 'Knowledge Graph' },
+    { type: 'FLASHCARDS', icon: Layers, label: 'Flashcards' },
+    { type: 'QUIZ', icon: GraduationCap, label: 'Quiz' },
+    { type: 'MIND_MAP', icon: Brain, label: 'Mind Map' },
   ];
 
   const handleCreateNote = () => {
@@ -1564,8 +1613,8 @@ function StudioPanel({
         {activeTab === 'outputs' ? (
           <div className="p-4">
             <p className="mb-3 text-xs text-gray-500">
-              {selectedSourceIds.size > 0
-                ? `Generate from ${selectedSourceIds.size} selected sources`
+              {selectedSourceIds.length > 0
+                ? `Generate from ${selectedSourceIds.length} selected sources`
                 : 'Select sources to generate outputs'}
             </p>
             <div className="grid grid-cols-2 gap-2">
@@ -1573,7 +1622,7 @@ function StudioPanel({
                 <button
                   key={type}
                   onClick={() => onGenerateOutput(type)}
-                  disabled={selectedSourceIds.size === 0}
+                  disabled={selectedSourceIds.length === 0}
                   className="flex flex-col items-center gap-2 rounded-lg border border-gray-200 bg-white p-3 text-center transition-all hover:border-purple-300 hover:shadow-sm disabled:opacity-50"
                 >
                   <Icon className="h-5 w-5 text-purple-600" />
@@ -1754,6 +1803,7 @@ function StudioPanel({
             <div className="max-h-[70vh] overflow-y-auto p-6">
               <OutputViewer
                 output={viewingOutput}
+                projectId={projectId}
                 onRegenerate={() => {
                   onRegenerateOutput(viewingOutput.id);
                   setViewingOutput(null);
@@ -1795,9 +1845,9 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedSourceIds, setSelectedSourceIds] = useState<Set<string>>(
-    new Set()
-  );
+  // Use array instead of Set to preserve selection order for citations
+  // [1] = first selected, [2] = second selected, etc.
+  const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
   const [sourcesCollapsed, setSourcesCollapsed] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>('');
@@ -1859,18 +1909,64 @@ export default function ProjectDetailPage() {
     loadProject();
   }, [projectId]);
 
-  // Toggle source selection
+  // Poll for output status updates (PENDING/GENERATING -> COMPLETED/FAILED)
+  useEffect(() => {
+    if (!project) return;
+
+    // Find outputs that need polling
+    const pendingOutputs = project.outputs.filter(
+      (o) => o.status === 'PENDING' || o.status === 'GENERATING'
+    );
+
+    if (pendingOutputs.length === 0) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        // Fetch updated status for each pending output
+        const updates = await Promise.all(
+          pendingOutputs.map((o) => fetchOutput(projectId, o.id))
+        );
+
+        // Check if any outputs have changed status
+        const hasChanges = updates.some((updated, i) => {
+          return updated.status !== pendingOutputs[i].status;
+        });
+
+        if (hasChanges) {
+          // Update project state with new output statuses
+          setProject((prev) => {
+            if (!prev) return null;
+            const updatedMap = new Map(updates.map((u) => [u.id, u]));
+            return {
+              ...prev,
+              outputs: prev.outputs.map((o) => updatedMap.get(o.id) || o),
+            };
+          });
+        }
+      } catch (err) {
+        console.error('Failed to poll output status:', err);
+      }
+    }, 3000); // Poll every 3 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [project?.outputs, projectId]);
+
+  // Toggle source selection (preserves order for citation indices)
   const handleToggleSource = (id: string) => {
     setSelectedSourceIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
+      const index = prev.indexOf(id);
+      if (index !== -1) {
+        // Remove from array
+        return prev.filter((_, i) => i !== index);
       } else {
-        next.add(id);
+        // Add to end of array (new selections get next index)
+        return [...prev, id];
       }
-      return next;
     });
   };
+
+  // Helper: convert to Set for quick lookups
+  const selectedSourceIdSet = new Set(selectedSourceIds);
 
   // Add source
   const handleAddSource = async (source: Partial<Source>) => {
@@ -1903,11 +1999,9 @@ export default function ProjectDetailPage() {
             }
           : null
       );
-      setSelectedSourceIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
+      setSelectedSourceIds((prev) =>
+        prev.filter((sourceId) => sourceId !== id)
+      );
     } catch (err) {
       console.error('Failed to remove source:', err);
     }
@@ -1949,7 +2043,7 @@ export default function ProjectDetailPage() {
       const result = await sendChatMessage(
         projectId,
         message,
-        Array.from(selectedSourceIds),
+        selectedSourceIds,
         selectedModel
       );
 
@@ -1961,6 +2055,13 @@ export default function ProjectDetailPage() {
           content: result.aiMessage.content,
           timestamp: result.aiMessage.timestamp,
           citations: result.aiMessage.citations,
+          // Store source context in the order used for citations
+          sourceContext: result.sourceContext?.map((s: any) => ({
+            id: s.id,
+            title: s.title,
+            content: s.content,
+            abstract: s.abstract,
+          })),
         };
 
         setProject((prev) => {
@@ -2088,7 +2189,7 @@ export default function ProjectDetailPage() {
       const newOutput = await generateOutput(
         projectId,
         type,
-        Array.from(selectedSourceIds)
+        selectedSourceIds
       );
       setProject((prev) =>
         prev
@@ -2126,7 +2227,7 @@ export default function ProjectDetailPage() {
       const newOutput = await generateOutput(
         projectId,
         output.type,
-        Array.from(selectedSourceIds)
+        selectedSourceIds
       );
       setProject((prev) =>
         prev
@@ -2242,6 +2343,7 @@ export default function ProjectDetailPage() {
             onGenerateOutput={handleGenerateOutput}
             onRegenerateOutput={handleRegenerateOutput}
             selectedSourceIds={selectedSourceIds}
+            projectId={projectId}
           />
         </div>
       </div>

@@ -3,7 +3,11 @@
 
 export * from './types';
 export * from './CitationContext';
-export * from './CitationLink';
+export {
+  CitationLink,
+  CitationGroup,
+  InlineCitationCard,
+} from './CitationLink';
 export * from './SourceHighlight';
 export * from './CitedContent';
 export * from './citationParser';

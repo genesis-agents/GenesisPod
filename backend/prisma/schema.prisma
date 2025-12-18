@@ -2059,6 +2059,9 @@ enum OutputType {
   TREND_REPORT // 趋势报告
   COMPARISON // 对比分析
   KNOWLEDGE_GRAPH // 知识图谱
+  FLASHCARDS // 闪卡
+  QUIZ // 测验
+  MIND_MAP // 思维导图
   CUSTOM // 自定义
 }
 

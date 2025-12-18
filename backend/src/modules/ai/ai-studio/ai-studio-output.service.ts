@@ -254,6 +254,171 @@ Requirements:
 
 DO NOT include any text before or after the JSON. Output ONLY valid JSON.`,
 
+  FLASHCARDS: `You are an educational content expert specializing in flashcard creation. Create effective study flashcards.
+
+CRITICAL: Output MUST be valid JSON with this exact structure:
+{
+  "title": "Flashcards: [topic]",
+  "description": "Brief description of the flashcard set",
+  "cards": [
+    {
+      "id": "card-1",
+      "front": "Question or term (keep concise)",
+      "back": "Answer or definition (detailed but digestible)",
+      "category": "Category name",
+      "difficulty": "easy|medium|hard",
+      "tags": ["tag1", "tag2"],
+      "sourceRef": "source-id"
+    }
+  ],
+  "categories": ["Category 1", "Category 2"],
+  "stats": {
+    "totalCards": 20,
+    "byDifficulty": {"easy": 5, "medium": 10, "hard": 5}
+  }
+}
+
+Requirements:
+- Generate 15-30 high-quality flashcards
+- Cover key concepts, terms, definitions, and facts
+- Use clear, concise language on the front (question/prompt)
+- Provide comprehensive answers on the back
+- Categorize cards logically
+- Assign appropriate difficulty levels
+- Include source references
+- Make cards suitable for spaced repetition learning
+
+DO NOT include any text before or after the JSON. Output ONLY valid JSON.`,
+
+  QUIZ: `You are an educational assessment expert. Create a comprehensive quiz/test.
+
+CRITICAL: Output MUST be valid JSON with this exact structure:
+{
+  "title": "Quiz: [topic]",
+  "description": "Quiz description and objectives",
+  "settings": {
+    "timeLimit": 30,
+    "passingScore": 70,
+    "showAnswers": "after_submit"
+  },
+  "questions": [
+    {
+      "id": "q-1",
+      "type": "multiple_choice",
+      "question": "Question text?",
+      "options": [
+        {"id": "a", "text": "Option A"},
+        {"id": "b", "text": "Option B"},
+        {"id": "c", "text": "Option C"},
+        {"id": "d", "text": "Option D"}
+      ],
+      "correctAnswer": "b",
+      "explanation": "Why this is correct...",
+      "difficulty": "medium",
+      "category": "Category name",
+      "points": 1,
+      "sourceRef": "source-id"
+    },
+    {
+      "id": "q-2",
+      "type": "true_false",
+      "question": "Statement to evaluate",
+      "correctAnswer": true,
+      "explanation": "Explanation...",
+      "difficulty": "easy",
+      "points": 1
+    },
+    {
+      "id": "q-3",
+      "type": "short_answer",
+      "question": "Open-ended question?",
+      "sampleAnswer": "Expected answer content...",
+      "keywords": ["key1", "key2"],
+      "difficulty": "hard",
+      "points": 2
+    }
+  ],
+  "stats": {
+    "totalQuestions": 15,
+    "totalPoints": 20,
+    "byType": {"multiple_choice": 10, "true_false": 3, "short_answer": 2}
+  }
+}
+
+Requirements:
+- Generate 10-20 questions
+- Mix question types: multiple choice, true/false, short answer
+- Vary difficulty levels
+- Provide clear explanations for all answers
+- Cover key topics comprehensively
+- Questions should test understanding, not just memorization
+- Include source references
+
+DO NOT include any text before or after the JSON. Output ONLY valid JSON.`,
+
+  MIND_MAP: `You are a visual thinking expert. Create a comprehensive mind map structure.
+
+CRITICAL: Output MUST be valid JSON with this exact structure:
+{
+  "title": "Mind Map: [topic]",
+  "centralTopic": {
+    "id": "center",
+    "label": "Main Topic",
+    "description": "Brief description"
+  },
+  "branches": [
+    {
+      "id": "branch-1",
+      "label": "Main Branch",
+      "color": "#7C3AED",
+      "children": [
+        {
+          "id": "branch-1-1",
+          "label": "Sub-topic",
+          "description": "Details...",
+          "children": [
+            {
+              "id": "branch-1-1-1",
+              "label": "Detail point",
+              "isLeaf": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "branch-1-1",
+      "to": "branch-2-1",
+      "label": "relates to",
+      "style": "dashed"
+    }
+  ],
+  "legend": [
+    {"color": "#7C3AED", "meaning": "Core concepts"},
+    {"color": "#10B981", "meaning": "Applications"},
+    {"color": "#F59E0B", "meaning": "Examples"}
+  ],
+  "stats": {
+    "totalNodes": 25,
+    "maxDepth": 4,
+    "branchCount": 5
+  }
+}
+
+Requirements:
+- Create a hierarchical structure with central topic and 4-7 main branches
+- Each branch should have 2-4 levels of depth
+- Use meaningful colors to categorize branches
+- Include cross-connections where relevant
+- Keep labels concise (1-4 words)
+- Add descriptions for important nodes
+- Structure should be visually balanced
+- Cover all major aspects of the topic
+
+DO NOT include any text before or after the JSON. Output ONLY valid JSON.`,
+
   CUSTOM: `Generate a custom structured output based on the user's requirements and sources.
 
 Output MUST be valid JSON. Determine an appropriate structure based on the content and user needs.
@@ -300,6 +465,18 @@ const OUTPUT_CONFIGS: Record<
   KNOWLEDGE_GRAPH: {
     title: "Knowledge Graph",
     icon: "🕸️",
+  },
+  FLASHCARDS: {
+    title: "Flashcards",
+    icon: "🎴",
+  },
+  QUIZ: {
+    title: "Quiz",
+    icon: "📝",
+  },
+  MIND_MAP: {
+    title: "Mind Map",
+    icon: "🧠",
   },
   CUSTOM: {
     title: "Custom Output",

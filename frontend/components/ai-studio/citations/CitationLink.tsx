@@ -1,22 +1,36 @@
 'use client';
 
-import React, { useState } from 'react';
-import { ExternalLink } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { ExternalLink, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Citation } from './types';
 import { useCitationOptional } from './CitationContext';
 
 interface CitationLinkProps {
   citation: Citation;
   className?: string;
+  // Show source preview inline (NotebookLM style)
+  showPreview?: boolean;
 }
 
 /**
  * Clickable citation link that highlights the source when clicked
- * Displays as [1], [2], etc. with hover tooltip
+ * Displays as [1], [2], etc. with hover tooltip and optional expanded preview
  */
-export function CitationLink({ citation, className = '' }: CitationLinkProps) {
+export function CitationLink({
+  citation,
+  className = '',
+  showPreview = false,
+}: CitationLinkProps) {
   const citationContext = useCitationOptional();
   const [showTooltip, setShowTooltip] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
+  // Get source content from context
+  const source = citationContext?.sources.find(
+    (s) => s.id === citation.sourceId
+  );
+  const sourceContent = source?.content || source?.abstract || '';
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -34,11 +48,29 @@ export function CitationLink({ citation, className = '' }: CitationLinkProps) {
     }
   };
 
+  const handleExpand = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setExpanded(!expanded);
+  };
+
   const isHighlighted =
     citationContext?.highlightedSource?.sourceId === citation.sourceId;
 
+  // Get a preview of the source content
+  const getPreview = () => {
+    if (citation.quote) return citation.quote;
+    if (!sourceContent) return null;
+    // Return first 150 chars
+    return sourceContent.length > 150
+      ? sourceContent.slice(0, 150) + '...'
+      : sourceContent;
+  };
+
+  const preview = getPreview();
+
   return (
-    <span className="relative inline-block">
+    <span className="relative inline">
       <button
         onClick={handleClick}
         onMouseEnter={() => setShowTooltip(true)}
@@ -62,36 +94,135 @@ export function CitationLink({ citation, className = '' }: CitationLinkProps) {
         {citation.sourceIndex}
       </button>
 
-      {/* Tooltip */}
+      {/* Tooltip with source details - NotebookLM style */}
       {showTooltip && (
         <div
+          ref={tooltipRef}
           className="
-            absolute bottom-full left-1/2 z-50 mb-2 max-w-xs
-            -translate-x-1/2 whitespace-normal rounded-lg
-            bg-gray-900 px-3 py-2 text-xs text-white
-            shadow-lg
+            absolute bottom-full left-1/2 z-50 mb-2 w-72
+            -translate-x-1/2 rounded-lg
+            border border-gray-200 bg-white
+            shadow-xl
           "
+          onMouseEnter={() => setShowTooltip(true)}
+          onMouseLeave={() => setShowTooltip(false)}
         >
-          <div className="mb-1 flex items-center gap-1 font-medium">
-            <span className="text-purple-300">[{citation.sourceIndex}]</span>
-            <span className="truncate">{citation.sourceTitle}</span>
+          {/* Header */}
+          <div className="flex items-start gap-2 border-b border-gray-100 px-3 py-2">
+            <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-purple-100">
+              <FileText className="h-3.5 w-3.5 text-purple-600" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1">
+                <span className="rounded bg-purple-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  {citation.sourceIndex}
+                </span>
+                <span className="truncate text-sm font-medium text-gray-900">
+                  {citation.sourceTitle}
+                </span>
+              </div>
+            </div>
           </div>
-          {citation.quote && (
-            <p className="line-clamp-3 text-xs italic text-gray-300">
-              "{citation.quote}"
-            </p>
+
+          {/* Content Preview */}
+          {preview && (
+            <div className="px-3 py-2">
+              <p className="text-xs leading-relaxed text-gray-600">
+                {citation.quote ? (
+                  <span className="italic">"{preview}"</span>
+                ) : (
+                  preview
+                )}
+              </p>
+            </div>
           )}
-          <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-400">
-            <ExternalLink className="h-3 w-3" />
-            Click to view source
+
+          {/* Footer */}
+          <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-3 py-1.5">
+            <span className="text-[10px] text-gray-400">
+              Click to view full source
+            </span>
+            <ExternalLink className="h-3 w-3 text-gray-400" />
           </div>
-          {/* Tooltip arrow */}
-          <div className="absolute left-1/2 top-full -mt-1 -translate-x-1/2">
-            <div className="h-2 w-2 rotate-45 bg-gray-900" />
+
+          {/* Arrow */}
+          <div className="absolute left-1/2 top-full -translate-x-1/2">
+            <div className="h-2 w-2 -translate-y-1 rotate-45 border-b border-r border-gray-200 bg-gray-50" />
           </div>
         </div>
       )}
     </span>
+  );
+}
+
+/**
+ * Inline citation with expandable source preview (NotebookLM style)
+ */
+interface InlineCitationCardProps {
+  citation: Citation;
+  sourceContent?: string | null;
+  className?: string;
+}
+
+export function InlineCitationCard({
+  citation,
+  sourceContent,
+  className = '',
+}: InlineCitationCardProps) {
+  const citationContext = useCitationOptional();
+  const [expanded, setExpanded] = useState(false);
+
+  const handleJumpToSource = () => {
+    if (citationContext) {
+      citationContext.setHighlightedSource({
+        sourceId: citation.sourceId,
+        quote: citation.quote,
+      });
+      citationContext.scrollToSource(citation.sourceId);
+    }
+  };
+
+  const preview = citation.quote || sourceContent?.slice(0, 200);
+
+  return (
+    <div
+      className={`my-2 overflow-hidden rounded-lg border border-purple-200 bg-purple-50 ${className}`}
+    >
+      {/* Header - always visible */}
+      <div
+        className="flex cursor-pointer items-center gap-2 px-3 py-2 hover:bg-purple-100"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <span className="flex h-5 w-5 items-center justify-center rounded bg-purple-600 text-[10px] font-bold text-white">
+          {citation.sourceIndex}
+        </span>
+        <span className="flex-1 truncate text-sm font-medium text-purple-900">
+          {citation.sourceTitle}
+        </span>
+        {expanded ? (
+          <ChevronUp className="h-4 w-4 text-purple-600" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-purple-600" />
+        )}
+      </div>
+
+      {/* Expanded content */}
+      {expanded && preview && (
+        <div className="border-t border-purple-200 bg-white px-3 py-2">
+          <p className="text-xs leading-relaxed text-gray-700">
+            {citation.quote ? `"${preview}"` : preview}
+            {sourceContent && sourceContent.length > 200 && '...'}
+          </p>
+          <button
+            onClick={handleJumpToSource}
+            className="mt-2 flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-800"
+          >
+            <ExternalLink className="h-3 w-3" />
+            View full source
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 

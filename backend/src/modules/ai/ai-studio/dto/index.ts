@@ -194,6 +194,9 @@ export type OutputTypeValue =
   | "TREND_REPORT"
   | "COMPARISON"
   | "KNOWLEDGE_GRAPH"
+  | "FLASHCARDS"
+  | "QUIZ"
+  | "MIND_MAP"
   | "CUSTOM";
 
 export class GenerateOutputDto {
@@ -206,6 +209,9 @@ export class GenerateOutputDto {
     "TREND_REPORT",
     "COMPARISON",
     "KNOWLEDGE_GRAPH",
+    "FLASHCARDS",
+    "QUIZ",
+    "MIND_MAP",
     "CUSTOM",
   ])
   type!: OutputTypeValue;
