@@ -23,16 +23,29 @@ import {
   WebSearchTool,
   WebScraperTool,
   DataFetchTool,
+  RAGSearchTool,
   TextGenerationTool,
   ImageGenerationTool,
   CodeGenerationTool,
   DataAnalysisTool,
   FileConversionTool,
+  FileParserTool,
+  PythonExecutorTool,
+  ShortTermMemoryTool,
+  LongTermMemoryTool,
+  AgentHandoffTool,
+  HumanApprovalTool,
   ExportPPTXTool,
   ExportDOCXTool,
   ExportPDFTool,
   ExportImageTool,
 } from "./tools";
+
+// 记忆服务导入
+import {
+  ShortTermMemoryService,
+  LongTermMemoryService,
+} from "./core/memory";
 
 // 依赖模块
 import { AiOfficeModule } from "../ai-office/ai-office.module";
@@ -51,6 +64,10 @@ import { AiCoreModule } from "../ai-core/ai-core.module";
     LLMAdapterFactory,
     ExecutionMetricsCollector,
 
+    // 记忆服务
+    ShortTermMemoryService,
+    LongTermMemoryService,
+
     // Agents
     SlidesAgent,
     DocsAgent,
@@ -61,6 +78,7 @@ import { AiCoreModule } from "../ai-core/ai-core.module";
     WebSearchTool,
     WebScraperTool,
     DataFetchTool,
+    RAGSearchTool,
 
     // Tools - Content Generation
     TextGenerationTool,
@@ -70,6 +88,18 @@ import { AiCoreModule } from "../ai-core/ai-core.module";
     // Tools - Data Processing
     DataAnalysisTool,
     FileConversionTool,
+    FileParserTool,
+
+    // Tools - Code Execution
+    PythonExecutorTool,
+
+    // Tools - Memory
+    ShortTermMemoryTool,
+    LongTermMemoryTool,
+
+    // Tools - Agent Collaboration
+    AgentHandoffTool,
+    HumanApprovalTool,
 
     // Tools - Export
     ExportPPTXTool,
@@ -99,6 +129,7 @@ export class AiAgentsModule implements OnModuleInit {
     private readonly webSearchTool: WebSearchTool,
     private readonly webScraperTool: WebScraperTool,
     private readonly dataFetchTool: DataFetchTool,
+    private readonly ragSearchTool: RAGSearchTool,
     // Tools - Content Generation
     private readonly textGenerationTool: TextGenerationTool,
     private readonly imageGenerationTool: ImageGenerationTool,
@@ -106,6 +137,15 @@ export class AiAgentsModule implements OnModuleInit {
     // Tools - Data Processing
     private readonly dataAnalysisTool: DataAnalysisTool,
     private readonly fileConversionTool: FileConversionTool,
+    private readonly fileParserTool: FileParserTool,
+    // Tools - Code Execution
+    private readonly pythonExecutorTool: PythonExecutorTool,
+    // Tools - Memory
+    private readonly shortTermMemoryTool: ShortTermMemoryTool,
+    private readonly longTermMemoryTool: LongTermMemoryTool,
+    // Tools - Agent Collaboration
+    private readonly agentHandoffTool: AgentHandoffTool,
+    private readonly humanApprovalTool: HumanApprovalTool,
     // Tools - Export
     private readonly exportPPTXTool: ExportPPTXTool,
     private readonly exportDOCXTool: ExportDOCXTool,
@@ -126,6 +166,7 @@ export class AiAgentsModule implements OnModuleInit {
       this.webSearchTool,
       this.webScraperTool,
       this.dataFetchTool,
+      this.ragSearchTool,
       // Content Generation
       this.textGenerationTool,
       this.imageGenerationTool,
@@ -133,6 +174,15 @@ export class AiAgentsModule implements OnModuleInit {
       // Data Processing
       this.dataAnalysisTool,
       this.fileConversionTool,
+      this.fileParserTool,
+      // Code Execution
+      this.pythonExecutorTool,
+      // Memory
+      this.shortTermMemoryTool,
+      this.longTermMemoryTool,
+      // Agent Collaboration
+      this.agentHandoffTool,
+      this.humanApprovalTool,
       // Export
       this.exportPPTXTool,
       this.exportDOCXTool,

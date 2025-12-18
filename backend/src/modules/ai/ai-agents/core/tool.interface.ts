@@ -315,6 +315,13 @@ export const TOOL_CONFIGS: Record<ToolType, ToolConfig> = {
     icon: "📥",
     category: "information",
   },
+  [ToolType.RAG_SEARCH]: {
+    type: ToolType.RAG_SEARCH,
+    name: "RAG 搜索",
+    description: "基于向量数据库的语义搜索",
+    icon: "🔎",
+    category: "information",
+  },
 
   // 内容生成
   [ToolType.TEXT_GENERATION]: {
@@ -354,6 +361,38 @@ export const TOOL_CONFIGS: Record<ToolType, ToolConfig> = {
     icon: "🔄",
     category: "processing",
   },
+  [ToolType.FILE_PARSER]: {
+    type: ToolType.FILE_PARSER,
+    name: "文件解析",
+    description: "解析 PDF、Word、Excel、PPT 等文件内容",
+    icon: "📝",
+    category: "processing",
+  },
+
+  // 代码执行
+  [ToolType.PYTHON_EXECUTOR]: {
+    type: ToolType.PYTHON_EXECUTOR,
+    name: "Python 代码执行",
+    description: "在安全沙箱中执行 Python 代码",
+    icon: "🐍",
+    category: "execution",
+  },
+
+  // 记忆管理
+  [ToolType.SHORT_TERM_MEMORY]: {
+    type: ToolType.SHORT_TERM_MEMORY,
+    name: "短期记忆",
+    description: "会话级别的临时记忆存储",
+    icon: "🧠",
+    category: "memory",
+  },
+  [ToolType.LONG_TERM_MEMORY]: {
+    type: ToolType.LONG_TERM_MEMORY,
+    name: "长期记忆",
+    description: "持久化记忆存储和检索",
+    icon: "💾",
+    category: "memory",
+  },
 
   // 导出
   [ToolType.EXPORT_PPTX]: {
@@ -383,5 +422,21 @@ export const TOOL_CONFIGS: Record<ToolType, ToolConfig> = {
     description: "导出为图片文件",
     icon: "🖼️",
     category: "export",
+  },
+
+  // 协作
+  [ToolType.AGENT_HANDOFF]: {
+    type: ToolType.AGENT_HANDOFF,
+    name: "Agent 委派",
+    description: "将任务委派给其他专业 Agent",
+    icon: "🤝",
+    category: "collaboration",
+  },
+  [ToolType.HUMAN_APPROVAL]: {
+    type: ToolType.HUMAN_APPROVAL,
+    name: "人类审批",
+    description: "请求人类审批或反馈",
+    icon: "✋",
+    category: "collaboration",
   },
 };

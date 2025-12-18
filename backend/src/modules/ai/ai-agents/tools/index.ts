@@ -7,6 +7,7 @@
 export { WebSearchTool } from "./web-search.tool";
 export { WebScraperTool } from "./web-scraper.tool";
 export { DataFetchTool } from "./data-fetch.tool";
+export { RAGSearchTool } from "./information/rag-search.tool";
 
 // Content Generation Tools
 export { TextGenerationTool } from "./text-generation.tool";
@@ -16,6 +17,18 @@ export { CodeGenerationTool } from "./code-generation.tool";
 // Data Processing Tools
 export { DataAnalysisTool } from "./data-analysis.tool";
 export { FileConversionTool } from "./file-conversion.tool";
+export { FileParserTool } from "./processing/file-parser.tool";
+
+// Code Execution Tools
+export { PythonExecutorTool } from "./execution/python-executor.tool";
+
+// Memory Tools
+export { ShortTermMemoryTool } from "./memory/short-term-memory.tool";
+export { LongTermMemoryTool } from "./memory/long-term-memory.tool";
+
+// Agent Collaboration Tools
+export { AgentHandoffTool } from "./collaboration/agent-handoff.tool";
+export { HumanApprovalTool } from "./collaboration/human-approval.tool";
 
 // Export Tools
 export { ExportPPTXTool } from "./export-pptx.tool";

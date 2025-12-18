@@ -35,6 +35,7 @@ export enum ToolType {
   WEB_SEARCH = "web_search",
   WEB_SCRAPER = "web_scraper",
   DATA_FETCH = "data_fetch",
+  RAG_SEARCH = "rag_search",
 
   // 内容生成
   TEXT_GENERATION = "text_generation",
@@ -44,12 +45,24 @@ export enum ToolType {
   // 数据处理
   DATA_ANALYSIS = "data_analysis",
   FILE_CONVERSION = "file_conversion",
+  FILE_PARSER = "file_parser",
+
+  // 代码执行
+  PYTHON_EXECUTOR = "python_executor",
+
+  // 记忆管理
+  SHORT_TERM_MEMORY = "short_term_memory",
+  LONG_TERM_MEMORY = "long_term_memory",
 
   // 导出
   EXPORT_PPTX = "export_pptx",
   EXPORT_DOCX = "export_docx",
   EXPORT_PDF = "export_pdf",
   EXPORT_IMAGE = "export_image",
+
+  // 协作
+  AGENT_HANDOFF = "agent_handoff",
+  HUMAN_APPROVAL = "human_approval",
 }
 
 /**

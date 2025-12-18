@@ -67,3 +67,37 @@ export {
   SystemMetrics,
   TrackToolExecution,
 } from "./execution-metrics";
+
+// MCP Adapter
+export {
+  MCPAdapter,
+  MCPResource,
+  MCPPrompt,
+  MCPPromptArgument,
+  MCPTool,
+  MCPRequest,
+  MCPResponse,
+  MCPError,
+  MCPErrorCode,
+  MCPProgress,
+  MCPCancellation,
+  MCPAdapterOptions,
+  ProgressCallback,
+} from "./mcp";
+
+// Guardrails
+export {
+  GuardrailService,
+  GuardrailConfig,
+  GuardrailResult,
+  ContentFilterConfig,
+  ContentCategory,
+  OutputValidationConfig,
+  RateLimitConfig,
+  RateLimitStrategy,
+  CostControlConfig,
+  PrivacyConfig,
+  SensitiveInfoType,
+  ViolationType,
+  ValidationResult,
+} from "./guardrails";
