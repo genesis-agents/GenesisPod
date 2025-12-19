@@ -4,6 +4,8 @@
  */
 
 import { ToolType } from "./agent.types";
+import { ToolError, ToolErrorCode, ToolErrorDetails } from "./errors";
+import { SchemaValidator, ValidationResult } from "./validation";
 
 /**
  * JSON Schema 类型（简化版）
@@ -117,9 +119,14 @@ export interface ToolResult<T = unknown> {
   data?: T;
 
   /**
-   * 错误信息
+   * 错误信息（简单字符串，向后兼容）
    */
   error?: string;
+
+  /**
+   * 详细错误信息（新增）
+   */
+  errorDetails?: ToolErrorDetails;
 
   /**
    * 执行时间（毫秒）
@@ -219,6 +226,17 @@ export abstract class BaseTool<TInput = unknown, TOutput = unknown>
   protected defaultTimeout = 30000;
 
   /**
+   * Schema 验证器实例
+   */
+  private readonly schemaValidator = new SchemaValidator();
+
+  /**
+   * 是否启用严格 Schema 验证
+   * 子类可覆盖为 false 以使用自定义验证
+   */
+  protected strictValidation = true;
+
+  /**
    * 执行工具
    */
   async execute(
@@ -228,11 +246,32 @@ export abstract class BaseTool<TInput = unknown, TOutput = unknown>
     const startTime = Date.now();
 
     try {
-      // 验证输入
-      if (!this.validateInput(input)) {
+      // 检查取消信号
+      if (context.abortSignal?.aborted) {
+        const error = ToolError.cancelled('Execution cancelled before start', this.type);
         return {
           success: false,
-          error: "Invalid input",
+          error: error.message,
+          errorDetails: error.toDetails(),
+          duration: Date.now() - startTime,
+        };
+      }
+
+      // 验证输入
+      const validationResult = this.validateInputWithSchema(input);
+      if (!validationResult.valid) {
+        const error = new ToolError(
+          ToolErrorCode.VALIDATION_ERROR,
+          this.schemaValidator.getErrorMessages(validationResult).join('; '),
+          {
+            source: this.type,
+            details: { errors: validationResult.errors, input },
+          },
+        );
+        return {
+          success: false,
+          error: error.message,
+          errorDetails: error.toDetails(),
           duration: Date.now() - startTime,
         };
       }
@@ -240,7 +279,15 @@ export abstract class BaseTool<TInput = unknown, TOutput = unknown>
       // 设置超时
       const timeout = context.timeout || this.defaultTimeout;
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("Tool execution timeout")), timeout);
+        const timeoutId = setTimeout(() => {
+          reject(ToolError.timeout(timeout, this.type));
+        }, timeout);
+
+        // 支持取消时清除超时
+        context.abortSignal?.addEventListener('abort', () => {
+          clearTimeout(timeoutId);
+          reject(ToolError.cancelled(context.abortSignal?.reason, this.type));
+        });
       });
 
       // 执行任务
@@ -255,10 +302,22 @@ export abstract class BaseTool<TInput = unknown, TOutput = unknown>
         duration: Date.now() - startTime,
       };
     } catch (error) {
+      // 转换为 ToolError
+      const toolError = ToolError.fromError(
+        error instanceof Error ? error : new Error(String(error)),
+        this.classifyError(error),
+        this.type,
+      );
+
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: toolError.message,
+        errorDetails: toolError.toDetails(),
         duration: Date.now() - startTime,
+        metadata: {
+          retryable: toolError.retryable,
+          retryAfter: toolError.retryAfter,
+        },
       };
     }
   }
@@ -272,10 +331,68 @@ export abstract class BaseTool<TInput = unknown, TOutput = unknown>
   ): Promise<TOutput>;
 
   /**
-   * 验证输入 - 默认返回 true，子类可覆盖
+   * 使用 Schema 验证输入
+   * 结合 JSONSchema 验证和自定义验证
+   */
+  validateInputWithSchema(input: TInput): ValidationResult {
+    // 首先进行 Schema 验证
+    if (this.strictValidation) {
+      const schemaResult = this.schemaValidator.validate(input, this.inputSchema);
+      if (!schemaResult.valid) {
+        return schemaResult;
+      }
+    }
+
+    // 然后进行自定义验证
+    if (!this.validateInput(input)) {
+      return {
+        valid: false,
+        errors: [{
+          path: '',
+          message: 'Custom validation failed',
+          code: 'type_mismatch' as any,
+        }],
+      };
+    }
+
+    return { valid: true, errors: [] };
+  }
+
+  /**
+   * 验证输入 - 默认返回 true，子类可覆盖进行自定义验证
    */
   validateInput(_input: TInput): boolean {
     return true;
+  }
+
+  /**
+   * 分类错误类型
+   * 子类可覆盖以提供更精确的错误分类
+   */
+  protected classifyError(error: unknown): ToolErrorCode {
+    if (error instanceof ToolError) {
+      return error.code;
+    }
+
+    const message = error instanceof Error ? error.message.toLowerCase() : '';
+
+    if (message.includes('timeout')) {
+      return ToolErrorCode.EXECUTION_TIMEOUT;
+    }
+    if (message.includes('cancelled') || message.includes('aborted')) {
+      return ToolErrorCode.EXECUTION_CANCELLED;
+    }
+    if (message.includes('permission') || message.includes('forbidden')) {
+      return ToolErrorCode.PERMISSION_DENIED;
+    }
+    if (message.includes('not found')) {
+      return ToolErrorCode.RESOURCE_NOT_FOUND;
+    }
+    if (message.includes('rate limit') || message.includes('too many')) {
+      return ToolErrorCode.RATE_LIMIT_EXCEEDED;
+    }
+
+    return ToolErrorCode.EXECUTION_FAILED;
   }
 
   /**
