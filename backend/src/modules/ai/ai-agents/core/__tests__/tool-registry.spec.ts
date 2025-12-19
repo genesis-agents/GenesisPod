@@ -281,7 +281,7 @@ describe("BaseTool", () => {
       );
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe("Invalid input");
+      expect(result.error).toBe("Custom validation failed");
     });
   });
 

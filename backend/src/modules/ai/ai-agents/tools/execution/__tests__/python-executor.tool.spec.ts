@@ -118,7 +118,7 @@ _result = {
       );
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain("Invalid input");
+      expect(result.error).toContain("Custom validation failed");
     });
 
     it("应该拒绝导入 subprocess 模块", async () => {
@@ -130,7 +130,7 @@ _result = {
       );
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain("Invalid input");
+      expect(result.error).toContain("Custom validation failed");
     });
 
     it("应该拒绝使用 eval", async () => {
@@ -142,7 +142,7 @@ _result = {
       );
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain("Invalid input");
+      expect(result.error).toContain("Custom validation failed");
     });
 
     it("应该拒绝使用 open", async () => {
@@ -154,7 +154,7 @@ _result = {
       );
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain("Invalid input");
+      expect(result.error).toContain("Custom validation failed");
     });
 
     it("应该允许导入安全的模块", async () => {
@@ -325,7 +325,7 @@ plt.title('Sine Wave')
       );
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain("Invalid input");
+      expect(result.error).toContain("Custom validation failed");
     });
 
     it("应该拒绝非字符串代码", async () => {
@@ -337,7 +337,7 @@ plt.title('Sine Wave')
       );
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain("Invalid input");
+      expect(result.error).toContain("Expected string but got null");
     });
   });
 });

@@ -3,17 +3,17 @@
  * 文件系统资源提供者 - 从文件系统发现和读取资源
  */
 
-import { Logger } from '@nestjs/common';
-import { MCPResource } from '../mcp-adapter';
+import { Logger } from "@nestjs/common";
+import { MCPResource } from "../mcp-adapter";
 import {
   BaseResourceProvider,
   ResourceFilter,
   ResourceContent,
   ResourceEventType,
-} from './resource-provider.interface';
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import { watch, FSWatcher } from 'fs';
+} from "./resource-provider.interface";
+import * as fs from "fs/promises";
+import * as path from "path";
+import { watch, FSWatcher, Stats } from "fs";
 
 // ============================================================================
 // Types
@@ -42,44 +42,46 @@ export interface FileResourceProviderOptions {
  */
 const MIME_TYPES: Record<string, string> = {
   // 文档
-  '.txt': 'text/plain',
-  '.md': 'text/markdown',
-  '.json': 'application/json',
-  '.xml': 'application/xml',
-  '.yaml': 'application/yaml',
-  '.yml': 'application/yaml',
-  '.html': 'text/html',
-  '.css': 'text/css',
+  ".txt": "text/plain",
+  ".md": "text/markdown",
+  ".json": "application/json",
+  ".xml": "application/xml",
+  ".yaml": "application/yaml",
+  ".yml": "application/yaml",
+  ".html": "text/html",
+  ".css": "text/css",
 
   // 代码
-  '.js': 'application/javascript',
-  '.ts': 'application/typescript',
-  '.py': 'text/x-python',
-  '.java': 'text/x-java',
-  '.go': 'text/x-go',
-  '.rs': 'text/x-rust',
-  '.c': 'text/x-c',
-  '.cpp': 'text/x-c++',
-  '.h': 'text/x-c',
+  ".js": "application/javascript",
+  ".ts": "application/typescript",
+  ".py": "text/x-python",
+  ".java": "text/x-java",
+  ".go": "text/x-go",
+  ".rs": "text/x-rust",
+  ".c": "text/x-c",
+  ".cpp": "text/x-c++",
+  ".h": "text/x-c",
 
   // 数据
-  '.csv': 'text/csv',
-  '.sql': 'application/sql',
+  ".csv": "text/csv",
+  ".sql": "application/sql",
 
   // 二进制
-  '.pdf': 'application/pdf',
-  '.doc': 'application/msword',
-  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  '.xls': 'application/vnd.ms-excel',
-  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  '.ppt': 'application/vnd.ms-powerpoint',
-  '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.svg': 'image/svg+xml',
-  '.zip': 'application/zip',
+  ".pdf": "application/pdf",
+  ".doc": "application/msword",
+  ".docx":
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".xls": "application/vnd.ms-excel",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".ppt": "application/vnd.ms-powerpoint",
+  ".pptx":
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".svg": "image/svg+xml",
+  ".zip": "application/zip",
 };
 
 // ============================================================================
@@ -104,8 +106,8 @@ const MIME_TYPES: Record<string, string> = {
  * ```
  */
 export class FileResourceProvider extends BaseResourceProvider {
-  readonly name = 'file';
-  readonly scheme = 'file';
+  readonly name = "file";
+  readonly scheme = "file";
 
   private readonly logger = new Logger(FileResourceProvider.name);
   private readonly options: Required<FileResourceProviderOptions>;
@@ -115,8 +117,8 @@ export class FileResourceProvider extends BaseResourceProvider {
     super();
     this.options = {
       basePath: options.basePath,
-      include: options.include || ['*'],
-      exclude: options.exclude || ['node_modules', '.git', '.DS_Store'],
+      include: options.include || ["*"],
+      exclude: options.exclude || ["node_modules", ".git", ".DS_Store"],
       recursive: options.recursive ?? true,
       maxFileSize: options.maxFileSize || 10 * 1024 * 1024, // 10MB
       enableWatch: options.enableWatch ?? false,
@@ -209,11 +211,11 @@ export class FileResourceProvider extends BaseResourceProvider {
     const isText = this.isTextMimeType(mimeType);
 
     if (isText) {
-      const text = await fs.readFile(filePath, 'utf-8');
+      const text = await fs.readFile(filePath, "utf-8");
       return { uri, mimeType, text };
     } else {
       const buffer = await fs.readFile(filePath);
-      const blob = buffer.toString('base64');
+      const blob = buffer.toString("base64");
       return { uri, mimeType, blob };
     }
   }
@@ -283,7 +285,7 @@ export class FileResourceProvider extends BaseResourceProvider {
             if (exists && stats?.isFile()) {
               const resource = this.createResource(fullPath, stats);
 
-              if (eventType === 'rename') {
+              if (eventType === "rename") {
                 this.emit({
                   type: ResourceEventType.ADDED,
                   resource,
@@ -307,21 +309,24 @@ export class FileResourceProvider extends BaseResourceProvider {
               });
             }
           } catch (error) {
-            this.logger.error(`Error processing file event for ${fullPath}:`, error);
+            this.logger.error(
+              `Error processing file event for ${fullPath}:`,
+              error,
+            );
           }
         },
       );
 
       this.logger.log(`Started watching: ${this.options.basePath}`);
     } catch (error) {
-      this.logger.error('Error starting file watcher:', error);
+      this.logger.error("Error starting file watcher:", error);
     }
   }
 
   /**
    * 创建资源对象
    */
-  private createResource(filePath: string, stats: fs.Stats): MCPResource {
+  private createResource(filePath: string, stats: Stats): MCPResource {
     return {
       uri: this.pathToUri(filePath),
       name: path.basename(filePath),
@@ -347,7 +352,7 @@ export class FileResourceProvider extends BaseResourceProvider {
    * URI 转路径
    */
   private uriToPath(uri: string): string {
-    if (uri.startsWith('file://')) {
+    if (uri.startsWith("file://")) {
       return uri.slice(7);
     }
     return uri;
@@ -358,7 +363,7 @@ export class FileResourceProvider extends BaseResourceProvider {
    */
   private getMimeType(filePath: string): string {
     const ext = path.extname(filePath).toLowerCase();
-    return MIME_TYPES[ext] || 'application/octet-stream';
+    return MIME_TYPES[ext] || "application/octet-stream";
   }
 
   /**
@@ -366,13 +371,13 @@ export class FileResourceProvider extends BaseResourceProvider {
    */
   private isTextMimeType(mimeType: string): boolean {
     return (
-      mimeType.startsWith('text/') ||
-      mimeType === 'application/json' ||
-      mimeType === 'application/xml' ||
-      mimeType === 'application/yaml' ||
-      mimeType === 'application/javascript' ||
-      mimeType === 'application/typescript' ||
-      mimeType === 'application/sql'
+      mimeType.startsWith("text/") ||
+      mimeType === "application/json" ||
+      mimeType === "application/xml" ||
+      mimeType === "application/yaml" ||
+      mimeType === "application/javascript" ||
+      mimeType === "application/typescript" ||
+      mimeType === "application/sql"
     );
   }
 
@@ -381,7 +386,7 @@ export class FileResourceProvider extends BaseResourceProvider {
    */
   private isExcluded(name: string): boolean {
     return this.options.exclude.some((pattern) => {
-      if (pattern.includes('*')) {
+      if (pattern.includes("*")) {
         return this.matchGlob(name, pattern);
       }
       return name === pattern;
@@ -393,15 +398,20 @@ export class FileResourceProvider extends BaseResourceProvider {
    */
   private matchesIncludePatterns(name: string): boolean {
     if (this.options.include.length === 0) return true;
-    if (this.options.include.includes('*')) return true;
+    if (this.options.include.includes("*")) return true;
 
-    return this.options.include.some((pattern) => this.matchGlob(name, pattern));
+    return this.options.include.some((pattern) =>
+      this.matchGlob(name, pattern),
+    );
   }
 
   /**
    * 检查是否匹配过滤器
    */
-  private matchesFilter(resource: MCPResource, filter?: ResourceFilter): boolean {
+  private matchesFilter(
+    resource: MCPResource,
+    filter?: ResourceFilter,
+  ): boolean {
     if (!filter) return true;
 
     if (filter.uriPattern && !this.matchGlob(resource.uri, filter.uriPattern)) {

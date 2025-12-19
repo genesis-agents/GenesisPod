@@ -13,47 +13,47 @@
  */
 export enum ToolErrorCode {
   // 验证错误 (1xxx)
-  VALIDATION_ERROR = 'VALIDATION_ERROR',
-  VALIDATION_SCHEMA_INVALID = 'VALIDATION_SCHEMA_INVALID',
-  VALIDATION_REQUIRED_MISSING = 'VALIDATION_REQUIRED_MISSING',
-  VALIDATION_TYPE_MISMATCH = 'VALIDATION_TYPE_MISMATCH',
-  VALIDATION_FORMAT_INVALID = 'VALIDATION_FORMAT_INVALID',
-  VALIDATION_RANGE_EXCEEDED = 'VALIDATION_RANGE_EXCEEDED',
+  VALIDATION_ERROR = "VALIDATION_ERROR",
+  VALIDATION_SCHEMA_INVALID = "VALIDATION_SCHEMA_INVALID",
+  VALIDATION_REQUIRED_MISSING = "VALIDATION_REQUIRED_MISSING",
+  VALIDATION_TYPE_MISMATCH = "VALIDATION_TYPE_MISMATCH",
+  VALIDATION_FORMAT_INVALID = "VALIDATION_FORMAT_INVALID",
+  VALIDATION_RANGE_EXCEEDED = "VALIDATION_RANGE_EXCEEDED",
 
   // 执行错误 (2xxx)
-  EXECUTION_ERROR = 'EXECUTION_ERROR',
-  EXECUTION_TIMEOUT = 'EXECUTION_TIMEOUT',
-  EXECUTION_CANCELLED = 'EXECUTION_CANCELLED',
-  EXECUTION_FAILED = 'EXECUTION_FAILED',
+  EXECUTION_ERROR = "EXECUTION_ERROR",
+  EXECUTION_TIMEOUT = "EXECUTION_TIMEOUT",
+  EXECUTION_CANCELLED = "EXECUTION_CANCELLED",
+  EXECUTION_FAILED = "EXECUTION_FAILED",
 
   // 权限错误 (3xxx)
-  PERMISSION_DENIED = 'PERMISSION_DENIED',
-  PERMISSION_INSUFFICIENT_SCOPE = 'PERMISSION_INSUFFICIENT_SCOPE',
-  PERMISSION_AUTHENTICATION_REQUIRED = 'PERMISSION_AUTHENTICATION_REQUIRED',
+  PERMISSION_DENIED = "PERMISSION_DENIED",
+  PERMISSION_INSUFFICIENT_SCOPE = "PERMISSION_INSUFFICIENT_SCOPE",
+  PERMISSION_AUTHENTICATION_REQUIRED = "PERMISSION_AUTHENTICATION_REQUIRED",
 
   // 资源错误 (4xxx)
-  RESOURCE_NOT_FOUND = 'RESOURCE_NOT_FOUND',
-  RESOURCE_ALREADY_EXISTS = 'RESOURCE_ALREADY_EXISTS',
-  RESOURCE_UNAVAILABLE = 'RESOURCE_UNAVAILABLE',
-  RESOURCE_EXHAUSTED = 'RESOURCE_EXHAUSTED',
+  RESOURCE_NOT_FOUND = "RESOURCE_NOT_FOUND",
+  RESOURCE_ALREADY_EXISTS = "RESOURCE_ALREADY_EXISTS",
+  RESOURCE_UNAVAILABLE = "RESOURCE_UNAVAILABLE",
+  RESOURCE_EXHAUSTED = "RESOURCE_EXHAUSTED",
 
   // 限流错误 (5xxx)
-  RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED',
-  RATE_LIMIT_QUOTA_EXCEEDED = 'RATE_LIMIT_QUOTA_EXCEEDED',
-  RATE_LIMIT_CONCURRENT_EXCEEDED = 'RATE_LIMIT_CONCURRENT_EXCEEDED',
+  RATE_LIMIT_EXCEEDED = "RATE_LIMIT_EXCEEDED",
+  RATE_LIMIT_QUOTA_EXCEEDED = "RATE_LIMIT_QUOTA_EXCEEDED",
+  RATE_LIMIT_CONCURRENT_EXCEEDED = "RATE_LIMIT_CONCURRENT_EXCEEDED",
 
   // 外部服务错误 (6xxx)
-  EXTERNAL_SERVICE_ERROR = 'EXTERNAL_SERVICE_ERROR',
-  EXTERNAL_SERVICE_TIMEOUT = 'EXTERNAL_SERVICE_TIMEOUT',
-  EXTERNAL_SERVICE_UNAVAILABLE = 'EXTERNAL_SERVICE_UNAVAILABLE',
-  EXTERNAL_SERVICE_RATE_LIMITED = 'EXTERNAL_SERVICE_RATE_LIMITED',
-  EXTERNAL_SERVICE_AUTHENTICATION_FAILED = 'EXTERNAL_SERVICE_AUTHENTICATION_FAILED',
+  EXTERNAL_SERVICE_ERROR = "EXTERNAL_SERVICE_ERROR",
+  EXTERNAL_SERVICE_TIMEOUT = "EXTERNAL_SERVICE_TIMEOUT",
+  EXTERNAL_SERVICE_UNAVAILABLE = "EXTERNAL_SERVICE_UNAVAILABLE",
+  EXTERNAL_SERVICE_RATE_LIMITED = "EXTERNAL_SERVICE_RATE_LIMITED",
+  EXTERNAL_SERVICE_AUTHENTICATION_FAILED = "EXTERNAL_SERVICE_AUTHENTICATION_FAILED",
 
   // 内部错误 (9xxx)
-  INTERNAL_ERROR = 'INTERNAL_ERROR',
-  INTERNAL_CONFIGURATION_ERROR = 'INTERNAL_CONFIGURATION_ERROR',
-  INTERNAL_DEPENDENCY_ERROR = 'INTERNAL_DEPENDENCY_ERROR',
-  INTERNAL_UNEXPECTED_ERROR = 'INTERNAL_UNEXPECTED_ERROR',
+  INTERNAL_ERROR = "INTERNAL_ERROR",
+  INTERNAL_CONFIGURATION_ERROR = "INTERNAL_CONFIGURATION_ERROR",
+  INTERNAL_DEPENDENCY_ERROR = "INTERNAL_DEPENDENCY_ERROR",
+  INTERNAL_UNEXPECTED_ERROR = "INTERNAL_UNEXPECTED_ERROR",
 }
 
 /**
@@ -73,7 +73,14 @@ export interface ToolErrorCodeMeta {
   /** 最大重试次数 */
   maxRetries?: number;
   /** 错误类别 */
-  category: 'validation' | 'execution' | 'permission' | 'resource' | 'rate_limit' | 'external' | 'internal';
+  category:
+    | "validation"
+    | "execution"
+    | "permission"
+    | "resource"
+    | "rate_limit"
+    | "external"
+    | "internal";
 }
 
 /**
@@ -86,42 +93,42 @@ export const TOOL_ERROR_CODES: Record<ToolErrorCode, ToolErrorCodeMeta> = {
     numericCode: 1000,
     httpStatus: 400,
     retryable: false,
-    category: 'validation',
+    category: "validation",
   },
   [ToolErrorCode.VALIDATION_SCHEMA_INVALID]: {
     code: ToolErrorCode.VALIDATION_SCHEMA_INVALID,
     numericCode: 1001,
     httpStatus: 400,
     retryable: false,
-    category: 'validation',
+    category: "validation",
   },
   [ToolErrorCode.VALIDATION_REQUIRED_MISSING]: {
     code: ToolErrorCode.VALIDATION_REQUIRED_MISSING,
     numericCode: 1002,
     httpStatus: 400,
     retryable: false,
-    category: 'validation',
+    category: "validation",
   },
   [ToolErrorCode.VALIDATION_TYPE_MISMATCH]: {
     code: ToolErrorCode.VALIDATION_TYPE_MISMATCH,
     numericCode: 1003,
     httpStatus: 400,
     retryable: false,
-    category: 'validation',
+    category: "validation",
   },
   [ToolErrorCode.VALIDATION_FORMAT_INVALID]: {
     code: ToolErrorCode.VALIDATION_FORMAT_INVALID,
     numericCode: 1004,
     httpStatus: 400,
     retryable: false,
-    category: 'validation',
+    category: "validation",
   },
   [ToolErrorCode.VALIDATION_RANGE_EXCEEDED]: {
     code: ToolErrorCode.VALIDATION_RANGE_EXCEEDED,
     numericCode: 1005,
     httpStatus: 400,
     retryable: false,
-    category: 'validation',
+    category: "validation",
   },
 
   // 执行错误
@@ -132,7 +139,7 @@ export const TOOL_ERROR_CODES: Record<ToolErrorCode, ToolErrorCodeMeta> = {
     retryable: true,
     retryDelay: 1000,
     maxRetries: 3,
-    category: 'execution',
+    category: "execution",
   },
   [ToolErrorCode.EXECUTION_TIMEOUT]: {
     code: ToolErrorCode.EXECUTION_TIMEOUT,
@@ -141,14 +148,14 @@ export const TOOL_ERROR_CODES: Record<ToolErrorCode, ToolErrorCodeMeta> = {
     retryable: true,
     retryDelay: 2000,
     maxRetries: 2,
-    category: 'execution',
+    category: "execution",
   },
   [ToolErrorCode.EXECUTION_CANCELLED]: {
     code: ToolErrorCode.EXECUTION_CANCELLED,
     numericCode: 2002,
     httpStatus: 499,
     retryable: false,
-    category: 'execution',
+    category: "execution",
   },
   [ToolErrorCode.EXECUTION_FAILED]: {
     code: ToolErrorCode.EXECUTION_FAILED,
@@ -157,7 +164,7 @@ export const TOOL_ERROR_CODES: Record<ToolErrorCode, ToolErrorCodeMeta> = {
     retryable: true,
     retryDelay: 1000,
     maxRetries: 3,
-    category: 'execution',
+    category: "execution",
   },
 
   // 权限错误
@@ -166,21 +173,21 @@ export const TOOL_ERROR_CODES: Record<ToolErrorCode, ToolErrorCodeMeta> = {
     numericCode: 3000,
     httpStatus: 403,
     retryable: false,
-    category: 'permission',
+    category: "permission",
   },
   [ToolErrorCode.PERMISSION_INSUFFICIENT_SCOPE]: {
     code: ToolErrorCode.PERMISSION_INSUFFICIENT_SCOPE,
     numericCode: 3001,
     httpStatus: 403,
     retryable: false,
-    category: 'permission',
+    category: "permission",
   },
   [ToolErrorCode.PERMISSION_AUTHENTICATION_REQUIRED]: {
     code: ToolErrorCode.PERMISSION_AUTHENTICATION_REQUIRED,
     numericCode: 3002,
     httpStatus: 401,
     retryable: false,
-    category: 'permission',
+    category: "permission",
   },
 
   // 资源错误
@@ -189,14 +196,14 @@ export const TOOL_ERROR_CODES: Record<ToolErrorCode, ToolErrorCodeMeta> = {
     numericCode: 4000,
     httpStatus: 404,
     retryable: false,
-    category: 'resource',
+    category: "resource",
   },
   [ToolErrorCode.RESOURCE_ALREADY_EXISTS]: {
     code: ToolErrorCode.RESOURCE_ALREADY_EXISTS,
     numericCode: 4001,
     httpStatus: 409,
     retryable: false,
-    category: 'resource',
+    category: "resource",
   },
   [ToolErrorCode.RESOURCE_UNAVAILABLE]: {
     code: ToolErrorCode.RESOURCE_UNAVAILABLE,
@@ -205,7 +212,7 @@ export const TOOL_ERROR_CODES: Record<ToolErrorCode, ToolErrorCodeMeta> = {
     retryable: true,
     retryDelay: 5000,
     maxRetries: 3,
-    category: 'resource',
+    category: "resource",
   },
   [ToolErrorCode.RESOURCE_EXHAUSTED]: {
     code: ToolErrorCode.RESOURCE_EXHAUSTED,
@@ -214,7 +221,7 @@ export const TOOL_ERROR_CODES: Record<ToolErrorCode, ToolErrorCodeMeta> = {
     retryable: true,
     retryDelay: 10000,
     maxRetries: 2,
-    category: 'resource',
+    category: "resource",
   },
 
   // 限流错误
@@ -225,14 +232,14 @@ export const TOOL_ERROR_CODES: Record<ToolErrorCode, ToolErrorCodeMeta> = {
     retryable: true,
     retryDelay: 60000,
     maxRetries: 3,
-    category: 'rate_limit',
+    category: "rate_limit",
   },
   [ToolErrorCode.RATE_LIMIT_QUOTA_EXCEEDED]: {
     code: ToolErrorCode.RATE_LIMIT_QUOTA_EXCEEDED,
     numericCode: 5001,
     httpStatus: 429,
     retryable: false,
-    category: 'rate_limit',
+    category: "rate_limit",
   },
   [ToolErrorCode.RATE_LIMIT_CONCURRENT_EXCEEDED]: {
     code: ToolErrorCode.RATE_LIMIT_CONCURRENT_EXCEEDED,
@@ -241,7 +248,7 @@ export const TOOL_ERROR_CODES: Record<ToolErrorCode, ToolErrorCodeMeta> = {
     retryable: true,
     retryDelay: 1000,
     maxRetries: 5,
-    category: 'rate_limit',
+    category: "rate_limit",
   },
 
   // 外部服务错误
@@ -252,7 +259,7 @@ export const TOOL_ERROR_CODES: Record<ToolErrorCode, ToolErrorCodeMeta> = {
     retryable: true,
     retryDelay: 2000,
     maxRetries: 3,
-    category: 'external',
+    category: "external",
   },
   [ToolErrorCode.EXTERNAL_SERVICE_TIMEOUT]: {
     code: ToolErrorCode.EXTERNAL_SERVICE_TIMEOUT,
@@ -261,7 +268,7 @@ export const TOOL_ERROR_CODES: Record<ToolErrorCode, ToolErrorCodeMeta> = {
     retryable: true,
     retryDelay: 3000,
     maxRetries: 2,
-    category: 'external',
+    category: "external",
   },
   [ToolErrorCode.EXTERNAL_SERVICE_UNAVAILABLE]: {
     code: ToolErrorCode.EXTERNAL_SERVICE_UNAVAILABLE,
@@ -270,7 +277,7 @@ export const TOOL_ERROR_CODES: Record<ToolErrorCode, ToolErrorCodeMeta> = {
     retryable: true,
     retryDelay: 5000,
     maxRetries: 3,
-    category: 'external',
+    category: "external",
   },
   [ToolErrorCode.EXTERNAL_SERVICE_RATE_LIMITED]: {
     code: ToolErrorCode.EXTERNAL_SERVICE_RATE_LIMITED,
@@ -279,14 +286,14 @@ export const TOOL_ERROR_CODES: Record<ToolErrorCode, ToolErrorCodeMeta> = {
     retryable: true,
     retryDelay: 60000,
     maxRetries: 2,
-    category: 'external',
+    category: "external",
   },
   [ToolErrorCode.EXTERNAL_SERVICE_AUTHENTICATION_FAILED]: {
     code: ToolErrorCode.EXTERNAL_SERVICE_AUTHENTICATION_FAILED,
     numericCode: 6004,
     httpStatus: 401,
     retryable: false,
-    category: 'external',
+    category: "external",
   },
 
   // 内部错误
@@ -295,14 +302,14 @@ export const TOOL_ERROR_CODES: Record<ToolErrorCode, ToolErrorCodeMeta> = {
     numericCode: 9000,
     httpStatus: 500,
     retryable: false,
-    category: 'internal',
+    category: "internal",
   },
   [ToolErrorCode.INTERNAL_CONFIGURATION_ERROR]: {
     code: ToolErrorCode.INTERNAL_CONFIGURATION_ERROR,
     numericCode: 9001,
     httpStatus: 500,
     retryable: false,
-    category: 'internal',
+    category: "internal",
   },
   [ToolErrorCode.INTERNAL_DEPENDENCY_ERROR]: {
     code: ToolErrorCode.INTERNAL_DEPENDENCY_ERROR,
@@ -311,14 +318,14 @@ export const TOOL_ERROR_CODES: Record<ToolErrorCode, ToolErrorCodeMeta> = {
     retryable: true,
     retryDelay: 1000,
     maxRetries: 2,
-    category: 'internal',
+    category: "internal",
   },
   [ToolErrorCode.INTERNAL_UNEXPECTED_ERROR]: {
     code: ToolErrorCode.INTERNAL_UNEXPECTED_ERROR,
     numericCode: 9003,
     httpStatus: 500,
     retryable: false,
-    category: 'internal',
+    category: "internal",
   },
 };
 
@@ -360,6 +367,7 @@ export class ToolError extends Error {
   readonly timestamp: Date;
   readonly source?: string;
   readonly meta: ToolErrorCodeMeta;
+  readonly cause?: Error;
 
   constructor(
     code: ToolErrorCode,
@@ -372,7 +380,7 @@ export class ToolError extends Error {
     },
   ) {
     super(message);
-    this.name = 'ToolError';
+    this.name = "ToolError";
     this.code = code;
     this.details = options?.details;
     this.source = options?.source;
@@ -401,7 +409,7 @@ export class ToolError extends Error {
       retryAfter: this.retryAfter,
       timestamp: this.timestamp,
       source: this.source,
-      stack: process.env.NODE_ENV === 'development' ? this.stack : undefined,
+      stack: process.env.NODE_ENV === "development" ? this.stack : undefined,
     };
   }
 
@@ -469,7 +477,7 @@ export class ToolError extends Error {
   static cancelled(reason?: string, source?: string): ToolError {
     return new ToolError(
       ToolErrorCode.EXECUTION_CANCELLED,
-      reason || 'Execution was cancelled',
+      reason || "Execution was cancelled",
       { source },
     );
   }

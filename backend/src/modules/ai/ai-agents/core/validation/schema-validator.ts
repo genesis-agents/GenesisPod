@@ -3,9 +3,9 @@
  * JSONSchema 验证器 - 提供严格的输入验证
  */
 
-import { Injectable, Logger } from '@nestjs/common';
-import { JSONSchema } from '../tool.interface';
-import { ToolError, ToolErrorCode } from '../errors';
+import { Injectable } from "@nestjs/common";
+import { JSONSchema } from "../tool.interface";
+import { ToolError, ToolErrorCode } from "../errors";
 
 // ============================================================================
 // Types
@@ -31,21 +31,21 @@ export interface ValidationError {
  * 验证错误代码
  */
 export enum ValidationErrorCode {
-  REQUIRED = 'required',
-  TYPE_MISMATCH = 'type_mismatch',
-  ENUM_MISMATCH = 'enum_mismatch',
-  FORMAT_INVALID = 'format_invalid',
-  MIN_LENGTH = 'min_length',
-  MAX_LENGTH = 'max_length',
-  MINIMUM = 'minimum',
-  MAXIMUM = 'maximum',
-  MIN_ITEMS = 'min_items',
-  MAX_ITEMS = 'max_items',
-  PATTERN_MISMATCH = 'pattern_mismatch',
-  ADDITIONAL_PROPERTIES = 'additional_properties',
-  ONE_OF_MISMATCH = 'one_of_mismatch',
-  ANY_OF_MISMATCH = 'any_of_mismatch',
-  ALL_OF_MISMATCH = 'all_of_mismatch',
+  REQUIRED = "required",
+  TYPE_MISMATCH = "type_mismatch",
+  ENUM_MISMATCH = "enum_mismatch",
+  FORMAT_INVALID = "format_invalid",
+  MIN_LENGTH = "min_length",
+  MAX_LENGTH = "max_length",
+  MINIMUM = "minimum",
+  MAXIMUM = "maximum",
+  MIN_ITEMS = "min_items",
+  MAX_ITEMS = "max_items",
+  PATTERN_MISMATCH = "pattern_mismatch",
+  ADDITIONAL_PROPERTIES = "additional_properties",
+  ONE_OF_MISMATCH = "one_of_mismatch",
+  ANY_OF_MISMATCH = "any_of_mismatch",
+  ALL_OF_MISMATCH = "all_of_mismatch",
 }
 
 /**
@@ -80,18 +80,21 @@ const FORMAT_VALIDATORS: Record<string, FormatValidator> = {
   url: (value) => {
     try {
       const url = new URL(value);
-      return url.protocol === 'http:' || url.protocol === 'https:';
+      return url.protocol === "http:" || url.protocol === "https:";
     } catch {
       return false;
     }
   },
   uuid: (value) =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value),
-  'date-time': (value) => !isNaN(Date.parse(value)),
-  date: (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !isNaN(Date.parse(value)),
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      value,
+    ),
+  "date-time": (value) => !isNaN(Date.parse(value)),
+  date: (value) =>
+    /^\d{4}-\d{2}-\d{2}$/.test(value) && !isNaN(Date.parse(value)),
   time: (value) => /^\d{2}:\d{2}(:\d{2})?$/.test(value),
   ipv4: (value) => {
-    const parts = value.split('.');
+    const parts = value.split(".");
     if (parts.length !== 4) return false;
     return parts.every((part) => {
       const num = parseInt(part, 10);
@@ -103,7 +106,8 @@ const FORMAT_VALIDATORS: Record<string, FormatValidator> = {
     /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/.test(
       value,
     ),
-  'json-pointer': (value) => value === '' || /^(\/[^/~]*(~[01][^/~]*)*)*$/.test(value),
+  "json-pointer": (value) =>
+    value === "" || /^(\/[^/~]*(~[01][^/~]*)*)*$/.test(value),
 };
 
 // ============================================================================
@@ -116,8 +120,6 @@ const FORMAT_VALIDATORS: Record<string, FormatValidator> = {
  */
 @Injectable()
 export class SchemaValidator {
-  private readonly logger = new Logger(SchemaValidator.name);
-
   /**
    * 验证数据是否符合 Schema
    *
@@ -127,7 +129,7 @@ export class SchemaValidator {
    */
   validate(data: unknown, schema: JSONSchema): ValidationResult {
     const errors: ValidationError[] = [];
-    this.validateValue(data, schema, '', errors);
+    this.validateValue(data, schema, "", errors);
     return {
       valid: errors.length === 0,
       errors,
@@ -164,7 +166,7 @@ export class SchemaValidator {
    */
   getErrorMessages(result: ValidationResult): string[] {
     return result.errors.map((err) => {
-      const path = err.path ? `${err.path}: ` : '';
+      const path = err.path ? `${err.path}: ` : "";
       return `${path}${err.message}`;
     });
   }
@@ -205,16 +207,21 @@ export class SchemaValidator {
 
     // 根据类型进行特定验证
     switch (schema.type) {
-      case 'object':
-        this.validateObject(data as Record<string, unknown>, schema, path, errors);
+      case "object":
+        this.validateObject(
+          data as Record<string, unknown>,
+          schema,
+          path,
+          errors,
+        );
         break;
-      case 'array':
+      case "array":
         this.validateArray(data as unknown[], schema, path, errors);
         break;
-      case 'string':
+      case "string":
         this.validateString(data as string, schema, path, errors);
         break;
-      case 'number':
+      case "number":
         this.validateNumber(data as number, schema, path, errors);
         break;
     }
@@ -236,7 +243,7 @@ export class SchemaValidator {
   ): boolean {
     const actualType = this.getType(data);
 
-    if (type === 'number' && actualType === 'number') {
+    if (type === "number" && actualType === "number") {
       return true;
     }
 
@@ -258,8 +265,8 @@ export class SchemaValidator {
    * 获取值的类型
    */
   private getType(value: unknown): string {
-    if (value === null) return 'null';
-    if (Array.isArray(value)) return 'array';
+    if (value === null) return "null";
+    if (Array.isArray(value)) return "array";
     return typeof value;
   }
 
@@ -453,7 +460,7 @@ export class SchemaValidator {
     if (!enumValues.includes(data as string)) {
       errors.push({
         path,
-        message: `Value must be one of: ${enumValues.join(', ')}`,
+        message: `Value must be one of: ${enumValues.join(", ")}`,
         code: ValidationErrorCode.ENUM_MISMATCH,
         expected: enumValues,
         actual: data,
@@ -529,7 +536,9 @@ export class SchemaValidator {
   /**
    * 映射验证错误码到工具错误码
    */
-  private mapValidationCodeToToolError(code: ValidationErrorCode): ToolErrorCode {
+  private mapValidationCodeToToolError(
+    code: ValidationErrorCode,
+  ): ToolErrorCode {
     switch (code) {
       case ValidationErrorCode.REQUIRED:
         return ToolErrorCode.VALIDATION_REQUIRED_MISSING;
@@ -561,6 +570,6 @@ export class SchemaValidator {
     return `Validation failed with ${errors.length} errors: ${errors
       .slice(0, 3)
       .map((e) => (e.path ? `${e.path}: ${e.message}` : e.message))
-      .join('; ')}${errors.length > 3 ? '...' : ''}`;
+      .join("; ")}${errors.length > 3 ? "..." : ""}`;
   }
 }

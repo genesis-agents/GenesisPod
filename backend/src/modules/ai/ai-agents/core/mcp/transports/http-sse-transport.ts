@@ -7,17 +7,17 @@
  * - GET /mcp/sse - SSE 连接，用于服务端推送
  */
 
-import { Logger } from '@nestjs/common';
-import { MCPRequest, MCPResponse, MCPErrorCode } from '../mcp-adapter';
+import { Logger } from "@nestjs/common";
+import { MCPRequest, MCPResponse, MCPErrorCode } from "../mcp-adapter";
 import {
   BaseTransport,
   MessageHandler,
   TransportOptions,
   TransportState,
   TransportEventType,
-} from './transport.interface';
-import { Request, Response, Router, json } from 'express';
-import { randomUUID } from 'crypto';
+} from "./transport.interface";
+import { Request, Response, Router, json } from "express";
+import { randomUUID } from "crypto";
 
 // ============================================================================
 // Types
@@ -69,7 +69,7 @@ export interface HttpSseTransportOptions extends TransportOptions {
  * ```
  */
 export class HttpSseTransport extends BaseTransport {
-  readonly name = 'http-sse';
+  readonly name = "http-sse";
 
   private readonly logger = new Logger(HttpSseTransport.name);
   private router: Router;
@@ -82,9 +82,9 @@ export class HttpSseTransport extends BaseTransport {
     this.router = Router();
     this.httpOptions = {
       ...this.options,
-      pathPrefix: '',
+      pathPrefix: "",
       enableCors: true,
-      allowedOrigins: ['*'],
+      allowedOrigins: ["*"],
       sseHeartbeatInterval: 30000,
       sseRetryInterval: 3000,
     };
@@ -101,9 +101,12 @@ export class HttpSseTransport extends BaseTransport {
   /**
    * 启动传输
    */
-  async start(handler: MessageHandler, options?: HttpSseTransportOptions): Promise<void> {
+  async start(
+    handler: MessageHandler,
+    options?: HttpSseTransportOptions,
+  ): Promise<void> {
     if (this._state !== TransportState.DISCONNECTED) {
-      throw new Error('Transport already started');
+      throw new Error("Transport already started");
     }
 
     this.handler = handler;
@@ -120,7 +123,7 @@ export class HttpSseTransport extends BaseTransport {
       this._stats.connectedAt = new Date();
       this.setState(TransportState.CONNECTED);
 
-      this.logger.log('HTTP-SSE transport started');
+      this.logger.log("HTTP-SSE transport started");
 
       this.emit({
         type: TransportEventType.CONNECT,
@@ -156,7 +159,7 @@ export class HttpSseTransport extends BaseTransport {
 
     this.setState(TransportState.DISCONNECTED);
 
-    this.logger.log('HTTP-SSE transport stopped');
+    this.logger.log("HTTP-SSE transport stopped");
 
     this.emit({
       type: TransportEventType.DISCONNECT,
@@ -169,11 +172,11 @@ export class HttpSseTransport extends BaseTransport {
    */
   async send(message: MCPResponse): Promise<void> {
     if (this._state !== TransportState.CONNECTED) {
-      throw new Error('Transport not connected');
+      throw new Error("Transport not connected");
     }
 
     const data = JSON.stringify(message);
-    await this.broadcastSSE('message', data);
+    await this.broadcastSSE("message", data);
 
     this._stats.messagesSent++;
     this._stats.bytesSent += Buffer.byteLength(data);
@@ -190,7 +193,7 @@ export class HttpSseTransport extends BaseTransport {
     }
 
     const data = JSON.stringify(message);
-    this.sendSSEEvent(client, 'message', data);
+    this.sendSSEEvent(client, "message", data);
 
     this._stats.messagesSent++;
     this._stats.bytesSent += Buffer.byteLength(data);
@@ -214,18 +217,22 @@ export class HttpSseTransport extends BaseTransport {
   private setupRoutes(): void {
     // CORS 中间件
     if (this.httpOptions.enableCors) {
-      this.router.use((req, res, next) => {
+      this.router.use((req, res, next): void => {
         const origin = req.headers.origin;
         if (
-          this.httpOptions.allowedOrigins.includes('*') ||
+          this.httpOptions.allowedOrigins.includes("*") ||
           (origin && this.httpOptions.allowedOrigins.includes(origin))
         ) {
-          res.header('Access-Control-Allow-Origin', origin || '*');
-          res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-          res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+          res.header("Access-Control-Allow-Origin", origin || "*");
+          res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+          res.header(
+            "Access-Control-Allow-Headers",
+            "Content-Type, Authorization",
+          );
         }
-        if (req.method === 'OPTIONS') {
-          return res.sendStatus(204);
+        if (req.method === "OPTIONS") {
+          res.sendStatus(204);
+          return;
         }
         next();
       });
@@ -235,15 +242,15 @@ export class HttpSseTransport extends BaseTransport {
     this.router.use(json());
 
     // POST /mcp - 处理请求
-    this.router.post('/', this.handlePost.bind(this));
+    this.router.post("/", this.handlePost.bind(this));
 
     // GET /mcp/sse - SSE 连接
-    this.router.get('/sse', this.handleSSE.bind(this));
+    this.router.get("/sse", this.handleSSE.bind(this));
 
     // GET /mcp/health - 健康检查
-    this.router.get('/health', (_req, res) => {
+    this.router.get("/health", (_req, res) => {
       res.json({
-        status: 'ok',
+        status: "ok",
         transport: this.name,
         state: this._state,
         clients: this.clients.size,
@@ -275,11 +282,11 @@ export class HttpSseTransport extends BaseTransport {
 
       if (!this.handler) {
         res.status(500).json({
-          jsonrpc: '2.0',
+          jsonrpc: "2.0",
           id: request.id,
           error: {
             code: MCPErrorCode.INTERNAL_ERROR,
-            message: 'Handler not configured',
+            message: "Handler not configured",
           },
         });
         return;
@@ -288,25 +295,29 @@ export class HttpSseTransport extends BaseTransport {
       const response = await this.handler(request);
 
       const jsonRpcResponse = {
-        jsonrpc: '2.0',
+        jsonrpc: "2.0",
         id: response.id,
-        ...(response.error ? { error: response.error } : { result: response.result }),
+        ...(response.error
+          ? { error: response.error }
+          : { result: response.result }),
       };
 
       res.json(jsonRpcResponse);
 
       this._stats.messagesSent++;
-      this._stats.bytesSent += Buffer.byteLength(JSON.stringify(jsonRpcResponse));
+      this._stats.bytesSent += Buffer.byteLength(
+        JSON.stringify(jsonRpcResponse),
+      );
     } catch (error) {
       this._stats.errorCount++;
-      this.logger.error('Error handling POST:', error);
+      this.logger.error("Error handling POST:", error);
 
       res.status(500).json({
-        jsonrpc: '2.0',
+        jsonrpc: "2.0",
         id: req.body?.id,
         error: {
           code: MCPErrorCode.INTERNAL_ERROR,
-          message: 'Internal error',
+          message: "Internal error",
         },
       });
     }
@@ -320,10 +331,10 @@ export class HttpSseTransport extends BaseTransport {
 
     // 设置 SSE 响应头
     res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
-      'X-Accel-Buffering': 'no', // 禁用 nginx 缓冲
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no", // 禁用 nginx 缓冲
     });
 
     // 发送重试间隔
@@ -344,7 +355,7 @@ export class HttpSseTransport extends BaseTransport {
     this.logger.log(`SSE client connected: ${clientId}`);
 
     // 处理客户端断开
-    req.on('close', () => {
+    req.on("close", () => {
       this.clients.delete(clientId);
       this.logger.log(`SSE client disconnected: ${clientId}`);
     });
@@ -399,7 +410,7 @@ export class HttpSseTransport extends BaseTransport {
 
       for (const [clientId, client] of this.clients) {
         try {
-          this.sendSSEEvent(client, 'heartbeat', heartbeatData);
+          this.sendSSEEvent(client, "heartbeat", heartbeatData);
         } catch {
           this.closeSSEClient(clientId, client);
         }
