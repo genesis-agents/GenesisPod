@@ -3,9 +3,9 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { ToolRegistry } from "../tool.registry";
-import { BaseTool, JSONSchema, ToolContext } from "../tool.interface";
-import { ToolType } from "../agent.types";
+import { ToolRegistry } from "../tool/tool.registry";
+import { BaseTool, JSONSchema, ToolContext } from "../tool/tool.interface";
+import { ToolType } from "../agent/agent.types";
 
 // Mock Tool 实现
 class MockTool extends BaseTool<{ query: string }, { result: string }> {

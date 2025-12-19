@@ -4,8 +4,8 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { BaseTool, JSONSchema, ToolContext } from "../../core/tool.interface";
-import { ToolType } from "../../core/agent.types";
+import { BaseTool, JSONSchema, ToolContext } from "../../core";
+import { ToolType } from "../../core";
 
 // ============================================================================
 // Types
@@ -311,7 +311,13 @@ export class WorkflowOrchestrationTool extends BaseTool<
                 name: { type: "string" },
                 type: {
                   type: "string",
-                  enum: ["TASK", "DECISION", "WAIT", "PARALLEL_GATEWAY", "LOOP"],
+                  enum: [
+                    "TASK",
+                    "DECISION",
+                    "WAIT",
+                    "PARALLEL_GATEWAY",
+                    "LOOP",
+                  ],
                 },
                 executor: { type: "string" },
                 input: { type: "object" },
@@ -371,7 +377,11 @@ export class WorkflowOrchestrationTool extends BaseTool<
 
     switch (operation) {
       case "CREATE":
-        if (!workflow?.name || !workflow?.steps || workflow.steps.length === 0) {
+        if (
+          !workflow?.name ||
+          !workflow?.steps ||
+          workflow.steps.length === 0
+        ) {
           return false;
         }
         break;
@@ -429,7 +439,9 @@ export class WorkflowOrchestrationTool extends BaseTool<
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.logger.error(`[doExecute] Workflow operation failed: ${errorMessage}`);
+      this.logger.error(
+        `[doExecute] Workflow operation failed: ${errorMessage}`,
+      );
 
       return {
         success: false,
@@ -562,11 +574,13 @@ export class WorkflowOrchestrationTool extends BaseTool<
 
       if (success) {
         workflow.stepStatuses[step.stepId].status = "COMPLETED";
-        workflow.stepStatuses[step.stepId].completedAt = new Date().toISOString();
+        workflow.stepStatuses[step.stepId].completedAt =
+          new Date().toISOString();
         workflow.stepStatuses[step.stepId].output = {
           message: `Step ${step.name} completed successfully`,
         };
-        workflow.output[step.stepId] = workflow.stepStatuses[step.stepId].output;
+        workflow.output[step.stepId] =
+          workflow.stepStatuses[step.stepId].output;
       } else {
         if (step.continueOnFailure) {
           workflow.stepStatuses[step.stepId].status = "FAILED";
@@ -623,7 +637,9 @@ export class WorkflowOrchestrationTool extends BaseTool<
     };
   }
 
-  private async resumeWorkflow(workflowId: string): Promise<WorkflowOrchestrationOutput> {
+  private async resumeWorkflow(
+    workflowId: string,
+  ): Promise<WorkflowOrchestrationOutput> {
     const workflow = this.workflowStore.get(workflowId);
 
     if (!workflow) {

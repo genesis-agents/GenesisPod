@@ -14,7 +14,7 @@ import {
   Min,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { AgentType } from "../core/agent.types";
+import { AgentType } from "../core";
 
 /**
  * 上传文件 DTO

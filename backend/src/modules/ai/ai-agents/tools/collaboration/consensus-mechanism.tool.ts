@@ -4,20 +4,20 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { BaseTool, JSONSchema, ToolContext } from "../../core/tool.interface";
-import { ToolType } from "../../core/agent.types";
+import { BaseTool, JSONSchema, ToolContext } from "../../core";
+import { ToolType } from "../../core";
 
 // ============================================================================
 // Types
 // ============================================================================
 
 export type ConsensusStrategy =
-  | "MAJORITY"      // 多数决（>50%）
+  | "MAJORITY" // 多数决（>50%）
   | "SUPERMAJORITY" // 超级多数（>66%）
-  | "UNANIMOUS"     // 全票通过
-  | "WEIGHTED"      // 加权投票
-  | "RANKED"        // 排名选择
-  | "APPROVAL";     // 赞成投票
+  | "UNANIMOUS" // 全票通过
+  | "WEIGHTED" // 加权投票
+  | "RANKED" // 排名选择
+  | "APPROVAL"; // 赞成投票
 
 export type VoteValue = "APPROVE" | "REJECT" | "ABSTAIN";
 
@@ -356,7 +356,9 @@ export class ConsensusMechanismTool extends BaseTool<
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.logger.error(`[doExecute] Consensus operation failed: ${errorMessage}`);
+      this.logger.error(
+        `[doExecute] Consensus operation failed: ${errorMessage}`,
+      );
 
       return {
         success: false,
@@ -366,7 +368,9 @@ export class ConsensusMechanismTool extends BaseTool<
     }
   }
 
-  private createProposal(proposal: ConsensusProposal): ConsensusMechanismOutput {
+  private createProposal(
+    proposal: ConsensusProposal,
+  ): ConsensusMechanismOutput {
     const proposalId =
       proposal.proposalId ||
       `prop_${Date.now()}_${Math.random().toString(36).substring(7)}`;
@@ -422,7 +426,9 @@ export class ConsensusMechanismTool extends BaseTool<
     }
 
     // 检查投票者是否在列表中
-    const isValidVoter = proposal.voters.some((v) => v.voterId === vote.voterId);
+    const isValidVoter = proposal.voters.some(
+      (v) => v.voterId === vote.voterId,
+    );
     if (!isValidVoter) {
       return {
         success: false,
@@ -536,7 +542,8 @@ export class ConsensusMechanismTool extends BaseTool<
     return {
       totalVoters,
       votesReceived,
-      participationRate: totalVoters > 0 ? (votesReceived / totalVoters) * 100 : 0,
+      participationRate:
+        totalVoters > 0 ? (votesReceived / totalVoters) * 100 : 0,
       approves,
       rejects,
       abstains,
@@ -548,7 +555,8 @@ export class ConsensusMechanismTool extends BaseTool<
     stats: NonNullable<ConsensusMechanismOutput["statistics"]>,
   ): NonNullable<ConsensusMechanismOutput["result"]> {
     const { strategy, quorum, voters } = proposal;
-    const { approves, rejects, votesReceived, totalVoters, participationRate } = stats;
+    const { approves, rejects, votesReceived, totalVoters, participationRate } =
+      stats;
 
     // 检查法定人数
     if (quorum && participationRate < quorum) {

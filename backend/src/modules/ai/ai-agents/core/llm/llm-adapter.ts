@@ -4,7 +4,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { FunctionDefinition, ToolCallRequest } from "./tool.interface";
+import { FunctionDefinition, ToolCallRequest } from "../tool/tool.interface";
 
 // ============================================================================
 // Types

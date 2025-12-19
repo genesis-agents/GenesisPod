@@ -2,8 +2,8 @@
  * Retry Strategy Tests
  */
 
-import { RetryStrategy, ToolErrorType } from "../retry-strategy";
-import { ToolType } from "../agent.types";
+import { RetryStrategy, ToolErrorType } from "../execution/retry-strategy";
+import { ToolType } from "../agent/agent.types";
 
 describe("RetryStrategy", () => {
   let strategy: RetryStrategy;

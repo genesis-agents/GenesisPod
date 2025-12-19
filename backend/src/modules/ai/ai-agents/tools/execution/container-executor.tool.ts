@@ -6,8 +6,8 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { BaseTool, JSONSchema, ToolContext } from "../../core/tool.interface";
-import { ToolType } from "../../core/agent.types";
+import { BaseTool, JSONSchema, ToolContext } from "../../core";
+import { ToolType } from "../../core";
 
 // ============================================================================
 // Types
@@ -436,7 +436,8 @@ export class ContainerExecutorTool extends BaseTool<
 
     // 获取运行时配置
     const runtime =
-      DEFAULT_RUNTIMES[language as SupportedLanguage] || DEFAULT_RUNTIMES.python;
+      DEFAULT_RUNTIMES[language as SupportedLanguage] ||
+      DEFAULT_RUNTIMES.python;
     const dockerImage = image || runtime.image;
 
     this.logger.log(
@@ -576,7 +577,8 @@ export class ContainerExecutorTool extends BaseTool<
     const codePreview = code.substring(0, 100);
 
     return {
-      stdout: `[PLACEHOLDER] Executed ${language} code successfully.\n` +
+      stdout:
+        `[PLACEHOLDER] Executed ${language} code successfully.\n` +
         `Code preview: ${codePreview}${code.length > 100 ? "..." : ""}\n` +
         `Output: Hello from ${language} container!\n`,
       stderr: "",

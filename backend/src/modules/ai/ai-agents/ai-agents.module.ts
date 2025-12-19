@@ -7,17 +7,17 @@
 import { Module, OnModuleInit } from "@nestjs/common";
 import { AiAgentsController } from "./ai-agents.controller";
 import { AiAgentsService } from "./ai-agents.service";
-import { AgentRegistry } from "./core/agent.registry";
-import { ToolRegistry } from "./core/tool.registry";
-import { AgentOrchestrator } from "./core/agent.orchestrator";
-import { LLMAdapterFactory } from "./core/llm-adapter";
-import { ExecutionMetricsCollector } from "./core/execution-metrics";
-
-// MCP 和验证器
-import { MCPAdapter } from "./core/mcp/mcp-adapter";
-import { MCPServer } from "./core/mcp/mcp-server";
-import { ResourceManager } from "./core/mcp/resources/resource-manager";
-import { SchemaValidator } from "./core/validation/schema-validator";
+import {
+  AgentRegistry,
+  ToolRegistry,
+  AgentOrchestrator,
+  LLMAdapterFactory,
+  ExecutionMetricsCollector,
+  MCPAdapter,
+  MCPServer,
+  ResourceManager,
+  SchemaValidator,
+} from "./core";
 
 // Agent 导入
 import { SlidesAgent } from "./implementations/slides/slides.agent";

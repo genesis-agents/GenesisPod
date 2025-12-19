@@ -9,7 +9,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { BaseAgent } from "../../core/agent.interface";
+import { BaseAgent } from "../../core";
 import {
   AgentType,
   AgentInput,
@@ -20,7 +20,7 @@ import {
   PlanStep,
   ArtifactType,
   AIModelType,
-} from "../../core/agent.types";
+} from "../../core";
 import {
   AiImageService,
   GeneratedImageResult,

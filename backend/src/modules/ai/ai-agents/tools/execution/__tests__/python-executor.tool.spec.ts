@@ -3,7 +3,7 @@
  */
 
 import { PythonExecutorTool } from "../python-executor.tool";
-import { ToolContext } from "../../../core/tool.interface";
+import { ToolContext } from "../../../core";
 
 describe("PythonExecutorTool", () => {
   let tool: PythonExecutorTool;

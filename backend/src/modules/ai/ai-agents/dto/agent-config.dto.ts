@@ -3,7 +3,7 @@
  */
 
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { AgentType } from "../core/agent.types";
+import { AgentType } from "../core";
 
 /**
  * Agent 模板 DTO

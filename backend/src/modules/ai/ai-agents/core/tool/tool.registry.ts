@@ -5,7 +5,7 @@
 
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { ITool, ToolConfig, TOOL_CONFIGS } from "./tool.interface";
-import { ToolType } from "./agent.types";
+import { ToolType } from "../agent/agent.types";
 
 /**
  * Tool 注册中心

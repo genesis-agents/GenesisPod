@@ -9,7 +9,7 @@ import {
   AgentInput,
   AgentPlan,
   AgentResult,
-} from "../core/agent.types";
+} from "../core";
 
 /**
  * 任务详情响应 DTO

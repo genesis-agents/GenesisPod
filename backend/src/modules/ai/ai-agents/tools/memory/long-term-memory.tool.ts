@@ -18,8 +18,8 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import { BaseTool, JSONSchema, ToolContext } from "../../core/tool.interface";
-import { ToolType } from "../../core/agent.types";
+import { BaseTool, JSONSchema, ToolContext } from "../../core";
+import { ToolType } from "../../core";
 import { LongTermMemoryService } from "../../core/memory/long-term.memory";
 
 // ============================================================================
@@ -303,12 +303,17 @@ export class LongTermMemoryTool extends BaseTool<
     try {
       switch (input.operation) {
         case LongTermMemoryOperation.STORE: {
-          await this.memoryService.setWithUser(userId, input.key!, input.value, {
-            ttl: input.ttl,
-            type: input.type,
-            importance: input.importance,
-            tags: input.tags,
-          });
+          await this.memoryService.setWithUser(
+            userId,
+            input.key!,
+            input.value,
+            {
+              ttl: input.ttl,
+              type: input.type,
+              importance: input.importance,
+              tags: input.tags,
+            },
+          );
           return {
             success: true,
             operation: input.operation,

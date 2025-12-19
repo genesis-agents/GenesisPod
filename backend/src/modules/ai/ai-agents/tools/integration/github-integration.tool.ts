@@ -4,8 +4,8 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { BaseTool, JSONSchema, ToolContext } from "../../core/tool.interface";
-import { ToolType } from "../../core/agent.types";
+import { BaseTool, JSONSchema, ToolContext } from "../../core";
+import { ToolType } from "../../core";
 
 // ============================================================================
 // Types
@@ -215,7 +215,10 @@ export class GitHubIntegrationTool extends BaseTool<
         type: "object",
         description: "认证配置",
         properties: {
-          token: { type: "string", description: "GitHub Personal Access Token" },
+          token: {
+            type: "string",
+            description: "GitHub Personal Access Token",
+          },
           baseUrl: {
             type: "string",
             description: "GitHub Enterprise URL（可选）",

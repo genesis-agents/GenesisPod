@@ -4,8 +4,8 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import { BaseTool, JSONSchema, ToolContext } from "../../core/tool.interface";
-import { ToolType } from "../../core/agent.types";
+import { BaseTool, JSONSchema, ToolContext } from "../../core";
+import { ToolType } from "../../core";
 import { AiStudioTTSService } from "../../../ai-studio/ai-studio-tts.service";
 
 // ============================================================================
@@ -271,9 +271,7 @@ export class AudioGenerationTool extends BaseTool<
         format,
         success: false,
         error:
-          error instanceof Error
-            ? error.message
-            : "Audio generation failed",
+          error instanceof Error ? error.message : "Audio generation failed",
       };
     }
   }

@@ -12,8 +12,8 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { BaseTool, JSONSchema, ToolContext } from "../../core/tool.interface";
-import { ToolType } from "../../core/agent.types";
+import { BaseTool, JSONSchema, ToolContext } from "../../core";
+import { ToolType } from "../../core";
 import { spawn, ChildProcessWithoutNullStreams } from "child_process";
 
 // ============================================================================
@@ -237,7 +237,8 @@ export class ShellExecutorTool extends BaseTool<
     const timeout = options?.timeout || 30000;
     const maxBuffer = options?.maxBuffer || 1024 * 1024; // 1MB
 
-    const fullCommand = args.length > 0 ? `${command} ${args.join(" ")}` : command;
+    const fullCommand =
+      args.length > 0 ? `${command} ${args.join(" ")}` : command;
 
     this.logger.log(
       `Executing shell command: ${fullCommand} (timeout: ${timeout}ms, cwd: ${cwd || "default"})`,
@@ -249,17 +250,13 @@ export class ShellExecutorTool extends BaseTool<
     );
 
     try {
-      const result = await this.executeShellCommand(
-        command,
-        args,
-        {
-          cwd,
-          env,
-          shell: options?.shell,
-          timeout,
-          maxBuffer,
-        },
-      );
+      const result = await this.executeShellCommand(command, args, {
+        cwd,
+        env,
+        shell: options?.shell,
+        timeout,
+        maxBuffer,
+      });
 
       this.logger.log(
         `Shell execution completed: exitCode=${result.exitCode}, time=${result.executionTime}ms`,
@@ -298,7 +295,8 @@ export class ShellExecutorTool extends BaseTool<
     },
   ): Promise<ShellExecutorOutput> {
     const startTime = Date.now();
-    const fullCommand = args.length > 0 ? `${command} ${args.join(" ")}` : command;
+    const fullCommand =
+      args.length > 0 ? `${command} ${args.join(" ")}` : command;
 
     return new Promise((resolve, reject) => {
       let stdout = "";
@@ -310,11 +308,15 @@ export class ShellExecutorTool extends BaseTool<
         : process.env;
 
       // 启动进程
-      const childProcess: ChildProcessWithoutNullStreams = spawn(command, args, {
-        cwd: options.cwd,
-        env: processEnv,
-        shell: options.shell,
-      });
+      const childProcess: ChildProcessWithoutNullStreams = spawn(
+        command,
+        args,
+        {
+          cwd: options.cwd,
+          env: processEnv,
+          shell: options.shell,
+        },
+      );
 
       // 设置超时
       const timeoutId = setTimeout(() => {
@@ -414,7 +416,9 @@ export class ShellExecutorTool extends BaseTool<
         arg.includes(">") ||
         arg.includes("<")
       ) {
-        this.logger.warn(`Potential command injection detected in args: ${arg}`);
+        this.logger.warn(
+          `Potential command injection detected in args: ${arg}`,
+        );
         // 注意：这个检查可能会误报，实际使用时需要更精细的策略
         // 例如，某些合法命令可能需要使用这些字符
       }
@@ -425,9 +429,7 @@ export class ShellExecutorTool extends BaseTool<
     const commandString = `${command} ${allArgs.join(" ")}`;
     for (const path of sensitivePaths) {
       if (commandString.includes(path)) {
-        this.logger.warn(
-          `Access to sensitive path detected: ${path}`,
-        );
+        this.logger.warn(`Access to sensitive path detected: ${path}`);
         // 注意：这只是警告，某些合法操作可能需要访问这些路径
       }
     }

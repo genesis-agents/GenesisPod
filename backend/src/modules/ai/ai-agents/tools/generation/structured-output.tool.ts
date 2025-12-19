@@ -4,8 +4,8 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import { BaseTool, JSONSchema, ToolContext } from "../../core/tool.interface";
-import { ToolType } from "../../core/agent.types";
+import { BaseTool, JSONSchema, ToolContext } from "../../core";
+import { ToolType } from "../../core";
 import { AiChatService } from "../../../ai-core/ai-chat.service";
 
 // ============================================================================
@@ -130,8 +130,7 @@ export class StructuredOutputTool extends BaseTool<
       },
       schema: {
         type: "string",
-        description:
-          "数据模式定义（JSON Schema 或文本描述），用于约束输出结构",
+        description: "数据模式定义（JSON Schema 或文本描述），用于约束输出结构",
       },
       template: {
         type: "string",
@@ -216,8 +215,7 @@ export class StructuredOutputTool extends BaseTool<
       input.prompt.trim().length > 0 &&
       input.prompt.length <= 50000 &&
       ["json", "yaml", "xml"].includes(input.format) &&
-      (!input.temperature ||
-        (input.temperature >= 0 && input.temperature <= 1))
+      (!input.temperature || (input.temperature >= 0 && input.temperature <= 1))
     );
   }
 
@@ -317,7 +315,8 @@ export class StructuredOutputTool extends BaseTool<
         data: parsedData,
         format,
         validated,
-        validationErrors: validationErrors.length > 0 ? validationErrors : undefined,
+        validationErrors:
+          validationErrors.length > 0 ? validationErrors : undefined,
         success: true,
         metadata: {
           tokensUsed: response.usage?.totalTokens,
@@ -380,7 +379,9 @@ export class StructuredOutputTool extends BaseTool<
 
     if (context) {
       const contextStr =
-        typeof context === "string" ? context : JSON.stringify(context, null, 2);
+        typeof context === "string"
+          ? context
+          : JSON.stringify(context, null, 2);
       userPrompt += `\n\n参考上下文：\n${contextStr}`;
     }
 

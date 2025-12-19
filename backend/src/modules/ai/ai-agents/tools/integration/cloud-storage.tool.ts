@@ -4,8 +4,8 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { BaseTool, JSONSchema, ToolContext } from "../../core/tool.interface";
-import { ToolType } from "../../core/agent.types";
+import { BaseTool, JSONSchema, ToolContext } from "../../core";
+import { ToolType } from "../../core";
 
 // ============================================================================
 // Types
@@ -535,7 +535,10 @@ export class CloudStorageTool extends BaseTool<
               type: "object",
               properties: {
                 key: { type: "string", description: "文件键/路径" },
-                content: { type: "string", description: "文件内容（Base64 或 URL）" },
+                content: {
+                  type: "string",
+                  description: "文件内容（Base64 或 URL）",
+                },
                 contentType: {
                   type: "string",
                   description: "内容类型",
@@ -712,10 +715,7 @@ export class CloudStorageTool extends BaseTool<
         }
         break;
       case "delete":
-        if (
-          !input.deleteParams?.keys ||
-          input.deleteParams.keys.length === 0
-        ) {
+        if (!input.deleteParams?.keys || input.deleteParams.keys.length === 0) {
           this.logger.warn("Delete operation requires keys");
           return false;
         }
@@ -963,7 +963,10 @@ export class CloudStorageTool extends BaseTool<
   /**
    * 估算文件大小
    */
-  private estimateFileSize(content: string, contentType: "base64" | "url"): number {
+  private estimateFileSize(
+    content: string,
+    contentType: "base64" | "url",
+  ): number {
     if (contentType === "base64") {
       // Base64 解码后的大小约为原始大小的 3/4
       return Math.floor((content.length * 3) / 4);

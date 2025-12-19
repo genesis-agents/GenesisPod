@@ -8,7 +8,6 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { AgentRegistry } from "./agent.registry";
-import { ToolRegistry } from "./tool.registry";
 import { IAgent } from "./agent.interface";
 import {
   AgentType,
@@ -17,12 +16,13 @@ import {
   AgentResult,
   ToolType,
 } from "./agent.types";
-import { ToolContext, FunctionDefinition } from "./tool.interface";
+import { ToolRegistry } from "../tool/tool.registry";
+import { ToolContext, FunctionDefinition } from "../tool/tool.interface";
 import {
   FunctionCallingExecutor,
   ExecutionConfig,
-} from "./function-calling-executor";
-import { ILLMAdapter } from "./llm-adapter";
+} from "../execution/function-calling-executor";
+import { ILLMAdapter } from "../llm/llm-adapter";
 
 /**
  * Agent 选择结果

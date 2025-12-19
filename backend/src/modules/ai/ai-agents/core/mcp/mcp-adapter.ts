@@ -12,9 +12,9 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { ToolRegistry } from "../tool.registry";
-import { JSONSchema, ToolContext } from "../tool.interface";
-import { ToolType } from "../agent.types";
+import { ToolRegistry } from "../tool/tool.registry";
+import { JSONSchema, ToolContext } from "../tool/tool.interface";
+import { ToolType } from "../agent/agent.types";
 
 // ==================== MCP 类型定义 ====================
 

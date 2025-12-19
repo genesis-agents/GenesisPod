@@ -4,8 +4,8 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { BaseTool, JSONSchema, ToolContext } from "../../core/tool.interface";
-import { ToolType } from "../../core/agent.types";
+import { BaseTool, JSONSchema, ToolContext } from "../../core";
+import { ToolType } from "../../core";
 
 // ============================================================================
 // Types
@@ -155,7 +155,11 @@ export class TemplateRenderTool extends BaseTool<
             type: "object",
             description: "自定义分隔符",
             properties: {
-              start: { type: "string", description: "起始分隔符", default: "{{" },
+              start: {
+                type: "string",
+                description: "起始分隔符",
+                default: "{{",
+              },
               end: { type: "string", description: "结束分隔符", default: "}}" },
             },
           },

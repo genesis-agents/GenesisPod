@@ -11,7 +11,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { BaseAgent } from "../../core/agent.interface";
+import { BaseAgent } from "../../core";
 import {
   AgentType,
   AgentInput,
@@ -22,7 +22,7 @@ import {
   PlanStep,
   ArtifactType,
   AIModelType,
-} from "../../core/agent.types";
+} from "../../core";
 import { AiChatService, ChatMessage } from "../../../ai-core/ai-chat.service";
 import { AIModelService } from "../../../ai-office/ai-model.service";
 

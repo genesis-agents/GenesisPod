@@ -21,7 +21,7 @@ import {
   Artifact,
   AgentTaskStatus,
   ArtifactType,
-} from "./core/agent.types";
+} from "./core";
 
 /**
  * 创建任务输入

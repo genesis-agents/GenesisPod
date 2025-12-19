@@ -11,8 +11,8 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { JSONSchema } from "../tool.interface";
-import { ToolType } from "../agent.types";
+import { JSONSchema } from "../tool/tool.interface";
+import { ToolType } from "../agent/agent.types";
 
 // ==================== 护栏类型定义 ====================
 

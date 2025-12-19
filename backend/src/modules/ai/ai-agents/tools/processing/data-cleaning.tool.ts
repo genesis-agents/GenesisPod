@@ -4,8 +4,8 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { BaseTool, JSONSchema, ToolContext } from "../../core/tool.interface";
-import { ToolType } from "../../core/agent.types";
+import { BaseTool, JSONSchema, ToolContext } from "../../core";
+import { ToolType } from "../../core";
 
 // ============================================================================
 // Types
@@ -222,7 +222,11 @@ export class DataCleaningTool extends BaseTool<
   }
 
   validateInput(input: DataCleaningInput): boolean {
-    if (!input.data || !input.cleaningRules || input.cleaningRules.length === 0) {
+    if (
+      !input.data ||
+      !input.cleaningRules ||
+      input.cleaningRules.length === 0
+    ) {
       return false;
     }
 
@@ -251,7 +255,11 @@ export class DataCleaningTool extends BaseTool<
     try {
       // 应用清洗规则
       for (const rule of cleaningRules) {
-        cleanedData = await this.applyCleaningRule(cleanedData, rule, statistics);
+        cleanedData = await this.applyCleaningRule(
+          cleanedData,
+          rule,
+          statistics,
+        );
       }
 
       // 更新最终统计
@@ -362,7 +370,9 @@ export class DataCleaningTool extends BaseTool<
 
     if (Array.isArray(data)) {
       return data
-        .map((item) => this.handleMissingInObject(item, rule, statistics, strategy))
+        .map((item) =>
+          this.handleMissingInObject(item, rule, statistics, strategy),
+        )
         .filter((item) => item !== null);
     } else if (typeof data === "object" && data !== null) {
       return this.handleMissingInObject(data, rule, statistics, strategy);
@@ -427,7 +437,9 @@ export class DataCleaningTool extends BaseTool<
     const format = rule.params?.format;
 
     if (Array.isArray(data)) {
-      return data.map((item) => this.normalizeItem(item, rule, format, statistics));
+      return data.map((item) =>
+        this.normalizeItem(item, rule, format, statistics),
+      );
     } else if (typeof data === "object" && data !== null) {
       return this.normalizeItem(data, rule, format, statistics);
     }
@@ -508,7 +520,11 @@ export class DataCleaningTool extends BaseTool<
     return data;
   }
 
-  private trimItem(item: any, rule: CleaningRule, statistics: CleaningStatistics): any {
+  private trimItem(
+    item: any,
+    rule: CleaningRule,
+    statistics: CleaningStatistics,
+  ): any {
     if (!item || typeof item !== "object") return item;
 
     const result = { ...item };
@@ -545,7 +561,11 @@ export class DataCleaningTool extends BaseTool<
     return data;
   }
 
-  private replaceItem(item: any, rule: CleaningRule, statistics: CleaningStatistics): any {
+  private replaceItem(
+    item: any,
+    rule: CleaningRule,
+    statistics: CleaningStatistics,
+  ): any {
     if (!item || typeof item !== "object") return item;
 
     const result = { ...item };
@@ -590,7 +610,11 @@ export class DataCleaningTool extends BaseTool<
     return data;
   }
 
-  private transformItem(item: any, rule: CleaningRule, statistics: CleaningStatistics): any {
+  private transformItem(
+    item: any,
+    rule: CleaningRule,
+    statistics: CleaningStatistics,
+  ): any {
     if (!item || typeof item !== "object") return item;
 
     const result = { ...item };
@@ -670,7 +694,9 @@ export class DataCleaningTool extends BaseTool<
     }
 
     const headers = Object.keys(data[0]);
-    const rows = data.map((item) => headers.map((h) => item[h] ?? "").join(","));
+    const rows = data.map((item) =>
+      headers.map((h) => item[h] ?? "").join(","),
+    );
 
     return [headers.join(","), ...rows].join("\n");
   }

@@ -4,8 +4,8 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { BaseTool, JSONSchema, ToolContext } from "../../core/tool.interface";
-import { ToolType, AgentType, AgentResult } from "../../core/agent.types";
+import { BaseTool, JSONSchema, ToolContext } from "../../core";
+import { ToolType, AgentType, AgentResult } from "../../core";
 import { randomUUID } from "crypto";
 
 // ============================================================================
@@ -286,7 +286,9 @@ export class AgentHandoffTool extends BaseTool<
       input.options?.fallbackAgent &&
       !Object.values(AgentType).includes(input.options.fallbackAgent)
     ) {
-      this.logger.warn(`Invalid fallback agent: ${input.options.fallbackAgent}`);
+      this.logger.warn(
+        `Invalid fallback agent: ${input.options.fallbackAgent}`,
+      );
       return false;
     }
 

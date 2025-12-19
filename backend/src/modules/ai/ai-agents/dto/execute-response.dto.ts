@@ -3,7 +3,7 @@
  */
 
 import { ApiProperty } from "@nestjs/swagger";
-import { AgentTaskStatus } from "../core/agent.types";
+import { AgentTaskStatus } from "../core";
 
 /**
  * 执行响应 DTO

@@ -6,8 +6,8 @@ import {
   ExecutionMetricsCollector,
   ToolExecutionRecord,
   AgentExecutionRecord,
-} from "../execution-metrics";
-import { ToolType, AgentType } from "../agent.types";
+} from "../execution/execution-metrics";
+import { ToolType, AgentType } from "../agent/agent.types";
 
 describe("ExecutionMetricsCollector", () => {
   let collector: ExecutionMetricsCollector;

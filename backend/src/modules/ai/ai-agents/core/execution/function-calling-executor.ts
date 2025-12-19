@@ -4,10 +4,14 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { ToolRegistry } from "./tool.registry";
-import { ToolContext, ToolResult, FunctionDefinition } from "./tool.interface";
-import { ToolType, AgentEvent } from "./agent.types";
-import { ILLMAdapter, LLMMessage, LLMResponse } from "./llm-adapter";
+import { ToolRegistry } from "../tool/tool.registry";
+import {
+  ToolContext,
+  ToolResult,
+  FunctionDefinition,
+} from "../tool/tool.interface";
+import { ToolType, AgentEvent } from "../agent/agent.types";
+import { ILLMAdapter, LLMMessage, LLMResponse } from "../llm/llm-adapter";
 import { RetryStrategy } from "./retry-strategy";
 
 // ============================================================================

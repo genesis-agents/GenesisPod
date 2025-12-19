@@ -17,8 +17,8 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { BaseTool, JSONSchema, ToolContext } from "../../core/tool.interface";
-import { ToolType, AgentType } from "../../core/agent.types";
+import { BaseTool, JSONSchema, ToolContext } from "../../core";
+import { ToolType, AgentType } from "../../core";
 import { randomUUID } from "crypto";
 
 // ============================================================================

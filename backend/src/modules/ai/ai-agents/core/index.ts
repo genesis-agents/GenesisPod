@@ -2,73 +2,29 @@
  * Agent Core Module - 导出所有核心组件
  */
 
-// Types
-export * from "./agent.types";
+// ============================================================================
+// Agent Module
+// ============================================================================
+export * from "./agent";
 
-// Interfaces
-export { IAgent, BaseAgent } from "./agent.interface";
-export {
-  ITool,
-  BaseTool,
-  JSONSchema,
-  ToolContext,
-  ToolResult,
-  ToolConfig,
-  TOOL_CONFIGS,
-  FunctionDefinition,
-  ToolCallRequest,
-} from "./tool.interface";
+// ============================================================================
+// Tool Module
+// ============================================================================
+export * from "./tool";
 
-// Registries
-export { AgentRegistry } from "./agent.registry";
-export { ToolRegistry } from "./tool.registry";
+// ============================================================================
+// Execution Module
+// ============================================================================
+export * from "./execution";
 
-// Orchestrator
-export {
-  AgentOrchestrator,
-  AutonomousExecutionInput,
-} from "./agent.orchestrator";
+// ============================================================================
+// LLM Module
+// ============================================================================
+export * from "./llm";
 
-// LLM Adapters
-export {
-  ILLMAdapter,
-  LLMMessage,
-  LLMRequestOptions,
-  LLMResponse,
-  LLMProvider,
-  OpenAIAdapter,
-  AnthropicAdapter,
-  LLMAdapterFactory,
-} from "./llm-adapter";
-
-// Retry Strategy (旧版 ToolError 为 LegacyToolError)
-export {
-  RetryStrategy,
-  RetryConfig,
-  RetryResult,
-  ToolError as LegacyToolError,
-  ToolErrorType,
-  WithRetry,
-} from "./retry-strategy";
-
-// Function Calling Executor
-export {
-  FunctionCallingExecutor,
-  ExecutionConfig,
-  ExecutionMetrics,
-} from "./function-calling-executor";
-
-// Execution Metrics
-export {
-  ExecutionMetricsCollector,
-  ToolExecutionRecord,
-  ToolStats,
-  AgentExecutionRecord,
-  SystemMetrics,
-  TrackToolExecution,
-} from "./execution-metrics";
-
+// ============================================================================
 // Error System (新版细粒度错误分类)
+// ============================================================================
 export {
   ToolError,
   ToolErrorCode,
@@ -80,7 +36,9 @@ export {
   shouldRetry,
 } from "./errors";
 
+// ============================================================================
 // Validation System
+// ============================================================================
 export {
   SchemaValidator,
   ValidationResult,
@@ -88,7 +46,9 @@ export {
   ValidationErrorCode,
 } from "./validation";
 
+// ============================================================================
 // MCP Adapter
+// ============================================================================
 export {
   MCPAdapter,
   MCPResource,
@@ -105,7 +65,9 @@ export {
   ProgressCallback,
 } from "./mcp";
 
+// ============================================================================
 // MCP Server
+// ============================================================================
 export {
   MCPServer,
   MCPServerInfo,
@@ -114,7 +76,9 @@ export {
   MCPServerOptions,
 } from "./mcp";
 
+// ============================================================================
 // MCP Transports
+// ============================================================================
 export {
   IMCPTransport,
   BaseTransport,
@@ -128,7 +92,9 @@ export {
   HttpSseTransportOptions,
 } from "./mcp";
 
+// ============================================================================
 // MCP Resources
+// ============================================================================
 export {
   IResourceProvider,
   BaseResourceProvider,
@@ -142,7 +108,9 @@ export {
   ResourceManagerOptions,
 } from "./mcp";
 
+// ============================================================================
 // Guardrails
+// ============================================================================
 export {
   GuardrailService,
   GuardrailConfig,
@@ -158,3 +126,8 @@ export {
   ViolationType,
   ValidationResult as GuardrailValidationResult,
 } from "./guardrails";
+
+// ============================================================================
+// Memory Module
+// ============================================================================
+export * from "./memory";

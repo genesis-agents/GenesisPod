@@ -3,9 +3,9 @@
  * 工具系统 - Agent 可调用的各种工具
  */
 
-import { ToolType } from "./agent.types";
-import { ToolError, ToolErrorCode, ToolErrorDetails } from "./errors";
-import { SchemaValidator, ValidationResult } from "./validation";
+import { ToolType } from "../agent/agent.types";
+import { ToolError, ToolErrorCode, ToolErrorDetails } from "../errors";
+import { SchemaValidator, ValidationResult } from "../validation";
 
 /**
  * JSON Schema 类型（简化版）
@@ -248,7 +248,10 @@ export abstract class BaseTool<TInput = unknown, TOutput = unknown>
     try {
       // 检查取消信号
       if (context.abortSignal?.aborted) {
-        const error = ToolError.cancelled('Execution cancelled before start', this.type);
+        const error = ToolError.cancelled(
+          "Execution cancelled before start",
+          this.type,
+        );
         return {
           success: false,
           error: error.message,
@@ -262,7 +265,7 @@ export abstract class BaseTool<TInput = unknown, TOutput = unknown>
       if (!validationResult.valid) {
         const error = new ToolError(
           ToolErrorCode.VALIDATION_ERROR,
-          this.schemaValidator.getErrorMessages(validationResult).join('; '),
+          this.schemaValidator.getErrorMessages(validationResult).join("; "),
           {
             source: this.type,
             details: { errors: validationResult.errors, input },
@@ -284,7 +287,7 @@ export abstract class BaseTool<TInput = unknown, TOutput = unknown>
         }, timeout);
 
         // 支持取消时清除超时
-        context.abortSignal?.addEventListener('abort', () => {
+        context.abortSignal?.addEventListener("abort", () => {
           clearTimeout(timeoutId);
           reject(ToolError.cancelled(context.abortSignal?.reason, this.type));
         });
@@ -337,7 +340,10 @@ export abstract class BaseTool<TInput = unknown, TOutput = unknown>
   validateInputWithSchema(input: TInput): ValidationResult {
     // 首先进行 Schema 验证
     if (this.strictValidation) {
-      const schemaResult = this.schemaValidator.validate(input, this.inputSchema);
+      const schemaResult = this.schemaValidator.validate(
+        input,
+        this.inputSchema,
+      );
       if (!schemaResult.valid) {
         return schemaResult;
       }
@@ -347,11 +353,13 @@ export abstract class BaseTool<TInput = unknown, TOutput = unknown>
     if (!this.validateInput(input)) {
       return {
         valid: false,
-        errors: [{
-          path: '',
-          message: 'Custom validation failed',
-          code: 'type_mismatch' as any,
-        }],
+        errors: [
+          {
+            path: "",
+            message: "Custom validation failed",
+            code: "type_mismatch" as any,
+          },
+        ],
       };
     }
 
@@ -374,21 +382,21 @@ export abstract class BaseTool<TInput = unknown, TOutput = unknown>
       return error.code;
     }
 
-    const message = error instanceof Error ? error.message.toLowerCase() : '';
+    const message = error instanceof Error ? error.message.toLowerCase() : "";
 
-    if (message.includes('timeout')) {
+    if (message.includes("timeout")) {
       return ToolErrorCode.EXECUTION_TIMEOUT;
     }
-    if (message.includes('cancelled') || message.includes('aborted')) {
+    if (message.includes("cancelled") || message.includes("aborted")) {
       return ToolErrorCode.EXECUTION_CANCELLED;
     }
-    if (message.includes('permission') || message.includes('forbidden')) {
+    if (message.includes("permission") || message.includes("forbidden")) {
       return ToolErrorCode.PERMISSION_DENIED;
     }
-    if (message.includes('not found')) {
+    if (message.includes("not found")) {
       return ToolErrorCode.RESOURCE_NOT_FOUND;
     }
-    if (message.includes('rate limit') || message.includes('too many')) {
+    if (message.includes("rate limit") || message.includes("too many")) {
       return ToolErrorCode.RATE_LIMIT_EXCEEDED;
     }
 

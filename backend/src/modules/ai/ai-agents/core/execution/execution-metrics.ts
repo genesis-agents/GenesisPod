@@ -4,7 +4,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { ToolType, AgentType } from "./agent.types";
+import { ToolType, AgentType } from "../agent/agent.types";
 
 // ============================================================================
 // Types

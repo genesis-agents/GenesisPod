@@ -4,7 +4,7 @@
  */
 
 import { Logger } from "@nestjs/common";
-import { ToolType } from "./agent.types";
+import { ToolType } from "../agent/agent.types";
 
 // ============================================================================
 // Types

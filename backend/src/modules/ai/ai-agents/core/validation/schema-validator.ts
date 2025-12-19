@@ -4,7 +4,7 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import { JSONSchema } from "../tool.interface";
+import { JSONSchema } from "../tool/tool.interface";
 import { ToolError, ToolErrorCode } from "../errors";
 
 // ============================================================================

@@ -8,7 +8,7 @@ import {
   RateLimitStrategy,
   SensitiveInfoType,
 } from "../guardrails";
-import { ToolType } from "../../agent.types";
+import { ToolType } from "../../agent/agent.types";
 
 describe("GuardrailService", () => {
   let service: GuardrailService;

@@ -26,9 +26,13 @@ import {
 } from "@nestjs/swagger";
 import { Observable, map, catchError, of } from "rxjs";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AgentOrchestrator } from "./core/agent.orchestrator";
-import { AgentRegistry } from "./core/agent.registry";
-import { AgentType, AgentInput, AgentTaskStatus } from "./core/agent.types";
+import {
+  AgentOrchestrator,
+  AgentRegistry,
+  AgentType,
+  AgentInput,
+  AgentTaskStatus,
+} from "./core";
 import { AiAgentsService } from "./ai-agents.service";
 import {
   ExecuteRequestDto,
