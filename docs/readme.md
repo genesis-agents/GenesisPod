@@ -72,6 +72,14 @@
 | [文档生成](features/ai-office/document-generation.md)           | 文档生成功能设计            | 📝 核心功能 |
 | [PPT模板系统](features/ai-office/ppt-template-system.md)        | PPT模板系统设计             | 🎭 模板设计 |
 
+#### AI Agents 核心框架 🆕
+
+| 文档                                                               | 说明                 | 状态        |
+| ------------------------------------------------------------------ | -------------------- | ----------- |
+| [能力概览](features/ai-agents/ai-agents-capability-overview.md)    | Agent 系统架构和能力 | 📋 技术文档 |
+| [模块整合指南](features/ai-agents/ai-modules-integration-guide.md) | 其他模块如何使用能力 | 📖 实施指南 |
+| [工具系统 PRD](features/ai-agents/tool-system-prd.md)              | 48 种工具能力需求    | 📋 产品规格 |
+
 #### AI Studio 研究平台 🆕
 
 | 文档   | 说明                     | 状态          |

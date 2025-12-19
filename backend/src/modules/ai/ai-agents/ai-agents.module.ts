@@ -201,6 +201,9 @@ import { AiStudioModule } from "../ai-studio/ai-studio.module";
     ResourceManager,
     // 验证服务
     SchemaValidator,
+    // 记忆服务
+    ShortTermMemoryService,
+    LongTermMemoryService,
   ],
 })
 export class AiAgentsModule implements OnModuleInit {

@@ -1,7 +1,14 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { AiChatService } from "../ai-core/ai-chat.service";
 import { AIModelType } from "@prisma/client";
+import { AgentOrchestrator, ToolType, ToolRegistry } from "../ai-agents/core";
+import { AskLLMAdapter } from "./adapters";
 
 interface CreateSessionDto {
   title?: string;
@@ -12,12 +19,26 @@ interface SendMessageDto {
   content: string;
   modelId?: string;
   webSearch?: boolean;
+  /**
+   * 是否启用工具调用（搜索、短期记忆等）
+   * @default false
+   */
+  enableTools?: boolean;
 }
 
 interface MessageWithContext {
   role: "user" | "assistant" | "system";
   content: string;
 }
+
+/**
+ * AI Ask 可用工具列表
+ */
+const AI_ASK_TOOLS: ToolType[] = [
+  ToolType.TEXT_GENERATION,
+  ToolType.WEB_SEARCH,
+  ToolType.SHORT_TERM_MEMORY,
+];
 
 @Injectable()
 export class AiAskService {
@@ -27,7 +48,31 @@ export class AiAskService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiChatService: AiChatService,
+    @Optional() private readonly agentOrchestrator: AgentOrchestrator,
+    @Optional() private readonly askLLMAdapter: AskLLMAdapter,
+    @Optional() private readonly toolRegistry: ToolRegistry,
   ) {}
+
+  /**
+   * 检查工具能力是否可用
+   */
+  private isToolCapabilityAvailable(): boolean {
+    return !!(
+      this.agentOrchestrator &&
+      this.askLLMAdapter &&
+      this.toolRegistry
+    );
+  }
+
+  /**
+   * 获取可用工具列表
+   */
+  getAvailableTools(): ToolType[] {
+    if (!this.isToolCapabilityAvailable()) {
+      return [];
+    }
+    return AI_ASK_TOOLS.filter((tool) => this.toolRegistry.has(tool));
+  }
 
   /**
    * 创建新会话
@@ -153,6 +198,7 @@ export class AiAskService {
 
   /**
    * 发送消息并获取 AI 响应
+   * 支持可选的工具调用能力
    */
   async sendMessage(sessionId: string, userId: string, dto: SendMessageDto) {
     // 验证会话
@@ -190,29 +236,98 @@ export class AiAskService {
     });
 
     try {
-      // 调用 AI
-      const aiResponse = await this.aiChatService.generateChatCompletionWithKey(
-        {
+      let aiResponseContent: string;
+      let tokensUsed = 0;
+      let toolsUsed: string[] = [];
+
+      // 判断是否使用工具调用模式
+      const useTools = dto.enableTools && this.isToolCapabilityAvailable();
+
+      if (useTools) {
+        // 使用 AgentOrchestrator 进行工具调用
+        this.logger.log(
+          `[sendMessage] Using tool-enabled mode for session ${sessionId}`,
+        );
+
+        // 配置 LLM 适配器
+        this.askLLMAdapter.setModelConfig({
           provider: modelConfig.provider,
           modelId: modelConfig.modelId,
           apiKey: modelConfig.apiKey ?? "",
           apiEndpoint: modelConfig.apiEndpoint ?? undefined,
-          messages: contextMessages,
-          maxTokens: 4000,
-          temperature: 0.7,
-        },
-      );
+        });
 
-      // 保存 AI 响应
+        // 构建系统提示词
+        const systemPrompt = this.buildSystemPromptWithContext(contextMessages);
+
+        // 执行自主模式
+        const events = this.agentOrchestrator.executeAutonomous(
+          this.askLLMAdapter,
+          {
+            systemPrompt,
+            userPrompt: dto.content,
+            tools: this.getAvailableTools(),
+            userId,
+            taskId: sessionId,
+            config: {
+              maxIterations: 5,
+              maxToolCalls: 10,
+              temperature: 0.7,
+              maxTokens: 4000,
+            },
+          },
+        );
+
+        // 收集执行结果
+        let finalContent = "";
+        for await (const event of events) {
+          if (event.type === "tool_call") {
+            toolsUsed.push(event.tool);
+            this.logger.log(`[sendMessage] Tool called: ${event.tool}`);
+          } else if (event.type === "tool_result") {
+            this.logger.log(`[sendMessage] Tool result: ${event.tool}`);
+          } else if (event.type === "complete") {
+            tokensUsed = event.result?.tokensUsed || 0;
+            if (event.result?.summary) {
+              finalContent = event.result.summary;
+            }
+          } else if (event.type === "error") {
+            throw new Error(event.error);
+          }
+        }
+
+        aiResponseContent = finalContent || "抱歉，我无法完成这个请求。";
+      } else {
+        // 使用传统模式（直接调用 AiChatService）
+        const aiResponse =
+          await this.aiChatService.generateChatCompletionWithKey({
+            provider: modelConfig.provider,
+            modelId: modelConfig.modelId,
+            apiKey: modelConfig.apiKey ?? "",
+            apiEndpoint: modelConfig.apiEndpoint ?? undefined,
+            messages: contextMessages,
+            maxTokens: 4000,
+            temperature: 0.7,
+          });
+        aiResponseContent = aiResponse.content;
+        tokensUsed = aiResponse.tokensUsed;
+      }
+
+      // 保存 AI 响应（如果使用了工具，在内容末尾添加工具使用信息）
+      let responseContent = aiResponseContent;
+      if (toolsUsed.length > 0) {
+        responseContent += `\n\n---\n*使用了工具: ${toolsUsed.join(", ")}*`;
+      }
+
       const assistantMessage = await this.prisma.askMessage.create({
         data: {
           sessionId,
           role: "assistant",
-          content: aiResponse.content,
+          content: responseContent,
           modelId: modelConfig.id,
           modelName: modelConfig.name,
           webSearch: dto.webSearch || false,
-          tokens: aiResponse.tokensUsed,
+          tokens: tokensUsed,
         },
       });
 
@@ -237,6 +352,7 @@ export class AiAskService {
       return {
         userMessage,
         assistantMessage,
+        toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined,
       };
     } catch (error) {
       this.logger.error(`Failed to get AI response: ${error}`);
@@ -257,6 +373,36 @@ export class AiAskService {
         assistantMessage: errorMessage,
       };
     }
+  }
+
+  /**
+   * 构建带上下文的系统提示词
+   */
+  private buildSystemPromptWithContext(
+    contextMessages: MessageWithContext[],
+  ): string {
+    const systemParts = [
+      "你是一个智能助手，可以帮助用户回答问题、搜索信息和完成各种任务。",
+      "请用中文回答，除非用户明确要求使用其他语言。",
+      "回答要准确、简洁、有帮助。",
+    ];
+
+    // 如果有对话历史，添加上下文
+    if (contextMessages.length > 1) {
+      const historyContext = contextMessages
+        .slice(0, -1) // 排除最后一条（当前用户消息）
+        .map(
+          (m) =>
+            `${m.role === "user" ? "用户" : "助手"}: ${m.content.substring(0, 200)}${m.content.length > 200 ? "..." : ""}`,
+        )
+        .join("\n");
+
+      if (historyContext) {
+        systemParts.push("\n以下是之前的对话历史：\n" + historyContext);
+      }
+    }
+
+    return systemParts.join("\n");
   }
 
   /**
