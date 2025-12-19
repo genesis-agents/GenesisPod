@@ -1089,6 +1089,7 @@ Format the summary in a clear, structured manner using markdown.`;
     temperature?: number;
     displayName?: string; // AI member display name (e.g., "AI-Gemini (Image)")
     capabilities?: string[]; // AI capabilities (e.g., ["IMAGE_GENERATION", "TEXT_GENERATION"])
+    enableSearch?: boolean; // Enable Google Search grounding for Gemini (default: true)
   }): Promise<ChatCompletionResult> {
     const {
       provider,
@@ -1101,6 +1102,7 @@ Format the summary in a clear, structured manner using markdown.`;
       temperature = 0.7,
       displayName,
       capabilities = [], // AI capabilities for image generation decision
+      enableSearch = true, // Enable search by default for normal conversations
     } = options;
 
     this.logger.log(
@@ -1280,6 +1282,7 @@ Format the summary in a clear, structured manner using markdown.`;
             temperature,
             displayName,
             capabilities,
+            enableSearch,
           );
 
         default:
@@ -1489,6 +1492,7 @@ Format the summary in a clear, structured manner using markdown.`;
     temperature: number,
     displayName?: string, // AI member display name (e.g., "AI-Gemini (Image)")
     capabilities: string[] = [], // AI capabilities
+    enableSearch: boolean = true, // Enable Google Search grounding (default: true)
   ): Promise<ChatCompletionResult> {
     // Check if user is requesting image generation
     const lastUserMessage = messages.filter((m) => m.role === "user").pop();
@@ -1709,12 +1713,16 @@ Generate an image that fulfills the current request while maintaining consistenc
         `[Gemini] Image generation enabled, model: ${effectiveModelId}, isGemini3=${isGemini3ImageModel}`,
       );
     } else {
-      // Enable Google Search Grounding for text-only responses
-      requestBody.tools = [
-        {
-          googleSearch: {},
-        },
-      ];
+      // Enable Google Search Grounding for text-only responses (if enabled)
+      // Note: Some models (e.g., gemini-3-flash-preview) may return MALFORMED_FUNCTION_CALL
+      // when googleSearch is enabled. Disable for simple tasks like title generation.
+      if (enableSearch) {
+        requestBody.tools = [
+          {
+            googleSearch: {},
+          },
+        ];
+      }
 
       // Only add system instruction for non-image requests
       if (systemMessage) {

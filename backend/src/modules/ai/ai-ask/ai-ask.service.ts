@@ -694,6 +694,7 @@ export class AiAskService {
         ],
         maxTokens: 50,
         temperature: 0.7,
+        enableSearch: false, // Disable Google Search for simple title generation to avoid MALFORMED_FUNCTION_CALL
       });
 
       const title = response.content.trim().slice(0, 100);
