@@ -4,9 +4,9 @@ import {
   ForbiddenException,
   Logger,
 } from "@nestjs/common";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { TopicType, TopicRole, Prisma } from "@prisma/client";
-import { CreateTopicDto, UpdateTopicDto } from "./dto";
+import { CreateTopicDto, UpdateTopicDto } from "../../dto";
 
 @Injectable()
 export class TopicCrudService {

@@ -6,20 +6,25 @@ import {
 } from "./ai-teams.controller";
 import { AiTeamsService } from "./ai-teams.service";
 import { AiTeamsGateway } from "./ai-teams.gateway";
-import { DebateService } from "./debate.service";
-import { ContextRouterService } from "./context-router.service";
-import { TeamMissionService } from "./team-mission.service";
-import { UrlParserService } from "./url-parser.service";
-import { ContentExtractionService } from "./content-extraction.service";
-import { AiResponseService } from "./ai-response.service";
-import { TopicMembershipService } from "./topic-membership.service";
-import { TopicPublicService } from "./topic-public.service";
-import { TopicForwardBookmarkService } from "./topic-forward-bookmark.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiCoreModule } from "../ai-core/ai-core.module";
+import { AiAgentsModule } from "../ai-agents/ai-agents.module";
+import { TeamMemberAgent, TeamsLLMAdapter } from "./agents";
+import {
+  DebateService,
+  TeamMissionService,
+  TeamCollaborationService,
+  ContextRouterService,
+  AiResponseService,
+  UrlParserService,
+  ContentExtractionService,
+  TopicMembershipService,
+  TopicPublicService,
+  TopicForwardBookmarkService,
+} from "./services";
 
 @Module({
-  imports: [PrismaModule, AiCoreModule],
+  imports: [PrismaModule, AiCoreModule, AiAgentsModule],
   controllers: [AiTeamsController, UsersController, BookmarksController],
   providers: [
     AiTeamsService,
@@ -33,6 +38,9 @@ import { AiCoreModule } from "../ai-core/ai-core.module";
     TopicMembershipService,
     TopicPublicService,
     TopicForwardBookmarkService,
+    TeamMemberAgent,
+    TeamsLLMAdapter,
+    TeamCollaborationService,
   ],
   exports: [
     AiTeamsService,
@@ -45,6 +53,9 @@ import { AiCoreModule } from "../ai-core/ai-core.module";
     TopicMembershipService,
     TopicPublicService,
     TopicForwardBookmarkService,
+    TeamMemberAgent,
+    TeamsLLMAdapter,
+    TeamCollaborationService,
   ],
 })
 export class AiTeamsModule {}

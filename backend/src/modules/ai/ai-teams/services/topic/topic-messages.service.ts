@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException, Logger } from "@nestjs/common";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { MessageContentType, Prisma, TopicRole } from "@prisma/client";
-import { SendMessageDto } from "./dto";
-import { UrlParserService, ParsedUrl } from "./url-parser.service";
+import { SendMessageDto } from "../../dto";
+import { UrlParserService, ParsedUrl } from "../utils/url-parser.service";
 import { TopicCrudService } from "./topic-crud.service";
 
 @Injectable()

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { config } from '@/lib/utils/config';
 
 interface ReportSection {
@@ -205,6 +206,7 @@ export default function ReportPage() {
               </h2>
               <div className="prose prose-sm prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-red-600 prose-strong:text-gray-900 prose-code:text-red-600 prose-code:bg-red-50 prose-pre:bg-gray-50 max-w-none">
                 <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
                   components={{
                     table: ({ node, ...props }) => (
                       <div className="overflow-x-auto">

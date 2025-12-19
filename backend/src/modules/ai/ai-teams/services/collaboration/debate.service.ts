@@ -14,8 +14,8 @@
  */
 
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../../../common/prisma/prisma.service";
-import { AiChatService } from "../ai-core/ai-chat.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { AiChatService } from "../../../ai-core/ai-chat.service";
 import { DebateStatus, DebateRole, DebateAgent, Prisma } from "@prisma/client";
 
 // 辩论消息类型（用于Agent的conversationHistory）

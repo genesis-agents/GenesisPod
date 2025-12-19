@@ -4,7 +4,7 @@ import {
   BadRequestException,
   Logger,
 } from "@nestjs/common";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import {
   MissionStatus,
   AgentTaskStatus,
@@ -13,14 +13,14 @@ import {
   MissionLogType,
   MessageContentType,
 } from "@prisma/client";
-import { CreateMissionDto } from "./dto/create-mission.dto";
-import { AiChatService } from "../ai-core/ai-chat.service";
-import { SearchService } from "../ai-core/search.service";
-import { AiTeamsGateway } from "./ai-teams.gateway";
+import { CreateMissionDto } from "../../dto/create-mission.dto";
+import { AiChatService } from "../../../ai-core/ai-chat.service";
+import { SearchService } from "../../../ai-core/search.service";
+import { AiTeamsGateway } from "../../ai-teams.gateway";
 import {
   mapWithConcurrency,
   ConcurrencyLimits,
-} from "../../../common/utils/concurrency.utils";
+} from "../../../../../common/utils/concurrency.utils";
 
 interface TaskBreakdownItem {
   title: string;

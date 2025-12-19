@@ -5,7 +5,7 @@ import {
   BadRequestException,
   Logger,
 } from "@nestjs/common";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { TopicRole } from "@prisma/client";
 import {
   AddMemberDto,
@@ -13,7 +13,7 @@ import {
   UpdateMemberDto,
   AddAIMemberDto,
   UpdateAIMemberDto,
-} from "./dto";
+} from "../../dto";
 
 /**
  * Service responsible for managing topic members (both human and AI)

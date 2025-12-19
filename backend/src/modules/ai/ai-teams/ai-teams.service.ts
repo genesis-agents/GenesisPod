@@ -27,11 +27,14 @@ import {
   BookmarkMessageDto,
 } from "./dto";
 import { AiChatService } from "../ai-core/ai-chat.service";
-import { UrlParserService, ParsedUrl } from "./url-parser.service";
-import { AiResponseService } from "./ai-response.service";
-import { TopicMembershipService } from "./topic-membership.service";
-import { TopicPublicService } from "./topic-public.service";
-import { TopicForwardBookmarkService } from "./topic-forward-bookmark.service";
+import {
+  UrlParserService,
+  ParsedUrl,
+  AiResponseService,
+  TopicMembershipService,
+  TopicPublicService,
+  TopicForwardBookmarkService,
+} from "./services";
 
 @Injectable()
 export class AiTeamsService {

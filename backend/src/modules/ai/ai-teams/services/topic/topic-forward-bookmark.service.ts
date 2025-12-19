@@ -3,9 +3,9 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { MessageContentType, TopicType, Prisma } from "@prisma/client";
-import { ForwardMessagesDto, BookmarkMessageDto } from "./dto";
+import { ForwardMessagesDto, BookmarkMessageDto } from "../../dto";
 
 /**
  * Service responsible for message forwarding and bookmarking

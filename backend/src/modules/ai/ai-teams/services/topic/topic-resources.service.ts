@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { TopicRole } from "@prisma/client";
-import { AddResourceDto } from "./dto";
+import { AddResourceDto } from "../../dto";
 import { TopicCrudService } from "./topic-crud.service";
 
 @Injectable()

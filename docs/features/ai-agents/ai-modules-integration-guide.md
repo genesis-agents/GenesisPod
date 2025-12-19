@@ -8,9 +8,10 @@
 
 | 属性     | 内容                                                     |
 | -------- | -------------------------------------------------------- |
-| 版本     | v1.0                                                     |
+| 版本     | v3.0                                                     |
 | 作者     | Architecture Team                                        |
 | 创建日期 | 2025-12-19                                               |
+| 更新日期 | 2025-12-19                                               |
 | 状态     | 已发布                                                   |
 | 前置文档 | [AI-Agents 能力概览](./ai-agents-capability-overview.md) |
 
@@ -20,15 +21,21 @@
 
 1. [概述](#1-概述)
 2. [模块现状分析](#2-模块现状分析)
-3. [整合优先级矩阵](#3-整合优先级矩阵)
-4. [ai-ask 模块整合方案](#4-ai-ask-模块整合方案)
-5. [ai-teams 模块整合方案](#5-ai-teams-模块整合方案)
-6. [ai-office 模块整合方案](#6-ai-office-模块整合方案)
-7. [ai-studio 模块整合方案](#7-ai-studio-模块整合方案)
-8. [ai-simulation 模块整合方案](#8-ai-simulation-模块整合方案)
-9. [ai-image 模块整合方案](#9-ai-image-模块整合方案)
-10. [整合路线图](#10-整合路线图)
-11. [通用整合模式](#11-通用整合模式)
+3. [ai-agents 核心架构详解](#3-ai-agents-核心架构详解) ⭐ 新增
+4. [整合优先级矩阵](#4-整合优先级矩阵)
+5. [ai-ask 模块整合方案](#5-ai-ask-模块整合方案)
+6. [ai-teams 模块整合方案](#6-ai-teams-模块整合方案)
+7. [ai-office 模块整合方案](#7-ai-office-模块整合方案)
+8. [ai-studio 模块整合方案](#8-ai-studio-模块整合方案)
+9. [ai-simulation 模块整合方案](#9-ai-simulation-模块整合方案)
+10. [ai-image 模块整合方案](#10-ai-image-模块整合方案)
+11. [错误处理与最佳实践](#11-错误处理与最佳实践) ⭐ 新增
+12. [整合路线图](#12-整合路线图)
+13. [通用整合模式](#13-通用整合模式)
+14. [附录 A: 导入路径速查](#附录-a-导入路径速查)
+15. [附录 B: 检查清单](#附录-b-检查清单)
+16. [附录 C: 常见问题解答](#附录-c-常见问题解答-faq) ⭐ 新增
+17. [附录 D: 调试指南](#附录-d-调试指南) ⭐ 新增
 
 ---
 
@@ -73,55 +80,488 @@ backend/src/modules/ai/
 
 ### 2.1 各模块 AI 能力处理方式
 
-| 模块              | 当前方式             | 工具能力 | Agent 能力 | 记忆能力   |
-| ----------------- | -------------------- | -------- | ---------- | ---------- |
-| **ai-ask**        | 直接 LLM 调用        | 无       | 无         | 简单上下文 |
-| **ai-teams**      | AI 成员直接 LLM 调用 | 无       | 无         | 消息历史   |
-| **ai-office**     | 多服务流水线         | 部分     | 部分       | 无         |
-| **ai-studio**     | 松散服务组合         | 无       | 无         | 项目级     |
-| **ai-simulation** | 自定义推演引擎       | 无       | 自定义     | 推演上下文 |
-| **ai-image**      | 成熟流式管道         | 专用     | 无         | 无         |
+| 模块              | 当前方式             | 工具能力 | Agent 能力 | 记忆能力   | 整合状态  |
+| ----------------- | -------------------- | -------- | ---------- | ---------- | --------- |
+| **ai-ask**        | AgentOrchestrator    | ✅ 3 种  | ✅ 已整合  | ShortTerm  | ✅ 已完成 |
+| **ai-teams**      | AI 成员直接 LLM 调用 | ❌ 无    | ❌ 无      | 消息历史   | ⏳ 待整合 |
+| **ai-office**     | 多服务流水线         | ⚠️ 部分  | ⚠️ 部分    | 无         | ⚠️ 部分   |
+| **ai-studio**     | 松散服务组合         | ❌ 无    | ❌ 无      | 项目级     | ⏳ 待整合 |
+| **ai-simulation** | 自定义推演引擎       | ❌ 无    | ⚠️ 自定义  | 推演上下文 | ⏳ 待整合 |
+| **ai-image**      | 成熟流式管道         | ⚠️ 专用  | ❌ 无      | 无         | ⏳ 待整合 |
 
-### 2.2 整合前后对比
+### 2.2 ai-agents 核心能力清单
+
+| 能力类别       | 数量 | 说明                                                  |
+| -------------- | ---- | ----------------------------------------------------- |
+| **专业 Agent** | 4    | SlidesAgent, DocsAgent, DesignerAgent, DeveloperAgent |
+| **工具总数**   | 48   | 覆盖 8 大类别的完整工具生态                           |
+| **执行模式**   | 2    | 计划模式 (Plan-Based) + 自主模式 (Function Calling)   |
+| **记忆系统**   | 2    | 短期记忆 + 长期记忆                                   |
+
+**工具分类统计**：
+
+| 类别      | 数量 | 代表工具                                                |
+| --------- | ---- | ------------------------------------------------------- |
+| 信息获取  | 6    | web_search, rag_search, database_query, knowledge_graph |
+| 内容生成  | 6    | text_generation, image_generation, code_generation      |
+| 数据处理  | 7    | data_analysis, file_conversion, file_parser             |
+| 代码执行  | 6    | python_executor, javascript_executor, sql_executor      |
+| 外部集成  | 6    | message_push, github_integration, email_sender          |
+| 记忆管理  | 5    | short_term_memory, long_term_memory, knowledge_base     |
+| 导出功能  | 4    | export_pptx, export_docx, export_pdf, export_image      |
+| Agent协作 | 6    | agent_handoff, consensus_mechanism, task_delegation     |
+
+### 2.3 整合前后对比
 
 ```
-整合前:
-┌─────────────┐     ┌─────────────┐
-│   ai-ask    │     │  ai-teams   │
-│  ┌───────┐  │     │  ┌───────┐  │
-│  │  LLM  │  │     │  │  LLM  │  │
-│  └───────┘  │     │  └───────┘  │
-└─────────────┘     └─────────────┘
-      ↓                    ↓
-  独立调用              独立调用
-  无工具能力            无工具能力
+整合前:                                          整合后（当前状态）:
+┌─────────────┐     ┌─────────────┐              ┌─────────────┐     ┌─────────────┐
+│   ai-ask    │     │  ai-teams   │              │   ai-ask    │     │  ai-teams   │
+│  ┌───────┐  │     │  ┌───────┐  │              │  ┌───────┐  │     │  ┌───────┐  │
+│  │  LLM  │  │     │  │  LLM  │  │              │  │ Agent │  │     │  │  LLM  │  │
+│  └───────┘  │     │  └───────┘  │              │  └───┬───┘  │     │  └───────┘  │
+└─────────────┘     └─────────────┘              └──────┼──────┘     └─────────────┘
+      ↓                    ↓                            │              (待整合)
+  独立调用              独立调用                         ↓
+  无工具能力            无工具能力              ┌─────────────────────────────────┐
+                                               │          ai-agents              │
+                                               │  ┌────────────────────────────┐ │
+                                               │  │  AgentOrchestrator         │ │
+                                               │  │  + ToolRegistry (48 tools) │ │
+                                               │  │  + AgentRegistry (4 agents)│ │
+                                               │  └────────────────────────────┘ │
+                                               │  ┌─────┐ ┌───────┐ ┌──────────┐ │
+                                               │  │LLM  │ │Memory │ │Guardrails│ │
+                                               │  └─────┘ └───────┘ └──────────┘ │
+                                               └─────────────────────────────────┘
+```
 
-整合后:
-┌─────────────┐     ┌─────────────┐
-│   ai-ask    │     │  ai-teams   │
-│  ┌───────┐  │     │  ┌───────┐  │
-│  │ Agent │  │     │  │ Agent │  │
-│  └───┬───┘  │     │  └───┬───┘  │
-└──────┼──────┘     └──────┼──────┘
-       │                   │
-       └───────┬───────────┘
-               ↓
-    ┌─────────────────────┐
-    │     ai-agents       │
-    │  ┌─────┐ ┌───────┐  │
-    │  │Tools│ │ Memory│  │
-    │  └─────┘ └───────┘  │
-    │  ┌─────┐ ┌───────┐  │
-    │  │ LLM │ │Guardrails│
-    │  └─────┘ └───────┘  │
-    └─────────────────────┘
+### 2.4 模块依赖关系图
+
+```
+                    ┌──────────────────────────────────────────┐
+                    │              AiAgentsModule               │
+                    │  ┌────────────────────────────────────┐  │
+                    │  │ AgentOrchestrator + ToolRegistry   │  │
+                    │  │ + AgentRegistry + 48 Tools         │  │
+                    │  │ + 4 Agents (Slides/Docs/Designer/  │  │
+                    │  │              Developer)            │  │
+                    │  └────────────────────────────────────┘  │
+                    └──────────────────┬───────────────────────┘
+                                       │ exports
+           ┌───────────────────────────┼───────────────────────────┐
+           ▼                           ▼                           ▼
+    ┌─────────────┐            ┌─────────────┐            ┌─────────────┐
+    │   ai-ask    │            │  ai-office  │            │  ai-teams   │
+    │ ✅ 已整合    │            │ ⚠️ 部分整合  │            │ ⏳ 待整合   │
+    │ 3 个工具    │            │ SlidesAgent │            │ 6 个协作    │
+    │ TEXT_GEN    │            │ 复用        │            │ 工具可用    │
+    │ WEB_SEARCH  │            │             │            │             │
+    │ SHORT_MEM   │            │             │            │             │
+    └─────────────┘            └─────────────┘            └─────────────┘
 ```
 
 ---
 
-## 3. 整合优先级矩阵
+## 3. ai-agents 核心架构详解
 
-### 3.1 优先级评估维度
+### 3.1 目录结构
+
+```
+backend/src/modules/ai/ai-agents/
+├── core/                           # 核心基础设施
+│   ├── agent/                      # Agent 系统
+│   │   ├── agent.interface.ts      # Agent 基接口定义
+│   │   ├── agent.orchestrator.ts   # Agent 编排器（核心入口）
+│   │   ├── agent.registry.ts       # Agent 注册中心
+│   │   └── agent.types.ts          # 类型定义（ToolType, AgentType 等）
+│   │
+│   ├── tool/                       # 工具系统
+│   │   ├── tool.interface.ts       # 工具基接口（BaseTool 抽象类）
+│   │   └── tool.registry.ts        # 工具注册中心
+│   │
+│   ├── execution/                  # 执行引擎
+│   │   ├── function-calling-executor.ts  # Function Calling 执行器
+│   │   ├── execution-metrics.ts    # 执行指标收集
+│   │   └── retry-strategy.ts       # 重试策略
+│   │
+│   ├── llm/                        # LLM 适配层
+│   │   └── llm-adapter.ts          # 多模型适配器
+│   │
+│   ├── memory/                     # 记忆系统
+│   │   ├── memory.interface.ts     # 记忆接口
+│   │   ├── short-term.memory.ts    # 短期记忆（会话级）
+│   │   └── long-term.memory.ts     # 长期记忆（持久化）
+│   │
+│   ├── mcp/                        # MCP 协议支持
+│   │   ├── mcp-adapter.ts          # MCP 适配器
+│   │   ├── mcp-server.ts           # MCP 服务器
+│   │   ├── resources/              # 资源管理
+│   │   └── transports/             # 传输层
+│   │
+│   ├── validation/                 # Schema 验证
+│   │   └── schema-validator.ts     # JSON Schema 验证器
+│   │
+│   ├── guardrails/                 # 安全护栏
+│   │   └── guardrails.ts           # 输入/输出过滤
+│   │
+│   └── errors/                     # 错误系统
+│       └── tool-error.ts           # 统一错误类型
+│
+├── implementations/                # 4 个专业 Agent 实现
+│   ├── slides/                     # PPT 生成 Agent
+│   │   └── slides.agent.ts
+│   ├── docs/                       # 文档生成 Agent
+│   │   └── docs.agent.ts
+│   ├── designer/                   # 设计生成 Agent
+│   │   └── designer.agent.ts
+│   └── developer/                  # 代码生成 Agent
+│       └── developer.agent.ts
+│
+├── tools/                          # 48 个工具实现
+│   ├── information/                # 信息获取 (6)
+│   │   ├── web-search.tool.ts
+│   │   ├── web-scraper.tool.ts
+│   │   ├── data-fetch.tool.ts
+│   │   ├── rag-search.tool.ts
+│   │   ├── database-query.tool.ts
+│   │   └── knowledge-graph.tool.ts
+│   ├── generation/                 # 内容生成 (6)
+│   │   ├── text-generation.tool.ts
+│   │   ├── image-generation.tool.ts
+│   │   ├── code-generation.tool.ts
+│   │   ├── audio-generation.tool.ts
+│   │   ├── video-generation.tool.ts
+│   │   └── structured-output.tool.ts
+│   ├── processing/                 # 数据处理 (7)
+│   ├── execution/                  # 代码执行 (6)
+│   ├── integration/                # 外部集成 (6)
+│   ├── memory/                     # 记忆管理 (5)
+│   ├── export/                     # 导出功能 (4)
+│   └── collaboration/              # Agent 协作 (6)
+│
+├── dto/                            # 数据传输对象
+├── ai-agents.module.ts             # NestJS 模块定义
+├── ai-agents.service.ts            # 任务管理服务
+└── ai-agents.controller.ts         # REST API 入口
+```
+
+### 3.2 核心类职责
+
+| 类                          | 文件路径                                      | 职责                           |
+| --------------------------- | --------------------------------------------- | ------------------------------ |
+| **AgentOrchestrator**       | `core/agent/agent.orchestrator.ts`            | Agent 编排和执行协调，任务路由 |
+| **AgentRegistry**           | `core/agent/agent.registry.ts`                | Agent 注册和获取               |
+| **ToolRegistry**            | `core/tool/tool.registry.ts`                  | 工具注册和获取                 |
+| **BaseTool**                | `core/tool/tool.interface.ts`                 | 工具基类，定义执行接口         |
+| **FunctionCallingExecutor** | `core/execution/function-calling-executor.ts` | LLM 自主工具选择执行           |
+| **LLMAdapter**              | `core/llm/llm-adapter.ts`                     | 多模型适配器                   |
+| **ShortTermMemory**         | `core/memory/short-term.memory.ts`            | 会话级记忆                     |
+| **LongTermMemory**          | `core/memory/long-term.memory.ts`             | 持久化记忆                     |
+| **ToolError**               | `core/errors/tool-error.ts`                   | 统一错误类型                   |
+
+### 3.3 类型系统详解
+
+#### 3.3.1 Agent 类型 (AgentType)
+
+```typescript
+// 文件: core/agent/agent.types.ts
+export enum AgentType {
+  SLIDES = "SLIDES", // PPT 生成专家
+  DOCS = "DOCS", // 文档生成专家
+  DESIGNER = "DESIGNER", // 设计生成专家
+  DEVELOPER = "DEVELOPER", // 代码生成专家
+}
+```
+
+#### 3.3.2 工具类型 (ToolType) - 完整 48 种
+
+```typescript
+// 文件: core/agent/agent.types.ts
+export enum ToolType {
+  // ═══════════════════════════════════════════════════════════════
+  // 1. 信息获取 (Information Retrieval) - 6 种
+  // ═══════════════════════════════════════════════════════════════
+  WEB_SEARCH = "web_search", // 网络搜索
+  WEB_SCRAPER = "web_scraper", // 网页抓取
+  DATA_FETCH = "data_fetch", // 数据获取
+  RAG_SEARCH = "rag_search", // 向量数据库搜索
+  DATABASE_QUERY = "database_query", // SQL 查询
+  KNOWLEDGE_GRAPH = "knowledge_graph", // 知识图谱查询
+
+  // ═══════════════════════════════════════════════════════════════
+  // 2. 内容生成 (Content Generation) - 6 种
+  // ═══════════════════════════════════════════════════════════════
+  TEXT_GENERATION = "text_generation", // 文本生成
+  IMAGE_GENERATION = "image_generation", // 图像生成
+  CODE_GENERATION = "code_generation", // 代码生成
+  AUDIO_GENERATION = "audio_generation", // 音频生成
+  VIDEO_GENERATION = "video_generation", // 视频生成
+  STRUCTURED_OUTPUT = "structured_output", // 结构化输出
+
+  // ═══════════════════════════════════════════════════════════════
+  // 3. 数据处理 (Data Processing) - 7 种
+  // ═══════════════════════════════════════════════════════════════
+  DATA_ANALYSIS = "data_analysis", // 数据分析
+  FILE_CONVERSION = "file_conversion", // 格式转换
+  FILE_PARSER = "file_parser", // 文件解析
+  DATA_VALIDATION = "data_validation", // 数据验证
+  DATA_CLEANING = "data_cleaning", // 数据清洗
+  DOCUMENT_DIFF = "document_diff", // 文档对比
+  TEMPLATE_RENDER = "template_render", // 模板渲染
+
+  // ═══════════════════════════════════════════════════════════════
+  // 4. 代码执行 (Code Execution) - 6 种
+  // ═══════════════════════════════════════════════════════════════
+  PYTHON_EXECUTOR = "python_executor", // Python 执行
+  JAVASCRIPT_EXECUTOR = "javascript_executor", // JS 执行
+  SQL_EXECUTOR = "sql_executor", // SQL 执行
+  SHELL_EXECUTOR = "shell_executor", // Shell 执行
+  CONTAINER_EXECUTOR = "container_executor", // Docker 执行
+  OCR_RECOGNITION = "ocr_recognition", // OCR 识别
+
+  // ═══════════════════════════════════════════════════════════════
+  // 5. 外部集成 (External Integration) - 6 种
+  // ═══════════════════════════════════════════════════════════════
+  MESSAGE_PUSH = "message_push", // 消息推送
+  CLOUD_STORAGE = "cloud_storage", // 云存储
+  GITHUB_INTEGRATION = "github_integration", // GitHub 交互
+  EMAIL_SENDER = "email_sender", // 邮件发送
+  CALENDAR_INTEGRATION = "calendar_integration", // 日历管理
+  WEBHOOK_TRIGGER = "webhook_trigger", // Webhook 触发
+
+  // ═══════════════════════════════════════════════════════════════
+  // 6. 记忆管理 (Memory Management) - 5 种
+  // ═══════════════════════════════════════════════════════════════
+  SHORT_TERM_MEMORY = "short_term_memory", // 短期记忆
+  LONG_TERM_MEMORY = "long_term_memory", // 长期记忆
+  ENTITY_MEMORY = "entity_memory", // 实体记忆
+  KNOWLEDGE_BASE = "knowledge_base", // 知识库
+  USER_PREFERENCES = "user_preferences", // 用户偏好
+
+  // ═══════════════════════════════════════════════════════════════
+  // 7. 导出 (Export) - 4 种
+  // ═══════════════════════════════════════════════════════════════
+  EXPORT_PPTX = "export_pptx", // PPT 导出
+  EXPORT_DOCX = "export_docx", // Word 导出
+  EXPORT_PDF = "export_pdf", // PDF 导出
+  EXPORT_IMAGE = "export_image", // 图片导出
+
+  // ═══════════════════════════════════════════════════════════════
+  // 8. Agent 协作 (Agent Collaboration) - 6 种
+  // ═══════════════════════════════════════════════════════════════
+  AGENT_HANDOFF = "agent_handoff", // Agent 委派
+  HUMAN_APPROVAL = "human_approval", // 人类审批
+  AGENT_COMMUNICATION = "agent_communication", // Agent 通信
+  TASK_DELEGATION = "task_delegation", // 任务分配
+  CONSENSUS_MECHANISM = "consensus_mechanism", // 共识机制
+  WORKFLOW_ORCHESTRATION = "workflow_orchestration", // 工作流
+}
+```
+
+#### 3.3.3 任务状态 (AgentTaskStatus)
+
+```typescript
+export enum AgentTaskStatus {
+  PENDING = "PENDING", // 等待执行
+  PLANNING = "PLANNING", // 规划中
+  EXECUTING = "EXECUTING", // 执行中
+  COMPLETED = "COMPLETED", // 已完成
+  FAILED = "FAILED", // 失败
+  CANCELLED = "CANCELLED", // 已取消
+}
+```
+
+#### 3.3.4 产出物类型 (ArtifactType)
+
+```typescript
+export enum ArtifactType {
+  PPTX = "PPTX", // PowerPoint
+  DOCX = "DOCX", // Word
+  PDF = "PDF", // PDF
+  IMAGE = "IMAGE", // 图片
+  CODE = "CODE", // 代码
+  DATA = "DATA", // 数据
+}
+```
+
+### 3.4 执行流程
+
+#### 3.4.1 两种执行模式
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     AgentOrchestrator                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  模式 1: 计划模式 (Plan-Based)                                    │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │ 用户输入 → Agent.plan() → 生成 AgentPlan → 按步骤执行    │    │
+│  │           ↓                                              │    │
+│  │    逐步执行 PlanStep，每步调用相应工具                     │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                  │
+│  模式 2: 自主模式 (Function Calling / ReAct)                     │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │ 系统提示 + 用户输入 → LLM → 自主选择工具 → 执行 → 循环    │    │
+│  │                       ↑                    ↓              │    │
+│  │                       └────── 结果反馈 ────┘              │    │
+│  │ 最大迭代: 10 次 | 最大工具调用: 20 次                      │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### 3.4.2 任务生命周期
+
+```
+1. 创建任务 (PENDING)
+   └─> AiAgentsService.createTask()
+       └─> 保存到 officeAgentTask 表
+       └─> 返回 taskId
+
+2. 规划阶段 (PLANNING)
+   └─> AgentOrchestrator.execute()
+       └─> 选择合适的 Agent
+       └─> Agent.plan() 生成执行计划
+       └─> 发送 plan_ready 事件
+
+3. 执行阶段 (EXECUTING)
+   └─> 逐步执行 PlanStep
+       └─> 如果步骤需要工具 → ToolRegistry.get()
+       └─> Tool.execute() 执行工具
+       └─> 发送 tool_result 事件
+
+4. 生成产出物
+   └─> Agent 生成 Artifact
+       └─> 保存到 officeAgentArtifact 表
+       └─> 发送 artifact 事件
+
+5. 完成 (COMPLETED)
+   └─> 发送 complete 事件
+       └─> 更新任务状态
+       └─> 计算耗时和 Token 使用量
+```
+
+#### 3.4.3 事件类型 (AgentEvent)
+
+| 事件类型        | 说明         | 数据内容          |
+| --------------- | ------------ | ----------------- |
+| `plan_ready`    | 计划生成完成 | AgentPlan         |
+| `step_start`    | 步骤开始     | stepId, stepIndex |
+| `step_progress` | 步骤进度     | progress, message |
+| `step_complete` | 步骤完成     | stepId, output    |
+| `tool_call`     | 工具调用     | toolType, input   |
+| `tool_result`   | 工具结果     | toolType, output  |
+| `artifact`      | 产出物生成   | ArtifactType, url |
+| `complete`      | 任务完成     | finalOutput       |
+| `error`         | 错误发生     | ToolError         |
+
+### 3.5 工具系统详解
+
+#### 3.5.1 BaseTool 抽象类
+
+```typescript
+// 文件: core/tool/tool.interface.ts
+abstract class BaseTool<TInput, TOutput> {
+  // 必须实现的属性
+  abstract readonly type: ToolType;
+  abstract readonly name: string;
+  abstract readonly description: string;
+  abstract readonly inputSchema: JSONSchema;
+  abstract readonly outputSchema: JSONSchema;
+
+  // 可选属性
+  readonly category?: ToolCategory;
+  readonly timeout?: number; // 默认 30000ms
+
+  // 核心方法
+  async execute(
+    input: TInput,
+    context: ToolContext,
+  ): Promise<ToolResult<TOutput>> {
+    // 1. 输入验证
+    // 2. 超时控制
+    // 3. 执行 doExecute()
+    // 4. 错误处理
+    // 5. 返回结果
+  }
+
+  // 子类必须实现
+  protected abstract doExecute(
+    input: TInput,
+    context: ToolContext,
+  ): Promise<TOutput>;
+
+  // 转换为 OpenAI Function 格式
+  toFunctionDefinition(): FunctionDefinition;
+}
+```
+
+#### 3.5.2 工具开发示例
+
+```typescript
+// 创建自定义工具示例
+import {
+  BaseTool,
+  ToolType,
+  JSONSchema,
+  ToolContext,
+  ToolResult,
+} from "../core";
+
+interface MyToolInput {
+  query: string;
+  maxResults?: number;
+}
+
+interface MyToolOutput {
+  results: string[];
+  totalCount: number;
+}
+
+export class MyCustomTool extends BaseTool<MyToolInput, MyToolOutput> {
+  readonly type = ToolType.WEB_SEARCH; // 或自定义类型
+  readonly name = "my_custom_tool";
+  readonly description = "执行自定义搜索操作";
+  readonly timeout = 30000;
+
+  readonly inputSchema: JSONSchema = {
+    type: "object",
+    properties: {
+      query: { type: "string", description: "搜索查询" },
+      maxResults: { type: "number", default: 10 },
+    },
+    required: ["query"],
+  };
+
+  readonly outputSchema: JSONSchema = {
+    type: "object",
+    properties: {
+      results: { type: "array", items: { type: "string" } },
+      totalCount: { type: "number" },
+    },
+  };
+
+  protected async doExecute(
+    input: MyToolInput,
+    context: ToolContext,
+  ): Promise<MyToolOutput> {
+    // 实现工具逻辑
+    const results = await this.performSearch(input.query, input.maxResults);
+    return {
+      results,
+      totalCount: results.length,
+    };
+  }
+}
+```
+
+---
+
+## 4. 整合优先级矩阵
+
+### 4.1 优先级评估维度
 
 | 维度         | 权重 | 说明                        |
 | ------------ | ---- | --------------------------- |
@@ -130,69 +570,58 @@ backend/src/modules/ai/
 | **复用程度** | 20%  | 可复用 ai-agents 能力的比例 |
 | **依赖关系** | 10%  | 与其他模块的依赖和影响      |
 
-### 3.2 优先级排序
+### 4.2 优先级排序
 
-| 优先级 | 模块          | 评分 | 理由                              |
-| ------ | ------------- | ---- | --------------------------------- |
-| **P0** | ai-ask        | 92   | 高频使用、工具需求强、整合难度低  |
-| **P0** | ai-teams      | 88   | AI 成员急需工具能力、协作场景明确 |
-| **P1** | ai-office     | 75   | 已有编排器、主要是标准化改造      |
-| **P2** | ai-studio     | 68   | 需求明确但使用频率中等            |
-| **P2** | ai-simulation | 65   | 专业场景、改造收益高但复杂度也高  |
-| **P3** | ai-image      | 45   | 已成熟、主要是工具化封装          |
+| 优先级 | 模块          | 评分 | 状态      | 理由                              |
+| ------ | ------------- | ---- | --------- | --------------------------------- |
+| **P0** | ai-ask        | 92   | ✅ 已完成 | 高频使用、工具需求强、整合难度低  |
+| **P0** | ai-teams      | 88   | ⏳ 待实施 | AI 成员急需工具能力、协作场景明确 |
+| **P1** | ai-office     | 75   | ⚠️ 部分   | 已有编排器、主要是标准化改造      |
+| **P2** | ai-studio     | 68   | ⏳ 待实施 | 需求明确但使用频率中等            |
+| **P2** | ai-simulation | 65   | ⏳ 待实施 | 专业场景、改造收益高但复杂度也高  |
+| **P3** | ai-image      | 45   | ⏳ 待实施 | 已成熟、主要是工具化封装          |
 
 ---
 
-## 4. ai-ask 模块整合方案
+## 5. ai-ask 模块整合方案
 
-### 4.1 现状分析
+> **状态**: ✅ 已完成整合
 
-**当前架构**：
+### 5.1 现状分析（整合后）
+
+**当前架构**（已整合 ai-agents）：
 
 ```typescript
-// ai-ask.service.ts
-async sendMessage(sessionId: string, message: string) {
-  const context = await this.buildContext(sessionId);
-  const response = await this.aiChatService.generateChatCompletionWithKey({
-    messages: [...context, { role: 'user', content: message }],
-    model: this.getModel(),
-  });
-  return response;
+// ai-ask.service.ts - 实际生产代码
+@Injectable()
+export class AiAskService {
+  // 已集成的工具列表
+  private readonly AI_ASK_TOOLS = [
+    ToolType.TEXT_GENERATION,
+    ToolType.WEB_SEARCH,
+    ToolType.SHORT_TERM_MEMORY,
+  ];
+
+  constructor(
+    private readonly agentOrchestrator: AgentOrchestrator,
+    private readonly toolRegistry: ToolRegistry,
+    private readonly askLLMAdapter: AskLLMAdapter,
+    // ...other dependencies
+  ) {}
 }
 ```
 
-**问题**：
+**已实现能力**：
 
-- 无法调用工具（搜索、计算、代码执行）
-- 无法处理复杂多步骤问题
-- 上下文管理简单，缺乏语义记忆
+- ✅ 支持 3 种工具调用（文本生成、网络搜索、短期记忆）
+- ✅ 动态工具能力检测
+- ✅ 工具调用结果反馈到对话
 
-### 4.2 目标架构
+### 5.2 已实现架构
 
-```typescript
-// ai-ask.service.ts (整合后)
-async sendMessageWithTools(sessionId: string, message: string) {
-  // 使用 AgentOrchestrator 执行
-  const events = this.orchestrator.executeAutonomous(
-    this.llmAdapter,
-    {
-      prompt: message,
-      context: await this.buildContext(sessionId),
-      availableTools: this.getSessionTools(sessionId),
-    }
-  );
+**文件位置**: `backend/src/modules/ai/ai-ask/`
 
-  for await (const event of events) {
-    // 流式返回事件
-    await this.publishEvent(sessionId, event);
-    yield event;
-  }
-}
-```
-
-### 4.3 实施步骤
-
-#### 步骤 1: 引入依赖
+#### 模块配置（已完成）
 
 ```typescript
 // ai-ask.module.ts
@@ -200,144 +629,104 @@ import { AiAgentsModule } from "../ai-agents/ai-agents.module";
 
 @Module({
   imports: [
-    AiAgentsModule, // 新增
-    // ...existing imports
+    AiAgentsModule, // ✅ 已导入
+    AiCoreModule,
+    PrismaModule,
+  ],
+  providers: [
+    AiAskService,
+    AskLLMAdapter,
+    // ...
   ],
 })
 export class AiAskModule {}
 ```
 
-#### 步骤 2: 注入服务
+#### 服务注入（已完成）
 
 ```typescript
 // ai-ask.service.ts
-import { AgentOrchestrator } from "../ai-agents/core/execution/agent.orchestrator";
+import { AgentOrchestrator } from "../ai-agents/core/agent/agent.orchestrator";
 import { ToolRegistry } from "../ai-agents/core/tool/tool.registry";
-import { ShortTermMemory } from "../ai-agents/core/memory/short-term.memory";
+import { ToolType } from "../ai-agents/core/agent/agent.types";
 
 @Injectable()
 export class AiAskService {
+  // 启用的工具列表
+  private readonly AI_ASK_TOOLS = [
+    ToolType.TEXT_GENERATION,
+    ToolType.WEB_SEARCH,
+    ToolType.SHORT_TERM_MEMORY,
+  ];
+
   constructor(
-    private readonly orchestrator: AgentOrchestrator,
+    private readonly agentOrchestrator: AgentOrchestrator,
     private readonly toolRegistry: ToolRegistry,
-    private readonly shortTermMemory: ShortTermMemory,
-    // ...existing dependencies
+    private readonly askLLMAdapter: AskLLMAdapter,
+    private readonly aiChatService: AiChatService,
+    private readonly prisma: PrismaService,
   ) {}
-}
-```
 
-#### 步骤 3: 实现工具调用模式
-
-```typescript
-// ai-ask.service.ts
-
-// 会话级工具配置
-private readonly defaultTools: ToolType[] = [
-  ToolType.WEB_SEARCH,
-  ToolType.RAG_SEARCH,
-  ToolType.PYTHON_EXECUTOR,
-  ToolType.DATA_ANALYSIS,
-];
-
-async sendMessageWithTools(
-  sessionId: string,
-  message: string,
-  options?: { enableTools?: boolean; tools?: ToolType[] }
-): Promise<AsyncGenerator<AskEvent>> {
-  const tools = options?.enableTools !== false
-    ? (options?.tools ?? this.defaultTools)
-    : [];
-
-  // 构建上下文
-  const context = await this.buildEnhancedContext(sessionId);
-
-  // 使用 Autonomous 模式执行
-  const events = this.orchestrator.executeAutonomous(
-    this.llmAdapter,
-    {
-      prompt: message,
-      context,
-      availableTools: tools,
-    }
-  );
-
-  // 转换并持久化事件
-  for await (const event of events) {
-    const askEvent = this.convertToAskEvent(event);
-    await this.saveMessage(sessionId, askEvent);
-    yield askEvent;
+  // 获取工具能力信息
+  getToolCapabilities(): ToolCapabilityInfo[] {
+    return this.AI_ASK_TOOLS.map((toolType) => {
+      const tool = this.toolRegistry.get(toolType);
+      return {
+        type: toolType,
+        name: tool?.name ?? toolType,
+        description: tool?.description ?? "",
+        available: !!tool,
+      };
+    });
   }
 }
-
-private async buildEnhancedContext(sessionId: string): Promise<Context> {
-  // 1. 获取消息历史
-  const messages = await this.getSessionMessages(sessionId);
-
-  // 2. 从短期记忆获取会话变量
-  const sessionVars = await this.shortTermMemory.get(`session:${sessionId}:vars`);
-
-  // 3. 构建增强上下文
-  return {
-    messages: this.truncateToLimit(messages, 100_000),
-    variables: sessionVars,
-    systemPrompt: this.buildSystemPrompt(sessionVars),
-  };
-}
 ```
 
-#### 步骤 4: 支持流式工具调用事件
+### 5.3 扩展建议
+
+**可添加的工具**（当前仅启用 3 个，可扩展至更多）：
 
 ```typescript
-// ai-ask.controller.ts
+// 建议扩展的工具列表
+private readonly EXTENDED_AI_ASK_TOOLS = [
+  // 当前已启用
+  ToolType.TEXT_GENERATION,
+  ToolType.WEB_SEARCH,
+  ToolType.SHORT_TERM_MEMORY,
 
-@Sse('sessions/:sessionId/chat-stream')
-async chatStream(
-  @Param('sessionId') sessionId: string,
-  @Body() body: SendMessageDto,
-): Promise<Observable<MessageEvent>> {
-  return new Observable(subscriber => {
-    (async () => {
-      const events = this.aiAskService.sendMessageWithTools(
-        sessionId,
-        body.message,
-        { enableTools: body.enableTools, tools: body.tools }
-      );
-
-      for await (const event of events) {
-        subscriber.next({
-          type: event.type,
-          data: JSON.stringify(event),
-        });
-      }
-
-      subscriber.complete();
-    })();
-  });
-}
+  // 建议添加
+  ToolType.RAG_SEARCH,        // 知识库搜索
+  ToolType.DATA_ANALYSIS,     // 数据分析
+  ToolType.PYTHON_EXECUTOR,   // Python 代码执行
+  ToolType.KNOWLEDGE_GRAPH,   // 知识图谱查询
+];
 ```
 
-### 4.4 新增 API
+### 5.4 API 支持
 
-| 端点                                | 变更         | 说明                   |
-| ----------------------------------- | ------------ | ---------------------- |
-| `POST /ask/sessions/:id/chat`       | 新增参数     | enableTools, tools     |
-| `SSE /ask/sessions/:id/chat-stream` | 新增事件类型 | tool_call, tool_result |
+| 端点                                | 状态 | 说明             |
+| ----------------------------------- | ---- | ---------------- |
+| `POST /ask/sessions/:id/chat`       | ✅   | 支持工具调用     |
+| `SSE /ask/sessions/:id/chat-stream` | ✅   | 流式事件返回     |
+| `GET /ask/tools/capabilities`       | ✅   | 获取工具能力信息 |
 
-### 4.5 收益
+### 5.5 整合成果
 
-| 指标         | 整合前   | 整合后               |
-| ------------ | -------- | -------------------- |
-| **工具能力** | 0 种     | 48 种可选            |
-| **复杂问题** | 无法处理 | 多步骤自动分解       |
-| **实时搜索** | 不支持   | WEB_SEARCH 工具      |
-| **代码执行** | 不支持   | PYTHON_EXECUTOR 工具 |
-| **数据分析** | 不支持   | DATA_ANALYSIS 工具   |
+| 指标         | 整合前     | 整合后                 |
+| ------------ | ---------- | ---------------------- |
+| **工具能力** | 0 种       | 3 种（可扩展至 48 种） |
+| **复杂问题** | 无法处理   | 支持工具辅助回答       |
+| **实时搜索** | 不支持     | ✅ WEB_SEARCH 工具     |
+| **记忆能力** | 简单上下文 | ✅ SHORT_TERM_MEMORY   |
+| **扩展性**   | 无         | 可按需启用更多工具     |
 
 ---
 
-## 5. ai-teams 模块整合方案
+## 6. ai-teams 模块整合方案
 
-### 5.1 现状分析
+> **状态**: ⏳ 待实施（优先级 P0）
+
+### 6.1 现状分析
 
 **当前架构**：
 
@@ -352,7 +741,7 @@ interface AIMember {
   model: string;
 }
 
-// AI 响应生成
+// AI 响应生成 - 直接 LLM 调用，无工具能力
 async generateAIResponse(member: AIMember, context: MessageContext) {
   return this.aiChatService.generateChatCompletion({
     messages: this.buildPrompt(member.systemPrompt, context),
@@ -363,11 +752,25 @@ async generateAIResponse(member: AIMember, context: MessageContext) {
 
 **问题**：
 
-- AI 成员无工具能力
-- 角色定义简单，缺乏专业能力
-- 成员间无法协作委派任务
+- ❌ AI 成员无工具能力（无法搜索、分析、执行代码）
+- ❌ 角色定义简单，缺乏专业能力
+- ❌ 成员间无法协作委派任务
+- ❌ 无共识机制和决策支持
 
-### 5.2 目标架构
+### 6.2 可用的 Agent 协作工具
+
+ai-agents 提供了 6 个专门的协作工具，可直接用于 ai-teams：
+
+| 工具                     | 类型                   | 功能             |
+| ------------------------ | ---------------------- | ---------------- |
+| `agent_handoff`          | AGENT_HANDOFF          | Agent 间任务委派 |
+| `human_approval`         | HUMAN_APPROVAL         | 人类审批流程     |
+| `agent_communication`    | AGENT_COMMUNICATION    | Agent 间消息通信 |
+| `task_delegation`        | TASK_DELEGATION        | 任务分配和跟踪   |
+| `consensus_mechanism`    | CONSENSUS_MECHANISM    | 多成员投票决策   |
+| `workflow_orchestration` | WORKFLOW_ORCHESTRATION | 工作流编排       |
+
+### 6.3 目标架构
 
 ```typescript
 // AI 成员升级为 Agent
@@ -388,7 +791,7 @@ class TeamMemberAgent extends BaseAgent {
 }
 ```
 
-### 5.3 实施步骤
+### 6.4 实施步骤
 
 #### 步骤 1: 创建 TeamMemberAgent
 
@@ -575,7 +978,7 @@ export class TopicCollaborationService {
 }
 ```
 
-### 5.4 数据模型扩展
+### 6.5 数据模型扩展
 
 ```typescript
 // 扩展 AIMember 模型
@@ -594,20 +997,23 @@ interface AIMember {
 }
 ```
 
-### 5.5 收益
+### 6.6 收益预估
 
-| 指标         | 整合前     | 整合后               |
-| ------------ | ---------- | -------------------- |
-| **工具能力** | 0 种       | 按角色分配           |
-| **成员协作** | 无         | AGENT_HANDOFF 工具   |
-| **决策机制** | 无         | CONSENSUS_MECHANISM  |
-| **专业能力** | 仅文本回复 | 搜索、分析、代码执行 |
+| 指标         | 整合前     | 整合后                   |
+| ------------ | ---------- | ------------------------ |
+| **工具能力** | 0 种       | 按角色分配（最多 48 种） |
+| **成员协作** | 无         | AGENT_HANDOFF 工具       |
+| **决策机制** | 无         | CONSENSUS_MECHANISM      |
+| **专业能力** | 仅文本回复 | 搜索、分析、代码执行     |
+| **任务分配** | 无         | TASK_DELEGATION 工具     |
 
 ---
 
-## 6. ai-office 模块整合方案
+## 7. ai-office 模块整合方案
 
-### 6.1 现状分析
+> **状态**: ⚠️ 部分整合（SlidesAgent 已复用）
+
+### 7.1 现状分析
 
 **当前架构**（PPT 3.0）：
 
@@ -619,13 +1025,18 @@ PPTOrchestratorService
 └── SlideRendererService
 ```
 
-**特点**：
+**已整合部分**：
 
-- 已有编排器，但与 ai-agents 独立
-- 工具调用内嵌在各 Service 中
-- 无统一的事件流和指标
+- ✅ SlidesAgent 定义在 ai-agents 中
+- ✅ 可使用 TEXT_GENERATION、IMAGE_GENERATION、WEB_SEARCH、EXPORT_PPTX 工具
 
-### 6.2 目标架构
+**待整合部分**：
+
+- ⏳ 统一事件流到 AgentEvent 标准
+- ⏳ 复用 AgentOrchestrator 作为入口
+- ⏳ 整合执行指标收集
+
+### 7.2 目标架构
 
 ```
 AgentOrchestrator
@@ -639,7 +1050,7 @@ AgentOrchestrator
     └── EXPORT_DOCX 工具
 ```
 
-### 6.3 实施步骤
+### 7.3 实施步骤
 
 #### 步骤 1: 统一入口
 
@@ -723,7 +1134,7 @@ export class PPTXExportTool extends BaseTool<PPTXInput, PPTXOutput> {
 }
 ```
 
-### 6.4 收益
+### 7.4 收益
 
 | 指标         | 整合前     | 整合后                |
 | ------------ | ---------- | --------------------- |
@@ -734,9 +1145,11 @@ export class PPTXExportTool extends BaseTool<PPTXInput, PPTXOutput> {
 
 ---
 
-## 7. ai-studio 模块整合方案
+## 8. ai-studio 模块整合方案
 
-### 7.1 现状分析
+> **状态**: ⏳ 待实施（优先级 P2）
+
+### 8.1 现状分析
 
 **当前架构**：
 
@@ -750,11 +1163,12 @@ AiStudioService (项目管理)
 
 **问题**：
 
-- 缺乏 Agent 编排能力
-- 服务间协作松散
-- 无智能研究辅助
+- ❌ 缺乏 Agent 编排能力
+- ❌ 服务间协作松散
+- ❌ 无智能研究辅助
+- ❌ 无知识图谱构建能力
 
-### 7.2 目标架构：创建 ResearcherAgent
+### 8.2 目标架构：创建 ResearcherAgent
 
 ```typescript
 // researcher.agent.ts
@@ -779,7 +1193,7 @@ export class ResearcherAgent extends BaseAgent {
 }
 ```
 
-### 7.3 实施步骤
+### 8.3 实施步骤
 
 #### 步骤 1: 创建研究助手 Agent
 
@@ -888,7 +1302,7 @@ export class AiStudioService {
 }
 ```
 
-### 7.4 收益
+### 8.4 收益
 
 | 指标           | 整合前     | 整合后              |
 | -------------- | ---------- | ------------------- |
@@ -899,9 +1313,11 @@ export class AiStudioService {
 
 ---
 
-## 8. ai-simulation 模块整合方案
+## 9. ai-simulation 模块整合方案
 
-### 8.1 现状分析
+> **状态**: ⏳ 待实施（优先级 P2）
+
+### 9.1 现状分析
 
 **当前架构**：
 
@@ -913,7 +1329,14 @@ AiSimulationService (场景管理)
     └── collectActions() - 收集行动
 ```
 
-### 8.2 整合方案
+**可复用的工具**：
+
+- `AGENT_COMMUNICATION` - Agent 间通信
+- `TEXT_GENERATION` - 行动生成
+- `DATA_ANALYSIS` - 数据分析
+- `PYTHON_EXECUTOR` - 规则执行
+
+### 9.2 整合方案
 
 ```typescript
 // simulation-agent.ts
@@ -959,7 +1382,7 @@ export class SimulationAgent extends BaseAgent {
 }
 ```
 
-### 8.3 收益
+### 9.3 收益
 
 | 指标           | 整合前 | 整合后              |
 | -------------- | ------ | ------------------- |
@@ -969,13 +1392,28 @@ export class SimulationAgent extends BaseAgent {
 
 ---
 
-## 9. ai-image 模块整合方案
+## 10. ai-image 模块整合方案
 
-### 9.1 现状分析
+> **状态**: ⏳ 待实施（优先级 P3）
+
+### 10.1 现状分析
 
 ai-image 模块已有成熟的流式管道，主要整合方向是将关键能力封装为工具。
 
-### 9.2 工具化封装
+**现有能力**：
+
+- 图像生成（Stable Diffusion / DALL-E）
+- Prompt 增强
+- 信息图表生成
+- 图片导出
+
+**可封装为工具**：
+
+- `IMAGE_GENERATION` - 已在 ai-agents 中实现
+- `OCR_RECOGNITION` - OCR 文字识别
+- `EXPORT_IMAGE` - 图片导出
+
+### 10.2 工具化封装
 
 ```typescript
 // 将 ai-image 能力封装为工具
@@ -1013,7 +1451,7 @@ toolRegistry.registerMany([
 ]);
 ```
 
-### 9.3 收益
+### 10.3 收益
 
 | 指标         | 整合前   | 整合后          |
 | ------------ | -------- | --------------- |
@@ -1022,44 +1460,305 @@ toolRegistry.registerMany([
 
 ---
 
-## 10. 整合路线图
+## 11. 错误处理与最佳实践
 
-### 10.1 阶段规划
+### 11.1 错误码体系
 
+ai-agents 使用统一的 `ToolError` 类进行错误处理，错误码按类别分层：
+
+```typescript
+// 文件: core/errors/tool-error.ts
+export enum ToolErrorCode {
+  // ═══════════════════════════════════════════════════════════════
+  // 验证错误 (1xxx) - 不可重试
+  // ═══════════════════════════════════════════════════════════════
+  VALIDATION_ERROR = "VALIDATION_ERROR", // 1000
+  VALIDATION_SCHEMA_INVALID = "VALIDATION_SCHEMA_INVALID", // 1001
+  VALIDATION_REQUIRED_MISSING = "VALIDATION_REQUIRED_MISSING", // 1002
+  VALIDATION_TYPE_MISMATCH = "VALIDATION_TYPE_MISMATCH", // 1003
+  VALIDATION_FORMAT_INVALID = "VALIDATION_FORMAT_INVALID", // 1004
+  VALIDATION_RANGE_EXCEEDED = "VALIDATION_RANGE_EXCEEDED", // 1005
+
+  // ═══════════════════════════════════════════════════════════════
+  // 执行错误 (2xxx) - 部分可重试
+  // ═══════════════════════════════════════════════════════════════
+  EXECUTION_ERROR = "EXECUTION_ERROR", // 2000 可重试
+  EXECUTION_TIMEOUT = "EXECUTION_TIMEOUT", // 2001 可重试
+  EXECUTION_CANCELLED = "EXECUTION_CANCELLED", // 2002 不可重试
+  EXECUTION_FAILED = "EXECUTION_FAILED", // 2003 可重试
+
+  // ═══════════════════════════════════════════════════════════════
+  // 权限错误 (3xxx) - 不可重试
+  // ═══════════════════════════════════════════════════════════════
+  PERMISSION_DENIED = "PERMISSION_DENIED", // 3000
+  PERMISSION_INSUFFICIENT_SCOPE = "PERMISSION_INSUFFICIENT_SCOPE", // 3001
+  PERMISSION_AUTHENTICATION_REQUIRED = "PERMISSION_AUTHENTICATION_REQUIRED", // 3002
+
+  // ═══════════════════════════════════════════════════════════════
+  // 资源错误 (4xxx) - 部分可重试
+  // ═══════════════════════════════════════════════════════════════
+  RESOURCE_NOT_FOUND = "RESOURCE_NOT_FOUND", // 4000 不可重试
+  RESOURCE_ALREADY_EXISTS = "RESOURCE_ALREADY_EXISTS", // 4001 不可重试
+  RESOURCE_UNAVAILABLE = "RESOURCE_UNAVAILABLE", // 4002 可重试
+  RESOURCE_EXHAUSTED = "RESOURCE_EXHAUSTED", // 4003 可重试
+
+  // ═══════════════════════════════════════════════════════════════
+  // 限流错误 (5xxx) - 可重试
+  // ═══════════════════════════════════════════════════════════════
+  RATE_LIMIT_EXCEEDED = "RATE_LIMIT_EXCEEDED", // 5000 可重试
+  RATE_LIMIT_QUOTA_EXCEEDED = "RATE_LIMIT_QUOTA_EXCEEDED", // 5001 不可重试
+  RATE_LIMIT_CONCURRENT_EXCEEDED = "RATE_LIMIT_CONCURRENT_EXCEEDED", // 5002 可重试
+
+  // ═══════════════════════════════════════════════════════════════
+  // 外部服务错误 (6xxx) - 可重试
+  // ═══════════════════════════════════════════════════════════════
+  EXTERNAL_SERVICE_ERROR = "EXTERNAL_SERVICE_ERROR", // 6000
+  EXTERNAL_SERVICE_TIMEOUT = "EXTERNAL_SERVICE_TIMEOUT", // 6001
+  EXTERNAL_SERVICE_UNAVAILABLE = "EXTERNAL_SERVICE_UNAVAILABLE", // 6002
+  EXTERNAL_SERVICE_RATE_LIMITED = "EXTERNAL_SERVICE_RATE_LIMITED", // 6003
+  EXTERNAL_SERVICE_AUTHENTICATION_FAILED = "EXTERNAL_SERVICE_AUTHENTICATION_FAILED", // 6004
+
+  // ═══════════════════════════════════════════════════════════════
+  // 内部错误 (9xxx) - 不可重试
+  // ═══════════════════════════════════════════════════════════════
+  INTERNAL_ERROR = "INTERNAL_ERROR", // 9000
+  INTERNAL_CONFIGURATION_ERROR = "INTERNAL_CONFIGURATION_ERROR", // 9001
+  INTERNAL_DEPENDENCY_ERROR = "INTERNAL_DEPENDENCY_ERROR", // 9002 可重试
+  INTERNAL_UNEXPECTED_ERROR = "INTERNAL_UNEXPECTED_ERROR", // 9003
+}
 ```
-Phase 1: 基础整合 (2-3 周)
-├── Week 1: ai-ask 接入 FunctionCallingExecutor
-├── Week 2: ai-teams AI成员升级为 Agent
-└── Week 3: 共享 ToolRegistry 和 Memory
 
-Phase 2: 办公整合 (2 周)
-├── Week 4: 统一 PPT/DOCX 到 Agent 框架
-└── Week 5: 复用 SlidesAgent/DocsAgent，标准化事件流
+### 11.2 错误处理模式
 
-Phase 3: 专项整合 (2-3 周)
-├── Week 6: 创建 ResearcherAgent for ai-studio
-├── Week 7: 推演引擎适配 Agent 框架
-└── Week 8: 统一监控和指标
+#### 11.2.1 在工具中抛出错误
 
-Phase 4: 工具扩展 (1-2 周)
-├── Week 9: ai-image 能力工具化
-└── Week 10: 扩展外部集成工具
+```typescript
+import { ToolError, ToolErrorCode } from "../core/errors";
+
+class MyTool extends BaseTool {
+  protected async doExecute(
+    input: Input,
+    context: ToolContext,
+  ): Promise<Output> {
+    // 验证错误
+    if (!input.query) {
+      throw ToolError.validation("Query is required", {
+        field: "query",
+        received: input.query,
+      });
+    }
+
+    // 资源未找到
+    const result = await this.findResource(input.resourceId);
+    if (!result) {
+      throw ToolError.notFound(input.resourceId, this.name);
+    }
+
+    // 外部服务错误
+    try {
+      return await this.callExternalApi(input);
+    } catch (error) {
+      throw ToolError.externalService(
+        "ExternalAPI",
+        error.message,
+        ToolErrorCode.EXTERNAL_SERVICE_TIMEOUT,
+      );
+    }
+  }
+}
 ```
 
-### 10.2 里程碑
+#### 11.2.2 在服务中捕获错误
 
-| 里程碑 | 目标                       | 验收标准                    |
-| ------ | -------------------------- | --------------------------- |
-| **M1** | ai-ask + ai-teams 完成整合 | 工具调用正常，流式事件正确  |
-| **M2** | ai-office 迁移完成         | PPT/DOCX 生成通过标准流程   |
-| **M3** | 全模块整合完成             | 所有模块通过 ai-agents 编排 |
-| **M4** | 监控体系建立               | 统一指标面板上线            |
+```typescript
+import {
+  ToolError,
+  isRetryableError,
+  shouldRetry,
+  getRetryDelay,
+} from "../core/errors";
+
+async function executeWithRetry(tool: ITool, input: unknown, maxRetries = 3) {
+  let attempt = 0;
+
+  while (true) {
+    try {
+      return await tool.execute(input, context);
+    } catch (error) {
+      attempt++;
+
+      if (error instanceof ToolError) {
+        // 检查是否可重试
+        if (!shouldRetry(error, attempt)) {
+          throw error;
+        }
+
+        // 计算重试延迟（指数退避）
+        const delay = getRetryDelay(error, attempt);
+        await sleep(delay);
+        continue;
+      }
+
+      // 非 ToolError，转换并抛出
+      throw ToolError.fromError(error as Error);
+    }
+  }
+}
+```
+
+### 11.3 重试策略
+
+```typescript
+// 文件: core/execution/retry-strategy.ts
+
+// 错误码对应的重试配置
+const RETRY_CONFIG = {
+  EXECUTION_ERROR: { retryable: true, delay: 1000, maxRetries: 3 },
+  EXECUTION_TIMEOUT: { retryable: true, delay: 2000, maxRetries: 2 },
+  RESOURCE_UNAVAILABLE: { retryable: true, delay: 5000, maxRetries: 3 },
+  RATE_LIMIT_EXCEEDED: { retryable: true, delay: 60000, maxRetries: 3 },
+  EXTERNAL_SERVICE_ERROR: { retryable: true, delay: 2000, maxRetries: 3 },
+};
+
+// 重试延迟使用指数退避 + 抖动
+function calculateDelay(baseDelay: number, attempt: number): number {
+  const exponentialDelay = baseDelay * Math.pow(2, attempt - 1);
+  const jitter = Math.random() * 0.1 * exponentialDelay;
+  return exponentialDelay + jitter;
+}
+```
+
+### 11.4 最佳实践
+
+#### 11.4.1 工具开发最佳实践
+
+```typescript
+// ✅ 正确：使用统一的错误类型
+throw new ToolError(ToolErrorCode.VALIDATION_ERROR, "Invalid input", {
+  details: { field: "query", expected: "string" },
+  source: this.name,
+});
+
+// ❌ 错误：抛出普通 Error
+throw new Error("Invalid input");
+
+// ✅ 正确：设置合理的超时时间
+readonly timeout = 30000; // 30 秒
+
+// ❌ 错误：没有超时控制
+// readonly timeout = undefined;
+
+// ✅ 正确：详细的输入 Schema
+readonly inputSchema: JSONSchema = {
+  type: "object",
+  properties: {
+    query: { type: "string", minLength: 1, description: "搜索查询" },
+    maxResults: { type: "number", minimum: 1, maximum: 100, default: 10 },
+  },
+  required: ["query"],
+};
+
+// ❌ 错误：缺少验证约束
+readonly inputSchema = { type: "object" };
+```
+
+#### 11.4.2 服务集成最佳实践
+
+```typescript
+// ✅ 正确：使用 for await 处理流式事件
+for await (const event of orchestrator.execute(input, agentType)) {
+  switch (event.type) {
+    case "tool_call":
+      this.logger.log(`Calling tool: ${event.toolType}`);
+      break;
+    case "error":
+      this.handleError(event.error);
+      break;
+    case "complete":
+      return event.output;
+  }
+}
+
+// ✅ 正确：在上下文中传递必要信息
+const context: ToolContext = {
+  taskId: generateId(),
+  userId: currentUser.id,
+  workspaceId: currentWorkspace.id,
+  timeout: 60000,
+};
+
+// ✅ 正确：限制工具列表，只启用需要的工具
+const enabledTools = [
+  ToolType.WEB_SEARCH,
+  ToolType.TEXT_GENERATION,
+  // 不要启用不需要的工具
+];
+```
+
+### 11.5 性能优化建议
+
+| 场景         | 建议               | 说明                                      |
+| ------------ | ------------------ | ----------------------------------------- |
+| **工具超时** | 设置合理的 timeout | 默认 30s，复杂操作可增加到 60-120s        |
+| **并发控制** | 限制并发工具调用数 | FunctionCallingExecutor 默认最多 3 个并发 |
+| **迭代限制** | 设置 maxIterations | 防止无限循环，默认 10 次                  |
+| **缓存**     | 对频繁查询使用缓存 | 如 WEB_SEARCH 结果可缓存 5-15 分钟        |
+| **批量操作** | 合并多次小操作     | 如批量图像生成优于多次单独调用            |
 
 ---
 
-## 11. 通用整合模式
+## 12. 整合路线图
 
-### 11.1 模式 1: 直接使用 AgentOrchestrator
+### 12.1 当前进度
+
+```
+Phase 1: 基础整合 ✅ 部分完成
+├── ✅ ai-ask 接入 AgentOrchestrator + ToolRegistry
+├── ⏳ ai-teams AI成员升级为 Agent（待实施）
+└── ⚠️ 共享 ToolRegistry 和 Memory（ai-ask 已完成）
+
+Phase 2: 办公整合 ⚠️ 部分完成
+├── ⚠️ SlidesAgent 已定义，事件流待统一
+└── ⏳ DocsAgent 标准化（待实施）
+
+Phase 3: 专项整合 ⏳ 待实施
+├── ⏳ 创建 ResearcherAgent for ai-studio
+├── ⏳ 推演引擎适配 Agent 框架
+└── ⏳ 统一监控和指标
+
+Phase 4: 工具扩展 ⏳ 待实施
+├── ⏳ ai-image 能力工具化
+└── ⏳ 扩展外部集成工具
+```
+
+### 12.2 里程碑
+
+| 里程碑 | 目标               | 状态      | 验收标准                     |
+| ------ | ------------------ | --------- | ---------------------------- |
+| **M1** | ai-ask 完成整合    | ✅ 已完成 | 工具调用正常，流式事件正确   |
+| **M2** | ai-teams 完成整合  | ⏳ 进行中 | AI成员具备工具能力，协作正常 |
+| **M3** | ai-office 迁移完成 | ⚠️ 部分   | PPT/DOCX 生成通过标准流程    |
+| **M4** | 全模块整合完成     | ⏳ 待开始 | 所有模块通过 ai-agents 编排  |
+| **M5** | 监控体系建立       | ⏳ 待开始 | 统一指标面板上线             |
+
+### 12.3 下一步行动
+
+**优先级 P0（建议立即实施）**：
+
+1. **ai-teams 整合**
+   - 创建 TeamMemberAgent 类
+   - 实现角色到工具的映射
+   - 添加协作工具支持（AGENT_HANDOFF, CONSENSUS_MECHANISM）
+
+2. **ai-ask 扩展**
+   - 添加更多工具支持（RAG_SEARCH, DATA_ANALYSIS）
+   - 优化工具调用的用户体验
+
+---
+
+## 13. 通用整合模式
+
+### 13.1 模式 1: 直接使用 AgentOrchestrator
 
 适用于：需要完整 Agent 能力的场景
 
@@ -1083,7 +1782,7 @@ export class YourService {
 }
 ```
 
-### 11.2 模式 2: 使用 FunctionCallingExecutor
+### 13.2 模式 2: 使用 FunctionCallingExecutor
 
 适用于：LLM 自主工具选择场景
 
@@ -1111,7 +1810,7 @@ export class YourService {
 }
 ```
 
-### 11.3 模式 3: 直接使用工具
+### 13.3 模式 3: 直接使用工具
 
 适用于：明确知道需要哪个工具的场景
 
@@ -1129,7 +1828,7 @@ export class YourService {
 }
 ```
 
-### 11.4 模式 4: 创建自定义 Agent
+### 13.4 模式 4: 创建自定义 Agent
 
 适用于：需要定制化 Agent 行为的场景
 
@@ -1163,42 +1862,97 @@ agentRegistry.register(new CustomAgent());
 ## 附录 A: 导入路径速查
 
 ```typescript
-// Agent 核心
-import { AgentOrchestrator } from "@/modules/ai/ai-agents/core/execution/agent.orchestrator";
+// ════════════════════════════════════════════════════════════════════════════
+// Agent 核心 (core/agent/)
+// ════════════════════════════════════════════════════════════════════════════
+import { AgentOrchestrator } from "@/modules/ai/ai-agents/core/agent/agent.orchestrator";
 import { AgentRegistry } from "@/modules/ai/ai-agents/core/agent/agent.registry";
-import { BaseAgent } from "@/modules/ai/ai-agents/core/agent/base.agent";
 import {
   AgentType,
-  AgentConfig,
-  AgentInput,
-  AgentEvent,
+  AgentTaskStatus,
+  ToolType,
+  ArtifactType,
 } from "@/modules/ai/ai-agents/core/agent/agent.types";
 
-// 工具系统
+// ════════════════════════════════════════════════════════════════════════════
+// 工具系统 (core/tool/)
+// ════════════════════════════════════════════════════════════════════════════
 import { ToolRegistry } from "@/modules/ai/ai-agents/core/tool/tool.registry";
-import { BaseTool } from "@/modules/ai/ai-agents/core/tool/base.tool";
 import {
-  ToolType,
-  ToolCategory,
-} from "@/modules/ai/ai-agents/core/tool/tool.types";
+  BaseTool,
+  ITool,
+  ToolContext,
+  ToolResult,
+  JSONSchema,
+  FunctionDefinition,
+} from "@/modules/ai/ai-agents/core/tool/tool.interface";
 
-// 执行引擎
+// ════════════════════════════════════════════════════════════════════════════
+// 执行引擎 (core/execution/)
+// ════════════════════════════════════════════════════════════════════════════
 import { FunctionCallingExecutor } from "@/modules/ai/ai-agents/core/execution/function-calling-executor";
-import { RetryStrategy } from "@/modules/ai/ai-agents/core/execution/retry-strategy";
 import { ExecutionMetricsCollector } from "@/modules/ai/ai-agents/core/execution/execution-metrics";
+import { RetryStrategy } from "@/modules/ai/ai-agents/core/execution/retry-strategy";
 
-// 记忆系统
+// ════════════════════════════════════════════════════════════════════════════
+// LLM 适配 (core/llm/)
+// ════════════════════════════════════════════════════════════════════════════
+import {
+  LLMAdapter,
+  ILLMAdapter,
+} from "@/modules/ai/ai-agents/core/llm/llm-adapter";
+
+// ════════════════════════════════════════════════════════════════════════════
+// 记忆系统 (core/memory/)
+// ════════════════════════════════════════════════════════════════════════════
 import { ShortTermMemory } from "@/modules/ai/ai-agents/core/memory/short-term.memory";
 import { LongTermMemory } from "@/modules/ai/ai-agents/core/memory/long-term.memory";
+import { IMemory } from "@/modules/ai/ai-agents/core/memory/memory.interface";
 
-// 安全护栏
-import { GuardrailService } from "@/modules/ai/ai-agents/core/guardrails/guardrail.service";
+// ════════════════════════════════════════════════════════════════════════════
+// 错误系统 (core/errors/)
+// ════════════════════════════════════════════════════════════════════════════
+import {
+  ToolError,
+  ToolErrorCode,
+  ToolErrorDetails,
+  TOOL_ERROR_CODES,
+  isRetryableError,
+  shouldRetry,
+  getRetryDelay,
+} from "@/modules/ai/ai-agents/core/errors/tool-error";
 
-// 验证
-import { SchemaValidator } from "@/modules/ai/ai-agents/core/validation/schema-validator";
+// ════════════════════════════════════════════════════════════════════════════
+// 验证系统 (core/validation/)
+// ════════════════════════════════════════════════════════════════════════════
+import {
+  SchemaValidator,
+  ValidationResult,
+} from "@/modules/ai/ai-agents/core/validation/schema-validator";
 
-// 错误
-import { ToolError, AgentError } from "@/modules/ai/ai-agents/core/errors";
+// ════════════════════════════════════════════════════════════════════════════
+// 安全护栏 (core/guardrails/)
+// ════════════════════════════════════════════════════════════════════════════
+import { Guardrails } from "@/modules/ai/ai-agents/core/guardrails/guardrails";
+
+// ════════════════════════════════════════════════════════════════════════════
+// MCP 协议 (core/mcp/)
+// ════════════════════════════════════════════════════════════════════════════
+import { MCPAdapter } from "@/modules/ai/ai-agents/core/mcp/mcp-adapter";
+import { MCPServer } from "@/modules/ai/ai-agents/core/mcp/mcp-server";
+
+// ════════════════════════════════════════════════════════════════════════════
+// 便捷导入 (从 core/index.ts 统一导出)
+// ════════════════════════════════════════════════════════════════════════════
+import {
+  AgentOrchestrator,
+  ToolRegistry,
+  AgentRegistry,
+  ToolType,
+  AgentType,
+  ToolError,
+  // ...
+} from "@/modules/ai/ai-agents/core";
 ```
 
 ---
@@ -1221,8 +1975,145 @@ import { ToolError, AgentError } from "@/modules/ai/ai-agents/core/errors";
 
 ---
 
+## 附录 C: 常见问题解答 (FAQ)
+
+### Q1: 如何选择使用哪种整合模式？
+
+| 场景                | 推荐模式                        | 说明                 |
+| ------------------- | ------------------------------- | -------------------- |
+| 需要完整 Agent 能力 | 模式 1: AgentOrchestrator       | 自动规划、多步骤执行 |
+| LLM 自主选择工具    | 模式 2: FunctionCallingExecutor | ReAct 模式           |
+| 明确知道用哪个工具  | 模式 3: 直接使用工具            | 最简单，性能最好     |
+| 需要定制 Agent      | 模式 4: 自定义 Agent            | 灵活度最高           |
+
+### Q2: 工具执行超时怎么处理？
+
+```typescript
+// 方法 1: 在工具定义中设置超时
+class MyTool extends BaseTool {
+  readonly timeout = 60000; // 60 秒
+}
+
+// 方法 2: 在上下文中设置超时
+const context: ToolContext = {
+  taskId: id,
+  timeout: 120000, // 120 秒，覆盖默认值
+};
+```
+
+### Q3: 如何调试工具执行问题？
+
+```typescript
+// 1. 启用详细日志
+const executor = new FunctionCallingExecutor(llmAdapter, toolRegistry, {
+  debug: true,
+  logLevel: "verbose",
+});
+
+// 2. 监听事件
+for await (const event of executor.run(input)) {
+  console.log(`[${event.type}]`, JSON.stringify(event, null, 2));
+}
+
+// 3. 检查错误详情
+if (error instanceof ToolError) {
+  console.log("Error Code:", error.code);
+  console.log("Retryable:", error.retryable);
+  console.log("Details:", error.details);
+}
+```
+
+### Q4: 如何限制工具调用次数？
+
+```typescript
+const executor = new FunctionCallingExecutor(llmAdapter, toolRegistry, {
+  maxIterations: 5, // 最大迭代次数
+  maxToolCalls: 10, // 最大工具调用次数
+  maxConcurrentTools: 2, // 最大并发工具数
+});
+```
+
+### Q5: 如何在工具间共享数据？
+
+```typescript
+// 使用短期记忆
+const memoryTool = toolRegistry.get(ToolType.SHORT_TERM_MEMORY);
+
+// 存储
+await memoryTool.execute(
+  {
+    action: "set",
+    key: "search_results",
+    value: results,
+  },
+  context,
+);
+
+// 读取
+const stored = await memoryTool.execute(
+  {
+    action: "get",
+    key: "search_results",
+  },
+  context,
+);
+```
+
+### Q6: 如何测试自定义工具？
+
+```typescript
+import { ToolError, ToolErrorCode } from "../core/errors";
+
+describe("MyCustomTool", () => {
+  let tool: MyCustomTool;
+
+  beforeEach(() => {
+    tool = new MyCustomTool();
+  });
+
+  it("should execute successfully", async () => {
+    const result = await tool.execute({ query: "test" }, mockContext);
+    expect(result.success).toBe(true);
+  });
+
+  it("should throw validation error for invalid input", async () => {
+    await expect(tool.execute({ query: "" }, mockContext)).rejects.toThrow(
+      ToolError,
+    );
+  });
+});
+```
+
+---
+
+## 附录 D: 调试指南
+
+### 启用调试模式
+
+```bash
+# 设置环境变量
+DEBUG=ai-agents:* npm run start:dev
+
+# 或在代码中
+process.env.DEBUG = 'ai-agents:*';
+```
+
+### 常见问题排查
+
+| 问题           | 可能原因               | 解决方案                              |
+| -------------- | ---------------------- | ------------------------------------- |
+| 工具未找到     | 未注册到 ToolRegistry  | 检查 ai-agents.module.ts 中的注册代码 |
+| 执行超时       | 操作耗时过长           | 增加 timeout 或优化工具实现           |
+| 验证失败       | 输入不符合 Schema      | 检查 inputSchema 定义和输入数据       |
+| LLM 未调用工具 | 系统提示不清晰         | 优化 systemPrompt，明确工具使用场景   |
+| 无限循环       | maxIterations 设置过高 | 降低 maxIterations 或检查终止条件     |
+
+---
+
 ## 版本历史
 
-| 版本 | 日期       | 作者              | 变更说明     |
-| ---- | ---------- | ----------------- | ------------ |
-| v1.0 | 2025-12-19 | Architecture Team | 初始版本发布 |
+| 版本 | 日期       | 作者              | 变更说明                                                                                                                                                                                 |
+| ---- | ---------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| v1.0 | 2025-12-19 | Architecture Team | 初始版本发布                                                                                                                                                                             |
+| v2.0 | 2025-12-19 | Architecture Team | 更新实际整合状态：ai-ask 已完成整合；添加 ai-agents 核心能力清单和工具分类统计；更新模块依赖关系图；添加协作工具列表；更新路线图进度                                                     |
+| v3.0 | 2025-12-19 | Architecture Team | 全面改进：新增第3章"核心架构详解"（目录结构、类型系统、执行流程）；新增第11章"错误处理与最佳实践"（错误码体系、重试策略、性能优化）；更新附录A导入路径；新增附录C FAQ；新增附录D调试指南 |

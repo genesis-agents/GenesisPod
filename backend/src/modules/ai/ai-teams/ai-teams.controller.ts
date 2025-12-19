@@ -14,8 +14,11 @@ import {
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AiTeamsService } from "./ai-teams.service";
 import { AiTeamsGateway } from "./ai-teams.gateway";
-import { DebateService } from "./debate.service";
-import { UrlParserService } from "./url-parser.service";
+import {
+  DebateService,
+  TeamMissionService,
+  UrlParserService,
+} from "./services";
 import {
   CreateTopicDto,
   UpdateTopicDto,
@@ -33,7 +36,6 @@ import {
   UpdateAIMemberTeamRoleDto,
 } from "./dto";
 import { TopicType, MentionType } from "@prisma/client";
-import { TeamMissionService } from "./team-mission.service";
 
 @Controller("topics")
 @UseGuards(JwtAuthGuard)

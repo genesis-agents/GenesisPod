@@ -4,10 +4,10 @@ import {
   BadRequestException,
   Logger,
 } from "@nestjs/common";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { TopicRole, Prisma } from "@prisma/client";
-import { GenerateSummaryDto } from "./dto";
-import { AiChatService } from "../ai-core/ai-chat.service";
+import { GenerateSummaryDto } from "../../dto";
+import { AiChatService } from "../../../ai-core/ai-chat.service";
 import { TopicCrudService } from "./topic-crud.service";
 
 @Injectable()

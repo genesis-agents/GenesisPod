@@ -18,6 +18,8 @@ describe("PythonExecutorTool", () => {
 
   describe("基本功能", () => {
     it("应该能执行简单的 Python 代码", async () => {
+      // Set a longer timeout for Python execution as it can be slow on first run
+      jest.setTimeout(60000);
       const result = await tool.execute(
         {
           code: 'print("Hello, World!")',

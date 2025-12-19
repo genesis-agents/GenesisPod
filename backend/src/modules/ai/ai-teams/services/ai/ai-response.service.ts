@@ -1,13 +1,27 @@
-import { Injectable, NotFoundException, Logger } from "@nestjs/common";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import {
+  Injectable,
+  NotFoundException,
+  Logger,
+  Inject,
+  forwardRef,
+} from "@nestjs/common";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { MessageContentType } from "@prisma/client";
-import { AiChatService, ChatMessage } from "../ai-core/ai-chat.service";
-import { SearchService } from "../ai-core/search.service";
+import { AiChatService, ChatMessage } from "../../../ai-core/ai-chat.service";
+import { SearchService } from "../../../ai-core/search.service";
 import {
   ContextRouterService,
   ContextStrategy,
 } from "./context-router.service";
-import { ParsedUrl } from "./url-parser.service";
+import { ParsedUrl } from "../utils/url-parser.service";
+import { TeamMemberAgent, TeamsLLMAdapter } from "../../agents";
+import { FunctionCallingExecutor } from "../../../ai-agents/core/execution/function-calling-executor";
+import {
+  ToolType,
+  AgentEvent,
+} from "../../../ai-agents/core/agent/agent.types";
+import { ToolContext } from "../../../ai-agents/core/tool/tool.interface";
+import { AiTeamsGateway } from "../../ai-teams.gateway";
 
 /**
  * Service responsible for generating AI responses in topics
@@ -22,6 +36,11 @@ export class AiResponseService {
     private aiChatService: AiChatService,
     private searchService: SearchService,
     private contextRouter: ContextRouterService,
+    private teamMemberAgent: TeamMemberAgent,
+    private teamsLLMAdapter: TeamsLLMAdapter,
+    private functionCallingExecutor: FunctionCallingExecutor,
+    @Inject(forwardRef(() => AiTeamsGateway))
+    private aiTeamsGateway: AiTeamsGateway,
   ) {}
 
   /**
@@ -754,6 +773,38 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
       finalSystemPrompt = systemPrompt + "\n\n" + intentSystemPrompt;
     }
 
+    // ==================== 工具调用模式 ====================
+    // 检查是否应该使用工具
+    const memberConfig = this.buildMemberConfig(aiMember);
+    const toolTypes = this.teamMemberAgent.resolveTools(memberConfig);
+
+    this.logger.debug(
+      `[Tool Integration] Member ${aiMember.displayName}: ${toolTypes.length} tools available`,
+    );
+
+    // 如果有工具且应该使用工具，尝试工具模式
+    if (toolTypes.length > 0 && this.shouldUseTools(aiMember)) {
+      this.logger.log(
+        `[Tool Integration] Using tool mode for ${aiMember.displayName} with ${toolTypes.length} tools`,
+      );
+
+      try {
+        return await this.generateWithTools(
+          topicId,
+          aiMember,
+          filteredContextMessages,
+          toolTypes,
+          finalSystemPrompt,
+        );
+      } catch (error) {
+        this.logger.error(
+          `[Tool Integration] Tool mode failed, falling back to standard mode:`,
+          error,
+        );
+        // 降级到标准模式（继续执行下面的代码）
+      }
+    }
+
     // Build chat messages for AI service
     const MAX_MESSAGE_LENGTH = 4000;
 
@@ -1307,6 +1358,274 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
     ];
 
     return searchTriggers.some((trigger) => lowerContent.includes(trigger));
+  }
+
+  /**
+   * 判断 AI 成员是否应该使用工具
+   */
+  private shouldUseTools(aiMember: {
+    capabilities?: unknown;
+    roleDescription?: string | null;
+    displayName: string;
+  }): boolean {
+    // 如果有 capabilities，启用工具
+    if (aiMember.capabilities && Array.isArray(aiMember.capabilities)) {
+      if (aiMember.capabilities.length > 0) {
+        this.logger.debug(
+          `[shouldUseTools] ${aiMember.displayName} has capabilities, enabling tools`,
+        );
+        return true;
+      }
+    }
+
+    // 检查角色描述中是否包含特定关键词
+    const roleDesc = (aiMember.roleDescription || "").toLowerCase();
+    const toolKeywords = [
+      "leader",
+      "researcher",
+      "analyst",
+      "developer",
+      "搜索",
+      "分析",
+      "开发",
+      "研究",
+      "数据",
+    ];
+
+    const hasToolKeyword = toolKeywords.some((kw) => roleDesc.includes(kw));
+    if (hasToolKeyword) {
+      this.logger.debug(
+        `[shouldUseTools] ${aiMember.displayName} role suggests tool use`,
+      );
+      return true;
+    }
+
+    // 默认不使用工具
+    return false;
+  }
+
+  /**
+   * 构建成员配置
+   */
+  private buildMemberConfig(aiMember: {
+    id: string;
+    displayName: string;
+    roleDescription?: string | null;
+    capabilities?: unknown;
+  }) {
+    const capabilities = Array.isArray(aiMember.capabilities)
+      ? aiMember.capabilities
+      : [];
+
+    // 从角色描述推断角色类型
+    const role = this.teamMemberAgent.inferRoleFromDescription(
+      aiMember.roleDescription,
+    );
+
+    // 专业领域从角色描述中提取
+    const expertiseAreas: string[] = [];
+    if (aiMember.roleDescription) {
+      // 简单提取，后续可以优化
+      expertiseAreas.push(aiMember.roleDescription);
+    }
+
+    return {
+      memberId: aiMember.id,
+      displayName: aiMember.displayName,
+      role,
+      capabilities,
+      expertiseAreas,
+      workStyle: null,
+      isLeader: role === "leader",
+    };
+  }
+
+  /**
+   * 使用工具生成 AI 响应
+   */
+  private async generateWithTools(
+    topicId: string,
+    aiMember: {
+      id: string;
+      aiModel: string;
+      displayName: string;
+      roleDescription?: string | null;
+    },
+    contextMessages: Array<{
+      content: string;
+      senderId: string | null;
+      aiMemberId: string | null;
+      sender: { username: string | null; fullName: string | null } | null;
+      aiMember: { displayName: string } | null;
+    }>,
+    toolTypes: ToolType[],
+    systemPrompt: string,
+  ) {
+    this.logger.log(
+      `[generateWithTools] Generating response with ${toolTypes.length} tools for ${aiMember.displayName}`,
+    );
+
+    // 配置 LLM Adapter
+    this.teamsLLMAdapter.setConfig({
+      aiMemberId: aiMember.id,
+      topicId,
+    });
+
+    // 构建用户消息 (最后一条用户消息作为 prompt)
+    const userMessages = contextMessages.filter((m) => m.senderId);
+    const lastUserMessage = userMessages[userMessages.length - 1];
+    const userPrompt = lastUserMessage?.content || "请继续";
+
+    // 构建工具上下文
+    const toolContext: ToolContext = {
+      taskId: `topic_${topicId}_${Date.now()}`,
+      userId: lastUserMessage?.senderId || "system",
+      workspaceId: topicId,
+    };
+
+    // 执行 Function Calling
+    const events: AgentEvent[] = [];
+    const toolCalls: Array<{
+      tool: ToolType;
+      input: unknown;
+      output: unknown;
+    }> = [];
+    let finalContent = "";
+
+    try {
+      const eventGenerator = this.functionCallingExecutor.execute(
+        this.teamsLLMAdapter,
+        systemPrompt,
+        userPrompt,
+        toolTypes,
+        toolContext,
+        {
+          maxIterations: 5,
+          maxToolCalls: 10,
+          parallelToolCalls: false,
+          enableRetry: true,
+          temperature: 0.7,
+          maxTokens: 4096,
+        },
+      );
+
+      // 收集所有事件并推送 WebSocket
+      for await (const event of eventGenerator) {
+        events.push(event);
+
+        if (event.type === "tool_call") {
+          this.logger.debug(`[generateWithTools] Tool call: ${event.tool}`);
+          // 推送工具调用开始事件
+          await this.aiTeamsGateway.emitToTopic(topicId, "tool:calling", {
+            aiMemberId: aiMember.id,
+            aiMemberName: aiMember.displayName,
+            toolType: event.tool,
+            input: event.input,
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        if (event.type === "tool_result") {
+          // 找到对应的 tool_call 事件
+          const toolCallEvent = events.find(
+            (e) => e.type === "tool_call" && e.tool === event.tool,
+          );
+          toolCalls.push({
+            tool: event.tool,
+            input:
+              toolCallEvent && toolCallEvent.type === "tool_call"
+                ? toolCallEvent.input
+                : undefined,
+            output: event.output,
+          });
+          // 推送工具调用结果事件
+          await this.aiTeamsGateway.emitToTopic(topicId, "tool:result", {
+            aiMemberId: aiMember.id,
+            aiMemberName: aiMember.displayName,
+            toolType: event.tool,
+            output: event.output,
+            duration: event.duration,
+            success: true,
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        if (event.type === "complete") {
+          finalContent = event.result.summary || "";
+          this.logger.log(
+            `[generateWithTools] Completed with ${toolCalls.length} tool calls`,
+          );
+          // 推送工具调用完成事件
+          await this.aiTeamsGateway.emitToTopic(topicId, "tool:complete", {
+            aiMemberId: aiMember.id,
+            aiMemberName: aiMember.displayName,
+            toolCallCount: toolCalls.length,
+            tokensUsed: event.result.tokensUsed,
+            duration: event.result.duration,
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        if (event.type === "error") {
+          this.logger.error(`[generateWithTools] Error: ${event.error}`);
+          // 推送工具调用错误事件
+          await this.aiTeamsGateway.emitToTopic(topicId, "tool:error", {
+            aiMemberId: aiMember.id,
+            aiMemberName: aiMember.displayName,
+            error: event.error,
+            timestamp: new Date().toISOString(),
+          });
+          // 降级到纯文本模式
+          finalContent = `工具调用出现错误: ${event.error}\n\n让我用常规方式回答...`;
+        }
+      }
+
+      // 如果没有最终内容，生成默认响应
+      if (!finalContent) {
+        finalContent = "任务已完成，但没有生成摘要。";
+      }
+
+      // 保存消息到数据库
+      const message = await this.prisma.topicMessage.create({
+        data: {
+          topicId,
+          aiMemberId: aiMember.id,
+          content: finalContent,
+          contentType: MessageContentType.TEXT,
+          prompt: systemPrompt,
+          modelUsed: aiMember.aiModel,
+          tokensUsed:
+            events.find((e) => e.type === "complete")?.result?.tokensUsed || 0,
+        },
+        include: {
+          aiMember: {
+            select: {
+              id: true,
+              aiModel: true,
+              displayName: true,
+              avatar: true,
+              roleDescription: true,
+            },
+          },
+        },
+      });
+
+      // 更新 Topic
+      await this.prisma.topic.update({
+        where: { id: topicId },
+        data: { updatedAt: new Date() },
+      });
+
+      return message;
+    } catch (error) {
+      this.logger.error(
+        `[generateWithTools] Failed to generate with tools:`,
+        error,
+      );
+
+      // 降级到纯文本生成（在调用方处理）
+      throw error;
+    }
   }
 
   /**

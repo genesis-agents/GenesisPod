@@ -1,6 +1,9 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { UrlParserService, ParsedUrl } from "../url-parser.service";
-import { ContentExtractionService } from "../content-extraction.service";
+import {
+  UrlParserService,
+  ParsedUrl,
+} from "../services/utils/url-parser.service";
+import { ContentExtractionService } from "../services/utils/content-extraction.service";
 
 describe("UrlParserService", () => {
   let service: UrlParserService;

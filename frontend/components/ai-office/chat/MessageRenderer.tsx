@@ -7,6 +7,7 @@
 
 import React, { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { CollapsibleBlockquote } from '@/components/ui/CollapsibleBlockquote';
@@ -132,6 +133,7 @@ export default function MessageRenderer({
       className={`message-renderer prose prose-slate max-w-none ${role === 'assistant' ? 'ai-message' : 'user-message'}`}
     >
       <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
         components={{
           // 标题渲染 - Genspark风格
           h1: ({ node, ...props }) => (
