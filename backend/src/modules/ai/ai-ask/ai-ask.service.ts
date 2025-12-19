@@ -685,7 +685,14 @@ export class AiAskService {
           {
             role: "system",
             content:
-              "Generate a short title (max 30 characters) for this conversation. Reply with only the title, no quotes or extra text.",
+              "Generate a short, clean title (max 30 characters) for this conversation based on the user's message. " +
+              "Rules:\n" +
+              "- Reply with ONLY the title text, nothing else\n" +
+              "- Do NOT use quotes, brackets, parentheses, or any wrapper characters\n" +
+              "- Do NOT include prefixes like 'Title:', 'Claude:', or similar\n" +
+              "- Do NOT use ellipsis (...) in the title\n" +
+              "- Use the same language as the user's message\n" +
+              "- Make it descriptive and meaningful",
           },
           {
             role: "user",
@@ -697,7 +704,13 @@ export class AiAskService {
         enableSearch: false, // Disable Google Search for simple title generation to avoid MALFORMED_FUNCTION_CALL
       });
 
-      const title = response.content.trim().slice(0, 100);
+      // Clean up the AI-generated title
+      let title = response.content.trim();
+      // Remove common wrapper patterns
+      title = title.replace(/^["'"'「【\[]+|["'"'」】\]]+$/g, ""); // Remove quotes and brackets at start/end
+      title = title.replace(/^(Title|标题|Claude|AI)[:：]\s*/i, ""); // Remove common prefixes
+      title = title.replace(/\.{2,}$/g, ""); // Remove trailing ellipsis
+      title = title.trim().slice(0, 100);
 
       await this.prisma.askSession.update({
         where: { id: sessionId },
