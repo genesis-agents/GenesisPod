@@ -41,12 +41,12 @@ export {
   LLMAdapterFactory,
 } from "./llm-adapter";
 
-// Retry Strategy
+// Retry Strategy (旧版 ToolError 为 LegacyToolError)
 export {
   RetryStrategy,
   RetryConfig,
   RetryResult,
-  ToolError,
+  ToolError as LegacyToolError,
   ToolErrorType,
   WithRetry,
 } from "./retry-strategy";
@@ -68,6 +68,26 @@ export {
   TrackToolExecution,
 } from "./execution-metrics";
 
+// Error System (新版细粒度错误分类)
+export {
+  ToolError,
+  ToolErrorCode,
+  ToolErrorDetails,
+  ToolErrorCodeMeta,
+  TOOL_ERROR_CODES,
+  isRetryableError,
+  getRetryDelay,
+  shouldRetry,
+} from "./errors";
+
+// Validation System
+export {
+  SchemaValidator,
+  ValidationResult,
+  ValidationError,
+  ValidationErrorCode,
+} from "./validation";
+
 // MCP Adapter
 export {
   MCPAdapter,
@@ -85,6 +105,43 @@ export {
   ProgressCallback,
 } from "./mcp";
 
+// MCP Server
+export {
+  MCPServer,
+  MCPServerInfo,
+  MCPServerCapabilities,
+  MCPClientInfo,
+  MCPServerOptions,
+} from "./mcp";
+
+// MCP Transports
+export {
+  IMCPTransport,
+  BaseTransport,
+  TransportState,
+  TransportEventType,
+  TransportEvent,
+  TransportOptions,
+  TransportStats,
+  StdioTransport,
+  HttpSseTransport,
+  HttpSseTransportOptions,
+} from "./mcp";
+
+// MCP Resources
+export {
+  IResourceProvider,
+  BaseResourceProvider,
+  ResourceEvent,
+  ResourceEventType,
+  ResourceFilter,
+  ResourceContent,
+  FileResourceProvider,
+  FileResourceProviderOptions,
+  ResourceManager,
+  ResourceManagerOptions,
+} from "./mcp";
+
 // Guardrails
 export {
   GuardrailService,
@@ -99,5 +156,5 @@ export {
   PrivacyConfig,
   SensitiveInfoType,
   ViolationType,
-  ValidationResult,
+  ValidationResult as GuardrailValidationResult,
 } from "./guardrails";

@@ -13,6 +13,12 @@ import { AgentOrchestrator } from "./core/agent.orchestrator";
 import { LLMAdapterFactory } from "./core/llm-adapter";
 import { ExecutionMetricsCollector } from "./core/execution-metrics";
 
+// MCP 和验证器
+import { MCPAdapter } from "./core/mcp/mcp-adapter";
+import { MCPServer } from "./core/mcp/mcp-server";
+import { ResourceManager } from "./core/mcp/resources/resource-manager";
+import { SchemaValidator } from "./core/validation/schema-validator";
+
 // Agent 导入
 import { SlidesAgent } from "./implementations/slides/slides.agent";
 import { DocsAgent } from "./implementations/docs/docs.agent";
@@ -98,6 +104,14 @@ import { AiStudioModule } from "../ai-studio/ai-studio.module";
     LLMAdapterFactory,
     ExecutionMetricsCollector,
 
+    // MCP 服务
+    MCPAdapter,
+    MCPServer,
+    ResourceManager,
+
+    // 验证服务
+    SchemaValidator,
+
     // 记忆服务
     ShortTermMemoryService,
     LongTermMemoryService,
@@ -181,6 +195,12 @@ import { AiStudioModule } from "../ai-studio/ai-studio.module";
     AgentOrchestrator,
     LLMAdapterFactory,
     ExecutionMetricsCollector,
+    // MCP 服务
+    MCPAdapter,
+    MCPServer,
+    ResourceManager,
+    // 验证服务
+    SchemaValidator,
   ],
 })
 export class AiAgentsModule implements OnModuleInit {
