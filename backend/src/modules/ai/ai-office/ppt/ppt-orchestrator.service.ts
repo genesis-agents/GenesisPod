@@ -822,7 +822,7 @@ export class PPTOrchestratorService {
   /**
    * 更新 PPT 文档
    */
-  private async updatePPTDocument(document: PPTDocument): Promise<void> {
+  async updatePPTDocument(document: PPTDocument): Promise<void> {
     await this.prisma.officeDocument.update({
       where: { id: document.id },
       data: {

@@ -14,6 +14,7 @@ export { SlideImageService } from "./slide-image.service";
 export { SlideRendererService } from "./slide-renderer.service";
 export { PPTOrchestratorService } from "./ppt-orchestrator.service";
 export { PPTExportService } from "./ppt-export.service";
+export { NaturalEditService } from "./natural-edit.service";
 
 // Controller
 export { PPTGenerationController } from "./ppt-generation.controller";

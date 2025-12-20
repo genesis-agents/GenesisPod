@@ -34,6 +34,7 @@ import { Observable, map, catchError, of } from "rxjs";
 import { PPTOrchestratorService } from "./ppt-orchestrator.service";
 import { SlidePlanningService } from "./slide-planning.service";
 import { PPTExportService } from "./ppt-export.service";
+import { NaturalEditService, EditResult } from "./natural-edit.service";
 import { ContentExtractorService } from "../../../../common/content-processing";
 import {
   PPTGenerationInput,
@@ -120,6 +121,11 @@ class PlanSlidesDto {
   themeId?: string;
 }
 
+class NaturalEditDto {
+  @IsString()
+  instruction!: string; // 用户的自然语言编辑指令
+}
+
 @Controller("ai-office/ppt")
 export class PPTGenerationController {
   private readonly logger = new Logger(PPTGenerationController.name);
@@ -128,6 +134,7 @@ export class PPTGenerationController {
     private readonly orchestrator: PPTOrchestratorService,
     private readonly slidePlanning: SlidePlanningService,
     private readonly pptExport: PPTExportService,
+    private readonly naturalEdit: NaturalEditService,
     private readonly contentExtractor: ContentExtractorService,
   ) {}
 
@@ -410,6 +417,59 @@ export class PPTGenerationController {
       this.logger.error("[regenerateSlide] Error:", error);
       throw new HttpException(
         error.message || "Slide regeneration failed",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * 自然语言编辑 PPT
+   *
+   * 使用自然语言指令编辑 PPT，支持：
+   * - "把第3页标题改成xxx"
+   * - "第5页图表换成饼图"
+   * - "删除最后一页"
+   * - "重新生成第2页的图片"
+   */
+  @Post(":id/edit")
+  async handleNaturalEdit(
+    @Param("id") id: string,
+    @Body() dto: NaturalEditDto,
+  ): Promise<EditResult> {
+    this.logger.log(
+      `[handleNaturalEdit] PPT: ${id}, Instruction: "${dto.instruction}"`,
+    );
+
+    try {
+      // 获取当前文档
+      const document = await this.orchestrator.getPPTDocument(id);
+
+      // 执行自然语言编辑
+      const result = await this.naturalEdit.executeEdit(
+        document,
+        dto.instruction,
+      );
+
+      if (!result.success) {
+        throw new HttpException(
+          result.error || "编辑失败",
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // 保存更新后的文档 - use updatePPTDocument which is public
+      if (result.document) {
+        await this.orchestrator.updatePPTDocument(result.document);
+      }
+
+      return result;
+    } catch (error: any) {
+      this.logger.error(`[handleNaturalEdit] Error: ${error.message}`);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        error.message || "编辑失败",
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
