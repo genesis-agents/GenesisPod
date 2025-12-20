@@ -619,6 +619,17 @@ export default function TeamCanvasModal({
       })),
     };
 
+    // Debug: 打印报告数据
+    console.log('[Report Debug] Mission data:', {
+      id: mission.id,
+      title: mission.title,
+      status: mission.status,
+      finalResult: mission.finalResult ? `${mission.finalResult.substring(0, 100)}...` : 'NULL',
+      tasksCount: mission.tasks?.length || 0,
+      tasksWithResults: mission.tasks?.filter(t => t.result)?.length || 0,
+    });
+    console.log('[Report Debug] Full reportData:', reportData);
+
     try {
       await downloadMissionReportPDF(reportData);
     } catch (error) {
