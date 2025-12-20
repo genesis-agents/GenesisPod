@@ -10,10 +10,19 @@
 
 import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Copy, Check, Code2, ExternalLink } from 'lucide-react';
+import {
+  RefreshCw,
+  Copy,
+  Check,
+  Code2,
+  ExternalLink,
+  History,
+  Trash2,
+  Loader2,
+  Send,
+} from 'lucide-react';
 import Link from 'next/link';
 
-import { PromptBar } from '@/components/ai-office/core/PromptBar';
 import {
   ProgressTracker,
   ProgressOverlay,
@@ -25,50 +34,15 @@ import {
 } from '@/lib/ai-office/agents/types';
 import { useAgentStore } from '@/stores/agentStore';
 import {
+  useDeveloperHistoryStore,
+  formatRelativeTime,
+} from '@/stores/developerHistoryStore';
+import {
   executeAgent,
   subscribeToTask,
   cancelTask,
 } from '@/lib/ai-office/agents/api';
 import { cn } from '@/lib/utils/common';
-
-// 代码模板定义
-const DEVELOPER_TEMPLATES = [
-  {
-    id: 'code-generation',
-    name: '代码生成',
-    description: '根据描述生成代码',
-    icon: '💻',
-    prompt: '实现一个[功能描述]的函数',
-  },
-  {
-    id: 'code-explain',
-    name: '代码解释',
-    description: '解释代码的功能和原理',
-    icon: '📖',
-    prompt: '解释以下代码的功能',
-  },
-  {
-    id: 'code-optimize',
-    name: '代码优化',
-    description: '优化代码性能和可读性',
-    icon: '⚡',
-    prompt: '优化以下代码',
-  },
-  {
-    id: 'bug-fix',
-    name: 'Bug 修复',
-    description: '分析并修复代码问题',
-    icon: '🐛',
-    prompt: '修复以下代码中的问题',
-  },
-  {
-    id: 'unit-test',
-    name: '单元测试',
-    description: '生成单元测试代码',
-    icon: '🧪',
-    prompt: '为以下代码生成单元测试',
-  },
-];
 
 // 编程语言选项
 const LANGUAGE_OPTIONS = [
@@ -95,73 +69,99 @@ export default function DeveloperTab() {
   const { progress, updateProgress, resetProgress, handleEvent, result } =
     useAgentStore();
 
+  // 历史记录
+  const { history, addHistory, updateHistory, removeHistory, clearHistory } =
+    useDeveloperHistoryStore();
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
+  const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   // 设置选项
   const [language, setLanguage] = useState('typescript');
   const [includeTests, setIncludeTests] = useState(true);
   const [testFramework, setTestFramework] = useState('jest');
-  const [showSettings, setShowSettings] = useState(false);
+
+  // Prompt 输入
+  const [promptValue, setPromptValue] = useState('');
 
   // 处理提交
-  const handleSubmit = useCallback(
-    async (input: AgentInput) => {
-      setIsGenerating(true);
-      resetProgress();
-      updateProgress({
-        phase: 'planning',
-        percentage: 0,
-        message: '正在分析需求...',
-      });
+  const handleSubmit = useCallback(async () => {
+    if (!promptValue.trim() || isGenerating) return;
 
-      try {
-        // 添加选项
-        const enhancedInput: AgentInput = {
-          ...input,
-          options: {
-            ...input.options,
-            language,
-            includeTests,
-            testFramework,
-          },
-        };
+    setIsGenerating(true);
+    resetProgress();
+    updateProgress({
+      phase: 'planning',
+      percentage: 0,
+      message: '正在分析需求...',
+    });
 
-        // 调用 API 开始生成
-        const taskResponse = await executeAgent(
-          enhancedInput,
-          AgentType.DEVELOPER
-        );
-        setCurrentTaskId(taskResponse.taskId);
-
-        // 订阅进度更新
-        const unsubscribe = subscribeToTask(taskResponse.taskId, (event) => {
-          handleEvent(event);
-
-          if (event.type === 'complete' || event.type === 'error') {
-            setIsGenerating(false);
-            unsubscribe();
-          }
-        });
-      } catch (error) {
-        console.error('Failed to start generation:', error);
-        updateProgress({
-          phase: 'error',
-          message: error instanceof Error ? error.message : '生成失败',
-        });
-        setIsGenerating(false);
-      }
-    },
-    [
+    // 添加到历史记录
+    const historyId = addHistory({
+      prompt: promptValue.trim(),
       language,
       includeTests,
       testFramework,
-      resetProgress,
-      updateProgress,
-      handleEvent,
-    ]
-  );
+      status: 'pending',
+    });
+    setCurrentHistoryId(historyId);
+
+    try {
+      // 构建输入
+      const input: AgentInput = {
+        prompt: promptValue.trim(),
+        options: {
+          language,
+          includeTests,
+          testFramework,
+        },
+      };
+
+      // 调用 API 开始生成
+      const taskResponse = await executeAgent(input, AgentType.DEVELOPER);
+      setCurrentTaskId(taskResponse.taskId);
+
+      // 订阅进度更新
+      const unsubscribe = subscribeToTask(taskResponse.taskId, (event) => {
+        handleEvent(event);
+
+        if (event.type === 'complete') {
+          setIsGenerating(false);
+          updateHistory(historyId, {
+            status: 'success',
+            summary: (event as any).result?.summary,
+          });
+          unsubscribe();
+        } else if (event.type === 'error') {
+          setIsGenerating(false);
+          updateHistory(historyId, { status: 'error' });
+          unsubscribe();
+        }
+      });
+    } catch (error) {
+      console.error('Failed to start generation:', error);
+      updateProgress({
+        phase: 'error',
+        message: error instanceof Error ? error.message : '生成失败',
+      });
+      updateHistory(historyId, { status: 'error' });
+      setIsGenerating(false);
+    }
+  }, [
+    promptValue,
+    language,
+    includeTests,
+    testFramework,
+    isGenerating,
+    resetProgress,
+    updateProgress,
+    handleEvent,
+    addHistory,
+    updateHistory,
+  ]);
 
   // 处理取消
   const handleCancel = useCallback(async () => {
@@ -172,13 +172,20 @@ export default function DeveloperTab() {
         console.error('Failed to cancel:', error);
       }
     }
+    if (currentHistoryId) {
+      updateHistory(currentHistoryId, { status: 'error' });
+    }
     setIsGenerating(false);
     resetProgress();
-  }, [currentTaskId, resetProgress]);
+  }, [currentTaskId, currentHistoryId, resetProgress, updateHistory]);
 
-  // 处理模板选择
-  const handleTemplateSelect = (template: (typeof DEVELOPER_TEMPLATES)[0]) => {
-    console.log('Selected template:', template);
+  // 复用历史记录
+  const handleReuseHistory = (item: (typeof history)[0]) => {
+    setPromptValue(item.prompt);
+    setLanguage(item.language);
+    setIncludeTests(item.includeTests);
+    setTestFramework(item.testFramework);
+    setShowHistory(false);
   };
 
   // 复制代码
@@ -192,12 +199,20 @@ export default function DeveloperTab() {
     }
   };
 
+  // 键盘事件
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
   return (
     <div className="flex h-full flex-col overflow-hidden bg-gray-50">
       {/* 左侧面板 + 右侧内容 */}
       <div className="flex flex-1 overflow-hidden">
         {/* 左侧控制面板 */}
-        <div className="flex w-96 flex-shrink-0 flex-col border-r border-gray-200 bg-white">
+        <div className="flex w-[420px] flex-shrink-0 flex-col border-r border-gray-200 bg-white">
           {/* 头部 */}
           <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
             <div className="flex items-center gap-2">
@@ -211,14 +226,111 @@ export default function DeveloperTab() {
                 </p>
               </div>
             </div>
-            <Link
-              href="/ai-office/developer"
-              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-              title="在新窗口打开完整版"
-            >
-              <ExternalLink className="h-4 w-4" />
-            </Link>
+            <div className="flex items-center gap-1">
+              {/* 历史记录按钮 */}
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className={cn(
+                  'rounded-lg p-1.5 transition-colors',
+                  showHistory
+                    ? 'bg-green-100 text-green-600'
+                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                )}
+                title="操作历史"
+              >
+                <History className="h-4 w-4" />
+              </button>
+              <Link
+                href="/ai-office/developer"
+                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                title="在新窗口打开完整版"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Link>
+            </div>
           </div>
+
+          {/* 历史记录面板 */}
+          <AnimatePresence>
+            {showHistory && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden border-b border-gray-100 bg-gray-50"
+              >
+                <div className="max-h-[280px] overflow-y-auto p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-medium text-gray-700">
+                      操作历史
+                    </h3>
+                    {history.length > 0 && (
+                      <button
+                        onClick={clearHistory}
+                        className="text-xs text-red-500 hover:text-red-600"
+                      >
+                        清空
+                      </button>
+                    )}
+                  </div>
+
+                  {history.length === 0 ? (
+                    <p className="py-4 text-center text-xs text-gray-400">
+                      暂无历史记录
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {history.slice(0, 20).map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-2 hover:border-gray-300"
+                        >
+                          <div className="mr-2 min-w-0 flex-1">
+                            <p className="truncate text-sm text-gray-900">
+                              {item.prompt}
+                            </p>
+                            <div className="mt-1 flex items-center gap-2">
+                              <span className="text-xs text-gray-500">
+                                {formatRelativeTime(item.timestamp)}
+                              </span>
+                              <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">
+                                {item.language}
+                              </span>
+                              {item.status === 'success' ? (
+                                <Check className="h-3 w-3 text-green-500" />
+                              ) : item.status === 'error' ? (
+                                <span className="text-xs text-red-500">
+                                  失败
+                                </span>
+                              ) : (
+                                <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleReuseHistory(item)}
+                              className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-green-600"
+                              title="复用"
+                            >
+                              <RefreshCw className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => removeHistory(item.id)}
+                              className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-red-500"
+                              title="删除"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* 语言选择 */}
           <div className="border-b border-gray-100 p-4">
@@ -274,40 +386,50 @@ export default function DeveloperTab() {
             )}
           </div>
 
-          {/* 快速模板 */}
-          <div className="flex-1 overflow-y-auto p-4">
-            <h3 className="mb-3 text-sm font-medium text-gray-700">快速开始</h3>
-            <div className="space-y-2">
-              {DEVELOPER_TEMPLATES.map((template) => (
-                <motion.button
-                  key={template.id}
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                  onClick={() => handleTemplateSelect(template)}
-                  className="flex w-full items-center gap-3 rounded-lg border border-gray-200 bg-white p-3 text-left transition-colors hover:border-green-300 hover:bg-green-50"
-                >
-                  <span className="text-xl">{template.icon}</span>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-900">
-                      {template.name}
-                    </h4>
-                    <p className="text-xs text-gray-500">
-                      {template.description}
-                    </p>
-                  </div>
-                </motion.button>
-              ))}
+          {/* 放大的 Prompt 输入区域 */}
+          <div className="flex flex-1 flex-col p-4">
+            <div className="mb-2">
+              <h3 className="text-sm font-medium text-gray-700">
+                描述你的需求
+              </h3>
+              <p className="mt-0.5 text-xs text-gray-500">
+                支持代码生成、解释、优化、Bug修复、单元测试
+              </p>
             </div>
-          </div>
 
-          {/* 输入区域 */}
-          <div className="border-t border-gray-200 p-4">
-            <PromptBar
-              agentType={AgentType.DEVELOPER}
-              placeholder="描述你需要的代码..."
-              onSubmit={handleSubmit}
-              isProcessing={isGenerating}
-            />
+            <div className="relative flex-1">
+              <textarea
+                value={promptValue}
+                onChange={(e) => setPromptValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={`例如：
+• 实现一个快速排序算法
+• 解释这段代码的功能
+• 优化这个数据库查询
+• 帮我修复这个 Bug
+• 生成单元测试`}
+                className="h-full min-h-[180px] w-full resize-none rounded-xl border-2 border-gray-200 px-4 py-3 text-sm placeholder:text-gray-400 focus:border-green-500 focus:outline-none disabled:bg-gray-50"
+                disabled={isGenerating}
+              />
+            </div>
+
+            <div className="mt-3 flex items-center justify-between">
+              <p className="text-xs text-gray-400">
+                Enter 发送，Shift + Enter 换行
+              </p>
+              <button
+                onClick={handleSubmit}
+                disabled={!promptValue.trim() || isGenerating}
+                className="flex items-center gap-2 rounded-lg bg-green-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+              >
+                {isGenerating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                <span>生成代码</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -322,7 +444,7 @@ export default function DeveloperTab() {
                   AI Developer
                 </h3>
                 <p className="mt-2 text-sm text-gray-500">
-                  选择模板或输入描述，开始生成代码
+                  输入代码需求，AI 帮你生成代码
                 </p>
               </div>
             </div>
