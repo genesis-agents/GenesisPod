@@ -45,42 +45,41 @@ import {
   CodeExecutionService,
 } from "./code-execution";
 
+// Docs
+import { DocsOrchestratorService } from "./docs";
+
+// Designer
+import { DesignerOrchestratorService } from "./designer";
+
+// Agents
+import { AgentsController } from "./agents";
+
 @Module({
   imports: [
     HttpModule,
     ConfigModule,
     PrismaModule,
     AiCoreModule,
-    AiImageModule, // 复用 AI-Image 模块的服务
-    StorageModule, // R2 存储服务
+    AiImageModule,
+    StorageModule,
   ],
   controllers: [
-    // Core
     AIModelController,
-    // Documents
     DocumentsController,
-    // Generation
     GenerationController,
     QuickGenerateController,
-    // Export
     ExportController,
-    // PPT
     PPTGenerationController,
-    // Code Execution
     CodeExecutionController,
+    AgentsController,
   ],
   providers: [
-    // Core
     AIModelService,
     IntentParserService,
-    // Documents
     DocumentsService,
-    // Generation
     GenerationService,
     QuickGenerateService,
-    // Export
     ExportService,
-    // PPT
     PPTOrchestratorService,
     SlidePlanningService,
     SlideContentService,
@@ -89,23 +88,18 @@ import {
     PPTExportService,
     NaturalEditService,
     PPTVersionService,
-    // Integration
+    DocsOrchestratorService,
+    DesignerOrchestratorService,
     AiOfficeIntegrationService,
-    // Code Execution
     CodeExecutionService,
   ],
   exports: [
-    // Core
     AIModelService,
     IntentParserService,
-    // Documents
     DocumentsService,
-    // Generation
     GenerationService,
     QuickGenerateService,
-    // Export
     ExportService,
-    // PPT
     PPTOrchestratorService,
     SlidePlanningService,
     SlideContentService,
@@ -114,7 +108,8 @@ import {
     PPTExportService,
     NaturalEditService,
     PPTVersionService,
-    // Integration
+    DocsOrchestratorService,
+    DesignerOrchestratorService,
     AiOfficeIntegrationService,
   ],
 })
