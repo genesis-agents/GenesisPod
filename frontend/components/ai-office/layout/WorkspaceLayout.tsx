@@ -9,7 +9,7 @@
  * v5.1: 添加 Developer Tab
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useTaskStore } from '@/stores/aiOfficeStore';
 import { ListTodo, Presentation, FileText, Palette, Code2 } from 'lucide-react';
@@ -38,12 +38,11 @@ export default function WorkspaceLayout({
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // Read initial tab from URL params
+  // Derive active tab directly from URL (source of truth)
   const tabParam = searchParams.get('tab') as WorkspaceTab | null;
-  const initialTab =
+  const activeTab: WorkspaceTab =
     tabParam && VALID_TABS.includes(tabParam) ? tabParam : 'slides';
 
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>(initialTab);
   const containerRef = useRef<HTMLDivElement>(null);
   const commandPalette = useCommandPalette();
 
@@ -51,25 +50,9 @@ export default function WorkspaceLayout({
   const isTaskListOpen = useTaskStore((state) => state.isTaskListOpen);
   const toggleTaskList = useTaskStore((state) => state.toggleTaskList);
 
-  // Sync tab from URL params on navigation
-  useEffect(() => {
-    const tabFromUrl = searchParams.get('tab') as WorkspaceTab | null;
-    if (
-      tabFromUrl &&
-      VALID_TABS.includes(tabFromUrl) &&
-      tabFromUrl !== activeTab
-    ) {
-      setActiveTab(tabFromUrl);
-    }
-  }, [searchParams, activeTab]);
-
   // Update URL when tab changes
   const handleTabChange = (tab: WorkspaceTab) => {
-    setActiveTab(tab);
-    // Update URL without full page reload
-    const url = new URL(window.location.href);
-    url.searchParams.set('tab', tab);
-    router.replace(url.pathname + url.search, { scroll: false });
+    router.push(`/ai-office?tab=${tab}`, { scroll: false });
   };
 
   return (
