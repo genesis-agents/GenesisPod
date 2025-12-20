@@ -12,7 +12,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { firstValueFrom } from "rxjs";
 import { AIModelType } from "@prisma/client";
 

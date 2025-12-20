@@ -1,7 +1,7 @@
 import { Controller, Post, Body } from "@nestjs/common";
 import { QuickGenerateService } from "./quick-generate.service";
 import { QuickGenerateDto } from "./quick-generate.dto";
-import { IntentParserService } from "./intent-parser.service";
+import { IntentParserService } from "../core";
 
 @Controller("ai-office")
 export class QuickGenerateController {

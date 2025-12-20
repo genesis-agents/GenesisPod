@@ -4,7 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { FileConversionTool } from "../file-conversion.tool";
-import { DocumentExportService } from "../../../../ai-office/document-export.service";
+import { ExportService as DocumentExportService } from "../../../../ai-office/export";
 
 describe("FileConversionTool", () => {
   let tool: FileConversionTool;

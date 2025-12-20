@@ -7,7 +7,7 @@ import {
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { CreateNoteDto, UpdateNoteDto, AddHighlightDto } from "./dto";
 import { AiChatService } from "../../ai/ai-core/ai-chat.service";
-import { AIModelService } from "../../ai/ai-office/ai-model.service";
+import { AIModelService } from "../../ai/ai-office/core";
 
 /**
  * 笔记服务

@@ -24,7 +24,7 @@ import {
   AIModelType,
 } from "../../core";
 import { AiChatService, ChatMessage } from "../../../ai-core/ai-chat.service";
-import { AIModelService } from "../../../ai-office/ai-model.service";
+import { AIModelService } from "../../../ai-office/core";
 
 @Injectable()
 export class DeveloperAgent extends BaseAgent {

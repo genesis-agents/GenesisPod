@@ -9,18 +9,14 @@ import {
   HttpStatus,
 } from "@nestjs/common";
 import { Response } from "express";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { ExportService, ExportFormat, ExportConfig } from "./export.service";
 import {
-  DocumentExportService,
-  ExportFormat,
-  ExportConfig,
-} from "./document-export.service";
-import { OfficeDocumentService } from "./office-document.service";
-import { IsIn, IsOptional, IsUUID, IsString } from "class-validator";
-import {
+  DocumentsService,
   OFFICE_DOCUMENT_TYPES,
   OfficeDocumentType,
-} from "./office-document.dto";
+} from "../documents";
+import { IsIn, IsOptional, IsUUID, IsString } from "class-validator";
 
 // ============================================================================
 // DTOs
@@ -71,10 +67,10 @@ class ExportContentDto {
 
 @Controller("ai-office/export")
 @UseGuards(JwtAuthGuard)
-export class DocumentExportController {
+export class ExportController {
   constructor(
-    private readonly exportService: DocumentExportService,
-    private readonly documentService: OfficeDocumentService,
+    private readonly exportService: ExportService,
+    private readonly documentService: DocumentsService,
   ) {}
 
   /**

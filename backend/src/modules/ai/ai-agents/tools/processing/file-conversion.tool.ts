@@ -6,10 +6,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { BaseTool, JSONSchema, ToolContext } from "../../core";
 import { ToolType } from "../../core";
-import {
-  DocumentExportService,
-  ExportFormat,
-} from "../../../ai-office/document-export.service";
+import { ExportService, ExportFormat } from "../../../ai-office/export";
 
 // ============================================================================
 // Types
@@ -202,7 +199,7 @@ export class FileConversionTool extends BaseTool<
     },
   };
 
-  constructor(private readonly exportService: DocumentExportService) {
+  constructor(private readonly exportService: ExportService) {
     super();
     this.defaultTimeout = 60000; // 60 秒超时
   }

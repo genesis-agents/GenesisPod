@@ -6,10 +6,7 @@
 import { Injectable } from "@nestjs/common";
 import { BaseTool, JSONSchema, ToolContext } from "../../core";
 import { ToolType } from "../../core";
-import {
-  DocumentExportService,
-  ExportResult,
-} from "../../../ai-office/document-export.service";
+import { ExportService, ExportResult } from "../../../ai-office/export";
 
 // ============================================================================
 // Types
@@ -177,7 +174,7 @@ export class ExportPDFTool extends BaseTool<ExportPDFInput, ExportPDFOutput> {
     },
   };
 
-  constructor(private readonly exportService: DocumentExportService) {
+  constructor(private readonly exportService: ExportService) {
     super();
     this.defaultTimeout = 90000; // 90 秒超时（PDF 生成需要 puppeteer）
   }

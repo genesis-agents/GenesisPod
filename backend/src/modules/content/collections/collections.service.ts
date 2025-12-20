@@ -7,7 +7,7 @@ import {
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { AiChatService } from "../../ai/ai-core/ai-chat.service";
-import { AIModelService } from "../../ai/ai-office/ai-model.service";
+import { AIModelService } from "../../ai/ai-office/core";
 import {
   CreateCollectionDto,
   UpdateCollectionDto,

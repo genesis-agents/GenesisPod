@@ -12,7 +12,7 @@ import {
   HttpCode,
   HttpStatus,
 } from "@nestjs/common";
-import { OfficeDocumentService } from "./office-document.service";
+import { DocumentsService } from "./documents.service";
 import {
   CreateDocumentDto,
   UpdateDocumentDto,
@@ -21,13 +21,13 @@ import {
   CompareVersionsDto,
   AddResourceRefDto,
   AddResourceRefsDto,
-} from "./office-document.dto";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+} from "./documents.dto";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 
 @Controller("ai-office/documents")
 @UseGuards(JwtAuthGuard)
-export class OfficeDocumentController {
-  constructor(private readonly documentService: OfficeDocumentService) {}
+export class DocumentsController {
+  constructor(private readonly documentService: DocumentsService) {}
 
   // ==========================================================================
   // Document CRUD

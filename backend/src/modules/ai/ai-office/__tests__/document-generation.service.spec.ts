@@ -5,14 +5,14 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import {
-  DocumentGenerationService,
+  GenerationService as DocumentGenerationService,
   GenerationConfig,
   StreamChunk,
-} from "../document-generation.service";
+} from "../generation";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AiChatService } from "../../ai-core/ai-chat.service";
-import { AIModelService } from "../ai-model.service";
-import { OfficeDocumentService } from "../office-document.service";
+import { AIModelService } from "../core";
+import { DocumentsService as OfficeDocumentService } from "../documents";
 
 describe("DocumentGenerationService", () => {
   let service: DocumentGenerationService;

@@ -9,10 +9,7 @@ import {
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { GenerateReportDto } from "./dto/generate-report.dto";
-import {
-  DocumentExportService,
-  ExportFormat,
-} from "../../ai/ai-office/document-export.service";
+import { ExportService, ExportFormat } from "../../ai/ai-office/export";
 import axios from "axios";
 
 interface ReportSection {
@@ -31,8 +28,8 @@ interface AIReportResponse {
 export class ReportsService {
   constructor(
     private prisma: PrismaService,
-    @Inject(forwardRef(() => DocumentExportService))
-    private documentExportService: DocumentExportService,
+    @Inject(forwardRef(() => ExportService))
+    private exportService: ExportService,
   ) {}
 
   /**
@@ -270,7 +267,7 @@ export class ReportsService {
 
       // 使用注入的 DocumentExportService
       const exportFormat = formatMapping[format];
-      const result = await this.documentExportService.exportDocument({
+      const result = await this.exportService.exportDocument({
         title,
         content,
         format: exportFormat,

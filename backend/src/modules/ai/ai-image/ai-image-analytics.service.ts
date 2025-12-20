@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { AiChatService } from "../ai-core/ai-chat.service";
-import { AIModelService } from "../ai-office/ai-model.service";
+import { AIModelService } from "../ai-office/core";
 
 /**
  * AI 图像分析服务

@@ -7,11 +7,8 @@ import {
   Res,
 } from "@nestjs/common";
 import { Response } from "express";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import {
-  DocumentGenerationService,
-  GenerationConfig,
-} from "./document-generation.service";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { GenerationService, GenerationConfig } from "./generation.service";
 import {
   IsString,
   IsOptional,
@@ -22,10 +19,7 @@ import {
   Max,
   IsIn,
 } from "class-validator";
-import {
-  OFFICE_DOCUMENT_TYPES,
-  OfficeDocumentType,
-} from "./office-document.dto";
+import { OFFICE_DOCUMENT_TYPES, OfficeDocumentType } from "../documents";
 
 // ============================================================================
 // DTOs
@@ -81,8 +75,8 @@ class GenerateDocumentDto {
 
 @Controller("ai-office/generate")
 @UseGuards(JwtAuthGuard)
-export class DocumentGenerationController {
-  constructor(private readonly generationService: DocumentGenerationService) {}
+export class GenerationController {
+  constructor(private readonly generationService: GenerationService) {}
 
   /**
    * 生成文档（流式响应）

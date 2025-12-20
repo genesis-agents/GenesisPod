@@ -1,5 +1,5 @@
 import { Injectable, Logger, BadRequestException } from "@nestjs/common";
-import { OfficeDocumentType } from "./office-document.dto";
+import { OfficeDocumentType } from "../documents";
 
 // ============================================================================
 // Types
@@ -39,8 +39,8 @@ export interface ExportResult {
 // ============================================================================
 
 @Injectable()
-export class DocumentExportService {
-  private readonly logger = new Logger(DocumentExportService.name);
+export class ExportService {
+  private readonly logger = new Logger(ExportService.name);
 
   /**
    * 导出文档

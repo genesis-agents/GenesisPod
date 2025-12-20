@@ -4,18 +4,15 @@
  *
  * 整合以下服务：
  * - PPTOrchestratorService: PPT 生成编排
- * - DocumentGenerationService: 文档生成
- * - DocumentExportService: 文档导出
+ * - GenerationService: 文档生成
+ * - ExportService: 文档导出
  * - SlidePlanningService: 幻灯片规划
  */
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PPTOrchestratorService } from "./ppt/ppt-orchestrator.service";
-import {
-  DocumentGenerationService,
-  GenerationConfig,
-} from "./document-generation.service";
-import { DocumentExportService, ExportFormat } from "./document-export.service";
+import { GenerationService, GenerationConfig } from "./generation";
+import { ExportService, ExportFormat } from "./export";
 
 /**
  * 办公文档类型
@@ -83,8 +80,8 @@ export class AiOfficeIntegrationService {
 
   constructor(
     private readonly pptOrchestrator: PPTOrchestratorService,
-    private readonly documentGeneration: DocumentGenerationService,
-    private readonly documentExport: DocumentExportService,
+    private readonly generationService: GenerationService,
+    private readonly exportService: ExportService,
   ) {}
 
   /**
@@ -173,7 +170,7 @@ export class AiOfficeIntegrationService {
 
   /**
    * 生成文档
-   * 通过 DocumentGenerationService 生成文档
+   * 通过 GenerationService 生成文档
    */
   async *generateDocument(
     options: DocGenerationOptions,
@@ -193,7 +190,7 @@ export class AiOfficeIntegrationService {
         textModelId: options.textModelId,
       };
 
-      const generator = this.documentGeneration.generateDocument(
+      const generator = this.generationService.generateDocument(
         options.userId,
         config,
       );
@@ -212,13 +209,13 @@ export class AiOfficeIntegrationService {
 
   /**
    * 导出文档
-   * 通过 DocumentExportService 导出文档
+   * 通过 ExportService 导出文档
    */
   async exportDocument(options: DocExportOptions): Promise<GenerationResult> {
     this.logger.log(`[exportDocument] Exporting document: ${options.title}`);
 
     try {
-      const result = await this.documentExport.exportDocument({
+      const result = await this.exportService.exportDocument({
         format: options.format,
         title: options.title,
         content: options.content,

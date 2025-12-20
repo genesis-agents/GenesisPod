@@ -1,6 +1,6 @@
 import { Controller, Get, UseGuards } from "@nestjs/common";
 import { AIModelService } from "./ai-model.service";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 
 /**
  * AI 模型配置接口

@@ -6,20 +6,24 @@ import { AiCoreModule } from "../ai-core/ai-core.module";
 import { AiImageModule } from "../ai-image/ai-image.module";
 import { StorageModule } from "../../core/storage/storage.module";
 
-// 原有服务
-import { QuickGenerateController } from "./quick-generate.controller";
-import { QuickGenerateService } from "./quick-generate.service";
-import { OfficeDocumentController } from "./office-document.controller";
-import { OfficeDocumentService } from "./office-document.service";
-import { AIModelController } from "./ai-model.controller";
-import { AIModelService } from "./ai-model.service";
-import { DocumentGenerationController } from "./document-generation.controller";
-import { DocumentGenerationService } from "./document-generation.service";
-import { DocumentExportController } from "./document-export.controller";
-import { DocumentExportService } from "./document-export.service";
-import { IntentParserService } from "./intent-parser.service";
+// Core
+import { AIModelController, AIModelService, IntentParserService } from "./core";
 
-// PPT 3.0 新服务
+// Documents
+import { DocumentsController, DocumentsService } from "./documents";
+
+// Generation
+import {
+  GenerationController,
+  GenerationService,
+  QuickGenerateController,
+  QuickGenerateService,
+} from "./generation";
+
+// Export
+import { ExportController, ExportService } from "./export";
+
+// PPT 3.0
 import {
   PPTGenerationController,
   PPTOrchestratorService,
@@ -32,7 +36,7 @@ import {
   PPTVersionService,
 } from "./ppt";
 
-// ai-agents 整合服务
+// Integration
 import { AiOfficeIntegrationService } from "./ai-office-integration.service";
 
 @Module({
@@ -45,22 +49,30 @@ import { AiOfficeIntegrationService } from "./ai-office-integration.service";
     StorageModule, // R2 存储服务
   ],
   controllers: [
-    QuickGenerateController,
-    OfficeDocumentController,
+    // Core
     AIModelController,
-    DocumentGenerationController,
-    DocumentExportController,
-    // PPT 3.0
+    // Documents
+    DocumentsController,
+    // Generation
+    GenerationController,
+    QuickGenerateController,
+    // Export
+    ExportController,
+    // PPT
     PPTGenerationController,
   ],
   providers: [
-    QuickGenerateService,
-    OfficeDocumentService,
+    // Core
     AIModelService,
-    DocumentGenerationService,
-    DocumentExportService,
     IntentParserService,
-    // PPT 3.0 服务
+    // Documents
+    DocumentsService,
+    // Generation
+    GenerationService,
+    QuickGenerateService,
+    // Export
+    ExportService,
+    // PPT
     PPTOrchestratorService,
     SlidePlanningService,
     SlideContentService,
@@ -69,17 +81,21 @@ import { AiOfficeIntegrationService } from "./ai-office-integration.service";
     PPTExportService,
     NaturalEditService,
     PPTVersionService,
-    // ai-agents 整合服务
+    // Integration
     AiOfficeIntegrationService,
   ],
   exports: [
-    QuickGenerateService,
-    OfficeDocumentService,
+    // Core
     AIModelService,
-    DocumentGenerationService,
-    DocumentExportService,
     IntentParserService,
-    // PPT 3.0 服务
+    // Documents
+    DocumentsService,
+    // Generation
+    GenerationService,
+    QuickGenerateService,
+    // Export
+    ExportService,
+    // PPT
     PPTOrchestratorService,
     SlidePlanningService,
     SlideContentService,
@@ -88,7 +104,7 @@ import { AiOfficeIntegrationService } from "./ai-office-integration.service";
     PPTExportService,
     NaturalEditService,
     PPTVersionService,
-    // ai-agents 整合服务
+    // Integration
     AiOfficeIntegrationService,
   ],
 })

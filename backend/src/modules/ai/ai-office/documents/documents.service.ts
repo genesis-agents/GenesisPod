@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../../../common/prisma/prisma.service";
-import { AIModelService } from "./ai-model.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { AIModelService } from "../core";
 import {
   CreateDocumentDto,
   UpdateDocumentDto,
@@ -10,15 +10,15 @@ import {
   OfficeDocumentStatus,
   VersionTrigger,
   ResourceRefType,
-} from "./office-document.dto";
+} from "./documents.dto";
 
 // ============================================================================
 // Service
 // ============================================================================
 
 @Injectable()
-export class OfficeDocumentService {
-  private readonly logger = new Logger(OfficeDocumentService.name);
+export class DocumentsService {
+  private readonly logger = new Logger(DocumentsService.name);
 
   constructor(
     private readonly prisma: PrismaService,

@@ -1,9 +1,12 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { PrismaService } from "../../../common/prisma/prisma.service";
-import { AiChatService, ChatMessage } from "../ai-core/ai-chat.service";
-import { AIModelService } from "./ai-model.service";
-import { OfficeDocumentService } from "./office-document.service";
-import { OfficeDocumentType, VersionTrigger } from "./office-document.dto";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { AiChatService, ChatMessage } from "../../ai-core/ai-chat.service";
+import { AIModelService } from "../core";
+import {
+  DocumentsService,
+  OfficeDocumentType,
+  VersionTrigger,
+} from "../documents";
 
 // ============================================================================
 // Types & Interfaces
@@ -54,14 +57,14 @@ export interface StreamChunk {
 // ============================================================================
 
 @Injectable()
-export class DocumentGenerationService {
-  private readonly logger = new Logger(DocumentGenerationService.name);
+export class GenerationService {
+  private readonly logger = new Logger(GenerationService.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiChatService: AiChatService,
     private readonly aiModelService: AIModelService,
-    private readonly documentService: OfficeDocumentService,
+    private readonly documentService: DocumentsService,
   ) {}
 
   /**

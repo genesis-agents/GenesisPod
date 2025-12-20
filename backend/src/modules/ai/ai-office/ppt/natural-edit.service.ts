@@ -23,7 +23,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
-import { AIModelService } from "../ai-model.service";
+import { AIModelService } from "../core";
 import { PPTDocument, GeneratedSlide } from "./ppt.types";
 import { SlideContentService } from "./slide-content.service";
 import { SlideImageService } from "./slide-image.service";

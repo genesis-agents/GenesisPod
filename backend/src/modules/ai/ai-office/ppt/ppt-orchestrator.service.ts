@@ -21,7 +21,7 @@ import {
   ContentExtractorService,
   DataFetchingService,
 } from "../../../../common/content-processing";
-import { AIModelService } from "../ai-model.service";
+import { AIModelService } from "../core";
 import { SlidePlanningService } from "./slide-planning.service";
 import { SlideContentService } from "./slide-content.service";
 import { SlideImageService } from "./slide-image.service";

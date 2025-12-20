@@ -5,11 +5,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { HttpService } from "@nestjs/axios";
-import {
-  IntentParserService,
-  VISUAL_STYLES,
-  COLOR_THEMES,
-} from "../intent-parser.service";
+import { IntentParserService, VISUAL_STYLES, COLOR_THEMES } from "../core";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 
 describe("IntentParserService", () => {

@@ -12,7 +12,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
-import { AIModelService } from "../ai-model.service";
+import { AIModelService } from "../core";
 import { SlideSpec, GeneratedSlideContent } from "./ppt.types";
 
 // ============================================

@@ -21,14 +21,11 @@ import {
   AIModelType,
 } from "../../core";
 import {
-  DocumentGenerationService,
+  GenerationService,
   GenerationConfig,
   StreamChunk,
-} from "../../../ai-office/document-generation.service";
-import {
-  DocumentExportService,
-  ExportFormat,
-} from "../../../ai-office/document-export.service";
+} from "../../../ai-office/generation";
+import { ExportService, ExportFormat } from "../../../ai-office/export";
 
 @Injectable()
 export class DocsAgent extends BaseAgent {
@@ -122,8 +119,8 @@ export class DocsAgent extends BaseAgent {
   ];
 
   constructor(
-    private readonly documentGenerationService: DocumentGenerationService,
-    private readonly documentExportService: DocumentExportService,
+    private readonly generationService: GenerationService,
+    private readonly exportService: ExportService,
   ) {
     super();
   }
@@ -250,10 +247,7 @@ export class DocsAgent extends BaseAgent {
       const userId = (input.options?.userId as string) || "system";
 
       // 调用文档生成服务
-      const generator = this.documentGenerationService.generateDocument(
-        userId,
-        config,
-      );
+      const generator = this.generationService.generateDocument(userId, config);
 
       let generatedContent = "";
       const documentId = "";
@@ -281,7 +275,7 @@ export class DocsAgent extends BaseAgent {
         message: `正在导出 ${exportFormat.toUpperCase()}...`,
       };
 
-      const exportResult = await this.documentExportService.exportDocument({
+      const exportResult = await this.exportService.exportDocument({
         format: exportFormat,
         documentType: config.documentType,
         title: config.title,

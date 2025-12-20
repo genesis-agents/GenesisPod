@@ -71,10 +71,10 @@ jest.mock("docx", () => ({
 import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
 import {
-  DocumentExportService,
+  ExportService as DocumentExportService,
   ExportConfig,
   ExportFormat,
-} from "../document-export.service";
+} from "../export";
 
 describe("DocumentExportService", () => {
   let service: DocumentExportService;
