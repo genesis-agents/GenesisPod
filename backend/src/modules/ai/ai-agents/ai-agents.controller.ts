@@ -10,22 +10,14 @@ import {
   Param,
   Post,
   Sse,
-  UseGuards,
   Logger,
   Req,
   MessageEvent,
   HttpException,
   HttpStatus,
 } from "@nestjs/common";
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-  ApiParam,
-} from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiResponse, ApiParam } from "@nestjs/swagger";
 import { Observable, map, catchError, of } from "rxjs";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import {
   AgentOrchestrator,
   AgentRegistry,
@@ -46,9 +38,7 @@ import {
 } from "./dto";
 
 @ApiTags("AI Agents")
-@ApiBearerAuth()
 @Controller("agents")
-@UseGuards(JwtAuthGuard)
 export class AiAgentsController {
   private readonly logger = new Logger(AiAgentsController.name);
 

@@ -197,7 +197,7 @@ export default function DeveloperTab() {
       {/* 左侧面板 + 右侧内容 */}
       <div className="flex flex-1 overflow-hidden">
         {/* 左侧控制面板 */}
-        <div className="flex w-80 flex-shrink-0 flex-col border-r border-gray-200 bg-white">
+        <div className="flex w-96 flex-shrink-0 flex-col border-r border-gray-200 bg-white">
           {/* 头部 */}
           <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
             <div className="flex items-center gap-2">

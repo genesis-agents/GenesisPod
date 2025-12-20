@@ -200,16 +200,16 @@ export function PromptBar({
         )}
 
         {/* 输入框 */}
-        <div className="flex items-end gap-3 p-3">
-          {/* Agent 图标 */}
+        <div className="flex items-end gap-2 p-3">
+          {/* Agent 图标 - 在窄容器中隐藏 */}
           {showAgentHint && (
-            <div className="bg-primary/10 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-xl">
+            <div className="bg-primary/10 hidden h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-lg sm:flex">
               {getAgentIcon()}
             </div>
           )}
 
           {/* 文本输入 */}
-          <div className="min-w-0 flex-1">
+          <div className="min-w-[100px] flex-1">
             <textarea
               ref={textareaRef}
               value={prompt}
@@ -218,9 +218,13 @@ export function PromptBar({
               placeholder={placeholder}
               disabled={isProcessing}
               autoFocus={autoFocus}
-              className="text-foreground placeholder:text-muted-foreground w-full resize-none border-none bg-transparent text-base leading-relaxed outline-none"
+              className="text-foreground placeholder:text-muted-foreground w-full resize-none border-none bg-transparent text-sm leading-relaxed outline-none"
               rows={1}
-              style={{ minHeight: '24px', maxHeight: '200px' }}
+              style={{
+                minHeight: '24px',
+                maxHeight: '200px',
+                wordBreak: 'break-word',
+              }}
             />
           </div>
 
