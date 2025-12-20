@@ -90,7 +90,12 @@ export function ProgressTracker({
       if (progress.completedSteps.includes(step.id)) {
         return 'completed';
       }
-      if (progress.currentStep?.id === step.id) {
+      // currentStep 可能是 string 或 PlanStep
+      const currentStepId =
+        typeof progress.currentStep === 'string'
+          ? progress.currentStep
+          : progress.currentStep?.id;
+      if (currentStepId === step.id) {
         return 'active';
       }
       return 'pending';
@@ -222,31 +227,37 @@ export function ProgressTracker({
           </p>
           <div className="space-y-1.5">
             <AnimatePresence>
-              {progress.toolCalls.slice(-5).map((call, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="flex items-center gap-2 text-xs"
-                >
-                  <div className="text-muted-foreground flex-shrink-0">
-                    {TOOL_ICONS[call.tool]}
-                  </div>
-                  <span className="text-muted-foreground">
-                    {TOOL_NAMES[call.tool]}
-                  </span>
-                  {call.duration && (
-                    <span className="text-muted-foreground/60 flex items-center gap-0.5">
-                      <Clock className="h-3 w-3" />
-                      {(call.duration / 1000).toFixed(1)}s
-                    </span>
-                  )}
-                  {call.output !== undefined && (
-                    <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                  )}
-                </motion.div>
-              ))}
+              {progress.toolCalls.slice(-5).map((call, index) => {
+                // 工具可能是 ToolType 枚举或字符串
+                const toolKey = call.tool as ToolType;
+                const toolIcon = TOOL_ICONS[toolKey] || (
+                  <Sparkles className="h-4 w-4" />
+                );
+                const toolName = TOOL_NAMES[toolKey] || String(call.tool);
+                return (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="flex items-center gap-2 text-xs"
+                  >
+                    <div className="text-muted-foreground flex-shrink-0">
+                      {toolIcon}
+                    </div>
+                    <span className="text-muted-foreground">{toolName}</span>
+                    {call.duration && (
+                      <span className="text-muted-foreground/60 flex items-center gap-0.5">
+                        <Clock className="h-3 w-3" />
+                        {(call.duration / 1000).toFixed(1)}s
+                      </span>
+                    )}
+                    {call.output !== undefined && (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                    )}
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
           </div>
         </div>

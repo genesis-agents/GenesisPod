@@ -3,9 +3,13 @@
 /**
  * AIThinkingPanel - AI 思考过程展示面板
  * Genspark 风格的 AI 工具调用和思考步骤展示
+ *
+ * 支持两种使用方式:
+ * 1. 传入 steps 属性直接使用
+ * 2. 使用 useAgentStore=true 从 agentStore 获取数据
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   WrenchScrewdriverIcon,
@@ -17,8 +21,16 @@ import {
   DocumentTextIcon,
   PhotoIcon,
   PaintBrushIcon,
+  ExclamationCircleIcon,
+  CodeBracketIcon,
+  MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline';
 import { cn } from '@/lib/utils/common';
+import {
+  ThinkingStep,
+  useThinkingSteps,
+  useIsProcessing,
+} from '@/stores/agentStore';
 
 // AI 思考步骤状态
 export type ThinkingStepStatus =
@@ -27,7 +39,7 @@ export type ThinkingStepStatus =
   | 'completed'
   | 'error';
 
-// AI 思考步骤
+// AI 思考步骤 (兼容旧接口)
 export interface AIThinkingStep {
   id: string;
   tool: string; // 使用的工具名称
@@ -36,6 +48,9 @@ export interface AIThinkingStep {
   startTime?: Date;
   endTime?: Date;
   progress?: number; // 0-100 进度
+  duration?: number; // 耗时（毫秒）
+  input?: any;
+  output?: any;
   subSteps?: {
     label: string;
     completed: boolean;
@@ -44,8 +59,12 @@ export interface AIThinkingStep {
 }
 
 interface AIThinkingPanelProps {
-  steps: AIThinkingStep[];
-  isGenerating: boolean;
+  /** 传入的步骤列表（与 useAgentStore 二选一） */
+  steps?: AIThinkingStep[];
+  /** 是否正在生成（与 useAgentStore 二选一） */
+  isGenerating?: boolean;
+  /** 是否从 agentStore 获取数据 */
+  useAgentStore?: boolean;
   currentTool?: string;
   currentDescription?: string;
   className?: string;
@@ -57,6 +76,14 @@ const toolIcons: Record<string, React.ElementType> = {
   layout: PaintBrushIcon,
   content: SparklesIcon,
   image: PhotoIcon,
+  text_generation: SparklesIcon,
+  code_generation: CodeBracketIcon,
+  code_execution: CodeBracketIcon,
+  web_search: MagnifyingGlassIcon,
+  image_generation: PhotoIcon,
+  document_creation: DocumentTextIcon,
+  slide_creation: DocumentTextIcon,
+  thinking: LightBulbIcon,
   default: WrenchScrewdriverIcon,
 };
 
@@ -66,17 +93,50 @@ const toolLabels: Record<string, string> = {
   layout: '布局设计',
   content: '内容生成',
   image: '图片处理',
+  text_generation: '文本生成',
+  code_generation: '代码生成',
+  code_execution: '代码执行',
+  web_search: '网络搜索',
+  image_generation: '图片生成',
+  document_creation: '文档创建',
+  slide_creation: '幻灯片创建',
+  thinking: '深度思考',
 };
 
+/**
+ * 格式化持续时间
+ */
+function formatDuration(ms?: number): string {
+  if (!ms) return '';
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
 export default function AIThinkingPanel({
-  steps,
-  isGenerating,
+  steps: propSteps,
+  isGenerating: propIsGenerating,
+  useAgentStore: useStore = false,
   currentTool,
   currentDescription,
   className,
 }: AIThinkingPanelProps) {
   const [isToolExpanded, setIsToolExpanded] = useState(true);
   const [isThinkingExpanded, setIsThinkingExpanded] = useState(true);
+
+  // 从 store 获取数据（如果启用）
+  const storeSteps = useThinkingSteps();
+  const storeIsProcessing = useIsProcessing();
+
+  // 使用 store 数据或传入的 props
+  const steps: AIThinkingStep[] = useStore
+    ? storeSteps.map((s) => ({
+        ...s,
+        status: s.status as ThinkingStepStatus,
+      }))
+    : propSteps || [];
+  const isGenerating = useStore
+    ? storeIsProcessing
+    : (propIsGenerating ?? false);
 
   // 统计待办项
   const allSubSteps = steps.flatMap((s) => s.subSteps || []);
@@ -86,6 +146,7 @@ export default function AIThinkingPanel({
   // 获取当前正在处理的步骤
   const processingStep = steps.find((s) => s.status === 'processing');
   const completedSteps = steps.filter((s) => s.status === 'completed');
+  const errorSteps = steps.filter((s) => s.status === 'error');
 
   if (steps.length === 0 && !isGenerating) {
     return null;
@@ -231,21 +292,31 @@ export default function AIThinkingPanel({
                             <CheckCircleIcon className="h-4 w-4 flex-shrink-0 text-green-500" />
                           ) : step.status === 'processing' ? (
                             <div className="h-4 w-4 flex-shrink-0 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                          ) : step.status === 'error' ? (
+                            <ExclamationCircleIcon className="h-4 w-4 flex-shrink-0 text-red-500" />
                           ) : (
                             <ClockIcon className="h-4 w-4 flex-shrink-0 text-gray-300" />
                           )}
                           <span
                             className={cn(
-                              'text-sm',
+                              'flex-1 truncate text-sm',
                               step.status === 'completed'
-                                ? 'text-gray-500 line-through'
+                                ? 'text-gray-500'
                                 : step.status === 'processing'
                                   ? 'font-medium text-blue-700'
-                                  : 'text-gray-400'
+                                  : step.status === 'error'
+                                    ? 'text-red-600'
+                                    : 'text-gray-400'
                             )}
                           >
                             {step.description}
                           </span>
+                          {/* 显示耗时 */}
+                          {step.duration && (
+                            <span className="flex-shrink-0 text-xs text-gray-400">
+                              {formatDuration(step.duration)}
+                            </span>
+                          )}
                         </div>
 
                         {/* 子步骤 */}

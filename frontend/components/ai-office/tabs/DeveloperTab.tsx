@@ -20,6 +20,7 @@ import {
   Trash2,
   Loader2,
   Send,
+  Eye,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -27,15 +28,17 @@ import {
   ProgressTracker,
   ProgressOverlay,
 } from '@/components/ai-office/core/ProgressTracker';
+import AIThinkingPanel from '@/components/ai-office/document/AIThinkingPanel';
 import {
   AgentType,
   AgentInput,
   AGENT_CONFIGS,
 } from '@/lib/ai-office/agents/types';
-import { useAgentStore } from '@/stores/agentStore';
+import { useAgentStore, useThinkingSteps } from '@/stores/agentStore';
 import {
   useDeveloperHistoryStore,
   formatRelativeTime,
+  DeveloperHistoryItem,
 } from '@/stores/developerHistoryStore';
 import {
   executeAgent,
@@ -78,6 +81,10 @@ export default function DeveloperTab() {
   const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  // 恢复的历史结果
+  const [restoredResult, setRestoredResult] = useState<
+    DeveloperHistoryItem['result'] | null
+  >(null);
 
   // 设置选项
   const [language, setLanguage] = useState('typescript');
@@ -130,9 +137,24 @@ export default function DeveloperTab() {
 
         if (event.type === 'complete') {
           setIsGenerating(false);
+          const eventResult = (event as any).result;
+          // 保存完整结果到历史记录
           updateHistory(historyId, {
             status: 'success',
-            summary: (event as any).result?.summary,
+            summary: eventResult?.summary,
+            result: eventResult
+              ? {
+                  artifacts:
+                    eventResult.artifacts?.map((a: any) => ({
+                      id: a.id,
+                      name: a.name,
+                      type: a.type,
+                      content: a.content || '',
+                    })) || [],
+                  tokensUsed: eventResult.tokensUsed || 0,
+                  duration: eventResult.duration || 0,
+                }
+              : undefined,
           });
           unsubscribe();
         } else if (event.type === 'error') {
@@ -179,13 +201,31 @@ export default function DeveloperTab() {
     resetProgress();
   }, [currentTaskId, currentHistoryId, resetProgress, updateHistory]);
 
-  // 复用历史记录
-  const handleReuseHistory = (item: (typeof history)[0]) => {
+  // 复用历史记录（仅复制设置）
+  const handleReuseHistory = (item: DeveloperHistoryItem) => {
     setPromptValue(item.prompt);
     setLanguage(item.language);
     setIncludeTests(item.includeTests);
     setTestFramework(item.testFramework);
     setShowHistory(false);
+  };
+
+  // 恢复历史结果（查看完整结果）
+  const handleRestoreHistory = (item: DeveloperHistoryItem) => {
+    if (item.result) {
+      setPromptValue(item.prompt);
+      setLanguage(item.language);
+      setIncludeTests(item.includeTests);
+      setTestFramework(item.testFramework);
+      setRestoredResult(item.result);
+      // 更新 progress 状态为 completed
+      updateProgress({
+        phase: 'completed',
+        percentage: 100,
+        message: '已恢复历史结果',
+      });
+      setShowHistory(false);
+    }
   };
 
   // 复制代码
@@ -308,10 +348,20 @@ export default function DeveloperTab() {
                             </div>
                           </div>
                           <div className="flex items-center gap-1">
+                            {/* 查看结果按钮（仅成功且有结果时显示） */}
+                            {item.status === 'success' && item.result && (
+                              <button
+                                onClick={() => handleRestoreHistory(item)}
+                                className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-blue-600"
+                                title="查看结果"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                             <button
                               onClick={() => handleReuseHistory(item)}
                               className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-green-600"
-                              title="复用"
+                              title="复用设置"
                             >
                               <RefreshCw className="h-3.5 w-3.5" />
                             </button>
@@ -453,7 +503,8 @@ export default function DeveloperTab() {
           {/* 进度展示 */}
           {(isGenerating || progress.phase !== 'idle') &&
             progress.phase !== 'completed' && (
-              <div className="flex flex-1 items-center justify-center p-8">
+              <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
+                {/* 进度条 */}
                 <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
                   <ProgressTracker progress={progress} showToolCalls />
                   {isGenerating && (
@@ -465,74 +516,90 @@ export default function DeveloperTab() {
                     </button>
                   )}
                 </div>
+
+                {/* AI 思考过程面板 */}
+                <div className="w-full max-w-md">
+                  <AIThinkingPanel useAgentStore className="shadow-sm" />
+                </div>
               </div>
             )}
 
           {/* 结果展示 */}
-          {progress.phase === 'completed' && result && (
+          {progress.phase === 'completed' && (result || restoredResult) && (
             <div className="flex-1 overflow-y-auto p-6">
               <div className="mx-auto max-w-4xl">
                 <div className="mb-4 flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-gray-900">
-                    生成完成
+                    {restoredResult ? '历史结果' : '生成完成'}
                   </h3>
                   <button
-                    onClick={() => resetProgress()}
+                    onClick={() => {
+                      resetProgress();
+                      setRestoredResult(null);
+                    }}
                     className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-200"
                   >
                     <RefreshCw className="h-4 w-4" />
                     重新生成
                   </button>
                 </div>
-                <p className="mb-4 text-gray-600">{result.summary}</p>
+                {/* 显示摘要（仅 result 有） */}
+                {result?.summary && (
+                  <p className="mb-4 text-gray-600">{result.summary}</p>
+                )}
                 <div className="mb-6 text-sm text-gray-500">
-                  耗时: {(result.duration / 1000).toFixed(1)}s | Tokens:{' '}
-                  {result.tokensUsed}
+                  耗时:{' '}
+                  {(((restoredResult || result)?.duration || 0) / 1000).toFixed(
+                    1
+                  )}
+                  s | Tokens: {(restoredResult || result)?.tokensUsed || 0}
                 </div>
 
                 {/* 代码块展示 */}
                 <div className="space-y-4">
-                  {result.artifacts.map((artifact, index) => (
-                    <div
-                      key={artifact.id}
-                      className="overflow-hidden rounded-lg border border-gray-200 bg-white"
-                    >
-                      <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-2">
-                        <div className="flex items-center gap-2">
-                          <Code2 className="h-4 w-4 text-gray-500" />
-                          <span className="text-sm font-medium text-gray-700">
-                            {artifact.name}
-                          </span>
+                  {((restoredResult || result)?.artifacts || []).map(
+                    (artifact, index) => (
+                      <div
+                        key={artifact.id}
+                        className="overflow-hidden rounded-lg border border-gray-200 bg-white"
+                      >
+                        <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-2">
+                          <div className="flex items-center gap-2">
+                            <Code2 className="h-4 w-4 text-gray-500" />
+                            <span className="text-sm font-medium text-gray-700">
+                              {artifact.name}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() =>
+                              handleCopyCode(
+                                (artifact as any).content || '',
+                                index
+                              )
+                            }
+                            className="flex items-center gap-1 text-sm text-gray-500 transition-colors hover:text-gray-700"
+                          >
+                            {copiedIndex === index ? (
+                              <>
+                                <Check className="h-4 w-4 text-green-500" />
+                                <span className="text-green-500">已复制</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-4 w-4" />
+                                <span>复制</span>
+                              </>
+                            )}
+                          </button>
                         </div>
-                        <button
-                          onClick={() =>
-                            handleCopyCode(
-                              (artifact as any).content || '',
-                              index
-                            )
-                          }
-                          className="flex items-center gap-1 text-sm text-gray-500 transition-colors hover:text-gray-700"
-                        >
-                          {copiedIndex === index ? (
-                            <>
-                              <Check className="h-4 w-4 text-green-500" />
-                              <span className="text-green-500">已复制</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="h-4 w-4" />
-                              <span>复制</span>
-                            </>
-                          )}
-                        </button>
+                        <pre className="overflow-x-auto bg-gray-900 p-4 text-gray-100">
+                          <code className="text-sm">
+                            {(artifact as any).content || ''}
+                          </code>
+                        </pre>
                       </div>
-                      <pre className="overflow-x-auto bg-gray-900 p-4 text-gray-100">
-                        <code className="text-sm">
-                          {(artifact as any).content || ''}
-                        </code>
-                      </pre>
-                    </div>
-                  ))}
+                    )
+                  )}
                 </div>
               </div>
             </div>

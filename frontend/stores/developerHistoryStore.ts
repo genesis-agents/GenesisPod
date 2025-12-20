@@ -6,6 +6,19 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+/**
+ * 代码产物
+ */
+export interface CodeArtifact {
+  id: string;
+  name: string;
+  type: string;
+  content: string;
+}
+
+/**
+ * 历史记录项
+ */
 export interface DeveloperHistoryItem {
   id: string;
   timestamp: number;
@@ -15,6 +28,12 @@ export interface DeveloperHistoryItem {
   testFramework: string;
   status: 'success' | 'error' | 'pending';
   summary?: string;
+  /** 保存结果以便恢复 */
+  result?: {
+    artifacts: CodeArtifact[];
+    tokensUsed: number;
+    duration: number;
+  };
 }
 
 interface DeveloperHistoryStore {

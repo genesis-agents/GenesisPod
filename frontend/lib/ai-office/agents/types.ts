@@ -165,6 +165,11 @@ export interface ErrorEvent {
   stepId?: string;
 }
 
+export interface ThinkingEvent {
+  type: 'thinking';
+  content: string;
+}
+
 export type AgentEvent =
   | PlanReadyEvent
   | StepStartEvent
@@ -174,7 +179,8 @@ export type AgentEvent =
   | ToolResultEvent
   | ArtifactEvent
   | CompleteEvent
-  | ErrorEvent;
+  | ErrorEvent
+  | ThinkingEvent;
 
 // ==================== Agent 配置 ====================
 
@@ -252,10 +258,11 @@ export interface ProgressState {
   phase: 'idle' | 'planning' | 'executing' | 'completed' | 'error';
   percentage: number;
   message: string;
-  currentStep?: PlanStep;
+  currentStep?: PlanStep | string;
   completedSteps: string[];
+  totalSteps?: number;
   toolCalls: Array<{
-    tool: ToolType;
+    tool: ToolType | string;
     input: unknown;
     output?: unknown;
     duration?: number;
