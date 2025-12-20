@@ -558,7 +558,7 @@ export class TeamCollaborationService {
   // ============================================================================
 
   /**
-   * 构造投票提示词
+   * 构造投票提示词（增强版 - 使用结构化输出）
    */
   private buildVotePrompt(
     title: string,
@@ -573,49 +573,186 @@ export class TeamCollaborationService {
       prompt += `**可选项**：\n${options.map((opt, i) => `${i + 1}. ${opt}`).join("\n")}\n\n`;
     }
 
-    prompt += `请基于你的角色和专业知识，明确表达你的投票意见：\n`;
-    prompt += `- 赞成（APPROVE）\n`;
-    prompt += `- 反对（REJECT）\n`;
-    prompt += `- 弃权（ABSTAIN）\n\n`;
-    prompt += `并简要说明你的理由。`;
+    prompt += `请基于你的角色和专业知识，明确表达你的投票意见。\n\n`;
+    prompt += `**重要**：请严格按照以下 JSON 格式回复：\n`;
+    prompt += `\`\`\`json\n`;
+    prompt += `{\n`;
+    prompt += `  "vote": "APPROVE" | "REJECT" | "ABSTAIN",\n`;
+    prompt += `  "reasoning": "你的投票理由（简洁明了）",\n`;
+    prompt += `  "confidence": 0.0-1.0（你对这个决定的信心程度）\n`;
+    prompt += `}\n`;
+    prompt += `\`\`\`\n\n`;
+    prompt += `投票选项说明：\n`;
+    prompt += `- APPROVE：赞成此提案\n`;
+    prompt += `- REJECT：反对此提案\n`;
+    prompt += `- ABSTAIN：弃权（无法做出决定）\n`;
 
     return prompt;
   }
 
   /**
-   * 从AI响应中解析投票意见
+   * 从AI响应中解析投票意见（增强版 - 支持结构化 JSON 和文本回退）
    */
   private parseVoteFromResponse(content: string): {
     value: "APPROVE" | "REJECT" | "ABSTAIN";
     reason?: string;
+    confidence?: number;
   } {
-    const lowerContent = content.toLowerCase();
-
-    // 检测投票意向
-    let value: "APPROVE" | "REJECT" | "ABSTAIN" = "ABSTAIN";
-
-    if (
-      lowerContent.includes("赞成") ||
-      lowerContent.includes("同意") ||
-      lowerContent.includes("支持") ||
-      lowerContent.includes("approve")
-    ) {
-      value = "APPROVE";
-    } else if (
-      lowerContent.includes("反对") ||
-      lowerContent.includes("拒绝") ||
-      lowerContent.includes("reject")
-    ) {
-      value = "REJECT";
-    } else if (
-      lowerContent.includes("弃权") ||
-      lowerContent.includes("中立") ||
-      lowerContent.includes("abstain")
-    ) {
-      value = "ABSTAIN";
+    // 1. 首先尝试解析 JSON 格式
+    const jsonResult = this.tryParseJsonVote(content);
+    if (jsonResult) {
+      this.logger.debug(
+        `[parseVoteFromResponse] Parsed JSON vote: ${jsonResult.value}`,
+      );
+      return jsonResult;
     }
 
-    // 提取理由（简单实现：取前200字符）
+    // 2. 回退到文本匹配模式
+    this.logger.debug(`[parseVoteFromResponse] Falling back to text matching`);
+    return this.parseVoteFromText(content);
+  }
+
+  /**
+   * 尝试从响应中解析 JSON 格式的投票
+   */
+  private tryParseJsonVote(content: string): {
+    value: "APPROVE" | "REJECT" | "ABSTAIN";
+    reason?: string;
+    confidence?: number;
+  } | null {
+    try {
+      // 尝试提取 JSON 块
+      const jsonPatterns = [
+        /```json\s*([\s\S]*?)\s*```/i, // ```json ... ```
+        /```\s*([\s\S]*?)\s*```/, // ``` ... ```
+        /\{[\s\S]*?"vote"[\s\S]*?\}/, // 直接的 JSON 对象
+      ];
+
+      let jsonStr: string | null = null;
+
+      for (const pattern of jsonPatterns) {
+        const match = content.match(pattern);
+        if (match) {
+          jsonStr = match[1] || match[0];
+          break;
+        }
+      }
+
+      if (!jsonStr) {
+        return null;
+      }
+
+      // 清理 JSON 字符串
+      jsonStr = jsonStr.trim();
+      if (!jsonStr.startsWith("{")) {
+        jsonStr = "{" + jsonStr.split("{").slice(1).join("{");
+      }
+      if (!jsonStr.endsWith("}")) {
+        jsonStr = jsonStr.split("}").slice(0, -1).join("}") + "}";
+      }
+
+      const parsed = JSON.parse(jsonStr);
+
+      // 验证并规范化投票值
+      let vote: "APPROVE" | "REJECT" | "ABSTAIN" = "ABSTAIN";
+      const voteValue = (parsed.vote || "").toUpperCase();
+
+      if (voteValue === "APPROVE" || voteValue === "赞成") {
+        vote = "APPROVE";
+      } else if (voteValue === "REJECT" || voteValue === "反对") {
+        vote = "REJECT";
+      } else if (voteValue === "ABSTAIN" || voteValue === "弃权") {
+        vote = "ABSTAIN";
+      }
+
+      // 验证 confidence 范围
+      let confidence = parsed.confidence;
+      if (typeof confidence === "number") {
+        confidence = Math.max(0, Math.min(1, confidence));
+      } else {
+        confidence = undefined;
+      }
+
+      return {
+        value: vote,
+        reason: parsed.reasoning || parsed.reason || undefined,
+        confidence,
+      };
+    } catch (error) {
+      this.logger.debug(`[tryParseJsonVote] JSON parsing failed: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * 从文本中解析投票（回退方法）
+   */
+  private parseVoteFromText(content: string): {
+    value: "APPROVE" | "REJECT" | "ABSTAIN";
+    reason?: string;
+  } {
+    // 检测投票意向 - 使用更精确的模式匹配
+    let value: "APPROVE" | "REJECT" | "ABSTAIN" = "ABSTAIN";
+
+    // 赞成关键词（按优先级排序）
+    const approvePatterns = [
+      /我(投)?赞成/,
+      /我(的)?投票(是|为)[:：]?\s*赞成/,
+      /选择\s*[:：]?\s*赞成/,
+      /approve/i,
+      /赞成/,
+      /同意/,
+      /支持/,
+    ];
+
+    // 反对关键词（按优先级排序）
+    const rejectPatterns = [
+      /我(投)?反对/,
+      /我(的)?投票(是|为)[:：]?\s*反对/,
+      /选择\s*[:：]?\s*反对/,
+      /reject/i,
+      /反对/,
+      /拒绝/,
+      /不同意/,
+    ];
+
+    // 弃权关键词
+    const abstainPatterns = [
+      /我(投)?弃权/,
+      /我(的)?投票(是|为)[:：]?\s*弃权/,
+      /选择\s*[:：]?\s*弃权/,
+      /abstain/i,
+      /弃权/,
+      /中立/,
+    ];
+
+    // 检测顺序：先检测明确的反对，再检测赞成，最后弃权
+    for (const pattern of rejectPatterns) {
+      if (pattern.test(content)) {
+        value = "REJECT";
+        break;
+      }
+    }
+
+    if (value === "ABSTAIN") {
+      for (const pattern of approvePatterns) {
+        if (pattern.test(content)) {
+          value = "APPROVE";
+          break;
+        }
+      }
+    }
+
+    if (value === "ABSTAIN") {
+      for (const pattern of abstainPatterns) {
+        if (pattern.test(content)) {
+          value = "ABSTAIN";
+          break;
+        }
+      }
+    }
+
+    // 提取理由（取前200字符）
     const reason =
       content.length > 200 ? content.substring(0, 200) + "..." : content;
 

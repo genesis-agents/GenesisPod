@@ -147,6 +147,10 @@ export abstract class BaseAgent implements IAgent {
       [AgentType.DOCS]: "📄",
       [AgentType.DESIGNER]: "🎨",
       [AgentType.DEVELOPER]: "💻",
+      [AgentType.RESEARCHER]: "🔬",
+      [AgentType.SIMULATOR]: "🎯",
+      [AgentType.IMAGE_DESIGNER]: "🖼️",
+      [AgentType.TEAM_COLLABORATION]: "👥",
     };
     return icons[this.type] || "🤖";
   }
@@ -160,6 +164,10 @@ export abstract class BaseAgent implements IAgent {
       [AgentType.DOCS]: "#10B981",
       [AgentType.DESIGNER]: "#F59E0B",
       [AgentType.DEVELOPER]: "#8B5CF6",
+      [AgentType.RESEARCHER]: "#EC4899",
+      [AgentType.SIMULATOR]: "#EF4444",
+      [AgentType.IMAGE_DESIGNER]: "#06B6D4",
+      [AgentType.TEAM_COLLABORATION]: "#8B5CF6",
     };
     return colors[this.type] || "#6B7280";
   }

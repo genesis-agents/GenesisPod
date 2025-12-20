@@ -9,10 +9,23 @@
  * Agent 类型
  */
 export enum AgentType {
+  // 办公类 Agent
   SLIDES = "SLIDES",
   DOCS = "DOCS",
   DESIGNER = "DESIGNER",
   DEVELOPER = "DEVELOPER",
+
+  // 研究类 Agent
+  RESEARCHER = "RESEARCHER", // ai-studio 研究助手
+
+  // 推演类 Agent
+  SIMULATOR = "SIMULATOR", // ai-simulation 推演专家
+
+  // 图像类 Agent
+  IMAGE_DESIGNER = "IMAGE_DESIGNER", // ai-image 图像设计师
+
+  // 团队协作 Agent
+  TEAM_COLLABORATION = "TEAM_COLLABORATION", // ai-teams 团队协作
 }
 
 /**
@@ -374,6 +387,66 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
     icon: "💻",
     color: "#8B5CF6", // violet-500
     capabilities: ["代码生成", "代码解释", "代码重构", "单元测试"],
+    templates: [],
+  },
+  [AgentType.RESEARCHER]: {
+    type: AgentType.RESEARCHER,
+    name: "AI Researcher",
+    description: "智能研究助手，帮助用户进行资料调研和知识整理",
+    icon: "🔬",
+    color: "#EC4899", // pink-500
+    capabilities: [
+      "自动调研资料",
+      "知识图谱构建",
+      "内容摘要生成",
+      "研究报告撰写",
+      "多源数据整合",
+    ],
+    templates: [],
+  },
+  [AgentType.SIMULATOR]: {
+    type: AgentType.SIMULATOR,
+    name: "AI Simulator",
+    description: "智能推演专家，进行多方博弈和场景模拟",
+    icon: "🎯",
+    color: "#EF4444", // red-500
+    capabilities: [
+      "多方博弈模拟",
+      "场景推演分析",
+      "决策建议生成",
+      "风险评估",
+      "黑天鹅事件模拟",
+    ],
+    templates: [],
+  },
+  [AgentType.IMAGE_DESIGNER]: {
+    type: AgentType.IMAGE_DESIGNER,
+    name: "AI Image Designer",
+    description: "智能图像设计师，生成高质量图像和信息图表",
+    icon: "🖼️",
+    color: "#06B6D4", // cyan-500
+    capabilities: [
+      "信息图表生成",
+      "Prompt 增强优化",
+      "多风格图像生成",
+      "图像编辑处理",
+      "品牌套件设计",
+    ],
+    templates: [],
+  },
+  [AgentType.TEAM_COLLABORATION]: {
+    type: AgentType.TEAM_COLLABORATION,
+    name: "AI Team Collaboration",
+    description: "智能团队协作专家，管理多 AI 成员协作、任务分配和共识投票",
+    icon: "👥",
+    color: "#8B5CF6", // violet-500
+    capabilities: [
+      "团队任务协调",
+      "智能任务分配",
+      "共识投票决策",
+      "辩论主持管理",
+      "任务编排执行",
+    ],
     templates: [],
   },
 };

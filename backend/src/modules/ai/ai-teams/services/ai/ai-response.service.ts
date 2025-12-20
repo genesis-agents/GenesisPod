@@ -34,7 +34,10 @@ export class AiResponseService {
     private teamsLLMAdapter: TeamsLLMAdapter,
     private functionCallingExecutor: FunctionCallingExecutor,
     private topicEventEmitter: TopicEventEmitterService,
-  ) {}
+  ) {
+    // 保留重试方法引用供未来集成
+    void this.generateWithToolsWithRetry;
+  }
 
   /**
    * 智能上下文管理器 - 对消息进行重要性评分和筛选
@@ -1431,6 +1434,105 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
       workStyle: null,
       isLeader: role === "leader",
     };
+  }
+
+  /**
+   * 带重试的工具生成 AI 响应
+   * 使用指数退避策略处理临时错误
+   * TODO: 在 generateWithTools 中集成此方法
+   */
+  private async generateWithToolsWithRetry(
+    topicId: string,
+    aiMember: {
+      id: string;
+      aiModel: string;
+      displayName: string;
+      roleDescription?: string | null;
+    },
+    contextMessages: Array<{
+      content: string;
+      senderId: string | null;
+      aiMemberId: string | null;
+      sender: { username: string | null; fullName: string | null } | null;
+      aiMember: { displayName: string } | null;
+    }>,
+    toolTypes: ToolType[],
+    systemPrompt: string,
+    maxRetries: number = 3,
+  ) {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await this.generateWithTools(
+          topicId,
+          aiMember,
+          contextMessages,
+          toolTypes,
+          systemPrompt,
+        );
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        this.logger.warn(
+          `[generateWithToolsWithRetry] Attempt ${attempt + 1}/${maxRetries} failed: ${lastError.message}`,
+        );
+
+        // 检查是否是可重试的错误
+        if (!this.isRetryableError(lastError)) {
+          this.logger.error(
+            `[generateWithToolsWithRetry] Non-retryable error, giving up`,
+          );
+          throw lastError;
+        }
+
+        // 最后一次尝试不需要等待
+        if (attempt < maxRetries - 1) {
+          const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+          this.logger.log(
+            `[generateWithToolsWithRetry] Waiting ${delay}ms before retry...`,
+          );
+          await this.delay(delay);
+        }
+      }
+    }
+
+    // 所有重试都失败了
+    this.logger.error(
+      `[generateWithToolsWithRetry] All ${maxRetries} attempts failed`,
+    );
+    throw lastError;
+  }
+
+  /**
+   * 检查错误是否可重试
+   */
+  private isRetryableError(error: Error): boolean {
+    const message = error.message.toLowerCase();
+
+    // 可重试的错误类型
+    const retryablePatterns = [
+      "timeout",
+      "econnreset",
+      "econnrefused",
+      "socket hang up",
+      "rate limit",
+      "429",
+      "503",
+      "502",
+      "500",
+      "network",
+      "temporary",
+    ];
+
+    return retryablePatterns.some((pattern) => message.includes(pattern));
+  }
+
+  /**
+   * 延迟工具函数
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**

@@ -32,6 +32,9 @@ import {
   PPTVersionService,
 } from "./ppt";
 
+// ai-agents 整合服务
+import { AiOfficeIntegrationService } from "./ai-office-integration.service";
+
 @Module({
   imports: [
     HttpModule,
@@ -66,6 +69,8 @@ import {
     PPTExportService,
     NaturalEditService,
     PPTVersionService,
+    // ai-agents 整合服务
+    AiOfficeIntegrationService,
   ],
   exports: [
     QuickGenerateService,
@@ -83,6 +88,8 @@ import {
     PPTExportService,
     NaturalEditService,
     PPTVersionService,
+    // ai-agents 整合服务
+    AiOfficeIntegrationService,
   ],
 })
 export class AiOfficeModule {}

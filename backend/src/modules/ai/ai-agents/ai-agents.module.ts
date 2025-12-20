@@ -20,11 +20,19 @@ import {
   SchemaValidator,
 } from "./core";
 
-// Agent 导入
+// Agent 导入 - 办公类 Agent
 import { SlidesAgent } from "./implementations/slides/slides.agent";
 import { DocsAgent } from "./implementations/docs/docs.agent";
 import { DesignerAgent } from "./implementations/designer/designer.agent";
 import { DeveloperAgent } from "./implementations/developer/developer.agent";
+// Agent 导入 - 研究类 Agent
+import { ResearcherAgent } from "./implementations/researcher/researcher.agent";
+// Agent 导入 - 推演类 Agent
+import { SimulatorAgent } from "./implementations/simulator/simulator.agent";
+// Agent 导入 - 图像类 Agent
+import { ImageDesignerAgent } from "./implementations/image-designer/image-designer.agent";
+// Agent 导入 - 团队协作 Agent
+import { TeamCollaborationAgent } from "./implementations/team-collaboration/team-collaboration.agent";
 
 // 工具导入 - 全部 48 种工具
 import {
@@ -92,9 +100,18 @@ import { AiOfficeModule } from "../ai-office/ai-office.module";
 import { AiImageModule } from "../ai-image/ai-image.module";
 import { AiCoreModule } from "../ai-core/ai-core.module";
 import { AiStudioModule } from "../ai-studio/ai-studio.module";
+import { AiSimulationModule } from "../ai-simulation/ai-simulation.module";
+import { AiTeamsModule } from "../ai-teams/ai-teams.module";
 
 @Module({
-  imports: [AiOfficeModule, AiImageModule, AiCoreModule, AiStudioModule],
+  imports: [
+    AiOfficeModule,
+    AiImageModule,
+    AiCoreModule,
+    AiStudioModule,
+    AiSimulationModule,
+    AiTeamsModule,
+  ],
   controllers: [AiAgentsController],
   providers: [
     // 核心服务
@@ -118,11 +135,19 @@ import { AiStudioModule } from "../ai-studio/ai-studio.module";
     ShortTermMemoryService,
     LongTermMemoryService,
 
-    // Agents
+    // Agents - 办公类 (4)
     SlidesAgent,
     DocsAgent,
     DesignerAgent,
     DeveloperAgent,
+    // Agents - 研究类 (1)
+    ResearcherAgent,
+    // Agents - 推演类 (1)
+    SimulatorAgent,
+    // Agents - 图像类 (1)
+    ImageDesignerAgent,
+    // Agents - 团队协作 (1)
+    TeamCollaborationAgent,
 
     // ========================================================================
     // Tools - 全部 48 种工具
@@ -213,11 +238,19 @@ export class AiAgentsModule implements OnModuleInit {
   constructor(
     private readonly agentRegistry: AgentRegistry,
     private readonly toolRegistry: ToolRegistry,
-    // Agents
+    // Agents - 办公类 (4)
     private readonly slidesAgent: SlidesAgent,
     private readonly docsAgent: DocsAgent,
     private readonly designerAgent: DesignerAgent,
     private readonly developerAgent: DeveloperAgent,
+    // Agents - 研究类 (1)
+    private readonly researcherAgent: ResearcherAgent,
+    // Agents - 推演类 (1)
+    private readonly simulatorAgent: SimulatorAgent,
+    // Agents - 图像类 (1)
+    private readonly imageDesignerAgent: ImageDesignerAgent,
+    // Agents - 团队协作 (1)
+    private readonly teamCollaborationAgent: TeamCollaborationAgent,
     // Tools - Information Gathering (6)
     private readonly webSearchTool: WebSearchTool,
     private readonly webScraperTool: WebScraperTool,
@@ -275,11 +308,19 @@ export class AiAgentsModule implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    // 注册 Agents
+    // 注册 Agents - 办公类 (4)
     this.agentRegistry.register(this.slidesAgent);
     this.agentRegistry.register(this.docsAgent);
     this.agentRegistry.register(this.designerAgent);
     this.agentRegistry.register(this.developerAgent);
+    // 注册 Agents - 研究类 (1)
+    this.agentRegistry.register(this.researcherAgent);
+    // 注册 Agents - 推演类 (1)
+    this.agentRegistry.register(this.simulatorAgent);
+    // 注册 Agents - 图像类 (1)
+    this.agentRegistry.register(this.imageDesignerAgent);
+    // 注册 Agents - 团队协作 (1)
+    this.agentRegistry.register(this.teamCollaborationAgent);
 
     // 注册 Tools - 全部 48 种工具
     this.toolRegistry.registerMany([

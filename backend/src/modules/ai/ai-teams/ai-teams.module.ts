@@ -10,6 +10,7 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiCoreModule } from "../ai-core/ai-core.module";
 import { AiAgentsModule } from "../ai-agents/ai-agents.module";
 import { TeamMemberAgent, TeamsLLMAdapter } from "./agents";
+import { AiTeamsIntegrationService } from "./ai-teams-integration.service";
 import {
   DebateService,
   TeamMissionService,
@@ -43,6 +44,8 @@ import {
     TeamsLLMAdapter,
     TeamCollaborationService,
     TopicEventEmitterService,
+    // ai-agents 整合服务
+    AiTeamsIntegrationService,
   ],
   exports: [
     AiTeamsService,
@@ -58,6 +61,8 @@ import {
     TeamMemberAgent,
     TeamsLLMAdapter,
     TeamCollaborationService,
+    // ai-agents 整合服务
+    AiTeamsIntegrationService,
   ],
 })
 export class AiTeamsModule {}

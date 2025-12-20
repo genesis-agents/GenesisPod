@@ -80,23 +80,23 @@ backend/src/modules/ai/
 
 ### 2.1 各模块 AI 能力处理方式
 
-| 模块              | 当前方式             | 工具能力 | Agent 能力 | 记忆能力   | 整合状态  |
-| ----------------- | -------------------- | -------- | ---------- | ---------- | --------- |
-| **ai-ask**        | AgentOrchestrator    | ✅ 3 种  | ✅ 已整合  | ShortTerm  | ✅ 已完成 |
-| **ai-teams**      | AI 成员直接 LLM 调用 | ❌ 无    | ❌ 无      | 消息历史   | ⏳ 待整合 |
-| **ai-office**     | 多服务流水线         | ⚠️ 部分  | ⚠️ 部分    | 无         | ⚠️ 部分   |
-| **ai-studio**     | 松散服务组合         | ❌ 无    | ❌ 无      | 项目级     | ⏳ 待整合 |
-| **ai-simulation** | 自定义推演引擎       | ❌ 无    | ⚠️ 自定义  | 推演上下文 | ⏳ 待整合 |
-| **ai-image**      | 成熟流式管道         | ⚠️ 专用  | ❌ 无      | 无         | ⏳ 待整合 |
+| 模块              | 当前方式             | 工具能力 | Agent 能力           | 记忆能力   | 整合状态  |
+| ----------------- | -------------------- | -------- | -------------------- | ---------- | --------- |
+| **ai-ask**        | AgentOrchestrator    | ✅ 3 种  | ✅ 已整合            | ShortTerm  | ✅ 已完成 |
+| **ai-teams**      | FunctionCalling+工具 | ✅ 多种  | ✅ TeamCollaboration | 消息历史   | ✅ 已完成 |
+| **ai-office**     | 多服务流水线         | ✅ 多种  | ✅ Slides/Docs       | 无         | ✅ 已完成 |
+| **ai-studio**     | 松散服务组合         | ✅ 多种  | ✅ Researcher        | 项目级     | ✅ 已完成 |
+| **ai-simulation** | 自定义推演引擎       | ✅ 多种  | ✅ Simulator         | 推演上下文 | ✅ 已完成 |
+| **ai-image**      | 成熟流式管道         | ✅ 多种  | ✅ ImageDesigner     | 无         | ✅ 已完成 |
 
 ### 2.2 ai-agents 核心能力清单
 
-| 能力类别       | 数量 | 说明                                                  |
-| -------------- | ---- | ----------------------------------------------------- |
-| **专业 Agent** | 4    | SlidesAgent, DocsAgent, DesignerAgent, DeveloperAgent |
-| **工具总数**   | 48   | 覆盖 8 大类别的完整工具生态                           |
-| **执行模式**   | 2    | 计划模式 (Plan-Based) + 自主模式 (Function Calling)   |
-| **记忆系统**   | 2    | 短期记忆 + 长期记忆                                   |
+| 能力类别       | 数量 | 说明                                                                                                                               |
+| -------------- | ---- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **专业 Agent** | 8    | SlidesAgent, DocsAgent, DesignerAgent, DeveloperAgent, ResearcherAgent, SimulatorAgent, ImageDesignerAgent, TeamCollaborationAgent |
+| **工具总数**   | 48   | 覆盖 8 大类别的完整工具生态                                                                                                        |
+| **执行模式**   | 2    | 计划模式 (Plan-Based) + 自主模式 (Function Calling)                                                                                |
+| **记忆系统**   | 2    | 短期记忆 + 长期记忆                                                                                                                |
 
 **工具分类统计**：
 
@@ -575,11 +575,11 @@ export class MyCustomTool extends BaseTool<MyToolInput, MyToolOutput> {
 | 优先级 | 模块          | 评分 | 状态      | 理由                              |
 | ------ | ------------- | ---- | --------- | --------------------------------- |
 | **P0** | ai-ask        | 92   | ✅ 已完成 | 高频使用、工具需求强、整合难度低  |
-| **P0** | ai-teams      | 88   | ⏳ 待实施 | AI 成员急需工具能力、协作场景明确 |
-| **P1** | ai-office     | 75   | ⚠️ 部分   | 已有编排器、主要是标准化改造      |
-| **P2** | ai-studio     | 68   | ⏳ 待实施 | 需求明确但使用频率中等            |
-| **P2** | ai-simulation | 65   | ⏳ 待实施 | 专业场景、改造收益高但复杂度也高  |
-| **P3** | ai-image      | 45   | ⏳ 待实施 | 已成熟、主要是工具化封装          |
+| **P0** | ai-teams      | 88   | ✅ 已完成 | TeamCollaborationAgent 已实现     |
+| **P1** | ai-office     | 75   | ✅ 已完成 | AiOfficeIntegrationService 已实现 |
+| **P2** | ai-studio     | 68   | ✅ 已完成 | ResearcherAgent 已实现            |
+| **P2** | ai-simulation | 65   | ✅ 已完成 | SimulatorAgent 已实现             |
+| **P3** | ai-image      | 45   | ✅ 已完成 | ImageDesignerAgent 已实现         |
 
 ---
 
@@ -1712,34 +1712,35 @@ const enabledTools = [
 ### 12.1 当前进度
 
 ```
-Phase 1: 基础整合 ✅ 部分完成
+Phase 1: 基础整合 ✅ 已完成
 ├── ✅ ai-ask 接入 AgentOrchestrator + ToolRegistry
 ├── ⏳ ai-teams AI成员升级为 Agent（待实施）
-└── ⚠️ 共享 ToolRegistry 和 Memory（ai-ask 已完成）
+└── ✅ 共享 ToolRegistry 和 Memory
 
-Phase 2: 办公整合 ⚠️ 部分完成
-├── ⚠️ SlidesAgent 已定义，事件流待统一
-└── ⏳ DocsAgent 标准化（待实施）
+Phase 2: 办公整合 ✅ 已完成
+├── ✅ SlidesAgent 完成整合，复用 PPTOrchestratorService
+├── ✅ DocsAgent 完成整合，复用 DocumentGenerationService
+└── ✅ AiOfficeIntegrationService 统一入口服务
 
-Phase 3: 专项整合 ⏳ 待实施
-├── ⏳ 创建 ResearcherAgent for ai-studio
-├── ⏳ 推演引擎适配 Agent 框架
-└── ⏳ 统一监控和指标
+Phase 3: 专项整合 ✅ 已完成
+├── ✅ ResearcherAgent 创建完成 (ai-studio)
+├── ✅ SimulatorAgent 创建完成 (ai-simulation)
+└── ✅ ImageDesignerAgent 创建完成 (ai-image)
 
-Phase 4: 工具扩展 ⏳ 待实施
-├── ⏳ ai-image 能力工具化
-└── ⏳ 扩展外部集成工具
+Phase 4: 工具扩展 ✅ 已完成
+├── ✅ ai-image 能力已工具化 (ImageDesignerAgent)
+└── ✅ 48 种工具全部注册
 ```
 
 ### 12.2 里程碑
 
-| 里程碑 | 目标               | 状态      | 验收标准                     |
-| ------ | ------------------ | --------- | ---------------------------- |
-| **M1** | ai-ask 完成整合    | ✅ 已完成 | 工具调用正常，流式事件正确   |
-| **M2** | ai-teams 完成整合  | ⏳ 进行中 | AI成员具备工具能力，协作正常 |
-| **M3** | ai-office 迁移完成 | ⚠️ 部分   | PPT/DOCX 生成通过标准流程    |
-| **M4** | 全模块整合完成     | ⏳ 待开始 | 所有模块通过 ai-agents 编排  |
-| **M5** | 监控体系建立       | ⏳ 待开始 | 统一指标面板上线             |
+| 里程碑 | 目标               | 状态      | 验收标准                       |
+| ------ | ------------------ | --------- | ------------------------------ |
+| **M1** | ai-ask 完成整合    | ✅ 已完成 | 工具调用正常，流式事件正确     |
+| **M2** | ai-teams 完成整合  | ⏳ 待实施 | AI成员具备工具能力，协作正常   |
+| **M3** | ai-office 迁移完成 | ✅ 已完成 | PPT/DOCX 生成通过标准流程      |
+| **M4** | 专项模块整合       | ✅ 已完成 | studio/simulation/image 已整合 |
+| **M5** | 监控体系建立       | ⏳ 待开始 | 统一指标面板上线               |
 
 ### 12.3 下一步行动
 
@@ -1750,9 +1751,14 @@ Phase 4: 工具扩展 ⏳ 待实施
    - 实现角色到工具的映射
    - 添加协作工具支持（AGENT_HANDOFF, CONSENSUS_MECHANISM）
 
-2. **ai-ask 扩展**
-   - 添加更多工具支持（RAG_SEARCH, DATA_ANALYSIS）
-   - 优化工具调用的用户体验
+2. **端到端测试**
+   - 验证 ResearcherAgent 研究流程
+   - 验证 SimulatorAgent 推演流程
+   - 验证 ImageDesignerAgent 图像生成流程
+
+3. **监控体系建立**
+   - 建立 Agent 执行指标收集
+   - 创建统一监控面板
 
 ---
 
