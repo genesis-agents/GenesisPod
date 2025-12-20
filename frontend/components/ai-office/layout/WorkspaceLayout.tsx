@@ -2,16 +2,16 @@
 
 /**
  * AI Office 工作区布局组件
- * 三个专项 Tab：Slides/Docs/Designer
+ * 四个专项 Tab：Slides/Docs/Designer/Developer
  * 右侧浮动：任务列表 (Genspark风格)
  * 注意：左侧菜单使用系统全局Sidebar
  *
- * v5.0: 移除经典模式，只保留三个专项Tab
+ * v5.1: 添加 Developer Tab
  */
 
 import React, { useState, useRef } from 'react';
 import { useTaskStore } from '@/stores/aiOfficeStore';
-import { ListTodo, Presentation, FileText, Palette } from 'lucide-react';
+import { ListTodo, Presentation, FileText, Palette, Code2 } from 'lucide-react';
 import TaskList from '../task/TaskList';
 import CommandPalette, {
   useCommandPalette,
@@ -19,9 +19,10 @@ import CommandPalette, {
 import SlidesTab from '../tabs/SlidesTab';
 import DocsTab from '../tabs/DocsTab';
 import DesignerTab from '../tabs/DesignerTab';
+import DeveloperTab from '../tabs/DeveloperTab';
 
-// 工作模式类型 - 三个专项Tab
-type WorkspaceTab = 'slides' | 'docs' | 'designer';
+// 工作模式类型 - 四个专项Tab
+type WorkspaceTab = 'slides' | 'docs' | 'designer' | 'developer';
 
 interface WorkspaceLayoutProps {
   children?: React.ReactNode;
@@ -84,6 +85,19 @@ export default function WorkspaceLayout({
             <Palette className="h-4 w-4" />
             <span>AI Designer</span>
           </button>
+
+          {/* AI Developer Tab */}
+          <button
+            onClick={() => setActiveTab('developer')}
+            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'developer'
+                ? 'border-green-500 text-green-600'
+                : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900'
+            }`}
+          >
+            <Code2 className="h-4 w-4" />
+            <span>AI Developer</span>
+          </button>
         </div>
       </div>
 
@@ -107,6 +121,13 @@ export default function WorkspaceLayout({
           /* AI Designer - 设计生成 */
           <div className="flex-1 overflow-hidden">
             <DesignerTab />
+          </div>
+        )}
+
+        {activeTab === 'developer' && (
+          /* AI Developer - 代码生成 */
+          <div className="flex-1 overflow-hidden">
+            <DeveloperTab />
           </div>
         )}
       </div>
