@@ -6,3 +6,4 @@ export * from "./topic";
 export * from "./ai";
 export * from "./collaboration";
 export * from "./utils";
+export * from "./topic-event-emitter.service";

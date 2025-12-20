@@ -4,6 +4,7 @@ import {
   SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   ConnectedSocket,
   MessageBody,
 } from "@nestjs/websockets";
@@ -11,6 +12,7 @@ import { Server, Socket } from "socket.io";
 import { Logger } from "@nestjs/common";
 import { AiTeamsService } from "./ai-teams.service";
 import { SendMessageDto } from "./dto";
+import { TopicEventEmitterService } from "./services/topic-event-emitter.service";
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -38,7 +40,7 @@ interface AuthenticatedSocket extends Socket {
   pingInterval: 25000, // ping 间隔
 })
 export class AiTeamsGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
 {
   @WebSocketServer()
   server!: Server;
@@ -47,7 +49,21 @@ export class AiTeamsGateway
   private userSockets = new Map<string, Set<string>>(); // userId -> Set<socketId>
   private socketUsers = new Map<string, string>(); // socketId -> userId
 
-  constructor(private readonly aiGroupService: AiTeamsService) {}
+  constructor(
+    private readonly aiGroupService: AiTeamsService,
+    private readonly topicEventEmitter: TopicEventEmitterService,
+  ) {}
+
+  afterInit() {
+    // Register the emit handler with TopicEventEmitterService
+    // This breaks the circular dependency by deferring the registration
+    this.topicEventEmitter.registerEmitHandler(
+      async (topicId: string, event: string, data: unknown) => {
+        await this.emitToTopic(topicId, event, data);
+      },
+    );
+    this.logger.log("AiTeamsGateway initialized and emit handler registered");
+  }
 
   async handleConnection(client: AuthenticatedSocket) {
     try {

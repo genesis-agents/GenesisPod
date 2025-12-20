@@ -21,6 +21,7 @@ import {
   TopicMembershipService,
   TopicPublicService,
   TopicForwardBookmarkService,
+  TopicEventEmitterService,
 } from "./services";
 
 @Module({
@@ -41,6 +42,7 @@ import {
     TeamMemberAgent,
     TeamsLLMAdapter,
     TeamCollaborationService,
+    TopicEventEmitterService,
   ],
   exports: [
     AiTeamsService,

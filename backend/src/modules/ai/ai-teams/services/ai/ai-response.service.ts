@@ -1,10 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  Logger,
-  Inject,
-  forwardRef,
-} from "@nestjs/common";
+import { Injectable, NotFoundException, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { MessageContentType } from "@prisma/client";
 import { AiChatService, ChatMessage } from "../../../ai-core/ai-chat.service";
@@ -21,7 +15,7 @@ import {
   AgentEvent,
 } from "../../../ai-agents/core/agent/agent.types";
 import { ToolContext } from "../../../ai-agents/core/tool/tool.interface";
-import { AiTeamsGateway } from "../../ai-teams.gateway";
+import { TopicEventEmitterService } from "../topic-event-emitter.service";
 
 /**
  * Service responsible for generating AI responses in topics
@@ -39,8 +33,7 @@ export class AiResponseService {
     private teamMemberAgent: TeamMemberAgent,
     private teamsLLMAdapter: TeamsLLMAdapter,
     private functionCallingExecutor: FunctionCallingExecutor,
-    @Inject(forwardRef(() => AiTeamsGateway))
-    private aiTeamsGateway: AiTeamsGateway,
+    private topicEventEmitter: TopicEventEmitterService,
   ) {}
 
   /**
@@ -1516,7 +1509,7 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
         if (event.type === "tool_call") {
           this.logger.debug(`[generateWithTools] Tool call: ${event.tool}`);
           // 推送工具调用开始事件
-          await this.aiTeamsGateway.emitToTopic(topicId, "tool:calling", {
+          await this.topicEventEmitter.emitToTopic(topicId, "tool:calling", {
             aiMemberId: aiMember.id,
             aiMemberName: aiMember.displayName,
             toolType: event.tool,
@@ -1539,7 +1532,7 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
             output: event.output,
           });
           // 推送工具调用结果事件
-          await this.aiTeamsGateway.emitToTopic(topicId, "tool:result", {
+          await this.topicEventEmitter.emitToTopic(topicId, "tool:result", {
             aiMemberId: aiMember.id,
             aiMemberName: aiMember.displayName,
             toolType: event.tool,
@@ -1556,7 +1549,7 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
             `[generateWithTools] Completed with ${toolCalls.length} tool calls`,
           );
           // 推送工具调用完成事件
-          await this.aiTeamsGateway.emitToTopic(topicId, "tool:complete", {
+          await this.topicEventEmitter.emitToTopic(topicId, "tool:complete", {
             aiMemberId: aiMember.id,
             aiMemberName: aiMember.displayName,
             toolCallCount: toolCalls.length,
@@ -1569,7 +1562,7 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
         if (event.type === "error") {
           this.logger.error(`[generateWithTools] Error: ${event.error}`);
           // 推送工具调用错误事件
-          await this.aiTeamsGateway.emitToTopic(topicId, "tool:error", {
+          await this.topicEventEmitter.emitToTopic(topicId, "tool:error", {
             aiMemberId: aiMember.id,
             aiMemberName: aiMember.displayName,
             error: event.error,
