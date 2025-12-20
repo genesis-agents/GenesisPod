@@ -46,6 +46,12 @@ import {
   EnhancedSlide,
 } from '@/lib/ai-office/markdown-parser';
 import EditableSlideRenderer from '@/components/ai-office/document/EditableSlideRenderer';
+import VersionSelector from '@/components/ai-office/document/VersionSelector';
+import ExportDropdown from '@/components/ai-office/document/ExportDropdown';
+import AIThinkingPanel, {
+  AIThinkingStep,
+} from '@/components/ai-office/document/AIThinkingPanel';
+import ThumbnailGallery from '@/components/ai-office/document/ThumbnailGallery';
 import { getTemplateById, PPTTemplate } from '@/lib/ai-office/ppt-templates';
 import type { Document } from '@/types/ai-office';
 
@@ -641,9 +647,17 @@ export default function SlidesTab() {
   const [layouts, setLayouts] = useState<LayoutConfig[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // AI 思考过程状态
+  const [thinkingSteps, setThinkingSteps] = useState<AIThinkingStep[]>([]);
+  const [currentThinkingTool, setCurrentThinkingTool] = useState<
+    string | undefined
+  >();
+  const [currentThinkingDescription, setCurrentThinkingDescription] = useState<
+    string | undefined
+  >();
+
   // PPT 预览状态
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
-  const [thumbnailsCollapsed, setThumbnailsCollapsed] = useState(false);
   const [isInlineEditMode, setIsInlineEditMode] = useState(false);
   const [isSourceEditMode, setIsSourceEditMode] = useState(false);
   const [editingContent, setEditingContent] = useState('');
@@ -751,6 +765,19 @@ export default function SlidesTab() {
     setInput('');
     setIsLoading(true);
     setGenerationStep('outline');
+
+    // 初始化大纲阶段思考步骤
+    setThinkingSteps([
+      {
+        id: 'parse-intent',
+        tool: 'outline',
+        description: '解析用户需求',
+        status: 'processing',
+        startTime: new Date(),
+      },
+    ]);
+    setCurrentThinkingTool('outline');
+    setCurrentThinkingDescription('正在理解您的需求...');
 
     // 显示用户输入的原始消息
     setMessages((prev) => [
@@ -919,6 +946,30 @@ export default function SlidesTab() {
       setOutline(outlineData);
       setSelectedTheme(suggestedTheme);
 
+      // 更新思考步骤 - 大纲生成完成
+      setThinkingSteps([
+        {
+          id: 'parse-intent',
+          tool: 'outline',
+          description: '解析用户需求',
+          status: 'completed',
+          endTime: new Date(),
+        },
+        {
+          id: 'generate-outline',
+          tool: 'outline',
+          description: `生成 ${outlineData.length} 页大纲`,
+          status: 'completed',
+          endTime: new Date(),
+          subSteps: outlineData.map((item) => ({
+            label: `${item.slideNumber}. ${item.title}`,
+            completed: true,
+          })),
+        },
+      ]);
+      setCurrentThinkingTool(undefined);
+      setCurrentThinkingDescription(undefined);
+
       // 构建详细的大纲预览消息
       const outlineSummary = outlineData
         .map((item) => {
@@ -986,6 +1037,21 @@ export default function SlidesTab() {
   const generateContent = async () => {
     setIsLoading(true);
     setGenerationStep('content');
+
+    // 初始化 AI 思考步骤
+    const initialSteps: AIThinkingStep[] = outline.map((item, idx) => ({
+      id: `slide-${idx}`,
+      tool: 'content',
+      description: `生成第 ${item.slideNumber} 页: ${item.title}`,
+      status: 'pending' as const,
+      subSteps: item.points.map((point) => ({
+        label: point.slice(0, 30) + (point.length > 30 ? '...' : ''),
+        completed: false,
+      })),
+    }));
+    setThinkingSteps(initialSteps);
+    setCurrentThinkingTool('content');
+    setCurrentThinkingDescription(`正在生成 ${outline.length} 页幻灯片...`);
 
     const newDocumentId = `doc-${Date.now()}`;
     const newDocument = {
@@ -1122,6 +1188,36 @@ export default function SlidesTab() {
               console.log('[SlidesTab] === SSE slide_complete EVENT ===');
               console.log('[SlidesTab] Raw data.slide:', data.slide);
               console.log('[SlidesTab] data.slide.images:', data.slide?.images);
+
+              // 更新思考步骤状态
+              if (data.slide?.index !== undefined) {
+                setThinkingSteps((prev) =>
+                  prev.map((step, idx) => {
+                    if (idx === data.slide.index) {
+                      return {
+                        ...step,
+                        status: 'completed' as const,
+                        endTime: new Date(),
+                        subSteps: step.subSteps?.map((s) => ({
+                          ...s,
+                          completed: true,
+                        })),
+                      };
+                    } else if (idx === data.slide.index + 1) {
+                      return {
+                        ...step,
+                        status: 'processing' as const,
+                        startTime: new Date(),
+                      };
+                    }
+                    return step;
+                  })
+                );
+                setCurrentThinkingDescription(
+                  `正在生成第 ${data.slide.index + 2} 页...`
+                );
+              }
+
               if (data.slide) {
                 const backgroundImg = data.slide.images?.find(
                   (img: any) => img.position === 'background'
@@ -1196,6 +1292,21 @@ export default function SlidesTab() {
             case 'complete':
               // 生成完成
               pptDocument = data.result;
+
+              // 标记所有思考步骤完成
+              setThinkingSteps((prev) =>
+                prev.map((step) => ({
+                  ...step,
+                  status: 'completed' as const,
+                  endTime: new Date(),
+                  subSteps: step.subSteps?.map((s) => ({
+                    ...s,
+                    completed: true,
+                  })),
+                }))
+              );
+              setCurrentThinkingTool(undefined);
+              setCurrentThinkingDescription(undefined);
 
               // 如果 result 中有 pptId，说明生成成功
               if (data.result?.pptId) {
@@ -1469,6 +1580,10 @@ export default function SlidesTab() {
     setLayouts([]);
     setMessages([]);
     setParsedIntent(null);
+    // 清空 AI 思考步骤
+    setThinkingSteps([]);
+    setCurrentThinkingTool(undefined);
+    setCurrentThinkingDescription(undefined);
   };
 
   // 处理幻灯片内联编辑更新
@@ -1568,6 +1683,20 @@ export default function SlidesTab() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* AI 思考过程面板 - Genspark 风格 */}
+        {(generationStep !== 'idle' || thinkingSteps.length > 0) && (
+          <div className="border-b border-gray-200 px-3 py-3">
+            <AIThinkingPanel
+              steps={thinkingSteps}
+              isGenerating={
+                generationStep !== 'idle' && generationStep !== 'complete'
+              }
+              currentTool={currentThinkingTool}
+              currentDescription={currentThinkingDescription}
+            />
+          </div>
+        )}
 
         {/* 资源列表区域 */}
         <div
@@ -1807,10 +1936,21 @@ export default function SlidesTab() {
               </p>
             </div>
           </div>
-          <button className="flex items-center space-x-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700">
-            <Download className="h-4 w-4" />
-            <span>导出</span>
-          </button>
+          <div className="flex items-center gap-3">
+            {/* 版本选择器 - Genspark 风格 */}
+            {currentDocumentId && (
+              <VersionSelector documentId={currentDocumentId} />
+            )}
+            {/* 导出下拉菜单 - Genspark 风格 */}
+            {currentDocumentId && (
+              <ExportDropdown
+                documentId={currentDocumentId}
+                documentTitle={currentDocument?.title || '未命名演示文稿'}
+                slideCount={slides.length}
+                disabled={!content}
+              />
+            )}
+          </div>
         </div>
 
         {/* PPT 内容区域 */}
@@ -1826,71 +1966,18 @@ export default function SlidesTab() {
           </div>
         ) : (
           <div className="flex flex-1 flex-col overflow-hidden">
-            {/* 顶部缩略图区域 */}
-            <div
-              className={cn(
-                'border-b border-gray-200 bg-white transition-all duration-300',
-                thumbnailsCollapsed ? 'h-0 overflow-hidden' : 'h-auto'
-              )}
-            >
-              <div className="p-2">
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="text-xs font-semibold uppercase text-gray-500">
-                    所有幻灯片 ({slides.length})
-                  </div>
-                  <button
-                    onClick={() => setThumbnailsCollapsed(!thumbnailsCollapsed)}
-                    className="rounded p-1 hover:bg-gray-100"
-                  >
-                    <ChevronUp className="h-4 w-4 text-gray-500" />
-                  </button>
-                </div>
-                <div className="flex space-x-2 overflow-x-auto pb-2">
-                  {slides.map((slide, idx) => (
-                    <div
-                      key={idx}
-                      className={cn(
-                        'group relative w-32 flex-shrink-0 rounded-lg border-2 transition-all',
-                        idx === currentSlideIndex
-                          ? 'border-blue-500 bg-blue-50 shadow-md'
-                          : 'border-gray-200 hover:border-blue-400 hover:bg-gray-50'
-                      )}
-                    >
-                      <button
-                        onClick={() => setCurrentSlideIndex(idx)}
-                        className="w-full p-2 text-left"
-                      >
-                        <div className="mb-1 flex items-center justify-between">
-                          <div className="text-xs font-medium text-gray-500">
-                            第 {idx + 1} 页
-                          </div>
-                          {idx === currentSlideIndex && (
-                            <div className="flex h-4 w-4 items-center justify-center rounded-full bg-blue-500">
-                              <Check className="h-3 w-3 text-white" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="line-clamp-2 text-xs font-semibold leading-tight text-gray-900">
-                          {slide.title}
-                        </div>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            {/* Genspark 风格缩略图画廊 */}
+            <div className="border-b border-gray-200">
+              <ThumbnailGallery
+                items={slides.map((slide, idx) => ({
+                  index: idx,
+                  title: slide.title,
+                  purpose: (slide as any).spec?.purpose,
+                }))}
+                currentIndex={currentSlideIndex}
+                onSelect={setCurrentSlideIndex}
+              />
             </div>
-
-            {thumbnailsCollapsed && (
-              <div className="border-b border-gray-200 bg-white">
-                <button
-                  onClick={() => setThumbnailsCollapsed(false)}
-                  className="flex w-full items-center justify-center space-x-2 py-1.5 text-xs text-gray-500 hover:bg-gray-50"
-                >
-                  <span>展开缩略图</span>
-                  <ChevronDown className="h-3 w-3" />
-                </button>
-              </div>
-            )}
 
             {/* 主幻灯片预览区域 */}
             <div className="flex flex-1 flex-col bg-gray-100 p-4">

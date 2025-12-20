@@ -14,6 +14,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
+import * as puppeteer from "puppeteer";
 import {
   PPTDocument,
   PPTTheme,
@@ -27,6 +28,24 @@ type Slide = ReturnType<InstanceType<PptxGenJS>["addSlide"]>;
 
 // 导出结果
 export interface PPTXExportResult {
+  buffer: Buffer;
+  filename: string;
+  mimeType: string;
+  slideCount: number;
+  fileSize: number;
+}
+
+// PDF 导出结果
+export interface PDFExportResult {
+  buffer: Buffer;
+  filename: string;
+  mimeType: string;
+  slideCount: number;
+  fileSize: number;
+}
+
+// PNG 导出结果（ZIP 包含多个图片）
+export interface PNGExportResult {
   buffer: Buffer;
   filename: string;
   mimeType: string;
@@ -107,6 +126,441 @@ export class PPTExportService {
       slideCount: document.slides.length,
       fileSize: buffer.length,
     };
+  }
+
+  /**
+   * 导出 PPT 文档为 PDF
+   * 使用 Puppeteer 将幻灯片渲染为 PDF
+   */
+  async exportToPDF(document: PPTDocument): Promise<PDFExportResult> {
+    this.logger.log(
+      `[exportToPDF] Starting PDF export for: ${document.title}, ${document.slides.length} slides`,
+    );
+
+    const startTime = Date.now();
+
+    // 生成幻灯片的 HTML
+    const slidesHtml = this.generateSlidesHtml(document);
+
+    // 使用 Puppeteer 渲染 PDF
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+
+    try {
+      const page = await browser.newPage();
+
+      // 设置页面大小为 16:9 比例
+      await page.setViewport({
+        width: 1280,
+        height: 720,
+        deviceScaleFactor: 2, // 高清
+      });
+
+      // 加载 HTML
+      await page.setContent(slidesHtml, {
+        waitUntil: "networkidle0",
+      });
+
+      // 生成 PDF
+      const buffer = await page.pdf({
+        format: "A4",
+        landscape: true, // 横向
+        printBackground: true, // 打印背景
+        margin: {
+          top: "0",
+          right: "0",
+          bottom: "0",
+          left: "0",
+        },
+        preferCSSPageSize: true,
+      });
+
+      const duration = Date.now() - startTime;
+      this.logger.log(
+        `[exportToPDF] Completed in ${duration}ms, size: ${buffer.length} bytes`,
+      );
+
+      return {
+        buffer: Buffer.from(buffer),
+        filename: `${document.title}.pdf`,
+        mimeType: "application/pdf",
+        slideCount: document.slides.length,
+        fileSize: buffer.length,
+      };
+    } finally {
+      await browser.close();
+    }
+  }
+
+  /**
+   * 导出 PPT 文档为 PNG 图片（ZIP 压缩包）
+   */
+  async exportToPNG(document: PPTDocument): Promise<PNGExportResult> {
+    this.logger.log(
+      `[exportToPNG] Starting PNG export for: ${document.title}, ${document.slides.length} slides`,
+    );
+
+    const startTime = Date.now();
+    const archiver = await import("archiver");
+
+    // 使用 Puppeteer 渲染每页幻灯片
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+
+    try {
+      const page = await browser.newPage();
+
+      // 设置页面大小为 16:9 比例 (1920x1080)
+      await page.setViewport({
+        width: 1920,
+        height: 1080,
+        deviceScaleFactor: 1,
+      });
+
+      // 收集所有截图
+      const screenshots: { name: string; data: Buffer }[] = [];
+
+      for (let i = 0; i < document.slides.length; i++) {
+        const slideHtml = this.generateSingleSlideHtml(document, i);
+
+        await page.setContent(slideHtml, {
+          waitUntil: "networkidle0",
+        });
+
+        const screenshot = await page.screenshot({
+          type: "png",
+          fullPage: false,
+          encoding: "binary",
+        });
+
+        screenshots.push({
+          name: `slide_${String(i + 1).padStart(2, "0")}.png`,
+          data: screenshot as Buffer,
+        });
+      }
+
+      // 创建 ZIP 压缩包
+      const archive = archiver.default("zip", { zlib: { level: 9 } });
+      const chunks: Buffer[] = [];
+
+      archive.on("data", (chunk: Buffer) => chunks.push(chunk));
+
+      // 添加所有截图到压缩包
+      for (const screenshot of screenshots) {
+        archive.append(screenshot.data, { name: screenshot.name });
+      }
+
+      await archive.finalize();
+
+      const buffer = Buffer.concat(chunks);
+
+      const duration = Date.now() - startTime;
+      this.logger.log(
+        `[exportToPNG] Completed in ${duration}ms, ${screenshots.length} images, size: ${buffer.length} bytes`,
+      );
+
+      return {
+        buffer,
+        filename: `${document.title}_slides.zip`,
+        mimeType: "application/zip",
+        slideCount: document.slides.length,
+        fileSize: buffer.length,
+      };
+    } finally {
+      await browser.close();
+    }
+  }
+
+  /**
+   * 生成幻灯片的完整 HTML（用于 PDF 导出）
+   */
+  private generateSlidesHtml(document: PPTDocument): string {
+    const theme = document.theme;
+    const slides = document.slides;
+
+    const slidesContent = slides
+      .map((slide, index) => this.generateSlideHtmlContent(slide, theme, index))
+      .join("\n");
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    @page { size: landscape; margin: 0; }
+
+    body {
+      font-family: ${theme.fonts.body};
+      background: ${theme.colors.background};
+    }
+
+    .slide {
+      width: 100vw;
+      height: 100vh;
+      padding: 60px;
+      page-break-after: always;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .slide:last-child {
+      page-break-after: auto;
+    }
+
+    .slide-title {
+      font-family: ${theme.fonts.heading};
+      font-size: 48px;
+      font-weight: bold;
+      color: ${theme.colors.text};
+      margin-bottom: 30px;
+    }
+
+    .slide-subtitle {
+      font-size: 24px;
+      color: ${theme.colors.textLight};
+      margin-bottom: 20px;
+    }
+
+    .slide-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .bullet-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .bullet-list li {
+      font-size: 22px;
+      color: ${theme.colors.text};
+      padding: 12px 0;
+      padding-left: 30px;
+      position: relative;
+    }
+
+    .bullet-list li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: ${theme.colors.accent};
+    }
+
+    .title-slide {
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      background: linear-gradient(135deg, ${theme.colors.primary} 0%, ${theme.colors.secondary} 100%);
+    }
+
+    .title-slide .slide-title {
+      font-size: 64px;
+      color: white;
+    }
+
+    .title-slide .slide-subtitle {
+      font-size: 28px;
+      color: rgba(255,255,255,0.9);
+    }
+
+    .page-number {
+      position: absolute;
+      bottom: 20px;
+      right: 40px;
+      font-size: 14px;
+      color: ${theme.colors.textMuted};
+    }
+  </style>
+</head>
+<body>
+  ${slidesContent}
+</body>
+</html>
+    `;
+  }
+
+  /**
+   * 生成单页幻灯片的 HTML（用于 PNG 导出）
+   */
+  private generateSingleSlideHtml(
+    document: PPTDocument,
+    slideIndex: number,
+  ): string {
+    const theme = document.theme;
+    const slide = document.slides[slideIndex];
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: ${theme.fonts.body};
+      background: ${theme.colors.background};
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+    }
+
+    .slide {
+      width: 100%;
+      height: 100%;
+      padding: 60px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .slide-title {
+      font-family: ${theme.fonts.heading};
+      font-size: 64px;
+      font-weight: bold;
+      color: ${theme.colors.text};
+      margin-bottom: 40px;
+    }
+
+    .slide-subtitle {
+      font-size: 32px;
+      color: ${theme.colors.textLight};
+      margin-bottom: 30px;
+    }
+
+    .slide-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .bullet-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .bullet-list li {
+      font-size: 28px;
+      color: ${theme.colors.text};
+      padding: 16px 0;
+      padding-left: 40px;
+      position: relative;
+    }
+
+    .bullet-list li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: ${theme.colors.accent};
+    }
+
+    .title-slide {
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      background: linear-gradient(135deg, ${theme.colors.primary} 0%, ${theme.colors.secondary} 100%);
+    }
+
+    .title-slide .slide-title {
+      font-size: 80px;
+      color: white;
+    }
+
+    .title-slide .slide-subtitle {
+      font-size: 36px;
+      color: rgba(255,255,255,0.9);
+    }
+
+    .page-number {
+      position: absolute;
+      bottom: 30px;
+      right: 50px;
+      font-size: 18px;
+      color: ${theme.colors.textMuted};
+    }
+  </style>
+</head>
+<body>
+  ${this.generateSlideHtmlContent(slide, theme, slideIndex)}
+</body>
+</html>
+    `;
+  }
+
+  /**
+   * 生成单页幻灯片的 HTML 内容
+   */
+  private generateSlideHtmlContent(
+    slide: GeneratedSlide,
+    theme: PPTTheme,
+    index: number,
+  ): string {
+    const purpose = slide.spec.purpose;
+    const content = slide.content;
+    const isTitle = purpose === "title" || purpose === "closing";
+
+    // 标题页特殊处理
+    if (isTitle) {
+      return `
+        <div class="slide title-slide">
+          <div class="slide-title">${this.escapeHtml(content.title)}</div>
+          ${content.subtitle ? `<div class="slide-subtitle">${this.escapeHtml(content.subtitle)}</div>` : ""}
+        </div>
+      `;
+    }
+
+    // 普通内容页
+    let bulletHtml = "";
+    if (content.bulletPoints && content.bulletPoints.length > 0) {
+      bulletHtml = `
+        <ul class="bullet-list">
+          ${content.bulletPoints.map((point) => `<li>${this.escapeHtml(point)}</li>`).join("")}
+        </ul>
+      `;
+    }
+
+    return `
+      <div class="slide">
+        <div class="slide-title">${this.escapeHtml(content.title)}</div>
+        ${content.subtitle ? `<div class="slide-subtitle">${this.escapeHtml(content.subtitle)}</div>` : ""}
+        <div class="slide-content">
+          ${bulletHtml}
+          ${content.bodyText ? `<p style="font-size: 20px; color: ${theme.colors.textLight}; margin-top: 20px;">${this.escapeHtml(content.bodyText)}</p>` : ""}
+        </div>
+        <div class="page-number">${index + 1}</div>
+      </div>
+    `;
+  }
+
+  /**
+   * HTML 转义
+   */
+  private escapeHtml(text: string): string {
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 
   /**

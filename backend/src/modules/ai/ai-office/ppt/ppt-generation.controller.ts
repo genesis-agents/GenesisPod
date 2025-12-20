@@ -512,24 +512,43 @@ export class PPTGenerationController {
       // 获取 PPT 文档
       const document = await this.orchestrator.getPPTDocument(id);
 
-      if (dto.format === "pptx") {
-        // 使用增强的 PPTX 导出服务
-        const result = await this.pptExport.exportToPPTX(document);
+      let result: {
+        buffer: Buffer;
+        filename: string;
+        mimeType: string;
+        fileSize: number;
+      };
 
-        res.setHeader("Content-Type", result.mimeType);
-        res.setHeader(
-          "Content-Disposition",
-          `attachment; filename="${encodeURIComponent(result.filename)}"`,
-        );
-        res.setHeader("Content-Length", result.fileSize);
-        res.send(result.buffer);
-      } else {
-        // 其他格式暂未实现
-        throw new HttpException(
-          `Export format '${dto.format}' not yet implemented`,
-          HttpStatus.NOT_IMPLEMENTED,
-        );
+      switch (dto.format) {
+        case "pptx":
+          // 使用增强的 PPTX 导出服务
+          result = await this.pptExport.exportToPPTX(document);
+          break;
+
+        case "pdf":
+          // PDF 导出
+          result = await this.pptExport.exportToPDF(document);
+          break;
+
+        case "png":
+          // PNG 图片导出（ZIP 压缩包）
+          result = await this.pptExport.exportToPNG(document);
+          break;
+
+        default:
+          throw new HttpException(
+            `Export format '${dto.format}' not supported`,
+            HttpStatus.BAD_REQUEST,
+          );
       }
+
+      res.setHeader("Content-Type", result.mimeType);
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${encodeURIComponent(result.filename)}"`,
+      );
+      res.setHeader("Content-Length", result.fileSize);
+      res.send(result.buffer);
     } catch (error: any) {
       this.logger.error(`[exportPPT] Error: ${error.message}`);
       if (error instanceof HttpException) {
