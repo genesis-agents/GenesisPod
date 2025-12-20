@@ -271,7 +271,8 @@ time.sleep(0.5)
 _result = "completed"
           `,
           options: {
-            timeout: 2000, // 2 秒超时
+            // 增加超时限制以适应 Python 初始化开销
+            timeout: 5000, // 5 秒超时（包含 Python 启动时间）
           },
         },
         context,

@@ -13,8 +13,10 @@
 
 import { Module, Global } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
+import { ConfigModule } from "@nestjs/config";
 import { ContentExtractorService } from "./content-extractor.service";
 import { DataFetchingService } from "./data-fetching.service";
+import { MinerUService } from "./mineru.service";
 import { ExploreModule } from "../../modules/content/explore/explore.module";
 import { AdminModule } from "../../modules/core/admin/admin.module";
 
@@ -25,10 +27,11 @@ import { AdminModule } from "../../modules/core/admin/admin.module";
       timeout: 30000,
       maxRedirects: 5,
     }),
+    ConfigModule,
     ExploreModule,
     AdminModule,
   ],
-  providers: [ContentExtractorService, DataFetchingService],
-  exports: [ContentExtractorService, DataFetchingService],
+  providers: [ContentExtractorService, DataFetchingService, MinerUService],
+  exports: [ContentExtractorService, DataFetchingService, MinerUService],
 })
 export class ContentProcessingModule {}

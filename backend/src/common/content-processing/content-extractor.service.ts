@@ -1,10 +1,47 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { YoutubeService } from "../../modules/content/explore/youtube.service";
 import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+import { MinerUService } from "./mineru.service";
+
+/**
+ * PDF 提取选项
+ */
+export interface PdfExtractionOptions {
+  /** 使用 MinerU 深度解析（默认自动检测） */
+  useMinerU?: boolean;
+  /** 是否提取表格（仅 MinerU 支持） */
+  extractTables?: boolean;
+  /** 是否提取图片（仅 MinerU 支持） */
+  extractImages?: boolean;
+  /** 最大页数限制 */
+  maxPages?: number;
+}
+
+/**
+ * PDF 提取结果（增强版）
+ */
+export interface PdfExtractionResult {
+  /** 提取的文本内容（Markdown 格式） */
+  content: string;
+  /** 使用的解析方法 */
+  method: "mineru" | "pdfjs" | "simple";
+  /** 元数据 */
+  metadata: {
+    pageCount: number;
+    wordCount: number;
+    hasImages: boolean;
+    hasTables: boolean;
+    hasFormulas: boolean;
+  };
+  /** 提取的图片（base64，仅 MinerU） */
+  images?: Array<{ index: number; base64?: string; caption?: string }>;
+  /** 提取的表格（HTML，仅 MinerU） */
+  tables?: Array<{ index: number; html: string; caption?: string }>;
+}
 
 /**
  * 内容提取服务
@@ -13,14 +50,20 @@ import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
  * - 文件（PDF、Word、TXT、Markdown）
  * - 视频（YouTube、Bilibili 字幕）
  * - 图片（OCR 文字识别）
+ *
+ * PDF 解析支持两种模式：
+ * - MinerU：深度解析（保留结构、表格、公式）- 推荐用于复杂文档
+ * - pdfjs-dist：轻量级解析 - 用于简单文档或 MinerU 不可用时
  */
 @Injectable()
 export class ContentExtractorService {
   private readonly logger = new Logger(ContentExtractorService.name);
+  private minerUAvailable: boolean | null = null;
 
   constructor(
     private readonly httpService: HttpService,
     private readonly youtubeService: YoutubeService,
+    @Optional() private readonly minerUService?: MinerUService,
   ) {}
 
   /**
@@ -436,13 +479,112 @@ export class ContentExtractorService {
 
   /**
    * 提取 PDF 文本（使用 pdfjs-dist）
+   * 这是内部简单方法，用于兼容现有调用
    */
   private async extractPdfText(buffer: Buffer): Promise<string> {
+    // 尝试使用增强版提取
+    const result = await this.extractPdfEnhanced(buffer);
+    return result.content;
+  }
+
+  /**
+   * 增强版 PDF 提取
+   * 优先使用 MinerU（如果可用），否则回退到 pdfjs-dist
+   */
+  async extractPdfEnhanced(
+    buffer: Buffer,
+    options: PdfExtractionOptions = {},
+  ): Promise<PdfExtractionResult> {
+    const useMinerU = options.useMinerU ?? true;
+
+    // 如果明确要求使用 MinerU 或者自动模式
+    if (useMinerU && this.minerUService) {
+      const isAvailable = await this.checkMinerUAvailability();
+
+      if (isAvailable) {
+        this.logger.log("[extractPdfEnhanced] Using MinerU for deep parsing");
+
+        try {
+          const minerUResult = await this.minerUService.parsePdf(buffer, {
+            maxPages: options.maxPages,
+          });
+
+          if (minerUResult.success) {
+            return {
+              content: minerUResult.content,
+              method: "mineru",
+              metadata: {
+                pageCount: minerUResult.metadata.pageCount,
+                wordCount: minerUResult.metadata.wordCount,
+                hasImages: minerUResult.metadata.hasImages,
+                hasTables: minerUResult.metadata.hasTables,
+                hasFormulas: minerUResult.metadata.hasFormulas,
+              },
+              images: minerUResult.images?.map((img) => ({
+                index: img.index,
+                base64: img.base64,
+                caption: img.caption,
+              })),
+              tables: minerUResult.tables?.map((tbl) => ({
+                index: tbl.index,
+                html: tbl.html,
+                caption: tbl.caption,
+              })),
+            };
+          }
+
+          this.logger.warn(
+            `[extractPdfEnhanced] MinerU parsing failed: ${minerUResult.error}`,
+          );
+        } catch (error: any) {
+          this.logger.warn(
+            `[extractPdfEnhanced] MinerU error: ${error.message}`,
+          );
+        }
+      }
+    }
+
+    // 回退到 pdfjs-dist
+    this.logger.log("[extractPdfEnhanced] Using pdfjs-dist for parsing");
+    return this.extractPdfWithPdfjs(buffer, options.maxPages);
+  }
+
+  /**
+   * 检查 MinerU 是否可用（带缓存）
+   */
+  private async checkMinerUAvailability(): Promise<boolean> {
+    if (this.minerUAvailable !== null) {
+      return this.minerUAvailable;
+    }
+
+    if (!this.minerUService) {
+      this.minerUAvailable = false;
+      return false;
+    }
+
     try {
-      // 将 Buffer 转换为 Uint8Array
+      const result = await this.minerUService.checkAvailability();
+      this.minerUAvailable = result.available;
+      this.logger.log(
+        `[checkMinerUAvailability] MinerU status: ${result.message}`,
+      );
+      return result.available;
+    } catch {
+      this.minerUAvailable = false;
+      return false;
+    }
+  }
+
+  /**
+   * 使用 pdfjs-dist 提取 PDF
+   */
+  private async extractPdfWithPdfjs(
+    buffer: Buffer,
+    maxPagesLimit?: number,
+  ): Promise<PdfExtractionResult> {
+    try {
       const uint8Array = new Uint8Array(buffer);
 
-      // 加载 PDF 文档
       const loadingTask = pdfjsLib.getDocument({
         data: uint8Array,
         useSystemFonts: true,
@@ -451,10 +593,10 @@ export class ContentExtractorService {
 
       const pdfDocument = await loadingTask.promise;
       const numPages = pdfDocument.numPages;
-      let fullText = `[PDF Document - ${numPages} pages]\n\n`;
+      const maxPages = Math.min(numPages, maxPagesLimit || 20);
 
-      // 限制提取页数，防止过大（例如前 20 页）
-      const maxPages = Math.min(numPages, 20);
+      let fullText = `[PDF Document - ${numPages} pages]\n\n`;
+      let wordCount = 0;
 
       for (let i = 1; i <= maxPages; i++) {
         const page = await pdfDocument.getPage(i);
@@ -464,35 +606,43 @@ export class ContentExtractorService {
           .join(" ");
 
         fullText += `--- Page ${i} ---\n${pageText}\n\n`;
+        wordCount += this.countWords(pageText);
       }
 
       if (numPages > maxPages) {
         fullText += `\n... (Remaining ${numPages - maxPages} pages omitted)`;
       }
 
-      return fullText;
+      return {
+        content: fullText,
+        method: "pdfjs",
+        metadata: {
+          pageCount: numPages,
+          wordCount,
+          hasImages: false, // pdfjs 不提取图片
+          hasTables: false, // pdfjs 不识别表格
+          hasFormulas: false, // pdfjs 不识别公式
+        },
+      };
     } catch (error) {
-      this.logger.error("Failed to extract PDF text using pdfjs-dist:", error);
-      // 回退到旧的简单提取方法
-      return this.extractPdfTextSimple(buffer);
+      this.logger.error("Failed to extract PDF with pdfjs-dist:", error);
+      return this.extractPdfSimpleFallback(buffer);
     }
   }
 
   /**
-   * 提取 PDF 文本（简单回退实现）
+   * 简单 PDF 提取（最终回退）
    */
-  private extractPdfTextSimple(buffer: Buffer): string {
+  private extractPdfSimpleFallback(buffer: Buffer): PdfExtractionResult {
     try {
       const content = buffer.toString("binary");
       const textMatches: string[] = [];
 
-      // 匹配 PDF 文本对象
       const streamRegex = /stream\s*([\s\S]*?)\s*endstream/g;
       let match;
 
       while ((match = streamRegex.exec(content)) !== null) {
         const stream = match[1];
-        // 提取可打印字符
         const text = stream
           .replace(/[^\x20-\x7E\n\r]/g, " ")
           .replace(/\s+/g, " ")
@@ -502,14 +652,53 @@ export class ContentExtractorService {
         }
       }
 
-      if (textMatches.length > 0) {
-        return `[PDF Content (Simple Extraction)]\n${textMatches.join("\n").slice(0, 5000)}`;
-      }
+      const extractedText =
+        textMatches.length > 0
+          ? `[PDF Content (Simple Extraction)]\n${textMatches.join("\n").slice(0, 5000)}`
+          : "[PDF file - text extraction failed]";
 
-      return "[PDF file - text extraction failed]";
+      return {
+        content: extractedText,
+        method: "simple",
+        metadata: {
+          pageCount: 0,
+          wordCount: this.countWords(extractedText),
+          hasImages: false,
+          hasTables: false,
+          hasFormulas: false,
+        },
+      };
     } catch {
-      return "[PDF file - unable to extract text]";
+      return {
+        content: "[PDF file - unable to extract text]",
+        method: "simple",
+        metadata: {
+          pageCount: 0,
+          wordCount: 0,
+          hasImages: false,
+          hasTables: false,
+          hasFormulas: false,
+        },
+      };
     }
+  }
+
+  /**
+   * 计算字数（中英文混合）
+   */
+  private countWords(text: string): number {
+    if (!text) return 0;
+
+    const chineseMatch = text.match(/[\u4e00-\u9fa5]/g);
+    const chineseCount = chineseMatch ? chineseMatch.length : 0;
+
+    const englishWords = text
+      .replace(/[\u4e00-\u9fa5]/g, "")
+      .split(/\s+/)
+      .filter((w) => w.length > 0);
+    const englishCount = englishWords.length;
+
+    return chineseCount + englishCount;
   }
 
   /**

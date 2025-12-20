@@ -5,3 +5,4 @@
 export * from "./content-processing.module";
 export * from "./content-extractor.service";
 export * from "./data-fetching.service";
+export * from "./mineru.service";
