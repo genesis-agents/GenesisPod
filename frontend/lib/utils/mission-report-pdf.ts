@@ -120,12 +120,140 @@ function escapeHtml(text: string): string {
 }
 
 /**
+ * Convert Markdown table to HTML table
+ */
+function parseMarkdownTable(tableText: string): string {
+  const lines = tableText.trim().split('\n');
+  if (lines.length < 2) return tableText;
+
+  // Check if it's a valid table (has separator line with |---|)
+  const separatorIndex = lines.findIndex((line) =>
+    /^\|?\s*:?-+:?\s*\|/.test(line)
+  );
+  if (separatorIndex === -1) return tableText;
+
+  const headerLine = lines[separatorIndex - 1];
+  const bodyLines = lines.slice(separatorIndex + 1);
+
+  if (!headerLine) return tableText;
+
+  // Parse header cells
+  const headerCells = headerLine
+    .split('|')
+    .map((cell) => cell.trim())
+    .filter((cell) => cell.length > 0);
+
+  // Parse body rows
+  const bodyRows = bodyLines
+    .filter((line) => line.includes('|'))
+    .map((line) =>
+      line
+        .split('|')
+        .map((cell) => cell.trim())
+        .filter((cell) => cell.length > 0 || line.split('|').length > 2)
+    );
+
+  // Build HTML table
+  const tableStyle =
+    'width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12px;';
+  const thStyle =
+    'background: #f8fafc; padding: 10px 12px; text-align: left; border: 1px solid #e2e8f0; font-weight: 600; color: #374151;';
+  const tdStyle =
+    'padding: 8px 12px; border: 1px solid #e2e8f0; color: #475569;';
+
+  let html = `<table style="${tableStyle}">`;
+
+  // Header
+  html += '<thead><tr>';
+  headerCells.forEach((cell) => {
+    // Process inline markdown in cells
+    const processedCell = processInlineMarkdown(cell);
+    html += `<th style="${thStyle}">${processedCell}</th>`;
+  });
+  html += '</tr></thead>';
+
+  // Body
+  html += '<tbody>';
+  bodyRows.forEach((row) => {
+    html += '<tr>';
+    row.forEach((cell, index) => {
+      // Ensure we have the right number of cells
+      const processedCell = processInlineMarkdown(cell || '');
+      html += `<td style="${tdStyle}">${processedCell}</td>`;
+    });
+    // Fill missing cells
+    for (let i = row.length; i < headerCells.length; i++) {
+      html += `<td style="${tdStyle}"></td>`;
+    }
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+
+  return html;
+}
+
+/**
+ * Process inline markdown (bold, italic, etc.)
+ */
+function processInlineMarkdown(text: string): string {
+  let result = text;
+  // Bold
+  result = result.replace(
+    /\*\*(.+?)\*\*/g,
+    '<strong style="font-weight: 600;">$1</strong>'
+  );
+  // Italic
+  result = result.replace(
+    /\*(.+?)\*/g,
+    '<em style="font-style: italic;">$1</em>'
+  );
+  // Code
+  result = result.replace(
+    /`(.+?)`/g,
+    '<code style="background: #f1f5f9; padding: 2px 4px; border-radius: 3px; font-family: monospace; font-size: 11px;">$1</code>'
+  );
+  return result;
+}
+
+/**
  * Convert Markdown to HTML for PDF rendering
  */
 function markdownToHtml(text: string): string {
   if (!text) return '';
 
-  let html = escapeHtml(text);
+  // First, extract and convert tables before escaping HTML
+  // Tables need special handling because they contain | characters
+  let processedText = text;
+
+  // Find and replace markdown tables
+  const tableRegex = /(?:^|\n)((?:\|[^\n]+\|\n)+)/g;
+  processedText = processedText.replace(tableRegex, (match, tableContent) => {
+    // Check if this is actually a table (has header separator)
+    if (/\|[\s:]*-+[\s:]*\|/.test(tableContent)) {
+      return '\n' + parseMarkdownTable(tableContent) + '\n';
+    }
+    return match;
+  });
+
+  // Also handle tables without leading pipe
+  const tableRegex2 = /(?:^|\n)([^\n|]+\|[^\n]+\n:?-+[:\s|]+\n(?:[^\n]+\n)*)/g;
+  processedText = processedText.replace(tableRegex2, (match, tableContent) => {
+    if (/[\s:]*-+[\s:]*\|/.test(tableContent)) {
+      return '\n' + parseMarkdownTable(tableContent) + '\n';
+    }
+    return match;
+  });
+
+  // Now escape HTML for non-table content, but preserve already-converted tables
+  const parts = processedText.split(/(<table[\s\S]*?<\/table>)/);
+  let html = parts
+    .map((part) => {
+      if (part.startsWith('<table')) {
+        return part; // Already HTML, don't escape
+      }
+      return escapeHtml(part);
+    })
+    .join('');
 
   // Headers
   html = html.replace(
@@ -181,18 +309,22 @@ function markdownToHtml(text: string): string {
     '<blockquote style="border-left: 3px solid #7c3aed; padding-left: 12px; margin: 8px 0; color: #64748b;">$1</blockquote>'
   );
 
-  // Line breaks - convert double newlines to paragraphs
-  html = html.replace(/\n\n/g, '</p><p style="margin: 8px 0;">');
+  // Line breaks - convert double newlines to paragraphs (but not inside tables)
+  html = html.replace(
+    /\n\n(?![^<]*<\/table>)/g,
+    '</p><p style="margin: 8px 0;">'
+  );
 
-  // Single line breaks
-  html = html.replace(/\n/g, '<br>');
+  // Single line breaks (but not inside tables)
+  html = html.replace(/\n(?![^<]*<\/table>)/g, '<br>');
 
   // Wrap in paragraph if not already wrapped
   if (
     !html.startsWith('<h') &&
     !html.startsWith('<ul') &&
     !html.startsWith('<ol') &&
-    !html.startsWith('<blockquote')
+    !html.startsWith('<blockquote') &&
+    !html.startsWith('<table')
   ) {
     html = '<p style="margin: 8px 0;">' + html + '</p>';
   }
