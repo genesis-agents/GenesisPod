@@ -13,6 +13,7 @@ import {
   AgentOrchestrator,
   LLMAdapterFactory,
   ExecutionMetricsCollector,
+  FunctionCallingExecutor,
   MCPAdapter,
   MCPServer,
   ResourceManager,
@@ -103,6 +104,7 @@ import { AiStudioModule } from "../ai-studio/ai-studio.module";
     AgentOrchestrator,
     LLMAdapterFactory,
     ExecutionMetricsCollector,
+    FunctionCallingExecutor,
 
     // MCP 服务
     MCPAdapter,
@@ -195,6 +197,7 @@ import { AiStudioModule } from "../ai-studio/ai-studio.module";
     AgentOrchestrator,
     LLMAdapterFactory,
     ExecutionMetricsCollector,
+    FunctionCallingExecutor,
     // MCP 服务
     MCPAdapter,
     MCPServer,
