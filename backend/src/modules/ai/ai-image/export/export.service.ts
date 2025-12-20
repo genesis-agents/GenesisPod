@@ -6,12 +6,12 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import * as puppeteer from "puppeteer";
-import { R2StorageService } from "../../core/storage/r2-storage.service";
+import { R2StorageService } from "../../../core/storage/r2-storage.service";
 import {
   ExportOptions,
   ExportResult,
   EditableInfographic,
-} from "./engine.types";
+} from "../core/engine.types";
 
 @Injectable()
 export class ExportService {

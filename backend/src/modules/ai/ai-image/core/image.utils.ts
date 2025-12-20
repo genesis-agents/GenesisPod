@@ -7,12 +7,12 @@
 import {
   PromptInformationArchitecture,
   PromptEngineeringInsights,
-} from "./ai-image.types";
+} from "./image.types";
 import {
   STYLE_ENHANCEMENTS,
   ASPECT_RATIO_DIMENSIONS,
   ENFORCED_NEGATIVE_KEYWORDS,
-} from "./ai-image.constants";
+} from "./image.constants";
 
 /**
  * Normalize a value to a string or undefined

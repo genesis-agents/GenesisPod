@@ -13,9 +13,13 @@ import {
   PromptSection,
   TemplateLayoutType,
   createDefaultInsights,
-} from "./ai-image.types";
+} from "../core/image.types";
 import { PROMPT_ENHANCEMENT_SYSTEM } from "./prompt-templates";
-import { normalizeString, toArray, addStyleToPrompt } from "./ai-image.utils";
+import {
+  normalizeString,
+  toArray,
+  addStyleToPrompt,
+} from "../core/image.utils";
 import {
   QUANTITY_PATTERNS,
   SHORT_VISUAL_PROMPT_THRESHOLDS,
@@ -26,7 +30,7 @@ import {
   DEFAULT_INFOGRAPHIC_PREFIX,
   INFOGRAPHIC_STYLE_KEYWORDS,
   DEFAULT_PURE_IMAGE_PROMPT,
-} from "./ai-image.constants";
+} from "../core/image.constants";
 
 @Injectable()
 export class PromptEnhancementService {

@@ -6,7 +6,7 @@
 import { Injectable } from "@nestjs/common";
 import { BaseTool, JSONSchema, ToolContext } from "../../core";
 import { ToolType } from "../../core";
-import { AiImageService } from "../../../ai-image/ai-image.service";
+import { AiImageService } from "../../../ai-image/generation/generation.service";
 
 // ============================================================================
 // Types

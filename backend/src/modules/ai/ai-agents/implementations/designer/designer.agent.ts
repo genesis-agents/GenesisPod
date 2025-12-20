@@ -24,7 +24,7 @@ import {
 import {
   AiImageService,
   GeneratedImageResult,
-} from "../../../ai-image/ai-image.service";
+} from "../../../ai-image/generation/generation.service";
 
 @Injectable()
 export class DesignerAgent extends BaseAgent {

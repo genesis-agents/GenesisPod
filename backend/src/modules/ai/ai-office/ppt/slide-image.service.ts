@@ -11,7 +11,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AiImageService } from "../../ai-image/ai-image.service";
+import { AiImageService } from "../../ai-image/generation/generation.service";
 import { R2StorageService } from "../../../core/storage/r2-storage.service";
 
 export interface GeneratedImage {

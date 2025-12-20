@@ -9,9 +9,9 @@ import {
   UseGuards,
   BadRequestException,
 } from "@nestjs/common";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { ExportService } from "./export.service";
-import { ExportFormat, ExportOptions } from "./engine.types";
+import { ExportFormat, ExportOptions } from "../core/engine.types";
 
 interface ExportRequestDto {
   html: string;

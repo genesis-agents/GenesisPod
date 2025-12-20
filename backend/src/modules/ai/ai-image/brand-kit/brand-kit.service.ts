@@ -5,14 +5,14 @@
  */
 
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 import {
   BrandKit,
   BrandColor,
   BrandFont,
   DesignStyle,
   VisualLanguage,
-} from "./engine.types";
+} from "../core/engine.types";
 
 export interface CreateBrandKitDto {
   name: string;

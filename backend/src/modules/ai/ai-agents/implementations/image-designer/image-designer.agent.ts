@@ -23,14 +23,14 @@ import {
   ArtifactType,
   AIModelType,
 } from "../../core";
-import { AiImageService } from "../../../ai-image/ai-image.service";
-import { PromptEnhancementService } from "../../../ai-image/prompt-enhancement.service";
-import { ImageGenerationService } from "../../../ai-image/image-generation.service";
+import { AiImageService } from "../../../ai-image/generation/generation.service";
+import { PromptEnhancementService } from "../../../ai-image/generation/prompt-enhancement.service";
+import { ImageGenerationService } from "../../../ai-image/generation/image-generation.service";
 import {
   InfographicTemplateService,
   InfographicStyle,
   TemplateLayout,
-} from "../../../ai-image/infographic-template.service";
+} from "../../../ai-image/infographic/infographic.service";
 
 /**
  * 图像任务类型

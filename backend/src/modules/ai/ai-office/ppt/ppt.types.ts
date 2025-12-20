@@ -16,7 +16,7 @@ import type {
   BackgroundType as AIImageBackgroundType,
   BackgroundDecision as AIImageBackgroundDecision,
   DesignStyle as AIImageDesignStyle,
-} from "../../ai-image/engine.types";
+} from "../../ai-image/core/engine.types";
 
 // Re-export types for use by PPT services
 export type BackgroundType = AIImageBackgroundType;

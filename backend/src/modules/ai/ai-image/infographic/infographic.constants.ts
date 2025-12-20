@@ -1,8 +1,4 @@
-import {
-  InfographicStyle,
-  FontStyle,
-  StylePreset,
-} from "./infographic-template.types";
+import { InfographicStyle, FontStyle, StylePreset } from "./infographic.types";
 
 // 预设风格配置
 export const STYLE_PRESETS: Record<InfographicStyle, StylePreset> = {

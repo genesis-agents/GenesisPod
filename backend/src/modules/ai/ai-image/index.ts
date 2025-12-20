@@ -1,22 +1,37 @@
 /**
- * DeepDive Engine v2.1 - 模块导出索引
+ * AI Image Module - Barrel Exports
  */
 
-// 类型定义
-export * from "./engine.types";
+// Core - Types, Constants, Utils
+export * from "./core";
 
-// 服务
-export { AiImageService } from "./ai-image.service";
-export { AgentExecutorService } from "./agent-executor.service";
-export { BrandKitService } from "./brand-kit.service";
-export { ExportService } from "./export.service";
-export { InfographicTemplateService } from "./infographic-template.service";
-
-// 重新导出公共模块服务（向后兼容）
+// Generation - Selective exports to avoid conflicts
 export {
-  ContentExtractorService,
-  DataFetchingService,
-} from "../../../common/content-processing";
+  GenerationController,
+  GenerationService,
+  ImageGenerationService,
+  PromptEnhancementService,
+} from "./generation";
 
-// 模块
+// Storage
+export * from "./storage";
+
+// Export
+export * from "./export";
+
+// Brand Kit
+export * from "./brand-kit";
+
+// Infographic
+export * from "./infographic";
+
+// Analytics
+export * from "./analytics";
+
+// Module
 export { AiImageModule } from "./ai-image.module";
+
+// 向后兼容别名
+export { GenerationService as AiImageService } from "./generation";
+export { InfographicService as InfographicTemplateService } from "./infographic";
+export { StorageService as ImageStorageService } from "./storage";

@@ -6,7 +6,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { AIModelType } from "@prisma/client";
@@ -20,7 +20,7 @@ import {
   ContentAnalysis,
   BackgroundDecision,
   TemplateLayoutType,
-} from "./engine.types";
+} from "../core/engine.types";
 
 // Agent 系统提示词
 const CONTENT_AGENT_PROMPT = `你是内容分析专家。分析提供的内容，提取核心信息架构。

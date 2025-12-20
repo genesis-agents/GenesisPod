@@ -1,20 +1,17 @@
 import { Logger } from "@nestjs/common";
-import {
-  InfographicContent,
-  InfographicStyle,
-} from "../infographic-template.types";
+import { InfographicContent, InfographicStyle } from "../infographic.types";
 import {
   STYLE_PRESETS,
   FONT_STYLES,
   CARD_GRADIENTS,
   DEEPDIVE_LOGO,
-} from "../infographic-template.constants";
+} from "../infographic.constants";
 import {
   escapeHtml,
   truncateText,
   adjustColor,
   getIcon,
-} from "../infographic-template.utils";
+} from "../infographic.utils";
 
 /**
  * Base helper class for all infographic templates

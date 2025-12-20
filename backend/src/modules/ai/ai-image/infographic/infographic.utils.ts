@@ -1,4 +1,4 @@
-import { ICONS, DEFAULT_ICON } from "./infographic-template.constants";
+import { ICONS, DEFAULT_ICON } from "./infographic.constants";
 
 /**
  * HTML 转义

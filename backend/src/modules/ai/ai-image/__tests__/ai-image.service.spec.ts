@@ -14,11 +14,11 @@ jest.mock("../../../../common/content-processing", () => ({
 }));
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { AiImageService } from "../ai-image.service";
-import { InfographicTemplateService } from "../infographic-template.service";
-import { PromptEnhancementService } from "../prompt-enhancement.service";
-import { ImageGenerationService } from "../image-generation.service";
-import { ImageStorageService } from "../image-storage.service";
+import { AiImageService } from "../generation/generation.service";
+import { InfographicTemplateService } from "../infographic/infographic.service";
+import { PromptEnhancementService } from "../generation/prompt-enhancement.service";
+import { ImageGenerationService } from "../generation/image-generation.service";
+import { ImageStorageService } from "../storage/storage.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import {
   ContentExtractorService,

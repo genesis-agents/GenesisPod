@@ -18,8 +18,8 @@ import {
 import { FilesInterceptor } from "@nestjs/platform-express";
 import { Observable } from "rxjs";
 import { Response } from "express";
-import { AiImageService } from "./ai-image.service";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { AiImageService } from "./generation.service";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 
 interface GenerateImageDto {
   // 输入内容 - 支持多种来源

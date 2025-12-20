@@ -6,10 +6,10 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { firstValueFrom } from "rxjs";
 import { AIModelType, Prisma } from "@prisma/client";
-import { GEMINI_IMAGE_MODELS } from "./ai-image.constants";
+import { GEMINI_IMAGE_MODELS } from "../core/image.constants";
 
 @Injectable()
 export class ImageGenerationService {

@@ -11,13 +11,13 @@ import {
   BadRequestException,
   MessageEvent,
 } from "@nestjs/common";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { Observable, Subject } from "rxjs";
 import {
   ContentExtractorService,
   DataFetchingService,
   DataFetchingResult,
-} from "../../../common/content-processing";
+} from "../../../../common/content-processing";
 import { AIModelType } from "@prisma/client";
 import {
   ProcessingStep,
@@ -25,18 +25,18 @@ import {
   GeneratedImageResult,
   GenerateImageOptions,
   createDefaultInsights,
-} from "./ai-image.types";
+} from "../core/image.types";
 
 // Re-export types for external modules
-export { GeneratedImageResult } from "./ai-image.types";
+export { GeneratedImageResult } from "../core/image.types";
 import {
   InfographicTemplateService,
   InfographicContent,
   InfographicSection,
-} from "./infographic-template.service";
+} from "../infographic/infographic.service";
 import { PromptEnhancementService } from "./prompt-enhancement.service";
 import { ImageGenerationService } from "./image-generation.service";
-import { ImageStorageService } from "./image-storage.service";
+import { ImageStorageService } from "../storage/storage.service";
 import {
   parseUrlInput,
   getUrlStepTitle,
@@ -44,13 +44,13 @@ import {
   mergeNegativePrompts,
   formatInformationArchitectureStep,
   getDimensions,
-} from "./ai-image.utils";
+} from "../core/image.utils";
 import {
   MIN_CONTENT_LENGTH,
   MIN_PROMPT_LENGTH,
   CONTENT_PREVIEW_LENGTH,
   URL_CONTENT_PREVIEW_LENGTH,
-} from "./ai-image.constants";
+} from "../core/image.constants";
 
 @Injectable()
 export class AiImageService {
