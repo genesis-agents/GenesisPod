@@ -9,7 +9,7 @@ import {
   MessageBody,
 } from "@nestjs/websockets";
 import { Server, Socket } from "socket.io";
-import { Logger } from "@nestjs/common";
+import { Logger, Inject, forwardRef } from "@nestjs/common";
 import { AiTeamsService } from "./ai-teams.service";
 import { SendMessageDto } from "./dto";
 import { TopicEventEmitterService } from "./services/topic-event-emitter.service";
@@ -50,6 +50,7 @@ export class AiTeamsGateway
   private socketUsers = new Map<string, string>(); // socketId -> userId
 
   constructor(
+    @Inject(forwardRef(() => AiTeamsService))
     private readonly aiGroupService: AiTeamsService,
     private readonly topicEventEmitter: TopicEventEmitterService,
   ) {}
