@@ -39,6 +39,12 @@ import {
 // Integration
 import { AiOfficeIntegrationService } from "./ai-office-integration.service";
 
+// Code Execution
+import {
+  CodeExecutionController,
+  CodeExecutionService,
+} from "./code-execution";
+
 @Module({
   imports: [
     HttpModule,
@@ -60,6 +66,8 @@ import { AiOfficeIntegrationService } from "./ai-office-integration.service";
     ExportController,
     // PPT
     PPTGenerationController,
+    // Code Execution
+    CodeExecutionController,
   ],
   providers: [
     // Core
@@ -83,6 +91,8 @@ import { AiOfficeIntegrationService } from "./ai-office-integration.service";
     PPTVersionService,
     // Integration
     AiOfficeIntegrationService,
+    // Code Execution
+    CodeExecutionService,
   ],
   exports: [
     // Core

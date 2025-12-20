@@ -21,6 +21,8 @@ import {
   Loader2,
   Send,
   Eye,
+  Play,
+  Terminal,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -45,6 +47,11 @@ import {
   subscribeToTask,
   cancelTask,
 } from '@/lib/ai-office/agents/api';
+import {
+  executeCode,
+  formatExecutionResult,
+  ExecuteCodeResult,
+} from '@/lib/ai-office/code-execution';
 import { cn } from '@/lib/utils/common';
 
 // 编程语言选项
@@ -85,6 +92,11 @@ export default function DeveloperTab() {
   const [restoredResult, setRestoredResult] = useState<
     DeveloperHistoryItem['result'] | null
   >(null);
+  // 代码执行状态
+  const [executingIndex, setExecutingIndex] = useState<number | null>(null);
+  const [executionResults, setExecutionResults] = useState<
+    Record<number, ExecuteCodeResult>
+  >({});
 
   // 设置选项
   const [language, setLanguage] = useState('typescript');
@@ -236,6 +248,54 @@ export default function DeveloperTab() {
       setTimeout(() => setCopiedIndex(null), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
+    }
+  };
+
+  // 执行代码
+  const handleRunCode = async (code: string, index: number) => {
+    if (executingIndex !== null) return;
+
+    setExecutingIndex(index);
+    // 清除之前的执行结果
+    setExecutionResults((prev) => {
+      const newResults = { ...prev };
+      delete newResults[index];
+      return newResults;
+    });
+
+    try {
+      // 根据当前语言设置确定执行语言
+      const execLanguage =
+        language === 'typescript'
+          ? 'typescript'
+          : language === 'javascript'
+            ? 'javascript'
+            : language === 'python'
+              ? 'python'
+              : 'javascript';
+
+      const result = await executeCode({
+        code,
+        language: execLanguage as 'javascript' | 'typescript' | 'python',
+        timeout: 30000,
+      });
+
+      setExecutionResults((prev) => ({
+        ...prev,
+        [index]: result,
+      }));
+    } catch (error) {
+      console.error('Code execution failed:', error);
+      setExecutionResults((prev) => ({
+        ...prev,
+        [index]: {
+          success: false,
+          error: error instanceof Error ? error.message : 'Execution failed',
+          executionTime: 0,
+        },
+      }));
+    } finally {
+      setExecutingIndex(null);
     }
   };
 
@@ -558,47 +618,137 @@ export default function DeveloperTab() {
                 {/* 代码块展示 */}
                 <div className="space-y-4">
                   {((restoredResult || result)?.artifacts || []).map(
-                    (artifact, index) => (
-                      <div
-                        key={artifact.id}
-                        className="overflow-hidden rounded-lg border border-gray-200 bg-white"
-                      >
-                        <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-2">
-                          <div className="flex items-center gap-2">
-                            <Code2 className="h-4 w-4 text-gray-500" />
-                            <span className="text-sm font-medium text-gray-700">
-                              {artifact.name}
-                            </span>
+                    (artifact, index) => {
+                      const execResult = executionResults[index];
+                      const isExecuting = executingIndex === index;
+                      const canExecute =
+                        language === 'typescript' ||
+                        language === 'javascript' ||
+                        language === 'python';
+
+                      return (
+                        <div
+                          key={artifact.id}
+                          className="overflow-hidden rounded-lg border border-gray-200 bg-white"
+                        >
+                          <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-2">
+                            <div className="flex items-center gap-2">
+                              <Code2 className="h-4 w-4 text-gray-500" />
+                              <span className="text-sm font-medium text-gray-700">
+                                {artifact.name}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {/* 运行按钮 */}
+                              {canExecute && (
+                                <button
+                                  onClick={() =>
+                                    handleRunCode(
+                                      (artifact as any).content || '',
+                                      index
+                                    )
+                                  }
+                                  disabled={isExecuting}
+                                  className={cn(
+                                    'flex items-center gap-1 rounded px-2 py-1 text-sm transition-colors',
+                                    isExecuting
+                                      ? 'cursor-not-allowed bg-gray-100 text-gray-400'
+                                      : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                  )}
+                                >
+                                  {isExecuting ? (
+                                    <>
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                      <span>执行中...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Play className="h-4 w-4" />
+                                      <span>运行</span>
+                                    </>
+                                  )}
+                                </button>
+                              )}
+                              {/* 复制按钮 */}
+                              <button
+                                onClick={() =>
+                                  handleCopyCode(
+                                    (artifact as any).content || '',
+                                    index
+                                  )
+                                }
+                                className="flex items-center gap-1 text-sm text-gray-500 transition-colors hover:text-gray-700"
+                              >
+                                {copiedIndex === index ? (
+                                  <>
+                                    <Check className="h-4 w-4 text-green-500" />
+                                    <span className="text-green-500">
+                                      已复制
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="h-4 w-4" />
+                                    <span>复制</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
                           </div>
-                          <button
-                            onClick={() =>
-                              handleCopyCode(
-                                (artifact as any).content || '',
-                                index
-                              )
-                            }
-                            className="flex items-center gap-1 text-sm text-gray-500 transition-colors hover:text-gray-700"
-                          >
-                            {copiedIndex === index ? (
-                              <>
-                                <Check className="h-4 w-4 text-green-500" />
-                                <span className="text-green-500">已复制</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="h-4 w-4" />
-                                <span>复制</span>
-                              </>
-                            )}
-                          </button>
+                          <pre className="overflow-x-auto bg-gray-900 p-4 text-gray-100">
+                            <code className="text-sm">
+                              {(artifact as any).content || ''}
+                            </code>
+                          </pre>
+
+                          {/* 执行结果展示 */}
+                          {execResult && (
+                            <div
+                              className={cn(
+                                'border-t px-4 py-3',
+                                execResult.success
+                                  ? 'border-green-200 bg-green-50'
+                                  : 'border-red-200 bg-red-50'
+                              )}
+                            >
+                              <div className="mb-2 flex items-center gap-2">
+                                <Terminal
+                                  className={cn(
+                                    'h-4 w-4',
+                                    execResult.success
+                                      ? 'text-green-600'
+                                      : 'text-red-600'
+                                  )}
+                                />
+                                <span
+                                  className={cn(
+                                    'text-sm font-medium',
+                                    execResult.success
+                                      ? 'text-green-700'
+                                      : 'text-red-700'
+                                  )}
+                                >
+                                  {execResult.success ? '执行成功' : '执行失败'}
+                                  <span className="ml-2 font-normal text-gray-500">
+                                    ({execResult.executionTime}ms)
+                                  </span>
+                                </span>
+                              </div>
+                              <pre
+                                className={cn(
+                                  'overflow-x-auto rounded p-3 text-sm',
+                                  execResult.success
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-red-100 text-red-800'
+                                )}
+                              >
+                                {formatExecutionResult(execResult)}
+                              </pre>
+                            </div>
+                          )}
                         </div>
-                        <pre className="overflow-x-auto bg-gray-900 p-4 text-gray-100">
-                          <code className="text-sm">
-                            {(artifact as any).content || ''}
-                          </code>
-                        </pre>
-                      </div>
-                    )
+                      );
+                    }
                   )}
                 </div>
               </div>
