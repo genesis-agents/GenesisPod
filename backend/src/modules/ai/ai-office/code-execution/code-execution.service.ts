@@ -87,6 +87,16 @@ export class CodeExecutionService {
       { taskId: "code-exec", timeout },
     );
 
+    // Check if the tool execution itself failed (validation, timeout, etc.)
+    if (!result.success) {
+      this.logger.warn(`JavaScript execution failed: ${result.error}`);
+      return {
+        success: false,
+        error: result.error || "JavaScript executor failed",
+        executionTime: result.duration || 0,
+      };
+    }
+
     const data = result.data;
     if (!data) {
       return {
