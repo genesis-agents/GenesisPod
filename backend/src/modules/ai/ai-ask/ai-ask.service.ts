@@ -668,58 +668,15 @@ export class AiAskService {
 
   /**
    * 自动生成会话标题
+   * 直接从用户消息提取关键内容作为标题，不依赖 AI 生成（更可靠）
    */
   private async generateSessionTitle(
     sessionId: string,
     firstMessage: string,
   ): Promise<void> {
     try {
-      const modelConfig = await this.getModelConfig();
-
-      const response = await this.aiChatService.generateChatCompletionWithKey({
-        provider: modelConfig.provider,
-        modelId: modelConfig.modelId,
-        apiKey: modelConfig.apiKey ?? "",
-        apiEndpoint: modelConfig.apiEndpoint ?? undefined,
-        messages: [
-          {
-            role: "system",
-            content:
-              "Generate a short, clean title (max 30 characters) for this conversation based on the user's message. " +
-              "Rules:\n" +
-              "- Reply with ONLY the title text, nothing else\n" +
-              "- Do NOT use quotes, brackets, parentheses, or any wrapper characters\n" +
-              "- Do NOT include prefixes like 'Title:', 'Claude:', or similar\n" +
-              "- Do NOT use ellipsis (...) in the title\n" +
-              "- Use the same language as the user's message\n" +
-              "- Make it descriptive and meaningful",
-          },
-          {
-            role: "user",
-            content: firstMessage,
-          },
-        ],
-        maxTokens: 50,
-        temperature: 0.7,
-        enableSearch: false, // Disable Google Search for simple title generation to avoid MALFORMED_FUNCTION_CALL
-      });
-
-      // Clean up the AI-generated title
-      let title = response.content.trim();
-      // Remove common wrapper patterns
-      title = title.replace(/^["'"'「【\[]+|["'"'」】\]]+$/g, ""); // Remove quotes and brackets at start/end
-      title = title.replace(/^(Title|标题|Claude|AI)[:：]\s*/i, ""); // Remove common prefixes
-      title = title.replace(/\.{2,}$/g, ""); // Remove trailing ellipsis
-      title = title.trim().slice(0, 100);
-
-      // Validate: if title looks like an error message, use fallback
-      const isErrorTitle = this.isErrorLikeTitle(title);
-      if (isErrorTitle || !title || title.length < 2) {
-        title = this.generateFallbackTitle(firstMessage);
-        this.logger.warn(
-          `AI-generated title looked like an error, using fallback: ${title}`,
-        );
-      }
+      // 直接从用户消息生成标题，不调用 AI（更可靠、更快）
+      const title = this.extractTitleFromMessage(firstMessage);
 
       await this.prisma.askSession.update({
         where: { id: sessionId },
@@ -728,86 +685,69 @@ export class AiAskService {
 
       this.logger.log(`Generated title for session ${sessionId}: ${title}`);
     } catch (error) {
-      // If AI title generation fails, use a fallback based on the user's message
-      this.logger.warn(
-        `Failed to generate session title via AI, using fallback: ${error}`,
-      );
-      const fallbackTitle = this.generateFallbackTitle(firstMessage);
-      try {
-        await this.prisma.askSession.update({
-          where: { id: sessionId },
-          data: { title: fallbackTitle },
-        });
-        this.logger.log(
-          `Set fallback title for session ${sessionId}: ${fallbackTitle}`,
-        );
-      } catch (updateError) {
-        this.logger.error(`Failed to set fallback title: ${updateError}`);
-      }
+      this.logger.error(`Failed to set session title: ${error}`);
     }
   }
 
   /**
-   * 检查标题是否看起来像错误消息
+   * 从用户消息中提取标题
+   * 简单可靠的实现：直接使用用户消息的前 N 个字符
    */
-  private isErrorLikeTitle(title: string): boolean {
-    const errorPatterns = [
-      /^(API )?Error[:：]/i,
-      /^Failed to/i,
-      /^Cannot /i,
-      /^Unable to/i,
-      /响应被/,
-      /返回空/,
-      /请求失败/,
-      /连接超时/,
-      /网络错误/,
-      /\[.*Error.*\]/i,
-      /^抱歉/,
-      /^Sorry/i,
-      /^I (cannot|can't|couldn't)/i,
-      /^No response/i,
-      /token/i,
-      /rate limit/i,
-      /quota/i,
-    ];
-    return errorPatterns.some((pattern) => pattern.test(title));
-  }
+  private extractTitleFromMessage(message: string): string {
+    if (!message || typeof message !== "string") {
+      return "New Chat";
+    }
 
-  /**
-   * 从用户消息生成备用标题
-   */
-  private generateFallbackTitle(message: string): string {
-    // Clean up the message
+    // 清理消息内容
     let cleaned = message
-      .replace(/\n+/g, " ") // Replace newlines with spaces
-      .replace(/\s+/g, " ") // Collapse multiple spaces
-      .replace(/^[>\s#*]+/g, "") // Remove markdown prefixes
+      .replace(/\n+/g, " ") // 换行替换为空格
+      .replace(/\s+/g, " ") // 合并多个空格
+      .replace(/^[>\s#*\-•]+/g, "") // 移除 markdown 前缀
+      .replace(/!\[.*?\]\(.*?\)/g, "") // 移除图片标记
+      .replace(/\[.*?\]\(.*?\)/g, (match) => {
+        // 链接只保留文字部分
+        const textMatch = match.match(/\[(.*?)\]/);
+        return textMatch ? textMatch[1] : "";
+      })
+      .replace(/<[^>]+>/g, "") // 移除 HTML 标签
+      .replace(/```[\s\S]*?```/g, "[代码]") // 代码块替换为 [代码]
+      .replace(/`[^`]+`/g, "") // 移除行内代码
       .trim();
 
-    // Remove common question prefixes
-    cleaned = cleaned
-      .replace(/^(请|帮我|帮忙|能不能|可以|麻烦|怎么|如何|什么是)/g, "")
-      .replace(/^(please|can you|could you|help me|how to|what is)/gi, "")
-      .trim();
-
-    // Take first meaningful part (up to 30 chars)
-    if (cleaned.length > 30) {
-      // Try to break at word boundary
-      const truncated = cleaned.substring(0, 30);
-      const lastSpace = truncated.lastIndexOf(" ");
-      if (lastSpace > 15) {
-        cleaned = truncated.substring(0, lastSpace);
-      } else {
-        cleaned = truncated;
-      }
+    // 如果清理后为空，返回默认标题
+    if (!cleaned) {
+      return "New Chat";
     }
 
-    // If still empty or too short, use generic title
-    if (!cleaned || cleaned.length < 2) {
-      return "New Conversation";
+    // 限制长度为 40 个字符
+    const maxLength = 40;
+    if (cleaned.length <= maxLength) {
+      return cleaned;
     }
 
-    return cleaned;
+    // 尝试在自然边界截断（句号、问号、逗号、空格）
+    const truncated = cleaned.substring(0, maxLength);
+
+    // 中文：在标点符号处截断
+    const chinesePunctuationIndex = Math.max(
+      truncated.lastIndexOf("。"),
+      truncated.lastIndexOf("？"),
+      truncated.lastIndexOf("！"),
+      truncated.lastIndexOf("，"),
+      truncated.lastIndexOf("、"),
+    );
+    if (chinesePunctuationIndex > maxLength * 0.5) {
+      return truncated.substring(0, chinesePunctuationIndex);
+    }
+
+    // 英文：在空格处截断
+    const lastSpace = truncated.lastIndexOf(" ");
+    if (lastSpace > maxLength * 0.5) {
+      return truncated.substring(0, lastSpace);
+    }
+
+    // 直接截断
+    return truncated;
   }
 
   /**
