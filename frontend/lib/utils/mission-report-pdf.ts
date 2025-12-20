@@ -120,40 +120,69 @@ function escapeHtml(text: string): string {
 }
 
 /**
- * Convert Markdown table to HTML table
+ * Process inline markdown (bold, italic, etc.)
  */
-function parseMarkdownTable(tableText: string): string {
-  const lines = tableText.trim().split('\n');
-  if (lines.length < 2) return tableText;
-
-  // Check if it's a valid table (has separator line with |---|)
-  const separatorIndex = lines.findIndex((line) =>
-    /^\|?\s*:?-+:?\s*\|/.test(line)
+function processInlineMarkdown(text: string): string {
+  let result = text;
+  // Bold
+  result = result.replace(
+    /\*\*(.+?)\*\*/g,
+    '<strong style="font-weight: 600;">$1</strong>'
   );
-  if (separatorIndex === -1) return tableText;
+  // Italic (but not if already processed as bold)
+  result = result.replace(
+    /(?<!\*)\*([^*]+?)\*(?!\*)/g,
+    '<em style="font-style: italic;">$1</em>'
+  );
+  // Code
+  result = result.replace(
+    /`(.+?)`/g,
+    '<code style="background: #f1f5f9; padding: 2px 4px; border-radius: 3px; font-family: monospace; font-size: 11px;">$1</code>'
+  );
+  return result;
+}
 
-  const headerLine = lines[separatorIndex - 1];
-  const bodyLines = lines.slice(separatorIndex + 1);
+/**
+ * Parse table cells from a line
+ */
+function parseTableCells(line: string): string[] {
+  // Remove leading and trailing pipes, then split
+  const trimmed = line.replace(/^\|/, '').replace(/\|$/, '');
+  return trimmed.split('|').map((cell) => cell.trim());
+}
 
-  if (!headerLine) return tableText;
+/**
+ * Check if a line is a table separator (|---|---|)
+ */
+function isTableSeparator(line: string): boolean {
+  return /^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?$/.test(line.trim());
+}
 
-  // Parse header cells
-  const headerCells = headerLine
-    .split('|')
-    .map((cell) => cell.trim())
-    .filter((cell) => cell.length > 0);
+/**
+ * Check if a line looks like a table row (contains |)
+ */
+function isTableRow(line: string): boolean {
+  const trimmed = line.trim();
+  return trimmed.includes('|') && !isTableSeparator(trimmed);
+}
 
-  // Parse body rows
-  const bodyRows = bodyLines
-    .filter((line) => line.includes('|'))
-    .map((line) =>
-      line
-        .split('|')
-        .map((cell) => cell.trim())
-        .filter((cell) => cell.length > 0 || line.split('|').length > 2)
-    );
+/**
+ * Convert a markdown table block to HTML
+ */
+function convertTableToHtml(tableLines: string[]): string {
+  if (tableLines.length < 2) return tableLines.join('\n');
 
-  // Build HTML table
+  // Find the separator line
+  const separatorIndex = tableLines.findIndex(isTableSeparator);
+  if (separatorIndex === -1 || separatorIndex === 0) {
+    return tableLines.join('\n');
+  }
+
+  const headerLine = tableLines[separatorIndex - 1];
+  const bodyLines = tableLines.slice(separatorIndex + 1).filter(isTableRow);
+
+  const headerCells = parseTableCells(headerLine);
+
   const tableStyle =
     'width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12px;';
   const thStyle =
@@ -166,94 +195,95 @@ function parseMarkdownTable(tableText: string): string {
   // Header
   html += '<thead><tr>';
   headerCells.forEach((cell) => {
-    // Process inline markdown in cells
-    const processedCell = processInlineMarkdown(cell);
+    const processedCell = processInlineMarkdown(escapeHtml(cell));
     html += `<th style="${thStyle}">${processedCell}</th>`;
   });
   html += '</tr></thead>';
 
   // Body
-  html += '<tbody>';
-  bodyRows.forEach((row) => {
-    html += '<tr>';
-    row.forEach((cell, index) => {
-      // Ensure we have the right number of cells
-      const processedCell = processInlineMarkdown(cell || '');
-      html += `<td style="${tdStyle}">${processedCell}</td>`;
+  if (bodyLines.length > 0) {
+    html += '<tbody>';
+    bodyLines.forEach((line) => {
+      const cells = parseTableCells(line);
+      html += '<tr>';
+      // Match header cell count
+      for (let i = 0; i < headerCells.length; i++) {
+        const cell = cells[i] || '';
+        const processedCell = processInlineMarkdown(escapeHtml(cell));
+        html += `<td style="${tdStyle}">${processedCell}</td>`;
+      }
+      html += '</tr>';
     });
-    // Fill missing cells
-    for (let i = row.length; i < headerCells.length; i++) {
-      html += `<td style="${tdStyle}"></td>`;
-    }
-    html += '</tr>';
-  });
-  html += '</tbody></table>';
+    html += '</tbody>';
+  }
 
+  html += '</table>';
   return html;
 }
 
 /**
- * Process inline markdown (bold, italic, etc.)
- */
-function processInlineMarkdown(text: string): string {
-  let result = text;
-  // Bold
-  result = result.replace(
-    /\*\*(.+?)\*\*/g,
-    '<strong style="font-weight: 600;">$1</strong>'
-  );
-  // Italic
-  result = result.replace(
-    /\*(.+?)\*/g,
-    '<em style="font-style: italic;">$1</em>'
-  );
-  // Code
-  result = result.replace(
-    /`(.+?)`/g,
-    '<code style="background: #f1f5f9; padding: 2px 4px; border-radius: 3px; font-family: monospace; font-size: 11px;">$1</code>'
-  );
-  return result;
-}
-
-/**
  * Convert Markdown to HTML for PDF rendering
+ * Processes tables by detecting consecutive lines with | character
  */
 function markdownToHtml(text: string): string {
   if (!text) return '';
 
-  // First, extract and convert tables before escaping HTML
-  // Tables need special handling because they contain | characters
-  let processedText = text;
+  const lines = text.split('\n');
+  const result: string[] = [];
+  let tableBuffer: string[] = [];
+  let inTable = false;
 
-  // Find and replace markdown tables
-  const tableRegex = /(?:^|\n)((?:\|[^\n]+\|\n)+)/g;
-  processedText = processedText.replace(tableRegex, (match, tableContent) => {
-    // Check if this is actually a table (has header separator)
-    if (/\|[\s:]*-+[\s:]*\|/.test(tableContent)) {
-      return '\n' + parseMarkdownTable(tableContent) + '\n';
-    }
-    return match;
-  });
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmedLine = line.trim();
 
-  // Also handle tables without leading pipe
-  const tableRegex2 = /(?:^|\n)([^\n|]+\|[^\n]+\n:?-+[:\s|]+\n(?:[^\n]+\n)*)/g;
-  processedText = processedText.replace(tableRegex2, (match, tableContent) => {
-    if (/[\s:]*-+[\s:]*\|/.test(tableContent)) {
-      return '\n' + parseMarkdownTable(tableContent) + '\n';
-    }
-    return match;
-  });
+    // Check if this line could be part of a table
+    const couldBeTableLine =
+      trimmedLine.includes('|') || isTableSeparator(trimmedLine);
 
-  // Now escape HTML for non-table content, but preserve already-converted tables
-  const parts = processedText.split(/(<table[\s\S]*?<\/table>)/);
-  let html = parts
-    .map((part) => {
-      if (part.startsWith('<table')) {
-        return part; // Already HTML, don't escape
+    if (couldBeTableLine) {
+      // Start or continue table
+      if (!inTable) {
+        inTable = true;
+        tableBuffer = [];
       }
-      return escapeHtml(part);
-    })
-    .join('');
+      tableBuffer.push(line);
+    } else {
+      // End of table
+      if (inTable && tableBuffer.length >= 2) {
+        // Check if we have a valid table (has separator)
+        if (tableBuffer.some(isTableSeparator)) {
+          result.push(convertTableToHtml(tableBuffer));
+        } else {
+          // Not a valid table, add lines back
+          result.push(...tableBuffer.map(escapeHtml));
+        }
+        tableBuffer = [];
+        inTable = false;
+      } else if (inTable) {
+        // Table was too short, not valid
+        result.push(...tableBuffer.map(escapeHtml));
+        tableBuffer = [];
+        inTable = false;
+      }
+
+      // Add current non-table line
+      result.push(escapeHtml(line));
+    }
+  }
+
+  // Handle any remaining table at end of text
+  if (
+    inTable &&
+    tableBuffer.length >= 2 &&
+    tableBuffer.some(isTableSeparator)
+  ) {
+    result.push(convertTableToHtml(tableBuffer));
+  } else if (tableBuffer.length > 0) {
+    result.push(...tableBuffer.map(escapeHtml));
+  }
+
+  let html = result.join('\n');
 
   // Headers
   html = html.replace(
