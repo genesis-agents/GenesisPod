@@ -16,5 +16,11 @@ import { AIAssistService } from "./ai-assist.service";
     ExternalDataService,
     AIAssistService,
   ],
+  exports: [
+    AiSimulationService,
+    AiSimulationEngineService,
+    ExternalDataService,
+    AIAssistService,
+  ],
 })
 export class AiSimulationModule {}
