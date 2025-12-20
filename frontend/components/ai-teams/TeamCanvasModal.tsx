@@ -455,15 +455,15 @@ export default function TeamCanvasModal({
   const handleWheel = useCallback((event: React.WheelEvent<SVGSVGElement>) => {
     event.preventDefault();
 
-    // Throttle wheel events to max 10 per second (100ms interval)
+    // Throttle wheel events to max 20 per second (50ms interval)
     const now = Date.now();
-    if (now - lastWheelTime.current < 100) {
+    if (now - lastWheelTime.current < 50) {
       return;
     }
     lastWheelTime.current = now;
 
-    // Use smaller increment (5% per scroll) for smoother zooming
-    const delta = event.deltaY > 0 ? -0.05 : 0.05;
+    // Use very small increment (2% per scroll) for smooth zooming
+    const delta = event.deltaY > 0 ? -0.02 : 0.02;
     setZoom((prev) => Math.max(0.3, Math.min(5, prev + delta)));
   }, []);
 
