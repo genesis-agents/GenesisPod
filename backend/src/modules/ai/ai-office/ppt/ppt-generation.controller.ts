@@ -33,6 +33,7 @@ import { Response } from "express";
 import { Observable, map, catchError, of } from "rxjs";
 import { PPTOrchestratorService } from "./ppt-orchestrator.service";
 import { SlidePlanningService } from "./slide-planning.service";
+import { PPTExportService } from "./ppt-export.service";
 import { ContentExtractorService } from "../../../../common/content-processing";
 import {
   PPTGenerationInput,
@@ -126,6 +127,7 @@ export class PPTGenerationController {
   constructor(
     private readonly orchestrator: PPTOrchestratorService,
     private readonly slidePlanning: SlidePlanningService,
+    private readonly pptExport: PPTExportService,
     private readonly contentExtractor: ContentExtractorService,
   ) {}
 
@@ -435,14 +437,42 @@ export class PPTGenerationController {
   async exportPPT(
     @Param("id") id: string,
     @Body() dto: ExportPPTDto,
-    @Res() _res: Response,
+    @Res() res: Response,
   ): Promise<void> {
     this.logger.log(`[exportPPT] Exporting ${id} as ${dto.format}`);
 
-    // TODO: 实现导出功能
-    // 这需要创建专门的导出服务
+    try {
+      // 获取 PPT 文档
+      const document = await this.orchestrator.getPPTDocument(id);
 
-    throw new HttpException("Not implemented", HttpStatus.NOT_IMPLEMENTED);
+      if (dto.format === "pptx") {
+        // 使用增强的 PPTX 导出服务
+        const result = await this.pptExport.exportToPPTX(document);
+
+        res.setHeader("Content-Type", result.mimeType);
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="${encodeURIComponent(result.filename)}"`,
+        );
+        res.setHeader("Content-Length", result.fileSize);
+        res.send(result.buffer);
+      } else {
+        // 其他格式暂未实现
+        throw new HttpException(
+          `Export format '${dto.format}' not yet implemented`,
+          HttpStatus.NOT_IMPLEMENTED,
+        );
+      }
+    } catch (error: any) {
+      this.logger.error(`[exportPPT] Error: ${error.message}`);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        error.message || "Export failed",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   /**
