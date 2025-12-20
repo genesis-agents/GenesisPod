@@ -1,9 +1,19 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from '@/components/layout/Sidebar';
 import WorkspaceLayout from '@/components/ai-office/layout/WorkspaceLayout';
 import { LogIn } from 'lucide-react';
+
+// Loading fallback for Suspense
+function WorkspaceLoading() {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
+    </div>
+  );
+}
 
 /**
  * AI Office 工作区页面
@@ -105,7 +115,9 @@ export default function AIOfficePage() {
 
         {/* 内容区域 */}
         <div className="h-[calc(100vh-120px)]">
-          <WorkspaceLayout />
+          <Suspense fallback={<WorkspaceLoading />}>
+            <WorkspaceLayout />
+          </Suspense>
         </div>
       </main>
     </div>

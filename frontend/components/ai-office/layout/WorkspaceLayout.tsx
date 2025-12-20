@@ -9,7 +9,8 @@
  * v5.1: 添加 Developer Tab
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useTaskStore } from '@/stores/aiOfficeStore';
 import { ListTodo, Presentation, FileText, Palette, Code2 } from 'lucide-react';
 import TaskList from '../task/TaskList';
@@ -28,16 +29,48 @@ interface WorkspaceLayoutProps {
   children?: React.ReactNode;
 }
 
+// Valid tab values
+const VALID_TABS: WorkspaceTab[] = ['slides', 'docs', 'designer', 'developer'];
+
 export default function WorkspaceLayout({
   children: _children,
 }: WorkspaceLayoutProps) {
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>('slides');
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Read initial tab from URL params
+  const tabParam = searchParams.get('tab') as WorkspaceTab | null;
+  const initialTab =
+    tabParam && VALID_TABS.includes(tabParam) ? tabParam : 'slides';
+
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>(initialTab);
   const containerRef = useRef<HTMLDivElement>(null);
   const commandPalette = useCommandPalette();
 
   const tasks = useTaskStore((state) => state.tasks);
   const isTaskListOpen = useTaskStore((state) => state.isTaskListOpen);
   const toggleTaskList = useTaskStore((state) => state.toggleTaskList);
+
+  // Sync tab from URL params on navigation
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab') as WorkspaceTab | null;
+    if (
+      tabFromUrl &&
+      VALID_TABS.includes(tabFromUrl) &&
+      tabFromUrl !== activeTab
+    ) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [searchParams, activeTab]);
+
+  // Update URL when tab changes
+  const handleTabChange = (tab: WorkspaceTab) => {
+    setActiveTab(tab);
+    // Update URL without full page reload
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', tab);
+    router.replace(url.pathname + url.search, { scroll: false });
+  };
 
   return (
     <div
@@ -49,7 +82,7 @@ export default function WorkspaceLayout({
         <div className="flex items-center gap-1">
           {/* AI Slides Tab */}
           <button
-            onClick={() => setActiveTab('slides')}
+            onClick={() => handleTabChange('slides')}
             className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
               activeTab === 'slides'
                 ? 'border-orange-500 text-orange-600'
@@ -62,7 +95,7 @@ export default function WorkspaceLayout({
 
           {/* AI Docs Tab */}
           <button
-            onClick={() => setActiveTab('docs')}
+            onClick={() => handleTabChange('docs')}
             className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
               activeTab === 'docs'
                 ? 'border-blue-500 text-blue-600'
@@ -75,7 +108,7 @@ export default function WorkspaceLayout({
 
           {/* AI Designer Tab */}
           <button
-            onClick={() => setActiveTab('designer')}
+            onClick={() => handleTabChange('designer')}
             className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
               activeTab === 'designer'
                 ? 'border-pink-500 text-pink-600'
@@ -88,7 +121,7 @@ export default function WorkspaceLayout({
 
           {/* AI Developer Tab */}
           <button
-            onClick={() => setActiveTab('developer')}
+            onClick={() => handleTabChange('developer')}
             className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
               activeTab === 'developer'
                 ? 'border-green-500 text-green-600'

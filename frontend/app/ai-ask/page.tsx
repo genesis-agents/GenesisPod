@@ -834,7 +834,7 @@ export default function AskPage() {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 setShowTools(false);
-                                router.push('/ai-office/slides');
+                                router.push('/ai-office?tab=slides');
                               }}
                             >
                               <span className="text-base">📊</span>
@@ -848,7 +848,7 @@ export default function AskPage() {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 setShowTools(false);
-                                router.push('/ai-office/docs');
+                                router.push('/ai-office?tab=docs');
                               }}
                             >
                               <span className="text-base">📝</span>
@@ -864,7 +864,7 @@ export default function AskPage() {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 setShowTools(false);
-                                router.push('/ai-office/developer');
+                                router.push('/ai-office?tab=developer');
                               }}
                             >
                               <span className="text-base">💻</span>
@@ -880,7 +880,7 @@ export default function AskPage() {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 setShowTools(false);
-                                router.push('/ai-office/designer');
+                                router.push('/ai-office?tab=designer');
                               }}
                             >
                               <span className="text-base">🎨</span>
@@ -1633,7 +1633,7 @@ export default function AskPage() {
                                   e.preventDefault();
                                   e.stopPropagation();
                                   setShowTools(false);
-                                  router.push('/ai-office/slides');
+                                  router.push('/ai-office?tab=slides');
                                 }}
                               >
                                 <span className="text-base">📊</span>
@@ -1649,7 +1649,7 @@ export default function AskPage() {
                                   e.preventDefault();
                                   e.stopPropagation();
                                   setShowTools(false);
-                                  router.push('/ai-office/docs');
+                                  router.push('/ai-office?tab=docs');
                                 }}
                               >
                                 <span className="text-base">📝</span>
@@ -1665,7 +1665,7 @@ export default function AskPage() {
                                   e.preventDefault();
                                   e.stopPropagation();
                                   setShowTools(false);
-                                  router.push('/ai-office/developer');
+                                  router.push('/ai-office?tab=developer');
                                 }}
                               >
                                 <span className="text-base">💻</span>
@@ -1681,7 +1681,7 @@ export default function AskPage() {
                                   e.preventDefault();
                                   e.stopPropagation();
                                   setShowTools(false);
-                                  router.push('/ai-office/designer');
+                                  router.push('/ai-office?tab=designer');
                                 }}
                               >
                                 <span className="text-base">🎨</span>
