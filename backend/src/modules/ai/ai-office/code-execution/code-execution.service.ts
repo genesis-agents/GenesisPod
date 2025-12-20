@@ -71,6 +71,69 @@ export class CodeExecutionService {
   }
 
   /**
+   * 预处理代码，自动添加主函数调用
+   * 检测 main() 或其他入口函数，如果存在但未调用，则自动添加调用
+   */
+  private prepareCodeForExecution(code: string): string {
+    // 移除注释后检测，避免误判注释中的函数定义
+    const codeWithoutComments = code
+      .replace(/\/\/.*$/gm, "") // 移除单行注释
+      .replace(/\/\*[\s\S]*?\*\//g, ""); // 移除多行注释
+
+    // 检测是否定义了 main 函数
+    const mainFunctionPatterns = [
+      /function\s+main\s*\(/,
+      /async\s+function\s+main\s*\(/,
+      /const\s+main\s*=\s*(?:async\s*)?\(/,
+      /const\s+main\s*=\s*(?:async\s*)?function/,
+    ];
+
+    const hasMainFunction = mainFunctionPatterns.some((pattern) =>
+      pattern.test(codeWithoutComments),
+    );
+
+    // 检测是否已经调用了 main() (不在注释中)
+    const hasMainCall = /main\s*\(\s*\)/.test(codeWithoutComments);
+
+    // 如果有 main 函数但没有调用，添加调用
+    if (hasMainFunction && !hasMainCall) {
+      const isAsync = /async\s+function\s+main|const\s+main\s*=\s*async/.test(
+        codeWithoutComments,
+      );
+      const mainCall = isAsync
+        ? "\n\n// Auto-execute main function\nmain().then(result => { if (result !== undefined) console.log('Result:', result); }).catch(err => console.error('Error:', err));"
+        : "\n\n// Auto-execute main function\nconst __result__ = main(); if (__result__ !== undefined) console.log('Result:', __result__);";
+      this.logger.log("Auto-adding main() call to code");
+      return code + mainCall;
+    }
+
+    // 如果没有 main 函数，检测是否有其他入口函数需要调用
+    const entryFunctions = ["run", "execute", "start", "init"];
+    for (const funcName of entryFunctions) {
+      const funcPattern = new RegExp(
+        `(?:async\s+)?function\s+${funcName}\s*\(|const\s+${funcName}\s*=`,
+      );
+      const callPattern = new RegExp(`${funcName}\s*\(\s*\)`);
+
+      if (
+        funcPattern.test(codeWithoutComments) &&
+        !callPattern.test(codeWithoutComments)
+      ) {
+        const isAsync = new RegExp(
+          `async\s+function\s+${funcName}|const\s+${funcName}\s*=\s*async`,
+        ).test(codeWithoutComments);
+        const funcCall = isAsync
+          ? `\n\n// Auto-execute ${funcName} function\n${funcName}().then(result => { if (result !== undefined) console.log('Result:', result); }).catch(err => console.error('Error:', err));`
+          : `\n\n// Auto-execute ${funcName} function\nconst __result__ = ${funcName}(); if (__result__ !== undefined) console.log('Result:', __result__);`;
+        this.logger.log(`Auto-adding ${funcName}() call to code`);
+        return code + funcCall;
+      }
+    }
+
+    return code;
+  }
+
+  /**
    * 执行 JavaScript 代码
    */
   private async executeJavaScript(
@@ -78,9 +141,12 @@ export class CodeExecutionService {
     variables?: Record<string, unknown>,
     timeout?: number,
   ): Promise<ExecuteResult> {
+    // 预处理代码，自动添加主函数调用
+    const preparedCode = this.prepareCodeForExecution(code);
+
     const result = await this.jsExecutor.execute(
       {
-        code,
+        code: preparedCode,
         context: { variables: variables || {} },
         options: { timeout },
       },
