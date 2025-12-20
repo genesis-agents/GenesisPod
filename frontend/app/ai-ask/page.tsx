@@ -822,10 +822,104 @@ export default function AskPage() {
                         </button>
 
                         {showTools && (
-                          <div className="absolute bottom-full left-0 z-50 mb-2 w-56 rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
-                            {/* Image Generation */}
+                          <div className="absolute bottom-full left-0 z-50 mb-2 max-h-96 w-64 overflow-y-auto rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
+                            {/* AI Office Agents */}
                             <div className="px-3 pb-1 text-xs font-medium text-gray-400">
-                              Image Generation
+                              AI Office
+                            </div>
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setShowTools(false);
+                                router.push('/ai-office/slides');
+                              }}
+                            >
+                              <span className="text-base">📊</span>
+                              <span className="flex-1">AI Slides</span>
+                              <span className="text-xs text-gray-400">PPT</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setShowTools(false);
+                                router.push('/ai-office/docs');
+                              }}
+                            >
+                              <span className="text-base">📝</span>
+                              <span className="flex-1">AI Docs</span>
+                              <span className="text-xs text-gray-400">
+                                Word
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setShowTools(false);
+                                router.push('/ai-office/developer');
+                              }}
+                            >
+                              <span className="text-base">💻</span>
+                              <span className="flex-1">AI Developer</span>
+                              <span className="text-xs text-gray-400">
+                                Code
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setShowTools(false);
+                                router.push('/ai-office/designer');
+                              }}
+                            >
+                              <span className="text-base">🎨</span>
+                              <span className="flex-1">AI Designer</span>
+                              <span className="text-xs text-gray-400">
+                                Design
+                              </span>
+                            </button>
+
+                            {/* Divider */}
+                            <div className="my-2 border-t border-gray-100" />
+
+                            {/* AI Teams */}
+                            <div className="px-3 pb-1 text-xs font-medium text-gray-400">
+                              Collaboration
+                            </div>
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setShowTools(false);
+                                router.push('/ai-teams');
+                              }}
+                            >
+                              <span className="text-base">👥</span>
+                              <span className="flex-1">AI Teams</span>
+                              <span className="text-xs text-gray-400">
+                                Multi-Agent
+                              </span>
+                            </button>
+
+                            {/* Divider */}
+                            <div className="my-2 border-t border-gray-100" />
+
+                            {/* Creative */}
+                            <div className="px-3 pb-1 text-xs font-medium text-gray-400">
+                              Creative
                             </div>
                             <button
                               type="button"
@@ -837,33 +931,27 @@ export default function AskPage() {
                                 router.push('/studio?tab=create');
                               }}
                             >
-                              <svg
-                                className="h-4 w-4 text-purple-500"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                />
-                              </svg>
-                              <span>Generate Image</span>
-                              <svg
-                                className="ml-auto h-3 w-3 text-gray-400"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                                />
-                              </svg>
+                              <span className="text-base">🖼️</span>
+                              <span className="flex-1">Image Generation</span>
+                              <span className="text-xs text-gray-400">
+                                DALL-E
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setShowTools(false);
+                                router.push('/ai-studio');
+                              }}
+                            >
+                              <span className="text-base">🎬</span>
+                              <span className="flex-1">AI Studio</span>
+                              <span className="text-xs text-gray-400">
+                                Projects
+                              </span>
                             </button>
                           </div>
                         )}
@@ -1533,10 +1621,106 @@ export default function AskPage() {
                           </button>
 
                           {showTools && (
-                            <div className="absolute bottom-full left-0 z-50 mb-2 w-56 rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
-                              {/* Image Generation */}
+                            <div className="absolute bottom-full left-0 z-50 mb-2 max-h-96 w-64 overflow-y-auto rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
+                              {/* AI Office Agents */}
                               <div className="px-3 pb-1 text-xs font-medium text-gray-400">
-                                Image Generation
+                                AI Office
+                              </div>
+                              <button
+                                type="button"
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setShowTools(false);
+                                  router.push('/ai-office/slides');
+                                }}
+                              >
+                                <span className="text-base">📊</span>
+                                <span className="flex-1">AI Slides</span>
+                                <span className="text-xs text-gray-400">
+                                  PPT
+                                </span>
+                              </button>
+                              <button
+                                type="button"
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setShowTools(false);
+                                  router.push('/ai-office/docs');
+                                }}
+                              >
+                                <span className="text-base">📝</span>
+                                <span className="flex-1">AI Docs</span>
+                                <span className="text-xs text-gray-400">
+                                  Word
+                                </span>
+                              </button>
+                              <button
+                                type="button"
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setShowTools(false);
+                                  router.push('/ai-office/developer');
+                                }}
+                              >
+                                <span className="text-base">💻</span>
+                                <span className="flex-1">AI Developer</span>
+                                <span className="text-xs text-gray-400">
+                                  Code
+                                </span>
+                              </button>
+                              <button
+                                type="button"
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setShowTools(false);
+                                  router.push('/ai-office/designer');
+                                }}
+                              >
+                                <span className="text-base">🎨</span>
+                                <span className="flex-1">AI Designer</span>
+                                <span className="text-xs text-gray-400">
+                                  Design
+                                </span>
+                              </button>
+
+                              {/* Divider */}
+                              <div className="my-2 border-t border-gray-100" />
+
+                              {/* AI Teams */}
+                              <div className="px-3 pb-1 text-xs font-medium text-gray-400">
+                                Collaboration
+                              </div>
+                              <button
+                                type="button"
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setShowTools(false);
+                                  router.push('/ai-teams');
+                                }}
+                              >
+                                <span className="text-base">👥</span>
+                                <span className="flex-1">AI Teams</span>
+                                <span className="text-xs text-gray-400">
+                                  Multi-Agent
+                                </span>
+                              </button>
+
+                              {/* Divider */}
+                              <div className="my-2 border-t border-gray-100" />
+
+                              {/* Creative */}
+                              <div className="px-3 pb-1 text-xs font-medium text-gray-400">
+                                Creative
                               </div>
                               <button
                                 type="button"
@@ -1548,35 +1732,28 @@ export default function AskPage() {
                                   router.push('/studio?tab=create');
                                 }}
                               >
-                                <svg
-                                  className="h-4 w-4 text-purple-500"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                  />
-                                </svg>
-                                <span>Generate Image</span>
-                                <svg
-                                  className="ml-auto h-3 w-3 text-gray-400"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                                  />
-                                </svg>
+                                <span className="text-base">🖼️</span>
+                                <span className="flex-1">Image Generation</span>
+                                <span className="text-xs text-gray-400">
+                                  DALL-E
+                                </span>
                               </button>
-
+                              <button
+                                type="button"
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setShowTools(false);
+                                  router.push('/ai-studio');
+                                }}
+                              >
+                                <span className="text-base">🎬</span>
+                                <span className="flex-1">AI Studio</span>
+                                <span className="text-xs text-gray-400">
+                                  Projects
+                                </span>
+                              </button>
                             </div>
                           )}
                         </div>

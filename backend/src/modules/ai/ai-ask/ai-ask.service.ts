@@ -712,6 +712,15 @@ export class AiAskService {
       title = title.replace(/\.{2,}$/g, ""); // Remove trailing ellipsis
       title = title.trim().slice(0, 100);
 
+      // Validate: if title looks like an error message, use fallback
+      const isErrorTitle = this.isErrorLikeTitle(title);
+      if (isErrorTitle || !title || title.length < 2) {
+        title = this.generateFallbackTitle(firstMessage);
+        this.logger.warn(
+          `AI-generated title looked like an error, using fallback: ${title}`,
+        );
+      }
+
       await this.prisma.askSession.update({
         where: { id: sessionId },
         data: { title },
@@ -719,8 +728,86 @@ export class AiAskService {
 
       this.logger.log(`Generated title for session ${sessionId}: ${title}`);
     } catch (error) {
-      this.logger.error(`Failed to generate session title: ${error}`);
+      // If AI title generation fails, use a fallback based on the user's message
+      this.logger.warn(
+        `Failed to generate session title via AI, using fallback: ${error}`,
+      );
+      const fallbackTitle = this.generateFallbackTitle(firstMessage);
+      try {
+        await this.prisma.askSession.update({
+          where: { id: sessionId },
+          data: { title: fallbackTitle },
+        });
+        this.logger.log(
+          `Set fallback title for session ${sessionId}: ${fallbackTitle}`,
+        );
+      } catch (updateError) {
+        this.logger.error(`Failed to set fallback title: ${updateError}`);
+      }
     }
+  }
+
+  /**
+   * 检查标题是否看起来像错误消息
+   */
+  private isErrorLikeTitle(title: string): boolean {
+    const errorPatterns = [
+      /^(API )?Error[:：]/i,
+      /^Failed to/i,
+      /^Cannot /i,
+      /^Unable to/i,
+      /响应被/,
+      /返回空/,
+      /请求失败/,
+      /连接超时/,
+      /网络错误/,
+      /\[.*Error.*\]/i,
+      /^抱歉/,
+      /^Sorry/i,
+      /^I (cannot|can't|couldn't)/i,
+      /^No response/i,
+      /token/i,
+      /rate limit/i,
+      /quota/i,
+    ];
+    return errorPatterns.some((pattern) => pattern.test(title));
+  }
+
+  /**
+   * 从用户消息生成备用标题
+   */
+  private generateFallbackTitle(message: string): string {
+    // Clean up the message
+    let cleaned = message
+      .replace(/\n+/g, " ") // Replace newlines with spaces
+      .replace(/\s+/g, " ") // Collapse multiple spaces
+      .replace(/^[>\s#*]+/g, "") // Remove markdown prefixes
+      .trim();
+
+    // Remove common question prefixes
+    cleaned = cleaned
+      .replace(/^(请|帮我|帮忙|能不能|可以|麻烦|怎么|如何|什么是)/g, "")
+      .replace(/^(please|can you|could you|help me|how to|what is)/gi, "")
+      .trim();
+
+    // Take first meaningful part (up to 30 chars)
+    if (cleaned.length > 30) {
+      // Try to break at word boundary
+      const truncated = cleaned.substring(0, 30);
+      const lastSpace = truncated.lastIndexOf(" ");
+      if (lastSpace > 15) {
+        cleaned = truncated.substring(0, lastSpace);
+      } else {
+        cleaned = truncated;
+      }
+    }
+
+    // If still empty or too short, use generic title
+    if (!cleaned || cleaned.length < 2) {
+      return "New Conversation";
+    }
+
+    return cleaned;
   }
 
   /**
