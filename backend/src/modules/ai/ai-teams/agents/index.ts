@@ -13,11 +13,4 @@ export type {
 export { TeamsLLMAdapter } from "./teams-llm-adapter";
 export type { TeamsLLMAdapterConfig } from "./teams-llm-adapter";
 
-// Re-export services
-export { TeamCollaborationService } from "../services/collaboration/team-collaboration.service";
-export type {
-  HandoffRequest,
-  HandoffResult,
-  VoteRequest,
-  VoteResult,
-} from "../services/collaboration/team-collaboration.service";
+// Note: TeamCollaborationService is exported from ./services to avoid circular dependencies
