@@ -1,0 +1,83 @@
+import { NextRequest } from 'next/server';
+import { cookies } from 'next/headers';
+
+const BACKEND_API_URL =
+  process.env.BACKEND_API_URL ||
+  'https://deepdive-engine.up.railway.app/api/v1';
+
+export const maxDuration = 300;
+export const runtime = 'nodejs';
+
+/**
+ * GET /api/agents/tasks/[taskId]/stream
+ * SSE stream for task progress updates
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ taskId: string }> }
+) {
+  try {
+    const { taskId } = await params;
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth-token')?.value;
+
+    console.log('[Agents Stream] Connecting to task:', taskId);
+
+    const response = await fetch(
+      `${BACKEND_API_URL}/agents/tasks/${taskId}/stream`,
+      {
+        headers: {
+          Accept: 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.error(
+        '[Agents Stream] Backend error:',
+        response.status,
+        response.statusText
+      );
+      return new Response(
+        JSON.stringify({
+          error: `Backend error: ${response.status}`,
+        }),
+        {
+          status: response.status,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Proxy the SSE stream
+    if (response.body) {
+      return new Response(response.body, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          Connection: 'keep-alive',
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
+    }
+
+    return new Response(JSON.stringify({ error: 'No response body' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('[Agents Stream] Error:', error);
+    return new Response(
+      JSON.stringify({
+        error: 'Failed to connect to backend service',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      }),
+      {
+        status: 502,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+}
