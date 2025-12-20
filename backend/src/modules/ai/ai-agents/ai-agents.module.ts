@@ -4,7 +4,7 @@
  * 包含 48 种工具的完整注册
  */
 
-import { Module, OnModuleInit } from "@nestjs/common";
+import { Module, OnModuleInit, forwardRef } from "@nestjs/common";
 import { AiAgentsController } from "./ai-agents.controller";
 import { AiAgentsService } from "./ai-agents.service";
 import {
@@ -110,7 +110,7 @@ import { AiTeamsModule } from "../ai-teams/ai-teams.module";
     AiCoreModule,
     AiStudioModule,
     AiSimulationModule,
-    AiTeamsModule,
+    forwardRef(() => AiTeamsModule),
   ],
   controllers: [AiAgentsController],
   providers: [

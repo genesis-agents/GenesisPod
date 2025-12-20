@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import {
   AiTeamsController,
   UsersController,
@@ -26,7 +26,7 @@ import {
 } from "./services";
 
 @Module({
-  imports: [PrismaModule, AiCoreModule, AiAgentsModule],
+  imports: [PrismaModule, AiCoreModule, forwardRef(() => AiAgentsModule)],
   controllers: [AiTeamsController, UsersController, BookmarksController],
   providers: [
     AiTeamsService,
