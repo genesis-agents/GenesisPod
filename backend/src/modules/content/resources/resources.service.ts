@@ -996,4 +996,104 @@ export class ResourcesService {
       details,
     };
   }
+
+  /**
+   * 切换用户对资源的点赞状态
+   * @returns 新的点赞状态和点赞数
+   */
+  async toggleUpvote(
+    resourceId: string,
+    userId: string,
+  ): Promise<{ upvoted: boolean; upvoteCount: number }> {
+    // 检查资源是否存在
+    const resource = await this.prisma.resource.findUnique({
+      where: { id: resourceId },
+    });
+
+    if (!resource) {
+      throw new NotFoundException(`Resource with ID ${resourceId} not found`);
+    }
+
+    // 检查用户是否已点赞
+    const existingUpvote = await this.prisma.resourceUpvote.findUnique({
+      where: {
+        userId_resourceId: {
+          userId,
+          resourceId,
+        },
+      },
+    });
+
+    if (existingUpvote) {
+      // 已点赞，取消点赞
+      await this.prisma.$transaction([
+        this.prisma.resourceUpvote.delete({
+          where: { id: existingUpvote.id },
+        }),
+        this.prisma.resource.update({
+          where: { id: resourceId },
+          data: { upvoteCount: { decrement: 1 } },
+        }),
+      ]);
+
+      this.logger.log(
+        `User ${userId} removed upvote from resource ${resourceId}`,
+      );
+
+      return {
+        upvoted: false,
+        upvoteCount: Math.max(0, resource.upvoteCount - 1),
+      };
+    } else {
+      // 未点赞，添加点赞
+      await this.prisma.$transaction([
+        this.prisma.resourceUpvote.create({
+          data: { userId, resourceId },
+        }),
+        this.prisma.resource.update({
+          where: { id: resourceId },
+          data: { upvoteCount: { increment: 1 } },
+        }),
+      ]);
+
+      this.logger.log(`User ${userId} upvoted resource ${resourceId}`);
+
+      return {
+        upvoted: true,
+        upvoteCount: resource.upvoteCount + 1,
+      };
+    }
+  }
+
+  /**
+   * 检查用户是否已点赞某个资源
+   */
+  async getUpvoteStatus(
+    resourceId: string,
+    userId: string,
+  ): Promise<{ upvoted: boolean }> {
+    const upvote = await this.prisma.resourceUpvote.findUnique({
+      where: {
+        userId_resourceId: {
+          userId,
+          resourceId,
+        },
+      },
+    });
+
+    return { upvoted: !!upvote };
+  }
+
+  /**
+   * 获取用户已点赞的所有资源ID列表
+   * 用于前端初始化点赞状态
+   */
+  async getUserUpvotedResourceIds(userId: string): Promise<string[]> {
+    const upvotes = await this.prisma.resourceUpvote.findMany({
+      where: { userId },
+      select: { resourceId: true },
+    });
+
+    return upvotes.map((u) => u.resourceId);
+  }
 }

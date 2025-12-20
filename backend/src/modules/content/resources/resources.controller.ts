@@ -14,17 +14,26 @@ import {
   HttpStatus,
   UploadedFile,
   UseInterceptors,
+  UseGuards,
+  Req,
 } from "@nestjs/common";
 import { SkipThrottle } from "@nestjs/throttler";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { memoryStorage } from "multer";
 import * as path from "path";
+import { Request } from "express";
 import { ResourcesService } from "./resources.service";
 import { AIEnrichmentService } from "./ai-enrichment.service";
 import { PdfThumbnailService } from "./pdf-thumbnail.service";
 import { DynamicThumbnailService } from "./dynamic-thumbnail.service";
 import { R2StorageService } from "../../core/storage/r2-storage.service";
+import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { Prisma } from "@prisma/client";
+
+// Extend Express Request to include user
+interface AuthenticatedRequest extends Request {
+  user?: { id: string };
+}
 
 /**
  * 资源管理控制器
@@ -144,6 +153,30 @@ export class ResourcesController {
       message: `Cleaned up ${result.deleted} duplicate resources`,
       ...result,
     };
+  }
+
+  /**
+   * 获取当前用户已点赞的所有资源ID列表
+   * GET /api/v1/resources/user/upvotes
+   *
+   * 用于前端初始化点赞状态
+   * 注意：此路由必须在 @Get(':id') 之前
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get("user/upvotes")
+  async getUserUpvotes(@Req() req: AuthenticatedRequest) {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      throw new HttpException("Unauthorized", HttpStatus.UNAUTHORIZED);
+    }
+
+    this.logger.log(`Fetching upvoted resources for user ${userId}`);
+
+    const resourceIds =
+      await this.resourcesService.getUserUpvotedResourceIds(userId);
+
+    return { resourceIds };
   }
 
   /**
@@ -366,6 +399,34 @@ export class ResourcesController {
     this.logger.log(`Deleting resource ${id}`);
 
     return this.resourcesService.remove(id);
+  }
+
+  /**
+   * 切换资源点赞状态
+   * POST /api/v1/resources/:id/upvote
+   *
+   * 需要登录，每次调用会切换用户对该资源的点赞状态
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post(":id/upvote")
+  async toggleUpvote(
+    @Param("id") id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      throw new HttpException("Unauthorized", HttpStatus.UNAUTHORIZED);
+    }
+
+    this.logger.log(`Toggling upvote for resource ${id} by user ${userId}`);
+
+    const result = await this.resourcesService.toggleUpvote(id, userId);
+
+    return {
+      success: true,
+      ...result,
+    };
   }
 
   /**

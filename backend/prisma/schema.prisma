@@ -94,6 +94,9 @@ model User {
   topicJoinRequests         TopicJoinRequest[] @relation("TopicJoinRequestUser")
   topicJoinRequestsReviewed TopicJoinRequest[] @relation("TopicJoinRequestReviewer")
 
+  // 资源点赞
+  resourceUpvotes ResourceUpvote[]
+
   @@map("users")
 }
 
@@ -241,6 +244,9 @@ model Resource {
   // AI Office 文档引用
   officeDocumentRefs OfficeDocumentResourceRef[]
 
+  // 用户点赞
+  upvotes ResourceUpvote[]
+
   @@index([type, publishedAt(sort: Desc)])
   @@index([qualityScore(sort: Desc)])
   @@index([trendingScore(sort: Desc)])
@@ -252,6 +258,24 @@ model Resource {
   @@index([contentFingerprint])
   @@index([titleFingerprint])
   @@map("resources")
+}
+
+// 用户对资源的点赞记录
+model ResourceUpvote {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  resourceId String   @map("resource_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // 关系
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resource Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  // 唯一约束：每个用户对每个资源只能点赞一次
+  @@unique([userId, resourceId])
+  @@index([userId])
+  @@index([resourceId])
+  @@map("resource_upvotes")
 }
 
 model ResourceTranslation {

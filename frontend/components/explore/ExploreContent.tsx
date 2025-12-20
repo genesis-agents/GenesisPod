@@ -185,6 +185,7 @@ function HomeContent() {
 
   // Upvote states
   const [upvotes, setUpvotes] = useState<Set<string>>(new Set());
+  const [upvotesLoading, setUpvotesLoading] = useState(false);
 
   // Report workspace (legacy - for /workspace page)
   const { addResource, hasResource, canAddMore } = useReportWorkspace();
@@ -197,6 +198,36 @@ function HomeContent() {
     // Mark as hydrated to prevent hydration mismatches
     setIsHydrated(true);
   }, []);
+
+  // Load user's upvoted resources on mount
+  useEffect(() => {
+    const fetchUserUpvotes = async () => {
+      if (!user || !accessToken) return;
+
+      try {
+        setUpvotesLoading(true);
+        const response = await fetch(
+          `${config.apiUrl}/resources/user/upvotes`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setUpvotes(new Set(data.resourceIds || []));
+        }
+      } catch (error) {
+        console.error('Failed to fetch user upvotes:', error);
+      } finally {
+        setUpvotesLoading(false);
+      }
+    };
+
+    fetchUserUpvotes();
+  }, [user, accessToken]);
 
   // Import states
   const [showImportUrlDialog, setShowImportUrlDialog] = useState(false);
@@ -1215,12 +1246,22 @@ function HomeContent() {
     }
   };
 
-  // Upvote function
-  const toggleUpvote = (resourceId: string, e: React.MouseEvent) => {
+  // Upvote function - calls backend API
+  const toggleUpvote = async (resourceId: string, e: React.MouseEvent) => {
     e.stopPropagation();
 
+    // Require user to be logged in
+    if (!user || !accessToken) {
+      // Optionally show a login prompt
+      console.warn('User must be logged in to upvote');
+      return;
+    }
+
+    // Optimistic update for better UX
+    const wasUpvoted = upvotes.has(resourceId);
     const newUpvotes = new Set(upvotes);
-    if (newUpvotes.has(resourceId)) {
+
+    if (wasUpvoted) {
       newUpvotes.delete(resourceId);
       // 减少点赞数
       setResources((prev) =>
@@ -1262,6 +1303,75 @@ function HomeContent() {
       }
     }
     setUpvotes(newUpvotes);
+
+    // Call backend API
+    try {
+      const response = await fetch(
+        `${config.apiUrl}/resources/${resourceId}/upvote`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle upvote');
+      }
+
+      const data = await response.json();
+
+      // Update with server state (authoritative)
+      if (data.upvoted) {
+        setUpvotes((prev) => new Set([...prev, resourceId]));
+      } else {
+        setUpvotes((prev) => {
+          const next = new Set(prev);
+          next.delete(resourceId);
+          return next;
+        });
+      }
+
+      // Update upvote count from server
+      setResources((prev) =>
+        prev.map((r) =>
+          r.id === resourceId ? { ...r, upvoteCount: data.upvoteCount } : r
+        )
+      );
+      if (selectedResource?.id === resourceId) {
+        setSelectedResource((prev) =>
+          prev ? { ...prev, upvoteCount: data.upvoteCount } : null
+        );
+      }
+    } catch (error) {
+      console.error('Failed to toggle upvote:', error);
+      // Revert optimistic update on error
+      if (wasUpvoted) {
+        setUpvotes((prev) => new Set([...prev, resourceId]));
+        setResources((prev) =>
+          prev.map((r) =>
+            r.id === resourceId
+              ? { ...r, upvoteCount: (r.upvoteCount || 0) + 1 }
+              : r
+          )
+        );
+      } else {
+        setUpvotes((prev) => {
+          const next = new Set(prev);
+          next.delete(resourceId);
+          return next;
+        });
+        setResources((prev) =>
+          prev.map((r) =>
+            r.id === resourceId
+              ? { ...r, upvoteCount: Math.max(0, (r.upvoteCount || 0) - 1) }
+              : r
+          )
+        );
+      }
+    }
   };
 
   const hasUpvoted = (resourceId: string) => {
