@@ -16,6 +16,7 @@ import {
   previewMissionReport,
   MissionReportData,
 } from '@/lib/utils/mission-report-pdf';
+import * as api from '@/lib/api/ai-teams';
 
 interface TeamCanvasModalProps {
   isOpen: boolean;
@@ -594,18 +595,38 @@ export default function TeamCanvasModal({
   const handleDownloadResults = useCallback(async () => {
     if (!mission) return;
 
+    // 先获取完整的任务数据（包括所有 tasks 的 result 和 mission 的 finalResult）
+    let fullMission = mission;
+    try {
+      console.log('[Report] Fetching full mission data for:', mission.id);
+      fullMission = await api.getMissionById(mission.topicId, mission.id);
+      console.log('[Report] Full mission fetched:', {
+        id: fullMission.id,
+        tasksCount: fullMission.tasks?.length || 0,
+        hasFinalResult: !!fullMission.finalResult,
+        tasksWithResults:
+          fullMission.tasks?.filter((t) => t.result)?.length || 0,
+      });
+    } catch (error) {
+      console.warn(
+        '[Report] Failed to fetch full mission, using current data:',
+        error
+      );
+      // 继续使用当前数据
+    }
+
     const reportData: MissionReportData = {
       mission: {
-        id: mission.id,
-        title: mission.title,
-        description: mission.description,
-        status: mission.status,
-        leader: mission.leader?.displayName || 'Unknown',
-        createdAt: mission.createdAt,
-        completedAt: mission.completedAt || undefined,
-        finalResult: mission.finalResult || undefined,
+        id: fullMission.id,
+        title: fullMission.title,
+        description: fullMission.description,
+        status: fullMission.status,
+        leader: fullMission.leader?.displayName || 'Unknown',
+        createdAt: fullMission.createdAt,
+        completedAt: fullMission.completedAt || undefined,
+        finalResult: fullMission.finalResult || undefined,
       },
-      tasks: (mission.tasks || []).map((t) => ({
+      tasks: (fullMission.tasks || []).map((t) => ({
         id: t.id,
         title: t.title,
         description: t.description,
@@ -621,12 +642,14 @@ export default function TeamCanvasModal({
 
     // Debug: 打印报告数据
     console.log('[Report Debug] Mission data:', {
-      id: mission.id,
-      title: mission.title,
-      status: mission.status,
-      finalResult: mission.finalResult ? `${mission.finalResult.substring(0, 100)}...` : 'NULL',
-      tasksCount: mission.tasks?.length || 0,
-      tasksWithResults: mission.tasks?.filter(t => t.result)?.length || 0,
+      id: fullMission.id,
+      title: fullMission.title,
+      status: fullMission.status,
+      finalResult: fullMission.finalResult
+        ? `${fullMission.finalResult.substring(0, 100)}...`
+        : 'NULL',
+      tasksCount: fullMission.tasks?.length || 0,
+      tasksWithResults: fullMission.tasks?.filter((t) => t.result)?.length || 0,
     });
     console.log('[Report Debug] Full reportData:', reportData);
 
