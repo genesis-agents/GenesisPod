@@ -128,6 +128,7 @@ async function getCustomMigrations(): Promise<string[]> {
     "20251215_add_jsonb_gin_indexes",
     "20251215_add_feedback_table",
     "20251219_add_resource_upvotes",
+    "20251220_add_office_agent_tables",
   ];
 
   const migrations: string[] = [];
@@ -307,7 +308,10 @@ async function deploy() {
         'office_documents',
         'office_document_versions',
         'office_document_resource_refs',
-        'office_document_templates'
+        'office_document_templates',
+        'office_agent_tasks',
+        'office_agent_artifacts',
+        'office_agent_tool_logs'
       )
     `;
 
@@ -317,6 +321,9 @@ async function deploy() {
       "office_document_versions",
       "office_document_resource_refs",
       "office_document_templates",
+      "office_agent_tasks",
+      "office_agent_artifacts",
+      "office_agent_tool_logs",
     ];
 
     for (const table of requiredTables) {
@@ -343,7 +350,10 @@ async function deploy() {
         'OfficeDocumentStatus',
         'VersionTrigger',
         'ResourceRefType',
-        'TemplateCategory'
+        'TemplateCategory',
+        'OfficeAgentType',
+        'OfficeTaskStatus',
+        'OfficeArtifactType'
       )
     `;
 
@@ -354,6 +364,9 @@ async function deploy() {
       "VersionTrigger",
       "ResourceRefType",
       "TemplateCategory",
+      "OfficeAgentType",
+      "OfficeTaskStatus",
+      "OfficeArtifactType",
     ];
 
     for (const enumName of requiredEnums) {
