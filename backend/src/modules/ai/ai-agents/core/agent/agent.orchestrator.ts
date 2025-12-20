@@ -160,6 +160,8 @@ export class AgentOrchestrator {
       // 2. 生成执行计划
       this.logger.log(`Planning task for agent: ${agent.type}`);
       const plan = await agent.plan(input);
+      // 将原始输入附加到 plan 上，以便 execute() 方法使用
+      (plan as any).input = input;
       yield { type: "plan_ready", plan };
 
       // 3. 执行计划
