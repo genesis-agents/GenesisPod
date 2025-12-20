@@ -29,6 +29,7 @@ import {
   SlideRendererService,
   PPTExportService,
   NaturalEditService,
+  PPTVersionService,
 } from "./ppt";
 
 @Module({
@@ -64,6 +65,7 @@ import {
     SlideRendererService,
     PPTExportService,
     NaturalEditService,
+    PPTVersionService,
   ],
   exports: [
     QuickGenerateService,
@@ -80,6 +82,7 @@ import {
     SlideRendererService,
     PPTExportService,
     NaturalEditService,
+    PPTVersionService,
   ],
 })
 export class AiOfficeModule {}

@@ -35,6 +35,12 @@ import { PPTOrchestratorService } from "./ppt-orchestrator.service";
 import { SlidePlanningService } from "./slide-planning.service";
 import { PPTExportService } from "./ppt-export.service";
 import { NaturalEditService, EditResult } from "./natural-edit.service";
+import {
+  PPTVersionService,
+  VersionInfo,
+  VersionDiff,
+  RollbackResult,
+} from "./ppt-version.service";
 import { ContentExtractorService } from "../../../../common/content-processing";
 import {
   PPTGenerationInput,
@@ -135,6 +141,7 @@ export class PPTGenerationController {
     private readonly slidePlanning: SlidePlanningService,
     private readonly pptExport: PPTExportService,
     private readonly naturalEdit: NaturalEditService,
+    private readonly versionService: PPTVersionService,
     private readonly contentExtractor: ContentExtractorService,
   ) {}
 
@@ -557,5 +564,143 @@ export class PPTGenerationController {
   ): Promise<{ items: any[]; total: number }> {
     // TODO: 实现列表功能
     throw new HttpException("Not implemented", HttpStatus.NOT_IMPLEMENTED);
+  }
+
+  // ============================================
+  // 版本管理 API
+  // ============================================
+
+  /**
+   * 获取 PPT 版本历史列表
+   */
+  @Get(":id/versions")
+  async getVersionHistory(@Param("id") id: string): Promise<VersionInfo[]> {
+    this.logger.log(`[getVersionHistory] PPT: ${id}`);
+
+    try {
+      const document = await this.orchestrator.getPPTDocument(id);
+      return this.versionService.getVersionList(document);
+    } catch (error: any) {
+      this.logger.error(`[getVersionHistory] Error: ${error.message}`);
+      throw new HttpException(
+        error.message || "获取版本历史失败",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * 手动保存当前版本
+   */
+  @Post(":id/versions")
+  async saveVersion(
+    @Param("id") id: string,
+    @Body() dto: { description?: string },
+  ): Promise<{ versionId: string; message: string }> {
+    this.logger.log(`[saveVersion] PPT: ${id}`);
+
+    try {
+      const document = await this.orchestrator.getPPTDocument(id);
+
+      // 创建手动版本
+      const version = this.versionService.createVersion(document, {
+        type: "manual",
+        trigger: "manual_save",
+        description: dto.description,
+      });
+
+      // 添加到文档
+      this.versionService.addVersionToDocument(document, version);
+
+      // 保存文档
+      await this.orchestrator.updatePPTDocument(document);
+
+      return {
+        versionId: version.id,
+        message: "版本保存成功",
+      };
+    } catch (error: any) {
+      this.logger.error(`[saveVersion] Error: ${error.message}`);
+      throw new HttpException(
+        error.message || "保存版本失败",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * 回滚到指定版本
+   */
+  @Post(":id/versions/:versionId/rollback")
+  async rollbackToVersion(
+    @Param("id") id: string,
+    @Param("versionId") versionId: string,
+  ): Promise<RollbackResult> {
+    this.logger.log(`[rollbackToVersion] PPT: ${id}, Version: ${versionId}`);
+
+    try {
+      const document = await this.orchestrator.getPPTDocument(id);
+      const result = this.versionService.rollbackToVersion(document, versionId);
+
+      if (result.success && result.document) {
+        await this.orchestrator.updatePPTDocument(result.document);
+      }
+
+      return result;
+    } catch (error: any) {
+      this.logger.error(`[rollbackToVersion] Error: ${error.message}`);
+      throw new HttpException(
+        error.message || "版本回滚失败",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * 比较两个版本
+   */
+  @Get(":id/versions/compare")
+  async compareVersions(
+    @Param("id") id: string,
+    @Query("from") fromVersionId: string,
+    @Query("to") toVersionId: string,
+  ): Promise<VersionDiff> {
+    this.logger.log(
+      `[compareVersions] PPT: ${id}, From: ${fromVersionId}, To: ${toVersionId}`,
+    );
+
+    if (!fromVersionId || !toVersionId) {
+      throw new HttpException(
+        "必须提供 from 和 to 版本ID",
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    try {
+      const document = await this.orchestrator.getPPTDocument(id);
+      const diff = this.versionService.compareVersions(
+        document,
+        fromVersionId,
+        toVersionId,
+      );
+
+      if (!diff) {
+        throw new HttpException(
+          "无法比较版本，请检查版本ID是否正确",
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      return diff;
+    } catch (error: any) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      this.logger.error(`[compareVersions] Error: ${error.message}`);
+      throw new HttpException(
+        error.message || "版本比较失败",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 }
