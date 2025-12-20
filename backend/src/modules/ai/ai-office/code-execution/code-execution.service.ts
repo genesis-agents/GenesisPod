@@ -81,7 +81,7 @@ export class CodeExecutionService {
     const result = await this.jsExecutor.execute(
       {
         code,
-        context: { variables },
+        context: { variables: variables || {} },
         options: { timeout },
       },
       { taskId: "code-exec", timeout },
@@ -172,7 +172,7 @@ export class CodeExecutionService {
     const result = await this.pythonExecutor.execute(
       {
         code,
-        context: { variables },
+        context: { variables: variables || {} },
         options: { timeout },
       },
       { taskId: "code-exec", timeout },
