@@ -73,7 +73,6 @@
     "helmet": "^8.1.0",
     "jsdom": "^24.1.0",
     "mammoth": "^1.11.0",
-    "markdown-pdf": "^11.0.0",
     "node-cron": "^3.0.2",
     "openai": "^6.14.0",
     "passport": "^0.7.0",
