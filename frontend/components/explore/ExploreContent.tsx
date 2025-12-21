@@ -79,7 +79,7 @@ function HomeContent() {
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
 
   // Initialize activeTab from URL query parameter if present
-  const initialTab = (searchParams?.get('tab') || 'papers') as TabType;
+  const initialTab = (searchParams?.get('tab') || 'youtube') as TabType;
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [selectedResource, setSelectedResource] = useState<Resource | null>(
     null

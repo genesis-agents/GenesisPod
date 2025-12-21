@@ -143,10 +143,9 @@ function Base64Image({ src, alt }: { src: string; alt: string }) {
 import { useReportWorkspace } from '@/hooks/useReportWorkspace';
 
 // 懒加载对话框组件
-const FilterPanel = dynamic(
-  () => import('@/components/features/FilterPanel'),
-  { ssr: false }
-);
+const FilterPanel = dynamic(() => import('@/components/features/FilterPanel'), {
+  ssr: false,
+});
 
 const ImportUrlDialog = dynamic(
   () =>
@@ -296,7 +295,7 @@ function HomeContent() {
   const [loading, setLoading] = useState(true);
 
   // Initialize activeTab from URL query parameter if present
-  const initialTab = (searchParams?.get('tab') || 'papers') as TabType;
+  const initialTab = (searchParams?.get('tab') || 'youtube') as TabType;
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [selectedResource, setSelectedResource] = useState<Resource | null>(
     null

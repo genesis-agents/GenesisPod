@@ -3,6 +3,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  Sparkles,
+  Link2,
+  Zap,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+} from 'lucide-react';
+import {
   getConnections,
   getConnectUrl,
   disconnectNotion,
@@ -29,6 +37,8 @@ export default function NotionTabContent() {
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [isAIExpanded, setIsAIExpanded] = useState(false);
+  const [aiTaskRunning, setAiTaskRunning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -283,10 +293,12 @@ export default function NotionTabContent() {
         </div>
       )}
 
-      {/* 工作区状态栏 - 优化设计 */}
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-6">
+      {/* 集成头部 - 工作区状态 + AI 助手 */}
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+        {/* 主行：工作区信息 + AI助手切换 + 操作按钮 */}
+        <div className="flex items-center justify-between p-4">
+          {/* 左侧：工作区信息 */}
+          <div className="flex items-center gap-4">
             {connections.map((conn) => {
               const syncStatus = getSyncStatusForConnection(conn.id);
               return (
@@ -294,7 +306,6 @@ export default function NotionTabContent() {
                   {/* 工作区图标 */}
                   <div className="relative">
                     {renderWorkspaceIcon(conn.workspaceIcon, 'md')}
-                    {/* 连接状态指示点 */}
                     <span
                       className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white ${
                         conn.status === 'ACTIVE'
@@ -303,7 +314,6 @@ export default function NotionTabContent() {
                       }`}
                     />
                   </div>
-                  {/* 工作区信息 */}
                   <div className="flex flex-col">
                     <span className="text-sm font-semibold text-gray-900">
                       {conn.workspaceName || 'Notion Workspace'}
@@ -316,25 +326,7 @@ export default function NotionTabContent() {
                         <>
                           <span>·</span>
                           <span className="flex items-center text-blue-600">
-                            <svg
-                              className="mr-1 h-3 w-3 animate-spin"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                            >
-                              <circle
-                                className="opacity-25"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                strokeWidth="4"
-                              />
-                              <path
-                                className="opacity-75"
-                                fill="currentColor"
-                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                              />
-                            </svg>
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                             Syncing...
                           </span>
                         </>
@@ -345,7 +337,29 @@ export default function NotionTabContent() {
               );
             })}
           </div>
-          {/* 操作按钮 */}
+
+          {/* 中间：分隔线 */}
+          <div className="mx-4 h-8 w-px bg-gray-200" />
+
+          {/* AI 助手切换按钮 */}
+          <button
+            onClick={() => setIsAIExpanded(!isAIExpanded)}
+            className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
+              isAIExpanded
+                ? 'bg-purple-100 text-purple-700'
+                : 'text-gray-600 hover:bg-purple-50 hover:text-purple-600'
+            }`}
+          >
+            <Sparkles className="h-4 w-4" />
+            <span className="hidden sm:inline">AI Assistant</span>
+            {isAIExpanded ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </button>
+
+          {/* 右侧：操作按钮 */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => handleSync(connections[0]?.id)}
@@ -397,6 +411,57 @@ export default function NotionTabContent() {
             </button>
           </div>
         </div>
+
+        {/* AI 助手展开面板 */}
+        {isAIExpanded && (
+          <div className="border-t border-gray-100 bg-gradient-to-r from-purple-50/50 to-indigo-50/50 p-4">
+            <div className="mb-3 text-sm text-gray-600">
+              AI can help organize your Notion pages, extract insights, and find
+              connections with Library content.
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {/* AI Insights */}
+              <button
+                onClick={() => setAiTaskRunning('insights')}
+                disabled={aiTaskRunning !== null}
+                className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-sm font-medium text-blue-700 transition-all hover:bg-blue-50 disabled:opacity-50"
+              >
+                {aiTaskRunning === 'insights' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                Extract Insights
+              </button>
+              {/* Smart Link */}
+              <button
+                onClick={() => setAiTaskRunning('link')}
+                disabled={aiTaskRunning !== null}
+                className="flex items-center gap-1.5 rounded-lg border border-purple-200 bg-white px-3 py-1.5 text-sm font-medium text-purple-700 transition-all hover:bg-purple-50 disabled:opacity-50"
+              >
+                {aiTaskRunning === 'link' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Link2 className="h-4 w-4" />
+                )}
+                Find Links
+              </button>
+              {/* Quick Analyze */}
+              <button
+                onClick={() => setAiTaskRunning('analyze')}
+                disabled={aiTaskRunning !== null}
+                className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-sm font-medium text-amber-700 transition-all hover:bg-amber-50 disabled:opacity-50"
+              >
+                {aiTaskRunning === 'analyze' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Zap className="h-4 w-4" />
+                )}
+                Quick Analyze
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 设置面板 - 优化设计 */}

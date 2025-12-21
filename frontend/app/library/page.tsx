@@ -1497,27 +1497,29 @@ function LibraryPageContent() {
 
         {/* Main content area */}
         <div className="px-8 py-6">
-          {/* AI Organize Panel - Show on all tabs */}
-          <AIOrganizePanel
-            collections={collections.map((c) => ({
-              id: c.id,
-              name: c.name,
-              itemCount: c.items?.length || 0,
-            }))}
-            onRefresh={() => {
-              // Refresh based on active tab
-              if (activeTab === 'bookmarks') {
-                loadItems(1, false);
-                loadTagsAndStats();
-              } else if (activeTab === 'images') {
-                loadBookmarkedImages();
-              } else if (activeTab === 'graph') {
-                loadGraphData();
-              }
-              // Notes tab refreshes via its own component
-            }}
-            activeTab={activeTab}
-          />
+          {/* AI Organize Panel - Show on all tabs except Notion (Notion has integrated header) */}
+          {activeTab !== 'notion' && (
+            <AIOrganizePanel
+              collections={collections.map((c) => ({
+                id: c.id,
+                name: c.name,
+                itemCount: c.items?.length || 0,
+              }))}
+              onRefresh={() => {
+                // Refresh based on active tab
+                if (activeTab === 'bookmarks') {
+                  loadItems(1, false);
+                  loadTagsAndStats();
+                } else if (activeTab === 'images') {
+                  loadBookmarkedImages();
+                } else if (activeTab === 'graph') {
+                  loadGraphData();
+                }
+                // Notes tab refreshes via its own component
+              }}
+              activeTab={activeTab}
+            />
+          )}
 
           {/* Bookmarks and All Content View */}
           {activeTab === 'bookmarks' &&
