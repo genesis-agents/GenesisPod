@@ -73,10 +73,10 @@ export default function NotionTabContent() {
 
     try {
       const result = await getConnectUrl();
-      window.open(result.url, 'notion-oauth', 'width=600,height=700');
+      // Redirect to Notion OAuth in same tab
+      window.location.href = result.url;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start connection');
-    } finally {
       setConnecting(false);
     }
   };
