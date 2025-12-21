@@ -103,6 +103,11 @@ function HomeContent() {
   const [isAiPanelCollapsed, setIsAiPanelCollapsed] = useState(false);
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(true);
 
+  // Resizable AI panel width
+  const [aiPanelWidth, setAiPanelWidth] = useState(420); // Default 420px (larger than before)
+  const [isResizingPanel, setIsResizingPanel] = useState(false);
+  const resizeRef = useRef<HTMLDivElement>(null);
+
   // Context menu for adding to notes
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -123,6 +128,39 @@ function HomeContent() {
       return () => clearTimeout(timer);
     }
   }, [toast]);
+
+  // Panel resize handlers
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingPanel(true);
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizingPanel) return;
+      const newWidth = window.innerWidth - e.clientX;
+      // Constrain between 320px and 600px
+      setAiPanelWidth(Math.min(600, Math.max(320, newWidth)));
+    };
+
+    const handleMouseUp = () => {
+      setIsResizingPanel(false);
+    };
+
+    if (isResizingPanel) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizingPanel]);
 
   const { models: allAiModels } = useAIModels();
   // 只显示 CHAT 类型的模型（或 MULTIMODAL，因为它们也支持文本聊天）
@@ -2640,7 +2678,19 @@ function HomeContent() {
 
       {/* Right AI Interaction Panel - Only show in detail view */}
       {!isAiPanelCollapsed && viewMode === 'detail' && (
-        <aside className="relative hidden w-80 flex-shrink-0 flex-col border-l border-gray-200 bg-white lg:flex lg:w-96">
+        <aside
+          className="relative hidden flex-shrink-0 flex-col border-l border-gray-200 bg-white lg:flex"
+          style={{ width: aiPanelWidth }}
+        >
+          {/* Resize Handle */}
+          <div
+            ref={resizeRef}
+            onMouseDown={handleResizeStart}
+            className={`absolute -left-1 top-0 z-20 h-full w-2 cursor-col-resize transition-colors ${
+              isResizingPanel ? 'bg-red-400' : 'hover:bg-red-300/50'
+            }`}
+            title="拖拽调整面板宽度"
+          />
           <button
             type="button"
             onClick={() => setIsAiPanelCollapsed(true)}
