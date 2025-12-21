@@ -419,7 +419,7 @@ export class NotionSyncService {
 
       for (const dbResult of searchResponse.results) {
         if (!("title" in dbResult)) continue; // Filter for database objects
-        const db = dbResult as DatabaseObjectResponse;
+        const db = dbResult as unknown as DatabaseObjectResponse;
 
         try {
           await this.syncDatabase(client, connectionId, db);
