@@ -16,19 +16,42 @@ import { Response } from "express";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AiCodingService } from "./ai-coding.service";
 import {
+  StandardsService,
+  ComplianceService,
+  GithubOAuthService,
+  GithubRepoService,
+  DocumentService,
+} from "./services";
+import {
   CreateProjectDto,
   UpdateProjectDto,
   StartProjectDto,
   IterateProjectDto,
+  CreateStandardDto,
+  UpdateStandardDto,
+  ApplyTemplateDto,
+  CreateRepoDto,
+  PushToRepoDto,
+  CreateBranchDto,
+  CreatePRDto,
+  GithubCallbackDto,
+  CheckComplianceDto,
 } from "./dto";
-import { AiCodingProjectStatus } from "@prisma/client";
+import { AiCodingProjectStatus, AiCodingDocumentType } from "@prisma/client";
 
 @Controller("ai-coding")
 @UseGuards(JwtAuthGuard)
 export class AiCodingController {
   private readonly logger = new Logger(AiCodingController.name);
 
-  constructor(private readonly aiCodingService: AiCodingService) {}
+  constructor(
+    private readonly aiCodingService: AiCodingService,
+    private readonly standardsService: StandardsService,
+    private readonly complianceService: ComplianceService,
+    private readonly githubOAuthService: GithubOAuthService,
+    private readonly githubRepoService: GithubRepoService,
+    private readonly documentService: DocumentService,
+  ) {}
 
   // ==================== Project CRUD ====================
 
@@ -206,5 +229,314 @@ export class AiCodingController {
         },
       },
     ];
+  }
+
+  // ==================== Engineering Standards ====================
+
+  /**
+   * 获取用户的工程规范列表
+   * GET /api/v1/ai-coding/standards
+   */
+  @Get("standards")
+  async getStandards(@Request() req: any) {
+    return this.standardsService.getUserStandards(req.user.id);
+  }
+
+  /**
+   * 获取可用的规范模板
+   * GET /api/v1/ai-coding/standards/templates
+   */
+  @Get("standards/templates")
+  async getStandardTemplates() {
+    return this.standardsService.getTemplates();
+  }
+
+  /**
+   * 创建自定义规范
+   * POST /api/v1/ai-coding/standards
+   */
+  @Post("standards")
+  async createStandard(@Request() req: any, @Body() dto: CreateStandardDto) {
+    return this.standardsService.createStandard(req.user.id, dto);
+  }
+
+  /**
+   * 应用规范模板
+   * POST /api/v1/ai-coding/standards/apply-template
+   */
+  @Post("standards/apply-template")
+  async applyStandardTemplate(
+    @Request() req: any,
+    @Body() dto: ApplyTemplateDto,
+  ) {
+    return this.standardsService.applyTemplate(req.user.id, dto.templateId);
+  }
+
+  /**
+   * 获取单个规范
+   * GET /api/v1/ai-coding/standards/:id
+   */
+  @Get("standards/:id")
+  async getStandardById(@Request() req: any, @Param("id") id: string) {
+    return this.standardsService.getStandardById(id, req.user.id);
+  }
+
+  /**
+   * 更新规范
+   * PATCH /api/v1/ai-coding/standards/:id
+   */
+  @Patch("standards/:id")
+  async updateStandard(
+    @Request() req: any,
+    @Param("id") id: string,
+    @Body() dto: UpdateStandardDto,
+  ) {
+    return this.standardsService.updateStandard(id, req.user.id, dto);
+  }
+
+  /**
+   * 删除规范
+   * DELETE /api/v1/ai-coding/standards/:id
+   */
+  @Delete("standards/:id")
+  async deleteStandard(@Request() req: any, @Param("id") id: string) {
+    await this.standardsService.deleteStandard(id, req.user.id);
+    return { success: true, message: "Standard deleted" };
+  }
+
+  // ==================== Compliance Checking ====================
+
+  /**
+   * 运行项目合规性检查
+   * POST /api/v1/ai-coding/projects/:id/compliance/check
+   */
+  @Post("projects/:id/compliance/check")
+  async checkCompliance(
+    @Request() req: any,
+    @Param("id") projectId: string,
+    @Body() dto?: CheckComplianceDto,
+  ) {
+    this.logger.log(`Running compliance check for project ${projectId}`);
+    return this.complianceService.checkCompliance(projectId, req.user.id, dto);
+  }
+
+  /**
+   * 获取项目的合规性报告
+   * GET /api/v1/ai-coding/projects/:id/compliance
+   */
+  @Get("projects/:id/compliance")
+  async getComplianceReports(
+    @Request() req: any,
+    @Param("id") projectId: string,
+  ) {
+    return this.complianceService.getProjectReports(projectId, req.user.id);
+  }
+
+  /**
+   * 获取单个合规性报告
+   * GET /api/v1/ai-coding/compliance/:reportId
+   */
+  @Get("compliance/:reportId")
+  async getComplianceReportById(
+    @Request() req: any,
+    @Param("reportId") reportId: string,
+  ) {
+    return this.complianceService.getReportById(reportId, req.user.id);
+  }
+
+  // ==================== GitHub Integration ====================
+
+  /**
+   * 获取 GitHub 连接状态
+   * GET /api/v1/ai-coding/github/status
+   */
+  @Get("github/status")
+  async getGithubStatus(@Request() req: any) {
+    return this.githubOAuthService.getStatus(req.user.id);
+  }
+
+  /**
+   * 获取 GitHub OAuth 授权 URL
+   * GET /api/v1/ai-coding/github/auth
+   */
+  @Get("github/auth")
+  async getGithubAuthUrl(@Request() req: any) {
+    const state = Buffer.from(
+      JSON.stringify({ userId: req.user.id, timestamp: Date.now() }),
+    ).toString("base64");
+    const url = this.githubOAuthService.getAuthorizationUrl(state);
+    return { url, state };
+  }
+
+  /**
+   * GitHub OAuth 回调（不需要认证）
+   * GET /api/v1/ai-coding/github/callback
+   */
+  @Get("github/callback")
+  async githubCallback(@Query() dto: GithubCallbackDto, @Res() res: Response) {
+    try {
+      const stateData = JSON.parse(
+        Buffer.from(dto.state, "base64").toString("utf-8"),
+      );
+      const tokenData = await this.githubOAuthService.exchangeCodeForToken(
+        dto.code,
+      );
+      const userData = await this.githubOAuthService.getGithubUser(
+        tokenData.access_token,
+      );
+      await this.githubOAuthService.saveConnection(
+        stateData.userId,
+        tokenData,
+        userData,
+      );
+
+      // 重定向回前端
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3001";
+      res.redirect(`${frontendUrl}/ai-coding?github=connected`);
+    } catch (error) {
+      this.logger.error("GitHub OAuth callback failed", error);
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3001";
+      res.redirect(`${frontendUrl}/ai-coding?github=error`);
+    }
+  }
+
+  /**
+   * 断开 GitHub 连接
+   * DELETE /api/v1/ai-coding/github/disconnect
+   */
+  @Delete("github/disconnect")
+  async disconnectGithub(@Request() req: any) {
+    await this.githubOAuthService.disconnect(req.user.id);
+    return { success: true, message: "GitHub disconnected" };
+  }
+
+  /**
+   * 为项目创建 GitHub 仓库
+   * POST /api/v1/ai-coding/projects/:id/github/repo
+   */
+  @Post("projects/:id/github/repo")
+  async createGithubRepo(
+    @Request() req: any,
+    @Param("id") projectId: string,
+    @Body() dto: CreateRepoDto,
+  ) {
+    return this.githubRepoService.createRepository(projectId, req.user.id, dto);
+  }
+
+  /**
+   * 获取项目的 GitHub 仓库信息
+   * GET /api/v1/ai-coding/projects/:id/github
+   */
+  @Get("projects/:id/github")
+  async getGithubRepoInfo(@Request() req: any, @Param("id") projectId: string) {
+    return this.githubRepoService.getRepoInfo(projectId, req.user.id);
+  }
+
+  /**
+   * 推送代码到 GitHub
+   * POST /api/v1/ai-coding/projects/:id/github/push
+   */
+  @Post("projects/:id/github/push")
+  async pushToGithub(
+    @Request() req: any,
+    @Param("id") projectId: string,
+    @Body() dto?: PushToRepoDto,
+  ) {
+    return this.githubRepoService.pushToRepository(projectId, req.user.id, dto);
+  }
+
+  /**
+   * 创建新分支
+   * POST /api/v1/ai-coding/projects/:id/github/branches
+   */
+  @Post("projects/:id/github/branches")
+  async createBranch(
+    @Request() req: any,
+    @Param("id") projectId: string,
+    @Body() dto: CreateBranchDto,
+  ) {
+    return this.githubRepoService.createBranch(projectId, req.user.id, dto);
+  }
+
+  /**
+   * 创建 Pull Request
+   * POST /api/v1/ai-coding/projects/:id/github/prs
+   */
+  @Post("projects/:id/github/prs")
+  async createPullRequest(
+    @Request() req: any,
+    @Param("id") projectId: string,
+    @Body() dto: CreatePRDto,
+  ) {
+    return this.githubRepoService.createPullRequest(
+      projectId,
+      req.user.id,
+      dto,
+    );
+  }
+
+  /**
+   * 获取项目的 Pull Requests
+   * GET /api/v1/ai-coding/projects/:id/github/prs
+   */
+  @Get("projects/:id/github/prs")
+  async getPullRequests(@Request() req: any, @Param("id") projectId: string) {
+    return this.githubRepoService.getPullRequests(projectId, req.user.id);
+  }
+
+  /**
+   * 同步 PR 状态
+   * POST /api/v1/ai-coding/projects/:id/github/sync
+   */
+  @Post("projects/:id/github/sync")
+  async syncGithubStatus(@Request() req: any, @Param("id") projectId: string) {
+    await this.githubRepoService.syncPRStatus(projectId, req.user.id);
+    return { success: true, message: "GitHub status synced" };
+  }
+
+  // ==================== Documents ====================
+
+  /**
+   * 获取项目的文档列表
+   * GET /api/v1/ai-coding/projects/:id/documents
+   */
+  @Get("projects/:id/documents")
+  async getProjectDocuments(
+    @Request() req: any,
+    @Param("id") projectId: string,
+    @Query("type") type?: string,
+  ) {
+    // 验证用户对项目的访问权限
+    await this.aiCodingService.getProjectById(projectId, req.user.id);
+
+    const docType = type as AiCodingDocumentType | undefined;
+    return this.documentService.getProjectDocuments(projectId, docType);
+  }
+
+  /**
+   * 获取单个文档
+   * GET /api/v1/ai-coding/documents/:id
+   */
+  @Get("documents/:id")
+  async getDocumentById(@Request() req: any, @Param("id") docId: string) {
+    return this.documentService.getDocumentById(docId, req.user.id);
+  }
+
+  /**
+   * 重新生成文档
+   * POST /api/v1/ai-coding/projects/:id/documents/regenerate
+   */
+  @Post("projects/:id/documents/regenerate")
+  async regenerateDocument(
+    @Request() req: any,
+    @Param("id") projectId: string,
+    @Query("type") type: string,
+  ) {
+    const docType = type as AiCodingDocumentType;
+    return this.documentService.regenerateDocument(
+      projectId,
+      docType,
+      req.user.id,
+    );
   }
 }

@@ -13,6 +13,7 @@ import {
   StartProjectDto,
   IterateProjectDto,
 } from "./dto";
+import { DocumentService, StandardsService } from "./services";
 import * as archiver from "archiver";
 import { PassThrough } from "stream";
 
@@ -70,6 +71,8 @@ export class AiCodingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiChatService: AiChatService,
+    private readonly documentService: DocumentService,
+    private readonly standardsService: StandardsService,
   ) {}
 
   /**
@@ -285,30 +288,81 @@ export class AiCodingService {
     const outputs: ProjectOutputs = {};
     const techStack = project.techStack as Record<string, string>;
 
+    // 获取用户的工程规范用于注入到 Agent prompts
+    let standardsContext = "";
     try {
-      // Step 1: PM 生成 PRD (20%)
+      standardsContext = await this.standardsService.getStandardsForAgent(
+        project.userId,
+      );
+    } catch (e) {
+      this.logger.warn("Failed to get standards for agent", e);
+    }
+
+    try {
+      // Step 1: PM 生成 PRD (15%)
       this.logger.log(`[${projectId}] Step 1: PM generating PRD...`);
       await this.updateAgentStatus(projectId, CodingAgentType.PM, "RUNNING");
-      const prd = await this.runPMAgent(project.requirement, techStack);
+      const prd = await this.runPMAgent(
+        project.requirement,
+        techStack,
+        standardsContext,
+      );
       outputs.prd = prd;
       await this.updateAgentStatus(projectId, CodingAgentType.PM, "COMPLETED");
-      await this.updateProgress(projectId, 20, { prd });
+      await this.updateProgress(projectId, 15, { prd });
 
-      // Step 2: Architect 生成设计 (40%)
+      // 生成 PRD 文档
+      this.logger.log(`[${projectId}] Generating PRD document...`);
+      if (prd) {
+        await this.documentService.generatePRD(projectId, prd, {
+          name: project.name,
+          description: project.description,
+          requirement: project.requirement,
+        });
+      }
+      await this.updateProgress(projectId, 20, {});
+
+      // Step 2: Architect 生成设计 (30%)
       this.logger.log(`[${projectId}] Step 2: Architect generating design...`);
       await this.updateAgentStatus(
         projectId,
         CodingAgentType.ARCHITECT,
         "RUNNING",
       );
-      const design = await this.runArchitectAgent(prd, techStack);
+      const design = await this.runArchitectAgent(
+        prd,
+        techStack,
+        standardsContext,
+      );
       outputs.design = design;
       await this.updateAgentStatus(
         projectId,
         CodingAgentType.ARCHITECT,
         "COMPLETED",
       );
-      await this.updateProgress(projectId, 40, { design });
+      await this.updateProgress(projectId, 30, { design });
+
+      // 生成设计文档
+      this.logger.log(`[${projectId}] Generating Design document...`);
+      if (design) {
+        await this.documentService.generateDesignDoc(projectId, design, {
+          name: project.name,
+          techStack,
+        });
+      }
+      await this.updateProgress(projectId, 35, {});
+
+      // 生成 API 文档
+      this.logger.log(`[${projectId}] Generating API document...`);
+      if (design) {
+        await this.documentService.generateAPIDoc(
+          projectId,
+          design.apiDesign || [],
+          design.dataModels || [],
+          { name: project.name },
+        );
+      }
+      await this.updateProgress(projectId, 40, {});
 
       // Step 3: PM Lead 生成任务 (50%)
       this.logger.log(`[${projectId}] Step 3: PM Lead generating tasks...`);
@@ -339,6 +393,7 @@ export class AiCodingService {
         design,
         tasks,
         techStack,
+        standardsContext,
       );
       outputs.code = code;
       await this.updateAgentStatus(
@@ -348,13 +403,31 @@ export class AiCodingService {
       );
       await this.updateProgress(projectId, 80, { code });
 
-      // Step 5: QA 生成测试 (100%)
+      // Step 5: QA 生成测试 (90%)
       this.logger.log(`[${projectId}] Step 5: QA generating tests...`);
       await this.updateAgentStatus(projectId, CodingAgentType.QA, "RUNNING");
-      const tests = await this.runQAAgent(projectId, prd, code);
+      const tests = await this.runQAAgent(
+        projectId,
+        prd,
+        code,
+        standardsContext,
+      );
       outputs.tests = tests;
       await this.updateAgentStatus(projectId, CodingAgentType.QA, "COMPLETED");
-      await this.updateProgress(projectId, 100, { tests });
+      await this.updateProgress(projectId, 90, { tests });
+
+      // 生成 README
+      this.logger.log(`[${projectId}] Generating README...`);
+      await this.documentService.generateREADME(
+        projectId,
+        {
+          name: project.name,
+          description: project.description,
+          techStack,
+        },
+        { prd, design, code },
+      );
+      await this.updateProgress(projectId, 100, {});
 
       // 完成
       await this.prisma.aiCodingProject.update({
@@ -379,8 +452,9 @@ export class AiCodingService {
   private async runPMAgent(
     requirement: string,
     techStack: Record<string, string>,
+    standardsContext?: string,
   ): Promise<ProjectOutputs["prd"]> {
-    const systemPrompt = `You are a Product Manager AI. Your job is to analyze user requirements and create a structured PRD (Product Requirements Document).
+    let systemPrompt = `You are a Product Manager AI. Your job is to analyze user requirements and create a structured PRD (Product Requirements Document).
 
 Output a JSON object with the following structure:
 {
@@ -392,6 +466,10 @@ Output a JSON object with the following structure:
 }
 
 Be concise and focus on the core functionality.`;
+
+    if (standardsContext) {
+      systemPrompt += `\n\n${standardsContext}`;
+    }
 
     const userMessage = `User Requirement: ${requirement}
 Tech Stack: ${JSON.stringify(techStack)}
@@ -429,8 +507,9 @@ Generate a PRD for this project.`;
   private async runArchitectAgent(
     prd: ProjectOutputs["prd"],
     techStack: Record<string, string>,
+    standardsContext?: string,
   ): Promise<ProjectOutputs["design"]> {
-    const systemPrompt = `You are a Software Architect AI. Your job is to design the technical architecture based on the PRD.
+    let systemPrompt = `You are a Software Architect AI. Your job is to design the technical architecture based on the PRD.
 
 Output a JSON object with the following structure:
 {
@@ -439,6 +518,10 @@ Output a JSON object with the following structure:
   "apiDesign": [{"method": "GET/POST/PUT/DELETE", "path": "/api/...", "description": "..."}],
   "directoryStructure": "src/\\n├── components/\\n├── pages/\\n└── ..."
 }`;
+
+    if (standardsContext) {
+      systemPrompt += `\n\n${standardsContext}`;
+    }
 
     const result = await this.aiChatService.chat({
       messages: [
@@ -524,8 +607,9 @@ Create a task list for this project.`,
     design: ProjectOutputs["design"],
     tasks: ProjectOutputs["tasks"],
     techStack: Record<string, string>,
+    standardsContext?: string,
   ): Promise<ProjectOutputs["code"]> {
-    const systemPrompt = `You are a Software Engineer AI. Your job is to implement the project code based on the PRD and design.
+    let systemPrompt = `You are a Software Engineer AI. Your job is to implement the project code based on the PRD and design.
 
 Output a JSON object with code files:
 {
@@ -539,6 +623,10 @@ Output a JSON object with code files:
 }
 
 Generate complete, runnable code files. Focus on the core functionality.`;
+
+    if (standardsContext) {
+      systemPrompt += `\n\n${standardsContext}`;
+    }
 
     const result = await this.aiChatService.chat({
       messages: [
@@ -615,8 +703,9 @@ Generate the project code files.`,
     projectId: string,
     prd: ProjectOutputs["prd"],
     code: ProjectOutputs["code"],
+    standardsContext?: string,
   ): Promise<ProjectOutputs["tests"]> {
-    const systemPrompt = `You are a QA Engineer AI. Your job is to create test cases for the project.
+    let systemPrompt = `You are a QA Engineer AI. Your job is to create test cases for the project.
 
 Output a JSON object with test files:
 {
@@ -627,6 +716,10 @@ Output a JSON object with test files:
 }
 
 Generate simple but effective test cases.`;
+
+    if (standardsContext) {
+      systemPrompt += `\n\n${standardsContext}`;
+    }
 
     const codeFiles = code?.files || [];
     const result = await this.aiChatService.chat({

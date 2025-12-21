@@ -103,6 +103,12 @@ model User {
   // AI Coding 项目
   aiCodingProjects AiCodingProject[]
 
+  // AI Coding GitHub 连接
+  githubConnection GithubConnection?
+
+  // AI Coding 工程规范
+  aiCodingStandards AiCodingStandard[]
+
   @@map("users")
 }
 
@@ -3189,11 +3195,20 @@ model AiCodingProject {
   startedAt   DateTime? @map("started_at")
   completedAt DateTime? @map("completed_at")
 
+  // 规范配置
+  standardsConfig Json? @default("{}") @map("standards_config") // { strictness, enabledStandards }
+  complianceScore Int?  @map("compliance_score") // 0-100
+
   // 关系
-  user      User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  files     AiCodingFile[]
-  agentLogs AiCodingAgentLog[]
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  files      AiCodingFile[]
+  agentLogs  AiCodingAgentLog[]
   iterations AiCodingIteration[]
+
+  // 新关系
+  githubRepoLink    AiCodingGithubRepo?
+  documents         AiCodingDocument[]
+  complianceReports AiCodingComplianceReport[]
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([status])
@@ -3276,4 +3291,243 @@ model AiCodingIteration {
 
   @@index([projectId, version])
   @@map("ai_coding_iterations")
+}
+
+// ============ AI Coding 工程规范 ============
+
+// 规范类型
+enum AiCodingStandardType {
+  DIRECTORY_STRUCTURE // 目录结构
+  NAMING_CONVENTIONS  // 命名规范
+  CODE_STYLE          // 代码风格
+  API_DESIGN          // API 设计
+  DATABASE_DESIGN     // 数据库设计
+  TESTING_STANDARDS   // 测试标准
+  GIT_WORKFLOW        // Git 工作流
+  DOCUMENTATION       // 文档规范
+  SECURITY            // 安全规范
+  GENERAL             // 通用规范
+}
+
+// 规范来源
+enum AiCodingStandardSource {
+  UPLOADED // 用户上传
+  GITHUB   // 从 GitHub 同步
+  TEMPLATE // 内置模板
+}
+
+// 工程规范文档
+model AiCodingStandard {
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+
+  // 文档元数据
+  name   String                  @db.VarChar(200)
+  type   AiCodingStandardType
+  source AiCodingStandardSource
+
+  // 内容
+  content String @db.Text // 原始 Markdown 内容
+
+  // AI 解析的规则
+  rules Json @default("[]") // [{ id, rule, severity, category, examples }]
+
+  // GitHub 来源信息
+  githubRepo   String?   @map("github_repo") @db.VarChar(200)
+  githubPath   String?   @map("github_path") @db.VarChar(500)
+  githubBranch String?   @map("github_branch") @db.VarChar(100)
+  lastSyncedAt DateTime? @map("last_synced_at")
+
+  // 状态
+  isActive Boolean @default(true) @map("is_active")
+  priority Int     @default(0) // 优先级越高越重要
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@index([userId, isActive])
+  @@map("ai_coding_standards")
+}
+
+// ============ AI Coding 合规性检查 ============
+
+// 合规性状态
+enum AiCodingComplianceStatus {
+  PENDING
+  RUNNING
+  PASSED
+  FAILED
+  WARNING
+}
+
+// 合规性报告
+model AiCodingComplianceReport {
+  id          String  @id @default(uuid())
+  projectId   String  @map("project_id")
+  iterationId String? @map("iteration_id")
+
+  // 检查结果
+  overallScore Int                      @default(0) // 0-100
+  status       AiCodingComplianceStatus @default(PENDING)
+
+  // 详细结果
+  results Json?   @default("[]") // [{ standardId, standardName, passed, violations, suggestions }]
+  summary String? @db.Text // AI 生成的摘要
+
+  // 时间戳
+  createdAt   DateTime  @default(now()) @map("created_at")
+  completedAt DateTime? @map("completed_at")
+
+  // 关系
+  project AiCodingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("ai_coding_compliance_reports")
+}
+
+// ============ AI Coding GitHub 集成 ============
+
+// GitHub 连接 (用户级别)
+model GithubConnection {
+  id     String @id @default(uuid())
+  userId String @unique @map("user_id")
+
+  // OAuth 令牌 (生产环境应加密存储)
+  accessToken  String  @map("access_token") @db.Text
+  refreshToken String? @map("refresh_token") @db.Text
+  tokenType    String  @default("bearer") @map("token_type")
+  scope        String? @db.Text
+
+  // GitHub 用户信息
+  githubId    Int     @map("github_id")
+  githubLogin String  @map("github_login") @db.VarChar(100)
+  githubEmail String? @map("github_email") @db.VarChar(200)
+  avatarUrl   String? @map("avatar_url") @db.Text
+
+  // 令牌元数据
+  expiresAt  DateTime? @map("expires_at")
+  lastUsedAt DateTime? @map("last_used_at")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([githubId])
+  @@map("github_connections")
+}
+
+// GitHub 仓库链接 (项目级别)
+model AiCodingGithubRepo {
+  id        String @id @default(uuid())
+  projectId String @unique @map("project_id")
+
+  // 仓库信息
+  owner    String @db.VarChar(100)
+  repo     String @db.VarChar(200)
+  fullName String @map("full_name") @db.VarChar(300)
+  htmlUrl  String @map("html_url") @db.Text
+  cloneUrl String @map("clone_url") @db.Text
+
+  // 设置
+  defaultBranch String  @default("main") @map("default_branch")
+  isPrivate     Boolean @default(true) @map("is_private")
+  autoSync      Boolean @default(false) @map("auto_sync")
+
+  // 同步状态
+  lastPushAt     DateTime? @map("last_push_at")
+  lastPushCommit String?   @map("last_push_commit") @db.VarChar(40)
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  project      AiCodingProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  pullRequests AiCodingPullRequest[]
+
+  @@index([projectId])
+  @@map("ai_coding_github_repos")
+}
+
+// PR 状态
+enum AiCodingPRState {
+  OPEN
+  CLOSED
+  MERGED
+}
+
+// Pull Request 追踪
+model AiCodingPullRequest {
+  id           String  @id @default(uuid())
+  githubRepoId String  @map("github_repo_id")
+  iterationId  String? @map("iteration_id")
+
+  // PR 信息
+  prNumber   Int    @map("pr_number")
+  title      String @db.VarChar(500)
+  body       String? @db.Text
+  headBranch String @map("head_branch") @db.VarChar(200)
+  baseBranch String @map("base_branch") @db.VarChar(200)
+  htmlUrl    String @map("html_url") @db.Text
+
+  // 状态
+  state    AiCodingPRState @default(OPEN)
+  mergedAt DateTime?       @map("merged_at")
+  closedAt DateTime?       @map("closed_at")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  githubRepo AiCodingGithubRepo @relation(fields: [githubRepoId], references: [id], onDelete: Cascade)
+
+  @@index([githubRepoId])
+  @@index([prNumber])
+  @@map("ai_coding_pull_requests")
+}
+
+// ============ AI Coding 文档输出 ============
+
+// 文档类型
+enum AiCodingDocumentType {
+  PRD       // 产品需求文档
+  DESIGN    // 技术设计文档
+  API       // API 文档
+  README    // 项目 README
+  CHANGELOG // 版本变更日志
+}
+
+// 生成的文档
+model AiCodingDocument {
+  id        String @id @default(uuid())
+  projectId String @map("project_id")
+
+  // 文档信息
+  type    AiCodingDocumentType
+  title   String               @db.VarChar(500)
+  content String               @db.Text // Markdown 内容
+  version Int                  @default(1)
+
+  // 图表 (Mermaid 等)
+  diagrams Json? @default("[]") // [{ type: 'mermaid', code: '...' }]
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  project AiCodingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, type])
+  @@map("ai_coding_documents")
 }
