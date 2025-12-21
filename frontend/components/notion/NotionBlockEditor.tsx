@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { useCreateBlockNote } from '@blocknote/react';
 import { BlockNoteView } from '@blocknote/mantine';
-import { BlockNoteEditor, PartialBlock, Block } from '@blocknote/core';
+import { Block } from '@blocknote/core';
 import '@blocknote/core/fonts/inter.css';
 import '@blocknote/mantine/style.css';
 
@@ -26,54 +27,61 @@ export default function NotionBlockEditor({
   readOnly = false,
   className = '',
 }: NotionBlockEditorProps) {
-  const [isMounted, setIsMounted] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const isInitializedRef = useRef(false);
+  const onChangeRef = useRef(onChange);
 
-  // Convert Notion blocks to BlockNote format
-  const initialContent = useMemo(() => {
-    try {
-      return notionBlocksToBlockNote(initialBlocks);
-    } catch (error) {
-      console.error('Failed to convert Notion blocks:', error);
-      return [{ type: 'paragraph' as const, content: [] }];
-    }
-  }, [initialBlocks]);
-
-  // Create editor instance
-  const editor = useMemo(() => {
-    if (typeof window === 'undefined') return null;
-
-    return BlockNoteEditor.create({
-      initialContent: initialContent as PartialBlock[],
-    });
-  }, [initialContent]);
-
+  // Keep onChange ref updated
   useEffect(() => {
-    setIsMounted(true);
-  }, []);
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
-  // Handle editor changes
+  // Convert initial blocks once
+  const initialContent = useRef(
+    (() => {
+      try {
+        const converted = notionBlocksToBlockNote(initialBlocks);
+        return converted.length > 0 ? converted : undefined;
+      } catch (error) {
+        console.error('Failed to convert Notion blocks:', error);
+        return undefined;
+      }
+    })()
+  ).current;
+
+  // Create editor instance using the hook (handles SSR properly)
+  const editor = useCreateBlockNote({
+    initialContent,
+  });
+
+  // Handle editor changes - debounced
   const handleChange = useCallback(() => {
-    if (!editor || readOnly) return;
+    if (readOnly) return;
+
+    // Skip the initial change event
+    if (!isInitializedRef.current) {
+      isInitializedRef.current = true;
+      return;
+    }
 
     setHasChanges(true);
 
-    if (onChange) {
+    if (onChangeRef.current) {
       try {
         const blocks = editor.document;
         const notionBlocks = blockNoteToNotionBlocks(blocks as Block[]);
-        onChange(notionBlocks);
+        onChangeRef.current(notionBlocks);
       } catch (error) {
         console.error('Failed to convert blocks:', error);
       }
     }
-  }, [editor, onChange, readOnly]);
+  }, [editor, readOnly]);
 
   // Handle save
   const handleSave = useCallback(async () => {
-    if (!editor || !onSave || saving) return;
+    if (!onSave || saving) return;
 
     setSaving(true);
     setSaveError(null);
@@ -106,17 +114,6 @@ export default function NotionBlockEditor({
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [hasChanges, onSave, handleSave]);
-
-  if (!isMounted || !editor) {
-    return (
-      <div className={`animate-pulse ${className}`}>
-        <div className="h-8 w-3/4 rounded bg-gray-200" />
-        <div className="mt-4 h-4 w-full rounded bg-gray-200" />
-        <div className="mt-2 h-4 w-5/6 rounded bg-gray-200" />
-        <div className="mt-2 h-4 w-4/6 rounded bg-gray-200" />
-      </div>
-    );
-  }
 
   return (
     <div className={`notion-block-editor ${className}`}>
@@ -224,33 +221,77 @@ export default function NotionBlockEditor({
         </div>
       )}
 
-      {/* BlockNote Editor */}
-      <div className="rounded-lg border border-gray-200 bg-white">
+      {/* BlockNote Editor with built-in Formatting Toolbar */}
+      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
         <BlockNoteView
           editor={editor}
           editable={!readOnly}
           onChange={handleChange}
           theme="light"
-          data-theming-css-variables-demo
         />
       </div>
 
-      {/* Editor tips */}
+      {/* Enhanced Editor tips */}
       {!readOnly && (
-        <div className="mt-4 flex flex-wrap gap-4 text-xs text-gray-400">
-          <span>
-            <kbd className="rounded bg-gray-100 px-1.5 py-0.5">/</kbd> Commands
-          </span>
-          <span>
-            <kbd className="rounded bg-gray-100 px-1.5 py-0.5">Ctrl+S</kbd> Save
-          </span>
-          <span>
-            <kbd className="rounded bg-gray-100 px-1.5 py-0.5">Ctrl+B</kbd> Bold
-          </span>
-          <span>
-            <kbd className="rounded bg-gray-100 px-1.5 py-0.5">Ctrl+I</kbd>{' '}
-            Italic
-          </span>
+        <div className="mt-4 rounded-lg bg-gray-50 p-4">
+          <h4 className="mb-2 text-sm font-medium text-gray-700">
+            Editing Tips
+          </h4>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs text-gray-500">
+            <div className="flex items-center gap-2">
+              <kbd className="rounded border bg-white px-1.5 py-0.5 shadow-sm">
+                /
+              </kbd>
+              <span>Insert block (headings, lists, code...)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="rounded border bg-white px-1.5 py-0.5 shadow-sm">
+                Ctrl+S
+              </kbd>
+              <span>Save changes</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="rounded border bg-white px-1.5 py-0.5 shadow-sm">
+                Ctrl+B
+              </kbd>
+              <span>Bold text</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="rounded border bg-white px-1.5 py-0.5 shadow-sm">
+                Ctrl+I
+              </kbd>
+              <span>Italic text</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="rounded border bg-white px-1.5 py-0.5 shadow-sm">
+                Ctrl+U
+              </kbd>
+              <span>Underline text</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="rounded border bg-white px-1.5 py-0.5 shadow-sm">
+                Ctrl+K
+              </kbd>
+              <span>Insert link</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="rounded border bg-white px-1.5 py-0.5 shadow-sm">
+                Tab
+              </kbd>
+              <span>Indent list item</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="rounded border bg-white px-1.5 py-0.5 shadow-sm">
+                Shift+Tab
+              </kbd>
+              <span>Outdent list item</span>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-gray-400">
+            Select text to see formatting options. Type{' '}
+            <code className="rounded bg-white px-1">/</code> to insert blocks
+            like headings, lists, code, and more.
+          </p>
         </div>
       )}
 
@@ -271,7 +312,7 @@ export default function NotionBlockEditor({
         }
 
         .notion-block-editor .bn-editor {
-          padding: 1rem;
+          padding: 1.5rem;
           min-height: 400px;
         }
 
@@ -329,6 +370,14 @@ export default function NotionBlockEditor({
         .notion-block-editor .bn-toolbar {
           border-radius: 0.5rem;
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Formatting toolbar styling */
+        .notion-block-editor .bn-formatting-toolbar {
+          background: white;
+          border: 1px solid #e5e7eb;
+          border-radius: 0.5rem;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
       `}</style>
     </div>
