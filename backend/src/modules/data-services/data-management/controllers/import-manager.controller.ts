@@ -560,7 +560,7 @@ export class ImportManagerController {
    * 3. 检测重复
    * 4. 返回完整的导入预览
    *
-   * 当直接获取URL失败（如403）时，使用AI分类结果作为fallback
+   * 当直接获取URL失败（如403）时，使用AI分类结果或URL推断作为fallback
    */
   @Post("parse-url-auto")
   async parseUrlAuto(
@@ -577,14 +577,28 @@ export class ImportManagerController {
         };
       }
 
-      // 1. 使用AI分类URL（这个调用本身就会使用LLM搜索获取信息）
-      const classification = await this.aiClassifierService.classifyUrl(
-        body.url,
-      );
+      // 1. 尝试使用AI分类URL
+      let classification;
+      try {
+        classification = await this.aiClassifierService.classifyUrl(body.url);
+      } catch (classifyError) {
+        // AI 分类失败时使用默认分类
+        this.logger.warn(
+          `AI classification failed, using URL-based fallback: ${classifyError}`,
+        );
+        classification = {
+          resourceType: "BLOG" as ResourceType,
+          confidence: 0.3,
+          reason: "AI classification unavailable, defaulted to BLOG",
+          extractedInfo: {
+            domain: new URL(body.url).hostname,
+          },
+        };
+      }
 
       // 2. 尝试解析URL元数据
       let parseResult;
-      let metadataSource: "direct" | "ai" = "direct";
+      let metadataSource: "direct" | "ai" | "url" = "direct";
 
       try {
         parseResult = await this.importManagerService.parseUrlFull(
@@ -592,7 +606,7 @@ export class ImportManagerController {
           classification.resourceType,
         );
       } catch (parseError) {
-        // 如果直接获取失败（如403），使用AI分类结果构造基本元数据
+        // 如果直接获取失败（如403），使用fallback构造元数据
         const errorMessage =
           parseError instanceof Error ? parseError.message : "";
 
@@ -601,12 +615,12 @@ export class ImportManagerController {
           errorMessage.includes("访问被拒绝")
         ) {
           this.logger.log(
-            `Direct fetch failed for ${body.url}, using AI classification as fallback`,
+            `Direct fetch failed for ${body.url}, using fallback metadata`,
           );
 
-          // 使用AI分类结果中的extractedInfo构造元数据
+          // 使用AI分类结果中的extractedInfo，如果没有则从URL推断
           const extractedInfo = classification.extractedInfo;
-          metadataSource = "ai";
+          metadataSource = extractedInfo?.title ? "ai" : "url";
 
           parseResult = {
             metadata: {
@@ -615,13 +629,19 @@ export class ImportManagerController {
               title:
                 extractedInfo?.title || this.generateTitleFromUrl(body.url),
               description:
-                extractedInfo?.description || `${classification.reason}`,
+                extractedInfo?.description ||
+                classification.reason ||
+                `Page from ${new URL(body.url).hostname}`,
               language: "en",
               contentType: extractedInfo?.contentType || "webpage",
             },
             validation: {
               isValid: true,
-              warnings: ["元数据通过AI分析获取，可能不完整，建议手动补充"],
+              warnings: [
+                metadataSource === "ai"
+                  ? "元数据通过AI分析获取，可能不完整，建议手动补充"
+                  : "无法直接获取页面，元数据从URL推断，请手动补充标题和描述",
+              ],
             },
             duplicateCheck: {
               isDuplicate: false,
@@ -684,6 +704,8 @@ export class ImportManagerController {
   /**
    * 导入URL（使用AI自动分类，不需要预先选择资源类型）
    * POST /api/v1/data-management/import-auto
+   *
+   * 当直接获取URL失败（如403）时，使用AI分类结果或URL推断作为fallback
    */
   @Post("import-auto")
   async importAuto(
@@ -691,6 +713,8 @@ export class ImportManagerController {
     body: {
       url: string;
       resourceType?: ResourceType; // 可选：用户可以覆盖AI分类结果
+      title?: string; // 可选：用户手动提供标题
+      description?: string; // 可选：用户手动提供描述
       skipDuplicateWarning?: boolean;
     },
   ) {
@@ -707,24 +731,74 @@ export class ImportManagerController {
       let classification;
 
       if (!resourceType) {
-        classification = await this.aiClassifierService.classifyUrl(body.url);
-        resourceType = classification.resourceType;
-        this.logger.log(
-          `AI classified ${body.url} as ${resourceType} (confidence: ${classification.confidence})`,
-        );
+        try {
+          classification = await this.aiClassifierService.classifyUrl(body.url);
+          resourceType = classification.resourceType;
+          this.logger.log(
+            `AI classified ${body.url} as ${resourceType} (confidence: ${classification.confidence})`,
+          );
+        } catch (classifyError) {
+          // AI 分类失败时使用默认类型
+          this.logger.warn(
+            `AI classification failed, defaulting to BLOG: ${classifyError}`,
+          );
+          resourceType = "BLOG" as ResourceType;
+        }
       }
 
-      // 首先解析URL获取元数据
-      const parseResult = await this.importManagerService.parseUrlFull(
-        body.url,
-        resourceType,
-      );
+      // 尝试解析URL获取元数据
+      let metadata;
+      let metadataSource: "direct" | "ai" | "manual" = "direct";
+
+      try {
+        const parseResult = await this.importManagerService.parseUrlFull(
+          body.url,
+          resourceType,
+        );
+        metadata = parseResult.metadata;
+      } catch (parseError) {
+        // 如果直接获取失败（如403），使用fallback元数据
+        const errorMessage =
+          parseError instanceof Error ? parseError.message : "";
+
+        if (
+          errorMessage.includes("403") ||
+          errorMessage.includes("访问被拒绝")
+        ) {
+          this.logger.log(
+            `Direct fetch failed for ${body.url}, using fallback metadata`,
+          );
+
+          // 优先使用用户手动提供的数据，其次是AI提取的，最后是URL推断的
+          const extractedInfo = classification?.extractedInfo;
+          metadataSource = body.title ? "manual" : "ai";
+
+          metadata = {
+            url: body.url,
+            domain: extractedInfo?.domain || new URL(body.url).hostname,
+            title:
+              body.title ||
+              extractedInfo?.title ||
+              this.generateTitleFromUrl(body.url),
+            description:
+              body.description ||
+              extractedInfo?.description ||
+              classification?.reason ||
+              `Imported from ${new URL(body.url).hostname}`,
+            language: "en",
+            contentType: extractedInfo?.contentType || "webpage",
+          };
+        } else {
+          // 其他错误继续抛出
+          throw parseError;
+        }
+      }
 
       // 导入资源
       const importTask = await this.importManagerService.importWithMetadata(
         body.url,
         resourceType,
-        parseResult.metadata,
+        metadata,
         body.skipDuplicateWarning,
       );
 
@@ -735,6 +809,7 @@ export class ImportManagerController {
           status: importTask.status,
           sourceUrl: importTask.sourceUrl,
           resourceType: resourceType,
+          metadataSource,
           classification: classification
             ? {
                 confidence: classification.confidence,
