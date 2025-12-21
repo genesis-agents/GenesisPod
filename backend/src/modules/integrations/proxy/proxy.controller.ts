@@ -302,18 +302,29 @@ export class ProxyController {
 
       this.logger.log(`Fetching HTML for Reader Mode from: ${urlObj.hostname}`);
 
-      // 从远程服务器获取 HTML
+      // 从远程服务器获取 HTML - 使用完整浏览器特征避免被检测为机器人
       const response = await axios.get(url, {
         responseType: "text",
         timeout: 30000,
         maxRedirects: 5,
         headers: {
           "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
           Accept:
-            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
           "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
           "Accept-Encoding": "gzip, deflate, br",
+          "Cache-Control": "max-age=0",
+          Connection: "keep-alive",
+          "Sec-Ch-Ua":
+            '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+          "Sec-Ch-Ua-Mobile": "?0",
+          "Sec-Ch-Ua-Platform": '"Windows"',
+          "Sec-Fetch-Dest": "document",
+          "Sec-Fetch-Mode": "navigate",
+          "Sec-Fetch-Site": "none",
+          "Sec-Fetch-User": "?1",
+          "Upgrade-Insecure-Requests": "1",
         },
       });
 
@@ -444,18 +455,29 @@ export class ProxyController {
           `Fetching HTML for News Reader Mode from: ${urlObj.hostname} (redirect #${redirectCount})`,
         );
 
-        // 从远程服务器获取 HTML
+        // 从远程服务器获取 HTML - 使用完整浏览器特征避免被检测为机器人
         const response = await axios.get(currentUrl, {
           responseType: "text",
           timeout: 30000,
           maxRedirects: 5,
           headers: {
             "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             Accept:
-              "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+              "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
             "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
             "Accept-Encoding": "gzip, deflate, br",
+            "Cache-Control": "max-age=0",
+            Connection: "keep-alive",
+            "Sec-Ch-Ua":
+              '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+            "Sec-Ch-Ua-Mobile": "?0",
+            "Sec-Ch-Ua-Platform": '"Windows"',
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Upgrade-Insecure-Requests": "1",
           },
         });
 
