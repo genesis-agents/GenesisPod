@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from '@/components/layout/Sidebar';
@@ -109,7 +109,25 @@ const TEMPLATES: Record<
   },
 };
 
+// Wrapper component with Suspense for useSearchParams
 export default function NewCodingProjectPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-screen">
+          <Sidebar />
+          <div className="flex flex-1 items-center justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
+          </div>
+        </div>
+      }
+    >
+      <NewCodingProjectPageContent />
+    </Suspense>
+  );
+}
+
+function NewCodingProjectPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { accessToken, isLoading: authLoading } = useAuth();
