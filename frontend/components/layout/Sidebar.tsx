@@ -567,6 +567,32 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           </Link>
 
           <Link
+            href="/ai-coding"
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium ${
+              pathname?.startsWith('/ai-coding')
+                ? 'bg-emerald-50 text-gray-900'
+                : 'text-gray-700 hover:bg-gray-50'
+            }`}
+            title="AI Coding"
+          >
+            {/* Code/Terminal icon */}
+            <svg
+              className="h-5 w-5 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+              />
+            </svg>
+            {showExpanded && <span>AI Coding</span>}
+          </Link>
+
+          <Link
             href="/ai-store"
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium ${
               pathname?.startsWith('/ai-store')
