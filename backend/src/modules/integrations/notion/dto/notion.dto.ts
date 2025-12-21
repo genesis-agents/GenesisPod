@@ -1,5 +1,6 @@
 import { IsString, IsOptional, IsBoolean, IsInt, Min, Max } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Type } from "class-transformer";
 
 /**
  * Notion OAuth 连接请求
@@ -94,12 +95,14 @@ export class ListPagesDto {
 
   @ApiPropertyOptional({ description: "页码", default: 1 })
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   page?: number;
 
   @ApiPropertyOptional({ description: "每页数量", default: 20 })
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100)
