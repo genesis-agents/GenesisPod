@@ -18,6 +18,7 @@ import { CreateFeedbackDto } from "./dto/create-feedback.dto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
 import { OptionalJwtAuthGuard } from "../../../common/guards/optional-jwt-auth.guard";
+import { EmailService } from "../email/email.service";
 
 // Type definitions for feedback enums
 type FeedbackStatusEnum =
@@ -32,7 +33,10 @@ type FeedbackTypeEnum = "BUG" | "FEATURE" | "IMPROVEMENT" | "OTHER";
 export class FeedbackController {
   private readonly logger = new Logger(FeedbackController.name);
 
-  constructor(private feedbackService: FeedbackService) {}
+  constructor(
+    private feedbackService: FeedbackService,
+    private emailService: EmailService,
+  ) {}
 
   /**
    * Submit feedback with optional file attachments
@@ -129,5 +133,37 @@ export class FeedbackController {
     @Body("adminNotes") adminNotes?: string,
   ) {
     return this.feedbackService.updateFeedbackStatus(id, status, adminNotes);
+  }
+
+  /**
+   * Check email service status (admin only)
+   * GET /api/v1/feedback/email/status
+   */
+  @Get("email/status")
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async getEmailStatus() {
+    return {
+      enabled: this.emailService.isEnabled(),
+      message: this.emailService.isEnabled()
+        ? "Email service is configured and ready"
+        : "Email service is not configured. Check SMTP environment variables.",
+    };
+  }
+
+  /**
+   * Reinitialize email service (admin only)
+   * POST /api/v1/feedback/email/reinitialize
+   */
+  @Post("email/reinitialize")
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async reinitializeEmail() {
+    this.logger.log("Admin requested email service reinitialization");
+    this.emailService.reinitialize();
+    return {
+      enabled: this.emailService.isEnabled(),
+      message: this.emailService.isEnabled()
+        ? "Email service reinitialized successfully"
+        : "Email service still not configured. Check SMTP environment variables.",
+    };
   }
 }

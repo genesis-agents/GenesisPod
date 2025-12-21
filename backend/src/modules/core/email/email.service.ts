@@ -42,6 +42,10 @@ export class EmailService {
     const user = this.configService.get<string>("SMTP_USER");
     const pass = this.configService.get<string>("SMTP_PASS");
 
+    this.logger.log(
+      `SMTP Config check: host=${host ? "set" : "missing"}, user=${user ? "set" : "missing"}, pass=${pass ? "set" : "missing"}`,
+    );
+
     if (!host || !user || !pass) {
       this.logger.warn(
         "Email service not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS environment variables.",
@@ -116,6 +120,16 @@ export class EmailService {
   }
 
   /**
+   * Reinitialize transporter (useful when env vars are updated)
+   */
+  reinitialize(): void {
+    this.logger.log("Reinitializing email transporter...");
+    this.transporter = null;
+    this.isConfigured = false;
+    this.initializeTransporter();
+  }
+
+  /**
    * Send feedback notification to admin
    */
   async sendFeedbackNotification(feedback: {
@@ -128,6 +142,9 @@ export class EmailService {
     userAgent?: string;
     attachments?: Array<{ filename: string; content: Buffer }>;
   }): Promise<boolean> {
+    this.logger.log(
+      `Sending feedback notification for: ${feedback.id} (Email enabled: ${this.isEnabled()})`,
+    );
     // Default to the project owner's email
     const adminEmail = this.configService.get<string>(
       "ADMIN_EMAIL",
