@@ -65,6 +65,9 @@ export class PuppeteerFetcherService {
   /**
    * 使用 Puppeteer 获取网页内容
    * 可以绕过 Cloudflare 等 JavaScript 挑战
+   *
+   * 注意：在容器环境（如 Railway）中，Cloudflare 可能仍然无法绕过
+   * 因为容器 IP 可能被标记，或者无头浏览器被检测到
    */
   async fetchPage(
     url: string,
@@ -80,6 +83,9 @@ export class PuppeteerFetcherService {
       waitForNavigation = true,
     } = options;
     const startTime = Date.now();
+
+    // Cloudflare 等待的最大时间（固定 10 秒，不要太长）
+    const CLOUDFLARE_MAX_WAIT = 10000;
 
     let page: puppeteer.Page | null = null;
 
@@ -141,8 +147,24 @@ export class PuppeteerFetcherService {
       }
 
       // 等待 Cloudflare 挑战完成（如果存在）
-      // Cloudflare 会在验证后重定向或更新页面内容
-      await this.waitForCloudflare(page, timeout);
+      // 使用固定的较短超时，避免长时间等待
+      const cloudflareResult = await this.waitForCloudflare(
+        page,
+        CLOUDFLARE_MAX_WAIT,
+      );
+
+      if (!cloudflareResult.passed) {
+        // Cloudflare 验证未通过，直接返回失败
+        this.logger.warn(
+          `Cloudflare challenge not passed for ${url}, returning failure`,
+        );
+        return {
+          success: false,
+          error:
+            "Cloudflare protection detected - cannot bypass in container environment",
+          loadTime: Date.now() - startTime,
+        };
+      }
 
       // 如果指定了等待选择器
       if (waitForSelector) {
@@ -158,6 +180,16 @@ export class PuppeteerFetcherService {
       // 获取页面 HTML
       const html = await page.content();
       const title = await page.title();
+
+      // 最终检查：确保内容不是 Cloudflare 页面
+      if (this.isCloudflareContent(html)) {
+        this.logger.warn(`Final content is still Cloudflare page for ${url}`);
+        return {
+          success: false,
+          error: "Page content is still Cloudflare challenge page",
+          loadTime: Date.now() - startTime,
+        };
+      }
 
       const loadTime = Date.now() - startTime;
       this.logger.log(
@@ -189,39 +221,68 @@ export class PuppeteerFetcherService {
   }
 
   /**
+   * 检查内容是否为 Cloudflare 挑战页面
+   */
+  private isCloudflareContent(html: string): boolean {
+    const cloudflareIndicators = [
+      "Just a moment...",
+      "Checking your browser",
+      "Verify you are human",
+      "cf-browser-verification",
+      "challenge-platform",
+      "cf-turnstile",
+      "_cf_chl_opt",
+    ];
+
+    return cloudflareIndicators.some((indicator) => html.includes(indicator));
+  }
+
+  /**
    * 等待 Cloudflare 挑战完成
+   * @returns { passed: boolean } - 是否通过验证
    */
   private async waitForCloudflare(
     page: puppeteer.Page,
     maxWait: number,
-  ): Promise<void> {
+  ): Promise<{ passed: boolean }> {
     const startTime = Date.now();
-    const checkInterval = 500;
+    const checkInterval = 1000; // 每秒检查一次，减少日志输出
+
+    // 首先检查是否有 Cloudflare 挑战
+    const initialHtml = await page.content();
+    if (!this.isCloudflareContent(initialHtml)) {
+      // 没有 Cloudflare 挑战，直接通过
+      this.logger.log("No Cloudflare challenge detected");
+      return { passed: true };
+    }
+
+    this.logger.log("Cloudflare challenge detected, waiting for completion...");
 
     while (Date.now() - startTime < maxWait) {
+      await new Promise((resolve) => setTimeout(resolve, checkInterval));
+
       const html = await page.content();
 
-      // 检测 Cloudflare 挑战页面的特征
-      const isCloudflareChallenge =
-        html.includes("Just a moment...") ||
-        html.includes("Checking your browser") ||
-        html.includes("Verify you are human") ||
-        html.includes("cf-browser-verification") ||
-        html.includes("challenge-platform");
-
-      if (!isCloudflareChallenge) {
+      if (!this.isCloudflareContent(html)) {
         // 不再是 Cloudflare 挑战页面，验证已通过
-        this.logger.log("Cloudflare challenge passed or not present");
-        return;
+        this.logger.log(
+          `Cloudflare challenge passed after ${Date.now() - startTime}ms`,
+        );
+        return { passed: true };
       }
 
-      this.logger.debug("Waiting for Cloudflare challenge to complete...");
-      await new Promise((resolve) => setTimeout(resolve, checkInterval));
+      // 只每 3 秒输出一次日志，减少日志噪音
+      if ((Date.now() - startTime) % 3000 < checkInterval) {
+        this.logger.debug(
+          `Still waiting for Cloudflare... (${Math.round((Date.now() - startTime) / 1000)}s)`,
+        );
+      }
     }
 
     this.logger.warn(
-      "Cloudflare challenge timeout, continuing with current page",
+      `Cloudflare challenge timeout after ${maxWait}ms - verification not completed`,
     );
+    return { passed: false };
   }
 
   /**
