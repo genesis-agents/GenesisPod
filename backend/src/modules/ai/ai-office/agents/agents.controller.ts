@@ -282,6 +282,7 @@ export class AgentsController {
       language: options.language || "zh-CN",
       urls: input.urls,
       resourceIds: input.resourceIds,
+      userId: options.userId, // 传递 userId
     });
 
     return new Promise((resolve, reject) => {
@@ -334,6 +335,7 @@ export class AgentsController {
       language: options.language || "zh-CN",
       urls: input.urls,
       resourceIds: input.resourceIds,
+      userId: options.userId, // 传递 userId
     });
 
     return new Promise((resolve, reject) => {

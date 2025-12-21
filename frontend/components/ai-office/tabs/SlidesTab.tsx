@@ -36,6 +36,8 @@ import {
   Wand2,
   ArrowLeft,
   Eye,
+  Trash2,
+  Clock,
 } from 'lucide-react';
 
 import { useResourceStore, useDocumentStore } from '@/stores/aiOfficeStore';
@@ -54,6 +56,11 @@ import AIThinkingPanel, {
 import ThumbnailGallery from '@/components/ai-office/document/ThumbnailGallery';
 import { getTemplateById, PPTTemplate } from '@/lib/ai-office/ppt-templates';
 import type { Document } from '@/types/ai-office';
+import {
+  useSlidesHistoryStore,
+  formatRelativeTime,
+  SlidesHistoryItem,
+} from '@/stores/slidesHistoryStore';
 
 // Document Store State 类型
 interface DocumentStoreState {
@@ -656,6 +663,12 @@ export default function SlidesTab() {
     string | undefined
   >();
 
+  // 历史记录
+  const { history, addHistory, updateHistory, removeHistory, clearHistory } =
+    useSlidesHistoryStore();
+  const [showHistory, setShowHistory] = useState(false);
+  const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
+
   // PPT 预览状态
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isInlineEditMode, setIsInlineEditMode] = useState(false);
@@ -1080,6 +1093,15 @@ export default function SlidesTab() {
     addDocument(newDocument as any);
     setCurrentDocument(newDocumentId);
 
+    // 添加到历史记录
+    const historyId = addHistory({
+      prompt: input || outline[0]?.title || '未命名演示文稿',
+      templateId: selectedTheme,
+      slideCount: outline.length,
+      status: 'pending',
+    });
+    setCurrentHistoryId(historyId);
+
     try {
       // 构建大纲文本用于 prompt
       const outlineText = outline
@@ -1359,6 +1381,21 @@ export default function SlidesTab() {
                   timestamp: new Date(),
                 },
               ]);
+
+              // 更新历史记录为成功
+              if (currentHistoryId) {
+                updateHistory(currentHistoryId, {
+                  status: 'success',
+                  slideCount: generatedSlides.length,
+                  summary: `${generatedSlides.length} 页幻灯片`,
+                  result: {
+                    artifacts: [],
+                    duration: data.result?.duration || 0,
+                    documentId: newDocumentId,
+                  },
+                });
+              }
+
               setIsLoading(false);
               eventSource.close();
               break;
@@ -1464,6 +1501,10 @@ export default function SlidesTab() {
           timestamp: new Date(),
         },
       ]);
+      // 更新历史记录为失败
+      if (currentHistoryId) {
+        updateHistory(currentHistoryId, { status: 'error' });
+      }
       setIsLoading(false);
     }
   };
@@ -1697,6 +1738,115 @@ export default function SlidesTab() {
             />
           </div>
         )}
+
+        {/* 历史记录区域 */}
+        <div className="border-b border-gray-200">
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="flex w-full items-center justify-between bg-gray-50 px-4 py-2.5 hover:bg-gray-100"
+          >
+            <div className="flex items-center space-x-2">
+              <Clock className="h-4 w-4 text-gray-500" />
+              <h3 className="text-sm font-semibold text-gray-700">生成历史</h3>
+              <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-500">
+                {history.length}
+              </span>
+            </div>
+            {showHistory ? (
+              <ChevronUp className="h-4 w-4 text-gray-600" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-gray-600" />
+            )}
+          </button>
+          <AnimatePresence>
+            {showHistory && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="max-h-[200px] overflow-y-auto bg-gray-50 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs text-gray-500">
+                      最近 {history.length} 条记录
+                    </span>
+                    {history.length > 0 && (
+                      <button
+                        onClick={clearHistory}
+                        className="text-xs text-red-500 hover:text-red-600"
+                      >
+                        清空
+                      </button>
+                    )}
+                  </div>
+                  {history.length === 0 ? (
+                    <p className="py-4 text-center text-xs text-gray-400">
+                      暂无历史记录
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {history.slice(0, 20).map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-2 hover:border-gray-300"
+                        >
+                          <div className="mr-2 min-w-0 flex-1">
+                            <p className="truncate text-sm text-gray-900">
+                              {item.prompt}
+                            </p>
+                            <div className="mt-1 flex items-center gap-2">
+                              <span className="text-xs text-gray-500">
+                                {formatRelativeTime(item.timestamp)}
+                              </span>
+                              <span className="rounded bg-orange-100 px-1.5 py-0.5 text-xs text-orange-600">
+                                {item.slideCount} 页
+                              </span>
+                              {item.status === 'success' ? (
+                                <Check className="h-3 w-3 text-green-500" />
+                              ) : item.status === 'error' ? (
+                                <span className="text-xs text-red-500">
+                                  失败
+                                </span>
+                              ) : (
+                                <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {item.status === 'success' &&
+                              item.result?.documentId && (
+                                <button
+                                  onClick={() => {
+                                    if (item.result?.documentId) {
+                                      setCurrentDocument(
+                                        item.result.documentId
+                                      );
+                                    }
+                                  }}
+                                  className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-blue-600"
+                                  title="查看结果"
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            <button
+                              onClick={() => removeHistory(item.id)}
+                              className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-red-500"
+                              title="删除"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* 资源列表区域 */}
         <div

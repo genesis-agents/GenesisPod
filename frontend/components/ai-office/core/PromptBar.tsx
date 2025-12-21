@@ -43,6 +43,8 @@ interface PromptBarProps {
   showAgentHint?: boolean;
   className?: string;
   autoFocus?: boolean;
+  /** 初始提示语，用于模板填充等场景 */
+  initialPrompt?: string;
 }
 
 // 快捷命令定义
@@ -62,6 +64,7 @@ export function PromptBar({
   showAgentHint = true,
   className,
   autoFocus = false,
+  initialPrompt = '',
 }: PromptBarProps) {
   const [prompt, setPrompt] = useState('');
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -71,6 +74,15 @@ export function PromptBar({
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 当 initialPrompt 改变时更新 prompt
+  useEffect(() => {
+    if (initialPrompt) {
+      setPrompt(initialPrompt);
+      // 聚焦输入框
+      textareaRef.current?.focus();
+    }
+  }, [initialPrompt]);
 
   // 自动调整高度
   useEffect(() => {

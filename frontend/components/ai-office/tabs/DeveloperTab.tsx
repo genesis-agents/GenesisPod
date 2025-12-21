@@ -8,7 +8,7 @@
 
 /* eslint-disable @typescript-eslint/no-misused-promises */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   RefreshCw,
@@ -76,8 +76,19 @@ const TEST_FRAMEWORK_OPTIONS = [
 
 export default function DeveloperTab() {
   const agentConfig = AGENT_CONFIGS[AgentType.DEVELOPER];
-  const { progress, updateProgress, resetProgress, handleEvent, result } =
-    useAgentStore();
+  const {
+    progress,
+    updateProgress,
+    resetProgress,
+    handleEvent,
+    result,
+    reset,
+  } = useAgentStore();
+
+  // 组件挂载时重置状态，避免跨 Tab 状态污染
+  useEffect(() => {
+    reset();
+  }, [reset]);
 
   // 历史记录
   const { history, addHistory, updateHistory, removeHistory, clearHistory } =

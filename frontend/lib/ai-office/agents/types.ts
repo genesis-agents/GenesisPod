@@ -170,6 +170,17 @@ export interface ThinkingEvent {
   content: string;
 }
 
+export interface ProgressEvent {
+  type: 'progress';
+  data: {
+    phase: string;
+    percentage: number;
+    message: string;
+    currentSection?: number;
+    totalSections?: number;
+  };
+}
+
 export type AgentEvent =
   | PlanReadyEvent
   | StepStartEvent
@@ -180,7 +191,8 @@ export type AgentEvent =
   | ArtifactEvent
   | CompleteEvent
   | ErrorEvent
-  | ThinkingEvent;
+  | ThinkingEvent
+  | ProgressEvent;
 
 // ==================== Agent 配置 ====================
 

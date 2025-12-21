@@ -135,10 +135,83 @@ export const useAgentStore = create<AgentStore>()(
         const { progress, thinkingSteps, currentPlan } = get();
 
         switch (event.type) {
+          case 'progress':
+            // 处理进度更新事件
+            const progressData = (event as any).data || {};
+            const phase = progressData.phase || '';
+            const percentage = progressData.percentage || 0;
+            const message = progressData.message || '';
+
+            // 根据阶段创建或更新思考步骤
+            const phaseToolMap: Record<string, string> = {
+              init: 'thinking',
+              extract: 'web_search',
+              fetch: 'web_search',
+              outline: 'outline',
+              planning: 'outline',
+              generating: 'content',
+              rendering: 'image',
+            };
+
+            const tool = phaseToolMap[phase] || 'thinking';
+            const existingStep = thinkingSteps.find(
+              (s) => s.tool === tool && s.status === 'processing'
+            );
+
+            if (!existingStep && message && phase !== 'init') {
+              // 创建新的思考步骤
+              const progressStepId = `progress_${Date.now()}`;
+              set({
+                progress: {
+                  ...progress,
+                  phase: percentage < 100 ? 'executing' : 'completed',
+                  percentage,
+                  message,
+                },
+                thinkingSteps: [
+                  ...thinkingSteps,
+                  {
+                    id: progressStepId,
+                    tool,
+                    description: message,
+                    status: percentage >= 100 ? 'completed' : 'processing',
+                    startTime: new Date(),
+                    endTime: percentage >= 100 ? new Date() : undefined,
+                  },
+                ],
+              });
+            } else {
+              // 只更新进度
+              set({
+                progress: {
+                  ...progress,
+                  phase: percentage < 100 ? 'executing' : 'completed',
+                  percentage,
+                  message,
+                },
+              });
+            }
+            break;
+
           case 'plan_ready':
             // 保存计划，计算总步骤数用于进度计算
             const plan = (event as any).plan as AgentPlan;
-            const totalSteps = plan?.steps?.length || 1;
+            const eventData = (event as any).data || {};
+            const outline = eventData.outline;
+            const sections = outline?.sections || [];
+            const totalSteps = sections.length || plan?.steps?.length || 1;
+
+            // 创建思考步骤（包含子步骤）
+            const planStepId = `plan_${Date.now()}`;
+            const planThinkingStep: ThinkingStep = {
+              id: planStepId,
+              tool: 'outline',
+              description: `已规划 ${totalSteps} 个章节`,
+              status: 'completed',
+              startTime: new Date(),
+              endTime: new Date(),
+            };
+
             set({
               currentPlan: plan,
               progress: {
@@ -148,8 +221,8 @@ export const useAgentStore = create<AgentStore>()(
                 message: `计划已就绪，共 ${totalSteps} 个步骤`,
                 totalSteps,
               },
-              // 清空之前的思考步骤
-              thinkingSteps: [],
+              // 添加计划完成的思考步骤
+              thinkingSteps: [planThinkingStep],
             });
             break;
 
@@ -159,14 +232,31 @@ export const useAgentStore = create<AgentStore>()(
             const total = (progress as any).totalSteps || 1;
             // 进度从 10% 到 90%，按步骤均分
             const stepProgress = 10 + (stepIndex / total) * 80;
+
+            // 创建思考步骤
+            const stepStartId = `step_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const stepData = (event as any).data || {};
+            const stepTitle =
+              stepData.title || event.message || `步骤 ${stepIndex + 1}`;
+
             set({
               progress: {
                 ...progress,
                 phase: 'executing',
-                currentStep: (event as any).stepId,
+                currentStep: (event as any).stepId || stepStartId,
                 percentage: Math.min(stepProgress, 90),
                 message: event.message || `执行步骤 ${stepIndex + 1}/${total}`,
               },
+              thinkingSteps: [
+                ...thinkingSteps,
+                {
+                  id: stepStartId,
+                  tool: 'content',
+                  description: stepTitle,
+                  status: 'processing',
+                  startTime: new Date(),
+                },
+              ],
             });
             break;
 
@@ -186,6 +276,21 @@ export const useAgentStore = create<AgentStore>()(
             break;
 
           case 'step_complete':
+            // 完成最后一个处理中的思考步骤
+            const completedThinkingSteps = thinkingSteps.map((step) => {
+              if (step.status === 'processing') {
+                return {
+                  ...step,
+                  status: 'completed' as const,
+                  endTime: new Date(),
+                  duration: step.startTime
+                    ? Date.now() - step.startTime.getTime()
+                    : undefined,
+                };
+              }
+              return step;
+            });
+
             set({
               progress: {
                 ...progress,
@@ -194,6 +299,7 @@ export const useAgentStore = create<AgentStore>()(
                   (event as any).stepId,
                 ],
               },
+              thinkingSteps: completedThinkingSteps,
             });
             break;
 

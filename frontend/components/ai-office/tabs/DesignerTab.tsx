@@ -8,7 +8,7 @@
 
 /* eslint-disable @typescript-eslint/no-misused-promises */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Download,
@@ -16,6 +16,11 @@ import {
   ZoomIn,
   Sparkles,
   CheckCircle2,
+  History,
+  Trash2,
+  Eye,
+  Check,
+  Loader2,
 } from 'lucide-react';
 
 import { PromptBar } from '@/components/ai-office/core/PromptBar';
@@ -23,6 +28,7 @@ import {
   ProgressTracker,
   ProgressOverlay,
 } from '@/components/ai-office/core/ProgressTracker';
+import AIThinkingPanel from '@/components/ai-office/document/AIThinkingPanel';
 import {
   AgentType,
   AgentInput,
@@ -30,11 +36,17 @@ import {
 } from '@/lib/ai-office/agents/types';
 import { useAgentStore } from '@/stores/agentStore';
 import {
+  useDesignerHistoryStore,
+  formatRelativeTime,
+  DesignerHistoryItem,
+} from '@/stores/designerHistoryStore';
+import {
   executeAgent,
   subscribeToTask,
   cancelTask,
 } from '@/lib/ai-office/agents/api';
 import { cn } from '@/lib/utils/common';
+import { useAuth } from '@/contexts/AuthContext';
 
 // 设计模板定义
 const DESIGNER_TEMPLATES = [
@@ -104,12 +116,35 @@ const STYLE_OPTIONS = [
 
 export default function DesignerTab() {
   const agentConfig = AGENT_CONFIGS[AgentType.DESIGNER];
-  const { progress, updateProgress, resetProgress, handleEvent, result } =
-    useAgentStore();
+  const { user } = useAuth();
+  const {
+    progress,
+    updateProgress,
+    resetProgress,
+    handleEvent,
+    result,
+    reset,
+  } = useAgentStore();
+
+  // 历史记录
+  const { history, addHistory, updateHistory, removeHistory, clearHistory } =
+    useDesignerHistoryStore();
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
+  const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [templatePrompt, setTemplatePrompt] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  // 恢复的历史结果
+  const [restoredResult, setRestoredResult] = useState<
+    DesignerHistoryItem['result'] | null
+  >(null);
+
+  // 组件挂载时重置状态，避免跨 Tab 状态污染
+  useEffect(() => {
+    reset();
+  }, [reset]);
 
   // AI 解析后的意图状态
   const [parsedIntent, setParsedIntent] = useState<{
@@ -125,36 +160,47 @@ export default function DesignerTab() {
     async (input: AgentInput) => {
       setIsGenerating(true);
       resetProgress();
+      setRestoredResult(null); // 清除恢复的结果
       updateProgress({
         phase: 'planning',
         percentage: 0,
         message: '正在分析设计需求...',
       });
 
+      // 1. 调用后端意图解析 API
+      let intentData = {
+        urls: [] as string[],
+        designType: 'cards',
+        aspectRatio: '16:9',
+        style: 'consulting',
+        cleanPrompt: input.prompt,
+      };
+
       try {
-        // 1. 调用后端意图解析 API
-        let intentData = {
-          urls: [] as string[],
-          designType: 'cards',
-          aspectRatio: '16:9',
-          style: 'consulting',
-          cleanPrompt: input.prompt,
-        };
-
-        try {
-          const intentResponse = await fetch('/api/ai-office/parse-intent', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ input: input.prompt }),
-          });
-          if (intentResponse.ok) {
-            intentData = await intentResponse.json();
-          }
-        } catch (parseError) {
-          console.warn('Intent parsing failed, using defaults:', parseError);
+        const intentResponse = await fetch('/api/ai-office/parse-intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ input: input.prompt }),
+        });
+        if (intentResponse.ok) {
+          intentData = await intentResponse.json();
         }
-        setParsedIntent(intentData);
+      } catch (parseError) {
+        console.warn('Intent parsing failed, using defaults:', parseError);
+      }
+      setParsedIntent(intentData);
 
+      // 添加到历史记录
+      const historyId = addHistory({
+        prompt: input.prompt,
+        designType: intentData.designType || 'cards',
+        style: intentData.style || 'consulting',
+        aspectRatio: intentData.aspectRatio || '16:9',
+        status: 'pending',
+      });
+      setCurrentHistoryId(historyId);
+
+      try {
         // 2. 使用解析后的参数构建增强输入
         const enhancedInput: AgentInput = {
           ...input,
@@ -164,6 +210,7 @@ export default function DesignerTab() {
             templateLayout: intentData.designType || 'cards',
             aspectRatio: intentData.aspectRatio || '16:9',
             style: intentData.style || 'consulting',
+            userId: user?.id, // 传递当前用户 ID
           },
         };
 
@@ -178,8 +225,31 @@ export default function DesignerTab() {
         const unsubscribe = subscribeToTask(taskResponse.taskId, (event) => {
           handleEvent(event);
 
-          if (event.type === 'complete' || event.type === 'error') {
+          if (event.type === 'complete') {
             setIsGenerating(false);
+            const eventResult = (event as any).result;
+            // 保存完整结果到历史记录
+            updateHistory(historyId, {
+              status: 'success',
+              summary: eventResult?.summary,
+              result: eventResult
+                ? {
+                    artifacts:
+                      eventResult.artifacts?.map((a: any) => ({
+                        id: a.id,
+                        name: a.name,
+                        type: a.type,
+                        url: a.url || '',
+                      })) || [],
+                    duration: eventResult.duration || 0,
+                    designId: eventResult.designId,
+                  }
+                : undefined,
+            });
+            unsubscribe();
+          } else if (event.type === 'error') {
+            setIsGenerating(false);
+            updateHistory(historyId, { status: 'error' });
             unsubscribe();
           }
         });
@@ -189,10 +259,18 @@ export default function DesignerTab() {
           phase: 'error',
           message: error instanceof Error ? error.message : '生成失败',
         });
+        updateHistory(historyId, { status: 'error' });
         setIsGenerating(false);
       }
     },
-    [resetProgress, updateProgress, handleEvent]
+    [
+      resetProgress,
+      updateProgress,
+      handleEvent,
+      user?.id,
+      addHistory,
+      updateHistory,
+    ]
   );
 
   // 处理取消
@@ -204,14 +282,51 @@ export default function DesignerTab() {
         console.error('Failed to cancel:', error);
       }
     }
+    if (currentHistoryId) {
+      updateHistory(currentHistoryId, { status: 'error' });
+    }
     setIsGenerating(false);
     resetProgress();
-  }, [currentTaskId, resetProgress]);
+  }, [currentTaskId, currentHistoryId, resetProgress, updateHistory]);
 
   // 处理模板选择
-  const handleTemplateSelect = (_template: (typeof DESIGNER_TEMPLATES)[0]) => {
-    // TODO: Implement template selection
-  };
+  const handleTemplateSelect = useCallback(
+    (template: (typeof DESIGNER_TEMPLATES)[0]) => {
+      setTemplatePrompt(template.prompt);
+    },
+    []
+  );
+
+  // 模板提示语应用后清除，以便下次点击同一模板仍能触发
+  useEffect(() => {
+    if (templatePrompt) {
+      const timer = setTimeout(() => setTemplatePrompt(null), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [templatePrompt]);
+
+  // 复用历史记录（仅复制设置到输入框）
+  const handleReuseHistory = useCallback((item: DesignerHistoryItem) => {
+    setTemplatePrompt(item.prompt);
+    setShowHistory(false);
+  }, []);
+
+  // 恢复历史结果（查看完整结果）
+  const handleRestoreHistory = useCallback(
+    (item: DesignerHistoryItem) => {
+      if (item.result) {
+        setRestoredResult(item.result);
+        // 更新 progress 状态为 completed
+        updateProgress({
+          phase: 'completed',
+          percentage: 100,
+          message: '已恢复历史结果',
+        });
+        setShowHistory(false);
+      }
+    },
+    [updateProgress]
+  );
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-white">
@@ -227,8 +342,113 @@ export default function DesignerTab() {
               <p className="text-xs text-gray-500">{agentConfig.description}</p>
             </div>
           </div>
+          {/* 历史记录按钮 */}
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className={cn(
+              'rounded-lg p-2 transition-colors',
+              showHistory
+                ? 'bg-pink-100 text-pink-600'
+                : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+            )}
+            title="历史记录"
+          >
+            <History className="h-5 w-5" />
+          </button>
         </div>
       </header>
+
+      {/* 历史记录面板 */}
+      <AnimatePresence>
+        {showHistory && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden border-b border-gray-200 bg-gray-50"
+          >
+            <div className="max-h-[280px] overflow-y-auto p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-medium text-gray-700">生成历史</h3>
+                {history.length > 0 && (
+                  <button
+                    onClick={clearHistory}
+                    className="text-xs text-red-500 hover:text-red-600"
+                  >
+                    清空
+                  </button>
+                )}
+              </div>
+
+              {history.length === 0 ? (
+                <p className="py-4 text-center text-xs text-gray-400">
+                  暂无历史记录
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {history.slice(0, 20).map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-2 hover:border-gray-300"
+                    >
+                      <div className="mr-2 min-w-0 flex-1">
+                        <p className="truncate text-sm text-gray-900">
+                          {item.prompt}
+                        </p>
+                        <div className="mt-1 flex items-center gap-2">
+                          <span className="text-xs text-gray-500">
+                            {formatRelativeTime(item.timestamp)}
+                          </span>
+                          <span className="rounded bg-pink-100 px-1.5 py-0.5 text-xs text-pink-600">
+                            {STYLE_OPTIONS.find((s) => s.id === item.style)
+                              ?.name || item.style}
+                          </span>
+                          <span className="rounded bg-purple-100 px-1.5 py-0.5 text-xs text-purple-600">
+                            {item.aspectRatio}
+                          </span>
+                          {item.status === 'success' ? (
+                            <Check className="h-3 w-3 text-green-500" />
+                          ) : item.status === 'error' ? (
+                            <span className="text-xs text-red-500">失败</span>
+                          ) : (
+                            <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {/* 查看结果按钮（仅成功且有结果时显示） */}
+                        {item.status === 'success' && item.result && (
+                          <button
+                            onClick={() => handleRestoreHistory(item)}
+                            className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-pink-600"
+                            title="查看结果"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleReuseHistory(item)}
+                          className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-pink-600"
+                          title="复用"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => removeHistory(item.id)}
+                          className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-red-500"
+                          title="删除"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* AI 解析结果提示 */}
       <AnimatePresence>
@@ -300,70 +520,99 @@ export default function DesignerTab() {
         {(isGenerating || progress.phase !== 'idle') &&
           progress.phase !== 'completed' && (
             <div className="mb-8">
-              <div className="mx-auto max-w-2xl rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-                <ProgressTracker progress={progress} showToolCalls />
-                {isGenerating && (
-                  <button
-                    onClick={handleCancel}
-                    className="mt-4 w-full py-2 text-sm text-gray-500 transition-colors hover:text-red-500"
-                  >
-                    取消生成
-                  </button>
-                )}
+              <div className="mx-auto max-w-3xl">
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                  {/* 左侧 - AI 思考过程 */}
+                  <div className="lg:col-span-1">
+                    <AIThinkingPanel
+                      useAgentStore
+                      currentTool="image_generation"
+                      currentDescription="正在生成设计..."
+                    />
+                  </div>
+
+                  {/* 右侧 - 进度条 */}
+                  <div className="lg:col-span-2">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                      <ProgressTracker progress={progress} showToolCalls />
+                      {isGenerating && (
+                        <button
+                          onClick={handleCancel}
+                          className="mt-4 w-full py-2 text-sm text-gray-500 transition-colors hover:text-red-500"
+                        >
+                          取消生成
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
         {/* 结果展示 */}
-        {progress.phase === 'completed' && result && (
+        {progress.phase === 'completed' && (result || restoredResult) && (
           <div className="mb-8">
             <div className="mx-auto max-w-4xl">
               <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
                 <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <CheckCircle2 className="h-6 w-6 text-green-500" />
-                    <h3 className="text-lg font-semibold">生成完成</h3>
+                    <h3 className="text-lg font-semibold">
+                      {restoredResult ? '历史结果' : '生成完成'}
+                    </h3>
                   </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => resetProgress()}
+                      onClick={() => {
+                        resetProgress();
+                        setRestoredResult(null);
+                      }}
                       className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm transition-colors hover:bg-gray-50"
                     >
                       <RefreshCw className="h-4 w-4" />
                       重新生成
                     </button>
-                    {result.artifacts.map((artifact) => (
-                      <React.Fragment key={artifact.id}>
-                        <button
-                          onClick={() => setShowPreview(true)}
-                          className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm transition-colors hover:bg-gray-50"
-                        >
-                          <ZoomIn className="h-4 w-4" />
-                          预览
-                        </button>
-                        <a
-                          href={artifact.url}
-                          download
-                          className="flex items-center gap-2 rounded-lg bg-pink-600 px-4 py-2 text-sm text-white transition-colors hover:bg-pink-700"
-                        >
-                          <Download className="h-4 w-4" />
-                          下载图片
-                        </a>
-                      </React.Fragment>
-                    ))}
+                    {((restoredResult || result)?.artifacts || []).map(
+                      (artifact) => (
+                        <React.Fragment key={artifact.id}>
+                          <button
+                            onClick={() => setShowPreview(true)}
+                            className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm transition-colors hover:bg-gray-50"
+                          >
+                            <ZoomIn className="h-4 w-4" />
+                            预览
+                          </button>
+                          <a
+                            href={artifact.url}
+                            download
+                            className="flex items-center gap-2 rounded-lg bg-pink-600 px-4 py-2 text-sm text-white transition-colors hover:bg-pink-700"
+                          >
+                            <Download className="h-4 w-4" />
+                            下载图片
+                          </a>
+                        </React.Fragment>
+                      )
+                    )}
                   </div>
                 </div>
-                <p className="text-gray-600">{result.summary}</p>
+                {result?.summary && (
+                  <p className="text-gray-600">{result.summary}</p>
+                )}
                 <div className="mt-4 text-sm text-gray-500">
-                  耗时: {(result.duration / 1000).toFixed(1)}s
+                  耗时:{' '}
+                  {(((restoredResult || result)?.duration || 0) / 1000).toFixed(
+                    1
+                  )}
+                  s
                 </div>
 
                 {/* 图片预览 */}
-                {result.artifacts.length > 0 && (
+                {((restoredResult || result)?.artifacts || []).length > 0 && (
                   <div className="mt-6">
                     <div className="overflow-hidden rounded-lg bg-gray-100">
                       <img
-                        src={result.artifacts[0].url}
+                        src={(restoredResult || result)?.artifacts[0]?.url}
                         alt="Generated design"
                         className="h-auto w-full"
                       />
@@ -387,6 +636,7 @@ export default function DesignerTab() {
             placeholder="直接描述你想要的设计，AI会自动理解。例如：&#10;• 基于 https://example.com 创建一张科技风信息图&#10;• 设计一张竖版海报，极简风格&#10;• 做一个数据对比图，16:9比例"
             onSubmit={handleSubmit}
             isProcessing={isGenerating}
+            initialPrompt={templatePrompt || ''}
           />
           <p className="mt-2 text-center text-xs text-gray-400">
             支持直接粘贴URL、指定布局、比例、风格等，AI会自动理解
@@ -403,24 +653,25 @@ export default function DesignerTab() {
 
       {/* 全屏预览 */}
       <AnimatePresence>
-        {showPreview && result && result.artifacts.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-8"
-            onClick={() => setShowPreview(false)}
-          >
-            <motion.img
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-              src={result.artifacts[0].url}
-              alt="Preview"
-              className="max-h-full max-w-full rounded-lg shadow-2xl"
-            />
-          </motion.div>
-        )}
+        {showPreview &&
+          ((restoredResult || result)?.artifacts || []).length > 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-8"
+              onClick={() => setShowPreview(false)}
+            >
+              <motion.img
+                initial={{ scale: 0.9 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.9 }}
+                src={(restoredResult || result)?.artifacts[0]?.url}
+                alt="Preview"
+                className="max-h-full max-w-full rounded-lg shadow-2xl"
+              />
+            </motion.div>
+          )}
       </AnimatePresence>
     </div>
   );
