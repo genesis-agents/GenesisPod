@@ -16,9 +16,17 @@ import {
 import { AdvancedExtractorService } from "./advanced-extractor.service";
 import { NewsExtractorService } from "./news-extractor.service";
 import { PuppeteerFetcherService } from "./puppeteer-fetcher.service";
+import { FlareSolverrService } from "./flaresolverr.service";
 
 /**
  * 代理控制器 - 用于代理外部资源（如 PDF），绕过 CORS 和 X-Frame-Options 限制
+ *
+ * 四层回退机制：
+ * 1. 直接 HTTP 请求（带浏览器 Headers）
+ * 2. FlareSolverr（专业 Cloudflare 绕过服务）
+ * 3. Jina Reader API（备选）
+ * 4. Puppeteer 无头浏览器（最后手段）
+ * 5. 优雅降级（提示用户手动访问）
  */
 @Controller("proxy")
 export class ProxyController {
@@ -31,6 +39,7 @@ export class ProxyController {
     private advancedExtractor: AdvancedExtractorService,
     private newsExtractor: NewsExtractorService,
     private puppeteerFetcher: PuppeteerFetcherService,
+    private flareSolverr: FlareSolverrService,
   ) {}
 
   /**
@@ -443,7 +452,7 @@ export class ProxyController {
 
       this.logger.log(`Fetching HTML for Reader Mode from: ${urlObj.hostname}`);
 
-      let html: string;
+      let html: string | undefined;
       let usedJinaReader = false;
 
       // 尝试直接获取 HTML
@@ -474,28 +483,49 @@ export class ProxyController {
         });
         html = response.data;
       } catch (fetchError) {
-        // 如果是 403 错误，尝试使用 Jina Reader 作为 fallback
+        // 如果是 403 错误，启动四层回退机制
         if (
           axios.isAxiosError(fetchError) &&
           fetchError.response?.status === 403
         ) {
           this.logger.log(
-            `Direct fetch returned 403, trying Jina Reader fallback for ${url}`,
+            `Direct fetch returned 403, starting fallback chain for ${url}`,
           );
-          const jinaResult = await this.fetchViaJinaReader(url);
-          if (jinaResult.success && jinaResult.content) {
-            // Jina Reader 返回 Markdown，转换为 HTML
-            const titleMatch = jinaResult.content.match(/^#\s+(.+)$/m);
-            const title = titleMatch ? titleMatch[1] : urlObj.hostname;
-            html = this.markdownToHtml(jinaResult.content, title);
-            usedJinaReader = true;
-          } else if (jinaResult.requiresCaptcha) {
-            // Jina Reader 检测到 CAPTCHA，尝试 Puppeteer 作为终极方案
-            this.logger.log(
-              `Jina Reader blocked by CAPTCHA, trying Puppeteer for ${url}`,
-            );
+
+          // 回退层 1: FlareSolverr（专业 Cloudflare 绕过服务）
+          if (this.flareSolverr.getIsAvailable()) {
+            this.logger.log(`Trying FlareSolverr for ${url}`);
+            const flareResult = await this.flareSolverr.fetchPage(url, {
+              maxTimeout: 60000,
+            });
+
+            if (flareResult.success && flareResult.html) {
+              this.logger.log(
+                `FlareSolverr successfully fetched ${url} (${flareResult.solveTime}ms)`,
+              );
+              html = flareResult.html;
+            } else {
+              this.logger.warn(`FlareSolverr failed: ${flareResult.error}`);
+            }
+          }
+
+          // 回退层 2: Jina Reader API（如果 FlareSolverr 失败或不可用）
+          if (!html) {
+            this.logger.log(`Trying Jina Reader for ${url}`);
+            const jinaResult = await this.fetchViaJinaReader(url);
+            if (jinaResult.success && jinaResult.content) {
+              const titleMatch = jinaResult.content.match(/^#\s+(.+)$/m);
+              const title = titleMatch ? titleMatch[1] : urlObj.hostname;
+              html = this.markdownToHtml(jinaResult.content, title);
+              usedJinaReader = true;
+            }
+          }
+
+          // 回退层 3: Puppeteer 无头浏览器（最后手段）
+          if (!html) {
+            this.logger.log(`Trying Puppeteer for ${url}`);
             const puppeteerResult = await this.puppeteerFetcher.fetchPage(url, {
-              timeout: 45000, // 给 Cloudflare 验证更多时间
+              timeout: 30000,
             });
 
             if (puppeteerResult.success && puppeteerResult.html) {
@@ -503,34 +533,42 @@ export class ProxyController {
                 `Puppeteer successfully fetched ${url} (${puppeteerResult.loadTime}ms)`,
               );
               html = puppeteerResult.html;
-            } else {
-              // Puppeteer 也失败，返回优雅降级响应
-              this.logger.warn(
-                `All methods failed for ${urlObj.hostname}, returning fallback response`,
-              );
-              return {
-                success: false,
-                requiresCaptcha: true,
-                title: this.extractTitleFromUrl(url),
-                content: "",
-                textContent: "",
-                excerpt:
-                  "此网站使用了 Cloudflare 等安全防护，需要人机验证才能访问内容。",
-                siteName: urlObj.hostname,
-                length: 0,
-                plan: "blocked",
-                confidence: 0,
-                sourceUrl: url,
-                message:
-                  "此网站需要人机验证，无法自动获取内容。请点击「打开原始」在浏览器中查看。",
-              };
             }
-          } else {
-            throw fetchError; // Jina Reader 也失败，抛出原始错误
+          }
+
+          // 所有方法都失败，返回优雅降级响应
+          if (!html) {
+            this.logger.warn(
+              `All fallback methods failed for ${urlObj.hostname}, returning graceful degradation`,
+            );
+            return {
+              success: false,
+              requiresCaptcha: true,
+              title: this.extractTitleFromUrl(url),
+              content: "",
+              textContent: "",
+              excerpt:
+                "此网站使用了 Cloudflare 等安全防护，需要人机验证才能访问内容。",
+              siteName: urlObj.hostname,
+              length: 0,
+              plan: "blocked",
+              confidence: 0,
+              sourceUrl: url,
+              message:
+                "此网站需要人机验证，无法自动获取内容。请点击「打开原始」在浏览器中查看。",
+            };
           }
         } else {
           throw fetchError;
         }
+      }
+
+      // 确保 html 已定义（如果前面所有方法都失败，应该已经返回了）
+      if (!html) {
+        throw new HttpException(
+          "Failed to fetch page content",
+          HttpStatus.UNPROCESSABLE_ENTITY,
+        );
       }
 
       // 使用高级提取服务，实现4层容错机制
@@ -686,14 +724,38 @@ export class ProxyController {
           });
           html = response.data;
         } catch (fetchError) {
-          // 如果是 403 错误，尝试使用 Jina Reader 作为 fallback
+          // 如果是 403 错误，启动四层回退机制
           if (
             axios.isAxiosError(fetchError) &&
             fetchError.response?.status === 403
           ) {
             this.logger.log(
-              `Direct fetch returned 403, trying Jina Reader fallback for ${currentUrl}`,
+              `Direct fetch returned 403, starting fallback chain for ${currentUrl}`,
             );
+
+            // 回退层 1: FlareSolverr（专业 Cloudflare 绕过服务）
+            if (this.flareSolverr.getIsAvailable()) {
+              this.logger.log(`Trying FlareSolverr for ${currentUrl}`);
+              const flareResult = await this.flareSolverr.fetchPage(
+                currentUrl,
+                {
+                  maxTimeout: 60000,
+                },
+              );
+
+              if (flareResult.success && flareResult.html) {
+                this.logger.log(
+                  `FlareSolverr successfully fetched ${currentUrl} (${flareResult.solveTime}ms)`,
+                );
+                html = flareResult.html;
+                break; // FlareSolverr 成功，跳出重定向循环
+              } else {
+                this.logger.warn(`FlareSolverr failed: ${flareResult.error}`);
+              }
+            }
+
+            // 回退层 2: Jina Reader API
+            this.logger.log(`Trying Jina Reader for ${currentUrl}`);
             const jinaResult = await this.fetchViaJinaReader(currentUrl);
             if (jinaResult.success && jinaResult.content) {
               // Jina Reader 返回 Markdown，转换为 HTML
@@ -702,48 +764,44 @@ export class ProxyController {
               html = this.markdownToHtml(jinaResult.content, title);
               usedJinaReader = true;
               break; // Jina Reader 成功，跳出重定向循环
-            } else if (jinaResult.requiresCaptcha) {
-              // Jina Reader 检测到 CAPTCHA，尝试 Puppeteer 作为终极方案
-              this.logger.log(
-                `Jina Reader blocked by CAPTCHA, trying Puppeteer for ${currentUrl}`,
-              );
-              const puppeteerResult = await this.puppeteerFetcher.fetchPage(
-                currentUrl,
-                { timeout: 45000 },
-              );
-
-              if (puppeteerResult.success && puppeteerResult.html) {
-                this.logger.log(
-                  `Puppeteer successfully fetched ${currentUrl} (${puppeteerResult.loadTime}ms)`,
-                );
-                html = puppeteerResult.html;
-                break; // Puppeteer 成功，跳出重定向循环
-              } else {
-                // Puppeteer 也失败，返回优雅降级响应
-                this.logger.warn(
-                  `All methods failed for ${urlObj.hostname}, returning fallback response`,
-                );
-                return {
-                  success: false,
-                  requiresCaptcha: true,
-                  title: this.extractTitleFromUrl(url),
-                  content: "",
-                  textContent: "",
-                  excerpt:
-                    "此网站使用了 Cloudflare 等安全防护，需要人机验证才能访问内容。",
-                  siteName: urlObj.hostname,
-                  length: 0,
-                  plan: "blocked",
-                  confidence: 0,
-                  sourceUrl: url,
-                  finalUrl: currentUrl,
-                  message:
-                    "此网站需要人机验证，无法自动获取内容。请点击「打开原始」在浏览器中查看。",
-                };
-              }
-            } else {
-              throw fetchError; // Jina Reader 也失败，抛出原始错误
             }
+
+            // 回退层 3: Puppeteer 无头浏览器（最后手段）
+            this.logger.log(`Trying Puppeteer for ${currentUrl}`);
+            const puppeteerResult = await this.puppeteerFetcher.fetchPage(
+              currentUrl,
+              { timeout: 30000 },
+            );
+
+            if (puppeteerResult.success && puppeteerResult.html) {
+              this.logger.log(
+                `Puppeteer successfully fetched ${currentUrl} (${puppeteerResult.loadTime}ms)`,
+              );
+              html = puppeteerResult.html;
+              break; // Puppeteer 成功，跳出重定向循环
+            }
+
+            // 所有方法都失败，返回优雅降级响应
+            this.logger.warn(
+              `All fallback methods failed for ${urlObj.hostname}, returning graceful degradation`,
+            );
+            return {
+              success: false,
+              requiresCaptcha: true,
+              title: this.extractTitleFromUrl(url),
+              content: "",
+              textContent: "",
+              excerpt:
+                "此网站使用了 Cloudflare 等安全防护，需要人机验证才能访问内容。",
+              siteName: urlObj.hostname,
+              length: 0,
+              plan: "blocked",
+              confidence: 0,
+              sourceUrl: url,
+              finalUrl: currentUrl,
+              message:
+                "此网站需要人机验证，无法自动获取内容。请点击「打开原始」在浏览器中查看。",
+            };
           } else {
             throw fetchError;
           }

@@ -3,6 +3,7 @@ import { ProxyController } from "./proxy.controller";
 import { AdvancedExtractorService } from "./advanced-extractor.service";
 import { NewsExtractorService } from "./news-extractor.service";
 import { PuppeteerFetcherService } from "./puppeteer-fetcher.service";
+import { FlareSolverrService } from "./flaresolverr.service";
 import { HttpException } from "@nestjs/common";
 import axios from "axios";
 
@@ -94,12 +95,22 @@ This connection needs to review the security of your connection.`;
       }),
     };
 
+    // Mock FlareSolverrService
+    const mockFlareSolverr = {
+      getIsAvailable: jest.fn().mockReturnValue(false),
+      fetchPage: jest.fn().mockResolvedValue({
+        success: false,
+        error: "FlareSolverr not available in test",
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ProxyController],
       providers: [
         { provide: AdvancedExtractorService, useValue: mockAdvancedExtractor },
         { provide: NewsExtractorService, useValue: mockNewsExtractor },
         { provide: PuppeteerFetcherService, useValue: mockPuppeteerFetcher },
+        { provide: FlareSolverrService, useValue: mockFlareSolverr },
       ],
     }).compile();
 

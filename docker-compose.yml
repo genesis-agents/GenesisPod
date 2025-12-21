@@ -4,6 +4,20 @@
 # 原始数据: PostgreSQL JSONB (RawDataService)
 
 services:
+  # FlareSolverr - Cloudflare 绕过代理服务
+  # 用于绕过 Cloudflare 等反爬虫保护
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: deepdive-flaresolverr
+    environment:
+      - LOG_LEVEL=info
+      - LOG_HTML=false
+      - CAPTCHA_SOLVER=none
+      - TZ=Asia/Shanghai
+    ports:
+      - "8191:8191"
+    restart: unless-stopped
+
   # PostgreSQL - 主数据库 (唯一数据库)
   postgres:
     image: postgres:16-alpine
