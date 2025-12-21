@@ -495,6 +495,10 @@ export default function AIOrganizePanel({
                 'Analyze notes, extract insights, and find connections'}
               {activeTab === 'images' &&
                 'Image tagging, style analysis, and visual themes'}
+              {activeTab === 'notion' &&
+                'Sync management, AI insights, and cross-linking'}
+              {activeTab === 'graph' &&
+                'Knowledge graph visualization and exploration'}
             </p>
           </div>
         </div>
@@ -542,6 +546,16 @@ export default function AIOrganizePanel({
               <p className="text-pink-800">
                 AI can analyze your saved images, detect styles, and help
                 organize them by visual themes.
+              </p>
+            </div>
+          )}
+
+          {/* Notion Tab Info */}
+          {activeTab === 'notion' && (
+            <div className="mb-4 rounded-lg bg-gradient-to-r from-gray-50 to-slate-50 px-4 py-3 text-sm">
+              <p className="text-gray-800">
+                AI can help organize your Notion pages, extract key insights,
+                and find connections with your Library content.
               </p>
             </div>
           )}
@@ -1030,6 +1044,74 @@ export default function AIOrganizePanel({
                       View Results / 查看结果
                     </button>
                   )}
+              </div>
+            </div>
+          )}
+
+          {/* Action Cards - Notion Tab */}
+          {activeTab === 'notion' && (
+            <div className="grid grid-cols-3 gap-3">
+              {/* Sync Pages */}
+              <div className="rounded-xl border border-gray-200 p-4 transition-all hover:border-gray-300 hover:shadow-md">
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="rounded-lg bg-gray-100 p-2">
+                    <svg
+                      className="h-5 w-5 text-gray-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
+                    </svg>
+                  </div>
+                  <h4 className="font-medium text-gray-900">Quick Sync</h4>
+                </div>
+                <p className="mb-3 text-xs text-gray-500">
+                  Sync latest changes from your connected Notion workspace
+                </p>
+                <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-800 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700">
+                  <Zap className="h-4 w-4" />
+                  Sync Now
+                </button>
+              </div>
+
+              {/* Extract Insights */}
+              <div className="rounded-xl border border-gray-200 p-4 transition-all hover:border-blue-200 hover:shadow-md">
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="rounded-lg bg-blue-100 p-2">
+                    <Sparkles className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <h4 className="font-medium text-gray-900">AI Insights</h4>
+                </div>
+                <p className="mb-3 text-xs text-gray-500">
+                  Extract key insights and summaries from Notion pages
+                </p>
+                <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-600">
+                  <Zap className="h-4 w-4" />
+                  Analyze
+                </button>
+              </div>
+
+              {/* Link to Library */}
+              <div className="rounded-xl border border-gray-200 p-4 transition-all hover:border-purple-200 hover:shadow-md">
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="rounded-lg bg-purple-100 p-2">
+                    <Link2 className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <h4 className="font-medium text-gray-900">Smart Link</h4>
+                </div>
+                <p className="mb-3 text-xs text-gray-500">
+                  Find and link related resources between Notion and Library
+                </p>
+                <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-600">
+                  <Zap className="h-4 w-4" />
+                  Find Links
+                </button>
               </div>
             </div>
           )}

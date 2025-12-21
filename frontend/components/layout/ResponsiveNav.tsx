@@ -50,13 +50,23 @@ interface NavTab {
 
 const NAV_TABS: NavTab[] = [
   {
+    id: 'youtube',
+    label: 'YouTube',
+    icon: Youtube,
+    color: {
+      active: 'border-red-300 bg-red-50 text-red-600 shadow-sm',
+      inactive:
+        'border-gray-200 bg-white text-gray-600 hover:border-red-200 hover:bg-red-50/50 hover:text-red-600',
+    },
+  },
+  {
     id: 'papers',
     label: 'Papers',
     icon: FileText,
     color: {
-      active: 'border-blue-200 bg-blue-50 text-blue-700',
+      active: 'border-sky-300 bg-sky-50 text-sky-600 shadow-sm',
       inactive:
-        'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50',
+        'border-gray-200 bg-white text-gray-600 hover:border-sky-200 hover:bg-sky-50/50 hover:text-sky-600',
     },
   },
   {
@@ -64,9 +74,9 @@ const NAV_TABS: NavTab[] = [
     label: 'Blogs',
     icon: Rss,
     color: {
-      active: 'border-purple-200 bg-purple-50 text-purple-700',
+      active: 'border-violet-300 bg-violet-50 text-violet-600 shadow-sm',
       inactive:
-        'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50',
+        'border-gray-200 bg-white text-gray-600 hover:border-violet-200 hover:bg-violet-50/50 hover:text-violet-600',
     },
   },
   {
@@ -74,19 +84,9 @@ const NAV_TABS: NavTab[] = [
     label: 'Reports',
     icon: FileBarChart,
     color: {
-      active: 'border-amber-200 bg-amber-50 text-amber-700',
+      active: 'border-amber-300 bg-amber-50 text-amber-600 shadow-sm',
       inactive:
-        'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50',
-    },
-  },
-  {
-    id: 'youtube',
-    label: 'YouTube',
-    icon: Youtube,
-    color: {
-      active: 'border-red-200 bg-red-50 text-red-700',
-      inactive:
-        'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50',
+        'border-gray-200 bg-white text-gray-600 hover:border-amber-200 hover:bg-amber-50/50 hover:text-amber-600',
     },
   },
   {
@@ -94,9 +94,9 @@ const NAV_TABS: NavTab[] = [
     label: 'Policy',
     icon: Scale,
     color: {
-      active: 'border-indigo-200 bg-indigo-50 text-indigo-700',
+      active: 'border-indigo-300 bg-indigo-50 text-indigo-600 shadow-sm',
       inactive:
-        'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50',
+        'border-gray-200 bg-white text-gray-600 hover:border-indigo-200 hover:bg-indigo-50/50 hover:text-indigo-600',
     },
   },
   {
@@ -104,9 +104,9 @@ const NAV_TABS: NavTab[] = [
     label: 'News',
     icon: Newspaper,
     color: {
-      active: 'border-green-200 bg-green-50 text-green-700',
+      active: 'border-emerald-300 bg-emerald-50 text-emerald-600 shadow-sm',
       inactive:
-        'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50',
+        'border-gray-200 bg-white text-gray-600 hover:border-emerald-200 hover:bg-emerald-50/50 hover:text-emerald-600',
     },
   },
 ];

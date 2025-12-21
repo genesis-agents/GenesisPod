@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import dynamicImport from 'next/dynamic';
 import { config } from '@/lib/utils/config';
+import { Bookmark, FileText, Image, Share2 } from 'lucide-react';
 import Sidebar from '@/components/layout/Sidebar';
 import { Tag, UserStats } from '@/components/library/CollectionNav';
 import ReadStatusBadge from '@/components/library/ReadStatusBadge';
@@ -71,11 +72,14 @@ const AIOrganizePanel = dynamicImport(
 
 const NotionTabContent = dynamicImport(
   () => import('@/components/notion/NotionTabContent'),
-  { ssr: false, loading: () => (
-    <div className="flex items-center justify-center py-12">
-      <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-gray-600"></div>
-    </div>
-  )}
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-gray-600"></div>
+      </div>
+    ),
+  }
 );
 
 export const dynamic = 'force-dynamic';
@@ -121,7 +125,12 @@ function LibraryPageContent() {
     'bookmarks' | 'notes' | 'images' | 'graph' | 'notion'
   >(() => {
     // Initialize from URL parameter if present
-    if (tabParam === 'images' || tabParam === 'notes' || tabParam === 'graph' || tabParam === 'notion') {
+    if (
+      tabParam === 'images' ||
+      tabParam === 'notes' ||
+      tabParam === 'graph' ||
+      tabParam === 'notion'
+    ) {
       return tabParam;
     }
     return 'bookmarks';
@@ -1419,56 +1428,67 @@ function LibraryPageContent() {
               </div>
             </div>
 
-            {/* Navigation Tabs */}
-            <div className="flex gap-8 border-b border-gray-200">
+            {/* Navigation Tabs - Professional design with icons and colors */}
+            <div className="flex items-center gap-2 pb-1">
               <button
                 onClick={() => setActiveTab('bookmarks')}
-                className={`relative border-b-2 px-0 py-3 text-sm font-semibold transition-all ${
+                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
                   activeTab === 'bookmarks'
-                    ? 'border-blue-600 text-gray-900'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                    ? 'border-sky-300 bg-sky-50 text-sky-600 shadow-sm'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-sky-200 hover:bg-sky-50/50 hover:text-sky-600'
                 }`}
               >
+                <Bookmark className="h-4 w-4" />
                 Bookmarks
               </button>
               <button
                 onClick={() => setActiveTab('notes')}
-                className={`border-b-2 px-0 py-3 text-sm font-semibold transition-all ${
+                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
                   activeTab === 'notes'
-                    ? 'border-blue-600 text-gray-900'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                    ? 'border-amber-300 bg-amber-50 text-amber-600 shadow-sm'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-amber-200 hover:bg-amber-50/50 hover:text-amber-600'
                 }`}
               >
+                <FileText className="h-4 w-4" />
                 Notes
               </button>
               <button
                 onClick={() => setActiveTab('images')}
-                className={`border-b-2 px-0 py-3 text-sm font-semibold transition-all ${
+                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
                   activeTab === 'images'
-                    ? 'border-purple-600 text-gray-900'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                    ? 'border-violet-300 bg-violet-50 text-violet-600 shadow-sm'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-violet-200 hover:bg-violet-50/50 hover:text-violet-600'
                 }`}
               >
+                <Image className="h-4 w-4" />
                 Images
               </button>
               <button
                 onClick={() => setActiveTab('notion')}
-                className={`border-b-2 px-0 py-3 text-sm font-semibold transition-all ${
+                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
                   activeTab === 'notion'
-                    ? 'border-gray-800 text-gray-900'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                    ? 'border-gray-400 bg-gray-100 text-gray-800 shadow-sm'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800'
                 }`}
               >
+                <svg
+                  className="h-4 w-4"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.981-.7-2.055-.607L3.01 2.295c-.466.046-.56.28-.374.466l1.823 1.447zm.793 3.08v13.904c0 .747.373 1.027 1.214.98l14.523-.84c.841-.046.935-.56.935-1.167V6.354c0-.606-.233-.933-.748-.887l-15.177.887c-.56.047-.747.327-.747.933zm14.337.745c.093.42 0 .84-.42.888l-.7.14v10.264c-.608.327-1.168.514-1.635.514-.748 0-.935-.234-1.495-.933l-4.577-7.186v6.952l1.448.327s0 .84-1.168.84l-3.22.186c-.094-.186 0-.653.327-.746l.84-.233V9.854L7.822 9.62c-.094-.42.14-1.026.793-1.073l3.456-.233 4.763 7.279V9.014l-1.215-.14c-.093-.513.28-.886.747-.933l3.223-.186z" />
+                </svg>
                 Notion
               </button>
               <button
                 onClick={() => setActiveTab('graph')}
-                className={`border-b-2 px-0 py-3 text-sm font-semibold transition-all ${
+                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
                   activeTab === 'graph'
-                    ? 'border-purple-600 text-gray-900'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-600 shadow-sm'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-emerald-200 hover:bg-emerald-50/50 hover:text-emerald-600'
                 }`}
               >
+                <Share2 className="h-4 w-4" />
                 Graph
               </button>
             </div>
@@ -1864,9 +1884,7 @@ function LibraryPageContent() {
           )}
 
           {/* Notion Tab */}
-          {activeTab === 'notion' && (
-            <NotionTabContent />
-          )}
+          {activeTab === 'notion' && <NotionTabContent />}
 
           {/* Knowledge Graph View */}
           {activeTab === 'graph' && (
