@@ -129,6 +129,8 @@ async function getCustomMigrations(): Promise<string[]> {
     "20251215_add_feedback_table",
     "20251219_add_resource_upvotes",
     "20251220_add_office_agent_tables",
+    "20251221_add_notion_integration",
+    "20251221_add_feedback_attachments",
   ];
 
   const migrations: string[] = [];

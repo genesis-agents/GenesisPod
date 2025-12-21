@@ -29,6 +29,7 @@ export default function NotionBlockEditor({
   const [isMounted, setIsMounted] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Convert Notion blocks to BlockNote format
   const initialContent = useMemo(() => {
@@ -75,6 +76,7 @@ export default function NotionBlockEditor({
     if (!editor || !onSave || saving) return;
 
     setSaving(true);
+    setSaveError(null);
     try {
       const blocks = editor.document;
       const notionBlocks = blockNoteToNotionBlocks(blocks as Block[]);
@@ -82,6 +84,9 @@ export default function NotionBlockEditor({
       setHasChanges(false);
     } catch (error) {
       console.error('Failed to save:', error);
+      setSaveError(
+        error instanceof Error ? error.message : 'Failed to save changes'
+      );
     } finally {
       setSaving(false);
     }
@@ -115,71 +120,107 @@ export default function NotionBlockEditor({
 
   return (
     <div className={`notion-block-editor ${className}`}>
-      {/* Save indicator */}
+      {/* Save indicator and error message */}
       {!readOnly && (
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            {hasChanges ? (
-              <>
-                <span className="h-2 w-2 rounded-full bg-amber-500" />
-                <span>Unsaved changes</span>
-              </>
-            ) : (
-              <>
-                <span className="h-2 w-2 rounded-full bg-green-500" />
-                <span>All changes saved</span>
-              </>
-            )}
-          </div>
-          {onSave && (
-            <button
-              onClick={handleSave}
-              disabled={!hasChanges || saving}
-              className="flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {saving ? (
+        <div className="mb-4 space-y-2">
+          {saveError && (
+            <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+              <svg
+                className="h-4 w-4 flex-shrink-0"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <span>{saveError}</span>
+              <button
+                onClick={() => setSaveError(null)}
+                className="ml-auto text-red-500 hover:text-red-700"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+          )}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              {hasChanges ? (
                 <>
-                  <svg
-                    className="h-4 w-4 animate-spin"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                    />
-                  </svg>
-                  Saving...
+                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  <span>Unsaved changes</span>
                 </>
               ) : (
                 <>
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
-                    />
-                  </svg>
-                  Save
+                  <span className="h-2 w-2 rounded-full bg-green-500" />
+                  <span>All changes saved</span>
                 </>
               )}
-            </button>
-          )}
+            </div>
+            {onSave && (
+              <button
+                onClick={handleSave}
+                disabled={!hasChanges || saving}
+                className="flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {saving ? (
+                  <>
+                    <svg
+                      className="h-4 w-4 animate-spin"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
+                    </svg>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
+                      />
+                    </svg>
+                    Save
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
