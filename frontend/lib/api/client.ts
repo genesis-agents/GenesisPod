@@ -10,6 +10,7 @@
  */
 
 import { config } from '../utils/config';
+import { getAuthTokens } from '../utils/auth';
 
 // ==================== 类型定义 ====================
 
@@ -162,7 +163,19 @@ class ApiClient {
       method: 'POST',
       body: formData,
       // 不设置 Content-Type，让浏览器自动处理 multipart/form-data
+      // 认证头会在 request 方法中自动添加
     });
+  }
+
+  /**
+   * 获取认证头
+   */
+  private getAuthHeaders(): Record<string, string> {
+    const tokens = getAuthTokens();
+    if (tokens?.accessToken) {
+      return { Authorization: `Bearer ${tokens.accessToken}` };
+    }
+    return {};
   }
 
   /**
@@ -187,8 +200,15 @@ class ApiClient {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+        // 合并认证头
+        const headers = {
+          ...this.getAuthHeaders(),
+          ...init.headers,
+        };
+
         const response = await fetch(url, {
           ...init,
+          headers,
           signal: controller.signal,
         });
 
@@ -315,6 +335,7 @@ class ApiClient {
         headers: {
           'Content-Type': 'application/json',
           Accept: 'text/event-stream',
+          ...this.getAuthHeaders(),
         },
         body: JSON.stringify(body),
         signal: controller.signal,
