@@ -100,6 +100,9 @@ model User {
   // Notion 集成
   notionConnections NotionConnection[]
 
+  // AI Coding 项目
+  aiCodingProjects AiCodingProject[]
+
   @@map("users")
 }
 
@@ -3123,4 +3126,154 @@ model NotionSyncHistory {
 
   @@index([connectionId, startedAt])
   @@map("notion_sync_history")
+}
+
+// ============ AI Coding - 多智能体协作编程平台 ============
+
+enum AiCodingProjectStatus {
+  DRAFT // 草稿
+  PROCESSING // 处理中
+  COMPLETED // 已完成
+  FAILED // 失败
+}
+
+enum AiCodingAgentStatus {
+  PENDING // 待开始
+  RUNNING // 运行中
+  COMPLETED // 已完成
+  FAILED // 失败
+}
+
+// AI Coding 项目
+model AiCodingProject {
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+
+  // 基础信息
+  name        String @db.VarChar(200)
+  description String @db.Text
+
+  // 原始需求
+  requirement String @db.Text
+
+  // 技术栈配置
+  techStack Json @map("tech_stack") // { frontend?: string, backend?: string, database?: string, language?: string }
+
+  // 项目模板
+  template String? @db.VarChar(50) // webapp, cli, api, data-analysis
+
+  // 状态和进度
+  status   AiCodingProjectStatus @default(DRAFT)
+  progress Int                   @default(0) // 0-100
+
+  // 智能体状态
+  agentStatus Json @default("{}") @map("agent_status") // { pm, architect, pmLead, engineer, qa }
+
+  // 产出物
+  outputs Json @default("{}") // { prd, design, tasks, code, tests }
+
+  // 代码存储
+  storagePath    String? @map("storage_path") @db.Text // 对象存储路径
+  currentVersion Int     @default(1) @map("current_version")
+
+  // GitHub 集成
+  githubRepo String? @map("github_repo") @db.VarChar(200)
+  githubUrl  String? @map("github_url") @db.Text
+
+  // 错误信息
+  errorMessage String? @map("error_message") @db.Text
+
+  // 时间戳
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+
+  // 关系
+  user      User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  files     AiCodingFile[]
+  agentLogs AiCodingAgentLog[]
+  iterations AiCodingIteration[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status])
+  @@map("ai_coding_projects")
+}
+
+// AI Coding 生成的文件
+model AiCodingFile {
+  id        String @id @default(uuid())
+  projectId String @map("project_id")
+
+  path     String @db.VarChar(500) // src/components/App.tsx
+  content  String @db.Text
+  language String @db.VarChar(50) // typescript, python, etc.
+  version  Int    @default(1)
+
+  // 元数据
+  size      Int  @default(0) // 字节数
+  lineCount Int  @default(0) @map("line_count")
+  isEntry   Boolean @default(false) @map("is_entry") // 是否为入口文件
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  project AiCodingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, path, version])
+  @@index([projectId])
+  @@map("ai_coding_files")
+}
+
+// AI Coding 智能体日志
+model AiCodingAgentLog {
+  id        String @id @default(uuid())
+  projectId String @map("project_id")
+
+  // 智能体信息
+  agentType String              @map("agent_type") @db.VarChar(50) // pm, architect, pmLead, engineer, qa
+  status    AiCodingAgentStatus @default(PENDING)
+
+  // 输入输出
+  input  Json?
+  output Json?
+
+  // AI 调用信息
+  modelUsed   String? @map("model_used") @db.VarChar(100)
+  tokensUsed  Int     @default(0) @map("tokens_used")
+  durationMs  Int?    @map("duration_ms")
+
+  // 错误信息
+  error String? @db.Text
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  completedAt DateTime? @map("completed_at")
+
+  project AiCodingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, agentType])
+  @@index([createdAt])
+  @@map("ai_coding_agent_logs")
+}
+
+// AI Coding 迭代记录
+model AiCodingIteration {
+  id        String @id @default(uuid())
+  projectId String @map("project_id")
+
+  // 迭代信息
+  version    Int    @default(1)
+  feedback   String @db.Text // 用户反馈
+  changes    Json?  // 变更记录
+
+  // 状态
+  status AiCodingProjectStatus @default(PROCESSING)
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  completedAt DateTime? @map("completed_at")
+
+  project AiCodingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, version])
+  @@map("ai_coding_iterations")
 }

@@ -1,0 +1,1053 @@
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { PrismaService } from "../../../common/prisma/prisma.service";
+import { AiChatService } from "../ai-core/ai-chat.service";
+import {
+  AiCodingProjectStatus,
+  AiCodingAgentStatus,
+  AiCodingProject,
+  Prisma,
+} from "@prisma/client";
+import {
+  CreateProjectDto,
+  UpdateProjectDto,
+  StartProjectDto,
+  IterateProjectDto,
+} from "./dto";
+import * as archiver from "archiver";
+import { PassThrough } from "stream";
+
+/**
+ * AI Coding Agent 类型
+ */
+export enum CodingAgentType {
+  PM = "pm", // 产品经理
+  ARCHITECT = "architect", // 架构师
+  PM_LEAD = "pmLead", // 项目经理
+  ENGINEER = "engineer", // 工程师
+  QA = "qa", // QA工程师
+}
+
+/**
+ * 项目产出物结构
+ */
+interface ProjectOutputs {
+  prd?: {
+    overview: string;
+    userStories: Array<{ id: string; description: string; priority: string }>;
+    functionalRequirements: string[];
+    nonFunctionalRequirements: string[];
+    acceptanceCriteria: string[];
+  };
+  design?: {
+    architecture: string;
+    dataModels: Array<{ name: string; fields: string[] }>;
+    apiDesign: Array<{ method: string; path: string; description: string }>;
+    directoryStructure: string;
+  };
+  tasks?: Array<{
+    id: string;
+    title: string;
+    description: string;
+    status: string;
+  }>;
+  code?: {
+    files: Array<{ path: string; language: string; content?: string }>;
+    entryPoint: string;
+    buildCommand: string;
+    runCommand: string;
+  };
+  tests?: {
+    testFiles: string[];
+    coverage: number;
+  };
+  [key: string]: unknown;
+}
+
+@Injectable()
+export class AiCodingService {
+  private readonly logger = new Logger(AiCodingService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly aiChatService: AiChatService,
+  ) {}
+
+  /**
+   * 创建项目
+   */
+  async createProject(
+    userId: string,
+    dto: CreateProjectDto,
+  ): Promise<AiCodingProject> {
+    const project = await this.prisma.aiCodingProject.create({
+      data: {
+        userId,
+        name: dto.name,
+        description: dto.description,
+        requirement: dto.requirement,
+        techStack: (dto.techStack || {}) as Prisma.InputJsonValue,
+        template: dto.template,
+        status: AiCodingProjectStatus.DRAFT,
+        agentStatus: {
+          pm: { status: "PENDING" },
+          architect: { status: "PENDING" },
+          pmLead: { status: "PENDING" },
+          engineer: { status: "PENDING" },
+          qa: { status: "PENDING" },
+        },
+        outputs: {},
+      },
+    });
+
+    this.logger.log(`Project created: ${project.id}`);
+    return project;
+  }
+
+  /**
+   * 获取用户项目列表
+   */
+  async getProjects(
+    userId: string,
+    options?: {
+      status?: AiCodingProjectStatus;
+      limit?: number;
+      cursor?: string;
+    },
+  ) {
+    const { status, limit = 20, cursor } = options || {};
+
+    const projects = await this.prisma.aiCodingProject.findMany({
+      where: {
+        userId,
+        ...(status && { status }),
+      },
+      orderBy: { createdAt: "desc" },
+      take: limit + 1,
+      ...(cursor && {
+        cursor: { id: cursor },
+        skip: 1,
+      }),
+      include: {
+        _count: {
+          select: { files: true },
+        },
+      },
+    });
+
+    const hasMore = projects.length > limit;
+    if (hasMore) projects.pop();
+
+    return {
+      projects,
+      nextCursor: hasMore ? projects[projects.length - 1]?.id : null,
+    };
+  }
+
+  /**
+   * 获取项目详情
+   */
+  async getProjectById(projectId: string, userId: string) {
+    const project = await this.prisma.aiCodingProject.findFirst({
+      where: { id: projectId, userId },
+      include: {
+        files: true,
+        agentLogs: {
+          orderBy: { createdAt: "desc" },
+          take: 50,
+        },
+        iterations: {
+          orderBy: { version: "desc" },
+        },
+      },
+    });
+
+    if (!project) {
+      throw new NotFoundException("Project not found");
+    }
+
+    return project;
+  }
+
+  /**
+   * 更新项目
+   */
+  async updateProject(
+    projectId: string,
+    userId: string,
+    dto: UpdateProjectDto,
+  ): Promise<AiCodingProject> {
+    const project = await this.prisma.aiCodingProject.findFirst({
+      where: { id: projectId, userId },
+    });
+
+    if (!project) {
+      throw new NotFoundException("Project not found");
+    }
+
+    if (project.status === AiCodingProjectStatus.PROCESSING) {
+      throw new Error("Cannot update project while processing");
+    }
+
+    return this.prisma.aiCodingProject.update({
+      where: { id: projectId },
+      data: {
+        ...(dto.name && { name: dto.name }),
+        ...(dto.description && { description: dto.description }),
+        ...(dto.requirement && { requirement: dto.requirement }),
+        ...(dto.techStack && {
+          techStack: dto.techStack as Prisma.InputJsonValue,
+        }),
+        ...(dto.template && { template: dto.template }),
+      },
+    });
+  }
+
+  /**
+   * 删除项目
+   */
+  async deleteProject(projectId: string, userId: string): Promise<void> {
+    const project = await this.prisma.aiCodingProject.findFirst({
+      where: { id: projectId, userId },
+    });
+
+    if (!project) {
+      throw new NotFoundException("Project not found");
+    }
+
+    await this.prisma.aiCodingProject.delete({
+      where: { id: projectId },
+    });
+
+    this.logger.log(`Project deleted: ${projectId}`);
+  }
+
+  /**
+   * 启动项目处理（多智能体协作）
+   */
+  async startProject(
+    projectId: string,
+    userId: string,
+    dto?: StartProjectDto,
+  ): Promise<AiCodingProject> {
+    const project = await this.prisma.aiCodingProject.findFirst({
+      where: { id: projectId, userId },
+    });
+
+    if (!project) {
+      throw new NotFoundException("Project not found");
+    }
+
+    if (project.status === AiCodingProjectStatus.PROCESSING) {
+      throw new Error("Project is already processing");
+    }
+
+    // 更新状态为处理中
+    const updatedProject = await this.prisma.aiCodingProject.update({
+      where: { id: projectId },
+      data: {
+        status: AiCodingProjectStatus.PROCESSING,
+        startedAt: new Date(),
+        progress: 0,
+      },
+    });
+
+    // 异步执行多智能体处理流程
+    this.executeAgentPipeline(projectId, dto?.options).catch((error) => {
+      this.logger.error(
+        `Agent pipeline failed for project ${projectId}`,
+        error,
+      );
+      this.prisma.aiCodingProject.update({
+        where: { id: projectId },
+        data: {
+          status: AiCodingProjectStatus.FAILED,
+          errorMessage: error instanceof Error ? error.message : String(error),
+        },
+      });
+    });
+
+    return updatedProject;
+  }
+
+  /**
+   * 执行多智能体协作流程
+   */
+  private async executeAgentPipeline(
+    projectId: string,
+    _options?: StartProjectDto["options"],
+  ): Promise<void> {
+    const project = await this.prisma.aiCodingProject.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project) return;
+
+    const outputs: ProjectOutputs = {};
+    const techStack = project.techStack as Record<string, string>;
+
+    try {
+      // Step 1: PM 生成 PRD (20%)
+      this.logger.log(`[${projectId}] Step 1: PM generating PRD...`);
+      await this.updateAgentStatus(projectId, CodingAgentType.PM, "RUNNING");
+      const prd = await this.runPMAgent(project.requirement, techStack);
+      outputs.prd = prd;
+      await this.updateAgentStatus(projectId, CodingAgentType.PM, "COMPLETED");
+      await this.updateProgress(projectId, 20, { prd });
+
+      // Step 2: Architect 生成设计 (40%)
+      this.logger.log(`[${projectId}] Step 2: Architect generating design...`);
+      await this.updateAgentStatus(
+        projectId,
+        CodingAgentType.ARCHITECT,
+        "RUNNING",
+      );
+      const design = await this.runArchitectAgent(prd, techStack);
+      outputs.design = design;
+      await this.updateAgentStatus(
+        projectId,
+        CodingAgentType.ARCHITECT,
+        "COMPLETED",
+      );
+      await this.updateProgress(projectId, 40, { design });
+
+      // Step 3: PM Lead 生成任务 (50%)
+      this.logger.log(`[${projectId}] Step 3: PM Lead generating tasks...`);
+      await this.updateAgentStatus(
+        projectId,
+        CodingAgentType.PM_LEAD,
+        "RUNNING",
+      );
+      const tasks = await this.runPMLeadAgent(prd, design);
+      outputs.tasks = tasks;
+      await this.updateAgentStatus(
+        projectId,
+        CodingAgentType.PM_LEAD,
+        "COMPLETED",
+      );
+      await this.updateProgress(projectId, 50, { tasks });
+
+      // Step 4: Engineer 生成代码 (80%)
+      this.logger.log(`[${projectId}] Step 4: Engineer generating code...`);
+      await this.updateAgentStatus(
+        projectId,
+        CodingAgentType.ENGINEER,
+        "RUNNING",
+      );
+      const code = await this.runEngineerAgent(
+        projectId,
+        prd,
+        design,
+        tasks,
+        techStack,
+      );
+      outputs.code = code;
+      await this.updateAgentStatus(
+        projectId,
+        CodingAgentType.ENGINEER,
+        "COMPLETED",
+      );
+      await this.updateProgress(projectId, 80, { code });
+
+      // Step 5: QA 生成测试 (100%)
+      this.logger.log(`[${projectId}] Step 5: QA generating tests...`);
+      await this.updateAgentStatus(projectId, CodingAgentType.QA, "RUNNING");
+      const tests = await this.runQAAgent(projectId, prd, code);
+      outputs.tests = tests;
+      await this.updateAgentStatus(projectId, CodingAgentType.QA, "COMPLETED");
+      await this.updateProgress(projectId, 100, { tests });
+
+      // 完成
+      await this.prisma.aiCodingProject.update({
+        where: { id: projectId },
+        data: {
+          status: AiCodingProjectStatus.COMPLETED,
+          completedAt: new Date(),
+          outputs: outputs as Prisma.InputJsonValue,
+        },
+      });
+
+      this.logger.log(`[${projectId}] Project completed successfully`);
+    } catch (error) {
+      this.logger.error(`[${projectId}] Agent pipeline failed`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * PM Agent: 生成 PRD
+   */
+  private async runPMAgent(
+    requirement: string,
+    techStack: Record<string, string>,
+  ): Promise<ProjectOutputs["prd"]> {
+    const systemPrompt = `You are a Product Manager AI. Your job is to analyze user requirements and create a structured PRD (Product Requirements Document).
+
+Output a JSON object with the following structure:
+{
+  "overview": "Brief project overview",
+  "userStories": [{"id": "US-001", "description": "...", "priority": "P0/P1/P2"}],
+  "functionalRequirements": ["Requirement 1", "Requirement 2"],
+  "nonFunctionalRequirements": ["NFR 1", "NFR 2"],
+  "acceptanceCriteria": ["Criteria 1", "Criteria 2"]
+}
+
+Be concise and focus on the core functionality.`;
+
+    const userMessage = `User Requirement: ${requirement}
+Tech Stack: ${JSON.stringify(techStack)}
+
+Generate a PRD for this project.`;
+
+    const result = await this.aiChatService.chat({
+      messages: [{ role: "user", content: userMessage }],
+      systemPrompt,
+      maxTokens: 4096,
+      temperature: 0.7,
+    });
+
+    try {
+      const jsonMatch = result.content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+    } catch (e) {
+      this.logger.warn("Failed to parse PM output as JSON");
+    }
+
+    return {
+      overview: result.content,
+      userStories: [],
+      functionalRequirements: [],
+      nonFunctionalRequirements: [],
+      acceptanceCriteria: [],
+    };
+  }
+
+  /**
+   * Architect Agent: 生成技术设计
+   */
+  private async runArchitectAgent(
+    prd: ProjectOutputs["prd"],
+    techStack: Record<string, string>,
+  ): Promise<ProjectOutputs["design"]> {
+    const systemPrompt = `You are a Software Architect AI. Your job is to design the technical architecture based on the PRD.
+
+Output a JSON object with the following structure:
+{
+  "architecture": "Architecture description (keep it brief)",
+  "dataModels": [{"name": "ModelName", "fields": ["field1: type", "field2: type"]}],
+  "apiDesign": [{"method": "GET/POST/PUT/DELETE", "path": "/api/...", "description": "..."}],
+  "directoryStructure": "src/\\n├── components/\\n├── pages/\\n└── ..."
+}`;
+
+    const result = await this.aiChatService.chat({
+      messages: [
+        {
+          role: "user",
+          content: `PRD: ${JSON.stringify(prd)}
+Tech Stack: ${JSON.stringify(techStack)}
+
+Design the technical architecture.`,
+        },
+      ],
+      systemPrompt,
+      maxTokens: 4096,
+      temperature: 0.7,
+    });
+
+    try {
+      const jsonMatch = result.content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+    } catch (e) {
+      this.logger.warn("Failed to parse Architect output as JSON");
+    }
+
+    return {
+      architecture: result.content,
+      dataModels: [],
+      apiDesign: [],
+      directoryStructure: "",
+    };
+  }
+
+  /**
+   * PM Lead Agent: 生成任务列表
+   */
+  private async runPMLeadAgent(
+    prd: ProjectOutputs["prd"],
+    design: ProjectOutputs["design"],
+  ): Promise<ProjectOutputs["tasks"]> {
+    const systemPrompt = `You are a Project Manager AI. Your job is to break down the project into actionable tasks.
+
+Output a JSON array with the following structure:
+[
+  {"id": "TASK-001", "title": "Task title", "description": "Brief description", "status": "pending"}
+]
+
+Keep it to 5-10 essential tasks.`;
+
+    const result = await this.aiChatService.chat({
+      messages: [
+        {
+          role: "user",
+          content: `PRD: ${JSON.stringify(prd)}
+Design: ${JSON.stringify(design)}
+
+Create a task list for this project.`,
+        },
+      ],
+      systemPrompt,
+      maxTokens: 2048,
+      temperature: 0.7,
+    });
+
+    try {
+      const jsonMatch = result.content.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+    } catch (e) {
+      this.logger.warn("Failed to parse PM Lead output as JSON");
+    }
+
+    return [];
+  }
+
+  /**
+   * Engineer Agent: 生成代码
+   */
+  private async runEngineerAgent(
+    projectId: string,
+    prd: ProjectOutputs["prd"],
+    design: ProjectOutputs["design"],
+    tasks: ProjectOutputs["tasks"],
+    techStack: Record<string, string>,
+  ): Promise<ProjectOutputs["code"]> {
+    const systemPrompt = `You are a Software Engineer AI. Your job is to implement the project code based on the PRD and design.
+
+Output a JSON object with code files:
+{
+  "files": [
+    {"path": "src/index.ts", "content": "...", "language": "typescript"},
+    {"path": "package.json", "content": "...", "language": "json"}
+  ],
+  "entryPoint": "src/index.ts",
+  "buildCommand": "npm run build",
+  "runCommand": "npm start"
+}
+
+Generate complete, runnable code files. Focus on the core functionality.`;
+
+    const result = await this.aiChatService.chat({
+      messages: [
+        {
+          role: "user",
+          content: `PRD: ${JSON.stringify(prd)}
+Design: ${JSON.stringify(design)}
+Tasks: ${JSON.stringify(tasks)}
+Tech Stack: ${JSON.stringify(techStack)}
+
+Generate the project code files.`,
+        },
+      ],
+      systemPrompt,
+      maxTokens: 8192,
+      temperature: 0.5,
+    });
+
+    let codeOutput: NonNullable<ProjectOutputs["code"]> = {
+      files: [],
+      entryPoint: "",
+      buildCommand: "npm run build",
+      runCommand: "npm start",
+    };
+
+    try {
+      const jsonMatch = result.content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        codeOutput = {
+          files: parsed.files || [],
+          entryPoint: parsed.entryPoint || "",
+          buildCommand: parsed.buildCommand || "npm run build",
+          runCommand: parsed.runCommand || "npm start",
+        };
+      }
+    } catch (e) {
+      this.logger.warn("Failed to parse Engineer output as JSON");
+    }
+
+    // 保存代码文件到数据库
+    if (codeOutput.files.length > 0) {
+      for (const file of codeOutput.files) {
+        const content = file.content || "";
+        await this.prisma.aiCodingFile.create({
+          data: {
+            projectId,
+            path: file.path,
+            content,
+            language: file.language || "text",
+            size: content.length,
+            lineCount: content.split("\n").length,
+            isEntry: file.path === codeOutput.entryPoint,
+          },
+        });
+      }
+    }
+
+    return {
+      files: codeOutput.files.map((f) => ({
+        path: f.path,
+        language: f.language,
+      })),
+      entryPoint: codeOutput.entryPoint,
+      buildCommand: codeOutput.buildCommand,
+      runCommand: codeOutput.runCommand,
+    };
+  }
+
+  /**
+   * QA Agent: 生成测试
+   */
+  private async runQAAgent(
+    projectId: string,
+    prd: ProjectOutputs["prd"],
+    code: ProjectOutputs["code"],
+  ): Promise<ProjectOutputs["tests"]> {
+    const systemPrompt = `You are a QA Engineer AI. Your job is to create test cases for the project.
+
+Output a JSON object with test files:
+{
+  "testFiles": [
+    {"path": "tests/app.test.ts", "content": "...", "language": "typescript"}
+  ],
+  "coverage": 80
+}
+
+Generate simple but effective test cases.`;
+
+    const codeFiles = code?.files || [];
+    const result = await this.aiChatService.chat({
+      messages: [
+        {
+          role: "user",
+          content: `PRD: ${JSON.stringify(prd)}
+Code Files: ${JSON.stringify(codeFiles)}
+
+Generate test files for this project.`,
+        },
+      ],
+      systemPrompt,
+      maxTokens: 4096,
+      temperature: 0.5,
+    });
+
+    let testOutput: {
+      testFiles: Array<{ path: string; content: string; language: string }>;
+      coverage: number;
+    } = {
+      testFiles: [],
+      coverage: 0,
+    };
+
+    try {
+      const jsonMatch = result.content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        testOutput = JSON.parse(jsonMatch[0]);
+      }
+    } catch (e) {
+      this.logger.warn("Failed to parse QA output as JSON");
+    }
+
+    // 保存测试文件到数据库
+    if (testOutput.testFiles && testOutput.testFiles.length > 0) {
+      for (const file of testOutput.testFiles) {
+        const content = file.content || "";
+        await this.prisma.aiCodingFile.create({
+          data: {
+            projectId,
+            path: file.path,
+            content,
+            language: file.language || "typescript",
+            size: content.length,
+            lineCount: content.split("\n").length,
+          },
+        });
+      }
+    }
+
+    return {
+      testFiles: testOutput.testFiles.map((f) => f.path),
+      coverage: testOutput.coverage,
+    };
+  }
+
+  /**
+   * 更新智能体状态
+   */
+  private async updateAgentStatus(
+    projectId: string,
+    agentType: CodingAgentType,
+    status: "PENDING" | "RUNNING" | "COMPLETED" | "FAILED",
+  ): Promise<void> {
+    const project = await this.prisma.aiCodingProject.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project) return;
+
+    const agentStatus = (project.agentStatus || {}) as Record<string, unknown>;
+    const now = new Date();
+
+    agentStatus[agentType] = {
+      status,
+      ...(status === "RUNNING" && { startedAt: now }),
+      ...(status === "COMPLETED" && { completedAt: now }),
+    };
+
+    await this.prisma.aiCodingProject.update({
+      where: { id: projectId },
+      data: { agentStatus: agentStatus as Prisma.InputJsonValue },
+    });
+
+    // 记录日志
+    await this.prisma.aiCodingAgentLog.create({
+      data: {
+        projectId,
+        agentType,
+        status:
+          status === "RUNNING"
+            ? AiCodingAgentStatus.RUNNING
+            : status === "COMPLETED"
+              ? AiCodingAgentStatus.COMPLETED
+              : status === "FAILED"
+                ? AiCodingAgentStatus.FAILED
+                : AiCodingAgentStatus.PENDING,
+      },
+    });
+  }
+
+  /**
+   * 更新项目进度
+   */
+  private async updateProgress(
+    projectId: string,
+    progress: number,
+    outputsUpdate?: Partial<ProjectOutputs>,
+  ): Promise<void> {
+    const project = await this.prisma.aiCodingProject.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project) return;
+
+    const currentOutputs = (project.outputs || {}) as ProjectOutputs;
+    const updatedOutputs = { ...currentOutputs, ...outputsUpdate };
+
+    await this.prisma.aiCodingProject.update({
+      where: { id: projectId },
+      data: {
+        progress,
+        outputs: updatedOutputs as Prisma.InputJsonValue,
+      },
+    });
+  }
+
+  /**
+   * 迭代项目
+   */
+  async iterateProject(
+    projectId: string,
+    userId: string,
+    dto: IterateProjectDto,
+  ): Promise<AiCodingProject> {
+    const project = await this.prisma.aiCodingProject.findFirst({
+      where: { id: projectId, userId },
+    });
+
+    if (!project) {
+      throw new NotFoundException("Project not found");
+    }
+
+    if (project.status !== AiCodingProjectStatus.COMPLETED) {
+      throw new Error("Can only iterate completed projects");
+    }
+
+    // 创建迭代记录
+    const iteration = await this.prisma.aiCodingIteration.create({
+      data: {
+        projectId,
+        version: project.currentVersion + 1,
+        feedback: dto.feedback,
+        status: AiCodingProjectStatus.PROCESSING,
+      },
+    });
+
+    // 更新项目状态
+    const updatedProject = await this.prisma.aiCodingProject.update({
+      where: { id: projectId },
+      data: {
+        status: AiCodingProjectStatus.PROCESSING,
+        currentVersion: project.currentVersion + 1,
+      },
+    });
+
+    // 异步执行迭代
+    this.executeIteration(projectId, iteration.id, dto.feedback).catch(
+      (error) => {
+        this.logger.error(`Iteration failed for project ${projectId}`, error);
+      },
+    );
+
+    return updatedProject;
+  }
+
+  /**
+   * 执行迭代
+   */
+  private async executeIteration(
+    projectId: string,
+    iterationId: string,
+    feedback: string,
+  ): Promise<void> {
+    const project = await this.prisma.aiCodingProject.findUnique({
+      where: { id: projectId },
+      include: { files: true },
+    });
+
+    if (!project) return;
+
+    try {
+      const systemPrompt = `You are a Software Engineer AI. The user has provided feedback on the existing code.
+Based on the feedback, modify the code and output the updated files.
+
+Output a JSON object:
+{
+  "files": [
+    {"path": "src/index.ts", "content": "...", "language": "typescript"}
+  ],
+  "changes": ["Changed X to Y", "Added feature Z"]
+}`;
+
+      const result = await this.aiChatService.chat({
+        messages: [
+          {
+            role: "user",
+            content: `Current Files: ${JSON.stringify(
+              project.files.map((f) => ({
+                path: f.path,
+                content: f.content,
+              })),
+            )}
+
+User Feedback: ${feedback}
+
+Update the code based on this feedback.`,
+          },
+        ],
+        systemPrompt,
+        maxTokens: 8192,
+        temperature: 0.5,
+      });
+
+      let updates: {
+        files: Array<{ path: string; content: string; language: string }>;
+        changes: string[];
+      } = {
+        files: [],
+        changes: [],
+      };
+
+      try {
+        const jsonMatch = result.content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          updates = JSON.parse(jsonMatch[0]);
+        }
+      } catch (e) {
+        this.logger.warn("Failed to parse iteration output");
+      }
+
+      // 更新代码文件
+      for (const file of updates.files) {
+        const content = file.content || "";
+        await this.prisma.aiCodingFile.upsert({
+          where: {
+            projectId_path_version: {
+              projectId,
+              path: file.path,
+              version: project.currentVersion,
+            },
+          },
+          create: {
+            projectId,
+            path: file.path,
+            content,
+            language: file.language || "text",
+            version: project.currentVersion,
+            size: content.length,
+            lineCount: content.split("\n").length,
+          },
+          update: {
+            content,
+            size: content.length,
+            lineCount: content.split("\n").length,
+          },
+        });
+      }
+
+      // 更新迭代记录
+      await this.prisma.aiCodingIteration.update({
+        where: { id: iterationId },
+        data: {
+          status: AiCodingProjectStatus.COMPLETED,
+          completedAt: new Date(),
+          changes: updates.changes,
+        },
+      });
+
+      // 更新项目状态
+      await this.prisma.aiCodingProject.update({
+        where: { id: projectId },
+        data: {
+          status: AiCodingProjectStatus.COMPLETED,
+        },
+      });
+
+      this.logger.log(`Iteration completed for project ${projectId}`);
+    } catch (error) {
+      await this.prisma.aiCodingIteration.update({
+        where: { id: iterationId },
+        data: {
+          status: AiCodingProjectStatus.FAILED,
+        },
+      });
+
+      await this.prisma.aiCodingProject.update({
+        where: { id: projectId },
+        data: {
+          status: AiCodingProjectStatus.FAILED,
+          errorMessage: error instanceof Error ? error.message : String(error),
+        },
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * 获取项目代码文件
+   */
+  async getProjectFiles(projectId: string, userId: string) {
+    const project = await this.prisma.aiCodingProject.findFirst({
+      where: { id: projectId, userId },
+    });
+
+    if (!project) {
+      throw new NotFoundException("Project not found");
+    }
+
+    return this.prisma.aiCodingFile.findMany({
+      where: {
+        projectId,
+        version: project.currentVersion,
+      },
+      orderBy: { path: "asc" },
+    });
+  }
+
+  /**
+   * 下载项目 ZIP
+   */
+  async downloadProject(
+    projectId: string,
+    userId: string,
+  ): Promise<{ stream: PassThrough; filename: string }> {
+    const project = await this.prisma.aiCodingProject.findFirst({
+      where: { id: projectId, userId },
+      include: { files: true },
+    });
+
+    if (!project) {
+      throw new NotFoundException("Project not found");
+    }
+
+    const files = project.files.filter(
+      (f) => f.version === project.currentVersion,
+    );
+
+    const passThrough = new PassThrough();
+    const archive = archiver("zip", { zlib: { level: 9 } });
+
+    archive.pipe(passThrough);
+
+    // 添加代码文件
+    for (const file of files) {
+      archive.append(file.content, { name: file.path });
+    }
+
+    // 添加 README
+    const readme = this.generateReadme(project);
+    archive.append(readme, { name: "README.md" });
+
+    // 添加文档
+    const outputs = project.outputs as ProjectOutputs;
+    if (outputs.prd) {
+      archive.append(JSON.stringify(outputs.prd, null, 2), {
+        name: "docs/PRD.json",
+      });
+    }
+    if (outputs.design) {
+      archive.append(JSON.stringify(outputs.design, null, 2), {
+        name: "docs/DESIGN.json",
+      });
+    }
+
+    archive.finalize();
+
+    const filename = `${project.name.replace(/[^a-zA-Z0-9]/g, "-")}-v${project.currentVersion}.zip`;
+
+    return { stream: passThrough, filename };
+  }
+
+  /**
+   * 生成 README
+   */
+  private generateReadme(project: AiCodingProject): string {
+    const outputs = project.outputs as ProjectOutputs;
+    const techStack = project.techStack as Record<string, string>;
+
+    return `# ${project.name}
+
+${project.description}
+
+## Generated by DeepDive AI Coding
+
+This project was generated using AI-powered multi-agent collaboration.
+
+## Tech Stack
+
+${techStack.frontend ? `- Frontend: ${techStack.frontend}` : ""}
+${techStack.backend ? `- Backend: ${techStack.backend}` : ""}
+${techStack.database ? `- Database: ${techStack.database}` : ""}
+
+## Getting Started
+
+\`\`\`bash
+${outputs.code?.buildCommand || "npm install"}
+${outputs.code?.runCommand || "npm start"}
+\`\`\`
+
+## Project Structure
+
+\`\`\`
+${outputs.design?.directoryStructure || "See docs/DESIGN.json for details"}
+\`\`\`
+
+---
+
+Generated on ${new Date().toISOString()}
+`;
+  }
+}

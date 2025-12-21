@@ -28,6 +28,7 @@ import { AiOfficeModule } from "./modules/ai/ai-office/ai-office.module";
 import { AiSimulationModule } from "./modules/ai/ai-simulation/ai-simulation.module";
 import { AiStudioModule } from "./modules/ai/ai-studio/ai-studio.module";
 import { AiTeamsModule } from "./modules/ai/ai-teams/ai-teams.module";
+import { AiCodingModule } from "./modules/ai/ai-coding/ai-coding.module";
 // Content modules
 import { CollectionsModule } from "./modules/content/collections/collections.module";
 import { CommentsModule } from "./modules/content/comments/comments.module";
@@ -102,6 +103,7 @@ import { NotionModule } from "./modules/integrations/notion/notion.module";
     AiSimulationModule,
     AiStudioModule,
     AiTeamsModule,
+    AiCodingModule,
 
     // Content modules
     CrawlerModule,
