@@ -910,4 +910,114 @@ export class ProxyController {
       );
     }
   }
+
+  /**
+   * 图片代理端点 - 用于获取被 Cloudflare 保护的图片
+   * 通过后端代理请求，绕过浏览器直接请求时的 403 限制
+   */
+  @Get("image")
+  async proxyImage(
+    @Query("url") url: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    if (!url) {
+      throw new HttpException("URL is required", HttpStatus.BAD_REQUEST);
+    }
+
+    try {
+      const urlObj = new URL(url);
+
+      // 只允许 http/https 协议
+      if (!["http:", "https:"].includes(urlObj.protocol)) {
+        throw new HttpException("Invalid URL protocol", HttpStatus.BAD_REQUEST);
+      }
+
+      this.logger.log(`Proxying image: ${urlObj.hostname}`);
+
+      // 尝试直接获取图片
+      try {
+        const response = await axios.get(url, {
+          responseType: "arraybuffer",
+          timeout: 15000,
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            Accept:
+              "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            Referer: `${urlObj.protocol}//${urlObj.hostname}/`,
+          },
+        });
+
+        const contentType = response.headers["content-type"] || "image/jpeg";
+        res.setHeader("Content-Type", contentType);
+        res.setHeader("Cache-Control", "public, max-age=86400"); // 缓存 1 天
+        res.send(Buffer.from(response.data));
+        return;
+      } catch (fetchError) {
+        // 如果直接获取失败（403），尝试使用 FlareSolverr
+        if (
+          axios.isAxiosError(fetchError) &&
+          fetchError.response?.status === 403
+        ) {
+          this.logger.log(
+            `Direct image fetch returned 403, trying FlareSolverr for ${url}`,
+          );
+
+          if (this.flareSolverr.getIsAvailable()) {
+            const flareResult = await this.flareSolverr.fetchPage(url, {
+              maxTimeout: 30000,
+            });
+
+            if (flareResult.success && flareResult.html) {
+              // FlareSolverr 返回的是 HTML，但对于图片请求，我们需要从响应中提取二进制数据
+              // 由于 FlareSolverr 主要用于 HTML 页面，对于图片我们使用其获取的 cookies 重新请求
+              if (flareResult.cookies && flareResult.cookies.length > 0) {
+                const cookieHeader = flareResult.cookies
+                  .map((c) => `${c.name}=${c.value}`)
+                  .join("; ");
+
+                const retryResponse = await axios.get(url, {
+                  responseType: "arraybuffer",
+                  timeout: 15000,
+                  headers: {
+                    "User-Agent": flareResult.userAgent || "Mozilla/5.0",
+                    Cookie: cookieHeader,
+                    Accept: "image/*,*/*;q=0.8",
+                    Referer: `${urlObj.protocol}//${urlObj.hostname}/`,
+                  },
+                });
+
+                const contentType =
+                  retryResponse.headers["content-type"] || "image/jpeg";
+                res.setHeader("Content-Type", contentType);
+                res.setHeader("Cache-Control", "public, max-age=86400");
+                res.send(Buffer.from(retryResponse.data));
+                return;
+              }
+            }
+          }
+        }
+
+        // 如果所有方法都失败，返回 502
+        this.logger.warn(`Failed to proxy image: ${url}`);
+        throw new HttpException(
+          "Failed to fetch image",
+          HttpStatus.BAD_GATEWAY,
+        );
+      }
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      this.logger.error(`Image proxy error: ${errorMessage}`);
+      throw new HttpException(
+        "Failed to proxy image",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 }

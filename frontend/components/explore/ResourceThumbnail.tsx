@@ -123,6 +123,7 @@ export default function ResourceThumbnail({
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [useProxy, setUseProxy] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -130,6 +131,7 @@ export default function ResourceThumbnail({
     const fetchThumbnail = async () => {
       setIsLoading(true);
       setHasError(false);
+      setUseProxy(false); // 重置代理状态
 
       // 1. 如果已有thumbnailUrl且不是占位图，直接使用
       if (resource.thumbnailUrl && !isPlaceholderImage(resource.thumbnailUrl)) {
@@ -228,7 +230,18 @@ export default function ResourceThumbnail({
     resource.metadata?.imageUrl,
   ]);
 
+  // 通过代理加载图片的 URL
+  const getProxiedUrl = (url: string): string => {
+    return `${config.apiUrl}/proxy/image?url=${encodeURIComponent(url)}`;
+  };
+
   const handleImageError = () => {
+    // 如果还没尝试过代理，先尝试代理
+    if (!useProxy && thumbnailUrl) {
+      setUseProxy(true);
+      return;
+    }
+    // 代理也失败了，显示默认图标
     setHasError(true);
     setThumbnailUrl(null);
   };
@@ -341,9 +354,11 @@ export default function ResourceThumbnail({
 
   // 有缩略图且未出错，显示图片（过滤占位图）
   if (thumbnailUrl && !hasError && !isPlaceholderImage(thumbnailUrl)) {
+    // 如果直接加载失败，使用代理
+    const imgSrc = useProxy ? getProxiedUrl(thumbnailUrl) : thumbnailUrl;
     return (
       <img
-        src={thumbnailUrl}
+        src={imgSrc}
         alt={resource.title}
         className="h-full w-full bg-white object-contain"
         onError={handleImageError}
