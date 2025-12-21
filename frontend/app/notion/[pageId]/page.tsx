@@ -3,8 +3,30 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { getPage, pushToNotion, NotionPage } from '@/lib/api/notion';
+import dynamic from 'next/dynamic';
+import {
+  getPage,
+  updatePage,
+  pushToNotion,
+  NotionPage,
+} from '@/lib/api/notion';
 import Sidebar from '@/components/layout/Sidebar';
+
+// Dynamically import the editor to avoid SSR issues
+const NotionBlockEditor = dynamic(
+  () => import('@/components/notion/NotionBlockEditor'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="animate-pulse">
+        <div className="h-8 w-3/4 rounded bg-gray-200" />
+        <div className="mt-4 h-4 w-full rounded bg-gray-200" />
+        <div className="mt-2 h-4 w-5/6 rounded bg-gray-200" />
+        <div className="mt-2 h-4 w-4/6 rounded bg-gray-200" />
+      </div>
+    ),
+  }
+);
 
 export default function NotionPageDetail() {
   const params = useParams();
@@ -15,6 +37,8 @@ export default function NotionPageDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pushing, setPushing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [localBlocks, setLocalBlocks] = useState<any[]>([]);
 
   const fetchPage = useCallback(async () => {
     if (!pageId) return;
@@ -23,6 +47,7 @@ export default function NotionPageDetail() {
       setLoading(true);
       const result = await getPage(pageId);
       setPage(result.page);
+      setLocalBlocks(result.page.blocks || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load page');
     } finally {
@@ -33,6 +58,28 @@ export default function NotionPageDetail() {
   useEffect(() => {
     fetchPage();
   }, [fetchPage]);
+
+  // Handle block changes from editor
+  const handleBlocksChange = useCallback((blocks: any[]) => {
+    setLocalBlocks(blocks);
+  }, []);
+
+  // Save blocks to backend
+  const handleSave = useCallback(
+    async (blocks: any[]) => {
+      if (!pageId) return;
+
+      try {
+        const result = await updatePage(pageId, blocks);
+        setPage(result.page);
+        setLocalBlocks(blocks);
+      } catch (err) {
+        console.error('Failed to save:', err);
+        throw err;
+      }
+    },
+    [pageId]
+  );
 
   const handlePushToNotion = async () => {
     if (!pageId || !page?.isLocallyModified) return;
@@ -55,192 +102,6 @@ export default function NotionPageDetail() {
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-    });
-  };
-
-  // Render Notion blocks
-  const renderBlock = (block: any, index: number) => {
-    const { type } = block;
-
-    switch (type) {
-      case 'paragraph':
-        return (
-          <p key={index} className="mb-4 leading-relaxed text-gray-700">
-            {renderRichText(block.paragraph?.rich_text)}
-          </p>
-        );
-
-      case 'heading_1':
-        return (
-          <h1
-            key={index}
-            className="mb-4 mt-8 text-3xl font-bold text-gray-900"
-          >
-            {renderRichText(block.heading_1?.rich_text)}
-          </h1>
-        );
-
-      case 'heading_2':
-        return (
-          <h2
-            key={index}
-            className="mb-3 mt-6 text-2xl font-semibold text-gray-900"
-          >
-            {renderRichText(block.heading_2?.rich_text)}
-          </h2>
-        );
-
-      case 'heading_3':
-        return (
-          <h3
-            key={index}
-            className="mb-2 mt-4 text-xl font-semibold text-gray-900"
-          >
-            {renderRichText(block.heading_3?.rich_text)}
-          </h3>
-        );
-
-      case 'bulleted_list_item':
-        return (
-          <li key={index} className="mb-1 ml-6 list-disc text-gray-700">
-            {renderRichText(block.bulleted_list_item?.rich_text)}
-          </li>
-        );
-
-      case 'numbered_list_item':
-        return (
-          <li key={index} className="mb-1 ml-6 list-decimal text-gray-700">
-            {renderRichText(block.numbered_list_item?.rich_text)}
-          </li>
-        );
-
-      case 'to_do':
-        return (
-          <div key={index} className="mb-2 flex items-start gap-2">
-            <input
-              type="checkbox"
-              checked={block.to_do?.checked}
-              readOnly
-              className="mt-1 h-4 w-4 rounded border-gray-300"
-            />
-            <span
-              className={
-                block.to_do?.checked
-                  ? 'text-gray-400 line-through'
-                  : 'text-gray-700'
-              }
-            >
-              {renderRichText(block.to_do?.rich_text)}
-            </span>
-          </div>
-        );
-
-      case 'quote':
-        return (
-          <blockquote
-            key={index}
-            className="my-4 border-l-4 border-gray-300 pl-4 italic text-gray-600"
-          >
-            {renderRichText(block.quote?.rich_text)}
-          </blockquote>
-        );
-
-      case 'code':
-        return (
-          <pre
-            key={index}
-            className="my-4 overflow-x-auto rounded-lg bg-gray-900 p-4 text-sm text-gray-100"
-          >
-            <code>{renderRichText(block.code?.rich_text)}</code>
-          </pre>
-        );
-
-      case 'divider':
-        return <hr key={index} className="my-6 border-gray-200" />;
-
-      case 'callout':
-        return (
-          <div
-            key={index}
-            className="my-4 flex gap-3 rounded-lg bg-gray-50 p-4"
-          >
-            <span className="text-xl">
-              {block.callout?.icon?.emoji || '💡'}
-            </span>
-            <div className="text-gray-700">
-              {renderRichText(block.callout?.rich_text)}
-            </div>
-          </div>
-        );
-
-      case 'image':
-        const imageUrl = block.image?.file?.url || block.image?.external?.url;
-        return imageUrl ? (
-          <figure key={index} className="my-6">
-            <img
-              src={imageUrl}
-              alt={block.image?.caption?.[0]?.plain_text || 'Image'}
-              className="rounded-lg"
-            />
-            {block.image?.caption?.length > 0 && (
-              <figcaption className="mt-2 text-center text-sm text-gray-500">
-                {renderRichText(block.image.caption)}
-              </figcaption>
-            )}
-          </figure>
-        ) : null;
-
-      default:
-        return null;
-    }
-  };
-
-  const renderRichText = (richText: any[] | undefined) => {
-    if (!richText || richText.length === 0) return null;
-
-    return richText.map((text, i) => {
-      let content: React.ReactNode = text.plain_text;
-
-      // Apply annotations
-      if (text.annotations?.bold) {
-        content = <strong key={`bold-${i}`}>{content}</strong>;
-      }
-      if (text.annotations?.italic) {
-        content = <em key={`italic-${i}`}>{content}</em>;
-      }
-      if (text.annotations?.strikethrough) {
-        content = <del key={`strike-${i}`}>{content}</del>;
-      }
-      if (text.annotations?.underline) {
-        content = <u key={`underline-${i}`}>{content}</u>;
-      }
-      if (text.annotations?.code) {
-        content = (
-          <code
-            key={`code-${i}`}
-            className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-sm text-pink-600"
-          >
-            {content}
-          </code>
-        );
-      }
-
-      // Handle links
-      if (text.href) {
-        content = (
-          <a
-            key={`link-${i}`}
-            href={text.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 underline hover:text-blue-800"
-          >
-            {content}
-          </a>
-        );
-      }
-
-      return <span key={i}>{content}</span>;
     });
   };
 
@@ -343,6 +204,52 @@ export default function NotionPageDetail() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {/* Edit/View toggle */}
+              <button
+                onClick={() => setIsEditing(!isEditing)}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  isEditing
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'border border-gray-200 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {isEditing ? (
+                  <>
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                      />
+                    </svg>
+                    Editing
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                      />
+                    </svg>
+                    Edit
+                  </>
+                )}
+              </button>
+
               {page.isLocallyModified && (
                 <button
                   onClick={handlePushToNotion}
@@ -431,33 +338,21 @@ export default function NotionPageDetail() {
               </div>
             )}
 
-            {/* Blocks content */}
-            <div className="prose prose-gray max-w-none">
-              {page.blocks && page.blocks.length > 0 ? (
-                page.blocks.map((block, index) => renderBlock(block, index))
-              ) : page.plainTextContent ? (
-                <div className="whitespace-pre-wrap text-gray-700">
-                  {page.plainTextContent}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-16 text-gray-500">
-                  <svg
-                    className="h-12 w-12 text-gray-300"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
-                  <p className="mt-4">This page has no content yet.</p>
-                </div>
-              )}
-            </div>
+            {/* BlockNote Editor */}
+            {isEditing ? (
+              <NotionBlockEditor
+                initialBlocks={localBlocks}
+                onChange={handleBlocksChange}
+                onSave={handleSave}
+                readOnly={false}
+              />
+            ) : (
+              <NotionBlockEditor
+                key={`view-${page.id}`}
+                initialBlocks={page.blocks || []}
+                readOnly={true}
+              />
+            )}
 
             {/* Version history */}
             {page.versions && page.versions.length > 0 && (
