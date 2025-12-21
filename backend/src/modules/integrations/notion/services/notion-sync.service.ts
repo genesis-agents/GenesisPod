@@ -127,7 +127,7 @@ export class NotionSyncService {
           pagesProcessed: result.pagesProcessed,
           pagesCreated: result.pagesCreated,
           pagesUpdated: result.pagesUpdated,
-          errors: result.errors.length > 0 ? result.errors : null,
+          errors: result.errors.length > 0 ? result.errors : [],
           completedAt: new Date(),
           durationMs: Date.now() - (await this.getSyncStartTime(syncHistoryId)),
         },
@@ -403,7 +403,7 @@ export class NotionSyncService {
   private async syncDatabases(
     client: Client,
     connectionId: string,
-    lastSyncAt: Date | null,
+    _lastSyncAt: Date | null,
     result: SyncResult
   ): Promise<void> {
     let hasMore = true;
@@ -412,13 +412,13 @@ export class NotionSyncService {
 
     while (hasMore) {
       const searchResponse = await client.search({
-        filter: { property: "object", value: "database" },
+        filter: { property: "object", value: "database" } as any,
         start_cursor: startCursor,
         page_size: 100,
       });
 
       for (const dbResult of searchResponse.results) {
-        if (dbResult.object !== "database") continue;
+        if (!("title" in dbResult)) continue; // Filter for database objects
         const db = dbResult as DatabaseObjectResponse;
 
         try {
@@ -449,12 +449,12 @@ export class NotionSyncService {
     const title = db.title.map((t) => t.plain_text).join("") || "Untitled Database";
 
     // 获取数据库条目（限制数量）
-    const queryResponse = await client.databases.query({
+    const queryResponse = await (client.databases as any).query({
       database_id: db.id,
       page_size: 100,
     });
 
-    const items = queryResponse.results.map((item) => {
+    const items = queryResponse.results.map((item: any) => {
       if ("properties" in item) {
         return {
           id: item.id,
@@ -466,10 +466,10 @@ export class NotionSyncService {
 
     const dbData = {
       title,
-      description: db.description?.map((d) => d.plain_text).join("") || null,
+      description: db.description?.map((d: any) => d.plain_text).join("") || null,
       icon: this.extractIcon(db.icon),
       url: db.url,
-      properties: db.properties as any,
+      properties: (db as any).properties as any,
       items: items as any,
       itemCount: queryResponse.results.length,
       syncStatus: NotionSyncStatus.SUCCESS,
