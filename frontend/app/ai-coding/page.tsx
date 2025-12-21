@@ -1,34 +1,10 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from '@/components/layout/Sidebar';
-
-// Project types
-interface CodingProject {
-  id: string;
-  name: string;
-  description?: string;
-  requirement: string;
-  techStack: {
-    frontend?: string;
-    backend?: string;
-    database?: string;
-    language?: string;
-  };
-  status: 'draft' | 'processing' | 'completed' | 'failed';
-  progress: number;
-  agentStatus: {
-    pm: AgentStatus;
-    architect: AgentStatus;
-    pmLead: AgentStatus;
-    engineer: AgentStatus;
-    qa: AgentStatus;
-  };
-  createdAt: string;
-  updatedAt: string;
-}
+import { getProjects, CodingProject } from '@/lib/api/ai-coding';
 
 interface AgentStatus {
   status: 'pending' | 'running' | 'completed' | 'failed';
@@ -96,18 +72,40 @@ const PROJECT_TEMPLATES: ProjectTemplate[] = [
   },
 ];
 
-// Mock projects for demo
-const MOCK_PROJECTS: CodingProject[] = [];
-
 export default function AICodingPage() {
   const router = useRouter();
   const { accessToken, isLoading: authLoading } = useAuth();
 
-  const [projects] = useState<CodingProject[]>(MOCK_PROJECTS);
+  const [projects, setProjects] = useState<CodingProject[]>([]);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+  const [projectsError, setProjectsError] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const isAuthenticated = !!accessToken;
+
+  // Fetch projects from API
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const fetchProjects = async () => {
+      setIsLoadingProjects(true);
+      setProjectsError(null);
+      try {
+        const response = await getProjects({ limit: 50 });
+        setProjects(response.projects || []);
+      } catch (error) {
+        console.error('Failed to fetch projects:', error);
+        setProjectsError(
+          error instanceof Error ? error.message : 'Failed to load projects'
+        );
+      } finally {
+        setIsLoadingProjects(false);
+      }
+    };
+
+    fetchProjects();
+  }, [isAuthenticated]);
 
   // Filter projects by search
   const filteredProjects = projects.filter((project) => {
@@ -255,8 +253,46 @@ export default function AICodingPage() {
 
         {/* Content */}
         <div className="px-8 py-6">
+          {/* Loading State */}
+          {isLoadingProjects && (
+            <div className="flex items-center justify-center py-16">
+              <div className="flex flex-col items-center gap-4">
+                <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
+                <p className="text-sm text-gray-500">加载项目中...</p>
+              </div>
+            </div>
+          )}
+
+          {/* Error State */}
+          {projectsError && !isLoadingProjects && (
+            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4">
+              <div className="flex items-center gap-3">
+                <svg
+                  className="h-5 w-5 text-red-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <span className="text-sm text-red-700">{projectsError}</span>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="ml-auto text-sm font-medium text-red-600 hover:text-red-700"
+                >
+                  重试
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Hero Section - when no projects */}
-          {projects.length === 0 && (
+          {!isLoadingProjects && !projectsError && projects.length === 0 && (
             <div className="mb-8 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 p-8">
               <div className="mx-auto max-w-2xl text-center">
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-lg">
@@ -339,7 +375,7 @@ export default function AICodingPage() {
           )}
 
           {/* Recent Projects */}
-          {filteredProjects.length > 0 && (
+          {!isLoadingProjects && filteredProjects.length > 0 && (
             <div className="mb-8">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900">
@@ -382,105 +418,111 @@ export default function AICodingPage() {
           )}
 
           {/* Templates */}
-          <div>
-            <h3 className="mb-4 text-lg font-semibold text-gray-900">
-              模板快速开始
-            </h3>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              {PROJECT_TEMPLATES.map((template) => (
-                <button
-                  key={template.id}
-                  onClick={() => handleTemplateClick(template)}
-                  className="group rounded-xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-emerald-300 hover:shadow-md"
-                >
-                  <div className="mb-3 text-3xl">{template.icon}</div>
-                  <div className="font-medium text-gray-900 group-hover:text-emerald-600">
-                    {template.name}
-                  </div>
-                  <div className="mt-1 text-sm text-gray-500">
-                    {template.description}
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-1">
-                    {template.techStack.frontend && (
-                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600">
-                        {template.techStack.frontend}
-                      </span>
-                    )}
-                    {template.techStack.backend && (
-                      <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-600">
-                        {template.techStack.backend}
-                      </span>
-                    )}
-                    {template.techStack.database && (
-                      <span className="rounded-full bg-purple-50 px-2 py-0.5 text-xs text-purple-600">
-                        {template.techStack.database}
-                      </span>
-                    )}
-                  </div>
-                </button>
-              ))}
+          {!isLoadingProjects && (
+            <div>
+              <h3 className="mb-4 text-lg font-semibold text-gray-900">
+                模板快速开始
+              </h3>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                {PROJECT_TEMPLATES.map((template) => (
+                  <button
+                    key={template.id}
+                    onClick={() => handleTemplateClick(template)}
+                    className="group rounded-xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-emerald-300 hover:shadow-md"
+                  >
+                    <div className="mb-3 text-3xl">{template.icon}</div>
+                    <div className="font-medium text-gray-900 group-hover:text-emerald-600">
+                      {template.name}
+                    </div>
+                    <div className="mt-1 text-sm text-gray-500">
+                      {template.description}
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-1">
+                      {template.techStack.frontend && (
+                        <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600">
+                          {template.techStack.frontend}
+                        </span>
+                      )}
+                      {template.techStack.backend && (
+                        <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-600">
+                          {template.techStack.backend}
+                        </span>
+                      )}
+                      {template.techStack.database && (
+                        <span className="rounded-full bg-purple-50 px-2 py-0.5 text-xs text-purple-600">
+                          {template.techStack.database}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* AI Agents Info */}
-          <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-6">
-            <h3 className="mb-4 text-lg font-semibold text-gray-900">
-              AI 开发团队
-            </h3>
-            <div className="grid grid-cols-5 gap-4">
-              {[
-                {
-                  name: '产品经理',
-                  role: 'PM',
-                  description: '需求分析与 PRD 编写',
-                  icon: '📝',
-                  color: 'blue',
-                },
-                {
-                  name: '架构师',
-                  role: 'Architect',
-                  description: '技术架构设计',
-                  icon: '🏗️',
-                  color: 'purple',
-                },
-                {
-                  name: '项目经理',
-                  role: 'PM Lead',
-                  description: '任务拆分与排期',
-                  icon: '📋',
-                  color: 'orange',
-                },
-                {
-                  name: '工程师',
-                  role: 'Engineer',
-                  description: '代码实现',
-                  icon: '💻',
-                  color: 'green',
-                },
-                {
-                  name: 'QA',
-                  role: 'QA Engineer',
-                  description: '测试与代码审查',
-                  icon: '🔍',
-                  color: 'red',
-                },
-              ].map((agent) => (
-                <div
-                  key={agent.role}
-                  className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-center"
-                >
-                  <div className="mb-2 text-2xl">{agent.icon}</div>
-                  <div className="font-medium text-gray-900">{agent.name}</div>
-                  <div className="mt-1 text-xs text-gray-500">
-                    {agent.description}
+          {!isLoadingProjects && (
+            <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-6">
+              <h3 className="mb-4 text-lg font-semibold text-gray-900">
+                AI 开发团队
+              </h3>
+              <div className="grid grid-cols-5 gap-4">
+                {[
+                  {
+                    name: '产品经理',
+                    role: 'PM',
+                    description: '需求分析与 PRD 编写',
+                    icon: '📝',
+                    color: 'blue',
+                  },
+                  {
+                    name: '架构师',
+                    role: 'Architect',
+                    description: '技术架构设计',
+                    icon: '🏗️',
+                    color: 'purple',
+                  },
+                  {
+                    name: '项目经理',
+                    role: 'PM Lead',
+                    description: '任务拆分与排期',
+                    icon: '📋',
+                    color: 'orange',
+                  },
+                  {
+                    name: '工程师',
+                    role: 'Engineer',
+                    description: '代码实现',
+                    icon: '💻',
+                    color: 'green',
+                  },
+                  {
+                    name: 'QA',
+                    role: 'QA Engineer',
+                    description: '测试与代码审查',
+                    icon: '🔍',
+                    color: 'red',
+                  },
+                ].map((agent) => (
+                  <div
+                    key={agent.role}
+                    className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-center"
+                  >
+                    <div className="mb-2 text-2xl">{agent.icon}</div>
+                    <div className="font-medium text-gray-900">
+                      {agent.name}
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500">
+                      {agent.description}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+              <p className="mt-4 text-center text-sm text-gray-500">
+                五个 AI 智能体协同工作，模拟真实软件开发团队
+              </p>
             </div>
-            <p className="mt-4 text-center text-sm text-gray-500">
-              五个 AI 智能体协同工作，模拟真实软件开发团队
-            </p>
-          </div>
+          )}
         </div>
       </main>
 
@@ -523,18 +565,19 @@ function ProjectCard({
     return date.toLocaleDateString();
   };
 
-  const statusColors = {
-    draft: 'bg-gray-100 text-gray-600',
-    processing: 'bg-blue-100 text-blue-600',
-    completed: 'bg-green-100 text-green-600',
-    failed: 'bg-red-100 text-red-600',
+  // Map backend status enums to UI styles
+  const statusColors: Record<string, string> = {
+    DRAFT: 'bg-gray-100 text-gray-600',
+    IN_PROGRESS: 'bg-blue-100 text-blue-600',
+    COMPLETED: 'bg-green-100 text-green-600',
+    FAILED: 'bg-red-100 text-red-600',
   };
 
-  const statusLabels = {
-    draft: '草稿',
-    processing: '进行中',
-    completed: '已完成',
-    failed: '失败',
+  const statusLabels: Record<string, string> = {
+    DRAFT: '草稿',
+    IN_PROGRESS: '进行中',
+    COMPLETED: '已完成',
+    FAILED: '失败',
   };
 
   return (
@@ -579,7 +622,7 @@ function ProjectCard({
       </div>
 
       {/* Progress */}
-      {project.status === 'processing' && (
+      {project.status === 'IN_PROGRESS' && (
         <div className="mt-3">
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-500">进度</span>
