@@ -13,7 +13,14 @@ import {
   StartProjectDto,
   IterateProjectDto,
 } from "./dto";
-import { DocumentService, StandardsService } from "./services";
+import {
+  DocumentService,
+  StandardsService,
+  ProjectEventEmitterService,
+  CodingTaskService,
+  CodingTaskPhase,
+  TaskCheckpoint,
+} from "./services";
 import * as archiver from "archiver";
 import { PassThrough } from "stream";
 
@@ -73,6 +80,8 @@ export class AiCodingService {
     private readonly aiChatService: AiChatService,
     private readonly documentService: DocumentService,
     private readonly standardsService: StandardsService,
+    private readonly eventEmitter: ProjectEventEmitterService,
+    private readonly codingTaskService: CodingTaskService,
   ) {}
 
   /**
@@ -302,6 +311,20 @@ export class AiCodingService {
       // Step 1: PM 生成 PRD (15%)
       this.logger.log(`[${projectId}] Step 1: PM generating PRD...`);
       await this.updateAgentStatus(projectId, CodingAgentType.PM, "RUNNING");
+      await this.eventEmitter.emitProgress({
+        projectId,
+        phase: "pm",
+        status: "started",
+        progress: 0,
+        message: "产品经理开始分析需求...",
+      });
+      await this.eventEmitter.emitAgentStatus({
+        projectId,
+        agent: "pm",
+        status: "running",
+        message: "正在生成 PRD 文档...",
+      });
+
       const prd = await this.runPMAgent(
         project.requirement,
         techStack,
@@ -310,6 +333,21 @@ export class AiCodingService {
       outputs.prd = prd;
       await this.updateAgentStatus(projectId, CodingAgentType.PM, "COMPLETED");
       await this.updateProgress(projectId, 15, { prd });
+      await this.eventEmitter.emitProgress({
+        projectId,
+        phase: "pm",
+        status: "completed",
+        progress: 15,
+        message: "PRD 生成完成",
+        data: { prd },
+      });
+      await this.eventEmitter.emitAgentStatus({
+        projectId,
+        agent: "pm",
+        status: "completed",
+        message: "PRD 文档已生成",
+        output: prd,
+      });
 
       // 生成 PRD 文档
       this.logger.log(`[${projectId}] Generating PRD document...`);
@@ -321,6 +359,13 @@ export class AiCodingService {
         });
       }
       await this.updateProgress(projectId, 20, {});
+      await this.eventEmitter.emitProgress({
+        projectId,
+        phase: "document",
+        status: "progress",
+        progress: 20,
+        message: "PRD 文档已保存",
+      });
 
       // Step 2: Architect 生成设计 (30%)
       this.logger.log(`[${projectId}] Step 2: Architect generating design...`);
@@ -329,6 +374,20 @@ export class AiCodingService {
         CodingAgentType.ARCHITECT,
         "RUNNING",
       );
+      await this.eventEmitter.emitProgress({
+        projectId,
+        phase: "architect",
+        status: "started",
+        progress: 20,
+        message: "架构师开始设计系统架构...",
+      });
+      await this.eventEmitter.emitAgentStatus({
+        projectId,
+        agent: "architect",
+        status: "running",
+        message: "正在生成技术设计文档...",
+      });
+
       const design = await this.runArchitectAgent(
         prd,
         techStack,
@@ -341,6 +400,21 @@ export class AiCodingService {
         "COMPLETED",
       );
       await this.updateProgress(projectId, 30, { design });
+      await this.eventEmitter.emitProgress({
+        projectId,
+        phase: "architect",
+        status: "completed",
+        progress: 30,
+        message: "技术设计完成",
+        data: { design },
+      });
+      await this.eventEmitter.emitAgentStatus({
+        projectId,
+        agent: "architect",
+        status: "completed",
+        message: "架构设计已完成",
+        output: design,
+      });
 
       // 生成设计文档
       this.logger.log(`[${projectId}] Generating Design document...`);
@@ -363,6 +437,13 @@ export class AiCodingService {
         );
       }
       await this.updateProgress(projectId, 40, {});
+      await this.eventEmitter.emitProgress({
+        projectId,
+        phase: "document",
+        status: "progress",
+        progress: 40,
+        message: "设计文档和 API 文档已保存",
+      });
 
       // Step 3: PM Lead 生成任务 (50%)
       this.logger.log(`[${projectId}] Step 3: PM Lead generating tasks...`);
@@ -371,6 +452,20 @@ export class AiCodingService {
         CodingAgentType.PM_LEAD,
         "RUNNING",
       );
+      await this.eventEmitter.emitProgress({
+        projectId,
+        phase: "pm_lead",
+        status: "started",
+        progress: 40,
+        message: "项目经理开始分解任务...",
+      });
+      await this.eventEmitter.emitAgentStatus({
+        projectId,
+        agent: "pmLead",
+        status: "running",
+        message: "正在生成任务列表...",
+      });
+
       const tasks = await this.runPMLeadAgent(prd, design);
       outputs.tasks = tasks;
       await this.updateAgentStatus(
@@ -379,6 +474,21 @@ export class AiCodingService {
         "COMPLETED",
       );
       await this.updateProgress(projectId, 50, { tasks });
+      await this.eventEmitter.emitProgress({
+        projectId,
+        phase: "pm_lead",
+        status: "completed",
+        progress: 50,
+        message: "任务分解完成",
+        data: { tasks },
+      });
+      await this.eventEmitter.emitAgentStatus({
+        projectId,
+        agent: "pmLead",
+        status: "completed",
+        message: "任务列表已生成",
+        output: tasks,
+      });
 
       // Step 4: Engineer 生成代码 (80%)
       this.logger.log(`[${projectId}] Step 4: Engineer generating code...`);
@@ -387,6 +497,20 @@ export class AiCodingService {
         CodingAgentType.ENGINEER,
         "RUNNING",
       );
+      await this.eventEmitter.emitProgress({
+        projectId,
+        phase: "engineer",
+        status: "started",
+        progress: 50,
+        message: "工程师开始编写代码...",
+      });
+      await this.eventEmitter.emitAgentStatus({
+        projectId,
+        agent: "engineer",
+        status: "running",
+        message: "正在生成项目代码...",
+      });
+
       const code = await this.runEngineerAgent(
         projectId,
         prd,
@@ -402,10 +526,39 @@ export class AiCodingService {
         "COMPLETED",
       );
       await this.updateProgress(projectId, 80, { code });
+      await this.eventEmitter.emitProgress({
+        projectId,
+        phase: "engineer",
+        status: "completed",
+        progress: 80,
+        message: "代码生成完成",
+        data: { filesCount: code?.files?.length || 0 },
+      });
+      await this.eventEmitter.emitAgentStatus({
+        projectId,
+        agent: "engineer",
+        status: "completed",
+        message: `已生成 ${code?.files?.length || 0} 个代码文件`,
+        output: code,
+      });
 
       // Step 5: QA 生成测试 (90%)
       this.logger.log(`[${projectId}] Step 5: QA generating tests...`);
       await this.updateAgentStatus(projectId, CodingAgentType.QA, "RUNNING");
+      await this.eventEmitter.emitProgress({
+        projectId,
+        phase: "qa",
+        status: "started",
+        progress: 80,
+        message: "QA 工程师开始编写测试...",
+      });
+      await this.eventEmitter.emitAgentStatus({
+        projectId,
+        agent: "qa",
+        status: "running",
+        message: "正在生成测试用例...",
+      });
+
       const tests = await this.runQAAgent(
         projectId,
         prd,
@@ -415,6 +568,21 @@ export class AiCodingService {
       outputs.tests = tests;
       await this.updateAgentStatus(projectId, CodingAgentType.QA, "COMPLETED");
       await this.updateProgress(projectId, 90, { tests });
+      await this.eventEmitter.emitProgress({
+        projectId,
+        phase: "qa",
+        status: "completed",
+        progress: 90,
+        message: "测试用例生成完成",
+        data: { testsCount: tests?.testFiles?.length || 0 },
+      });
+      await this.eventEmitter.emitAgentStatus({
+        projectId,
+        agent: "qa",
+        status: "completed",
+        message: `已生成 ${tests?.testFiles?.length || 0} 个测试文件`,
+        output: tests,
+      });
 
       // 生成 README
       this.logger.log(`[${projectId}] Generating README...`);
@@ -428,6 +596,13 @@ export class AiCodingService {
         { prd, design, code },
       );
       await this.updateProgress(projectId, 100, {});
+      await this.eventEmitter.emitProgress({
+        projectId,
+        phase: "complete",
+        status: "completed",
+        progress: 100,
+        message: "项目生成完成！",
+      });
 
       // 完成
       await this.prisma.aiCodingProject.update({
@@ -439,9 +614,15 @@ export class AiCodingService {
         },
       });
 
+      // 发送完成事件
+      await this.eventEmitter.emitComplete(projectId, true, outputs);
+
       this.logger.log(`[${projectId}] Project completed successfully`);
     } catch (error) {
       this.logger.error(`[${projectId}] Agent pipeline failed`, error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      await this.eventEmitter.emitError(projectId, errorMessage);
       throw error;
     }
   }
@@ -1142,5 +1323,279 @@ ${outputs.design?.directoryStructure || "See docs/DESIGN.json for details"}
 
 Generated on ${new Date().toISOString()}
 `;
+  }
+
+  /**
+   * 恢复项目执行（从检查点继续）
+   */
+  async resumeProject(
+    projectId: string,
+    userId: string,
+  ): Promise<AiCodingProject> {
+    const project = await this.prisma.aiCodingProject.findFirst({
+      where: { id: projectId, userId },
+    });
+
+    if (!project) {
+      throw new NotFoundException("Project not found");
+    }
+
+    // 检查是否可以恢复
+    const { canResume, checkpoint, reason } =
+      await this.codingTaskService.canResume(projectId);
+
+    if (!canResume) {
+      throw new Error(reason || "Cannot resume project");
+    }
+
+    // 更新状态为处理中
+    const updatedProject = await this.prisma.aiCodingProject.update({
+      where: { id: projectId },
+      data: {
+        status: AiCodingProjectStatus.PROCESSING,
+      },
+    });
+
+    // 异步从检查点恢复执行
+    this.resumeFromCheckpoint(projectId, checkpoint!).catch((error) => {
+      this.logger.error(
+        `Resume from checkpoint failed for project ${projectId}`,
+        error,
+      );
+      this.prisma.aiCodingProject.update({
+        where: { id: projectId },
+        data: {
+          status: AiCodingProjectStatus.FAILED,
+          errorMessage: error instanceof Error ? error.message : String(error),
+        },
+      });
+    });
+
+    return updatedProject;
+  }
+
+  /**
+   * 从检查点恢复执行
+   */
+  private async resumeFromCheckpoint(
+    projectId: string,
+    checkpoint: TaskCheckpoint,
+  ): Promise<void> {
+    const project = await this.prisma.aiCodingProject.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project) return;
+
+    const outputs = checkpoint.outputs as ProjectOutputs;
+    const techStack = project.techStack as Record<string, string>;
+
+    // 获取用户的工程规范
+    let standardsContext = "";
+    try {
+      standardsContext = await this.standardsService.getStandardsForAgent(
+        project.userId,
+      );
+    } catch (e) {
+      this.logger.warn("Failed to get standards for agent", e);
+    }
+
+    try {
+      // 从检查点的下一个阶段开始
+      const nextPhase = this.codingTaskService.getNextPhase(
+        checkpoint.phase as CodingTaskPhase,
+      );
+
+      if (!nextPhase) {
+        // 已经完成
+        await this.codingTaskService.markTaskComplete(projectId, outputs);
+        return;
+      }
+
+      this.logger.log(
+        `[${projectId}] Resuming from phase: ${checkpoint.phase}, next: ${nextPhase}`,
+      );
+
+      // 根据下一个阶段继续执行
+      await this.continueFromPhase(
+        projectId,
+        nextPhase,
+        outputs,
+        project.requirement,
+        techStack,
+        standardsContext,
+      );
+    } catch (error) {
+      this.logger.error(`[${projectId}] Resume failed`, error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      await this.codingTaskService.markPhaseFailed(
+        projectId,
+        checkpoint.phase as CodingTaskPhase,
+        errorMessage,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * 从指定阶段继续执行
+   */
+  private async continueFromPhase(
+    projectId: string,
+    phase: CodingTaskPhase,
+    outputs: ProjectOutputs,
+    requirement: string,
+    techStack: Record<string, string>,
+    standardsContext: string,
+  ): Promise<void> {
+    const project = await this.prisma.aiCodingProject.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project) return;
+
+    // 根据阶段继续执行
+    switch (phase) {
+      case CodingTaskPhase.PM:
+        // 从 PM 阶段开始（完整重新执行）
+        await this.executeAgentPipeline(projectId);
+        break;
+
+      case CodingTaskPhase.ARCHITECT:
+        await this.codingTaskService.markPhaseStart(
+          projectId,
+          CodingTaskPhase.ARCHITECT,
+        );
+        const design = await this.runArchitectAgent(
+          outputs.prd,
+          techStack,
+          standardsContext,
+        );
+        outputs.design = design;
+        await this.codingTaskService.markPhaseComplete(
+          projectId,
+          CodingTaskPhase.ARCHITECT,
+          { design },
+        );
+        await this.continueFromPhase(
+          projectId,
+          CodingTaskPhase.PM_LEAD,
+          outputs,
+          requirement,
+          techStack,
+          standardsContext,
+        );
+        break;
+
+      case CodingTaskPhase.PM_LEAD:
+        await this.codingTaskService.markPhaseStart(
+          projectId,
+          CodingTaskPhase.PM_LEAD,
+        );
+        const tasks = await this.runPMLeadAgent(outputs.prd, outputs.design);
+        outputs.tasks = tasks;
+        await this.codingTaskService.markPhaseComplete(
+          projectId,
+          CodingTaskPhase.PM_LEAD,
+          { tasks },
+        );
+        await this.continueFromPhase(
+          projectId,
+          CodingTaskPhase.ENGINEER,
+          outputs,
+          requirement,
+          techStack,
+          standardsContext,
+        );
+        break;
+
+      case CodingTaskPhase.ENGINEER:
+        await this.codingTaskService.markPhaseStart(
+          projectId,
+          CodingTaskPhase.ENGINEER,
+        );
+        const code = await this.runEngineerAgent(
+          projectId,
+          outputs.prd,
+          outputs.design,
+          outputs.tasks,
+          techStack,
+          standardsContext,
+        );
+        outputs.code = code;
+        await this.codingTaskService.markPhaseComplete(
+          projectId,
+          CodingTaskPhase.ENGINEER,
+          { code },
+        );
+        await this.continueFromPhase(
+          projectId,
+          CodingTaskPhase.QA,
+          outputs,
+          requirement,
+          techStack,
+          standardsContext,
+        );
+        break;
+
+      case CodingTaskPhase.QA:
+        await this.codingTaskService.markPhaseStart(
+          projectId,
+          CodingTaskPhase.QA,
+        );
+        const tests = await this.runQAAgent(
+          projectId,
+          outputs.prd,
+          outputs.code,
+          standardsContext,
+        );
+        outputs.tests = tests;
+        await this.codingTaskService.markPhaseComplete(
+          projectId,
+          CodingTaskPhase.QA,
+          { tests },
+        );
+        await this.continueFromPhase(
+          projectId,
+          CodingTaskPhase.DOCUMENT,
+          outputs,
+          requirement,
+          techStack,
+          standardsContext,
+        );
+        break;
+
+      case CodingTaskPhase.DOCUMENT:
+        await this.codingTaskService.markPhaseStart(
+          projectId,
+          CodingTaskPhase.DOCUMENT,
+        );
+        await this.documentService.generateREADME(
+          projectId,
+          {
+            name: project.name,
+            description: project.description,
+            techStack,
+          },
+          { prd: outputs.prd, design: outputs.design, code: outputs.code },
+        );
+        await this.codingTaskService.markPhaseComplete(
+          projectId,
+          CodingTaskPhase.DOCUMENT,
+          {},
+        );
+        // 标记完成
+        await this.codingTaskService.markTaskComplete(projectId, outputs);
+        break;
+
+      case CodingTaskPhase.COMPLETE:
+        await this.codingTaskService.markTaskComplete(projectId, outputs);
+        break;
+
+      default:
+        this.logger.warn(`Unknown phase: ${phase}`);
+        break;
+    }
   }
 }

@@ -15,6 +15,11 @@ import {
   ProjectFile,
   ProjectDocument,
 } from '@/lib/api/ai-coding';
+import {
+  useAiCodingSocket,
+  ProjectProgressEvent,
+  AgentStatusEvent,
+} from '@/hooks/useAiCodingSocket';
 
 // Agent status display component
 function AgentStatusCard({
@@ -216,6 +221,8 @@ export default function ProjectDetailPage() {
   );
   const [isStarting, setIsStarting] = useState(false);
   const [showIterateDialog, setShowIterateDialog] = useState(false);
+  const [progressMessage, setProgressMessage] = useState<string | null>(null);
+  const [realtimeProgress, setRealtimeProgress] = useState<number | null>(null);
 
   const isAuthenticated = !!accessToken;
 
@@ -248,16 +255,90 @@ export default function ProjectDetailPage() {
     fetchProject();
   }, [fetchProject]);
 
-  // Poll for updates while project is in progress
+  // Poll for updates while project is in progress (fallback if WebSocket disconnected)
   useEffect(() => {
     if (project?.status !== 'IN_PROGRESS') return;
 
     const interval = setInterval(() => {
       fetchProject();
-    }, 5000);
+    }, 10000); // Reduced polling frequency when WebSocket is available
 
     return () => clearInterval(interval);
   }, [project?.status, fetchProject]);
+
+  // WebSocket connection for real-time updates
+  const handleSocketProgress = useCallback(
+    (event: ProjectProgressEvent) => {
+      if (event.projectId !== projectId) return;
+      setProgressMessage(event.message);
+      setRealtimeProgress(event.progress);
+
+      // Update project progress locally
+      setProject((prev) =>
+        prev ? { ...prev, progress: event.progress } : prev
+      );
+
+      // If complete, refresh project data
+      if (event.phase === 'complete' && event.status === 'completed') {
+        setTimeout(() => {
+          setProgressMessage(null);
+          setRealtimeProgress(null);
+          fetchProject();
+        }, 2000);
+      }
+    },
+    [projectId, fetchProject]
+  );
+
+  const handleSocketAgentStatus = useCallback(
+    (event: AgentStatusEvent) => {
+      if (event.projectId !== projectId) return;
+
+      // Update agent status locally
+      setProject((prev) => {
+        if (!prev) return prev;
+        const agentKey = event.agent as keyof NonNullable<
+          typeof prev.agentStatus
+        >;
+        return {
+          ...prev,
+          agentStatus: {
+            ...prev.agentStatus,
+            [agentKey]: {
+              status: event.status.toUpperCase(),
+              ...(event.status === 'running' && {
+                startedAt: new Date().toISOString(),
+              }),
+              ...(event.status === 'completed' && {
+                completedAt: new Date().toISOString(),
+              }),
+            },
+          },
+        };
+      });
+    },
+    [projectId]
+  );
+
+  const handleSocketComplete = useCallback(() => {
+    // Refresh all data when project completes
+    setTimeout(() => {
+      fetchProject();
+    }, 1000);
+  }, [fetchProject]);
+
+  const handleSocketError = useCallback((event: { error: string }) => {
+    console.error('[Project] Error:', event.error);
+    setProgressMessage(`错误: ${event.error}`);
+  }, []);
+
+  const { isConnected: socketConnected } = useAiCodingSocket({
+    projectId: project?.status === 'IN_PROGRESS' ? projectId : undefined,
+    onProgress: handleSocketProgress,
+    onAgentStatus: handleSocketAgentStatus,
+    onComplete: handleSocketComplete,
+    onError: handleSocketError,
+  });
 
   // Handle start project
   const handleStart = async () => {
@@ -552,15 +633,35 @@ export default function ProjectDetailPage() {
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-600">完成度</span>
                         <span className="font-medium text-emerald-600">
-                          {project.progress}%
+                          {realtimeProgress ?? project.progress}%
                         </span>
                       </div>
                       <div className="mt-1 h-2 overflow-hidden rounded-full bg-gray-100">
                         <div
-                          className="h-full rounded-full bg-emerald-500 transition-all"
-                          style={{ width: `${project.progress}%` }}
+                          className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                          style={{
+                            width: `${realtimeProgress ?? project.progress}%`,
+                          }}
                         />
                       </div>
+                      {/* Real-time progress message */}
+                      {progressMessage && (
+                        <div className="mt-2 flex items-center gap-2 text-sm text-blue-600">
+                          <div className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+                          {progressMessage}
+                        </div>
+                      )}
+                      {/* WebSocket connection status */}
+                      {project.status === 'IN_PROGRESS' && (
+                        <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-400">
+                          <div
+                            className={`h-1.5 w-1.5 rounded-full ${
+                              socketConnected ? 'bg-green-500' : 'bg-gray-400'
+                            }`}
+                          />
+                          {socketConnected ? '实时更新已连接' : '轮询更新中'}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div>

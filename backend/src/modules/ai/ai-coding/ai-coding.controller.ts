@@ -21,6 +21,7 @@ import {
   GithubOAuthService,
   GithubRepoService,
   DocumentService,
+  CodingTaskService,
 } from "./services";
 import {
   CreateProjectDto,
@@ -51,6 +52,7 @@ export class AiCodingController {
     private readonly githubOAuthService: GithubOAuthService,
     private readonly githubRepoService: GithubRepoService,
     private readonly documentService: DocumentService,
+    private readonly codingTaskService: CodingTaskService,
   ) {}
 
   // ==================== Project CRUD ====================
@@ -129,6 +131,27 @@ export class AiCodingController {
   ) {
     this.logger.log(`Starting project ${id} for user ${req.user.id}`);
     return this.aiCodingService.startProject(id, req.user.id, dto);
+  }
+
+  /**
+   * 检查项目是否可以恢复
+   * GET /api/v1/ai-coding/projects/:id/can-resume
+   */
+  @Get("projects/:id/can-resume")
+  async canResumeProject(@Request() req: any, @Param("id") id: string) {
+    // 验证项目归属
+    await this.aiCodingService.getProjectById(id, req.user.id);
+    return this.codingTaskService.canResume(id);
+  }
+
+  /**
+   * 恢复项目执行（从检查点继续）
+   * POST /api/v1/ai-coding/projects/:id/resume
+   */
+  @Post("projects/:id/resume")
+  async resumeProject(@Request() req: any, @Param("id") id: string) {
+    this.logger.log(`Resuming project ${id} for user ${req.user.id}`);
+    return this.aiCodingService.resumeProject(id, req.user.id);
   }
 
   /**

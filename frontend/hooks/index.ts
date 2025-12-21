@@ -25,3 +25,6 @@ export * from './useSimulationPerspective';
 
 // YouTube Subtitle Export Hook
 export * from './useYoutubeSubtitleExport';
+
+// AI Coding Socket Hook
+export * from './useAiCodingSocket';

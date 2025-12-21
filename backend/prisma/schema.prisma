@@ -3189,6 +3189,9 @@ model AiCodingProject {
   // 错误信息
   errorMessage String? @map("error_message") @db.Text
 
+  // 任务检查点（用于断点恢复）
+  checkpoint Json? @default("null") // { phase, progress, outputs, agentStatus, timestamp }
+
   // 时间戳
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
