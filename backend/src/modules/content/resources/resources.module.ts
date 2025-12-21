@@ -8,12 +8,19 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { MongoDBModule } from "../../../common/mongodb/mongodb.module";
 import { DataManagementModule } from "../../data-services/data-management/data-management.module";
 import { StorageModule } from "../../core/storage/storage.module";
+import { ProxyModule } from "../../integrations/proxy/proxy.module";
 
 /**
  * 资源管理模块
  */
 @Module({
-  imports: [PrismaModule, MongoDBModule, DataManagementModule, StorageModule],
+  imports: [
+    PrismaModule,
+    MongoDBModule,
+    DataManagementModule,
+    StorageModule,
+    ProxyModule, // 用于 FlareSolverr 支持
+  ],
   controllers: [ResourcesController],
   providers: [
     ResourcesService,

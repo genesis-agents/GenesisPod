@@ -2,6 +2,7 @@ import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import axios from "axios";
 import * as cheerio from "cheerio";
 import { PdfThumbnailService } from "./pdf-thumbnail.service";
+import { FlareSolverrService } from "../../integrations/proxy/flaresolverr.service";
 
 /**
  * 动态缩略图提取服务
@@ -20,6 +21,8 @@ export class DynamicThumbnailService {
   constructor(
     @Inject(forwardRef(() => PdfThumbnailService))
     private readonly pdfThumbnailService: PdfThumbnailService,
+    @Inject(forwardRef(() => FlareSolverrService))
+    private readonly flareSolverr: FlareSolverrService,
   ) {}
 
   /**
@@ -203,8 +206,12 @@ export class DynamicThumbnailService {
 
   /**
    * 从网页提取 og:image
+   * 支持 FlareSolverr 回退以处理 Cloudflare 保护的页面
    */
   async extractOgImage(url: string): Promise<string | null> {
+    let html: string | null = null;
+
+    // 尝试直接获取
     try {
       const response = await axios.get(url, {
         timeout: this.REQUEST_TIMEOUT,
@@ -217,8 +224,48 @@ export class DynamicThumbnailService {
         maxRedirects: 5,
         validateStatus: (status) => status < 400,
       });
+      html = response.data;
+    } catch (error) {
+      // 如果是 403，尝试使用 FlareSolverr
+      if (axios.isAxiosError(error) && error.response?.status === 403) {
+        this.logger.debug(
+          `Direct fetch returned 403 for ${url}, trying FlareSolverr`,
+        );
 
-      const $ = cheerio.load(response.data);
+        if (this.flareSolverr?.getIsAvailable()) {
+          try {
+            const flareResult = await this.flareSolverr.fetchPage(url, {
+              maxTimeout: 30000,
+            });
+            if (flareResult.success && flareResult.html) {
+              html = flareResult.html;
+              this.logger.log(
+                `FlareSolverr successfully fetched ${url} for thumbnail extraction`,
+              );
+            }
+          } catch (flareError) {
+            this.logger.debug(
+              `FlareSolverr failed for ${url}: ${flareError instanceof Error ? flareError.message : String(flareError)}`,
+            );
+          }
+        }
+      }
+
+      if (!html) {
+        this.logger.debug(
+          `Failed to extract og:image from ${url}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        return null;
+      }
+    }
+
+    // 确保 html 不为 null
+    if (!html) {
+      return null;
+    }
+
+    try {
+      const $ = cheerio.load(html);
 
       // 按优先级尝试多种方式获取封面图
       const imageUrl =
@@ -245,9 +292,9 @@ export class DynamicThumbnailService {
       }
 
       return null;
-    } catch (error) {
+    } catch (parseError) {
       this.logger.debug(
-        `Failed to extract og:image from ${url}: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to parse HTML from ${url}: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
       );
       return null;
     }
