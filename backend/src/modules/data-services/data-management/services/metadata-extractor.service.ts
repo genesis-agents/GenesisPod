@@ -38,6 +38,27 @@ export class MetadataExtractorService {
   private readonly REQUEST_TIMEOUT = 30000; // 30秒超时（大文件需要更长时间）
   private readonly MAX_CONTENT_LENGTH = 50 * 1024 * 1024; // 50MB最大内容大小（支持大型PDF报告）
 
+  // 更真实的浏览器 Headers，减少被识别为机器人的概率
+  private readonly browserHeaders = {
+    "User-Agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    Accept:
+      "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+    "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Cache-Control": "max-age=0",
+    Connection: "keep-alive",
+    "Sec-Ch-Ua":
+      '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": '"Windows"',
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
+  };
+
   constructor() {}
 
   /**
@@ -93,10 +114,7 @@ export class MetadataExtractorService {
     try {
       const response = await axios.head(url, {
         timeout: 10000,
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        },
+        headers: this.browserHeaders,
         validateStatus: (status) => status >= 200 && status < 400,
       });
 
@@ -246,13 +264,7 @@ export class MetadataExtractorService {
       const response = await axios.get(url, {
         timeout: this.REQUEST_TIMEOUT,
         maxContentLength: this.MAX_CONTENT_LENGTH,
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-          "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
-          Accept:
-            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        },
+        headers: this.browserHeaders,
         validateStatus: (status) => status >= 200 && status < 400,
       });
 
@@ -260,13 +272,15 @@ export class MetadataExtractorService {
     } catch (error) {
       if (axios.isAxiosError(error)) {
         if (error.code === "ECONNABORTED") {
-          throw new BadRequestException("URL连接超时（5秒）");
+          throw new BadRequestException("URL连接超时");
         }
         if (error.response?.status === 404) {
           throw new BadRequestException("URL页面不存在（404）");
         }
         if (error.response?.status === 403) {
-          throw new BadRequestException("URL访问被拒绝（403）");
+          throw new BadRequestException(
+            "URL访问被拒绝（403）- 请手动填写标题和描述",
+          );
         }
       }
       throw error;

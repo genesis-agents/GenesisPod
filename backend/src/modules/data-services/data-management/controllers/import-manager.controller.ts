@@ -559,6 +559,8 @@ export class ImportManagerController {
    * 2. 解析URL元数据
    * 3. 检测重复
    * 4. 返回完整的导入预览
+   *
+   * 当直接获取URL失败（如403）时，使用AI分类结果作为fallback
    */
   @Post("parse-url-auto")
   async parseUrlAuto(
@@ -575,21 +577,69 @@ export class ImportManagerController {
         };
       }
 
-      // 1. 使用AI分类URL
+      // 1. 使用AI分类URL（这个调用本身就会使用LLM搜索获取信息）
       const classification = await this.aiClassifierService.classifyUrl(
         body.url,
       );
 
-      // 2. 解析URL元数据
-      const parseResult = await this.importManagerService.parseUrlFull(
-        body.url,
-        classification.resourceType,
-      );
+      // 2. 尝试解析URL元数据
+      let parseResult;
+      let metadataSource: "direct" | "ai" = "direct";
+
+      try {
+        parseResult = await this.importManagerService.parseUrlFull(
+          body.url,
+          classification.resourceType,
+        );
+      } catch (parseError) {
+        // 如果直接获取失败（如403），使用AI分类结果构造基本元数据
+        const errorMessage =
+          parseError instanceof Error ? parseError.message : "";
+
+        if (
+          errorMessage.includes("403") ||
+          errorMessage.includes("访问被拒绝")
+        ) {
+          this.logger.log(
+            `Direct fetch failed for ${body.url}, using AI classification as fallback`,
+          );
+
+          // 使用AI分类结果中的extractedInfo构造元数据
+          const extractedInfo = classification.extractedInfo;
+          metadataSource = "ai";
+
+          parseResult = {
+            metadata: {
+              url: body.url,
+              domain: extractedInfo?.domain || new URL(body.url).hostname,
+              title:
+                extractedInfo?.title || this.generateTitleFromUrl(body.url),
+              description:
+                extractedInfo?.description || `${classification.reason}`,
+              language: "en",
+              contentType: extractedInfo?.contentType || "webpage",
+            },
+            validation: {
+              isValid: true,
+              warnings: ["元数据通过AI分析获取，可能不完整，建议手动补充"],
+            },
+            duplicateCheck: {
+              isDuplicate: false,
+              similarity: 0,
+              matchedItems: [],
+            },
+          };
+        } else {
+          // 其他错误继续抛出
+          throw parseError;
+        }
+      }
 
       return {
         success: true,
         data: {
           ...parseResult,
+          metadataSource,
           classification: {
             resourceType: classification.resourceType,
             confidence: classification.confidence,
@@ -604,6 +654,30 @@ export class ImportManagerController {
         success: false,
         error: error instanceof Error ? error.message : "Failed to parse URL",
       };
+    }
+  }
+
+  /**
+   * 从URL生成标题
+   */
+  private generateTitleFromUrl(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      // 从路径中提取最后一部分作为标题
+      const pathParts = urlObj.pathname.split("/").filter((p) => p);
+      if (pathParts.length > 0) {
+        const lastPart = pathParts[pathParts.length - 1];
+        // 将连字符和下划线转换为空格，移除文件扩展名
+        return lastPart
+          .replace(/[-_]/g, " ")
+          .replace(/\.(html?|php|aspx?)$/i, "")
+          .split(" ")
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(" ");
+      }
+      return urlObj.hostname;
+    } catch {
+      return "Untitled";
     }
   }
 

@@ -109,16 +109,25 @@ export class AiUrlClassifierService {
         };
       }
 
-      // 使用 AI 进行分类
+      // 使用 AI 进行分类（同时提取标题和描述）
       const prompt = this.buildClassificationPrompt(url, urlInfo);
       const result = await this.callLLM(prompt);
 
       // 解析 AI 响应
       const classification = this.parseClassificationResponse(result);
 
+      // 将 AI 提取的标题和描述合并到 extractedInfo
       return {
-        ...classification,
-        extractedInfo: urlInfo,
+        resourceType: classification.resourceType,
+        confidence: classification.confidence,
+        reason: classification.reason,
+        alternatives: classification.alternatives,
+        extractedInfo: {
+          domain: urlInfo?.domain || "unknown",
+          contentType: urlInfo?.contentType,
+          title: classification.title || urlInfo?.title,
+          description: classification.description || urlInfo?.description,
+        },
       };
     } catch (error) {
       this.logger.error(`Failed to classify URL: ${error}`);
@@ -231,6 +240,7 @@ export class AiUrlClassifierService {
 
   /**
    * 构建分类提示词
+   * 同时请求LLM提取页面标题和描述（利用LLM的网络搜索能力）
    */
   private buildClassificationPrompt(
     url: string,
@@ -240,7 +250,9 @@ export class AiUrlClassifierService {
       .map(([type, desc]) => `- ${type}: ${desc}`)
       .join("\n");
 
-    return `You are a URL classification expert. Classify the following URL into the most appropriate resource type.
+    return `You are a URL analysis expert. Analyze the following URL to:
+1. Classify it into the most appropriate resource type
+2. Extract/infer the page title and description
 
 URL: ${url}
 Domain: ${urlInfo?.domain || "unknown"}
@@ -249,16 +261,18 @@ Detected content type: ${urlInfo?.contentType || "unknown"}
 Available resource types:
 ${resourceTypes}
 
-Analyze the URL and domain to determine the most appropriate resource type. Consider:
-1. The domain name and its typical content
-2. URL path patterns (e.g., /paper/, /blog/, /news/)
-3. Common patterns for each resource type
+Analyze the URL and use your knowledge to:
+1. Determine the most appropriate resource type based on domain and URL patterns
+2. If you know what this page is about, provide the actual title and a brief description
+3. If you don't know the specific content, infer a reasonable title from the URL path
 
 Respond in JSON format:
 {
   "resourceType": "TYPE",
   "confidence": 0.0-1.0,
-  "reason": "Brief explanation",
+  "reason": "Brief explanation of why this classification",
+  "title": "The page title (if known) or inferred from URL",
+  "description": "Brief description of the page content (if known)",
   "alternatives": [
     {"resourceType": "TYPE", "confidence": 0.0-1.0, "reason": "Brief explanation"}
   ]
@@ -301,10 +315,15 @@ Only include alternatives if there are other plausible classifications with conf
 
   /**
    * 解析分类响应
+   * 包含资源类型、置信度以及从LLM获取的标题和描述
    */
-  private parseClassificationResponse(
-    response: string,
-  ): Omit<UrlClassificationResult, "extractedInfo"> {
+  private parseClassificationResponse(response: string): Omit<
+    UrlClassificationResult,
+    "extractedInfo"
+  > & {
+    title?: string;
+    description?: string;
+  } {
     try {
       // 提取 JSON
       const jsonMatch = response.match(/\{[\s\S]*\}/);
@@ -328,6 +347,8 @@ Only include alternatives if there are other plausible classifications with conf
         resourceType: parsed.resourceType as ResourceType,
         confidence: Math.min(1, Math.max(0, parsed.confidence || 0.5)),
         reason: parsed.reason || "Classified by AI",
+        title: parsed.title || undefined,
+        description: parsed.description || undefined,
         alternatives: parsed.alternatives?.map(
           (alt: {
             resourceType: string;
