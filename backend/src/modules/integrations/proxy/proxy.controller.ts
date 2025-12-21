@@ -23,10 +23,84 @@ import { NewsExtractorService } from "./news-extractor.service";
 export class ProxyController {
   private readonly logger = new Logger(ProxyController.name);
 
+  // Jina Reader API endpoint - 用于获取被 bot detection 阻止的网页内容
+  private readonly JINA_READER_API = "https://r.jina.ai";
+
   constructor(
     private advancedExtractor: AdvancedExtractorService,
     private newsExtractor: NewsExtractorService,
   ) {}
+
+  /**
+   * 通过 Jina Reader API 获取网页内容
+   * 当直接获取返回 403 时使用此方法作为 fallback
+   * Jina Reader 返回 Markdown 格式的内容
+   */
+  private async fetchViaJinaReader(
+    url: string,
+  ): Promise<{ success: boolean; content?: string; error?: string }> {
+    try {
+      this.logger.log(`Fetching via Jina Reader: ${url}`);
+      const jinaUrl = `${this.JINA_READER_API}/${url}`;
+
+      const response = await axios.get(jinaUrl, {
+        timeout: 30000,
+        headers: {
+          Accept: "text/plain",
+          "User-Agent": "DeepDive/1.0",
+        },
+      });
+
+      if (response.status === 200 && response.data) {
+        this.logger.log(
+          `Successfully fetched via Jina Reader (${String(response.data).length} chars)`,
+        );
+        return { success: true, content: response.data };
+      }
+
+      return {
+        success: false,
+        error: `Jina Reader returned status ${response.status}`,
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Jina Reader fallback failed: ${errorMessage}`);
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  /**
+   * 将 Markdown 转换为简单的 HTML
+   */
+  private markdownToHtml(markdown: string, title: string): string {
+    // 基本的 Markdown 到 HTML 转换
+    let html = markdown
+      // 代码块
+      .replace(/```(\w*)\n([\s\S]*?)```/g, "<pre><code>$2</code></pre>")
+      // 行内代码
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      // 粗体
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      // 斜体
+      .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+      // 标题
+      .replace(/^### (.+)$/gm, "<h3>$1</h3>")
+      .replace(/^## (.+)$/gm, "<h2>$1</h2>")
+      .replace(/^# (.+)$/gm, "<h1>$1</h1>")
+      // 链接
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+      // 图片
+      .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" />')
+      // 列表
+      .replace(/^- (.+)$/gm, "<li>$1</li>")
+      .replace(/(<li>.*<\/li>\n?)+/g, "<ul>$&</ul>")
+      // 段落
+      .replace(/\n\n+/g, "</p><p>")
+      .replace(/\n/g, "<br/>");
+
+    return `<article><h1>${title}</h1><p>${html}</p></article>`;
+  }
   /**
    * 代理 PDF 文件
    *
@@ -302,38 +376,62 @@ export class ProxyController {
 
       this.logger.log(`Fetching HTML for Reader Mode from: ${urlObj.hostname}`);
 
-      // 从远程服务器获取 HTML - 使用完整浏览器特征避免被检测为机器人
-      const response = await axios.get(url, {
-        responseType: "text",
-        timeout: 30000,
-        maxRedirects: 5,
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          Accept:
-            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-          "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
-          "Accept-Encoding": "gzip, deflate, br",
-          "Cache-Control": "max-age=0",
-          Connection: "keep-alive",
-          "Sec-Ch-Ua":
-            '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-          "Sec-Ch-Ua-Mobile": "?0",
-          "Sec-Ch-Ua-Platform": '"Windows"',
-          "Sec-Fetch-Dest": "document",
-          "Sec-Fetch-Mode": "navigate",
-          "Sec-Fetch-Site": "none",
-          "Sec-Fetch-User": "?1",
-          "Upgrade-Insecure-Requests": "1",
-        },
-      });
+      let html: string;
+      let usedJinaReader = false;
+
+      // 尝试直接获取 HTML
+      try {
+        const response = await axios.get(url, {
+          responseType: "text",
+          timeout: 30000,
+          maxRedirects: 5,
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            Accept:
+              "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Cache-Control": "max-age=0",
+            Connection: "keep-alive",
+            "Sec-Ch-Ua":
+              '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+            "Sec-Ch-Ua-Mobile": "?0",
+            "Sec-Ch-Ua-Platform": '"Windows"',
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Upgrade-Insecure-Requests": "1",
+          },
+        });
+        html = response.data;
+      } catch (fetchError) {
+        // 如果是 403 错误，尝试使用 Jina Reader 作为 fallback
+        if (
+          axios.isAxiosError(fetchError) &&
+          fetchError.response?.status === 403
+        ) {
+          this.logger.log(
+            `Direct fetch returned 403, trying Jina Reader fallback for ${url}`,
+          );
+          const jinaResult = await this.fetchViaJinaReader(url);
+          if (jinaResult.success && jinaResult.content) {
+            // Jina Reader 返回 Markdown，转换为 HTML
+            const titleMatch = jinaResult.content.match(/^#\s+(.+)$/m);
+            const title = titleMatch ? titleMatch[1] : urlObj.hostname;
+            html = this.markdownToHtml(jinaResult.content, title);
+            usedJinaReader = true;
+          } else {
+            throw fetchError; // Jina Reader 也失败，抛出原始错误
+          }
+        } else {
+          throw fetchError;
+        }
+      }
 
       // 使用高级提取服务，实现4层容错机制
-      const result = await this.advancedExtractor.extract(
-        response.data,
-        url,
-        30000,
-      );
+      const result = await this.advancedExtractor.extract(html, url, 30000);
 
       if (!result.success || result.length === 0) {
         this.logger.warn(
@@ -346,7 +444,7 @@ export class ProxyController {
       }
 
       this.logger.log(
-        `Successfully extracted article via Plan ${result.plan.toUpperCase()}: "${result.title}" (${result.length} characters, confidence: ${result.confidence}%)`,
+        `Successfully extracted article via Plan ${result.plan.toUpperCase()}${usedJinaReader ? " (via Jina Reader)" : ""}: "${result.title}" (${result.length} characters, confidence: ${result.confidence}%)`,
       );
 
       // 返回提取的内容
@@ -360,6 +458,7 @@ export class ProxyController {
         siteName: result.siteName,
         length: result.length,
         plan: result.plan,
+        viaJinaReader: usedJinaReader, // 标记是否通过 Jina Reader 获取
         confidence: result.confidence,
         sourceUrl: url,
       };
@@ -440,7 +539,8 @@ export class ProxyController {
     // News类别不限制域名，允许访问所有新闻网站
     try {
       let currentUrl = url;
-      let html: string;
+      let html: string | undefined;
+      let usedJinaReader = false;
       const maxMetaRedirects = 3; // 最多跟随3次 meta refresh 重定向
 
       // 获取 HTML 并处理 meta refresh 重定向
@@ -455,37 +555,61 @@ export class ProxyController {
           `Fetching HTML for News Reader Mode from: ${urlObj.hostname} (redirect #${redirectCount})`,
         );
 
-        // 从远程服务器获取 HTML - 使用完整浏览器特征避免被检测为机器人
-        const response = await axios.get(currentUrl, {
-          responseType: "text",
-          timeout: 30000,
-          maxRedirects: 5,
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            Accept:
-              "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-            "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Cache-Control": "max-age=0",
-            Connection: "keep-alive",
-            "Sec-Ch-Ua":
-              '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-            "Sec-Ch-Ua-Mobile": "?0",
-            "Sec-Ch-Ua-Platform": '"Windows"',
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "none",
-            "Sec-Fetch-User": "?1",
-            "Upgrade-Insecure-Requests": "1",
-          },
-        });
-
-        html = response.data;
+        // 尝试直接获取 HTML
+        try {
+          const response = await axios.get(currentUrl, {
+            responseType: "text",
+            timeout: 30000,
+            maxRedirects: 5,
+            headers: {
+              "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+              Accept:
+                "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+              "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
+              "Accept-Encoding": "gzip, deflate, br",
+              "Cache-Control": "max-age=0",
+              Connection: "keep-alive",
+              "Sec-Ch-Ua":
+                '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+              "Sec-Ch-Ua-Mobile": "?0",
+              "Sec-Ch-Ua-Platform": '"Windows"',
+              "Sec-Fetch-Dest": "document",
+              "Sec-Fetch-Mode": "navigate",
+              "Sec-Fetch-Site": "none",
+              "Sec-Fetch-User": "?1",
+              "Upgrade-Insecure-Requests": "1",
+            },
+          });
+          html = response.data;
+        } catch (fetchError) {
+          // 如果是 403 错误，尝试使用 Jina Reader 作为 fallback
+          if (
+            axios.isAxiosError(fetchError) &&
+            fetchError.response?.status === 403
+          ) {
+            this.logger.log(
+              `Direct fetch returned 403, trying Jina Reader fallback for ${currentUrl}`,
+            );
+            const jinaResult = await this.fetchViaJinaReader(currentUrl);
+            if (jinaResult.success && jinaResult.content) {
+              // Jina Reader 返回 Markdown，转换为 HTML
+              const titleMatch = jinaResult.content.match(/^#\s+(.+)$/m);
+              const title = titleMatch ? titleMatch[1] : urlObj.hostname;
+              html = this.markdownToHtml(jinaResult.content, title);
+              usedJinaReader = true;
+              break; // Jina Reader 成功，跳出重定向循环
+            } else {
+              throw fetchError; // Jina Reader 也失败，抛出原始错误
+            }
+          } else {
+            throw fetchError;
+          }
+        }
 
         // 检测 meta refresh 重定向（如 deepmind.google -> blog.google）
         const redirectCheck = this.newsExtractor.detectMetaRefreshRedirect(
-          html,
+          html!,
           currentUrl,
         );
 
@@ -532,7 +656,7 @@ export class ProxyController {
       }
 
       this.logger.log(
-        `Successfully extracted content via ${contentResult.plan}: "${title}" (${contentResult.length} chars, confidence: ${contentResult.confidence}%)`,
+        `Successfully extracted content via ${contentResult.plan}${usedJinaReader ? " (via Jina Reader)" : ""}: "${title}" (${contentResult.length} chars, confidence: ${contentResult.confidence}%)`,
       );
 
       // 返回统一格式的结果：HTML 内容 + 新闻元数据
@@ -550,6 +674,7 @@ export class ProxyController {
         siteName: contentResult.siteName || newsMetadata.siteName,
         length: contentResult.length,
         plan: contentResult.plan,
+        viaJinaReader: usedJinaReader, // 标记是否通过 Jina Reader 获取
         paywalledIndicators: newsMetadata.paywalledIndicators,
         confidence: contentResult.confidence,
         source: newsMetadata.source,
