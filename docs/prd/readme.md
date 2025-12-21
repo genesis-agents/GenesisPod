@@ -65,6 +65,12 @@
 | [deepdive-engine-prd-v2.0.md](./deepdive-engine-prd-v2.0.md)         | v2.0 | **最新** | 文本模型+图像模型+HTML+SVG组合渲染引擎PRD |
 | [resource-to-image-generation.md](./resource-to-image-generation.md) | v1.0 | 参考     | 资源转图片生成需求                        |
 
+### Notes + Notion Integration
+
+| 文件                                                                   | 版本 | 状态     | 说明                     |
+| ---------------------------------------------------------------------- | ---- | -------- | ------------------------ |
+| [notes-notion-integration-v1.0.md](./notes-notion-integration-v1.0.md) | v1.0 | **最新** | Notes与Notion集成系统PRD |
+
 ---
 
 ## 归档文档
