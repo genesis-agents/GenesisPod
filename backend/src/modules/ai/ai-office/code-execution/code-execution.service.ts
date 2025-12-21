@@ -111,16 +111,16 @@ export class CodeExecutionService {
     const entryFunctions = ["run", "execute", "start", "init"];
     for (const funcName of entryFunctions) {
       const funcPattern = new RegExp(
-        `(?:async\s+)?function\s+${funcName}\s*\(|const\s+${funcName}\s*=`,
+        `(?:async\\s+)?function\\s+${funcName}\\s*\\(|const\\s+${funcName}\\s*=`,
       );
-      const callPattern = new RegExp(`${funcName}\s*\(\s*\)`);
+      const callPattern = new RegExp(`${funcName}\\s*\\(\\s*\\)`);
 
       if (
         funcPattern.test(codeWithoutComments) &&
         !callPattern.test(codeWithoutComments)
       ) {
         const isAsync = new RegExp(
-          `async\s+function\s+${funcName}|const\s+${funcName}\s*=\s*async`,
+          `async\\s+function\\s+${funcName}|const\\s+${funcName}\\s*=\\s*async`,
         ).test(codeWithoutComments);
         const funcCall = isAsync
           ? `\n\n// Auto-execute ${funcName} function\n${funcName}().then(result => { if (result !== undefined) console.log('Result:', result); }).catch(err => console.error('Error:', err));`

@@ -509,7 +509,14 @@ export class MetadataExtractorService {
    */
   private getErrorMessage(error: any): string {
     if (error instanceof BadRequestException) {
-      return error.getResponse() as string;
+      const response = error.getResponse();
+      if (typeof response === "string") {
+        return response;
+      }
+      if (typeof response === "object" && response !== null) {
+        return (response as any).message || JSON.stringify(response);
+      }
+      return "请求错误";
     }
     if (axios.isAxiosError(error)) {
       if (error.response?.status === 404) return "页面不存在（404）";
@@ -518,8 +525,8 @@ export class MetadataExtractorService {
       if (error.code === "ECONNABORTED") return "连接超时";
       if (error.code === "ENOTFOUND") return "DNS解析失败";
     }
-    if (error.message.includes("Invalid URL")) return "URL格式无效";
-    return error.message || "未知错误";
+    if (error?.message?.includes("Invalid URL")) return "URL格式无效";
+    return error?.message || "未知错误";
   }
 
   /**
