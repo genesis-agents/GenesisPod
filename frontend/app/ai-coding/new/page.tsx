@@ -287,7 +287,7 @@ ${context ? `之前的工作成果：\n${context}` : ''}
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          agentType: 'software-dev', // Use a generic agent type
+          agentType: 'DEVELOPER', // Use DEVELOPER agent type
           prompt: userPrompt,
           systemPrompt,
           metadata: {
