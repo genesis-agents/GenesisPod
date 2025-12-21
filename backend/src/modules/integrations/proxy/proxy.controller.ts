@@ -15,6 +15,7 @@ import {
 } from "../../../config/domain-whitelist.config";
 import { AdvancedExtractorService } from "./advanced-extractor.service";
 import { NewsExtractorService } from "./news-extractor.service";
+import { PuppeteerFetcherService } from "./puppeteer-fetcher.service";
 
 /**
  * 代理控制器 - 用于代理外部资源（如 PDF），绕过 CORS 和 X-Frame-Options 限制
@@ -29,6 +30,7 @@ export class ProxyController {
   constructor(
     private advancedExtractor: AdvancedExtractorService,
     private newsExtractor: NewsExtractorService,
+    private puppeteerFetcher: PuppeteerFetcherService,
   ) {}
 
   /**
@@ -488,26 +490,41 @@ export class ProxyController {
             html = this.markdownToHtml(jinaResult.content, title);
             usedJinaReader = true;
           } else if (jinaResult.requiresCaptcha) {
-            // 网站需要人机验证，返回优雅降级响应
-            this.logger.warn(
-              `Site ${urlObj.hostname} requires CAPTCHA, returning fallback response`,
+            // Jina Reader 检测到 CAPTCHA，尝试 Puppeteer 作为终极方案
+            this.logger.log(
+              `Jina Reader blocked by CAPTCHA, trying Puppeteer for ${url}`,
             );
-            return {
-              success: false,
-              requiresCaptcha: true,
-              title: this.extractTitleFromUrl(url),
-              content: "",
-              textContent: "",
-              excerpt:
-                "此网站使用了 Cloudflare 等安全防护，需要人机验证才能访问内容。",
-              siteName: urlObj.hostname,
-              length: 0,
-              plan: "blocked",
-              confidence: 0,
-              sourceUrl: url,
-              message:
-                "此网站需要人机验证，无法自动获取内容。请点击「打开原始」在浏览器中查看。",
-            };
+            const puppeteerResult = await this.puppeteerFetcher.fetchPage(url, {
+              timeout: 45000, // 给 Cloudflare 验证更多时间
+            });
+
+            if (puppeteerResult.success && puppeteerResult.html) {
+              this.logger.log(
+                `Puppeteer successfully fetched ${url} (${puppeteerResult.loadTime}ms)`,
+              );
+              html = puppeteerResult.html;
+            } else {
+              // Puppeteer 也失败，返回优雅降级响应
+              this.logger.warn(
+                `All methods failed for ${urlObj.hostname}, returning fallback response`,
+              );
+              return {
+                success: false,
+                requiresCaptcha: true,
+                title: this.extractTitleFromUrl(url),
+                content: "",
+                textContent: "",
+                excerpt:
+                  "此网站使用了 Cloudflare 等安全防护，需要人机验证才能访问内容。",
+                siteName: urlObj.hostname,
+                length: 0,
+                plan: "blocked",
+                confidence: 0,
+                sourceUrl: url,
+                message:
+                  "此网站需要人机验证，无法自动获取内容。请点击「打开原始」在浏览器中查看。",
+              };
+            }
           } else {
             throw fetchError; // Jina Reader 也失败，抛出原始错误
           }
@@ -686,27 +703,44 @@ export class ProxyController {
               usedJinaReader = true;
               break; // Jina Reader 成功，跳出重定向循环
             } else if (jinaResult.requiresCaptcha) {
-              // 网站需要人机验证，返回优雅降级响应
-              this.logger.warn(
-                `Site ${urlObj.hostname} requires CAPTCHA, returning fallback response`,
+              // Jina Reader 检测到 CAPTCHA，尝试 Puppeteer 作为终极方案
+              this.logger.log(
+                `Jina Reader blocked by CAPTCHA, trying Puppeteer for ${currentUrl}`,
               );
-              return {
-                success: false,
-                requiresCaptcha: true,
-                title: this.extractTitleFromUrl(url),
-                content: "",
-                textContent: "",
-                excerpt:
-                  "此网站使用了 Cloudflare 等安全防护，需要人机验证才能访问内容。",
-                siteName: urlObj.hostname,
-                length: 0,
-                plan: "blocked",
-                confidence: 0,
-                sourceUrl: url,
-                finalUrl: currentUrl,
-                message:
-                  "此网站需要人机验证，无法自动获取内容。请点击「打开原始」在浏览器中查看。",
-              };
+              const puppeteerResult = await this.puppeteerFetcher.fetchPage(
+                currentUrl,
+                { timeout: 45000 },
+              );
+
+              if (puppeteerResult.success && puppeteerResult.html) {
+                this.logger.log(
+                  `Puppeteer successfully fetched ${currentUrl} (${puppeteerResult.loadTime}ms)`,
+                );
+                html = puppeteerResult.html;
+                break; // Puppeteer 成功，跳出重定向循环
+              } else {
+                // Puppeteer 也失败，返回优雅降级响应
+                this.logger.warn(
+                  `All methods failed for ${urlObj.hostname}, returning fallback response`,
+                );
+                return {
+                  success: false,
+                  requiresCaptcha: true,
+                  title: this.extractTitleFromUrl(url),
+                  content: "",
+                  textContent: "",
+                  excerpt:
+                    "此网站使用了 Cloudflare 等安全防护，需要人机验证才能访问内容。",
+                  siteName: urlObj.hostname,
+                  length: 0,
+                  plan: "blocked",
+                  confidence: 0,
+                  sourceUrl: url,
+                  finalUrl: currentUrl,
+                  message:
+                    "此网站需要人机验证，无法自动获取内容。请点击「打开原始」在浏览器中查看。",
+                };
+              }
             } else {
               throw fetchError; // Jina Reader 也失败，抛出原始错误
             }
