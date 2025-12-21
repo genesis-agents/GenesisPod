@@ -36,9 +36,12 @@ export class ProxyController {
    * 当直接获取返回 403 时使用此方法作为 fallback
    * Jina Reader 返回 Markdown 格式的内容
    */
-  private async fetchViaJinaReader(
-    url: string,
-  ): Promise<{ success: boolean; content?: string; error?: string }> {
+  private async fetchViaJinaReader(url: string): Promise<{
+    success: boolean;
+    content?: string;
+    error?: string;
+    requiresCaptcha?: boolean;
+  }> {
     try {
       this.logger.log(`Fetching via Jina Reader: ${url}`);
       const jinaUrl = `${this.JINA_READER_API}/${url}`;
@@ -52,10 +55,49 @@ export class ProxyController {
       });
 
       if (response.status === 200 && response.data) {
-        this.logger.log(
-          `Successfully fetched via Jina Reader (${String(response.data).length} chars)`,
+        const content = String(response.data);
+
+        // 检测 Cloudflare CAPTCHA 页面
+        const captchaIndicators = [
+          "Verify you are human",
+          "Just a moment...",
+          "needs to review the security of your connection",
+          "Please turn JavaScript on",
+          "Enable JavaScript and cookies",
+          "Checking your browser",
+          "DDoS protection by",
+          "ray ID",
+        ];
+
+        const hasCaptcha = captchaIndicators.some((indicator) =>
+          content.toLowerCase().includes(indicator.toLowerCase()),
         );
-        return { success: true, content: response.data };
+
+        if (hasCaptcha) {
+          this.logger.warn(`Jina Reader returned CAPTCHA page for ${url}`);
+          return {
+            success: false,
+            error:
+              "此网站需要人机验证，无法自动获取内容。请点击「打开原始」在浏览器中查看。",
+            requiresCaptcha: true,
+          };
+        }
+
+        // 检查内容长度是否过短（可能是错误页面）
+        if (content.length < 200) {
+          this.logger.warn(
+            `Jina Reader returned very short content for ${url}: ${content.length} chars`,
+          );
+          return {
+            success: false,
+            error: "获取的内容过短，可能是错误页面。",
+          };
+        }
+
+        this.logger.log(
+          `Successfully fetched via Jina Reader (${content.length} chars)`,
+        );
+        return { success: true, content };
       }
 
       return {
@@ -67,6 +109,29 @@ export class ProxyController {
         error instanceof Error ? error.message : String(error);
       this.logger.warn(`Jina Reader fallback failed: ${errorMessage}`);
       return { success: false, error: errorMessage };
+    }
+  }
+
+  /**
+   * 从 URL 中提取标题（用于 fallback）
+   */
+  private extractTitleFromUrl(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      const pathname = urlObj.pathname;
+      // 取最后一段路径作为标题
+      const segments = pathname.split("/").filter((s) => s.length > 0);
+      if (segments.length > 0) {
+        const lastSegment = segments[segments.length - 1];
+        // 移除文件扩展名，替换连字符为空格
+        return lastSegment
+          .replace(/\.[^.]+$/, "")
+          .replace(/[-_]/g, " ")
+          .replace(/\b\w/g, (c) => c.toUpperCase());
+      }
+      return urlObj.hostname;
+    } catch {
+      return "Untitled";
     }
   }
 
@@ -422,6 +487,27 @@ export class ProxyController {
             const title = titleMatch ? titleMatch[1] : urlObj.hostname;
             html = this.markdownToHtml(jinaResult.content, title);
             usedJinaReader = true;
+          } else if (jinaResult.requiresCaptcha) {
+            // 网站需要人机验证，返回优雅降级响应
+            this.logger.warn(
+              `Site ${urlObj.hostname} requires CAPTCHA, returning fallback response`,
+            );
+            return {
+              success: false,
+              requiresCaptcha: true,
+              title: this.extractTitleFromUrl(url),
+              content: "",
+              textContent: "",
+              excerpt:
+                "此网站使用了 Cloudflare 等安全防护，需要人机验证才能访问内容。",
+              siteName: urlObj.hostname,
+              length: 0,
+              plan: "blocked",
+              confidence: 0,
+              sourceUrl: url,
+              message:
+                "此网站需要人机验证，无法自动获取内容。请点击「打开原始」在浏览器中查看。",
+            };
           } else {
             throw fetchError; // Jina Reader 也失败，抛出原始错误
           }
@@ -599,6 +685,28 @@ export class ProxyController {
               html = this.markdownToHtml(jinaResult.content, title);
               usedJinaReader = true;
               break; // Jina Reader 成功，跳出重定向循环
+            } else if (jinaResult.requiresCaptcha) {
+              // 网站需要人机验证，返回优雅降级响应
+              this.logger.warn(
+                `Site ${urlObj.hostname} requires CAPTCHA, returning fallback response`,
+              );
+              return {
+                success: false,
+                requiresCaptcha: true,
+                title: this.extractTitleFromUrl(url),
+                content: "",
+                textContent: "",
+                excerpt:
+                  "此网站使用了 Cloudflare 等安全防护，需要人机验证才能访问内容。",
+                siteName: urlObj.hostname,
+                length: 0,
+                plan: "blocked",
+                confidence: 0,
+                sourceUrl: url,
+                finalUrl: currentUrl,
+                message:
+                  "此网站需要人机验证，无法自动获取内容。请点击「打开原始」在浏览器中查看。",
+              };
             } else {
               throw fetchError; // Jina Reader 也失败，抛出原始错误
             }
