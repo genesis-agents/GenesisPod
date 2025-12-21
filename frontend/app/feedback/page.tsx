@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Sidebar from '@/components/layout/Sidebar';
 import {
@@ -15,23 +15,132 @@ import {
   Loader2,
   AlertCircle,
   Github,
+  Paperclip,
+  X,
+  Upload,
+  Image as ImageIcon,
+  FileText,
+  File,
 } from 'lucide-react';
 
 type FeedbackType = 'bug' | 'feature' | 'improvement' | 'other';
 
+interface UploadedFile {
+  file: File;
+  preview?: string;
+}
+
 const FEEDBACK_EMAIL = 'hello.junjie.duan@gmail.com';
 const GITHUB_ISSUES_URL =
   'https://github.com/JUNJIE-DUAN/deepdive-engine/issues';
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILES = 5;
+const ALLOWED_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+  'text/plain',
+];
 
 export default function Feedback() {
   const [feedbackType, setFeedbackType] = useState<FeedbackType>('feature');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [email, setEmail] = useState('');
+  const [files, setFiles] = useState<UploadedFile[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [feedbackId, setFeedbackId] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFiles = useCallback(
+    (newFiles: FileList | File[]) => {
+      const fileArray = Array.from(newFiles);
+      const validFiles: UploadedFile[] = [];
+
+      for (const file of fileArray) {
+        if (files.length + validFiles.length >= MAX_FILES) {
+          setError(`Maximum ${MAX_FILES} files allowed`);
+          break;
+        }
+
+        if (file.size > MAX_FILE_SIZE) {
+          setError(`File "${file.name}" exceeds 10MB limit`);
+          continue;
+        }
+
+        if (!ALLOWED_TYPES.includes(file.type)) {
+          setError(
+            `File type not supported. Allowed: images, PDF, text files.`
+          );
+          continue;
+        }
+
+        const uploadedFile: UploadedFile = { file };
+
+        // Create preview for images
+        if (file.type.startsWith('image/')) {
+          uploadedFile.preview = URL.createObjectURL(file);
+        }
+
+        validFiles.push(uploadedFile);
+      }
+
+      if (validFiles.length > 0) {
+        setFiles((prev) => [...prev, ...validFiles]);
+        setError(null);
+      }
+    },
+    [files.length]
+  );
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => {
+      const newFiles = [...prev];
+      // Revoke preview URL to prevent memory leaks
+      if (newFiles[index].preview) {
+        URL.revokeObjectURL(newFiles[index].preview!);
+      }
+      newFiles.splice(index, 1);
+      return newFiles;
+    });
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFiles(e.dataTransfer.files);
+    }
+  };
+
+  const getFileIcon = (file: File) => {
+    if (file.type.startsWith('image/')) return ImageIcon;
+    if (file.type === 'application/pdf') return FileText;
+    return File;
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,19 +148,22 @@ export default function Feedback() {
     setError(null);
 
     try {
+      const formData = new FormData();
+      formData.append('type', feedbackType);
+      formData.append('title', title);
+      formData.append('description', description);
+      if (email) formData.append('userEmail', email);
+      formData.append('userAgent', navigator.userAgent);
+      formData.append('url', window.location.href);
+
+      // Append files
+      files.forEach((uploadedFile) => {
+        formData.append('files', uploadedFile.file);
+      });
+
       const response = await fetch('/api/feedback', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          type: feedbackType,
-          title,
-          description,
-          email: email || undefined,
-          userAgent: navigator.userAgent,
-          url: window.location.href,
-        }),
+        body: formData,
       });
 
       const data = await response.json();
@@ -59,6 +171,10 @@ export default function Feedback() {
       if (data.success) {
         setSubmitted(true);
         setFeedbackId(data.feedbackId || null);
+        // Clean up file previews
+        files.forEach((f) => {
+          if (f.preview) URL.revokeObjectURL(f.preview);
+        });
       } else {
         setError(data.error || 'Failed to submit feedback');
       }
@@ -74,6 +190,7 @@ export default function Feedback() {
     setTitle('');
     setDescription('');
     setEmail('');
+    setFiles([]);
     setError(null);
     setFeedbackId(null);
   };
@@ -315,6 +432,97 @@ export default function Feedback() {
                   <p className="mt-2 text-xs text-gray-500">
                     Provide your email if you'd like us to follow up with you.
                   </p>
+                </div>
+
+                {/* Attachments (Optional) */}
+                <div className="rounded-xl border border-gray-200 bg-white p-6">
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                    Attachments{' '}
+                    <span className="font-normal text-gray-500">
+                      (Optional, max {MAX_FILES} files, 10MB each)
+                    </span>
+                  </label>
+
+                  {/* Drop Zone */}
+                  <div
+                    onDragEnter={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDragOver={handleDrag}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`cursor-pointer rounded-lg border-2 border-dashed p-6 text-center transition-colors ${
+                      dragActive
+                        ? 'border-violet-500 bg-violet-50'
+                        : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+                    }`}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept={ALLOWED_TYPES.join(',')}
+                      onChange={(e) =>
+                        e.target.files && handleFiles(e.target.files)
+                      }
+                      className="hidden"
+                    />
+                    <Upload
+                      className={`mx-auto h-8 w-8 ${dragActive ? 'text-violet-500' : 'text-gray-400'}`}
+                    />
+                    <p className="mt-2 text-sm text-gray-600">
+                      {dragActive
+                        ? 'Drop files here'
+                        : 'Drag and drop files here, or click to select'}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Images, PDF, or text files
+                    </p>
+                  </div>
+
+                  {/* File List */}
+                  {files.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      {files.map((uploadedFile, index) => {
+                        const FileIcon = getFileIcon(uploadedFile.file);
+                        return (
+                          <div
+                            key={index}
+                            className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3"
+                          >
+                            {uploadedFile.preview ? (
+                              <img
+                                src={uploadedFile.preview}
+                                alt={uploadedFile.file.name}
+                                className="h-10 w-10 rounded object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-10 w-10 items-center justify-center rounded bg-gray-200">
+                                <FileIcon className="h-5 w-5 text-gray-600" />
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium text-gray-700">
+                                {uploadedFile.file.name}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {formatFileSize(uploadedFile.file.size)}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeFile(index);
+                              }}
+                              className="rounded-full p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* Submit Button */}

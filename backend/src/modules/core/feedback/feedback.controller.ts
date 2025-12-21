@@ -7,9 +7,12 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFiles,
   Logger,
   Request,
 } from "@nestjs/common";
+import { FilesInterceptor } from "@nestjs/platform-express";
 import { FeedbackService } from "./feedback.service";
 import { CreateFeedbackDto } from "./dto/create-feedback.dto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
@@ -32,17 +35,46 @@ export class FeedbackController {
   constructor(private feedbackService: FeedbackService) {}
 
   /**
-   * Submit feedback (public, but can include user info if logged in)
+   * Submit feedback with optional file attachments
    * POST /api/v1/feedback
    */
   @Post()
   @UseGuards(OptionalJwtAuthGuard)
+  @UseInterceptors(
+    FilesInterceptor("files", 5, {
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max per file
+      fileFilter: (_req, file, callback) => {
+        // Allow images, PDFs, and common document types
+        const allowedTypes = [
+          "image/jpeg",
+          "image/png",
+          "image/gif",
+          "image/webp",
+          "application/pdf",
+          "text/plain",
+          "application/json",
+          "text/html",
+          "text/css",
+          "text/javascript",
+          "application/javascript",
+        ];
+        if (allowedTypes.includes(file.mimetype)) {
+          callback(null, true);
+        } else {
+          callback(null, false); // Silently reject unsupported types
+        }
+      },
+    }),
+  )
   async submitFeedback(
     @Body() dto: CreateFeedbackDto,
     @Request() req: { user?: { id: string } },
+    @UploadedFiles() files?: Express.Multer.File[],
   ) {
-    this.logger.log(`Feedback submitted: ${dto.type} - ${dto.title}`);
-    return this.feedbackService.createFeedback(dto, req.user?.id);
+    this.logger.log(
+      `Feedback submitted: ${dto.type} - ${dto.title} (${files?.length || 0} files)`,
+    );
+    return this.feedbackService.createFeedback(dto, req.user?.id, files);
   }
 
   /**

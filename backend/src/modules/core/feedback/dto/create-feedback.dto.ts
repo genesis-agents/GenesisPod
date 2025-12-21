@@ -4,13 +4,31 @@ import {
   IsEmail,
   IsEnum,
   MaxLength,
+  IsArray,
+  ValidateNested,
 } from "class-validator";
+import { Type } from "class-transformer";
 
 export enum FeedbackTypeDto {
   BUG = "bug",
   FEATURE = "feature",
   IMPROVEMENT = "improvement",
   OTHER = "other",
+}
+
+export class AttachmentDto {
+  @IsString()
+  filename!: string;
+
+  @IsString()
+  url!: string;
+
+  @IsOptional()
+  @IsString()
+  mimeType?: string;
+
+  @IsOptional()
+  size?: number;
 }
 
 export class CreateFeedbackDto {
@@ -35,4 +53,10 @@ export class CreateFeedbackDto {
   @IsOptional()
   @IsString()
   url?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AttachmentDto)
+  attachments?: AttachmentDto[];
 }

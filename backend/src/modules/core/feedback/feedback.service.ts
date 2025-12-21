@@ -1,6 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { CreateFeedbackDto, FeedbackTypeDto } from "./dto/create-feedback.dto";
+import { EmailService } from "../email/email.service";
+import { R2StorageService } from "../storage/r2-storage.service";
 
 // Type mapping for feedback types
 type FeedbackTypeEnum = "BUG" | "FEATURE" | "IMPROVEMENT" | "OTHER";
@@ -11,11 +13,22 @@ type FeedbackStatusEnum =
   | "RESOLVED"
   | "CLOSED";
 
+interface StoredAttachment {
+  filename: string;
+  url: string;
+  mimeType: string;
+  size: number;
+}
+
 @Injectable()
 export class FeedbackService {
   private readonly logger = new Logger(FeedbackService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+    private r2Storage: R2StorageService,
+  ) {}
 
   /**
    * Convert DTO type to Prisma enum
@@ -31,21 +44,78 @@ export class FeedbackService {
   }
 
   /**
-   * Create new feedback using raw SQL (works before Prisma client is regenerated)
+   * Upload attachments to R2 storage
    */
-  async createFeedback(dto: CreateFeedbackDto, userId?: string) {
-    this.logger.log(`Creating feedback: ${dto.type} - ${dto.title}`);
+  private async uploadAttachments(
+    files: Express.Multer.File[],
+    feedbackId: string,
+  ): Promise<StoredAttachment[]> {
+    const attachments: StoredAttachment[] = [];
+
+    for (const file of files) {
+      try {
+        const result = await this.r2Storage.uploadBuffer(
+          file.buffer,
+          `feedback/${feedbackId}`,
+          file.originalname,
+          file.mimetype,
+        );
+
+        if (result.success && result.url) {
+          attachments.push({
+            filename: file.originalname,
+            url: result.url,
+            mimeType: file.mimetype,
+            size: file.size,
+          });
+          this.logger.log(`Uploaded attachment: ${file.originalname}`);
+        } else {
+          this.logger.warn(
+            `Failed to upload attachment: ${file.originalname} - ${result.error}`,
+          );
+        }
+      } catch (error) {
+        this.logger.error(
+          `Failed to upload attachment: ${file.originalname}`,
+          error,
+        );
+      }
+    }
+
+    return attachments;
+  }
+
+  /**
+   * Create new feedback with optional attachments and email notification
+   */
+  async createFeedback(
+    dto: CreateFeedbackDto,
+    userId?: string,
+    files?: Express.Multer.File[],
+  ) {
+    this.logger.log(
+      `Creating feedback: ${dto.type} - ${dto.title} (${files?.length || 0} files)`,
+    );
 
     const feedbackType = this.mapFeedbackType(dto.type);
 
-    // Use raw SQL to insert feedback
+    // Generate feedback ID first for attachment paths
+    const feedbackId = crypto.randomUUID();
+
+    // Upload attachments if any
+    let attachments: StoredAttachment[] = [];
+    if (files && files.length > 0) {
+      attachments = await this.uploadAttachments(files, feedbackId);
+    }
+
+    // Use raw SQL to insert feedback with attachments
     const result = await this.prisma.$queryRaw<{ id: string }[]>`
       INSERT INTO "feedbacks" (
         "id", "type", "status", "title", "description",
         "user_email", "user_agent", "page_url", "user_id",
-        "created_at", "updated_at"
+        "attachments", "created_at", "updated_at"
       ) VALUES (
-        gen_random_uuid(),
+        ${feedbackId}::uuid,
         ${feedbackType}::"FeedbackType",
         'PENDING'::"FeedbackStatus",
         ${dto.title},
@@ -54,19 +124,43 @@ export class FeedbackService {
         ${dto.userAgent || null},
         ${dto.url || null},
         ${userId || null},
+        ${JSON.stringify(attachments)}::jsonb,
         NOW(),
         NOW()
       )
       RETURNING id
     `;
 
-    const feedbackId = result[0]?.id;
-    this.logger.log(`Feedback created: ${feedbackId}`);
+    const createdId = result[0]?.id;
+    this.logger.log(`Feedback created: ${createdId}`);
+
+    // Send email notification to admin
+    try {
+      const emailAttachments = files?.map((f) => ({
+        filename: f.originalname,
+        content: f.buffer,
+      }));
+
+      await this.emailService.sendFeedbackNotification({
+        id: createdId,
+        type: feedbackType,
+        title: dto.title,
+        description: dto.description,
+        userEmail: dto.userEmail,
+        pageUrl: dto.url,
+        userAgent: dto.userAgent,
+        attachments: emailAttachments,
+      });
+    } catch (error) {
+      // Log error but don't fail the request
+      this.logger.error("Failed to send email notification", error);
+    }
 
     return {
       success: true,
-      feedbackId,
+      feedbackId: createdId,
       message: "Feedback submitted successfully",
+      attachmentsCount: attachments.length,
     };
   }
 

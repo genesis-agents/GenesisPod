@@ -2932,6 +2932,8 @@ model Feedback {
   pageUrl     String?        @map("page_url") @db.Text
   userId      String?        @map("user_id") // 已登录用户的ID
   adminNotes  String?        @map("admin_notes") @db.Text
+  // 附件存储 - JSON数组: [{filename, url, size, mimeType}]
+  attachments Json?          @default("[]")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

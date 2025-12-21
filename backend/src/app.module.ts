@@ -16,6 +16,7 @@ import { ContentProcessingModule } from "./common/content-processing";
 // Core modules
 import { AuthModule } from "./modules/core/auth/auth.module";
 import { AdminModule } from "./modules/core/admin/admin.module";
+import { EmailModule } from "./modules/core/email/email.module";
 import { FeedbackModule } from "./modules/core/feedback/feedback.module";
 import { StorageModule } from "./modules/core/storage/storage.module";
 // AI modules
@@ -88,6 +89,7 @@ import { NotionModule } from "./modules/integrations/notion/notion.module";
     // Core modules
     AuthModule,
     AdminModule,
+    EmailModule,
     FeedbackModule,
     StorageModule,
 
