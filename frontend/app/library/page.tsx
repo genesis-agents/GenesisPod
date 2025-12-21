@@ -69,6 +69,15 @@ const AIOrganizePanel = dynamicImport(
   { ssr: false }
 );
 
+const NotionTabContent = dynamicImport(
+  () => import('@/components/notion/NotionTabContent'),
+  { ssr: false, loading: () => (
+    <div className="flex items-center justify-center py-12">
+      <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-gray-600"></div>
+    </div>
+  )}
+);
+
 export const dynamic = 'force-dynamic';
 
 interface YouTubeVideo {
@@ -109,10 +118,10 @@ function LibraryPageContent() {
   const tabParam = searchParams?.get('tab');
 
   const [activeTab, setActiveTab] = useState<
-    'bookmarks' | 'notes' | 'images' | 'graph'
+    'bookmarks' | 'notes' | 'images' | 'graph' | 'notion'
   >(() => {
     // Initialize from URL parameter if present
-    if (tabParam === 'images' || tabParam === 'notes' || tabParam === 'graph') {
+    if (tabParam === 'images' || tabParam === 'notes' || tabParam === 'graph' || tabParam === 'notion') {
       return tabParam;
     }
     return 'bookmarks';
@@ -124,7 +133,8 @@ function LibraryPageContent() {
       tabParam === 'images' ||
       tabParam === 'notes' ||
       tabParam === 'bookmarks' ||
-      tabParam === 'graph'
+      tabParam === 'graph' ||
+      tabParam === 'notion'
     ) {
       setActiveTab(tabParam);
     }
@@ -1442,6 +1452,16 @@ function LibraryPageContent() {
                 Images
               </button>
               <button
+                onClick={() => setActiveTab('notion')}
+                className={`border-b-2 px-0 py-3 text-sm font-semibold transition-all ${
+                  activeTab === 'notion'
+                    ? 'border-gray-800 text-gray-900'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Notion
+              </button>
+              <button
                 onClick={() => setActiveTab('graph')}
                 className={`border-b-2 px-0 py-3 text-sm font-semibold transition-all ${
                   activeTab === 'graph'
@@ -1841,6 +1861,11 @@ function LibraryPageContent() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* Notion Tab */}
+          {activeTab === 'notion' && (
+            <NotionTabContent />
           )}
 
           {/* Knowledge Graph View */}

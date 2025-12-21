@@ -97,6 +97,9 @@ model User {
   // 资源点赞
   resourceUpvotes ResourceUpvote[]
 
+  // Notion 集成
+  notionConnections NotionConnection[]
+
   @@map("users")
 }
 
@@ -210,7 +213,7 @@ model Resource {
   maturityStage  String? @map("maturity_stage") @db.VarChar(50)
 
   // RawData 关联（双向关系）
-  rawDataId   String?  @unique @map("raw_data_id")
+  rawDataId      String?  @unique @map("raw_data_id")
   primaryRawData RawData? @relation("PrimaryRawData", fields: [rawDataId], references: [id], onDelete: SetNull)
 
   // 向量引用
@@ -693,8 +696,8 @@ model YouTubeTranscriptCache {
   language   String @default("en") @db.VarChar(10) // 原始字幕语言
 
   // 翻译数据 - 全局共享，一个用户翻译后所有用户可用
-  translatedTranscript Json?   @map("translated_transcript") // [{ start: number, duration: number, text: string, translatedText: string }]
-  targetLanguage       String? @map("target_language") @db.VarChar(10) // 翻译目标语言 (如 "zh", "en")
+  translatedTranscript Json?     @map("translated_transcript") // [{ start: number, duration: number, text: string, translatedText: string }]
+  targetLanguage       String?   @map("target_language") @db.VarChar(10) // 翻译目标语言 (如 "zh", "en")
   translatedAt         DateTime? @map("translated_at") // 翻译时间
 
   // 缓存元数据
@@ -1299,14 +1302,14 @@ model DeduplicationRecord {
   // 审计
   createdAt DateTime @default(now()) @map("created_at")
 
+  // 防止同一对资源被重复记录（同一任务内）
+  @@unique([taskId, resourceId, duplicateOfId], name: "dedup_record_unique")
   @@index([urlHash])
   @@index([titleHash])
   @@index([contentFingerprint])
   @@index([resourceId])
   @@index([decision])
   @@index([taskId])
-  // 防止同一对资源被重复记录（同一任务内）
-  @@unique([taskId, resourceId, duplicateOfId], name: "dedup_record_unique")
   @@map("deduplication_records")
 }
 
@@ -2363,14 +2366,14 @@ model RawData {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  // Unique constraint for source + externalId (防止重复采集)
+  @@unique([source, externalId], name: "raw_data_source_external_id_unique")
   // Indexes for performance
   @@index([source])
   @@index([externalId])
   @@index([resourceId])
   @@index([createdAt])
   @@index([isProcessed])
-  // Unique constraint for source + externalId (防止重复采集)
-  @@unique([source, externalId], name: "raw_data_source_external_id_unique")
   // GIN index for JSONB data (created via raw SQL migration)
   @@map("raw_data")
 }
@@ -2937,4 +2940,185 @@ model Feedback {
   @@index([status])
   @@index([createdAt(sort: Desc)])
   @@map("feedbacks")
+}
+
+// ============ Notion 集成 ============
+
+enum NotionConnectionStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+  ERROR
+}
+
+enum NotionSyncStatus {
+  PENDING
+  SYNCING
+  SUCCESS
+  FAILED
+}
+
+// 用户的 Notion 工作区连接
+model NotionConnection {
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+
+  // OAuth 凭证
+  accessToken   String  @map("access_token") @db.Text
+  botId         String  @map("bot_id")
+  workspaceId   String  @map("workspace_id")
+  workspaceName String? @map("workspace_name")
+  workspaceIcon String? @map("workspace_icon")
+  ownerType     String  @default("user") @map("owner_type") // user | workspace
+
+  // 连接状态
+  status     NotionConnectionStatus @default(ACTIVE)
+  lastSyncAt DateTime?              @map("last_sync_at")
+  lastError  String?                @map("last_error") @db.Text
+
+  // 同步配置
+  syncConfig Json @default("{}") @map("sync_config")
+  // { autoSync: true, syncInterval: 60, syncPages: true, syncDatabases: true }
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pages       NotionPage[]
+  databases   NotionDatabase[]
+  syncHistory NotionSyncHistory[]
+
+  @@unique([userId, workspaceId])
+  @@index([userId])
+  @@index([status])
+  @@map("notion_connections")
+}
+
+// 同步的 Notion 页面
+model NotionPage {
+  id           String @id @default(uuid())
+  connectionId String @map("connection_id")
+  notionPageId String @map("notion_page_id")
+
+  // 页面元数据
+  title    String  @db.VarChar(1000)
+  icon     String? @db.VarChar(200)
+  coverUrl String? @map("cover_url") @db.Text
+  url      String  @db.Text
+
+  // 父级信息
+  parentType String? @map("parent_type") // page | database | workspace
+  parentId   String? @map("parent_id")
+
+  // 内容（JSON 块）
+  blocks           Json    @default("[]")
+  plainTextContent String? @map("plain_text_content") @db.Text // 用于搜索
+
+  // Notion 时间戳
+  notionCreatedAt DateTime @map("notion_created_at")
+  notionUpdatedAt DateTime @map("notion_updated_at")
+
+  // 同步状态
+  syncStatus   NotionSyncStatus @default(PENDING) @map("sync_status")
+  lastSyncedAt DateTime?        @map("last_synced_at")
+  syncError    String?          @map("sync_error") @db.Text
+
+  // 本地修改追踪
+  isLocallyModified Boolean   @default(false) @map("is_locally_modified")
+  localModifiedAt   DateTime? @map("local_modified_at")
+
+  // 可选：链接到 Library 资源
+  linkedResourceId String? @map("linked_resource_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  connection NotionConnection     @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  versions   NotionBlockVersion[]
+
+  @@unique([connectionId, notionPageId])
+  @@index([connectionId])
+  @@index([notionPageId])
+  @@index([syncStatus])
+  @@index([notionUpdatedAt])
+  @@map("notion_pages")
+}
+
+// 同步的 Notion 数据库
+model NotionDatabase {
+  id           String @id @default(uuid())
+  connectionId String @map("connection_id")
+  notionDbId   String @map("notion_db_id")
+
+  // 数据库元数据
+  title       String  @db.VarChar(1000)
+  description String? @db.Text
+  icon        String? @db.VarChar(200)
+  coverUrl    String? @map("cover_url") @db.Text
+  url         String  @db.Text
+
+  // Schema 定义（列属性）
+  properties Json @default("{}")
+
+  // 缓存的条目
+  items     Json @default("[]") // 数据库条目数组
+  itemCount Int  @default(0) @map("item_count")
+
+  // 同步状态
+  syncStatus   NotionSyncStatus @default(PENDING) @map("sync_status")
+  lastSyncedAt DateTime?        @map("last_synced_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  connection NotionConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, notionDbId])
+  @@index([connectionId])
+  @@index([notionDbId])
+  @@map("notion_databases")
+}
+
+// 版本历史（冲突解决用）
+model NotionBlockVersion {
+  id     String @id @default(uuid())
+  pageId String @map("page_id")
+
+  version Int
+  blocks  Json // 完整块快照
+  source  String // "notion" | "local"
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  page NotionPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([pageId, version])
+  @@map("notion_block_versions")
+}
+
+// 同步历史
+model NotionSyncHistory {
+  id           String @id @default(uuid())
+  connectionId String @map("connection_id")
+
+  syncType String // "full" | "incremental" | "manual"
+  status   NotionSyncStatus
+
+  pagesProcessed Int @default(0) @map("pages_processed")
+  pagesCreated   Int @default(0) @map("pages_created")
+  pagesUpdated   Int @default(0) @map("pages_updated")
+  pagesDeleted   Int @default(0) @map("pages_deleted")
+
+  errors Json? // 错误详情数组
+
+  startedAt   DateTime  @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  durationMs  Int?      @map("duration_ms")
+
+  connection NotionConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([connectionId, startedAt])
+  @@map("notion_sync_history")
 }
