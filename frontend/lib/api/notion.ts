@@ -117,7 +117,7 @@ export interface PaginatedPages {
  * 获取 Notion OAuth 授权 URL
  */
 export async function getConnectUrl(): Promise<{ url: string }> {
-  return apiClient.get('/api/v1/notion/connect', {
+  return apiClient.get('/notion/connect', {
     headers: getAuthHeader(),
   });
 }
@@ -135,7 +135,7 @@ export async function connectNotion(
   message: string;
 }> {
   return apiClient.post(
-    '/api/v1/notion/connect',
+    '/notion/connect',
     { code, redirectUri },
     { headers: getAuthHeader() }
   );
@@ -145,7 +145,7 @@ export async function connectNotion(
  * 断开 Notion 连接
  */
 export async function disconnectNotion(connectionId: string): Promise<{ success: boolean }> {
-  return apiClient.delete(`/api/v1/notion/disconnect/${connectionId}`, {
+  return apiClient.delete(`/notion/disconnect/${connectionId}`, {
     headers: getAuthHeader(),
   });
 }
@@ -154,7 +154,7 @@ export async function disconnectNotion(connectionId: string): Promise<{ success:
  * 获取用户的所有连接
  */
 export async function getConnections(): Promise<{ connections: NotionConnection[] }> {
-  return apiClient.get('/api/v1/notion/connections', {
+  return apiClient.get('/notion/connections', {
     headers: getAuthHeader(),
   });
 }
@@ -163,7 +163,7 @@ export async function getConnections(): Promise<{ connections: NotionConnection[
  * 获取连接详情
  */
 export async function getConnection(connectionId: string): Promise<{ connection: NotionConnection }> {
-  return apiClient.get(`/api/v1/notion/connections/${connectionId}`, {
+  return apiClient.get(`/notion/connections/${connectionId}`, {
     headers: getAuthHeader(),
   });
 }
@@ -176,7 +176,7 @@ export async function updateConnection(
   syncConfig: Partial<SyncConfig>
 ): Promise<{ connection: NotionConnection }> {
   return apiClient.patch(
-    `/api/v1/notion/connections/${connectionId}`,
+    `/notion/connections/${connectionId}`,
     { syncConfig },
     { headers: getAuthHeader() }
   );
@@ -190,7 +190,7 @@ export async function triggerSync(
   fullSync = false
 ): Promise<{ success: boolean; syncId: string; connectionIds: string[] }> {
   return apiClient.post(
-    '/api/v1/notion/sync',
+    '/notion/sync',
     { connectionId, fullSync },
     { headers: getAuthHeader() }
   );
@@ -201,7 +201,7 @@ export async function triggerSync(
  */
 export async function getSyncStatus(connectionId?: string): Promise<{ status: SyncStatus[] }> {
   const params = connectionId ? `?connectionId=${connectionId}` : '';
-  return apiClient.get(`/api/v1/notion/sync/status${params}`, {
+  return apiClient.get(`/notion/sync/status${params}`, {
     headers: getAuthHeader(),
   });
 }
@@ -213,7 +213,7 @@ export async function getSyncHistory(
   connectionId: string,
   limit = 10
 ): Promise<{ history: SyncHistoryItem[] }> {
-  return apiClient.get(`/api/v1/notion/sync/history/${connectionId}?limit=${limit}`, {
+  return apiClient.get(`/notion/sync/history/${connectionId}?limit=${limit}`, {
     headers: getAuthHeader(),
   });
 }
@@ -233,7 +233,7 @@ export async function getPages(params: {
   if (params.page) searchParams.append('page', String(params.page));
   if (params.limit) searchParams.append('limit', String(params.limit));
 
-  return apiClient.get(`/api/v1/notion/pages?${searchParams.toString()}`, {
+  return apiClient.get(`/notion/pages?${searchParams.toString()}`, {
     headers: getAuthHeader(),
   });
 }
@@ -242,7 +242,7 @@ export async function getPages(params: {
  * 获取页面详情
  */
 export async function getPage(pageId: string): Promise<{ page: NotionPage }> {
-  return apiClient.get(`/api/v1/notion/pages/${pageId}`, {
+  return apiClient.get(`/notion/pages/${pageId}`, {
     headers: getAuthHeader(),
   });
 }
@@ -255,7 +255,7 @@ export async function updatePage(
   blocks: any[]
 ): Promise<{ page: NotionPage }> {
   return apiClient.patch(
-    `/api/v1/notion/pages/${pageId}`,
+    `/notion/pages/${pageId}`,
     { blocks },
     { headers: getAuthHeader() }
   );
@@ -265,7 +265,7 @@ export async function updatePage(
  * 推送本地修改到 Notion
  */
 export async function pushToNotion(pageId: string): Promise<{ success: boolean }> {
-  return apiClient.post(`/api/v1/notion/pages/${pageId}/push`, {}, {
+  return apiClient.post(`/notion/pages/${pageId}/push`, {}, {
     headers: getAuthHeader(),
   });
 }
@@ -278,7 +278,7 @@ export async function linkToResource(
   resourceId: string
 ): Promise<{ success: boolean }> {
   return apiClient.post(
-    `/api/v1/notion/pages/${pageId}/link`,
+    `/notion/pages/${pageId}/link`,
     { resourceId },
     { headers: getAuthHeader() }
   );
@@ -288,7 +288,7 @@ export async function linkToResource(
  * 取消链接
  */
 export async function unlinkFromResource(pageId: string): Promise<{ success: boolean }> {
-  return apiClient.delete(`/api/v1/notion/pages/${pageId}/link`, {
+  return apiClient.delete(`/notion/pages/${pageId}/link`, {
     headers: getAuthHeader(),
   });
 }
@@ -300,7 +300,7 @@ export async function getDatabases(
   connectionId?: string
 ): Promise<{ databases: NotionDatabase[] }> {
   const params = connectionId ? `?connectionId=${connectionId}` : '';
-  return apiClient.get(`/api/v1/notion/databases${params}`, {
+  return apiClient.get(`/notion/databases${params}`, {
     headers: getAuthHeader(),
   });
 }
@@ -309,7 +309,7 @@ export async function getDatabases(
  * 获取数据库详情
  */
 export async function getDatabase(databaseId: string): Promise<{ database: NotionDatabase }> {
-  return apiClient.get(`/api/v1/notion/databases/${databaseId}`, {
+  return apiClient.get(`/notion/databases/${databaseId}`, {
     headers: getAuthHeader(),
   });
 }
@@ -318,7 +318,7 @@ export async function getDatabase(databaseId: string): Promise<{ database: Notio
  * 获取集成配置状态
  */
 export async function getConfig(): Promise<{ configured: boolean; callbackUrl: string }> {
-  return apiClient.get('/api/v1/notion/config', {
+  return apiClient.get('/notion/config', {
     headers: getAuthHeader(),
   });
 }
