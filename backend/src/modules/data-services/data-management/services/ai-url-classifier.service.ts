@@ -109,26 +109,43 @@ export class AiUrlClassifierService {
         };
       }
 
-      // 使用 AI 进行分类（同时提取标题和描述）
-      const prompt = this.buildClassificationPrompt(url, urlInfo);
-      const result = await this.callLLM(prompt);
+      // 首先尝试规则匹配（更快、更可靠）
+      const ruleBasedResult = this.classifyByRules(url, urlInfo);
+      if (ruleBasedResult.confidence >= 0.8) {
+        this.logger.log(
+          `Rule-based classification: ${ruleBasedResult.resourceType} (confidence: ${ruleBasedResult.confidence})`,
+        );
+        return ruleBasedResult;
+      }
 
-      // 解析 AI 响应
-      const classification = this.parseClassificationResponse(result);
+      // 如果规则匹配置信度不高，尝试使用 AI 进行分类
+      try {
+        const prompt = this.buildClassificationPrompt(url, urlInfo);
+        const result = await this.callLLM(prompt);
 
-      // 将 AI 提取的标题和描述合并到 extractedInfo
-      return {
-        resourceType: classification.resourceType,
-        confidence: classification.confidence,
-        reason: classification.reason,
-        alternatives: classification.alternatives,
-        extractedInfo: {
-          domain: urlInfo?.domain || "unknown",
-          contentType: urlInfo?.contentType,
-          title: classification.title || urlInfo?.title,
-          description: classification.description || urlInfo?.description,
-        },
-      };
+        // 解析 AI 响应
+        const classification = this.parseClassificationResponse(result);
+
+        // 将 AI 提取的标题和描述合并到 extractedInfo
+        return {
+          resourceType: classification.resourceType,
+          confidence: classification.confidence,
+          reason: classification.reason,
+          alternatives: classification.alternatives,
+          extractedInfo: {
+            domain: urlInfo?.domain || "unknown",
+            contentType: urlInfo?.contentType,
+            title: classification.title || urlInfo?.title,
+            description: classification.description || urlInfo?.description,
+          },
+        };
+      } catch (llmError) {
+        // LLM 失败时使用规则匹配结果
+        this.logger.warn(
+          `LLM classification failed, using rule-based fallback: ${llmError}`,
+        );
+        return ruleBasedResult;
+      }
     } catch (error) {
       this.logger.error(`Failed to classify URL: ${error}`);
 
@@ -154,6 +171,209 @@ export class AiUrlClassifierService {
     }
 
     return results;
+  }
+
+  /**
+   * 基于规则的 URL 分类（不需要 LLM）
+   * 根据已知的域名模式进行分类
+   */
+  private classifyByRules(
+    url: string,
+    urlInfo: UrlClassificationResult["extractedInfo"],
+  ): UrlClassificationResult {
+    const domain = urlInfo?.domain?.toLowerCase() || "";
+    const lowerUrl = url.toLowerCase();
+
+    // 学术论文平台 - 高置信度
+    const paperDomains = [
+      "arxiv.org",
+      "ieee.org",
+      "acm.org",
+      "springer.com",
+      "nature.com",
+      "science.org",
+      "cell.com",
+      "sciencedirect.com",
+      "researchgate.net",
+      "scholar.google",
+      "pubmed.ncbi",
+      "biorxiv.org",
+      "medrxiv.org",
+      "ssrn.com",
+      "semanticscholar.org",
+    ];
+    if (
+      paperDomains.some((d) => domain.includes(d)) ||
+      lowerUrl.includes("/abs/") ||
+      lowerUrl.includes("/paper/") ||
+      lowerUrl.includes("/doi/")
+    ) {
+      return {
+        resourceType: "PAPER" as ResourceType,
+        confidence: 0.9,
+        reason: `Academic paper platform detected: ${domain}`,
+        extractedInfo: urlInfo,
+      };
+    }
+
+    // 新闻网站 - 高置信度
+    const newsDomains = [
+      "techcrunch.com",
+      "theverge.com",
+      "wired.com",
+      "arstechnica.com",
+      "bloomberg.com",
+      "reuters.com",
+      "bbc.com",
+      "cnn.com",
+      "nytimes.com",
+      "wsj.com",
+      "engadget.com",
+      "venturebeat.com",
+      "zdnet.com",
+      "cnet.com",
+    ];
+    if (newsDomains.some((d) => domain.includes(d))) {
+      return {
+        resourceType: "NEWS" as ResourceType,
+        confidence: 0.9,
+        reason: `News platform detected: ${domain}`,
+        extractedInfo: urlInfo,
+      };
+    }
+
+    // 技术博客平台 - 高置信度
+    const blogDomains = [
+      "medium.com",
+      "dev.to",
+      "hashnode.dev",
+      "substack.com",
+      "ghost.io",
+      "wordpress.com",
+      "blogger.com",
+      "tumblr.com",
+      "adafruit.com",
+      "hackaday.com",
+      "instructables.com",
+    ];
+    if (
+      blogDomains.some((d) => domain.includes(d)) ||
+      lowerUrl.includes("/blog/") ||
+      lowerUrl.includes("/post/")
+    ) {
+      return {
+        resourceType: "BLOG" as ResourceType,
+        confidence: 0.85,
+        reason: `Blog platform detected: ${domain}`,
+        extractedInfo: urlInfo,
+      };
+    }
+
+    // 公司技术博客 - 高置信度
+    const companyBlogs = [
+      "blog.google",
+      "blog.microsoft",
+      "engineering.fb",
+      "ai.meta",
+      "openai.com/blog",
+      "anthropic.com",
+      "deepmind.google",
+      "aws.amazon.com/blogs",
+      "cloud.google.com/blog",
+      "nvidia.com/blog",
+      "huggingface.co/blog",
+    ];
+    if (companyBlogs.some((d) => domain.includes(d) || lowerUrl.includes(d))) {
+      return {
+        resourceType: "BLOG" as ResourceType,
+        confidence: 0.9,
+        reason: `Tech company blog detected: ${domain}`,
+        extractedInfo: urlInfo,
+      };
+    }
+
+    // 行业报告 - 中等置信度
+    const reportDomains = [
+      "gartner.com",
+      "forrester.com",
+      "idc.com",
+      "mckinsey.com",
+      "bcg.com",
+      "deloitte.com",
+      "pwc.com",
+      "kpmg.com",
+      "ey.com",
+      "goldmansachs.com",
+      "statista.com",
+    ];
+    if (
+      reportDomains.some((d) => domain.includes(d)) ||
+      lowerUrl.includes("/report") ||
+      lowerUrl.includes("/research")
+    ) {
+      return {
+        resourceType: "REPORT" as ResourceType,
+        confidence: 0.8,
+        reason: `Report/research platform detected: ${domain}`,
+        extractedInfo: urlInfo,
+      };
+    }
+
+    // 政策/政府网站 - 高置信度
+    if (
+      domain.endsWith(".gov") ||
+      domain.endsWith(".mil") ||
+      domain.includes("whitehouse.gov") ||
+      domain.includes("congress.gov")
+    ) {
+      return {
+        resourceType: "POLICY" as ResourceType,
+        confidence: 0.9,
+        reason: `Government/policy site detected: ${domain}`,
+        extractedInfo: urlInfo,
+      };
+    }
+
+    // 活动/会议 - 中等置信度
+    const eventDomains = [
+      "eventbrite.com",
+      "meetup.com",
+      "neurips.cc",
+      "icml.cc",
+      "iclr.cc",
+      "cvpr",
+      "siggraph.org",
+    ];
+    if (
+      eventDomains.some((d) => domain.includes(d)) ||
+      lowerUrl.includes("/event") ||
+      lowerUrl.includes("/conference")
+    ) {
+      return {
+        resourceType: "EVENT" as ResourceType,
+        confidence: 0.8,
+        reason: `Event/conference platform detected: ${domain}`,
+        extractedInfo: urlInfo,
+      };
+    }
+
+    // GitHub - 默认为博客（README/项目介绍）
+    if (domain.includes("github.com") || domain.includes("gitlab.com")) {
+      return {
+        resourceType: "BLOG" as ResourceType,
+        confidence: 0.7,
+        reason: `Code repository detected: ${domain}`,
+        extractedInfo: urlInfo,
+      };
+    }
+
+    // 默认：无法确定，返回低置信度的 BLOG
+    return {
+      resourceType: "BLOG" as ResourceType,
+      confidence: 0.5,
+      reason: `Unknown domain, defaulted to BLOG: ${domain}`,
+      extractedInfo: urlInfo,
+    };
   }
 
   /**
