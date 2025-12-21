@@ -1,7 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Loader2, AlertCircle, CheckCircle2, X } from 'lucide-react';
+import {
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  X,
+  Sparkles,
+  ChevronDown,
+} from 'lucide-react';
 
 type ResourceType =
   | 'PAPER'
@@ -37,15 +44,39 @@ interface ParsedMetadata {
   wordCount?: number;
 }
 
+interface Classification {
+  resourceType: ResourceType;
+  confidence: number;
+  reason: string;
+  alternatives?: Array<{
+    resourceType: ResourceType;
+    confidence: number;
+    reason: string;
+  }>;
+}
+
 type DialogStep = 'input-url' | 'preview' | 'confirm';
 
-const RESOURCE_TYPE_DISPLAY = {
-  papers: { name: 'Academic Paper', type: 'PAPER' as ResourceType },
-  blogs: { name: 'Research Blog', type: 'BLOG' as ResourceType },
-  reports: { name: 'Industry Report', type: 'REPORT' as ResourceType },
-  youtube: { name: 'YouTube Video', type: 'YOUTUBE_VIDEO' as ResourceType },
-  news: { name: 'Tech News', type: 'NEWS' as ResourceType },
-  policy: { name: 'Policy Document', type: 'POLICY' as ResourceType },
+const RESOURCE_TYPE_LABELS: Record<ResourceType, string> = {
+  PAPER: 'Academic Paper',
+  BLOG: 'Research Blog',
+  REPORT: 'Industry Report',
+  YOUTUBE_VIDEO: 'YouTube Video',
+  NEWS: 'Tech News',
+  POLICY: 'Policy Document',
+  EVENT: 'Event',
+  RSS: 'RSS Feed',
+};
+
+const RESOURCE_TYPE_ICONS: Record<ResourceType, string> = {
+  PAPER: '📄',
+  BLOG: '📝',
+  REPORT: '📊',
+  YOUTUBE_VIDEO: '🎬',
+  NEWS: '📰',
+  POLICY: '⚖️',
+  EVENT: '📅',
+  RSS: '📡',
 };
 
 export function ImportUrlDialog({
@@ -61,15 +92,14 @@ export function ImportUrlDialog({
   const [error, setError] = useState('');
   const [metadata, setMetadata] = useState<ParsedMetadata | null>(null);
   const [editedTitle, setEditedTitle] = useState('');
+  const [classification, setClassification] = useState<Classification | null>(
+    null
+  );
+  const [selectedResourceType, setSelectedResourceType] =
+    useState<ResourceType | null>(null);
+  const [showAlternatives, setShowAlternatives] = useState(false);
 
   if (!isOpen) return null;
-
-  const resourceTypeInfo = RESOURCE_TYPE_DISPLAY[
-    activeTab as keyof typeof RESOURCE_TYPE_DISPLAY
-  ] || {
-    name: 'Resource',
-    type: 'PAPER' as ResourceType,
-  };
 
   const handleClose = () => {
     setStep('input-url');
@@ -77,6 +107,9 @@ export function ImportUrlDialog({
     setError('');
     setMetadata(null);
     setEditedTitle('');
+    setClassification(null);
+    setSelectedResourceType(null);
+    setShowAlternatives(false);
     onClose();
   };
 
@@ -90,15 +123,13 @@ export function ImportUrlDialog({
     setError('');
 
     try {
+      // Use AI-powered auto classification
       const response = await fetch(
-        `${apiBaseUrl}/api/v1/data-management/parse-url-full`,
+        `${apiBaseUrl}/api/v1/data-management/parse-url-auto`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            url,
-            resourceType: resourceTypeInfo.type,
-          }),
+          body: JSON.stringify({ url }),
         }
       );
 
@@ -114,6 +145,13 @@ export function ImportUrlDialog({
 
       setMetadata(data.data.metadata);
       setEditedTitle(data.data.metadata.title);
+
+      // Set classification from AI
+      if (data.data.classification) {
+        setClassification(data.data.classification);
+        setSelectedResourceType(data.data.classification.resourceType);
+      }
+
       setStep('preview');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Validation failed';
@@ -124,24 +162,20 @@ export function ImportUrlDialog({
   };
 
   const handleImport = async () => {
-    if (!metadata) return;
+    if (!metadata || !selectedResourceType) return;
 
     setIsLoading(true);
     setError('');
 
     try {
       const response = await fetch(
-        `${apiBaseUrl}/api/v1/data-management/import-with-metadata`,
+        `${apiBaseUrl}/api/v1/data-management/import-auto`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             url,
-            resourceType: resourceTypeInfo.type,
-            metadata: {
-              ...metadata,
-              title: editedTitle || metadata.title,
-            },
+            resourceType: selectedResourceType,
           }),
         }
       );
@@ -162,15 +196,28 @@ export function ImportUrlDialog({
     }
   };
 
+  const getConfidenceColor = (confidence: number) => {
+    if (confidence >= 0.8) return 'text-green-600';
+    if (confidence >= 0.5) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getConfidenceLabel = (confidence: number) => {
+    if (confidence >= 0.8) return 'High confidence';
+    if (confidence >= 0.5) return 'Medium confidence';
+    return 'Low confidence';
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="w-full max-w-2xl rounded-lg bg-white shadow-lg">
         {/* Header */}
         <div className="flex items-center justify-between border-b px-6 py-4">
-          <h2 className="text-lg font-semibold">
-            Import {resourceTypeInfo.name}
+          <h2 className="flex items-center gap-2 text-lg font-semibold">
+            <Sparkles size={20} className="text-blue-500" />
+            AI-Powered Import
             {step === 'input-url' && ' - Enter URL'}
-            {step === 'preview' && ' - Preview'}
+            {step === 'preview' && ' - Preview & Classify'}
             {step === 'confirm' && ' - Confirm Import'}
           </h2>
           <button
@@ -200,20 +247,22 @@ export function ImportUrlDialog({
           {step === 'input-url' && (
             <div className="space-y-4">
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-                <h4 className="mb-2 font-semibold text-blue-900">
-                  📋 Instructions
+                <h4 className="mb-2 flex items-center gap-2 font-semibold text-blue-900">
+                  <Sparkles size={16} />
+                  AI Auto-Classification
                 </h4>
                 <ul className="space-y-1 text-sm text-blue-800">
                   <li>
-                    ✓ Enter the full URL of the{' '}
-                    {resourceTypeInfo.name.toLowerCase()}
+                    ✓ Just paste the URL - AI will automatically detect the
+                    content type
                   </li>
                   <li>
-                    ✓ The system will automatically extract title, description,
-                    etc.
+                    ✓ Supports papers, blogs, news, videos, reports, and more
                   </li>
-                  <li>✓ You can edit this information in the next step</li>
-                  <li>✓ Supports whitelisted websites</li>
+                  <li>✓ No whitelist restrictions - import from any website</li>
+                  <li>
+                    ✓ You can verify and change the classification if needed
+                  </li>
                 </ul>
               </div>
 
@@ -225,84 +274,30 @@ export function ImportUrlDialog({
                   type="url"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  placeholder="e.g., https://arxiv.org/abs/2024.xxxxx"
+                  placeholder="Paste any URL here (paper, blog, news, video, etc.)"
                   className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   onKeyPress={(e) => e.key === 'Enter' && handleValidateUrl()}
                   autoFocus
                 />
                 <p className="mt-1 text-xs text-gray-500">
-                  Enter the complete URL and press Enter or click the button
-                  below to validate
+                  Enter any URL and AI will classify it into the correct
+                  category
                 </p>
               </div>
 
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
                 <p className="mb-2 text-xs font-medium text-gray-700">
-                  💡 URL Examples:
+                  Supported content types:
                 </p>
-                <div className="space-y-2 text-xs text-gray-600">
-                  {resourceTypeInfo.type === 'PAPER' && (
-                    <>
-                      <div className="rounded border border-gray-300 bg-white p-2 font-mono text-xs">
-                        https://arxiv.org/abs/2024.xxxxx
-                      </div>
-                      <div className="rounded border border-gray-300 bg-white p-2 font-mono text-xs">
-                        https://openreview.net/forum?id=xxx
-                      </div>
-                      <div className="rounded border border-gray-300 bg-white p-2 font-mono text-xs">
-                        https://ieeexplore.ieee.org/document/xxx
-                      </div>
-                    </>
-                  )}
-                  {resourceTypeInfo.type === 'BLOG' && (
-                    <>
-                      <div className="rounded border border-gray-300 bg-white p-2 font-mono text-xs">
-                        https://medium.com/@username/title-xxx
-                      </div>
-                      <div className="rounded border border-gray-300 bg-white p-2 font-mono text-xs">
-                        https://dev.to/username/article-title-xxx
-                      </div>
-                      <div className="rounded border border-gray-300 bg-white p-2 font-mono text-xs">
-                        https://hashnode.com/post/article-xxx
-                      </div>
-                    </>
-                  )}
-                  {resourceTypeInfo.type === 'NEWS' && (
-                    <>
-                      <div className="rounded border border-gray-300 bg-white p-2 font-mono text-xs">
-                        https://techcrunch.com/xxx/article-title/
-                      </div>
-                      <div className="rounded border border-gray-300 bg-white p-2 font-mono text-xs">
-                        https://arstechnica.com/xxx/article-title/
-                      </div>
-                      <div className="rounded border border-gray-300 bg-white p-2 font-mono text-xs">
-                        https://theverge.com/xxx/article
-                      </div>
-                    </>
-                  )}
-                  {resourceTypeInfo.type === 'YOUTUBE_VIDEO' && (
-                    <>
-                      <div className="rounded border border-gray-300 bg-white p-2 font-mono text-xs">
-                        https://youtube.com/watch?v=xxxxx
-                      </div>
-                      <div className="rounded border border-gray-300 bg-white p-2 font-mono text-xs">
-                        https://youtu.be/xxxxx
-                      </div>
-                    </>
-                  )}
-                  {resourceTypeInfo.type === 'POLICY' && (
-                    <>
-                      <div className="rounded border border-gray-300 bg-white p-2 font-mono text-xs">
-                        https://whitehouse.gov/presidential-actions/xxx
-                      </div>
-                      <div className="rounded border border-gray-300 bg-white p-2 font-mono text-xs">
-                        https://congress.gov/bill/xxx
-                      </div>
-                      <div className="rounded border border-gray-300 bg-white p-2 font-mono text-xs">
-                        https://brookings.edu/research/xxx
-                      </div>
-                    </>
-                  )}
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(RESOURCE_TYPE_LABELS).map(([type, label]) => (
+                    <span
+                      key={type}
+                      className="rounded-full border bg-white px-2 py-1 text-xs text-gray-600"
+                    >
+                      {RESOURCE_TYPE_ICONS[type as ResourceType]} {label}
+                    </span>
+                  ))}
                 </div>
               </div>
 
@@ -310,7 +305,7 @@ export function ImportUrlDialog({
                 <div className="flex gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-red-700">
                   <AlertCircle size={20} className="mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="text-sm font-medium">Validation Failed</p>
+                    <p className="text-sm font-medium">Error</p>
                     <p className="text-sm">{error}</p>
                   </div>
                 </div>
@@ -318,13 +313,115 @@ export function ImportUrlDialog({
             </div>
           )}
 
-          {/* Step 2: Preview */}
+          {/* Step 2: Preview with Classification */}
           {step === 'preview' && metadata && (
             <div className="space-y-4">
+              {/* AI Classification Result */}
+              {classification && (
+                <div className="rounded-lg border border-purple-200 bg-purple-50 p-4">
+                  <h4 className="mb-3 flex items-center gap-2 font-semibold text-purple-900">
+                    <Sparkles size={16} />
+                    AI Classification
+                  </h4>
+
+                  <div className="space-y-3">
+                    {/* Primary Classification */}
+                    <div className="flex items-center justify-between rounded-lg border border-purple-100 bg-white p-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">
+                          {
+                            RESOURCE_TYPE_ICONS[
+                              selectedResourceType ||
+                                classification.resourceType
+                            ]
+                          }
+                        </span>
+                        <div>
+                          <p className="font-medium">
+                            {
+                              RESOURCE_TYPE_LABELS[
+                                selectedResourceType ||
+                                  classification.resourceType
+                              ]
+                            }
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {classification.reason}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p
+                          className={`text-sm font-medium ${getConfidenceColor(classification.confidence)}`}
+                        >
+                          {Math.round(classification.confidence * 100)}%
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {getConfidenceLabel(classification.confidence)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Alternatives */}
+                    {classification.alternatives &&
+                      classification.alternatives.length > 0 && (
+                        <div>
+                          <button
+                            onClick={() =>
+                              setShowAlternatives(!showAlternatives)
+                            }
+                            className="flex items-center gap-1 text-sm text-purple-600 hover:text-purple-800"
+                          >
+                            <ChevronDown
+                              size={16}
+                              className={`transition-transform ${showAlternatives ? 'rotate-180' : ''}`}
+                            />
+                            {showAlternatives ? 'Hide' : 'Show'} alternative
+                            classifications
+                          </button>
+
+                          {showAlternatives && (
+                            <div className="mt-2 space-y-2">
+                              {classification.alternatives.map((alt, idx) => (
+                                <button
+                                  key={idx}
+                                  onClick={() =>
+                                    setSelectedResourceType(alt.resourceType)
+                                  }
+                                  className={`flex w-full items-center justify-between rounded-lg border p-2 text-left transition-colors ${
+                                    selectedResourceType === alt.resourceType
+                                      ? 'border-purple-500 bg-purple-100'
+                                      : 'border-gray-200 bg-white hover:border-purple-300'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span>
+                                      {RESOURCE_TYPE_ICONS[alt.resourceType]}
+                                    </span>
+                                    <span className="text-sm">
+                                      {RESOURCE_TYPE_LABELS[alt.resourceType]}
+                                    </span>
+                                  </div>
+                                  <span
+                                    className={`text-xs ${getConfidenceColor(alt.confidence)}`}
+                                  >
+                                    {Math.round(alt.confidence * 100)}%
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                  </div>
+                </div>
+              )}
+
+              {/* Content Preview */}
               <div className="rounded-lg bg-gray-50 p-4">
                 <h4 className="mb-3 flex items-center gap-2 font-semibold">
                   <CheckCircle2 size={18} className="text-green-600" />
-                  Preview Information
+                  Content Preview
                 </h4>
                 {metadata.imageUrl && (
                   <img
@@ -339,11 +436,21 @@ export function ImportUrlDialog({
                     {metadata.description}
                   </p>
                 )}
-                {metadata.publishedDate && (
-                  <p className="text-xs text-gray-500">
-                    Published: {metadata.publishedDate}
-                  </p>
-                )}
+                <div className="flex flex-wrap gap-2 text-xs text-gray-500">
+                  <span className="rounded bg-gray-200 px-2 py-1">
+                    {metadata.domain}
+                  </span>
+                  {metadata.publishedDate && (
+                    <span className="rounded bg-gray-200 px-2 py-1">
+                      {metadata.publishedDate}
+                    </span>
+                  )}
+                  {metadata.language && (
+                    <span className="rounded bg-gray-200 px-2 py-1">
+                      {metadata.language}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -374,7 +481,14 @@ export function ImportUrlDialog({
               <dl className="grid gap-2 text-sm">
                 <div>
                   <dt className="text-gray-500">Resource Type</dt>
-                  <dd className="font-medium">{resourceTypeInfo.name}</dd>
+                  <dd className="flex items-center gap-2 font-medium">
+                    {selectedResourceType && (
+                      <>
+                        <span>{RESOURCE_TYPE_ICONS[selectedResourceType]}</span>
+                        {RESOURCE_TYPE_LABELS[selectedResourceType]}
+                      </>
+                    )}
+                  </dd>
                 </div>
                 <div>
                   <dt className="text-gray-500">Domain</dt>
@@ -386,6 +500,16 @@ export function ImportUrlDialog({
                     {editedTitle || metadata.title}
                   </dd>
                 </div>
+                {classification && (
+                  <div>
+                    <dt className="text-gray-500">AI Confidence</dt>
+                    <dd
+                      className={`font-medium ${getConfidenceColor(classification.confidence)}`}
+                    >
+                      {Math.round(classification.confidence * 100)}%
+                    </dd>
+                  </div>
+                )}
               </dl>
             </div>
           )}
@@ -421,17 +545,17 @@ export function ImportUrlDialog({
               className="ml-auto flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
             >
               {isLoading && <Loader2 size={16} className="animate-spin" />}
-              Validate & Next
+              {isLoading ? 'Analyzing...' : 'Analyze URL'}
             </button>
           )}
 
           {step === 'preview' && (
             <button
               onClick={() => setStep('confirm')}
-              disabled={!editedTitle}
+              disabled={!selectedResourceType}
               className="ml-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              Confirm Info
+              Confirm Classification
             </button>
           )}
 

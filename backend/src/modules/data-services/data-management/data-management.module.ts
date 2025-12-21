@@ -1,5 +1,6 @@
 import { Module, OnModuleInit } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { HttpModule } from "@nestjs/axios";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { SourceWhitelistService } from "./services/source-whitelist.service";
 import { SourceWhitelistController } from "./controllers/source-whitelist.controller";
@@ -17,6 +18,7 @@ import { DashboardService } from "./services/dashboard.service";
 import { DashboardController } from "./controllers/dashboard.controller";
 import { ConfigurationController } from "./controllers/configuration.controller";
 import { ConfigurationService } from "./services/configuration.service";
+import { AiUrlClassifierService } from "./services/ai-url-classifier.service";
 
 /**
  * Data Management Module
@@ -30,7 +32,7 @@ import { ConfigurationService } from "./services/configuration.service";
  * - 导入管理和URL解析
  */
 @Module({
-  imports: [ConfigModule, PrismaModule],
+  imports: [ConfigModule, PrismaModule, HttpModule],
   providers: [
     SourceWhitelistService,
     CollectionRuleService,
@@ -42,6 +44,7 @@ import { ConfigurationService } from "./services/configuration.service";
     PaperMetadataExtractorService,
     DashboardService,
     ConfigurationService,
+    AiUrlClassifierService,
   ],
   controllers: [
     SourceWhitelistController,
@@ -58,6 +61,7 @@ import { ConfigurationService } from "./services/configuration.service";
     ImportManagerService,
     MetadataExtractorService,
     DuplicateDetectorService,
+    AiUrlClassifierService,
   ],
 })
 export class DataManagementModule implements OnModuleInit {

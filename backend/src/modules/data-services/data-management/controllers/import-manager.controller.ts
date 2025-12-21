@@ -10,6 +10,7 @@ import {
 import { ImportManagerService } from "../services/import-manager.service";
 import { ImportTaskProcessorService } from "../services/import-task-processor.service";
 import { SourceWhitelistService } from "../services/source-whitelist.service";
+import { AiUrlClassifierService } from "../services/ai-url-classifier.service";
 import { ResourceType } from "@prisma/client";
 
 /**
@@ -24,6 +25,7 @@ export class ImportManagerController {
     private readonly importManagerService: ImportManagerService,
     private readonly importTaskProcessorService: ImportTaskProcessorService,
     private readonly whitelistService: SourceWhitelistService,
+    private readonly aiClassifierService: AiUrlClassifierService,
   ) {}
 
   /**
@@ -509,5 +511,188 @@ export class ImportManagerController {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * 使用AI自动分类URL
+   * POST /api/v1/data-management/classify-url
+   *
+   * 替代静态白名单，使用AI自动识别URL类型
+   */
+  @Post("classify-url")
+  async classifyUrl(
+    @Body()
+    body: {
+      url: string;
+    },
+  ) {
+    try {
+      if (!body.url) {
+        return {
+          success: false,
+          error: "Missing required field: url",
+        };
+      }
+
+      const result = await this.aiClassifierService.classifyUrl(body.url);
+
+      return {
+        success: true,
+        data: result,
+      };
+    } catch (error) {
+      this.logger.error(`Error classifying URL: ${error}`);
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Failed to classify URL",
+      };
+    }
+  }
+
+  /**
+   * 解析URL并使用AI自动分类（不需要预先选择资源类型）
+   * POST /api/v1/data-management/parse-url-auto
+   *
+   * 这个端点会：
+   * 1. 使用AI自动分类URL到正确的资源类型
+   * 2. 解析URL元数据
+   * 3. 检测重复
+   * 4. 返回完整的导入预览
+   */
+  @Post("parse-url-auto")
+  async parseUrlAuto(
+    @Body()
+    body: {
+      url: string;
+    },
+  ) {
+    try {
+      if (!body.url) {
+        return {
+          success: false,
+          error: "Missing required field: url",
+        };
+      }
+
+      // 1. 使用AI分类URL
+      const classification = await this.aiClassifierService.classifyUrl(
+        body.url,
+      );
+
+      // 2. 解析URL元数据
+      const parseResult = await this.importManagerService.parseUrlFull(
+        body.url,
+        classification.resourceType,
+      );
+
+      return {
+        success: true,
+        data: {
+          ...parseResult,
+          classification: {
+            resourceType: classification.resourceType,
+            confidence: classification.confidence,
+            reason: classification.reason,
+            alternatives: classification.alternatives,
+          },
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Error parsing URL auto: ${error}`);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to parse URL",
+      };
+    }
+  }
+
+  /**
+   * 导入URL（使用AI自动分类，不需要预先选择资源类型）
+   * POST /api/v1/data-management/import-auto
+   */
+  @Post("import-auto")
+  async importAuto(
+    @Body()
+    body: {
+      url: string;
+      resourceType?: ResourceType; // 可选：用户可以覆盖AI分类结果
+      skipDuplicateWarning?: boolean;
+    },
+  ) {
+    try {
+      if (!body.url) {
+        return {
+          success: false,
+          error: "Missing required field: url",
+        };
+      }
+
+      // 如果用户没有提供资源类型，使用AI分类
+      let resourceType = body.resourceType;
+      let classification;
+
+      if (!resourceType) {
+        classification = await this.aiClassifierService.classifyUrl(body.url);
+        resourceType = classification.resourceType;
+        this.logger.log(
+          `AI classified ${body.url} as ${resourceType} (confidence: ${classification.confidence})`,
+        );
+      }
+
+      // 首先解析URL获取元数据
+      const parseResult = await this.importManagerService.parseUrlFull(
+        body.url,
+        resourceType,
+      );
+
+      // 导入资源
+      const importTask = await this.importManagerService.importWithMetadata(
+        body.url,
+        resourceType,
+        parseResult.metadata,
+        body.skipDuplicateWarning,
+      );
+
+      return {
+        success: true,
+        data: {
+          taskId: importTask.id,
+          status: importTask.status,
+          sourceUrl: importTask.sourceUrl,
+          resourceType: resourceType,
+          classification: classification
+            ? {
+                confidence: classification.confidence,
+                reason: classification.reason,
+                alternatives: classification.alternatives,
+              }
+            : undefined,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Error importing auto: ${error}`);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to import",
+      };
+    }
+  }
+
+  /**
+   * 获取所有支持的资源类型及其描述
+   * GET /api/v1/data-management/resource-types
+   */
+  @Get("resource-types")
+  async getResourceTypes() {
+    const descriptions = this.aiClassifierService.getResourceTypeDescriptions();
+
+    return {
+      success: true,
+      data: Object.entries(descriptions).map(([type, description]) => ({
+        type,
+        description,
+      })),
+    };
   }
 }
