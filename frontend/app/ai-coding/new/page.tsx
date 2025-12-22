@@ -346,7 +346,8 @@ function NewCodingProjectPageContent() {
         },
         body: JSON.stringify({
           name: projectName || requirement.slice(0, 50),
-          description: requirement,
+          description: requirement.slice(0, 500),
+          requirement: requirement,
           techStack,
         }),
       });
