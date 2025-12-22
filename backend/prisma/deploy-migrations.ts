@@ -135,6 +135,7 @@ async function getCustomMigrations(): Promise<string[]> {
     "20251222_add_system_settings",
     "20251222_add_ai_coding_team_columns",
     "20251222_add_encrypted_column",
+    "20251222_fix_missing_columns",
   ];
 
   const migrations: string[] = [];
