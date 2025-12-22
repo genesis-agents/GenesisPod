@@ -165,6 +165,34 @@ export class FeedbackService {
   }
 
   /**
+   * Get user's own feedback history
+   */
+  async getUserFeedback(
+    userId: string,
+    options?: { limit?: number; offset?: number },
+  ) {
+    const { limit = 50, offset = 0 } = options || {};
+
+    const feedbacks = await this.prisma.$queryRaw<unknown[]>`
+      SELECT * FROM "feedbacks"
+      WHERE "user_id" = ${userId}
+      ORDER BY "created_at" DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+
+    const countResult = await this.prisma.$queryRaw<{ count: bigint }[]>`
+      SELECT COUNT(*) as count FROM "feedbacks" WHERE "user_id" = ${userId}
+    `;
+
+    return {
+      feedbacks,
+      total: Number(countResult[0]?.count || 0),
+      limit,
+      offset,
+    };
+  }
+
+  /**
    * Get all feedback (admin)
    */
   async getAllFeedback(options?: {
@@ -220,6 +248,19 @@ export class FeedbackService {
     status: FeedbackStatusEnum,
     adminNotes?: string,
   ) {
+    // Get current feedback first to compare status and get user email
+    const currentFeedback = await this.getFeedbackById(id);
+    if (!currentFeedback) {
+      this.logger.warn(`Feedback not found: ${id}`);
+      return null;
+    }
+
+    const oldStatus = (currentFeedback as { status: string }).status;
+    const userEmail = (currentFeedback as { user_email: string | null })
+      .user_email;
+    const title = (currentFeedback as { title: string }).title;
+    const feedbackType = (currentFeedback as { type: string }).type;
+
     const result = await this.prisma.$queryRaw<unknown[]>`
       UPDATE "feedbacks"
       SET "status" = ${status}::"FeedbackStatus",
@@ -228,7 +269,33 @@ export class FeedbackService {
       WHERE "id" = ${id}::uuid
       RETURNING *
     `;
-    return result[0] || null;
+
+    const updatedFeedback = result[0];
+
+    // Send email notification to user if they provided email and status changed
+    if (userEmail && oldStatus !== status) {
+      try {
+        await this.emailService.sendFeedbackStatusUpdate({
+          id,
+          title,
+          type: feedbackType,
+          oldStatus,
+          newStatus: status,
+          userEmail,
+          adminNotes,
+        });
+        this.logger.log(
+          `Status update notification sent to ${userEmail} for feedback ${id}`,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Failed to send status update notification for feedback ${id}`,
+          error,
+        );
+      }
+    }
+
+    return updatedFeedback || null;
   }
 
   /**

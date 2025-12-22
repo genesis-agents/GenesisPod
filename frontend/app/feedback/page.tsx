@@ -242,7 +242,7 @@ export default function Feedback() {
 
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <header className="flex h-16 items-center border-b border-gray-200 bg-white px-6">
+        <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
           <div className="flex items-center gap-3">
             <MessageSquare className="h-6 w-6 text-violet-600" />
             <div>
@@ -250,6 +250,13 @@ export default function Feedback() {
               <p className="text-sm text-gray-500">Help us improve DeepDive</p>
             </div>
           </div>
+          <Link
+            href="/feedback/history"
+            className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <FileText className="h-4 w-4" />
+            My Feedback
+          </Link>
         </header>
 
         {/* Content */}

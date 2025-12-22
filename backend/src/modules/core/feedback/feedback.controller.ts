@@ -82,6 +82,23 @@ export class FeedbackController {
   }
 
   /**
+   * Get user's own feedback history
+   * GET /api/v1/feedback/my
+   */
+  @Get("my")
+  @UseGuards(JwtAuthGuard)
+  async getMyFeedback(
+    @Request() req: { user: { id: string } },
+    @Query("limit") limit?: string,
+    @Query("offset") offset?: string,
+  ) {
+    return this.feedbackService.getUserFeedback(req.user.id, {
+      limit: limit ? parseInt(limit, 10) : undefined,
+      offset: offset ? parseInt(offset, 10) : undefined,
+    });
+  }
+
+  /**
    * Get all feedback (admin only)
    * GET /api/v1/feedback
    */

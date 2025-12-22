@@ -544,4 +544,127 @@ DeepDive Feedback Notification
       })),
     });
   }
+
+  /**
+   * Send feedback status update notification to user
+   */
+  async sendFeedbackStatusUpdate(feedback: {
+    id: string;
+    title: string;
+    type: string;
+    oldStatus: string;
+    newStatus: string;
+    userEmail: string;
+    adminNotes?: string;
+  }): Promise<boolean> {
+    this.logger.log(
+      `Sending feedback status update to ${feedback.userEmail}: ${feedback.oldStatus} -> ${feedback.newStatus}`,
+    );
+
+    const statusLabels: Record<string, string> = {
+      PENDING: "Pending Review",
+      REVIEWED: "Reviewed",
+      IN_PROGRESS: "In Progress",
+      RESOLVED: "Resolved",
+      CLOSED: "Closed",
+    };
+
+    const statusColors: Record<string, string> = {
+      PENDING: "#eab308",
+      REVIEWED: "#3b82f6",
+      IN_PROGRESS: "#a855f7",
+      RESOLVED: "#22c55e",
+      CLOSED: "#6b7280",
+    };
+
+    const statusMessages: Record<string, string> = {
+      PENDING: "Your feedback is in the queue for review.",
+      REVIEWED: "Our team has reviewed your feedback.",
+      IN_PROGRESS: "We are actively working on addressing your feedback.",
+      RESOLVED:
+        "Great news! Your feedback has been addressed. Thank you for helping us improve!",
+      CLOSED: "This feedback has been closed.",
+    };
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, ${statusColors[feedback.newStatus] || "#667eea"} 0%, ${statusColors[feedback.newStatus] || "#764ba2"} 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 24px;">Feedback Status Update</h1>
+        </div>
+
+        <div style="background: #f8fafc; padding: 30px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 10px 10px;">
+          <div style="margin-bottom: 20px; text-align: center;">
+            <span style="display: inline-block; padding: 8px 20px; border-radius: 20px; font-size: 14px; font-weight: 600; color: white; background-color: ${statusColors[feedback.newStatus] || "#6b7280"};">
+              ${statusLabels[feedback.newStatus] || feedback.newStatus}
+            </span>
+          </div>
+
+          <p style="text-align: center; color: #64748b; margin-bottom: 20px;">
+            ${statusMessages[feedback.newStatus] || "Your feedback status has been updated."}
+          </p>
+
+          <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+            <h2 style="color: #1e293b; margin: 0 0 10px 0; font-size: 18px;">
+              ${feedback.title}
+            </h2>
+            <p style="margin: 0; color: #64748b; font-size: 14px;">
+              Feedback ID: <span style="font-family: monospace;">${feedback.id}</span>
+            </p>
+          </div>
+
+          ${
+            feedback.adminNotes
+              ? `
+          <div style="background: #eff6ff; padding: 20px; border-radius: 8px; border-left: 4px solid #3b82f6; margin-bottom: 20px;">
+            <h3 style="color: #1e40af; margin: 0 0 10px 0; font-size: 14px;">Response from our team:</h3>
+            <p style="margin: 0; color: #1e3a8a; white-space: pre-wrap;">${feedback.adminNotes}</p>
+          </div>
+          `
+              : ""
+          }
+
+          <div style="text-align: center; margin-top: 25px;">
+            <a href="${this.configService.get("APP_URL", "http://localhost:3000")}/feedback/history"
+               style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 6px; font-weight: 600;">
+              View My Feedback
+            </a>
+          </div>
+        </div>
+
+        <div style="text-align: center; padding: 20px; color: #94a3b8; font-size: 12px;">
+          <p style="margin: 0;">Thank you for helping us improve DeepDive!</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const text = `
+Feedback Status Update
+
+Your feedback "${feedback.title}" has been updated to: ${statusLabels[feedback.newStatus] || feedback.newStatus}
+
+${statusMessages[feedback.newStatus] || ""}
+
+Feedback ID: ${feedback.id}
+${feedback.adminNotes ? `\nResponse from our team:\n${feedback.adminNotes}` : ""}
+
+View your feedback history at: ${this.configService.get("APP_URL", "http://localhost:3000")}/feedback/history
+
+---
+Thank you for helping us improve DeepDive!
+    `;
+
+    return this.sendEmail({
+      to: feedback.userEmail,
+      subject: `[DeepDive] Your feedback is now ${statusLabels[feedback.newStatus] || feedback.newStatus}`,
+      html,
+      text,
+    });
+  }
 }
