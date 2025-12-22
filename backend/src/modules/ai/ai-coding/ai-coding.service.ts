@@ -21,6 +21,7 @@ import {
   CodingTaskPhase,
   TaskCheckpoint,
   CodingTeamService,
+  DefaultAIModel,
 } from "./services";
 import { CodingMessageType, CodingAgentRole } from "@prisma/client";
 import * as archiver from "archiver";
@@ -334,6 +335,38 @@ export class AiCodingService {
     }
 
     try {
+      // Step 0: 获取系统配置的默认 AI 模型
+      this.logger.log(`[${projectId}] Step 0: Getting default AI model...`);
+      let aiModel: DefaultAIModel;
+      try {
+        aiModel = await this.teamService.getDefaultChatModel();
+        this.logger.log(
+          `[${projectId}] Using AI model: ${aiModel.displayName} (${aiModel.provider}/${aiModel.modelId})`,
+        );
+
+        // 发送模型信息到团队聊天
+        await this.sendAgentMessage(
+          projectId,
+          CodingAgentRole.PM,
+          `**AI 团队启动**\n\n使用模型: ${aiModel.displayName} (${aiModel.provider})\n模型 ID: ${aiModel.modelId}\n\n开始执行任务...`,
+          CodingMessageType.SYSTEM,
+        );
+      } catch (modelError) {
+        const errorMsg =
+          modelError instanceof Error ? modelError.message : String(modelError);
+        this.logger.error(`[${projectId}] Failed to get AI model: ${errorMsg}`);
+
+        // 发送错误消息到团队聊天
+        await this.sendAgentMessage(
+          projectId,
+          CodingAgentRole.PM,
+          `**AI 模型配置错误**\n\n${errorMsg}\n\n请在管理后台 → AI 模型管理中配置至少一个 CHAT 类型的模型。`,
+          CodingMessageType.ERROR,
+        );
+
+        throw new Error(`AI 模型未配置: ${errorMsg}`);
+      }
+
       // Step 1: PM 生成 PRD (15%)
       this.logger.log(`[${projectId}] Step 1: PM generating PRD...`);
       await this.updateAgentStatus(projectId, CodingAgentType.PM, "RUNNING");
@@ -355,6 +388,7 @@ export class AiCodingService {
         project.requirement,
         techStack,
         standardsContext,
+        aiModel,
       );
       outputs.prd = prd;
       await this.updateAgentStatus(projectId, CodingAgentType.PM, "COMPLETED");
@@ -445,6 +479,7 @@ ${prd.acceptanceCriteria?.map((c) => `- ${c}`).join("\n") || "暂无验收标准
         prd,
         techStack,
         standardsContext,
+        aiModel,
       );
       outputs.design = design;
       await this.updateAgentStatus(
@@ -545,7 +580,7 @@ ${design.directoryStructure || "暂无目录结构"}
         message: "正在生成任务列表...",
       });
 
-      const tasks = await this.runPMLeadAgent(prd, design);
+      const tasks = await this.runPMLeadAgent(prd, design, aiModel);
       outputs.tasks = tasks;
       await this.updateAgentStatus(
         projectId,
@@ -622,6 +657,7 @@ ${tasks
         tasks,
         techStack,
         standardsContext,
+        aiModel,
       );
       outputs.code = code;
       await this.updateAgentStatus(
@@ -692,6 +728,7 @@ ${code.files.map((f) => `- \`${f.path}\` (${f.language})`).join("\n")}
         prd,
         code,
         standardsContext,
+        aiModel,
       );
       outputs.tests = tests;
       await this.updateAgentStatus(projectId, CodingAgentType.QA, "COMPLETED");
@@ -784,6 +821,7 @@ ${tests.testFiles?.map((f) => `- \`${f}\``).join("\n") || "暂无测试文件"}
     requirement: string,
     techStack: Record<string, string>,
     standardsContext?: string,
+    aiModel?: DefaultAIModel,
   ): Promise<ProjectOutputs["prd"]> {
     let systemPrompt = `You are a Product Manager AI. Your job is to analyze user requirements and create a structured PRD (Product Requirements Document).
 
@@ -807,12 +845,25 @@ Tech Stack: ${JSON.stringify(techStack)}
 
 Generate a PRD for this project.`;
 
-    const result = await this.aiChatService.chat({
-      messages: [{ role: "user", content: userMessage }],
-      systemPrompt,
-      maxTokens: 4096,
-      temperature: 0.7,
-    });
+    // Use admin-configured model if provided
+    const result = aiModel
+      ? await this.aiChatService.generateChatCompletionWithKey({
+          provider: aiModel.provider,
+          modelId: aiModel.modelId,
+          apiKey: aiModel.apiKey || "",
+          apiEndpoint: aiModel.apiEndpoint || undefined,
+          systemPrompt,
+          messages: [{ role: "user", content: userMessage }],
+          maxTokens: 4096,
+          temperature: 0.7,
+          displayName: aiModel.displayName,
+        })
+      : await this.aiChatService.chat({
+          messages: [{ role: "user", content: userMessage }],
+          systemPrompt,
+          maxTokens: 4096,
+          temperature: 0.7,
+        });
 
     try {
       const jsonMatch = result.content.match(/\{[\s\S]*\}/);
@@ -839,6 +890,7 @@ Generate a PRD for this project.`;
     prd: ProjectOutputs["prd"],
     techStack: Record<string, string>,
     standardsContext?: string,
+    aiModel?: DefaultAIModel,
   ): Promise<ProjectOutputs["design"]> {
     let systemPrompt = `You are a Software Architect AI. Your job is to design the technical architecture based on the PRD.
 
@@ -854,20 +906,30 @@ Output a JSON object with the following structure:
       systemPrompt += `\n\n${standardsContext}`;
     }
 
-    const result = await this.aiChatService.chat({
-      messages: [
-        {
-          role: "user",
-          content: `PRD: ${JSON.stringify(prd)}
+    const userMessage = `PRD: ${JSON.stringify(prd)}
 Tech Stack: ${JSON.stringify(techStack)}
 
-Design the technical architecture.`,
-        },
-      ],
-      systemPrompt,
-      maxTokens: 4096,
-      temperature: 0.7,
-    });
+Design the technical architecture.`;
+
+    // Use admin-configured model if provided
+    const result = aiModel
+      ? await this.aiChatService.generateChatCompletionWithKey({
+          provider: aiModel.provider,
+          modelId: aiModel.modelId,
+          apiKey: aiModel.apiKey || "",
+          apiEndpoint: aiModel.apiEndpoint || undefined,
+          systemPrompt,
+          messages: [{ role: "user", content: userMessage }],
+          maxTokens: 4096,
+          temperature: 0.7,
+          displayName: aiModel.displayName,
+        })
+      : await this.aiChatService.chat({
+          messages: [{ role: "user", content: userMessage }],
+          systemPrompt,
+          maxTokens: 4096,
+          temperature: 0.7,
+        });
 
     try {
       const jsonMatch = result.content.match(/\{[\s\S]*\}/);
@@ -892,6 +954,7 @@ Design the technical architecture.`,
   private async runPMLeadAgent(
     prd: ProjectOutputs["prd"],
     design: ProjectOutputs["design"],
+    aiModel?: DefaultAIModel,
   ): Promise<ProjectOutputs["tasks"]> {
     const systemPrompt = `You are a Project Manager AI. Your job is to break down the project into actionable tasks.
 
@@ -902,20 +965,30 @@ Output a JSON array with the following structure:
 
 Keep it to 5-10 essential tasks.`;
 
-    const result = await this.aiChatService.chat({
-      messages: [
-        {
-          role: "user",
-          content: `PRD: ${JSON.stringify(prd)}
+    const userMessage = `PRD: ${JSON.stringify(prd)}
 Design: ${JSON.stringify(design)}
 
-Create a task list for this project.`,
-        },
-      ],
-      systemPrompt,
-      maxTokens: 2048,
-      temperature: 0.7,
-    });
+Create a task list for this project.`;
+
+    // Use admin-configured model if provided
+    const result = aiModel
+      ? await this.aiChatService.generateChatCompletionWithKey({
+          provider: aiModel.provider,
+          modelId: aiModel.modelId,
+          apiKey: aiModel.apiKey || "",
+          apiEndpoint: aiModel.apiEndpoint || undefined,
+          systemPrompt,
+          messages: [{ role: "user", content: userMessage }],
+          maxTokens: 2048,
+          temperature: 0.7,
+          displayName: aiModel.displayName,
+        })
+      : await this.aiChatService.chat({
+          messages: [{ role: "user", content: userMessage }],
+          systemPrompt,
+          maxTokens: 2048,
+          temperature: 0.7,
+        });
 
     try {
       const jsonMatch = result.content.match(/\[[\s\S]*\]/);
@@ -939,6 +1012,7 @@ Create a task list for this project.`,
     tasks: ProjectOutputs["tasks"],
     techStack: Record<string, string>,
     standardsContext?: string,
+    aiModel?: DefaultAIModel,
   ): Promise<ProjectOutputs["code"]> {
     let systemPrompt = `You are a Software Engineer AI. Your job is to implement the project code based on the PRD and design.
 
@@ -959,22 +1033,32 @@ Generate complete, runnable code files. Focus on the core functionality.`;
       systemPrompt += `\n\n${standardsContext}`;
     }
 
-    const result = await this.aiChatService.chat({
-      messages: [
-        {
-          role: "user",
-          content: `PRD: ${JSON.stringify(prd)}
+    const userMessage = `PRD: ${JSON.stringify(prd)}
 Design: ${JSON.stringify(design)}
 Tasks: ${JSON.stringify(tasks)}
 Tech Stack: ${JSON.stringify(techStack)}
 
-Generate the project code files.`,
-        },
-      ],
-      systemPrompt,
-      maxTokens: 8192,
-      temperature: 0.5,
-    });
+Generate the project code files.`;
+
+    // Use admin-configured model if provided
+    const result = aiModel
+      ? await this.aiChatService.generateChatCompletionWithKey({
+          provider: aiModel.provider,
+          modelId: aiModel.modelId,
+          apiKey: aiModel.apiKey || "",
+          apiEndpoint: aiModel.apiEndpoint || undefined,
+          systemPrompt,
+          messages: [{ role: "user", content: userMessage }],
+          maxTokens: 8192,
+          temperature: 0.5,
+          displayName: aiModel.displayName,
+        })
+      : await this.aiChatService.chat({
+          messages: [{ role: "user", content: userMessage }],
+          systemPrompt,
+          maxTokens: 8192,
+          temperature: 0.5,
+        });
 
     let codeOutput: NonNullable<ProjectOutputs["code"]> = {
       files: [],
@@ -1035,6 +1119,7 @@ Generate the project code files.`,
     prd: ProjectOutputs["prd"],
     code: ProjectOutputs["code"],
     standardsContext?: string,
+    aiModel?: DefaultAIModel,
   ): Promise<ProjectOutputs["tests"]> {
     let systemPrompt = `You are a QA Engineer AI. Your job is to create test cases for the project.
 
@@ -1053,20 +1138,30 @@ Generate simple but effective test cases.`;
     }
 
     const codeFiles = code?.files || [];
-    const result = await this.aiChatService.chat({
-      messages: [
-        {
-          role: "user",
-          content: `PRD: ${JSON.stringify(prd)}
+    const userMessage = `PRD: ${JSON.stringify(prd)}
 Code Files: ${JSON.stringify(codeFiles)}
 
-Generate test files for this project.`,
-        },
-      ],
-      systemPrompt,
-      maxTokens: 4096,
-      temperature: 0.5,
-    });
+Generate test files for this project.`;
+
+    // Use admin-configured model if provided
+    const result = aiModel
+      ? await this.aiChatService.generateChatCompletionWithKey({
+          provider: aiModel.provider,
+          modelId: aiModel.modelId,
+          apiKey: aiModel.apiKey || "",
+          apiEndpoint: aiModel.apiEndpoint || undefined,
+          systemPrompt,
+          messages: [{ role: "user", content: userMessage }],
+          maxTokens: 4096,
+          temperature: 0.5,
+          displayName: aiModel.displayName,
+        })
+      : await this.aiChatService.chat({
+          messages: [{ role: "user", content: userMessage }],
+          systemPrompt,
+          maxTokens: 4096,
+          temperature: 0.5,
+        });
 
     let testOutput: {
       testFiles: Array<{ path: string; content: string; language: string }>;
@@ -1605,6 +1700,16 @@ Generated on ${new Date().toISOString()}
 
     if (!project) return;
 
+    // 获取默认 AI 模型
+    let aiModel: DefaultAIModel | undefined;
+    try {
+      aiModel = await this.teamService.getDefaultChatModel();
+    } catch (error) {
+      this.logger.warn(
+        `[${projectId}] Could not get AI model for resume, will use fallback`,
+      );
+    }
+
     // 根据阶段继续执行
     switch (phase) {
       case CodingTaskPhase.PM:
@@ -1621,6 +1726,7 @@ Generated on ${new Date().toISOString()}
           outputs.prd,
           techStack,
           standardsContext,
+          aiModel,
         );
         outputs.design = design;
         await this.codingTaskService.markPhaseComplete(
@@ -1643,7 +1749,11 @@ Generated on ${new Date().toISOString()}
           projectId,
           CodingTaskPhase.PM_LEAD,
         );
-        const tasks = await this.runPMLeadAgent(outputs.prd, outputs.design);
+        const tasks = await this.runPMLeadAgent(
+          outputs.prd,
+          outputs.design,
+          aiModel,
+        );
         outputs.tasks = tasks;
         await this.codingTaskService.markPhaseComplete(
           projectId,
@@ -1672,6 +1782,7 @@ Generated on ${new Date().toISOString()}
           outputs.tasks,
           techStack,
           standardsContext,
+          aiModel,
         );
         outputs.code = code;
         await this.codingTaskService.markPhaseComplete(
@@ -1699,6 +1810,7 @@ Generated on ${new Date().toISOString()}
           outputs.prd,
           outputs.code,
           standardsContext,
+          aiModel,
         );
         outputs.tests = tests;
         await this.codingTaskService.markPhaseComplete(
