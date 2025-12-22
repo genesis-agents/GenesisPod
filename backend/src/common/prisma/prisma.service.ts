@@ -19,6 +19,12 @@ export class PrismaService
 
     // Ensure resource_upvotes table exists (migration fallback)
     await this.ensureResourceUpvotesTable();
+
+    // Ensure AI Coding columns exist (critical for AI Coding feature)
+    await this.ensureAiCodingColumns();
+
+    // Ensure system_settings columns exist
+    await this.ensureSystemSettingsColumns();
   }
 
   async onModuleDestroy() {
@@ -93,6 +99,90 @@ export class PrismaService
       // Log but don't fail - the table might already exist or migration will handle it
       this.logger.warn(
         `Could not ensure resource_upvotes table: ${errorMessage}`,
+      );
+    }
+  }
+
+  /**
+   * Ensure AI Coding columns exist
+   * This is critical for AI Coding feature to work
+   */
+  private async ensureAiCodingColumns(): Promise<void> {
+    try {
+      // Check and add team_initialized column
+      const teamInitResult = await this.$queryRaw<Array<{ exists: boolean }>>`
+        SELECT EXISTS (
+          SELECT FROM information_schema.columns
+          WHERE table_schema = 'public'
+          AND table_name = 'ai_coding_projects'
+          AND column_name = 'team_initialized'
+        )
+      `;
+
+      if (!teamInitResult[0]?.exists) {
+        this.logger.log("Adding team_initialized column to ai_coding_projects");
+        await this.$executeRawUnsafe(`
+          ALTER TABLE "ai_coding_projects"
+          ADD COLUMN "team_initialized" BOOLEAN NOT NULL DEFAULT false
+        `);
+        this.logger.log("✅ team_initialized column added");
+      }
+
+      // Check and add current_mission_id column
+      const missionIdResult = await this.$queryRaw<Array<{ exists: boolean }>>`
+        SELECT EXISTS (
+          SELECT FROM information_schema.columns
+          WHERE table_schema = 'public'
+          AND table_name = 'ai_coding_projects'
+          AND column_name = 'current_mission_id'
+        )
+      `;
+
+      if (!missionIdResult[0]?.exists) {
+        this.logger.log(
+          "Adding current_mission_id column to ai_coding_projects",
+        );
+        await this.$executeRawUnsafe(`
+          ALTER TABLE "ai_coding_projects"
+          ADD COLUMN "current_mission_id" UUID
+        `);
+        this.logger.log("✅ current_mission_id column added");
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Could not ensure AI Coding columns: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Ensure system_settings columns exist
+   */
+  private async ensureSystemSettingsColumns(): Promise<void> {
+    try {
+      // Check and add encrypted column
+      const encryptedResult = await this.$queryRaw<Array<{ exists: boolean }>>`
+        SELECT EXISTS (
+          SELECT FROM information_schema.columns
+          WHERE table_schema = 'public'
+          AND table_name = 'system_settings'
+          AND column_name = 'encrypted'
+        )
+      `;
+
+      if (!encryptedResult[0]?.exists) {
+        this.logger.log("Adding encrypted column to system_settings");
+        await this.$executeRawUnsafe(`
+          ALTER TABLE "system_settings"
+          ADD COLUMN "encrypted" BOOLEAN NOT NULL DEFAULT false
+        `);
+        this.logger.log("✅ encrypted column added");
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Could not ensure system_settings columns: ${errorMessage}`,
       );
     }
   }

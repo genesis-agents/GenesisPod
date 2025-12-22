@@ -146,15 +146,13 @@ function EmailSettingsTab() {
   }>('/api/v1/admin/settings/email/test');
 
   const [form, setForm] = useState<Partial<EmailSettings>>({});
-  // Track if sensitive fields are already configured (returned as ********)
+  // Track if password is already configured (returned as ********)
   const [hasExistingPass, setHasExistingPass] = useState(false);
-  const [hasExistingApiKey, setHasExistingApiKey] = useState(false);
 
   useEffect(() => {
     if (data) {
-      // Check if password/API key are already configured (masked as ********)
+      // Check if password is already configured (masked as ********)
       setHasExistingPass(data.pass === '********');
-      setHasExistingApiKey(data.resendApiKey === '********');
 
       setForm({
         provider: data.provider || 'smtp',
@@ -165,7 +163,7 @@ function EmailSettingsTab() {
         port: data.port || 587,
         user: data.user || '',
         pass: '', // Always empty - placeholder shows if configured
-        resendApiKey: '', // Always empty - placeholder shows if configured
+        resendApiKey: data.resendApiKey || '', // Show full API key
       });
     }
   }, [data]);
@@ -392,30 +390,19 @@ function EmailSettingsTab() {
           <div>
             <label className="block text-sm font-medium text-gray-700">
               Resend API Key
-              {hasExistingApiKey && (
-                <span className="ml-2 text-xs text-green-600">
-                  ✓ Configured
-                </span>
-              )}
             </label>
             <input
-              type="password"
+              type="text"
               value={form.resendApiKey || ''}
               onChange={(e) =>
                 setForm({ ...form, resendApiKey: e.target.value })
               }
-              placeholder={
-                hasExistingApiKey
-                  ? 'Leave empty to keep current key'
-                  : 're_xxxxxxxxxxxx'
-              }
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="re_xxxxxxxxxxxx"
+              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
-            {!hasExistingApiKey && (
-              <p className="mt-1 text-xs text-gray-500">
-                Get your API key from resend.com
-              </p>
-            )}
+            <p className="mt-1 text-xs text-gray-500">
+              Get your API key from resend.com
+            </p>
           </div>
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
             <p className="text-sm text-amber-800">

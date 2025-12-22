@@ -52,8 +52,10 @@ export class SettingsController {
     const settings = await this.settingsService.getEmailSettings();
     return {
       ...settings,
+      // Mask password but show it exists
       pass: settings.pass ? "********" : null,
-      resendApiKey: settings.resendApiKey ? "********" : null,
+      // Return full API key for display (admin only endpoint)
+      resendApiKey: settings.resendApiKey,
     };
   }
 
