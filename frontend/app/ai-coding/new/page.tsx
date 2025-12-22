@@ -337,7 +337,15 @@ function NewCodingProjectPageContent() {
 
     try {
       // Step 1: Create project via AI Coding API
-      console.log('[NewCodingProject] Creating project...');
+      const requirementText = requirement?.trim() || '';
+      if (requirementText.length < 10) {
+        throw new Error('需求描述至少需要10个字符');
+      }
+
+      console.log(
+        '[NewCodingProject] Creating project with requirement:',
+        requirementText.slice(0, 50)
+      );
       const createResponse = await fetch('/api/v1/ai-coding/projects', {
         method: 'POST',
         headers: {
@@ -345,9 +353,9 @@ function NewCodingProjectPageContent() {
           Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
-          name: projectName || requirement.slice(0, 50),
-          description: requirement.slice(0, 500),
-          requirement: requirement,
+          name: projectName || requirementText.slice(0, 50),
+          description: requirementText.slice(0, 500),
+          requirement: requirementText,
           techStack,
         }),
       });
