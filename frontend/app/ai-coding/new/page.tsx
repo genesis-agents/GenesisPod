@@ -1,9 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  Suspense,
+  useMemo,
+} from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from '@/components/layout/Sidebar';
+import AIMessageRenderer from '@/components/ui/AIMessageRenderer';
 import {
   useAiCodingSocket,
   TeamMessageEvent,
@@ -806,13 +814,166 @@ function NewCodingProjectPageContent() {
                 </div>
               </div>
             ) : (
-              /* Collaboration Messages */
+              /* Collaboration Messages - Enhanced Visualization */
               <div className="space-y-4">
-                {messages.length === 0 && !isCompleted && (
+                {/* Progress Timeline */}
+                <div className="rounded-xl border border-gray-200 bg-white p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h4 className="text-sm font-medium text-gray-700">
+                      开发流程
+                    </h4>
+                    <span className="text-xs text-gray-500">
+                      {progress}% 完成
+                    </span>
+                  </div>
+                  <div className="mb-2 h-2 overflow-hidden rounded-full bg-gray-100">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between">
+                    {agents.map((agent, idx) => (
+                      <div
+                        key={agent.role}
+                        className="flex flex-col items-center"
+                      >
+                        <div
+                          className={`mb-1 flex h-8 w-8 items-center justify-center rounded-full text-sm transition-all duration-300 ${
+                            agent.status === 'completed'
+                              ? 'bg-emerald-100 text-emerald-600'
+                              : agent.status === 'running'
+                                ? 'animate-pulse bg-blue-100 text-blue-600 ring-2 ring-blue-400 ring-offset-2'
+                                : agent.status === 'error'
+                                  ? 'bg-red-100 text-red-600'
+                                  : 'bg-gray-100 text-gray-400'
+                          }`}
+                        >
+                          {agent.status === 'completed' ? (
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          ) : agent.status === 'running' ? (
+                            <svg
+                              className="h-4 w-4 animate-spin"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              />
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                              />
+                            </svg>
+                          ) : (
+                            <span className="text-xs">{idx + 1}</span>
+                          )}
+                        </div>
+                        <span
+                          className={`text-xs ${agent.status === 'running' ? 'font-medium text-blue-600' : 'text-gray-500'}`}
+                        >
+                          {agent.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Current Agent Working Status */}
+                {currentAgent && !isCompleted && (
+                  <div className="overflow-hidden rounded-xl border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+                    <div className="flex items-center gap-3 border-b border-blue-100 bg-white/50 px-4 py-3">
+                      <div className="relative">
+                        <span className="text-2xl">
+                          {agents.find((a) => a.role === currentAgent)?.icon}
+                        </span>
+                        <span className="absolute -bottom-1 -right-1 flex h-3 w-3">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75"></span>
+                          <span className="relative inline-flex h-3 w-3 rounded-full bg-blue-500"></span>
+                        </span>
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">
+                          {agents.find((a) => a.role === currentAgent)?.name}{' '}
+                          正在工作
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {
+                            agents.find((a) => a.role === currentAgent)
+                              ?.description
+                          }
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-blue-600">
+                        <svg
+                          className="h-4 w-4 animate-spin"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                          />
+                        </svg>
+                        处理中
+                      </div>
+                    </div>
+                    {/* Streaming dots animation */}
+                    <div className="px-4 py-3">
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <span>正在生成内容</span>
+                        <span className="inline-flex gap-1">
+                          <span
+                            className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-500"
+                            style={{ animationDelay: '0ms' }}
+                          />
+                          <span
+                            className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-500"
+                            style={{ animationDelay: '150ms' }}
+                          />
+                          <span
+                            className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-500"
+                            style={{ animationDelay: '300ms' }}
+                          />
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Messages with Markdown Rendering */}
+                {messages.length === 0 && !isCompleted && !currentAgent && (
                   <div className="flex items-center justify-center py-12">
                     <div className="text-center">
                       <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
-                      <p className="text-gray-500">AI 团队正在工作中...</p>
+                      <p className="text-gray-500">正在初始化 AI 团队...</p>
                     </div>
                   </div>
                 )}
@@ -821,18 +982,65 @@ function NewCodingProjectPageContent() {
                   const agent = agents.find(
                     (a) => a.role === message.agentRole
                   );
+                  const agentColors: Record<
+                    string,
+                    { bg: string; border: string; icon: string }
+                  > = {
+                    pm: {
+                      bg: 'bg-blue-50',
+                      border: 'border-blue-200',
+                      icon: 'text-blue-600',
+                    },
+                    architect: {
+                      bg: 'bg-purple-50',
+                      border: 'border-purple-200',
+                      icon: 'text-purple-600',
+                    },
+                    pmLead: {
+                      bg: 'bg-orange-50',
+                      border: 'border-orange-200',
+                      icon: 'text-orange-600',
+                    },
+                    engineer: {
+                      bg: 'bg-green-50',
+                      border: 'border-green-200',
+                      icon: 'text-green-600',
+                    },
+                    qa: {
+                      bg: 'bg-red-50',
+                      border: 'border-red-200',
+                      icon: 'text-red-600',
+                    },
+                  };
+                  const colors =
+                    agentColors[message.agentRole] || agentColors.pm;
+
                   return (
                     <div
                       key={message.id}
-                      className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                      className={`overflow-hidden rounded-xl border shadow-sm transition-all duration-300 ${
+                        message.status === 'thinking'
+                          ? 'border-gray-200 bg-gray-50'
+                          : `${colors.border} bg-white`
+                      }`}
                     >
                       {/* Agent Header */}
-                      <div className="mb-3 flex items-center gap-3">
-                        <span className="text-2xl">
+                      <div
+                        className={`flex items-center gap-3 border-b px-4 py-3 ${
+                          message.status === 'thinking'
+                            ? 'border-gray-100 bg-gray-50'
+                            : `${colors.border} ${colors.bg}`
+                        }`}
+                      >
+                        <span
+                          className={`text-2xl ${message.status === 'thinking' ? 'opacity-50' : ''}`}
+                        >
                           {agent?.icon || getAgentIcon(message.agentRole)}
                         </span>
-                        <div>
-                          <div className="font-medium text-gray-900">
+                        <div className="flex-1">
+                          <div
+                            className={`font-medium ${message.status === 'thinking' ? 'text-gray-500' : 'text-gray-900'}`}
+                          >
                             {agent?.name || getAgentName(message.agentRole)}
                           </div>
                           <div className="text-xs text-gray-500">
@@ -843,22 +1051,60 @@ function NewCodingProjectPageContent() {
                                 ).toLocaleTimeString()}
                           </div>
                         </div>
-                        {message.status === 'thinking' && (
-                          <div className="ml-auto h-4 w-4 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+                        {message.status === 'thinking' ? (
+                          <div className="flex items-center gap-2 text-xs text-gray-400">
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-transparent" />
+                            分析中
+                          </div>
+                        ) : (
+                          <div
+                            className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${colors.bg} ${colors.icon}`}
+                          >
+                            <svg
+                              className="h-3 w-3"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                            完成
+                          </div>
                         )}
                       </div>
 
-                      {/* Message Content */}
+                      {/* Message Content with Markdown */}
                       <div
-                        className={`prose prose-sm max-w-none ${
-                          message.status === 'thinking'
-                            ? 'animate-pulse text-gray-400'
-                            : 'text-gray-700'
-                        }`}
+                        className={`p-4 ${message.status === 'thinking' ? 'animate-pulse' : ''}`}
                       >
-                        <pre className="whitespace-pre-wrap font-sans">
-                          {message.content}
-                        </pre>
+                        {message.status === 'thinking' ? (
+                          <div className="flex items-center gap-2 text-sm text-gray-400">
+                            <span>正在生成内容</span>
+                            <span className="inline-flex gap-1">
+                              <span
+                                className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400"
+                                style={{ animationDelay: '0ms' }}
+                              />
+                              <span
+                                className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400"
+                                style={{ animationDelay: '150ms' }}
+                              />
+                              <span
+                                className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400"
+                                style={{ animationDelay: '300ms' }}
+                              />
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="max-h-96 overflow-y-auto">
+                            <AIMessageRenderer content={message.content} />
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -867,25 +1113,36 @@ function NewCodingProjectPageContent() {
 
                 {/* Error Message */}
                 {error && (
-                  <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-                    {error}
+                  <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+                    <svg
+                      className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <div>
+                      <h4 className="text-sm font-medium text-red-800">
+                        执行出错
+                      </h4>
+                      <p className="mt-1 text-sm text-red-700">{error}</p>
+                    </div>
                   </div>
                 )}
 
                 {/* Completion Actions */}
                 {isCompleted && (
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center">
-                    <div className="mb-4 text-4xl">🎉</div>
-                    <h3 className="mb-2 text-lg font-semibold text-gray-900">
-                      项目创建完成！
-                    </h3>
-                    <p className="mb-4 text-sm text-gray-600">
-                      AI 团队已完成所有工作，你可以查看或下载产出
-                    </p>
-                    <div className="flex justify-center gap-3">
-                      <button className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">
+                  <div className="overflow-hidden rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50">
+                    <div className="p-6 text-center">
+                      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
                         <svg
-                          className="h-4 w-4"
+                          className="h-8 w-8 text-emerald-600"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -894,17 +1151,55 @@ function NewCodingProjectPageContent() {
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             strokeWidth={2}
-                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                            d="M5 13l4 4L19 7"
                           />
                         </svg>
-                        下载代码
-                      </button>
-                      <button
-                        onClick={() => router.push('/ai-coding')}
-                        className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                      >
-                        返回列表
-                      </button>
+                      </div>
+                      <h3 className="mb-2 text-lg font-semibold text-gray-900">
+                        项目创建完成！
+                      </h3>
+                      <p className="mb-4 text-sm text-gray-600">
+                        AI 团队已完成所有工作，共生成{' '}
+                        {messages.filter((m) => m.status === 'done').length}{' '}
+                        份产出
+                      </p>
+                      <div className="flex justify-center gap-3">
+                        {projectId && (
+                          <button
+                            onClick={() =>
+                              router.push(`/ai-coding/${projectId}`)
+                            }
+                            className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+                          >
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                              />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                              />
+                            </svg>
+                            查看项目详情
+                          </button>
+                        )}
+                        <button
+                          onClick={() => router.push('/ai-coding')}
+                          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                          返回列表
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
