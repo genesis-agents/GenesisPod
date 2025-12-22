@@ -90,6 +90,7 @@ export class AiCodingService {
 
   /**
    * 发送 Agent 输出消息到团队聊天
+   * 同时保存到数据库并通过 WebSocket 广播
    */
   private async sendAgentMessage(
     projectId: string,
@@ -98,12 +99,28 @@ export class AiCodingService {
     messageType: CodingMessageType = CodingMessageType.OUTPUT,
   ): Promise<void> {
     try {
-      await this.teamService.sendMessage({
+      // 保存消息到数据库
+      const message = await this.teamService.sendMessage({
         projectId,
         senderRole: role,
         content,
         messageType,
       });
+
+      // 通过 WebSocket 广播消息
+      await this.eventEmitter.emitTeamMessage(projectId, {
+        id: message.id,
+        senderId: message.senderId || undefined,
+        senderRole: message.senderRole || undefined,
+        content: message.content,
+        messageType: message.messageType,
+        metadata: message.metadata as Record<string, unknown> | undefined,
+        createdAt: message.createdAt,
+      });
+
+      this.logger.debug(
+        `[${projectId}] Sent and emitted message: ${messageType} from ${role}`,
+      );
     } catch (error) {
       this.logger.warn(
         `Failed to send agent message: ${(error as Error).message}`,

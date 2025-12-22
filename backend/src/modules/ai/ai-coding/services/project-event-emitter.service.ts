@@ -136,4 +136,43 @@ export class ProjectEventEmitterService {
       this.logger.error("Failed to emit error event", err);
     }
   }
+
+  /**
+   * 发送团队消息事件
+   */
+  async emitTeamMessage(
+    projectId: string,
+    message: {
+      id: string;
+      senderId?: string;
+      senderRole?: string;
+      content: string;
+      messageType: string;
+      metadata?: Record<string, unknown>;
+      createdAt: Date;
+    },
+  ): Promise<void> {
+    if (!this.emitHandler) {
+      this.logger.debug(
+        "No emit handler registered, skipping team message emit",
+      );
+      return;
+    }
+
+    try {
+      await this.emitHandler(projectId, "team:message", {
+        projectId,
+        message: {
+          ...message,
+          createdAt: message.createdAt.toISOString(),
+        },
+        timestamp: new Date().toISOString(),
+      });
+      this.logger.debug(
+        `Emitted team message: ${message.messageType} from ${message.senderRole || "SYSTEM"}`,
+      );
+    } catch (error) {
+      this.logger.error("Failed to emit team message event", error);
+    }
+  }
 }
