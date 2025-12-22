@@ -52,6 +52,10 @@ END $$;
 ALTER TABLE "ai_coding_projects"
 ADD COLUMN IF NOT EXISTS "team_initialized" BOOLEAN NOT NULL DEFAULT false;
 
+-- 添加 current_mission_id 列到 ai_coding_projects
+ALTER TABLE "ai_coding_projects"
+ADD COLUMN IF NOT EXISTS "current_mission_id" UUID;
+
 -- ============ 新增团队协作表 ============
 
 -- 团队成员表
