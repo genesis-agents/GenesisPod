@@ -505,27 +505,39 @@ export function useAiCodingSocket(options: UseAiCodingSocketOptions = {}) {
   }, [isConnected, projectId]);
 
   // Manual join/leave methods
-  const joinProject = useCallback((pid: string) => {
-    const socket = socketRef.current;
-    if (!socket || !socket.connected) {
-      console.warn('[AI Coding Socket] Cannot join project: not connected');
-      return;
-    }
-
-    socket.emit(
-      'project:join',
-      { projectId: pid },
-      (response: { success?: boolean; error?: string }) => {
-        if (response.success) {
-          console.log('[AI Coding Socket] Joined project:', pid);
-        } else {
-          console.error(
-            '[AI Coding Socket] Failed to join project:',
-            response.error
-          );
-        }
+  const joinProject = useCallback((pid: string): Promise<boolean> => {
+    return new Promise((resolve, reject) => {
+      const socket = socketRef.current;
+      if (!socket || !socket.connected) {
+        console.warn('[AI Coding Socket] Cannot join project: not connected');
+        resolve(false);
+        return;
       }
-    );
+
+      // Set a timeout for join acknowledgment
+      const timeout = setTimeout(() => {
+        console.warn('[AI Coding Socket] Join project timeout');
+        resolve(false);
+      }, 5000);
+
+      socket.emit(
+        'project:join',
+        { projectId: pid },
+        (response: { success?: boolean; error?: string }) => {
+          clearTimeout(timeout);
+          if (response.success) {
+            console.log('[AI Coding Socket] Joined project:', pid);
+            resolve(true);
+          } else {
+            console.error(
+              '[AI Coding Socket] Failed to join project:',
+              response.error
+            );
+            resolve(false);
+          }
+        }
+      );
+    });
   }, []);
 
   const leaveProject = useCallback((pid: string) => {

@@ -303,7 +303,7 @@ function NewCodingProjectPageContent() {
   }, []);
 
   // Use WebSocket hook
-  const { isConnected, joinProject } = useAiCodingSocket({
+  const { isConnected, joinProject, getTeamMessages } = useAiCodingSocket({
     projectId: projectId || undefined,
     onTeamMessage: handleTeamMessage,
     onProgress: handleProgress,
@@ -317,13 +317,8 @@ function NewCodingProjectPageContent() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Join project room when projectId is set and connected
-  useEffect(() => {
-    if (projectId && isConnected && joinProject) {
-      console.log('[NewCodingProject] Joining project room:', projectId);
-      joinProject(projectId);
-    }
-  }, [projectId, isConnected, joinProject]);
+  // Note: Room joining is now handled in startProject function to ensure
+  // proper sequencing before starting project execution
 
   // Start multi-agent collaboration via AI Coding API
   const startProject = useCallback(async () => {
@@ -370,8 +365,76 @@ function NewCodingProjectPageContent() {
       setProjectId(project.id);
       setIsStarted(true);
 
-      // Wait a bit for WebSocket to connect and join room
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Wait for WebSocket to be ready and join the project room
+      // This ensures we receive all messages from the beginning
+      let joinAttempts = 0;
+      const maxAttempts = 10;
+      let joined = false;
+
+      while (!joined && joinAttempts < maxAttempts) {
+        if (isConnected && joinProject) {
+          console.log(
+            `[NewCodingProject] Attempting to join project room (attempt ${joinAttempts + 1})...`
+          );
+          joined = await joinProject(project.id);
+          if (joined) {
+            console.log('[NewCodingProject] Successfully joined project room');
+            break;
+          }
+        }
+        joinAttempts++;
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+
+      if (!joined) {
+        console.warn(
+          '[NewCodingProject] Could not join WebSocket room, proceeding anyway'
+        );
+      }
+
+      // Fetch any historical messages that might have been sent before we joined
+      if (joined && getTeamMessages) {
+        try {
+          const historyMessages = await getTeamMessages(project.id, 100);
+          if (historyMessages && historyMessages.length > 0) {
+            console.log(
+              `[NewCodingProject] Fetched ${historyMessages.length} historical messages`
+            );
+            // Convert historical messages to our format
+            historyMessages.forEach((msg) => {
+              const role = msg.senderRole
+                ? ROLE_MAP[msg.senderRole] || 'pm'
+                : 'pm';
+              if (
+                msg.messageType === 'OUTPUT' ||
+                msg.messageType === 'THINKING'
+              ) {
+                setMessages((prev) => {
+                  // Avoid duplicates
+                  if (prev.some((m) => m.id === msg.id)) return prev;
+                  return [
+                    ...prev,
+                    {
+                      id: msg.id,
+                      agentRole: role,
+                      content: msg.content,
+                      timestamp: new Date(msg.createdAt),
+                      status:
+                        msg.messageType === 'THINKING' ? 'thinking' : 'done',
+                      messageType: msg.messageType,
+                    },
+                  ];
+                });
+              }
+            });
+          }
+        } catch (historyError) {
+          console.warn(
+            '[NewCodingProject] Failed to fetch historical messages:',
+            historyError
+          );
+        }
+      }
 
       // Step 2: Start the project execution
       console.log('[NewCodingProject] Starting project execution...');
@@ -399,7 +462,15 @@ function NewCodingProjectPageContent() {
     } finally {
       setIsCreating(false);
     }
-  }, [requirement, projectName, techStack, accessToken]);
+  }, [
+    requirement,
+    projectName,
+    techStack,
+    accessToken,
+    isConnected,
+    joinProject,
+    getTeamMessages,
+  ]);
 
   // Get agent name
   const getAgentName = (role: string): string => {
