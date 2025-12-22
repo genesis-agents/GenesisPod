@@ -62,6 +62,10 @@ export class EmailService {
           user,
           pass,
         },
+        // Add connection timeout
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 30000,
       });
 
       this.isConfigured = true;
@@ -79,7 +83,7 @@ export class EmailService {
   }
 
   /**
-   * Send an email
+   * Send an email with timeout
    */
   async sendEmail(options: SendEmailOptions): Promise<boolean> {
     if (!this.isEnabled()) {
@@ -94,11 +98,16 @@ export class EmailService {
       "SMTP_FROM",
       "DeepDive <noreply@deepdive.ai>",
     );
+    const to = Array.isArray(options.to) ? options.to.join(", ") : options.to;
+
+    this.logger.log(
+      `Attempting to send email to: ${to}, subject: ${options.subject}`,
+    );
 
     try {
       const mailOptions: nodemailer.SendMailOptions = {
         from,
-        to: Array.isArray(options.to) ? options.to.join(", ") : options.to,
+        to,
         subject: options.subject,
         text: options.text,
         html: options.html,
@@ -110,11 +119,22 @@ export class EmailService {
         })),
       };
 
-      const info = await this.transporter!.sendMail(mailOptions);
+      // Add timeout to prevent hanging
+      const sendMailPromise = this.transporter!.sendMail(mailOptions);
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(
+          () => reject(new Error("Email send timeout after 30s")),
+          30000,
+        );
+      });
+
+      const info = await Promise.race([sendMailPromise, timeoutPromise]);
       this.logger.log(`Email sent successfully: ${info.messageId}`);
       return true;
     } catch (error) {
-      this.logger.error("Failed to send email", error);
+      this.logger.error(
+        `Failed to send email to ${to}: ${(error as Error).message}`,
+      );
       return false;
     }
   }
