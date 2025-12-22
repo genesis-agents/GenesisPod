@@ -823,13 +823,21 @@ ${body.text}
 
 Translation:`;
 
+      // Calculate dynamic maxTokens based on input length
+      const estimatedTokens = Math.ceil(body.text.length / 3);
+      const dynamicMaxTokens = Math.max(2000, estimatedTokens * 2);
+
+      this.logger.log(
+        `[Translate] Text length: ${body.text.length}, using maxTokens: ${dynamicMaxTokens}`,
+      );
+
       const result = await this.aiChatService.generateChatCompletionWithKey({
         provider: modelConfig.provider,
         modelId: modelConfig.modelId,
         apiKey: modelConfig.apiKey ?? "",
         apiEndpoint: modelConfig.apiEndpoint ?? undefined,
         messages: [{ role: "user", content: prompt }],
-        maxTokens: 2000,
+        maxTokens: dynamicMaxTokens,
         temperature: 0.3,
       });
 

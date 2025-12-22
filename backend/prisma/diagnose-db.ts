@@ -72,13 +72,22 @@ async function diagnose() {
     await prisma.$disconnect();
     console.log("\n✅ All diagnostics passed!");
     process.exit(0);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error(`\n❌ Connection failed!`);
-    console.error(`Error type: ${error.constructor.name}`);
-    console.error(`Error message: ${error.message}`);
 
-    if (error.code) {
-      console.error(`Error code: ${error.code}`);
+    if (error instanceof Error) {
+      console.error(`Error type: ${error.constructor.name}`);
+      console.error(`Error message: ${error.message}`);
+
+      // Prisma errors have a code property
+      if (
+        "code" in error &&
+        typeof (error as Record<string, unknown>).code === "string"
+      ) {
+        console.error(`Error code: ${(error as Record<string, unknown>).code}`);
+      }
+    } else {
+      console.error(`Error: ${String(error)}`);
     }
 
     // Additional diagnostics

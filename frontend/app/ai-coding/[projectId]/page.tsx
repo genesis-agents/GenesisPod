@@ -20,77 +20,8 @@ import {
   ProjectProgressEvent,
   AgentStatusEvent,
 } from '@/hooks/useAiCodingSocket';
-
-// Agent status display component
-function AgentStatusCard({
-  name,
-  icon,
-  status,
-  color,
-}: {
-  name: string;
-  icon: string;
-  status?: { status: string; startedAt?: string; completedAt?: string };
-  color: string;
-}) {
-  const statusColors: Record<string, string> = {
-    pending: 'bg-gray-100 text-gray-600',
-    running: 'bg-blue-100 text-blue-600',
-    completed: 'bg-green-100 text-green-600',
-    failed: 'bg-red-100 text-red-600',
-  };
-
-  const statusLabels: Record<string, string> = {
-    pending: '等待中',
-    running: '运行中',
-    completed: '已完成',
-    failed: '失败',
-  };
-
-  const agentStatus = status?.status || 'pending';
-
-  return (
-    <div
-      className={`rounded-xl border p-4 ${
-        agentStatus === 'running'
-          ? 'border-blue-200 bg-blue-50'
-          : agentStatus === 'completed'
-            ? 'border-green-200 bg-green-50'
-            : agentStatus === 'failed'
-              ? 'border-red-200 bg-red-50'
-              : 'border-gray-200 bg-gray-50'
-      }`}
-    >
-      <div className="flex items-center gap-3">
-        <span className="text-2xl">{icon}</span>
-        <div className="flex-1">
-          <div className="font-medium text-gray-900">{name}</div>
-          <span
-            className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs ${statusColors[agentStatus]}`}
-          >
-            {statusLabels[agentStatus]}
-          </span>
-        </div>
-        {agentStatus === 'running' && (
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-        )}
-        {agentStatus === 'completed' && (
-          <svg
-            className="h-5 w-5 text-green-500"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path
-              fillRule="evenodd"
-              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-              clipRule="evenodd"
-            />
-          </svg>
-        )}
-      </div>
-    </div>
-  );
-}
+import { TeamStatusPanel } from '@/components/ai-coding/AgentStatusCard';
+import TeamChatPanel from '@/components/ai-coding/TeamChatPanel';
 
 // Code file viewer component
 function CodeViewer({ files }: { files: ProjectFile[] }) {
@@ -216,9 +147,9 @@ export default function ProjectDetailPage() {
   const [documents, setDocuments] = useState<ProjectDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'documents' | 'code'>(
-    'overview'
-  );
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'documents' | 'code' | 'team'
+  >('overview');
   const [isStarting, setIsStarting] = useState(false);
   const [showIterateDialog, setShowIterateDialog] = useState(false);
   const [progressMessage, setProgressMessage] = useState<string | null>(null);
@@ -332,7 +263,12 @@ export default function ProjectDetailPage() {
     setProgressMessage(`错误: ${event.error}`);
   }, []);
 
-  const { isConnected: socketConnected } = useAiCodingSocket({
+  // 使用 WebSocket hook，内置状态管理团队成员和消息
+  const {
+    isConnected: socketConnected,
+    teamMembers,
+    messages: teamMessages,
+  } = useAiCodingSocket({
     projectId: project?.status === 'IN_PROGRESS' ? projectId : undefined,
     onProgress: handleSocketProgress,
     onAgentStatus: handleSocketAgentStatus,
@@ -568,21 +504,33 @@ export default function ProjectDetailPage() {
 
             {/* Tabs */}
             <div className="mt-6 flex gap-1">
-              {(['overview', 'documents', 'code'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                    activeTab === tab
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  {tab === 'overview' && '概览'}
-                  {tab === 'documents' && `文档 (${documents.length})`}
-                  {tab === 'code' && `代码 (${files.length})`}
-                </button>
-              ))}
+              {(['overview', 'team', 'documents', 'code'] as const).map(
+                (tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                      activeTab === tab
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {tab === 'overview' && '概览'}
+                    {tab === 'team' && (
+                      <span className="flex items-center gap-1.5">
+                        <span>团队协作</span>
+                        {teamMessages.length > 0 && (
+                          <span className="rounded-full bg-emerald-500 px-1.5 py-0.5 text-xs text-white">
+                            {teamMessages.length}
+                          </span>
+                        )}
+                      </span>
+                    )}
+                    {tab === 'documents' && `文档 (${documents.length})`}
+                    {tab === 'code' && `代码 (${files.length})`}
+                  </button>
+                )
+              )}
             </div>
           </div>
         </div>
@@ -673,43 +621,48 @@ export default function ProjectDetailPage() {
                 </div>
               </div>
 
-              {/* Agent Status */}
-              <div className="rounded-2xl border border-gray-200 bg-white p-6">
-                <h3 className="mb-4 text-lg font-semibold text-gray-900">
-                  AI 团队状态
-                </h3>
-                <div className="grid grid-cols-5 gap-4">
-                  <AgentStatusCard
-                    name="产品经理"
-                    icon="📝"
-                    status={project.agentStatus?.pm}
-                    color="blue"
-                  />
-                  <AgentStatusCard
-                    name="架构师"
-                    icon="🏗️"
-                    status={project.agentStatus?.architect}
-                    color="purple"
-                  />
-                  <AgentStatusCard
-                    name="项目经理"
-                    icon="📋"
-                    status={project.agentStatus?.pmLead}
-                    color="orange"
-                  />
-                  <AgentStatusCard
-                    name="工程师"
-                    icon="💻"
-                    status={project.agentStatus?.engineer}
-                    color="green"
-                  />
-                  <AgentStatusCard
-                    name="QA"
-                    icon="🔍"
-                    status={project.agentStatus?.qa}
-                    color="red"
-                  />
-                </div>
+              {/* Agent Status - 使用新的 TeamStatusPanel */}
+              <TeamStatusPanel
+                teamMembers={teamMembers}
+                legacyAgentStatus={project.agentStatus}
+              />
+            </div>
+          )}
+
+          {/* Team Tab - 团队协作面板 */}
+          {activeTab === 'team' && (
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+              {/* 团队成员状态 */}
+              <div className="lg:col-span-1">
+                <TeamStatusPanel
+                  teamMembers={teamMembers}
+                  legacyAgentStatus={project.agentStatus}
+                  showDetails
+                  className="h-full"
+                />
+              </div>
+
+              {/* 团队消息面板 */}
+              <div className="lg:col-span-2">
+                <TeamChatPanel
+                  messages={teamMessages.map((m) => ({
+                    ...m,
+                    messageType: m.messageType as
+                      | 'SYSTEM'
+                      | 'THINKING'
+                      | 'OUTPUT'
+                      | 'ERROR'
+                      | 'FEEDBACK'
+                      | 'APPROVAL'
+                      | 'REQUEST',
+                  }))}
+                  teamMembers={teamMembers}
+                  isLoading={
+                    project.status === 'IN_PROGRESS' &&
+                    teamMessages.length === 0
+                  }
+                  className="h-[600px]"
+                />
               </div>
             </div>
           )}

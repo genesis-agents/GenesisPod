@@ -3214,6 +3214,13 @@ model AiCodingProject {
   documents         AiCodingDocument[]
   complianceReports AiCodingComplianceReport[]
 
+  // 团队协同关系 (新增)
+  teamMembers       CodingTeamMember[]
+  missions          CodingMission[]
+  teamMessages      CodingTeamMessage[]
+  teamInitialized   Boolean @default(false) @map("team_initialized")
+  currentMissionId  String? @map("current_mission_id")
+
   @@index([userId, createdAt(sort: Desc)])
   @@index([status])
   @@map("ai_coding_projects")
@@ -3534,4 +3541,287 @@ model AiCodingDocument {
 
   @@index([projectId, type])
   @@map("ai_coding_documents")
+}
+
+// ============ AI Coding 团队协同 (新增) ============
+
+// 团队成员角色类型
+enum CodingAgentRole {
+  PM           // 产品经理 - Leader角色
+  ARCHITECT    // 架构师
+  PM_LEAD      // 项目经理
+  ENGINEER     // 工程师
+  QA           // QA测试
+}
+
+// 团队成员状态
+enum CodingAgentMemberStatus {
+  IDLE       // 空闲
+  WORKING    // 工作中
+  WAITING    // 等待审查
+  COMPLETED  // 已完成
+  FAILED     // 失败
+  ERROR      // 错误状态
+}
+
+// 任务状态
+enum CodingMissionStatus {
+  PENDING      // 待开始
+  PLANNING     // 规划中
+  IN_PROGRESS  // 进行中
+  EXECUTING    // 执行中
+  REVIEWING    // 审查中
+  COMPLETED    // 已完成
+  FAILED       // 失败
+  CANCELLED    // 已取消
+}
+
+// 子任务状态
+enum CodingTaskStatus {
+  PENDING     // 待开始
+  ASSIGNED    // 已分配
+  IN_PROGRESS // 执行中
+  REVIEW      // 待审查
+  APPROVED    // 已通过
+  REJECTED    // 已拒绝
+  COMPLETED   // 已完成
+  FAILED      // 失败
+}
+
+// 子任务类型
+enum CodingTaskType {
+  PRD             // PRD编写
+  ARCHITECTURE    // 架构设计
+  TASK_BREAKDOWN  // 任务拆分
+  CODE            // 代码编写
+  TEST            // 测试用例
+  REVIEW          // 代码审查
+}
+
+// 消息类型
+enum CodingMessageType {
+  CHAT            // 普通对话
+  TASK_UPDATE     // 任务更新
+  SYSTEM          // 系统消息
+  REVIEW_REQUEST  // 审查请求
+  REVIEW_RESULT   // 审查结果
+  ERROR           // 错误消息
+  THINKING        // 思考过程
+  OUTPUT          // 输出结果
+  FEEDBACK        // 反馈消息
+  APPROVAL        // 审批通过
+  REQUEST         // 请求消息
+}
+
+// 团队成员
+model CodingTeamMember {
+  id            String                   @id @default(uuid())
+  projectId     String                   @map("project_id")
+  project       AiCodingProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  agentRole     CodingAgentRole          @map("agent_role")
+  displayName   String                   @map("display_name") @db.VarChar(100)
+  avatar        String?                  @db.VarChar(10) // Emoji
+  aiModel       String                   @default("gemini") @map("ai_model") @db.VarChar(50) // 使用配置的模型名称
+  aiModelId     String?                  @map("ai_model_id") // AI模型ID关联
+  systemPrompt  String                   @map("system_prompt") @db.Text
+
+  isLeader      Boolean                  @default(false) @map("is_leader")
+  status        CodingAgentMemberStatus  @default(IDLE)
+
+  // 当前任务状态
+  currentTask   String?                  @map("current_task") @db.VarChar(500)
+  lastError     String?                  @map("last_error") @db.Text
+  lastActiveAt  DateTime?                @map("last_active_at")
+
+  // 统计信息
+  tasksCompleted Int                     @default(0) @map("tasks_completed")
+  tokensUsed     Int                     @default(0) @map("tokens_used")
+
+  createdAt     DateTime                 @default(now()) @map("created_at")
+  updatedAt     DateTime                 @updatedAt @map("updated_at")
+
+  // Relations
+  sentMessages    CodingTeamMessage[]    @relation("CodingMessageSender")
+  assignedTasks   CodingAgentTask[]      @relation("CodingTaskAssignee")
+  reviewedTasks   CodingAgentTask[]      @relation("CodingTaskReviewer")
+  ledMissions     CodingMission[]        @relation("CodingMissionLeader")
+
+  @@unique([projectId, agentRole])
+  @@index([projectId])
+  @@index([status])
+  @@map("coding_team_members")
+}
+
+// 开发任务 (Mission)
+model CodingMission {
+  id            String              @id @default(uuid())
+  projectId     String              @map("project_id")
+  project       AiCodingProject     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  leaderId      String              @map("leader_id")
+  leader        CodingTeamMember    @relation("CodingMissionLeader", fields: [leaderId], references: [id])
+
+  title         String              @db.VarChar(500)
+  description   String              @db.Text
+  requirement   String?             @db.Text // 原始需求
+  objectives    Json                @default("[]") // 目标列表
+
+  status        CodingMissionStatus @default(PENDING)
+
+  // AI生成的任务分解
+  taskBreakdown Json?               @map("task_breakdown")
+
+  // 最终产出
+  finalResult   Json?               @map("final_result")
+
+  // 错误信息
+  errorMessage  String?             @map("error_message") @db.Text
+  errorDetails  Json?               @map("error_details")
+
+  // 修改轮次控制
+  currentRound  Int                 @default(1) @map("current_round")
+  maxRounds     Int                 @default(3) @map("max_rounds")
+
+  // 时间戳
+  startedAt     DateTime?           @map("started_at")
+  completedAt   DateTime?           @map("completed_at")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+
+  // Relations
+  tasks         CodingAgentTask[]
+  logs          CodingMissionLog[]
+
+  @@index([projectId])
+  @@index([status])
+  @@map("coding_missions")
+}
+
+// Agent 子任务
+model CodingAgentTask {
+  id            String              @id @default(uuid())
+  missionId     String              @map("mission_id")
+  mission       CodingMission       @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  projectId     String?             @map("project_id") // 冗余，便于直接查询
+
+  title         String              @db.VarChar(500)
+  description   String              @db.Text
+  taskType      CodingTaskType      @map("task_type")
+  priority      Int                 @default(0) // 0=normal, 1=high, 2=urgent
+
+  // 分配
+  assignedToId  String              @map("assigned_to_id")
+  assignedTo    CodingTeamMember    @relation("CodingTaskAssignee", fields: [assignedToId], references: [id])
+  assigneeRole  CodingAgentRole?    @map("assignee_role") // 被分配者角色（冗余，便于查询）
+
+  // 审查
+  reviewerId    String?             @map("reviewer_id")
+  reviewer      CodingTeamMember?   @relation("CodingTaskReviewer", fields: [reviewerId], references: [id])
+
+  status        CodingTaskStatus    @default(PENDING)
+
+  // 依赖关系
+  dependencies  Json                @default("[]") // 依赖的任务ID列表
+  dependsOn     String[]            @default([]) @map("depends_on") // 依赖的任务ID数组
+
+  // 输入上下文
+  input         Json?               // 任务输入上下文
+
+  // 输出
+  output        Json?               // AI生成的输出
+  outputHash    String?             @map("output_hash") @db.VarChar(64) // 输出内容的hash
+
+  // 审查反馈
+  feedback      String?             @db.Text
+  feedbackHistory Json?             @map("feedback_history") // 历史反馈记录
+
+  // 重试控制
+  retryCount    Int                 @default(0) @map("retry_count")
+  maxRetries    Int                 @default(3) @map("max_retries")
+  lastError     String?             @map("last_error") @db.Text
+  errorMessage  String?             @map("error_message") @db.Text
+
+  // Token统计
+  tokensUsed    Int                 @default(0) @map("tokens_used")
+
+  // 时间戳
+  assignedAt    DateTime?           @map("assigned_at")
+  startedAt     DateTime?           @map("started_at")
+  completedAt   DateTime?           @map("completed_at")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+
+  @@index([missionId])
+  @@index([projectId])
+  @@index([assignedToId])
+  @@index([status])
+  @@map("coding_agent_tasks")
+}
+
+// 团队消息
+model CodingTeamMessage {
+  id            String              @id @default(uuid())
+  projectId     String              @map("project_id")
+  project       AiCodingProject     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // 发送者（AI Agent）
+  senderId      String?             @map("sender_id")
+  sender        CodingTeamMember?   @relation("CodingMessageSender", fields: [senderId], references: [id])
+  senderRole    CodingAgentRole?    @map("sender_role") // 发送者角色（冗余，便于查询）
+
+  content       String              @db.Text
+  messageType   CodingMessageType   @default(CHAT) @map("message_type")
+
+  // AI调用信息
+  aiModel       String?             @map("ai_model") @db.VarChar(50)
+  tokensUsed    Int?                @map("tokens_used")
+  latencyMs     Int?                @map("latency_ms") // 响应延迟（毫秒）
+
+  // 提及和回复
+  mentions      Json                @default("[]") // 提及的Agent ID列表
+  replyToId     String?             @map("reply_to_id") // 回复的消息ID
+
+  // 关联任务
+  taskId        String?             @map("task_id")
+
+  // 元数据
+  metadata      Json?
+
+  createdAt     DateTime            @default(now()) @map("created_at")
+
+  @@index([projectId])
+  @@index([senderId])
+  @@index([messageType])
+  @@index([createdAt])
+  @@map("coding_team_messages")
+}
+
+// Mission 执行日志
+model CodingMissionLog {
+  id            String              @id @default(uuid())
+  missionId     String              @map("mission_id")
+  mission       CodingMission       @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  phase         String              @db.VarChar(50) // planning, executing, reviewing, completed, failed
+  eventType     String?             @map("event_type") @db.VarChar(100) // 事件类型
+  action        String              @db.Text // 具体动作描述
+  agentId       String?             @map("agent_id") // 相关Agent
+  taskId        String?             @map("task_id") // 相关任务
+
+  details       Json?               // 详细信息
+  data          Json?               // 事件数据
+
+  // 错误信息（如果是错误日志）
+  errorType     String?             @map("error_type") @db.VarChar(50)
+  errorMessage  String?             @map("error_message") @db.Text
+  errorStack    String?             @map("error_stack") @db.Text
+
+  createdAt     DateTime            @default(now()) @map("created_at")
+
+  @@index([missionId])
+  @@index([phase])
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("coding_mission_logs")
 }

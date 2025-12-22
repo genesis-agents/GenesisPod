@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Delete,
   Patch,
   Param,
@@ -321,6 +322,161 @@ export class AdminController {
   ) {
     this.logger.log(`Admin: Updating ${body.length} settings`);
     return this.adminService.setSettings(body);
+  }
+
+  // ============ Category-Specific Settings Endpoints ============
+
+  /**
+   * Get SMTP settings
+   * GET /api/v1/admin/settings/smtp
+   */
+  @Get("settings/smtp")
+  async getSmtpSettings() {
+    this.logger.log("Admin: Fetching SMTP settings");
+    return this.adminService.getSmtpSettings();
+  }
+
+  /**
+   * Update SMTP settings
+   * PUT /api/v1/admin/settings/smtp
+   */
+  @Put("settings/smtp")
+  async updateSmtpSettings(
+    @Body()
+    body: {
+      host?: string;
+      port?: number;
+      user?: string;
+      pass?: string;
+      from?: string;
+      enabled?: boolean;
+      adminEmail?: string;
+    },
+  ) {
+    this.logger.log("Admin: Updating SMTP settings");
+    return this.adminService.updateSmtpSettings(body);
+  }
+
+  /**
+   * Test SMTP connection
+   * POST /api/v1/admin/settings/smtp/test
+   */
+  @Post("settings/smtp/test")
+  async testSmtpConnection() {
+    this.logger.log("Admin: Testing SMTP connection");
+    return this.adminService.testSmtpConnection();
+  }
+
+  /**
+   * Get Site settings
+   * GET /api/v1/admin/settings/site
+   */
+  @Get("settings/site")
+  async getSiteSettings() {
+    this.logger.log("Admin: Fetching Site settings");
+    return this.adminService.getSiteSettings();
+  }
+
+  /**
+   * Update Site settings
+   * PUT /api/v1/admin/settings/site
+   */
+  @Put("settings/site")
+  async updateSiteSettings(
+    @Body()
+    body: {
+      siteName?: string;
+      siteDescription?: string;
+      maintenanceMode?: boolean;
+      maintenanceMessage?: string;
+      allowRegistration?: boolean;
+      requireEmailVerification?: boolean;
+    },
+  ) {
+    this.logger.log("Admin: Updating Site settings");
+    return this.adminService.updateSiteSettings(body);
+  }
+
+  /**
+   * Get AI settings
+   * GET /api/v1/admin/settings/ai
+   */
+  @Get("settings/ai")
+  async getAiSettings() {
+    this.logger.log("Admin: Fetching AI settings");
+    return this.adminService.getAiSettings();
+  }
+
+  /**
+   * Update AI settings
+   * PUT /api/v1/admin/settings/ai
+   */
+  @Put("settings/ai")
+  async updateAiSettings(
+    @Body()
+    body: {
+      defaultModel?: string;
+      maxTokens?: number;
+      temperature?: number;
+      rateLimitPerMinute?: number;
+      rateLimitPerDay?: number;
+    },
+  ) {
+    this.logger.log("Admin: Updating AI settings");
+    return this.adminService.updateAiSettings(body);
+  }
+
+  /**
+   * Get Security settings
+   * GET /api/v1/admin/settings/security
+   */
+  @Get("settings/security")
+  async getSecuritySettings() {
+    this.logger.log("Admin: Fetching Security settings");
+    return this.adminService.getSecuritySettings();
+  }
+
+  /**
+   * Update Security settings
+   * PUT /api/v1/admin/settings/security
+   */
+  @Put("settings/security")
+  async updateSecuritySettings(
+    @Body()
+    body: {
+      sessionTimeoutHours?: number;
+      maxLoginAttempts?: number;
+      lockoutDurationMinutes?: number;
+    },
+  ) {
+    this.logger.log("Admin: Updating Security settings");
+    return this.adminService.updateSecuritySettings(body);
+  }
+
+  /**
+   * Get Storage settings
+   * GET /api/v1/admin/settings/storage
+   */
+  @Get("settings/storage")
+  async getStorageSettings() {
+    this.logger.log("Admin: Fetching Storage settings");
+    return this.adminService.getStorageSettings();
+  }
+
+  /**
+   * Update Storage settings
+   * PUT /api/v1/admin/settings/storage
+   */
+  @Put("settings/storage")
+  async updateStorageSettings(
+    @Body()
+    body: {
+      maxUploadSizeMb?: number;
+      allowedFileTypes?: string;
+    },
+  ) {
+    this.logger.log("Admin: Updating Storage settings");
+    return this.adminService.updateStorageSettings(body);
   }
 
   // ============ Search API Configuration ============

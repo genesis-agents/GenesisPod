@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { AIErrorClassifier } from "../../../common/ai-orchestration/error-classifier";
+import { AiServiceUnavailableError } from "./exceptions";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -31,7 +32,107 @@ export class AiChatService {
   // Retry configuration
   private readonly MAX_RETRIES = 3;
 
+  // 是否在 AI Coding 模式下（严格模式，API失败会抛出异常）
+  private strictMode = false;
+
   constructor(private readonly httpService: HttpService) {}
+
+  /**
+   * 设置严格模式
+   * 在严格模式下，API密钥缺失或调用失败会抛出异常而非返回错误文本
+   */
+  setStrictMode(enabled: boolean): void {
+    this.strictMode = enabled;
+  }
+
+  /**
+   * 获取指定模型所需的 API 密钥环境变量名
+   */
+  getRequiredApiKeyName(model: string): string {
+    const modelLower = model.toLowerCase();
+    if (modelLower === "grok" || modelLower.includes("grok")) {
+      return "XAI_API_KEY";
+    } else if (
+      modelLower === "gpt-4" ||
+      modelLower.includes("gpt") ||
+      modelLower.startsWith("o1") ||
+      modelLower.startsWith("o3")
+    ) {
+      return "OPENAI_API_KEY";
+    } else if (modelLower === "claude" || modelLower.includes("claude")) {
+      return "ANTHROPIC_API_KEY";
+    } else if (modelLower === "gemini" || modelLower.includes("gemini")) {
+      return "GOOGLE_AI_API_KEY";
+    }
+    return "GOOGLE_AI_API_KEY"; // 默认
+  }
+
+  /**
+   * 验证 AI 服务是否可用
+   * @param model 要验证的模型名称，不传则验证默认模型
+   * @throws AiServiceUnavailableError 如果服务不可用
+   */
+  async validateAIServiceAvailability(model?: string): Promise<void> {
+    const targetModel = model || process.env.DEFAULT_AI_MODEL || "gemini";
+    const requiredEnvKey = this.getRequiredApiKeyName(targetModel);
+
+    if (!process.env[requiredEnvKey]) {
+      throw new AiServiceUnavailableError(
+        `AI服务不可用: 缺少必需的环境变量 ${requiredEnvKey}`,
+        targetModel,
+      );
+    }
+
+    // 可选：测试API连通性（发送一个简单请求）
+    try {
+      const testResult = await this.generateChatCompletion({
+        model: targetModel,
+        messages: [{ role: "user", content: "Hello" }],
+        maxTokens: 10,
+        temperature: 0,
+      });
+
+      // 检查响应是否包含错误信息
+      if (
+        testResult.content.includes("API Key 未配置") ||
+        testResult.content.includes("API 调用失败") ||
+        testResult.content.includes("无法生成回复")
+      ) {
+        throw new AiServiceUnavailableError(
+          `AI服务响应异常: ${testResult.content.slice(0, 100)}`,
+          targetModel,
+        );
+      }
+    } catch (error) {
+      if (error instanceof AiServiceUnavailableError) {
+        throw error;
+      }
+      throw new AiServiceUnavailableError(
+        `AI服务连接测试失败: ${error instanceof Error ? error.message : String(error)}`,
+        targetModel,
+      );
+    }
+  }
+
+  /**
+   * 检查指定模型的 API 密钥是否已配置
+   */
+  isApiKeyConfigured(model: string): boolean {
+    const requiredEnvKey = this.getRequiredApiKeyName(model);
+    return !!process.env[requiredEnvKey];
+  }
+
+  /**
+   * 获取所有已配置的 AI 模型列表
+   */
+  getAvailableModels(): string[] {
+    const models: string[] = [];
+    if (process.env.XAI_API_KEY) models.push("grok");
+    if (process.env.OPENAI_API_KEY) models.push("gpt-4");
+    if (process.env.ANTHROPIC_API_KEY) models.push("claude");
+    if (process.env.GOOGLE_AI_API_KEY) models.push("gemini");
+    return models;
+  }
 
   /**
    * Execute an async operation with retry logic for network errors
@@ -429,6 +530,12 @@ Format the summary in a clear, structured manner using markdown.`;
 
     if (!apiKey) {
       this.logger.warn("XAI_API_KEY not configured");
+      if (this.strictMode) {
+        throw new AiServiceUnavailableError(
+          "XAI_API_KEY 环境变量未设置",
+          "grok",
+        );
+      }
       return {
         content: `**API Key 未配置**\n\n我是 Grok，但无法生成回复，因为 XAI_API_KEY 环境变量未设置。\n\n请在管理后台配置 API Key 或设置环境变量。`,
         model: "grok",
@@ -488,6 +595,12 @@ Format the summary in a clear, structured manner using markdown.`;
 
     if (!apiKey) {
       this.logger.warn("OPENAI_API_KEY not configured");
+      if (this.strictMode) {
+        throw new AiServiceUnavailableError(
+          "OPENAI_API_KEY 环境变量未设置",
+          "gpt-4",
+        );
+      }
       return {
         content: `**API Key 未配置**\n\n我是 GPT-4，但无法生成回复，因为 OPENAI_API_KEY 环境变量未设置。\n\n请在管理后台配置 API Key 或设置环境变量。`,
         model: "gpt-4",
@@ -547,6 +660,12 @@ Format the summary in a clear, structured manner using markdown.`;
 
     if (!apiKey) {
       this.logger.warn("ANTHROPIC_API_KEY not configured");
+      if (this.strictMode) {
+        throw new AiServiceUnavailableError(
+          "ANTHROPIC_API_KEY 环境变量未设置",
+          "claude",
+        );
+      }
       return {
         content: `**API Key 未配置**\n\n我是 Claude，但无法生成回复，因为 ANTHROPIC_API_KEY 环境变量未设置。\n\n请在管理后台配置 API Key 或设置环境变量。`,
         model: "claude",
@@ -613,6 +732,12 @@ Format the summary in a clear, structured manner using markdown.`;
 
     if (!apiKey) {
       this.logger.warn("GOOGLE_AI_API_KEY not configured");
+      if (this.strictMode) {
+        throw new AiServiceUnavailableError(
+          "GOOGLE_AI_API_KEY 环境变量未设置",
+          "gemini",
+        );
+      }
       return {
         content: `**API Key 未配置**\n\n我是 Gemini，但无法生成回复，因为 GOOGLE_AI_API_KEY 环境变量未设置。\n\n请在管理后台配置 API Key 或设置环境变量。`,
         model: "gemini",

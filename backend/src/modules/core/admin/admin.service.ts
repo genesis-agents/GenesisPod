@@ -1907,4 +1907,484 @@ export class AdminService {
 
     return result;
   }
+
+  // ============ Category-Specific Settings Methods ============
+
+  /**
+   * Get SMTP settings
+   */
+  async getSmtpSettings() {
+    const [host, port, user, pass, from, enabled, adminEmail] =
+      await Promise.all([
+        this.getSetting("smtp.host"),
+        this.getSetting("smtp.port"),
+        this.getSetting("smtp.user"),
+        this.getSetting("smtp.pass"),
+        this.getSetting("smtp.from"),
+        this.getSetting("smtp.enabled"),
+        this.getSetting("smtp.adminEmail"),
+      ]);
+
+    return {
+      host: host || null,
+      port: port || 587,
+      user: user || null,
+      pass: pass ? "********" : null, // Mask password
+      from: from || "",
+      enabled: enabled === true,
+      adminEmail: adminEmail || null,
+    };
+  }
+
+  /**
+   * Update SMTP settings
+   */
+  async updateSmtpSettings(settings: {
+    host?: string;
+    port?: number;
+    user?: string;
+    pass?: string;
+    from?: string;
+    enabled?: boolean;
+    adminEmail?: string;
+  }) {
+    const updates: Array<{
+      key: string;
+      value: any;
+      description?: string;
+      category: string;
+    }> = [];
+
+    if (settings.host !== undefined) {
+      updates.push({
+        key: "smtp.host",
+        value: settings.host,
+        description: "SMTP host",
+        category: "smtp",
+      });
+    }
+    if (settings.port !== undefined) {
+      updates.push({
+        key: "smtp.port",
+        value: settings.port,
+        description: "SMTP port",
+        category: "smtp",
+      });
+    }
+    if (settings.user !== undefined) {
+      updates.push({
+        key: "smtp.user",
+        value: settings.user,
+        description: "SMTP username",
+        category: "smtp",
+      });
+    }
+    // Only update password if it's not the masked value
+    if (settings.pass && settings.pass !== "********" && settings.pass.trim()) {
+      updates.push({
+        key: "smtp.pass",
+        value: settings.pass,
+        description: "SMTP password",
+        category: "smtp",
+      });
+    }
+    if (settings.from !== undefined) {
+      updates.push({
+        key: "smtp.from",
+        value: settings.from,
+        description: "SMTP from address",
+        category: "smtp",
+      });
+    }
+    if (settings.enabled !== undefined) {
+      updates.push({
+        key: "smtp.enabled",
+        value: settings.enabled,
+        description: "SMTP enabled",
+        category: "smtp",
+      });
+    }
+    if (settings.adminEmail !== undefined) {
+      updates.push({
+        key: "smtp.adminEmail",
+        value: settings.adminEmail,
+        description: "Admin email for notifications",
+        category: "smtp",
+      });
+    }
+
+    await this.setSettings(updates);
+    return { success: true };
+  }
+
+  /**
+   * Test SMTP connection
+   */
+  async testSmtpConnection() {
+    const [host, port, user, pass, from, adminEmail] = await Promise.all([
+      this.getSetting("smtp.host"),
+      this.getSetting("smtp.port"),
+      this.getSetting("smtp.user"),
+      this.getSetting("smtp.pass"),
+      this.getSetting("smtp.from"),
+      this.getSetting("smtp.adminEmail"),
+    ]);
+
+    if (!host || !user || !pass) {
+      return {
+        success: false,
+        message:
+          "SMTP configuration is incomplete. Please fill in host, user, and password.",
+      };
+    }
+
+    try {
+      // Dynamic import to avoid circular dependencies
+      const nodemailer = await import("nodemailer");
+
+      const transporter = nodemailer.createTransport({
+        host: host,
+        port: port || 587,
+        secure: port === 465,
+        auth: {
+          user: user,
+          pass: pass,
+        },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+      });
+
+      // Verify connection
+      await transporter.verify();
+
+      // Optionally send test email
+      if (adminEmail) {
+        await transporter.sendMail({
+          from: from || user,
+          to: adminEmail,
+          subject: "DeepDive SMTP Test",
+          text: "This is a test email from DeepDive. SMTP is configured correctly!",
+          html: "<p>This is a test email from DeepDive. <strong>SMTP is configured correctly!</strong></p>",
+        });
+        return {
+          success: true,
+          message: `Connection successful! Test email sent to ${adminEmail}`,
+        };
+      }
+
+      return {
+        success: true,
+        message: "SMTP connection successful!",
+      };
+    } catch (error) {
+      this.logger.error(`SMTP test failed: ${error}`);
+      return {
+        success: false,
+        message: `Connection failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      };
+    }
+  }
+
+  /**
+   * Get Site settings
+   */
+  async getSiteSettings() {
+    const [
+      siteName,
+      siteDescription,
+      maintenanceMode,
+      maintenanceMessage,
+      allowRegistration,
+      requireEmailVerification,
+    ] = await Promise.all([
+      this.getSetting("site.name"),
+      this.getSetting("site.description"),
+      this.getSetting("site.maintenanceMode"),
+      this.getSetting("site.maintenanceMessage"),
+      this.getSetting("site.allowRegistration"),
+      this.getSetting("site.requireEmailVerification"),
+    ]);
+
+    return {
+      siteName: siteName || "DeepDive",
+      siteDescription: siteDescription || "AI-powered research platform",
+      maintenanceMode: maintenanceMode === true,
+      maintenanceMessage: maintenanceMessage || "System is under maintenance",
+      allowRegistration: allowRegistration !== false,
+      requireEmailVerification: requireEmailVerification === true,
+    };
+  }
+
+  /**
+   * Update Site settings
+   */
+  async updateSiteSettings(settings: {
+    siteName?: string;
+    siteDescription?: string;
+    maintenanceMode?: boolean;
+    maintenanceMessage?: string;
+    allowRegistration?: boolean;
+    requireEmailVerification?: boolean;
+  }) {
+    const updates: Array<{
+      key: string;
+      value: any;
+      description?: string;
+      category: string;
+    }> = [];
+
+    if (settings.siteName !== undefined) {
+      updates.push({
+        key: "site.name",
+        value: settings.siteName,
+        description: "Site name",
+        category: "site",
+      });
+    }
+    if (settings.siteDescription !== undefined) {
+      updates.push({
+        key: "site.description",
+        value: settings.siteDescription,
+        description: "Site description",
+        category: "site",
+      });
+    }
+    if (settings.maintenanceMode !== undefined) {
+      updates.push({
+        key: "site.maintenanceMode",
+        value: settings.maintenanceMode,
+        description: "Maintenance mode",
+        category: "site",
+      });
+    }
+    if (settings.maintenanceMessage !== undefined) {
+      updates.push({
+        key: "site.maintenanceMessage",
+        value: settings.maintenanceMessage,
+        description: "Maintenance message",
+        category: "site",
+      });
+    }
+    if (settings.allowRegistration !== undefined) {
+      updates.push({
+        key: "site.allowRegistration",
+        value: settings.allowRegistration,
+        description: "Allow new user registration",
+        category: "site",
+      });
+    }
+    if (settings.requireEmailVerification !== undefined) {
+      updates.push({
+        key: "site.requireEmailVerification",
+        value: settings.requireEmailVerification,
+        description: "Require email verification",
+        category: "site",
+      });
+    }
+
+    await this.setSettings(updates);
+    return { success: true };
+  }
+
+  /**
+   * Get AI settings
+   */
+  async getAiSettings() {
+    const [
+      defaultModel,
+      maxTokens,
+      temperature,
+      rateLimitPerMinute,
+      rateLimitPerDay,
+    ] = await Promise.all([
+      this.getSetting("ai.defaultModel"),
+      this.getSetting("ai.maxTokens"),
+      this.getSetting("ai.temperature"),
+      this.getSetting("ai.rateLimitPerMinute"),
+      this.getSetting("ai.rateLimitPerDay"),
+    ]);
+
+    return {
+      defaultModel: defaultModel || "gpt-4o-mini",
+      maxTokens: maxTokens || 4096,
+      temperature: temperature || 0.7,
+      rateLimitPerMinute: rateLimitPerMinute || 20,
+      rateLimitPerDay: rateLimitPerDay || 500,
+    };
+  }
+
+  /**
+   * Update AI settings
+   */
+  async updateAiSettings(settings: {
+    defaultModel?: string;
+    maxTokens?: number;
+    temperature?: number;
+    rateLimitPerMinute?: number;
+    rateLimitPerDay?: number;
+  }) {
+    const updates: Array<{
+      key: string;
+      value: any;
+      description?: string;
+      category: string;
+    }> = [];
+
+    if (settings.defaultModel !== undefined) {
+      updates.push({
+        key: "ai.defaultModel",
+        value: settings.defaultModel,
+        description: "Default AI model",
+        category: "ai",
+      });
+    }
+    if (settings.maxTokens !== undefined) {
+      updates.push({
+        key: "ai.maxTokens",
+        value: settings.maxTokens,
+        description: "Max tokens for AI responses",
+        category: "ai",
+      });
+    }
+    if (settings.temperature !== undefined) {
+      updates.push({
+        key: "ai.temperature",
+        value: settings.temperature,
+        description: "AI temperature",
+        category: "ai",
+      });
+    }
+    if (settings.rateLimitPerMinute !== undefined) {
+      updates.push({
+        key: "ai.rateLimitPerMinute",
+        value: settings.rateLimitPerMinute,
+        description: "AI rate limit per minute",
+        category: "ai",
+      });
+    }
+    if (settings.rateLimitPerDay !== undefined) {
+      updates.push({
+        key: "ai.rateLimitPerDay",
+        value: settings.rateLimitPerDay,
+        description: "AI rate limit per day",
+        category: "ai",
+      });
+    }
+
+    await this.setSettings(updates);
+    return { success: true };
+  }
+
+  /**
+   * Get Security settings
+   */
+  async getSecuritySettings() {
+    const [sessionTimeoutHours, maxLoginAttempts, lockoutDurationMinutes] =
+      await Promise.all([
+        this.getSetting("security.sessionTimeoutHours"),
+        this.getSetting("security.maxLoginAttempts"),
+        this.getSetting("security.lockoutDurationMinutes"),
+      ]);
+
+    return {
+      sessionTimeoutHours: sessionTimeoutHours || 24,
+      maxLoginAttempts: maxLoginAttempts || 5,
+      lockoutDurationMinutes: lockoutDurationMinutes || 15,
+    };
+  }
+
+  /**
+   * Update Security settings
+   */
+  async updateSecuritySettings(settings: {
+    sessionTimeoutHours?: number;
+    maxLoginAttempts?: number;
+    lockoutDurationMinutes?: number;
+  }) {
+    const updates: Array<{
+      key: string;
+      value: any;
+      description?: string;
+      category: string;
+    }> = [];
+
+    if (settings.sessionTimeoutHours !== undefined) {
+      updates.push({
+        key: "security.sessionTimeoutHours",
+        value: settings.sessionTimeoutHours,
+        description: "Session timeout in hours",
+        category: "security",
+      });
+    }
+    if (settings.maxLoginAttempts !== undefined) {
+      updates.push({
+        key: "security.maxLoginAttempts",
+        value: settings.maxLoginAttempts,
+        description: "Max login attempts before lockout",
+        category: "security",
+      });
+    }
+    if (settings.lockoutDurationMinutes !== undefined) {
+      updates.push({
+        key: "security.lockoutDurationMinutes",
+        value: settings.lockoutDurationMinutes,
+        description: "Lockout duration in minutes",
+        category: "security",
+      });
+    }
+
+    await this.setSettings(updates);
+    return { success: true };
+  }
+
+  /**
+   * Get Storage settings
+   */
+  async getStorageSettings() {
+    const [maxUploadSizeMb, allowedFileTypes] = await Promise.all([
+      this.getSetting("storage.maxUploadSizeMb"),
+      this.getSetting("storage.allowedFileTypes"),
+    ]);
+
+    return {
+      maxUploadSizeMb: maxUploadSizeMb || 10,
+      allowedFileTypes:
+        allowedFileTypes || "image/*,application/pdf,.doc,.docx",
+    };
+  }
+
+  /**
+   * Update Storage settings
+   */
+  async updateStorageSettings(settings: {
+    maxUploadSizeMb?: number;
+    allowedFileTypes?: string;
+  }) {
+    const updates: Array<{
+      key: string;
+      value: any;
+      description?: string;
+      category: string;
+    }> = [];
+
+    if (settings.maxUploadSizeMb !== undefined) {
+      updates.push({
+        key: "storage.maxUploadSizeMb",
+        value: settings.maxUploadSizeMb,
+        description: "Max upload size in MB",
+        category: "storage",
+      });
+    }
+    if (settings.allowedFileTypes !== undefined) {
+      updates.push({
+        key: "storage.allowedFileTypes",
+        value: settings.allowedFileTypes,
+        description: "Allowed file types",
+        category: "storage",
+      });
+    }
+
+    await this.setSettings(updates);
+    return { success: true };
+  }
 }

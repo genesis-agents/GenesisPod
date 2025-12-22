@@ -13,6 +13,10 @@ import {
   DocumentService,
   ProjectEventEmitterService,
   CodingTaskService,
+  // 新增：团队协作服务
+  CodingTeamService,
+  CodingMissionService,
+  CodingAgentService,
 } from "./services";
 
 @Module({
@@ -28,6 +32,10 @@ import {
     DocumentService,
     ProjectEventEmitterService,
     CodingTaskService,
+    // 新增：团队协作服务
+    CodingTeamService,
+    CodingMissionService,
+    CodingAgentService,
   ],
   exports: [
     AiCodingService,
@@ -38,6 +46,10 @@ import {
     DocumentService,
     ProjectEventEmitterService,
     CodingTaskService,
+    // 新增：团队协作服务
+    CodingTeamService,
+    CodingMissionService,
+    CodingAgentService,
   ],
 })
 export class AiCodingModule {}

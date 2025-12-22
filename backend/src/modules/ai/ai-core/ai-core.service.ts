@@ -147,13 +147,22 @@ export class AiCoreService {
       const targetLangName = this.getLanguageName(targetLang);
       const prompt = `Translate the following text to ${targetLangName}. Only output the translated text, nothing else:\n\n${text}`;
 
+      // Calculate dynamic maxTokens based on input length
+      // Translation typically produces similar length output, add buffer for safety
+      const estimatedTokens = Math.ceil(text.length / 3); // Rough estimate: 3 chars per token
+      const dynamicMaxTokens = Math.max(2000, estimatedTokens * 2); // At least 2000, or 2x input estimate
+
+      this.logger.log(
+        `[Translation] Text length: ${text.length}, estimated tokens: ${estimatedTokens}, using maxTokens: ${dynamicMaxTokens}`,
+      );
+
       const result = await this.aiChatService.generateChatCompletionWithKey({
         provider: defaultModel.provider,
         modelId: defaultModel.modelId,
         apiKey: defaultModel.apiKey ?? "",
         apiEndpoint: defaultModel.apiEndpoint ?? undefined,
         messages: [{ role: "user", content: prompt }],
-        maxTokens: 1000,
+        maxTokens: dynamicMaxTokens,
         temperature: 0.3,
       });
 
