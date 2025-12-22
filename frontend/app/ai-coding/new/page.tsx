@@ -4,19 +4,23 @@ import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from '@/components/layout/Sidebar';
+import {
+  useAiCodingSocket,
+  TeamMessageEvent,
+  ProjectProgressEvent,
+  AgentStatusEvent,
+  ProjectCompleteEvent,
+  ProjectErrorEvent,
+} from '@/hooks/useAiCodingSocket';
 
 // Agent types for multi-agent collaboration
 interface AgentMessage {
   id: string;
-  agentRole: AgentRole;
+  agentRole: string;
   content: string;
   timestamp: Date;
   status: 'thinking' | 'done' | 'error';
-  artifacts?: {
-    type: 'prd' | 'design' | 'task' | 'code' | 'test';
-    content: string;
-    filename?: string;
-  }[];
+  messageType?: string;
 }
 
 type AgentRole = 'pm' | 'architect' | 'pmLead' | 'engineer' | 'qa';
@@ -109,6 +113,15 @@ const TEMPLATES: Record<
   },
 };
 
+// Role mapping from backend to frontend
+const ROLE_MAP: Record<string, AgentRole> = {
+  PM: 'pm',
+  ARCHITECT: 'architect',
+  PM_LEAD: 'pmLead',
+  ENGINEER: 'engineer',
+  QA: 'qa',
+};
+
 // Wrapper component with Suspense for useSearchParams
 export default function NewCodingProjectPage() {
   return (
@@ -154,392 +167,253 @@ function NewCodingProjectPageContent() {
   const [progress, setProgress] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isAuthenticated = !!accessToken;
+
+  // WebSocket event handlers
+  const handleTeamMessage = useCallback((event: TeamMessageEvent) => {
+    console.log('[NewCodingProject] Team message received:', event);
+    const { message } = event;
+    const role = message.senderRole
+      ? ROLE_MAP[message.senderRole] || 'pm'
+      : 'pm';
+
+    // Skip SYSTEM and THINKING messages for main display
+    if (message.messageType === 'SYSTEM') {
+      return;
+    }
+
+    // For OUTPUT messages, update or add message
+    if (message.messageType === 'OUTPUT') {
+      setMessages((prev) => {
+        // Check if we have a thinking message for this role
+        const thinkingIdx = prev.findIndex(
+          (m) => m.agentRole === role && m.status === 'thinking'
+        );
+        if (thinkingIdx !== -1) {
+          // Replace thinking message with output
+          const updated = [...prev];
+          updated[thinkingIdx] = {
+            id: message.id,
+            agentRole: role,
+            content: message.content,
+            timestamp: new Date(message.createdAt),
+            status: 'done',
+            messageType: message.messageType,
+          };
+          return updated;
+        }
+        // Add new message
+        return [
+          ...prev,
+          {
+            id: message.id,
+            agentRole: role,
+            content: message.content,
+            timestamp: new Date(message.createdAt),
+            status: 'done',
+            messageType: message.messageType,
+          },
+        ];
+      });
+    } else if (message.messageType === 'THINKING') {
+      // Add thinking message
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: message.id,
+          agentRole: role,
+          content: message.content,
+          timestamp: new Date(message.createdAt),
+          status: 'thinking',
+          messageType: message.messageType,
+        },
+      ]);
+    }
+  }, []);
+
+  const handleProgress = useCallback((event: ProjectProgressEvent) => {
+    console.log('[NewCodingProject] Progress:', event);
+    setProgress(event.progress);
+
+    // Map phase to agent role
+    const phaseToRole: Record<string, AgentRole> = {
+      pm: 'pm',
+      architect: 'architect',
+      pm_lead: 'pmLead',
+      engineer: 'engineer',
+      qa: 'qa',
+    };
+
+    const role = phaseToRole[event.phase];
+    if (role) {
+      setCurrentAgent(role);
+      if (event.status === 'started') {
+        setAgents((prev) =>
+          prev.map((a) => (a.role === role ? { ...a, status: 'running' } : a))
+        );
+      } else if (event.status === 'completed') {
+        setAgents((prev) =>
+          prev.map((a) => (a.role === role ? { ...a, status: 'completed' } : a))
+        );
+      } else if (event.status === 'failed') {
+        setAgents((prev) =>
+          prev.map((a) => (a.role === role ? { ...a, status: 'error' } : a))
+        );
+      }
+    }
+  }, []);
+
+  const handleAgentStatus = useCallback((event: AgentStatusEvent) => {
+    console.log('[NewCodingProject] Agent status:', event);
+    const role =
+      ROLE_MAP[event.agent.toUpperCase()] || (event.agent as AgentRole);
+
+    setAgents((prev) =>
+      prev.map((a) => {
+        if (a.role === role) {
+          let status: Agent['status'] = 'pending';
+          if (event.status === 'running') status = 'running';
+          else if (event.status === 'completed') status = 'completed';
+          else if (event.status === 'failed') status = 'error';
+          return { ...a, status };
+        }
+        return a;
+      })
+    );
+
+    if (event.status === 'running') {
+      setCurrentAgent(role);
+    }
+  }, []);
+
+  const handleComplete = useCallback((event: ProjectCompleteEvent) => {
+    console.log('[NewCodingProject] Complete:', event);
+    setIsCompleted(true);
+    setCurrentAgent(null);
+    setAgents((prev) => prev.map((a) => ({ ...a, status: 'completed' })));
+  }, []);
+
+  const handleError = useCallback((event: ProjectErrorEvent) => {
+    console.error('[NewCodingProject] Error:', event);
+    setError(event.error);
+  }, []);
+
+  // Use WebSocket hook
+  const { isConnected, joinProject } = useAiCodingSocket({
+    projectId: projectId || undefined,
+    onTeamMessage: handleTeamMessage,
+    onProgress: handleProgress,
+    onAgentStatus: handleAgentStatus,
+    onComplete: handleComplete,
+    onError: handleError,
+  });
 
   // Auto scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Simulate multi-agent collaboration with AI Agents
-  const startProject = useCallback(async () => {
-    if (!requirement.trim()) return;
+  // Join project room when projectId is set and connected
+  useEffect(() => {
+    if (projectId && isConnected && joinProject) {
+      console.log('[NewCodingProject] Joining project room:', projectId);
+      joinProject(projectId);
+    }
+  }, [projectId, isConnected, joinProject]);
 
-    setIsStarted(true);
+  // Start multi-agent collaboration via AI Coding API
+  const startProject = useCallback(async () => {
+    if (!requirement.trim() || !accessToken) return;
+
+    setIsCreating(true);
     setError(null);
     setMessages([]);
     setProgress(0);
-
-    const agentSequence: AgentRole[] = [
-      'pm',
-      'architect',
-      'pmLead',
-      'engineer',
-      'qa',
-    ];
+    setAgents(AGENTS);
 
     try {
-      for (let i = 0; i < agentSequence.length; i++) {
-        const agentRole = agentSequence[i];
-        setCurrentAgent(agentRole);
-
-        // Update agent status to running
-        setAgents((prev) =>
-          prev.map((a) =>
-            a.role === agentRole
-              ? { ...a, status: 'running' }
-              : a.role === agentSequence[i - 1]
-                ? { ...a, status: 'completed' }
-                : a
-          )
-        );
-
-        // Add thinking message
-        const thinkingMessage: AgentMessage = {
-          id: `${agentRole}-${Date.now()}`,
-          agentRole,
-          content: getAgentThinkingMessage(agentRole),
-          timestamp: new Date(),
-          status: 'thinking',
-        };
-        setMessages((prev) => [...prev, thinkingMessage]);
-
-        // Call the AI Agent API
-        const response = await executeAgent(agentRole, requirement, messages);
-
-        // Update message with response
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === thinkingMessage.id
-              ? {
-                  ...m,
-                  content: response.content,
-                  status: 'done' as const,
-                  artifacts: response.artifacts,
-                }
-              : m
-          )
-        );
-
-        // Update progress
-        setProgress(Math.round(((i + 1) / agentSequence.length) * 100));
-
-        // Small delay between agents
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
-
-      // Mark last agent as completed
-      setAgents((prev) =>
-        prev.map((a) => (a.role === 'qa' ? { ...a, status: 'completed' } : a))
-      );
-      setCurrentAgent(null);
-      setIsCompleted(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '发生错误，请重试');
-      setAgents((prev) =>
-        prev.map((a) =>
-          a.role === currentAgent ? { ...a, status: 'error' } : a
-        )
-      );
-    }
-  }, [requirement, messages]);
-
-  // Get thinking message for each agent
-  const getAgentThinkingMessage = (role: AgentRole): string => {
-    const messages: Record<AgentRole, string> = {
-      pm: '正在分析需求，编写产品需求文档 (PRD)...',
-      architect: '正在设计系统架构，规划技术方案...',
-      pmLead: '正在拆分任务，制定开发计划...',
-      engineer: '正在实现代码，构建功能模块...',
-      qa: '正在编写测试用例，进行代码审查...',
-    };
-    return messages[role];
-  };
-
-  // Execute agent via API
-  const executeAgent = async (
-    agentRole: AgentRole,
-    requirement: string,
-    previousMessages: AgentMessage[]
-  ): Promise<{ content: string; artifacts?: AgentMessage['artifacts'] }> => {
-    // Build context from previous messages
-    const context = previousMessages
-      .filter((m) => m.status === 'done')
-      .map((m) => `[${getAgentName(m.agentRole)}]:\n${m.content}`)
-      .join('\n\n');
-
-    const systemPrompt = getAgentSystemPrompt(agentRole, techStack);
-    const userPrompt = `
-用户需求：${requirement}
-
-${context ? `之前的工作成果：\n${context}` : ''}
-
-请根据你的角色职责，完成相应的工作任务。
-    `.trim();
-
-    try {
-      // Call the agents/execute API
-      const response = await fetch('/api/agents/execute', {
+      // Step 1: Create project via AI Coding API
+      console.log('[NewCodingProject] Creating project...');
+      const createResponse = await fetch('/api/v1/ai-coding/projects', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
-          agentType: 'DEVELOPER', // Use DEVELOPER agent type
-          prompt: userPrompt,
-          systemPrompt,
-          metadata: {
-            role: agentRole,
-            techStack,
-          },
+          name: projectName || requirement.slice(0, 50),
+          description: requirement,
+          techStack,
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('AI Agent 调用失败');
+      if (!createResponse.ok) {
+        const errorData = await createResponse.json().catch(() => ({}));
+        throw new Error(errorData.message || '创建项目失败');
       }
 
-      const data = await response.json();
+      const project = await createResponse.json();
+      console.log('[NewCodingProject] Project created:', project);
+      setProjectId(project.id);
+      setIsStarted(true);
 
-      // Parse the response and extract artifacts
-      const artifacts = parseArtifacts(agentRole, data.result || data.content);
+      // Wait a bit for WebSocket to connect and join room
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      return {
-        content: data.result || data.content || '处理完成',
-        artifacts,
-      };
+      // Step 2: Start the project execution
+      console.log('[NewCodingProject] Starting project execution...');
+      const startResponse = await fetch(
+        `/api/v1/ai-coding/projects/${project.id}/start`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (!startResponse.ok) {
+        const errorData = await startResponse.json().catch(() => ({}));
+        throw new Error(errorData.message || '启动项目失败');
+      }
+
+      console.log('[NewCodingProject] Project started successfully');
     } catch (err) {
-      // Fallback to mock response if API fails
-      console.error('Agent execution error:', err);
-      return getMockResponse(agentRole, requirement);
+      console.error('[NewCodingProject] Error:', err);
+      setError(err instanceof Error ? err.message : '发生错误，请重试');
+      setIsStarted(false);
+    } finally {
+      setIsCreating(false);
     }
-  };
+  }, [requirement, projectName, techStack, accessToken]);
 
   // Get agent name
-  const getAgentName = (role: AgentRole): string => {
-    const names: Record<AgentRole, string> = {
+  const getAgentName = (role: string): string => {
+    const names: Record<string, string> = {
       pm: '产品经理',
       architect: '架构师',
       pmLead: '项目经理',
       engineer: '工程师',
       qa: 'QA 工程师',
     };
-    return names[role];
+    return names[role] || role;
   };
 
-  // Get system prompt for each agent
-  const getAgentSystemPrompt = (
-    role: AgentRole,
-    techStack: { frontend?: string; backend?: string; database?: string }
-  ): string => {
-    const techInfo = [
-      techStack.frontend && `前端: ${techStack.frontend}`,
-      techStack.backend && `后端: ${techStack.backend}`,
-      techStack.database && `数据库: ${techStack.database}`,
-    ]
-      .filter(Boolean)
-      .join(', ');
-
-    const prompts: Record<AgentRole, string> = {
-      pm: `你是一位经验丰富的产品经理。根据用户需求，编写详细的产品需求文档 (PRD)，包括：
-1. 项目概述
-2. 目标用户
-3. 核心功能列表
-4. 用户故事
-5. 验收标准
-
-技术栈参考: ${techInfo || '待定'}`,
-
-      architect: `你是一位资深软件架构师。基于 PRD 文档，设计系统技术架构，包括：
-1. 技术选型说明
-2. 系统架构图（用文字描述）
-3. 数据模型设计
-4. API 接口设计
-5. 目录结构规划
-
-技术栈: ${techInfo || '待定'}`,
-
-      pmLead: `你是一位项目经理。基于系统设计，将开发工作拆分为具体任务，包括：
-1. 任务列表（按优先级排序）
-2. 每个任务的详细描述
-3. 任务依赖关系
-4. 预估工作量
-
-技术栈: ${techInfo || '待定'}`,
-
-      engineer: `你是一位全栈工程师。基于任务列表，实现核心功能代码，包括：
-1. 项目初始化代码
-2. 核心功能模块
-3. 数据模型实现
-4. API 接口实现
-5. 基本测试代码
-
-技术栈: ${techInfo || '待定'}
-要求：代码要符合最佳实践，包含必要注释`,
-
-      qa: `你是一位 QA 工程师。审查代码并编写测试用例，包括：
-1. 代码审查报告
-2. 单元测试用例
-3. 集成测试用例
-4. 潜在问题清单
-5. 优化建议
-
-技术栈: ${techInfo || '待定'}`,
+  // Get agent icon
+  const getAgentIcon = (role: string): string => {
+    const icons: Record<string, string> = {
+      pm: '📝',
+      architect: '🏗️',
+      pmLead: '📋',
+      engineer: '💻',
+      qa: '🔍',
     };
-    return prompts[role];
-  };
-
-  // Parse artifacts from response
-  const parseArtifacts = (
-    role: AgentRole,
-    content: string
-  ): AgentMessage['artifacts'] => {
-    // Simple parsing - in real implementation, use structured output
-    const artifactTypes: Record<
-      AgentRole,
-      'prd' | 'design' | 'task' | 'code' | 'test'
-    > = {
-      pm: 'prd',
-      architect: 'design',
-      pmLead: 'task',
-      engineer: 'code',
-      qa: 'test',
-    };
-
-    return [
-      {
-        type: artifactTypes[role],
-        content,
-      },
-    ];
-  };
-
-  // Mock response fallback
-  const getMockResponse = (
-    role: AgentRole,
-    requirement: string
-  ): { content: string; artifacts?: AgentMessage['artifacts'] } => {
-    const responses: Record<AgentRole, string> = {
-      pm: `## 产品需求文档 (PRD)
-
-### 项目概述
-${requirement}
-
-### 核心功能
-1. 用户认证模块
-2. 核心业务功能
-3. 数据管理功能
-
-### 用户故事
-- 作为用户，我希望能够快速完成核心操作
-- 作为用户，我希望界面简洁易用
-
-### 验收标准
-- [ ] 核心功能可正常使用
-- [ ] 界面响应及时
-- [ ] 数据正确保存`,
-
-      architect: `## 系统架构设计
-
-### 技术选型
-- 前端：${techStack.frontend || 'React'}
-- 后端：${techStack.backend || 'Node.js'}
-- 数据库：${techStack.database || 'PostgreSQL'}
-
-### 目录结构
-\`\`\`
-src/
-├── components/    # 前端组件
-├── pages/         # 页面
-├── api/           # 后端接口
-├── models/        # 数据模型
-└── utils/         # 工具函数
-\`\`\`
-
-### API 设计
-- GET /api/items - 获取列表
-- POST /api/items - 创建项目
-- PUT /api/items/:id - 更新项目
-- DELETE /api/items/:id - 删除项目`,
-
-      pmLead: `## 任务拆分
-
-### 高优先级
-1. **初始化项目** - 创建项目结构，配置开发环境
-2. **数据模型实现** - 定义数据库表结构
-3. **核心 API** - 实现 CRUD 接口
-
-### 中优先级
-4. **前端组件** - 创建基础 UI 组件
-5. **页面开发** - 实现主要页面
-
-### 低优先级
-6. **测试代码** - 编写单元测试
-7. **文档完善** - 补充开发文档`,
-
-      engineer: `## 代码实现
-
-\`\`\`typescript
-// src/api/items.ts
-import { Router } from 'express';
-
-const router = Router();
-
-// 获取列表
-router.get('/', async (req, res) => {
-  const items = await ItemModel.findAll();
-  res.json({ success: true, data: items });
-});
-
-// 创建项目
-router.post('/', async (req, res) => {
-  const item = await ItemModel.create(req.body);
-  res.json({ success: true, data: item });
-});
-
-export default router;
-\`\`\`
-
-代码已按照最佳实践实现，包含错误处理和数据验证。`,
-
-      qa: `## 测试报告
-
-### 代码审查
-- ✅ 代码结构清晰
-- ✅ 命名规范统一
-- ⚠️ 建议增加更多注释
-
-### 测试用例
-1. ✅ 获取列表 - 正常返回数据
-2. ✅ 创建项目 - 数据正确保存
-3. ✅ 更新项目 - 字段正确更新
-4. ✅ 删除项目 - 数据正确删除
-
-### 测试覆盖率
-- 总覆盖率：85%
-- 核心模块：92%`,
-    };
-
-    return {
-      content: responses[role],
-      artifacts: [
-        {
-          type:
-            role === 'pm'
-              ? 'prd'
-              : role === 'architect'
-                ? 'design'
-                : role === 'pmLead'
-                  ? 'task'
-                  : role === 'engineer'
-                    ? 'code'
-                    : 'test',
-          content: responses[role],
-        },
-      ],
-    };
+    return icons[role] || '🤖';
   };
 
   if (authLoading) {
@@ -685,11 +559,16 @@ export default router;
           {/* Header */}
           <div className="border-b border-gray-200 bg-white px-6 py-4">
             <h1 className="text-xl font-bold text-gray-900">
-              {projectName || '新建项目'}
+              {projectName || requirement?.slice(0, 30) || '新建项目'}
             </h1>
             {template && (
               <span className="mt-1 inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-600">
                 {template.name} 模板
+              </span>
+            )}
+            {isConnected && isStarted && (
+              <span className="ml-2 inline-block rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-600">
+                已连接
               </span>
             )}
           </div>
@@ -801,38 +680,63 @@ export default router;
                     </div>
                   </div>
 
+                  {/* Error Message */}
+                  {error && (
+                    <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                      {error}
+                    </div>
+                  )}
+
                   {/* Start Button */}
                   <button
                     onClick={startProject}
-                    disabled={!requirement.trim()}
+                    disabled={!requirement.trim() || isCreating}
                     className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 py-3 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <svg
-                      className="h-5 w-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    开始创建
+                    {isCreating ? (
+                      <>
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        创建中...
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="h-5 w-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                          />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        开始创建
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
             ) : (
               /* Collaboration Messages */
               <div className="space-y-4">
+                {messages.length === 0 && !isCompleted && (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center">
+                      <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
+                      <p className="text-gray-500">AI 团队正在工作中...</p>
+                    </div>
+                  </div>
+                )}
+
                 {messages.map((message) => {
                   const agent = agents.find(
                     (a) => a.role === message.agentRole
@@ -844,10 +748,12 @@ export default router;
                     >
                       {/* Agent Header */}
                       <div className="mb-3 flex items-center gap-3">
-                        <span className="text-2xl">{agent?.icon}</span>
+                        <span className="text-2xl">
+                          {agent?.icon || getAgentIcon(message.agentRole)}
+                        </span>
                         <div>
                           <div className="font-medium text-gray-900">
-                            {agent?.name}
+                            {agent?.name || getAgentName(message.agentRole)}
                           </div>
                           <div className="text-xs text-gray-500">
                             {message.status === 'thinking'
@@ -936,16 +842,29 @@ export default router;
               {/* Output List */}
               <div className="space-y-2">
                 {[
-                  { type: 'prd', name: 'PRD 文档', icon: '📝' },
-                  { type: 'design', name: '架构设计', icon: '🏗️' },
-                  { type: 'task', name: '任务列表', icon: '📋' },
-                  { type: 'code', name: '代码文件', icon: '💻' },
-                  { type: 'test', name: '测试用例', icon: '🔍' },
+                  { type: 'prd', name: 'PRD 文档', icon: '📝', role: 'pm' },
+                  {
+                    type: 'design',
+                    name: '架构设计',
+                    icon: '🏗️',
+                    role: 'architect',
+                  },
+                  {
+                    type: 'task',
+                    name: '任务列表',
+                    icon: '📋',
+                    role: 'pmLead',
+                  },
+                  {
+                    type: 'code',
+                    name: '代码文件',
+                    icon: '💻',
+                    role: 'engineer',
+                  },
+                  { type: 'test', name: '测试用例', icon: '🔍', role: 'qa' },
                 ].map((output) => {
                   const hasOutput = messages.some(
-                    (m) =>
-                      m.status === 'done' &&
-                      m.artifacts?.some((a) => a.type === output.type)
+                    (m) => m.status === 'done' && m.agentRole === output.role
                   );
                   return (
                     <div
