@@ -11,15 +11,29 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
+    // Extract message from messages array if not provided
+    let message = body.message;
+    if (!message && body.messages?.length > 0) {
+      const userMessages = body.messages.filter(
+        (m: { role: string }) => m.role === 'user'
+      );
+      message =
+        userMessages.length > 0
+          ? userMessages[userMessages.length - 1].content
+          : body.messages[body.messages.length - 1].content;
+    }
+
     // Forward to backend AI service
-    const response = await fetch(`${AI_SERVICE_URL}/api/v1/ai/chat`, {
+    const response = await fetch(`${AI_SERVICE_URL}/api/v1/ai/simple-chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         ...body,
+        message: message || 'Process this request',
         model: body.model || 'grok-2',
+        stream: body.stream ?? false,
       }),
     });
 

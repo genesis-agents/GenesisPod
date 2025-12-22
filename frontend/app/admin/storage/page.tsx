@@ -194,10 +194,13 @@ export default function StoragePage() {
       const dbData = await dbRes.json();
 
       // Call AI to analyze the data
-      const aiRes = await fetch(`${API_BASE}/api/v1/ai/chat`, {
+      const aiRes = await fetch(`${API_BASE}/api/v1/ai/simple-chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          message:
+            'Analyze this storage data and provide optimization recommendations.',
+          stream: false,
           messages: [
             {
               role: 'system',
