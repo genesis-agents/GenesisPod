@@ -136,6 +136,7 @@ async function getCustomMigrations(): Promise<string[]> {
     "20251222_add_ai_coding_team_columns",
     "20251222_add_encrypted_column",
     "20251222_fix_missing_columns",
+    "20251222_force_fix_columns", // Force fix - always runs
   ];
 
   const migrations: string[] = [];
@@ -274,19 +275,28 @@ async function deploy() {
     for (const migrationPath of customMigrations) {
       const migrationName = path.basename(path.dirname(migrationPath));
 
-      // 检查是否已执行
-      const executed = await isMigrationExecuted(migrationName);
-      if (executed) {
-        console.log(`   ⏭️ Skipping (already executed): ${migrationName}`);
-        continue;
+      // Force migrations always run (contains "force" in name)
+      const isForce = migrationName.toLowerCase().includes("force");
+
+      // 检查是否已执行 (skip check for force migrations)
+      if (!isForce) {
+        const executed = await isMigrationExecuted(migrationName);
+        if (executed) {
+          console.log(`   ⏭️ Skipping (already executed): ${migrationName}`);
+          continue;
+        }
+      } else {
+        console.log(`   🔄 Force migration: ${migrationName}`);
       }
 
       // 执行迁移
       const success = await executeSqlMigration(migrationPath, migrationName);
 
       if (success) {
-        // 记录迁移完成
-        await recordMigration(migrationName);
+        // 记录迁移完成 (for non-force migrations)
+        if (!isForce) {
+          await recordMigration(migrationName);
+        }
       }
     }
     console.log("");
