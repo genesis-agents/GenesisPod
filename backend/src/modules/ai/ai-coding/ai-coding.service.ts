@@ -20,7 +20,9 @@ import {
   CodingTaskService,
   CodingTaskPhase,
   TaskCheckpoint,
+  CodingTeamService,
 } from "./services";
+import { CodingMessageType, CodingAgentRole } from "@prisma/client";
 import * as archiver from "archiver";
 import { PassThrough } from "stream";
 
@@ -82,7 +84,31 @@ export class AiCodingService {
     private readonly standardsService: StandardsService,
     private readonly eventEmitter: ProjectEventEmitterService,
     private readonly codingTaskService: CodingTaskService,
+    private readonly teamService: CodingTeamService,
   ) {}
+
+  /**
+   * 发送 Agent 输出消息到团队聊天
+   */
+  private async sendAgentMessage(
+    projectId: string,
+    role: CodingAgentRole,
+    content: string,
+    messageType: CodingMessageType = CodingMessageType.OUTPUT,
+  ): Promise<void> {
+    try {
+      await this.teamService.sendMessage({
+        projectId,
+        senderRole: role,
+        content,
+        messageType,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Failed to send agent message: ${(error as Error).message}`,
+      );
+    }
+  }
 
   /**
    * 创建项目
@@ -349,6 +375,33 @@ export class AiCodingService {
         output: prd,
       });
 
+      // 发送 PM 输出消息到团队聊天
+      if (prd) {
+        const prdContent = `## 产品需求文档 (PRD)
+
+### 项目概述
+${prd.overview || "暂无概述"}
+
+### 用户故事
+${prd.userStories?.map((s) => `- [${s.priority}] ${s.description}`).join("\n") || "暂无用户故事"}
+
+### 功能需求
+${prd.functionalRequirements?.map((r) => `- ${r}`).join("\n") || "暂无功能需求"}
+
+### 非功能需求
+${prd.nonFunctionalRequirements?.map((r) => `- ${r}`).join("\n") || "暂无非功能需求"}
+
+### 验收标准
+${prd.acceptanceCriteria?.map((c) => `- ${c}`).join("\n") || "暂无验收标准"}`;
+
+        await this.sendAgentMessage(
+          projectId,
+          CodingAgentRole.PM,
+          prdContent,
+          CodingMessageType.OUTPUT,
+        );
+      }
+
       // 生成 PRD 文档
       this.logger.log(`[${projectId}] Generating PRD document...`);
       if (prd) {
@@ -415,6 +468,32 @@ export class AiCodingService {
         message: "架构设计已完成",
         output: design,
       });
+
+      // 发送 Architect 输出消息到团队聊天
+      if (design) {
+        const designContent = `## 系统架构设计
+
+### 架构概述
+${design.architecture || "暂无架构描述"}
+
+### 数据模型
+${design.dataModels?.map((m) => `**${m.name}**: ${m.fields.join(", ")}`).join("\n") || "暂无数据模型"}
+
+### API 设计
+${design.apiDesign?.map((a) => `- \`${a.method} ${a.path}\` - ${a.description}`).join("\n") || "暂无 API 设计"}
+
+### 目录结构
+\`\`\`
+${design.directoryStructure || "暂无目录结构"}
+\`\`\``;
+
+        await this.sendAgentMessage(
+          projectId,
+          CodingAgentRole.ARCHITECT,
+          designContent,
+          CodingMessageType.OUTPUT,
+        );
+      }
 
       // 生成设计文档
       this.logger.log(`[${projectId}] Generating Design document...`);
@@ -490,6 +569,31 @@ export class AiCodingService {
         output: tasks,
       });
 
+      // 发送 PM Lead 输出消息到团队聊天
+      if (tasks && tasks.length > 0) {
+        const tasksContent = `## 任务分解
+
+### 任务列表 (共 ${tasks.length} 个任务)
+
+${tasks
+  .map(
+    (t, i) => `**${i + 1}. ${t.title}**
+   - 描述: ${t.description}
+   - 状态: ${t.status}`,
+  )
+  .join("\n\n")}
+
+---
+任务已分解完成，工程师可以开始编码了。`;
+
+        await this.sendAgentMessage(
+          projectId,
+          CodingAgentRole.PM_LEAD,
+          tasksContent,
+          CodingMessageType.OUTPUT,
+        );
+      }
+
       // Step 4: Engineer 生成代码 (80%)
       this.logger.log(`[${projectId}] Step 4: Engineer generating code...`);
       await this.updateAgentStatus(
@@ -542,6 +646,30 @@ export class AiCodingService {
         output: code,
       });
 
+      // 发送 Engineer 输出消息到团队聊天
+      if (code && code.files && code.files.length > 0) {
+        const codeContent = `## 代码生成完成
+
+### 生成的文件 (共 ${code.files.length} 个)
+
+${code.files.map((f) => `- \`${f.path}\` (${f.language})`).join("\n")}
+
+### 项目配置
+- **入口文件**: \`${code.entryPoint || "index.js"}\`
+- **构建命令**: \`${code.buildCommand || "npm run build"}\`
+- **运行命令**: \`${code.runCommand || "npm start"}\`
+
+---
+代码已生成完毕，可以在右侧"产出"面板查看和下载代码文件。`;
+
+        await this.sendAgentMessage(
+          projectId,
+          CodingAgentRole.ENGINEER,
+          codeContent,
+          CodingMessageType.OUTPUT,
+        );
+      }
+
       // Step 5: QA 生成测试 (90%)
       this.logger.log(`[${projectId}] Step 5: QA generating tests...`);
       await this.updateAgentStatus(projectId, CodingAgentType.QA, "RUNNING");
@@ -583,6 +711,28 @@ export class AiCodingService {
         message: `已生成 ${tests?.testFiles?.length || 0} 个测试文件`,
         output: tests,
       });
+
+      // 发送 QA 输出消息到团队聊天
+      if (tests) {
+        const testsContent = `## 测试用例生成完成
+
+### 测试文件 (共 ${tests.testFiles?.length || 0} 个)
+
+${tests.testFiles?.map((f) => `- \`${f}\``).join("\n") || "暂无测试文件"}
+
+### 测试覆盖率
+预估覆盖率: **${tests.coverage || 0}%**
+
+---
+测试用例已生成完毕，项目开发完成！ 🎉`;
+
+        await this.sendAgentMessage(
+          projectId,
+          CodingAgentRole.QA,
+          testsContent,
+          CodingMessageType.OUTPUT,
+        );
+      }
 
       // 生成 README
       this.logger.log(`[${projectId}] Generating README...`);
