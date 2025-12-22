@@ -18,6 +18,8 @@ export interface SettingValue {
   category: string;
 }
 
+export type EmailProvider = "smtp" | "resend";
+
 export interface SmtpSettings {
   host: string | null;
   port: number;
@@ -26,6 +28,20 @@ export interface SmtpSettings {
   from: string;
   enabled: boolean;
   adminEmail: string | null;
+}
+
+export interface EmailSettings {
+  provider: EmailProvider;
+  enabled: boolean;
+  from: string;
+  adminEmail: string | null;
+  // SMTP settings
+  host: string | null;
+  port: number;
+  user: string | null;
+  pass: string | null;
+  // Resend settings
+  resendApiKey: string | null;
 }
 
 export interface SiteSettings {
@@ -193,7 +209,101 @@ export class SettingsService implements OnModuleInit {
     }));
   }
 
-  // ========== SMTP Settings ==========
+  // ========== Email Settings ==========
+
+  async getEmailSettings(): Promise<EmailSettings> {
+    const provider =
+      ((await this.getWithEnvFallback(
+        "email_provider",
+        "EMAIL_PROVIDER",
+        "smtp",
+      )) as EmailProvider) || "smtp";
+
+    return {
+      provider,
+      enabled: (await this.get("email_enabled", "false")) === "true",
+      from:
+        (await this.getWithEnvFallback("email_from", "EMAIL_FROM")) ||
+        "DeepDive <noreply@deepdive.ai>",
+      adminEmail: await this.getWithEnvFallback("admin_email", "ADMIN_EMAIL"),
+      // SMTP settings
+      host: await this.getWithEnvFallback("smtp_host", "SMTP_HOST"),
+      port: parseInt(
+        (await this.getWithEnvFallback("smtp_port", "SMTP_PORT", "587")) ||
+          "587",
+      ),
+      user: await this.getWithEnvFallback("smtp_user", "SMTP_USER"),
+      pass: await this.getWithEnvFallback("smtp_pass", "SMTP_PASS"),
+      // Resend settings
+      resendApiKey: await this.getWithEnvFallback(
+        "resend_api_key",
+        "RESEND_API_KEY",
+      ),
+    };
+  }
+
+  async updateEmailSettings(settings: Partial<EmailSettings>): Promise<void> {
+    if (settings.provider !== undefined) {
+      await this.set("email_provider", settings.provider, {
+        category: "email",
+        description: "Email provider (smtp or resend)",
+      });
+    }
+    if (settings.enabled !== undefined) {
+      await this.set("email_enabled", settings.enabled.toString(), {
+        category: "email",
+        description: "Enable email notifications",
+      });
+    }
+    if (settings.from !== undefined) {
+      await this.set("email_from", settings.from, {
+        category: "email",
+        description: "Email sender address",
+      });
+    }
+    if (settings.adminEmail !== undefined) {
+      await this.set("admin_email", settings.adminEmail, {
+        category: "email",
+        description: "Admin email for notifications",
+      });
+    }
+    // SMTP settings
+    if (settings.host !== undefined) {
+      await this.set("smtp_host", settings.host, {
+        category: "email",
+        description: "SMTP server host",
+      });
+    }
+    if (settings.port !== undefined) {
+      await this.set("smtp_port", settings.port.toString(), {
+        category: "email",
+        description: "SMTP server port",
+      });
+    }
+    if (settings.user !== undefined) {
+      await this.set("smtp_user", settings.user, {
+        category: "email",
+        description: "SMTP username/email",
+      });
+    }
+    if (settings.pass !== undefined && settings.pass !== "") {
+      await this.set("smtp_pass", settings.pass, {
+        encrypted: true,
+        category: "email",
+        description: "SMTP password",
+      });
+    }
+    // Resend settings
+    if (settings.resendApiKey !== undefined && settings.resendApiKey !== "") {
+      await this.set("resend_api_key", settings.resendApiKey, {
+        encrypted: true,
+        category: "email",
+        description: "Resend API key",
+      });
+    }
+  }
+
+  // ========== SMTP Settings (Legacy - use getEmailSettings instead) ==========
 
   async getSmtpSettings(): Promise<SmtpSettings> {
     return {
@@ -207,7 +317,7 @@ export class SettingsService implements OnModuleInit {
       from:
         (await this.getWithEnvFallback("smtp_from", "SMTP_FROM")) ||
         "DeepDive <noreply@deepdive.ai>",
-      enabled: (await this.get("smtp_enabled")) === "true",
+      enabled: (await this.get("email_enabled", "false")) === "true",
       adminEmail: await this.getWithEnvFallback("admin_email", "ADMIN_EMAIL"),
     };
   }

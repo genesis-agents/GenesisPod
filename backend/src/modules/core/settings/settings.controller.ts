@@ -17,6 +17,7 @@ import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
 import {
   SettingsService,
+  EmailSettings,
   SmtpSettings,
   SiteSettings,
   AiSettings,
@@ -44,7 +45,35 @@ export class SettingsController {
     return { settings };
   }
 
-  // ========== SMTP Settings ==========
+  // ========== Email Settings ==========
+
+  @Get("email")
+  async getEmailSettings() {
+    const settings = await this.settingsService.getEmailSettings();
+    return {
+      ...settings,
+      pass: settings.pass ? "********" : null,
+      resendApiKey: settings.resendApiKey ? "********" : null,
+    };
+  }
+
+  @Put("email")
+  async updateEmailSettings(@Body() dto: Partial<EmailSettings>) {
+    this.logger.log("Updating email settings");
+    await this.settingsService.updateEmailSettings(dto);
+    // Reinitialize email service with new settings
+    await this.emailService.reinitialize();
+    return { success: true, message: "Email settings updated" };
+  }
+
+  @Post("email/test")
+  async testEmailConnection() {
+    this.logger.log("Testing email connection");
+    const result = await this.emailService.testConnection();
+    return result;
+  }
+
+  // ========== SMTP Settings (Legacy) ==========
 
   @Get("smtp")
   async getSmtpSettings() {
@@ -67,7 +96,7 @@ export class SettingsController {
   @Post("smtp/test")
   async testSmtpConnection() {
     this.logger.log("Testing SMTP connection");
-    const result = await this.settingsService.testSmtpConnection();
+    const result = await this.emailService.testConnection();
     return result;
   }
 

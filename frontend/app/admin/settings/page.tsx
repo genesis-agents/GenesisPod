@@ -17,6 +17,22 @@ import {
 } from 'lucide-react';
 import { toast } from '@/stores/toastStore';
 
+type EmailProvider = 'smtp' | 'resend';
+
+interface EmailSettings {
+  provider: EmailProvider;
+  enabled: boolean;
+  from: string;
+  adminEmail: string | null;
+  // SMTP settings
+  host: string | null;
+  port: number;
+  user: string | null;
+  pass: string | null;
+  // Resend settings
+  resendApiKey: string | null;
+}
+
 interface SmtpSettings {
   host: string | null;
   port: number;
@@ -58,7 +74,7 @@ interface StorageSettings {
 type TabId = 'email' | 'site' | 'ai' | 'security' | 'storage';
 
 const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
-  { id: 'email', label: 'Email (SMTP)', icon: Mail },
+  { id: 'email', label: 'Email', icon: Mail },
   { id: 'site', label: 'Site', icon: Globe },
   { id: 'ai', label: 'AI', icon: Bot },
   { id: 'security', label: 'Security', icon: Shield },
@@ -117,30 +133,32 @@ function EmailSettingsTab() {
     data,
     loading,
     execute: refetch,
-  } = useApiGet<SmtpSettings>('/api/v1/admin/settings/smtp', {
+  } = useApiGet<EmailSettings>('/api/v1/admin/settings/email', {
     immediate: true,
   });
   const { execute: updateSettings, loading: saving } = useApiPut<
     { success: boolean },
-    Partial<SmtpSettings>
-  >('/api/v1/admin/settings/smtp');
+    Partial<EmailSettings>
+  >('/api/v1/admin/settings/email');
   const { execute: testConnection, loading: testing } = useApiPost<{
     success: boolean;
     message: string;
-  }>('/api/v1/admin/settings/smtp/test');
+  }>('/api/v1/admin/settings/email/test');
 
-  const [form, setForm] = useState<Partial<SmtpSettings>>({});
+  const [form, setForm] = useState<Partial<EmailSettings>>({});
 
   useEffect(() => {
     if (data) {
       setForm({
+        provider: data.provider || 'smtp',
+        enabled: data.enabled || false,
+        from: data.from || '',
+        adminEmail: data.adminEmail || '',
         host: data.host || '',
         port: data.port || 587,
         user: data.user || '',
         pass: '',
-        from: data.from || '',
-        enabled: data.enabled || false,
-        adminEmail: data.adminEmail || '',
+        resendApiKey: '',
       });
     }
   }, [data]);
@@ -148,7 +166,7 @@ function EmailSettingsTab() {
   const handleSave = async () => {
     try {
       await updateSettings(form);
-      toast.success('SMTP settings saved');
+      toast.success('Email settings saved');
       refetch();
     } catch {
       toast.error('Failed to save settings');
@@ -177,10 +195,10 @@ function EmailSettingsTab() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">
-            Email (SMTP) Settings
+            Email Settings
           </h2>
           <p className="text-sm text-gray-500">
-            Configure email server for notifications
+            Configure email service for notifications
           </p>
         </div>
         <label className="flex cursor-pointer items-center gap-2">
@@ -196,60 +214,45 @@ function EmailSettingsTab() {
         </label>
       </div>
 
+      {/* Provider Selection */}
+      <div className="rounded-lg border border-gray-200 p-4">
+        <label className="mb-3 block text-sm font-medium text-gray-700">
+          Email Provider
+        </label>
+        <div className="flex gap-4">
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="radio"
+              name="provider"
+              value="smtp"
+              checked={form.provider === 'smtp'}
+              onChange={() => setForm({ ...form, provider: 'smtp' })}
+              className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm font-medium text-gray-700">SMTP</span>
+            <span className="text-xs text-gray-500">
+              (Gmail, Outlook, etc.)
+            </span>
+          </label>
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="radio"
+              name="provider"
+              value="resend"
+              checked={form.provider === 'resend'}
+              onChange={() => setForm({ ...form, provider: 'resend' })}
+              className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm font-medium text-gray-700">Resend</span>
+            <span className="text-xs text-green-600">
+              (Recommended for cloud)
+            </span>
+          </label>
+        </div>
+      </div>
+
+      {/* Common Settings */}
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            SMTP Host
-          </label>
-          <input
-            type="text"
-            value={form.host || ''}
-            onChange={(e) => setForm({ ...form, host: e.target.value })}
-            placeholder="smtp.gmail.com"
-            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            SMTP Port
-          </label>
-          <input
-            type="number"
-            value={form.port || 587}
-            onChange={(e) =>
-              setForm({ ...form, port: parseInt(e.target.value) })
-            }
-            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-          <p className="mt-1 text-xs text-gray-500">587 for TLS, 465 for SSL</p>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Username
-          </label>
-          <input
-            type="email"
-            value={form.user || ''}
-            onChange={(e) => setForm({ ...form, user: e.target.value })}
-            placeholder="your-email@gmail.com"
-            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Password
-          </label>
-          <input
-            type="password"
-            value={form.pass || ''}
-            onChange={(e) => setForm({ ...form, pass: e.target.value })}
-            placeholder="Leave empty to keep current"
-            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-          <p className="mt-1 text-xs text-gray-500">
-            For Gmail, use App Password
-          </p>
-        </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">
             From Address
@@ -258,9 +261,14 @@ function EmailSettingsTab() {
             type="text"
             value={form.from || ''}
             onChange={(e) => setForm({ ...form, from: e.target.value })}
-            placeholder="DeepDive <noreply@deepdive.ai>"
+            placeholder="DeepDive <noreply@yourdomain.com>"
             className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
+          {form.provider === 'resend' && (
+            <p className="mt-1 text-xs text-amber-600">
+              Must use a verified domain in Resend
+            </p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">
@@ -278,6 +286,118 @@ function EmailSettingsTab() {
           </p>
         </div>
       </div>
+
+      {/* SMTP Settings */}
+      {form.provider === 'smtp' && (
+        <div className="space-y-4 rounded-lg border border-gray-200 p-4">
+          <h3 className="font-medium text-gray-900">SMTP Configuration</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                SMTP Host
+              </label>
+              <input
+                type="text"
+                value={form.host || ''}
+                onChange={(e) => setForm({ ...form, host: e.target.value })}
+                placeholder="smtp.gmail.com"
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                SMTP Port
+              </label>
+              <input
+                type="number"
+                value={form.port || 587}
+                onChange={(e) =>
+                  setForm({ ...form, port: parseInt(e.target.value) })
+                }
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                587 for TLS, 465 for SSL
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Username
+              </label>
+              <input
+                type="email"
+                value={form.user || ''}
+                onChange={(e) => setForm({ ...form, user: e.target.value })}
+                placeholder="your-email@gmail.com"
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <input
+                type="password"
+                value={form.pass || ''}
+                onChange={(e) => setForm({ ...form, pass: e.target.value })}
+                placeholder="Leave empty to keep current"
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                For Gmail, use App Password
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Resend Settings */}
+      {form.provider === 'resend' && (
+        <div className="space-y-4 rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-1">
+              <h3 className="font-medium text-gray-900">
+                Resend Configuration
+              </h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Resend is a modern email API that works great with cloud
+                deployments like Railway.
+                <a
+                  href="https://resend.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-1 text-blue-600 hover:underline"
+                >
+                  Get your API key →
+                </a>
+              </p>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Resend API Key
+            </label>
+            <input
+              type="password"
+              value={form.resendApiKey || ''}
+              onChange={(e) =>
+                setForm({ ...form, resendApiKey: e.target.value })
+              }
+              placeholder="re_xxxxxxxxxxxx"
+              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Leave empty to keep current key
+            </p>
+          </div>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <p className="text-sm text-amber-800">
+              <strong>Note:</strong> To send emails, you need to verify a domain
+              in Resend. For testing, you can send to your own email address.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-end gap-3 border-t pt-4">
         <button

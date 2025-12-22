@@ -1,14 +1,20 @@
 /**
  * Email Service - 邮件发送服务
  *
- * 使用 nodemailer 发送邮件通知
- * 从数据库设置或环境变量读取 SMTP 配置
+ * 支持两种邮件提供商:
+ * 1. SMTP (使用 nodemailer)
+ * 2. Resend (使用 Resend API)
+ *
+ * 从数据库设置或环境变量读取配置
  */
 
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import * as nodemailer from "nodemailer";
+import { Resend } from "resend";
 import { SettingsService } from "../settings/settings.service";
+
+export type EmailProvider = "smtp" | "resend";
 
 export interface EmailAttachment {
   filename: string;
@@ -28,9 +34,11 @@ export interface SendEmailOptions {
 @Injectable()
 export class EmailService implements OnModuleInit {
   private readonly logger = new Logger(EmailService.name);
-  private transporter: nodemailer.Transporter | null = null;
+  private smtpTransporter: nodemailer.Transporter | null = null;
+  private resendClient: Resend | null = null;
+  private provider: EmailProvider = "smtp";
   private isConfigured = false;
-  private smtpFrom = "DeepDive <noreply@deepdive.ai>";
+  private emailFrom = "DeepDive <noreply@deepdive.ai>";
   private adminEmail = "hello.junjie.duan@gmail.com";
 
   constructor(
@@ -39,63 +47,96 @@ export class EmailService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    await this.initializeTransporter();
+    await this.initializeEmailProvider();
   }
 
   /**
-   * Initialize email transporter from database settings or env vars
+   * Initialize email provider from database settings or env vars
    */
-  private async initializeTransporter() {
+  private async initializeEmailProvider() {
     try {
-      // Get SMTP settings from database (with env fallback)
-      const smtpSettings = await this.settingsService.getSmtpSettings();
+      const emailSettings = await this.settingsService.getEmailSettings();
 
-      const host = smtpSettings.host;
-      const port = smtpSettings.port;
-      const user = smtpSettings.user;
-      const pass = smtpSettings.pass;
+      this.provider = emailSettings.provider;
+      this.emailFrom = emailSettings.from;
+      this.adminEmail = emailSettings.adminEmail || this.adminEmail;
 
-      // Store from address and admin email for later use
-      this.smtpFrom = smtpSettings.from;
-      this.adminEmail = smtpSettings.adminEmail || this.adminEmail;
+      this.logger.log(`Email provider: ${this.provider}`);
 
-      this.logger.log(
-        `SMTP Config check: host=${host ? "set" : "missing"}, user=${user ? "set" : "missing"}, pass=${pass ? "set" : "missing"}, enabled=${smtpSettings.enabled}`,
+      if (!emailSettings.enabled) {
+        this.logger.warn(
+          "Email service is disabled. Enable it in Admin > Settings > Email.",
+        );
+        return;
+      }
+
+      if (this.provider === "resend") {
+        await this.initializeResend(emailSettings.resendApiKey);
+      } else {
+        await this.initializeSmtp(emailSettings);
+      }
+    } catch (error) {
+      this.logger.error("Failed to initialize email provider", error);
+    }
+  }
+
+  /**
+   * Initialize Resend client
+   */
+  private async initializeResend(apiKey: string | null) {
+    if (!apiKey) {
+      this.logger.warn(
+        "Resend API key not configured. Configure it in Admin > Settings > Email.",
       );
+      return;
+    }
 
-      // Check if SMTP is enabled and configured
-      if (!smtpSettings.enabled) {
-        this.logger.warn(
-          "Email service is disabled in settings. Enable it in Admin > Settings > Email.",
-        );
-        return;
-      }
+    try {
+      this.resendClient = new Resend(apiKey);
+      this.isConfigured = true;
+      this.logger.log("Resend email client initialized successfully");
+    } catch (error) {
+      this.logger.error("Failed to initialize Resend client", error);
+    }
+  }
 
-      if (!host || !user || !pass) {
-        this.logger.warn(
-          "Email service not configured. Configure SMTP in Admin > Settings > Email.",
-        );
-        return;
-      }
+  /**
+   * Initialize SMTP transporter
+   */
+  private async initializeSmtp(settings: {
+    host: string | null;
+    port: number;
+    user: string | null;
+    pass: string | null;
+  }) {
+    const { host, port, user, pass } = settings;
 
-      this.transporter = nodemailer.createTransport({
+    this.logger.log(
+      `SMTP Config check: host=${host ? "set" : "missing"}, user=${user ? "set" : "missing"}, pass=${pass ? "set" : "missing"}`,
+    );
+
+    if (!host || !user || !pass) {
+      this.logger.warn(
+        "SMTP settings incomplete. Configure in Admin > Settings > Email.",
+      );
+      return;
+    }
+
+    try {
+      this.smtpTransporter = nodemailer.createTransport({
         host,
         port: port || 587,
-        secure: port === 465, // true for 465, false for other ports
-        auth: {
-          user,
-          pass,
-        },
-        // Add connection timeout
+        secure: port === 465,
+        auth: { user, pass },
         connectionTimeout: 10000,
         greetingTimeout: 10000,
         socketTimeout: 30000,
       });
 
       this.isConfigured = true;
-      this.logger.log("Email transporter initialized successfully");
+      this.logger.log("SMTP email transporter initialized successfully");
     } catch (error) {
-      this.logger.error("Failed to initialize email transporter", error);
+      this.logger.error("Failed to initialize SMTP transporter", error);
     }
   }
 
@@ -103,11 +144,18 @@ export class EmailService implements OnModuleInit {
    * Check if email service is configured
    */
   isEnabled(): boolean {
-    return this.isConfigured && this.transporter !== null;
+    return this.isConfigured;
   }
 
   /**
-   * Send an email with timeout
+   * Get current provider
+   */
+  getProvider(): EmailProvider {
+    return this.provider;
+  }
+
+  /**
+   * Send an email using the configured provider
    */
   async sendEmail(options: SendEmailOptions): Promise<boolean> {
     if (!this.isEnabled()) {
@@ -118,56 +166,242 @@ export class EmailService implements OnModuleInit {
       return false;
     }
 
-    const from = this.smtpFrom;
-    const to = Array.isArray(options.to) ? options.to.join(", ") : options.to;
+    const to = Array.isArray(options.to) ? options.to : [options.to];
 
     this.logger.log(
-      `Attempting to send email to: ${to}, subject: ${options.subject}`,
+      `Sending email via ${this.provider} to: ${to.join(", ")}, subject: ${options.subject}`,
     );
 
     try {
-      const mailOptions: nodemailer.SendMailOptions = {
-        from,
-        to,
-        subject: options.subject,
-        text: options.text,
-        html: options.html,
-        replyTo: options.replyTo,
-        attachments: options.attachments?.map((att) => ({
-          filename: att.filename,
-          content: att.content,
-          contentType: att.contentType,
-        })),
-      };
-
-      // Add timeout to prevent hanging
-      const sendMailPromise = this.transporter!.sendMail(mailOptions);
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(
-          () => reject(new Error("Email send timeout after 30s")),
-          30000,
-        );
-      });
-
-      const info = await Promise.race([sendMailPromise, timeoutPromise]);
-      this.logger.log(`Email sent successfully: ${info.messageId}`);
-      return true;
+      if (this.provider === "resend") {
+        return await this.sendViaResend(options, to);
+      } else {
+        return await this.sendViaSmtp(options, to);
+      }
     } catch (error) {
       this.logger.error(
-        `Failed to send email to ${to}: ${(error as Error).message}`,
+        `Failed to send email to ${to.join(", ")}: ${(error as Error).message}`,
       );
       return false;
     }
   }
 
   /**
-   * Reinitialize transporter (useful when settings are updated)
+   * Send email via Resend API
+   */
+  private async sendViaResend(
+    options: SendEmailOptions,
+    to: string[],
+  ): Promise<boolean> {
+    if (!this.resendClient) {
+      this.logger.error("Resend client not initialized");
+      return false;
+    }
+
+    try {
+      // Build email options - use any to avoid complex Resend SDK typing
+      const emailOptions: any = {
+        from: this.emailFrom,
+        to,
+        subject: options.subject,
+      };
+
+      // Add content (html takes priority)
+      if (options.html) {
+        emailOptions.html = options.html;
+      } else if (options.text) {
+        emailOptions.text = options.text;
+      }
+
+      // Add optional fields
+      if (options.replyTo) {
+        emailOptions.replyTo = options.replyTo;
+      }
+
+      // Add attachments if present
+      if (options.attachments && options.attachments.length > 0) {
+        emailOptions.attachments = options.attachments.map((att) => ({
+          filename: att.filename,
+          content:
+            typeof att.content === "string"
+              ? Buffer.from(att.content)
+              : att.content,
+        }));
+      }
+
+      const response = await this.resendClient.emails.send(emailOptions);
+
+      if (response.error) {
+        this.logger.error(`Resend error: ${response.error.message}`);
+        return false;
+      }
+
+      this.logger.log(`Email sent via Resend: ${response.data?.id}`);
+      return true;
+    } catch (error) {
+      this.logger.error(`Resend send error: ${(error as Error).message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Send email via SMTP
+   */
+  private async sendViaSmtp(
+    options: SendEmailOptions,
+    to: string[],
+  ): Promise<boolean> {
+    if (!this.smtpTransporter) {
+      this.logger.error("SMTP transporter not initialized");
+      return false;
+    }
+
+    const mailOptions: nodemailer.SendMailOptions = {
+      from: this.emailFrom,
+      to: to.join(", "),
+      subject: options.subject,
+      text: options.text,
+      html: options.html,
+      replyTo: options.replyTo,
+      attachments: options.attachments?.map((att) => ({
+        filename: att.filename,
+        content: att.content,
+        contentType: att.contentType,
+      })),
+    };
+
+    // Add timeout to prevent hanging
+    const sendMailPromise = this.smtpTransporter.sendMail(mailOptions);
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(
+        () => reject(new Error("Email send timeout after 30s")),
+        30000,
+      );
+    });
+
+    const info = await Promise.race([sendMailPromise, timeoutPromise]);
+    this.logger.log(`Email sent via SMTP: ${info.messageId}`);
+    return true;
+  }
+
+  /**
+   * Reinitialize provider (useful when settings are updated)
    */
   async reinitialize(): Promise<void> {
-    this.logger.log("Reinitializing email transporter...");
-    this.transporter = null;
+    this.logger.log("Reinitializing email provider...");
+    this.smtpTransporter = null;
+    this.resendClient = null;
     this.isConfigured = false;
-    await this.initializeTransporter();
+    await this.initializeEmailProvider();
+  }
+
+  /**
+   * Test email connection
+   */
+  async testConnection(): Promise<{ success: boolean; message: string }> {
+    if (!this.isEnabled()) {
+      return {
+        success: false,
+        message: "Email service not configured",
+      };
+    }
+
+    if (this.provider === "resend") {
+      return this.testResendConnection();
+    } else {
+      return this.testSmtpConnection();
+    }
+  }
+
+  /**
+   * Test Resend connection by sending a test email
+   */
+  private async testResendConnection(): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    if (!this.resendClient) {
+      return { success: false, message: "Resend client not initialized" };
+    }
+
+    try {
+      // Test by checking API key validity via a minimal API call
+      const result = await this.resendClient.emails.send({
+        from: this.emailFrom,
+        to: this.adminEmail,
+        subject: "DeepDive Email Test (Resend)",
+        text: "This is a test email from DeepDive using Resend. If you received this, your email configuration is working!",
+        html: `
+          <div style="font-family: sans-serif; padding: 20px;">
+            <h2>DeepDive Email Test</h2>
+            <p>This is a test email sent via <strong>Resend</strong>.</p>
+            <p>If you received this, your email configuration is working correctly!</p>
+            <hr>
+            <p style="color: #666; font-size: 12px;">Sent at: ${new Date().toISOString()}</p>
+          </div>
+        `,
+      });
+
+      if (result.error) {
+        return {
+          success: false,
+          message: `Resend error: ${result.error.message}`,
+        };
+      }
+
+      return {
+        success: true,
+        message: `Test email sent successfully via Resend to ${this.adminEmail}`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Resend test failed: ${(error as Error).message}`,
+      };
+    }
+  }
+
+  /**
+   * Test SMTP connection
+   */
+  private async testSmtpConnection(): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    if (!this.smtpTransporter) {
+      return { success: false, message: "SMTP transporter not initialized" };
+    }
+
+    try {
+      await this.smtpTransporter.verify();
+
+      // Send a test email
+      await this.smtpTransporter.sendMail({
+        from: this.emailFrom,
+        to: this.adminEmail,
+        subject: "DeepDive Email Test (SMTP)",
+        text: "This is a test email from DeepDive using SMTP. If you received this, your email configuration is working!",
+        html: `
+          <div style="font-family: sans-serif; padding: 20px;">
+            <h2>DeepDive Email Test</h2>
+            <p>This is a test email sent via <strong>SMTP</strong>.</p>
+            <p>If you received this, your email configuration is working correctly!</p>
+            <hr>
+            <p style="color: #666; font-size: 12px;">Sent at: ${new Date().toISOString()}</p>
+          </div>
+        `,
+      });
+
+      return {
+        success: true,
+        message: `Test email sent successfully via SMTP to ${this.adminEmail}`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `SMTP test failed: ${(error as Error).message}`,
+      };
+    }
   }
 
   /**
@@ -186,8 +420,6 @@ export class EmailService implements OnModuleInit {
     this.logger.log(
       `Sending feedback notification for: ${feedback.id} (Email enabled: ${this.isEnabled()})`,
     );
-    // Use admin email from settings
-    const adminEmail = this.adminEmail;
 
     const typeColors: Record<string, string> = {
       BUG: "#dc2626",
@@ -301,7 +533,7 @@ DeepDive Feedback Notification
     `;
 
     return this.sendEmail({
-      to: adminEmail,
+      to: this.adminEmail,
       subject: `[DeepDive] New ${typeLabels[feedback.type] || "Feedback"}: ${feedback.title}`,
       html,
       text,
