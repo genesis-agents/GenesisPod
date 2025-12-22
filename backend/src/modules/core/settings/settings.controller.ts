@@ -1,0 +1,137 @@
+/**
+ * System Settings Controller
+ *
+ * Admin-only endpoints for managing system configuration
+ */
+
+import {
+  Controller,
+  Get,
+  Put,
+  Post,
+  Body,
+  UseGuards,
+  Logger,
+} from "@nestjs/common";
+import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../common/guards/admin.guard";
+import {
+  SettingsService,
+  SmtpSettings,
+  SiteSettings,
+  AiSettings,
+  SecuritySettings,
+  StorageSettings,
+} from "./settings.service";
+import { EmailService } from "../email/email.service";
+
+@Controller("api/v1/admin/settings")
+@UseGuards(JwtAuthGuard, AdminGuard)
+export class SettingsController {
+  private readonly logger = new Logger(SettingsController.name);
+
+  constructor(
+    private readonly settingsService: SettingsService,
+    private readonly emailService: EmailService,
+  ) {}
+
+  /**
+   * Get all settings (for admin dashboard)
+   */
+  @Get()
+  async getAllSettings() {
+    const settings = await this.settingsService.getAll();
+    return { settings };
+  }
+
+  // ========== SMTP Settings ==========
+
+  @Get("smtp")
+  async getSmtpSettings() {
+    const settings = await this.settingsService.getSmtpSettings();
+    return {
+      ...settings,
+      pass: settings.pass ? "********" : null,
+    };
+  }
+
+  @Put("smtp")
+  async updateSmtpSettings(@Body() dto: Partial<SmtpSettings>) {
+    this.logger.log("Updating SMTP settings");
+    await this.settingsService.updateSmtpSettings(dto);
+    // Reinitialize email service with new settings
+    await this.emailService.reinitialize();
+    return { success: true, message: "SMTP settings updated" };
+  }
+
+  @Post("smtp/test")
+  async testSmtpConnection() {
+    this.logger.log("Testing SMTP connection");
+    const result = await this.settingsService.testSmtpConnection();
+    return result;
+  }
+
+  // ========== Site Settings ==========
+
+  @Get("site")
+  async getSiteSettings() {
+    return this.settingsService.getSiteSettings();
+  }
+
+  @Put("site")
+  async updateSiteSettings(@Body() dto: Partial<SiteSettings>) {
+    this.logger.log("Updating site settings");
+    await this.settingsService.updateSiteSettings(dto);
+    return { success: true, message: "Site settings updated" };
+  }
+
+  // ========== AI Settings ==========
+
+  @Get("ai")
+  async getAiSettings() {
+    return this.settingsService.getAiSettings();
+  }
+
+  @Put("ai")
+  async updateAiSettings(@Body() dto: Partial<AiSettings>) {
+    this.logger.log("Updating AI settings");
+    await this.settingsService.updateAiSettings(dto);
+    return { success: true, message: "AI settings updated" };
+  }
+
+  // ========== Security Settings ==========
+
+  @Get("security")
+  async getSecuritySettings() {
+    return this.settingsService.getSecuritySettings();
+  }
+
+  @Put("security")
+  async updateSecuritySettings(@Body() dto: Partial<SecuritySettings>) {
+    this.logger.log("Updating security settings");
+    await this.settingsService.updateSecuritySettings(dto);
+    return { success: true, message: "Security settings updated" };
+  }
+
+  // ========== Storage Settings ==========
+
+  @Get("storage")
+  async getStorageSettings() {
+    return this.settingsService.getStorageSettings();
+  }
+
+  @Put("storage")
+  async updateStorageSettings(@Body() dto: Partial<StorageSettings>) {
+    this.logger.log("Updating storage settings");
+    await this.settingsService.updateStorageSettings(dto);
+    return { success: true, message: "Storage settings updated" };
+  }
+
+  // ========== Cache Management ==========
+
+  @Post("refresh-cache")
+  async refreshCache() {
+    await this.settingsService.refreshCache();
+    return { success: true, message: "Settings cache refreshed" };
+  }
+}

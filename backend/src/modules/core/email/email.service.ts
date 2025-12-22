@@ -2,11 +2,13 @@
  * Email Service - 邮件发送服务
  *
  * 使用 nodemailer 发送邮件通知
+ * 从数据库设置或环境变量读取 SMTP 配置
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import * as nodemailer from "nodemailer";
+import { SettingsService } from "../settings/settings.service";
 
 export interface EmailAttachment {
   filename: string;
@@ -24,36 +26,58 @@ export interface SendEmailOptions {
 }
 
 @Injectable()
-export class EmailService {
+export class EmailService implements OnModuleInit {
   private readonly logger = new Logger(EmailService.name);
   private transporter: nodemailer.Transporter | null = null;
   private isConfigured = false;
+  private smtpFrom = "DeepDive <noreply@deepdive.ai>";
+  private adminEmail = "hello.junjie.duan@gmail.com";
 
-  constructor(private configService: ConfigService) {
-    this.initializeTransporter();
+  constructor(
+    private configService: ConfigService,
+    private settingsService: SettingsService,
+  ) {}
+
+  async onModuleInit() {
+    await this.initializeTransporter();
   }
 
   /**
-   * Initialize email transporter
+   * Initialize email transporter from database settings or env vars
    */
-  private initializeTransporter() {
-    const host = this.configService.get<string>("SMTP_HOST");
-    const port = this.configService.get<number>("SMTP_PORT");
-    const user = this.configService.get<string>("SMTP_USER");
-    const pass = this.configService.get<string>("SMTP_PASS");
-
-    this.logger.log(
-      `SMTP Config check: host=${host ? "set" : "missing"}, user=${user ? "set" : "missing"}, pass=${pass ? "set" : "missing"}`,
-    );
-
-    if (!host || !user || !pass) {
-      this.logger.warn(
-        "Email service not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS environment variables.",
-      );
-      return;
-    }
-
+  private async initializeTransporter() {
     try {
+      // Get SMTP settings from database (with env fallback)
+      const smtpSettings = await this.settingsService.getSmtpSettings();
+
+      const host = smtpSettings.host;
+      const port = smtpSettings.port;
+      const user = smtpSettings.user;
+      const pass = smtpSettings.pass;
+
+      // Store from address and admin email for later use
+      this.smtpFrom = smtpSettings.from;
+      this.adminEmail = smtpSettings.adminEmail || this.adminEmail;
+
+      this.logger.log(
+        `SMTP Config check: host=${host ? "set" : "missing"}, user=${user ? "set" : "missing"}, pass=${pass ? "set" : "missing"}, enabled=${smtpSettings.enabled}`,
+      );
+
+      // Check if SMTP is enabled and configured
+      if (!smtpSettings.enabled) {
+        this.logger.warn(
+          "Email service is disabled in settings. Enable it in Admin > Settings > Email.",
+        );
+        return;
+      }
+
+      if (!host || !user || !pass) {
+        this.logger.warn(
+          "Email service not configured. Configure SMTP in Admin > Settings > Email.",
+        );
+        return;
+      }
+
       this.transporter = nodemailer.createTransport({
         host,
         port: port || 587,
@@ -94,10 +118,7 @@ export class EmailService {
       return false;
     }
 
-    const from = this.configService.get<string>(
-      "SMTP_FROM",
-      "DeepDive <noreply@deepdive.ai>",
-    );
+    const from = this.smtpFrom;
     const to = Array.isArray(options.to) ? options.to.join(", ") : options.to;
 
     this.logger.log(
@@ -140,13 +161,13 @@ export class EmailService {
   }
 
   /**
-   * Reinitialize transporter (useful when env vars are updated)
+   * Reinitialize transporter (useful when settings are updated)
    */
-  reinitialize(): void {
+  async reinitialize(): Promise<void> {
     this.logger.log("Reinitializing email transporter...");
     this.transporter = null;
     this.isConfigured = false;
-    this.initializeTransporter();
+    await this.initializeTransporter();
   }
 
   /**
@@ -165,11 +186,8 @@ export class EmailService {
     this.logger.log(
       `Sending feedback notification for: ${feedback.id} (Email enabled: ${this.isEnabled()})`,
     );
-    // Default to the project owner's email
-    const adminEmail = this.configService.get<string>(
-      "ADMIN_EMAIL",
-      "hello.junjie.duan@gmail.com",
-    );
+    // Use admin email from settings
+    const adminEmail = this.adminEmail;
 
     const typeColors: Record<string, string> = {
       BUG: "#dc2626",

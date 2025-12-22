@@ -108,6 +108,7 @@ export class ContentExtractionService {
 
       for (const setting of settings) {
         try {
+          if (!setting.value) continue;
           const value = JSON.parse(setting.value);
           if (setting.key === "extraction.jina.apiKey") {
             this.apiKeyCache.jina = value;
@@ -119,11 +120,11 @@ export class ContentExtractionService {
         } catch {
           // 如果不是 JSON，直接使用值
           if (setting.key === "extraction.jina.apiKey") {
-            this.apiKeyCache.jina = setting.value;
+            this.apiKeyCache.jina = setting.value ?? undefined;
           } else if (setting.key === "extraction.firecrawl.apiKey") {
-            this.apiKeyCache.firecrawl = setting.value;
+            this.apiKeyCache.firecrawl = setting.value ?? undefined;
           } else if (setting.key === "extraction.tavily.apiKey") {
-            this.apiKeyCache.tavily = setting.value;
+            this.apiKeyCache.tavily = setting.value ?? undefined;
           }
         }
       }

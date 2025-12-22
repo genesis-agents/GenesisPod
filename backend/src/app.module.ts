@@ -18,6 +18,7 @@ import { AuthModule } from "./modules/core/auth/auth.module";
 import { AdminModule } from "./modules/core/admin/admin.module";
 import { EmailModule } from "./modules/core/email/email.module";
 import { FeedbackModule } from "./modules/core/feedback/feedback.module";
+import { SettingsModule } from "./modules/core/settings/settings.module";
 import { StorageModule } from "./modules/core/storage/storage.module";
 // AI modules
 import { AiCoreModule } from "./modules/ai/ai-core/ai-core.module";
@@ -92,6 +93,7 @@ import { NotionModule } from "./modules/integrations/notion/notion.module";
     AdminModule,
     EmailModule,
     FeedbackModule,
+    SettingsModule,
     StorageModule,
 
     // AI modules (ai-* prefix)

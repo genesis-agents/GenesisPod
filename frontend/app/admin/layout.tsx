@@ -9,6 +9,7 @@ import {
   Plug,
   Shield,
   HardDrive,
+  Settings,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -21,7 +22,8 @@ type AIAssistantContext =
   | 'users'
   | 'collection'
   | 'external-api'
-  | 'storage';
+  | 'storage'
+  | 'settings';
 
 export default function AdminLayout({
   children,
@@ -78,6 +80,12 @@ export default function AdminLayout({
       href: '/admin/storage',
       icon: HardDrive,
       description: 'Database storage management',
+    },
+    {
+      name: 'Settings',
+      href: '/admin/settings',
+      icon: Settings,
+      description: 'System configuration',
     },
   ];
 
@@ -177,5 +185,6 @@ function getAIContext(pathname: string | null): AIAssistantContext {
   if (pathname.includes('/storage')) return 'storage';
   if (pathname.includes('/users')) return 'users';
   if (pathname.includes('/collection')) return 'collection';
+  if (pathname.includes('/settings')) return 'settings';
   return 'dashboard';
 }

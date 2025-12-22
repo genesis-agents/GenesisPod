@@ -26,7 +26,7 @@ export class ExternalDataService {
     });
     if (!setting) return [];
     try {
-      const parsed = JSON.parse(setting.value);
+      const parsed = setting.value ? JSON.parse(setting.value) : null;
       if (!Array.isArray(parsed)) return [];
 
       // CRITICAL: Filter out invalid providers

@@ -2142,7 +2142,8 @@ model ResearchProjectOutput {
 model SystemSetting {
   id    String @id @default(uuid())
   key   String @unique @db.VarChar(100) // setting key, e.g., "search.provider"
-  value String @db.Text // JSON-encoded value
+  value     String? @db.Text // setting value (nullable)
+  encrypted Boolean @default(false) // whether value is encrypted
 
   description String? @db.Text
   category    String  @default("general") @db.VarChar(50) // general, search, ai, etc.

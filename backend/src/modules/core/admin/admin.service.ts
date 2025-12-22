@@ -634,7 +634,7 @@ export class AdminService {
     const result: Record<string, any> = {};
     for (const setting of settings) {
       try {
-        result[setting.key] = JSON.parse(setting.value);
+        if (setting.value) result[setting.key] = JSON.parse(setting.value);
       } catch {
         result[setting.key] = setting.value;
       }
@@ -656,7 +656,7 @@ export class AdminService {
     }
 
     try {
-      return JSON.parse(setting.value);
+      return setting.value ? JSON.parse(setting.value) : null;
     } catch {
       return setting.value;
     }

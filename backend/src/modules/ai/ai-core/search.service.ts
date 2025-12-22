@@ -101,7 +101,7 @@ export class SearchService {
       const settingsMap: Record<string, any> = {};
       for (const s of settings) {
         try {
-          settingsMap[s.key] = JSON.parse(s.value);
+          if (s.value) settingsMap[s.key] = JSON.parse(s.value);
         } catch {
           settingsMap[s.key] = s.value;
         }

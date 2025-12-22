@@ -23,7 +23,8 @@ interface AIAssistantProps {
     | 'users'
     | 'collection'
     | 'external-api'
-    | 'storage';
+    | 'storage'
+    | 'settings';
   currentData?: any; // 当前配置数据，用于AI分析
   onApplySuggestion?: (suggestion: any) => void; // 应用AI建议的回调
 }
@@ -122,6 +123,15 @@ const CONTEXT_PROMPTS: Record<string, string> = {
 5. 规划存储扩容
 
 请给出具体的优化建议。`,
+
+  settings: `你是一个系统设置配置专家。帮助用户：
+1. 配置邮件服务器（SMTP）设置
+2. 优化站点基本信息设置
+3. 配置 AI 模型默认参数和限速
+4. 设置安全策略（会话超时、登录尝试限制）
+5. 管理存储配置（上传限制、允许的文件类型）
+
+请给出具体可操作的配置建议。`,
 };
 
 // 每个 context 的预设问题
@@ -179,6 +189,12 @@ const PRESET_QUESTIONS: Record<string, string[]> = {
     '数据备份策略建议',
     '存储扩容方案',
     '性能优化建议',
+  ],
+  settings: [
+    '如何配置 Gmail SMTP？',
+    '推荐的安全设置参数',
+    'AI 模型配置最佳实践',
+    '邮件发送测试失败怎么办？',
   ],
 };
 
