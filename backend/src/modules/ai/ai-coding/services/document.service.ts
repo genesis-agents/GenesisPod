@@ -6,8 +6,19 @@
 
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AiChatService } from "../../ai-core/ai-chat.service";
+import { AiChatService, ChatMessage } from "../../ai-core/ai-chat.service";
 import { AiCodingDocumentType, Prisma } from "@prisma/client";
+
+/**
+ * AI Model configuration from database
+ */
+export interface AIModelConfig {
+  provider: string;
+  modelId: string;
+  apiKey: string | null;
+  apiEndpoint?: string | null;
+  displayName?: string;
+}
 
 export interface PRDData {
   overview: string;
@@ -41,6 +52,47 @@ export class DocumentService {
   ) {}
 
   /**
+   * Call AI with model config (from database) or fallback to environment variables
+   */
+  private async callAI(
+    messages: ChatMessage[],
+    systemPrompt: string,
+    maxTokens: number,
+    temperature: number,
+    aiModel?: AIModelConfig,
+  ): Promise<{ content: string }> {
+    if (aiModel?.apiKey) {
+      // Use admin-configured model from database
+      this.logger.log(
+        `[DocumentService] Using AI model: ${aiModel.displayName || aiModel.modelId}`,
+      );
+      const result = await this.aiChatService.generateChatCompletionWithKey({
+        provider: aiModel.provider,
+        modelId: aiModel.modelId,
+        apiKey: aiModel.apiKey,
+        apiEndpoint: aiModel.apiEndpoint || undefined,
+        systemPrompt,
+        messages,
+        maxTokens,
+        temperature,
+        displayName: aiModel.displayName,
+      });
+      return { content: result.content };
+    } else {
+      // Fallback to environment variables
+      this.logger.warn(
+        `[DocumentService] No AI model config provided, falling back to environment variables`,
+      );
+      return this.aiChatService.chat({
+        messages,
+        systemPrompt,
+        maxTokens,
+        temperature,
+      });
+    }
+  }
+
+  /**
    * 生成 PRD Markdown 文档
    */
   async generatePRD(
@@ -51,6 +103,7 @@ export class DocumentService {
       description: string;
       requirement: string;
     },
+    aiModel?: AIModelConfig,
   ) {
     this.logger.log(`Generating PRD document for project ${projectId}`);
 
@@ -67,11 +120,10 @@ Include these sections:
 Use proper Markdown formatting with headers, tables, and bullet points.
 Write in a professional, clear style.`;
 
-    const result = await this.aiChatService.chat({
-      messages: [
-        {
-          role: "user",
-          content: `Project: ${projectInfo.name}
+    const messages: ChatMessage[] = [
+      {
+        role: "user",
+        content: `Project: ${projectInfo.name}
 Description: ${projectInfo.description}
 Original Requirement: ${projectInfo.requirement}
 
@@ -79,12 +131,16 @@ Structured PRD:
 ${JSON.stringify(prdData, null, 2)}
 
 Generate a professional PRD Markdown document in Chinese.`,
-        },
-      ],
+      },
+    ];
+
+    const result = await this.callAI(
+      messages,
       systemPrompt,
-      maxTokens: 4096,
-      temperature: 0.5,
-    });
+      4096,
+      0.5,
+      aiModel,
+    );
 
     // 保存文档
     return this.saveDocument(projectId, AiCodingDocumentType.PRD, {
@@ -103,6 +159,7 @@ Generate a professional PRD Markdown document in Chinese.`,
       name: string;
       techStack: Record<string, string>;
     },
+    aiModel?: AIModelConfig,
   ) {
     this.logger.log(`Generating Design document for project ${projectId}`);
 
@@ -138,23 +195,26 @@ graph TD
 
 Write in Chinese.`;
 
-    const result = await this.aiChatService.chat({
-      messages: [
-        {
-          role: "user",
-          content: `Project: ${projectInfo.name}
+    const messages: ChatMessage[] = [
+      {
+        role: "user",
+        content: `Project: ${projectInfo.name}
 Tech Stack: ${JSON.stringify(projectInfo.techStack)}
 
 Structured Design:
 ${JSON.stringify(designData, null, 2)}
 
 Generate a professional Design Document with Mermaid diagrams.`,
-        },
-      ],
+      },
+    ];
+
+    const result = await this.callAI(
+      messages,
       systemPrompt,
-      maxTokens: 6000,
-      temperature: 0.5,
-    });
+      6000,
+      0.5,
+      aiModel,
+    );
 
     // 提取 Mermaid 图表
     const diagrams: Array<{ type: string; code: string }> = [];
@@ -183,6 +243,7 @@ Generate a professional Design Document with Mermaid diagrams.`,
     apiDesign: Array<{ method: string; path: string; description: string }>,
     dataModels: Array<{ name: string; fields: string[] }>,
     projectInfo: { name: string },
+    aiModel?: AIModelConfig,
   ) {
     this.logger.log(`Generating API document for project ${projectId}`);
 
@@ -205,11 +266,10 @@ Include:
 Use proper Markdown formatting with code blocks for examples.
 Write in Chinese.`;
 
-    const result = await this.aiChatService.chat({
-      messages: [
-        {
-          role: "user",
-          content: `Project: ${projectInfo.name}
+    const messages: ChatMessage[] = [
+      {
+        role: "user",
+        content: `Project: ${projectInfo.name}
 
 API Endpoints:
 ${JSON.stringify(apiDesign, null, 2)}
@@ -218,12 +278,16 @@ Data Models:
 ${JSON.stringify(dataModels, null, 2)}
 
 Generate comprehensive API documentation.`,
-        },
-      ],
+      },
+    ];
+
+    const result = await this.callAI(
+      messages,
       systemPrompt,
-      maxTokens: 6000,
-      temperature: 0.5,
-    });
+      6000,
+      0.5,
+      aiModel,
+    );
 
     return this.saveDocument(projectId, AiCodingDocumentType.API, {
       title: `${projectInfo.name} - API 文档`,
@@ -246,6 +310,7 @@ Generate comprehensive API documentation.`,
       design?: DesignData;
       code?: CodeData;
     },
+    aiModel?: AIModelConfig,
   ) {
     this.logger.log(`Generating README for project ${projectId}`);
 
@@ -269,11 +334,10 @@ Include:
 
 Write primarily in English with Chinese comments where helpful.`;
 
-    const result = await this.aiChatService.chat({
-      messages: [
-        {
-          role: "user",
-          content: `Project: ${projectInfo.name}
+    const messages: ChatMessage[] = [
+      {
+        role: "user",
+        content: `Project: ${projectInfo.name}
 Description: ${projectInfo.description}
 Tech Stack: ${JSON.stringify(projectInfo.techStack)}
 
@@ -284,12 +348,16 @@ Build Command: ${outputs.code?.buildCommand || "npm run build"}
 Run Command: ${outputs.code?.runCommand || "npm start"}
 
 Generate a professional README.md.`,
-        },
-      ],
+      },
+    ];
+
+    const result = await this.callAI(
+      messages,
       systemPrompt,
-      maxTokens: 4096,
-      temperature: 0.5,
-    });
+      4096,
+      0.5,
+      aiModel,
+    );
 
     return this.saveDocument(projectId, AiCodingDocumentType.README, {
       title: "README",

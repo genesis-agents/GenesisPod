@@ -456,11 +456,16 @@ ${prd.acceptanceCriteria?.map((c) => `- ${c}`).join("\n") || "暂无验收标准
       // 生成 PRD 文档
       this.logger.log(`[${projectId}] Generating PRD document...`);
       if (prd) {
-        await this.documentService.generatePRD(projectId, prd, {
-          name: project.name,
-          description: project.description,
-          requirement: project.requirement,
-        });
+        await this.documentService.generatePRD(
+          projectId,
+          prd,
+          {
+            name: project.name,
+            description: project.description,
+            requirement: project.requirement,
+          },
+          aiModel,
+        );
       }
       await this.updateProgress(projectId, 20, {});
       await this.eventEmitter.emitProgress({
@@ -550,10 +555,15 @@ ${design.directoryStructure || "暂无目录结构"}
       // 生成设计文档
       this.logger.log(`[${projectId}] Generating Design document...`);
       if (design) {
-        await this.documentService.generateDesignDoc(projectId, design, {
-          name: project.name,
-          techStack,
-        });
+        await this.documentService.generateDesignDoc(
+          projectId,
+          design,
+          {
+            name: project.name,
+            techStack,
+          },
+          aiModel,
+        );
       }
       await this.updateProgress(projectId, 35, {});
 
@@ -565,6 +575,7 @@ ${design.directoryStructure || "暂无目录结构"}
           design.apiDesign || [],
           design.dataModels || [],
           { name: project.name },
+          aiModel,
         );
       }
       await this.updateProgress(projectId, 40, {});
@@ -798,6 +809,7 @@ ${tests.testFiles?.map((f) => `- \`${f}\``).join("\n") || "暂无测试文件"}
           techStack,
         },
         { prd, design, code },
+        aiModel,
       );
       await this.updateProgress(projectId, 100, {});
       await this.eventEmitter.emitProgress({
@@ -1858,6 +1870,7 @@ Generated on ${new Date().toISOString()}
             techStack,
           },
           { prd: outputs.prd, design: outputs.design, code: outputs.code },
+          aiModel,
         );
         await this.codingTaskService.markPhaseComplete(
           projectId,
