@@ -28,6 +28,8 @@ import { TeamStatusPanel } from '@/components/ai-coding/AgentStatusCard';
 import TeamChatPanel from '@/components/ai-coding/TeamChatPanel';
 import { DevWorkspace } from '@/components/ai-coding/DevWorkspace';
 import { ParsedFile } from '@/lib/utils/codeParser';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 // Code file viewer component with live preview
 function CodeViewer({ files }: { files: ProjectFile[] }) {
@@ -55,14 +57,18 @@ function CodeViewer({ files }: { files: ProjectFile[] }) {
     );
   }
 
-  // Check if project has React components for preview
-  const hasReactFiles = files.some(
+  // Check if project has previewable files (React/HTML/CSS)
+  const hasPreviewableFiles = files.some(
     (f) =>
-      (f.path.endsWith('.tsx') || f.path.endsWith('.jsx')) &&
-      f.content.includes('React')
+      f.path.endsWith('.tsx') ||
+      f.path.endsWith('.jsx') ||
+      f.path.endsWith('.html') ||
+      (f.path.endsWith('.ts') &&
+        !f.path.includes('.test.') &&
+        !f.path.includes('.spec.'))
   );
 
-  if (showPreview && hasReactFiles) {
+  if (showPreview && hasPreviewableFiles) {
     return (
       <div className="h-[700px]">
         <div className="mb-4 flex items-center justify-between">
@@ -103,7 +109,7 @@ function CodeViewer({ files }: { files: ProjectFile[] }) {
       {/* Action Bar */}
       <div className="flex items-center justify-between">
         <div className="text-sm text-gray-500">{files.length} 个文件</div>
-        {hasReactFiles && (
+        {hasPreviewableFiles && (
           <button
             onClick={() => setShowPreview(true)}
             className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
@@ -244,11 +250,15 @@ function DocumentViewer({ documents }: { documents: ProjectDocument[] }) {
 
       {/* Document Content */}
       {selectedDoc && (
-        <div className="prose prose-sm max-w-none rounded-xl border border-gray-200 bg-white p-6">
-          <h2>{selectedDoc.title}</h2>
-          <pre className="whitespace-pre-wrap text-sm">
-            {selectedDoc.content}
-          </pre>
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <h2 className="mb-4 text-xl font-semibold text-gray-900">
+            {selectedDoc.title}
+          </h2>
+          <div className="prose prose-sm prose-headings:text-gray-900 prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:text-gray-700 prose-a:text-emerald-600 prose-strong:text-gray-900 prose-code:rounded prose-code:bg-gray-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:text-sm prose-code:text-gray-800 prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-ul:text-gray-700 prose-ol:text-gray-700 prose-li:text-gray-700 prose-table:border-collapse prose-th:border prose-th:border-gray-300 prose-th:bg-gray-50 prose-th:px-3 prose-th:py-2 prose-td:border prose-td:border-gray-300 prose-td:px-3 prose-td:py-2 max-w-none">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {selectedDoc.content}
+            </ReactMarkdown>
+          </div>
         </div>
       )}
     </div>
@@ -874,6 +884,7 @@ export default function ProjectDetailPage() {
                   teamMembers={teamMembers}
                   legacyAgentStatus={project.agentStatus}
                   showDetails
+                  compact
                   className="h-full"
                 />
               </div>

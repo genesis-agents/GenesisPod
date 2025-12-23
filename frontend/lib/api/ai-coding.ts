@@ -5,6 +5,7 @@
  */
 
 import { apiClient } from './client';
+import { getAuthTokens } from '@/lib/utils/auth';
 
 // ==================== Types ====================
 
@@ -242,17 +243,8 @@ export async function downloadProjectZip(projectId: string): Promise<void> {
 
 // Helper to get auth token
 function getAuthToken(): string {
-  if (typeof window === 'undefined') return '';
-  const tokens = localStorage.getItem('auth_tokens');
-  if (tokens) {
-    try {
-      const parsed = JSON.parse(tokens);
-      return parsed.accessToken || '';
-    } catch {
-      return '';
-    }
-  }
-  return '';
+  const tokens = getAuthTokens();
+  return tokens?.accessToken || '';
 }
 
 // ==================== GitHub Integration ====================

@@ -335,6 +335,8 @@ interface TeamStatusPanelProps {
   };
   showDetails?: boolean;
   className?: string;
+  /** 使用紧凑布局（单列） */
+  compact?: boolean;
 }
 
 export function TeamStatusPanel({
@@ -342,6 +344,7 @@ export function TeamStatusPanel({
   legacyAgentStatus,
   showDetails = false,
   className = '',
+  compact = false,
 }: TeamStatusPanelProps) {
   // 创建成员映射
   const memberByRole = useMemo(() => {
@@ -382,7 +385,13 @@ export function TeamStatusPanel({
           </span>
         )}
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div
+        className={
+          compact
+            ? 'grid grid-cols-1 gap-3'
+            : 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5'
+        }
+      >
         {roles.map((role) => (
           <AgentStatusCard
             key={role}
