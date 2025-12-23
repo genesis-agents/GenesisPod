@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { FileExplorer } from './FileExplorer';
 import { CodeEditor } from './CodeEditor';
 import { CodePreview } from './CodePreview';
+import { BackendPreview } from './BackendPreview';
 import { ThinkingPanel } from './ThinkingPanel';
 
 interface ProjectFile {
@@ -60,20 +61,52 @@ export function DevWorkspace({
     return files.find((f) => f.path === selectedFile) || null;
   }, [files, selectedFile]);
 
+  // Detect if this is a frontend (React) or backend project
+  const projectType = useMemo(() => {
+    const hasReactFiles = files.some(
+      (f) => f.path.endsWith('.tsx') || f.path.endsWith('.jsx')
+    );
+    const hasHtmlEntry = files.some(
+      (f) => f.path.endsWith('.html') || f.path === 'index.html'
+    );
+    const hasReactImport = files.some(
+      (f) =>
+        f.content.includes("from 'react'") || f.content.includes('from "react"')
+    );
+
+    // Check for React entry point
+    const hasReactEntry = files.some(
+      (f) =>
+        (f.path === 'src/main.tsx' ||
+          f.path === 'src/index.tsx' ||
+          f.path === 'src/App.tsx') &&
+        (f.content.includes('createRoot') || f.content.includes('ReactDOM'))
+    );
+
+    if (hasReactEntry || (hasReactFiles && hasReactImport) || hasHtmlEntry) {
+      return 'frontend' as const;
+    }
+    return 'backend' as const;
+  }, [files]);
+
   // Auto-select first file if none selected
   useMemo(() => {
     if (!selectedFile && files.length > 0) {
-      const mainFiles = [
-        'src/App.tsx',
-        'src/App.jsx',
-        'src/main.tsx',
-        'src/index.tsx',
-      ];
+      const mainFiles =
+        projectType === 'frontend'
+          ? ['src/App.tsx', 'src/App.jsx', 'src/main.tsx', 'src/index.tsx']
+          : [
+              'src/main.ts',
+              'src/index.ts',
+              'src/app.ts',
+              'src/server.ts',
+              'src/app.module.ts',
+            ];
       const defaultFile =
         files.find((f) => mainFiles.includes(f.path)) || files[0];
       setSelectedFile(defaultFile?.path || null);
     }
-  }, [files, selectedFile]);
+  }, [files, selectedFile, projectType]);
 
   const handleSelectFile = useCallback((path: string) => {
     setSelectedFile(path);
@@ -278,7 +311,11 @@ export function DevWorkspace({
               width: viewMode === 'split' ? `${100 - splitRatio}%` : undefined,
             }}
           >
-            <CodePreview files={files} entryPoint="src/main.tsx" />
+            {projectType === 'frontend' ? (
+              <CodePreview files={files} entryPoint="src/main.tsx" />
+            ) : (
+              <BackendPreview files={files} />
+            )}
           </div>
         )}
       </div>

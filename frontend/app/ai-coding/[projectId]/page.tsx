@@ -58,15 +58,21 @@ function CodeViewer({ files }: { files: ProjectFile[] }) {
     );
   }
 
-  // Check if project has previewable files (React/HTML frontend projects only)
-  // Backend projects (.ts only, no .tsx/.jsx) should not show preview
+  // Detect project type
   const hasReactFiles = files.some(
     (f) => f.path.endsWith('.tsx') || f.path.endsWith('.jsx')
   );
   const hasHtmlEntry = files.some(
     (f) => f.path.endsWith('.html') || f.path === 'index.html'
   );
-  const hasPreviewableFiles = hasReactFiles || hasHtmlEntry;
+  const hasReactImport = files.some(
+    (f) =>
+      f.content.includes("from 'react'") || f.content.includes('from "react"')
+  );
+  const isFrontendProject = (hasReactFiles && hasReactImport) || hasHtmlEntry;
+
+  // Show preview for any project with code files
+  const hasPreviewableFiles = files.length > 0;
 
   if (showPreview && hasPreviewableFiles) {
     return (
@@ -133,7 +139,7 @@ function CodeViewer({ files }: { files: ProjectFile[] }) {
                 d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            运行预览
+            {isFrontendProject ? '运行预览' : '运行指南'}
           </button>
         )}
       </div>
