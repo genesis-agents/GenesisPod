@@ -6,6 +6,7 @@
 
 import { apiClient } from './client';
 import { getAuthTokens } from '@/lib/utils/auth';
+import { config } from '@/lib/utils/config';
 
 // ==================== Types ====================
 
@@ -199,9 +200,7 @@ export async function getTemplates(): Promise<ProjectTemplate[]> {
  * Download project as ZIP (returns URL - deprecated, use downloadProjectZip instead)
  */
 export function getDownloadUrl(projectId: string): string {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
-  return `${baseUrl}/ai-coding/projects/${projectId}/download`;
+  return `${config.apiUrl}/ai-coding/projects/${projectId}/download`;
 }
 
 /**
