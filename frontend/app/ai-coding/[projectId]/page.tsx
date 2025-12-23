@@ -58,16 +58,15 @@ function CodeViewer({ files }: { files: ProjectFile[] }) {
     );
   }
 
-  // Check if project has previewable files (React/HTML/CSS)
-  const hasPreviewableFiles = files.some(
-    (f) =>
-      f.path.endsWith('.tsx') ||
-      f.path.endsWith('.jsx') ||
-      f.path.endsWith('.html') ||
-      (f.path.endsWith('.ts') &&
-        !f.path.includes('.test.') &&
-        !f.path.includes('.spec.'))
+  // Check if project has previewable files (React/HTML frontend projects only)
+  // Backend projects (.ts only, no .tsx/.jsx) should not show preview
+  const hasReactFiles = files.some(
+    (f) => f.path.endsWith('.tsx') || f.path.endsWith('.jsx')
   );
+  const hasHtmlEntry = files.some(
+    (f) => f.path.endsWith('.html') || f.path === 'index.html'
+  );
+  const hasPreviewableFiles = hasReactFiles || hasHtmlEntry;
 
   if (showPreview && hasPreviewableFiles) {
     return (
