@@ -203,13 +203,131 @@ export function TeamChatPanel({
   if (messages.length === 0) {
     return (
       <div
-        className={`flex h-full flex-col items-center justify-center rounded-xl border border-gray-200 bg-white ${className}`}
+        className={`flex flex-col rounded-xl border border-gray-200 bg-white ${className}`}
       >
-        <div className="text-4xl">💬</div>
-        <p className="mt-2 text-sm text-gray-500">暂无团队消息</p>
-        <p className="text-xs text-gray-400">
-          启动项目后，团队成员会在这里协作沟通
-        </p>
+        {/* 标题栏 */}
+        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">💬</span>
+            <h3 className="font-medium text-gray-900">团队协作</h3>
+          </div>
+        </div>
+
+        {/* 空状态内容 */}
+        <div className="flex-1 p-6">
+          <div className="mb-6 text-center">
+            <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
+              <span className="text-3xl">🤖</span>
+            </div>
+            <h4 className="text-lg font-medium text-gray-900">AI 团队协作</h4>
+            <p className="mt-1 text-sm text-gray-500">
+              多智能体协同完成软件开发全流程
+            </p>
+          </div>
+
+          {/* 工作流程说明 */}
+          <div className="space-y-3">
+            <div className="flex items-start gap-3 rounded-lg bg-blue-50 p-3">
+              <span className="text-xl">📋</span>
+              <div>
+                <div className="font-medium text-gray-900">产品经理</div>
+                <p className="text-sm text-gray-600">分析需求、编写PRD文档</p>
+              </div>
+            </div>
+            <div className="flex items-center justify-center">
+              <svg
+                className="h-4 w-4 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                />
+              </svg>
+            </div>
+            <div className="flex items-start gap-3 rounded-lg bg-purple-50 p-3">
+              <span className="text-xl">🏗️</span>
+              <div>
+                <div className="font-medium text-gray-900">架构师</div>
+                <p className="text-sm text-gray-600">设计系统架构、技术方案</p>
+              </div>
+            </div>
+            <div className="flex items-center justify-center">
+              <svg
+                className="h-4 w-4 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                />
+              </svg>
+            </div>
+            <div className="flex items-start gap-3 rounded-lg bg-orange-50 p-3">
+              <span className="text-xl">📊</span>
+              <div>
+                <div className="font-medium text-gray-900">项目经理</div>
+                <p className="text-sm text-gray-600">拆分任务、协调进度</p>
+              </div>
+            </div>
+            <div className="flex items-center justify-center">
+              <svg
+                className="h-4 w-4 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                />
+              </svg>
+            </div>
+            <div className="flex items-start gap-3 rounded-lg bg-green-50 p-3">
+              <span className="text-xl">👨‍💻</span>
+              <div>
+                <div className="font-medium text-gray-900">工程师</div>
+                <p className="text-sm text-gray-600">编写代码、实现功能</p>
+              </div>
+            </div>
+            <div className="flex items-center justify-center">
+              <svg
+                className="h-4 w-4 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                />
+              </svg>
+            </div>
+            <div className="flex items-start gap-3 rounded-lg bg-red-50 p-3">
+              <span className="text-xl">🧪</span>
+              <div>
+                <div className="font-medium text-gray-900">QA工程师</div>
+                <p className="text-sm text-gray-600">测试验证、质量保证</p>
+              </div>
+            </div>
+          </div>
+
+          <p className="mt-4 text-center text-xs text-gray-400">
+            项目执行时，团队成员的协作消息将实时显示在此处
+          </p>
+        </div>
       </div>
     );
   }

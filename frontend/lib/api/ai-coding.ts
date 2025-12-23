@@ -195,12 +195,64 @@ export async function getTemplates(): Promise<ProjectTemplate[]> {
 }
 
 /**
- * Download project as ZIP
+ * Download project as ZIP (returns URL - deprecated, use downloadProjectZip instead)
  */
 export function getDownloadUrl(projectId: string): string {
   const baseUrl =
     process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
   return `${baseUrl}/ai-coding/projects/${projectId}/download`;
+}
+
+/**
+ * Download project as ZIP with authentication
+ */
+export async function downloadProjectZip(projectId: string): Promise<void> {
+  const response = await fetch(getDownloadUrl(projectId), {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${getAuthToken()}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Download failed: ${response.statusText}`);
+  }
+
+  // Get filename from Content-Disposition header or use default
+  const contentDisposition = response.headers.get('Content-Disposition');
+  let filename = 'project.zip';
+  if (contentDisposition) {
+    const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+    if (filenameMatch) {
+      filename = filenameMatch[1];
+    }
+  }
+
+  // Convert response to blob and trigger download
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+}
+
+// Helper to get auth token
+function getAuthToken(): string {
+  if (typeof window === 'undefined') return '';
+  const tokens = localStorage.getItem('auth_tokens');
+  if (tokens) {
+    try {
+      const parsed = JSON.parse(tokens);
+      return parsed.accessToken || '';
+    } catch {
+      return '';
+    }
+  }
+  return '';
 }
 
 // ==================== GitHub Integration ====================
@@ -398,6 +450,7 @@ export default {
   getProjectFiles,
   getTemplates,
   getDownloadUrl,
+  downloadProjectZip,
   getGithubStatus,
   getGithubAuthUrl,
   disconnectGithub,
