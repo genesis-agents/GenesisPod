@@ -20,6 +20,16 @@ import {
   ProjectCompleteEvent,
   ProjectErrorEvent,
 } from '@/hooks/useAiCodingSocket';
+import {
+  DevWorkspace,
+  ThinkingPanel,
+} from '@/components/ai-coding/DevWorkspace';
+import {
+  parseCodeFiles,
+  mergeFiles,
+  createDefaultProjectFiles,
+  ParsedFile,
+} from '@/lib/utils/codeParser';
 
 // Agent types for multi-agent collaboration
 interface AgentMessage {
@@ -177,6 +187,12 @@ function NewCodingProjectPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  // Enhanced visualization state
+  const [viewMode, setViewMode] = useState<'collaboration' | 'workspace'>(
+    'collaboration'
+  );
+  const [generatedFiles, setGeneratedFiles] = useState<ParsedFile[]>([]);
+  const [thinkingContent, setThinkingContent] = useState<string>('');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isAuthenticated = !!accessToken;
@@ -227,7 +243,23 @@ function NewCodingProjectPageContent() {
           },
         ];
       });
+
+      // Parse code files from engineer output
+      if (role === 'engineer') {
+        const newFiles = parseCodeFiles(message.content);
+        if (newFiles.length > 0) {
+          setGeneratedFiles((prev) => mergeFiles(prev, newFiles));
+          // Auto-switch to workspace view when code is generated
+          setViewMode('workspace');
+        }
+      }
+
+      // Clear thinking content when output is received
+      setThinkingContent('');
     } else if (message.messageType === 'THINKING') {
+      // Update thinking content for display
+      setThinkingContent(message.content);
+
       // Add thinking message
       setMessages((prev) => [
         ...prev,
@@ -644,21 +676,83 @@ function NewCodingProjectPageContent() {
 
         {/* Center Panel - Collaboration View */}
         <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Header */}
-          <div className="border-b border-gray-200 bg-white px-6 py-4">
-            <h1 className="text-xl font-bold text-gray-900">
-              {projectName || requirement?.slice(0, 30) || '新建项目'}
-            </h1>
-            {template && (
-              <span className="mt-1 inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-600">
-                {template.name} 模板
-              </span>
-            )}
-            {isConnected && isStarted && (
-              <span className="ml-2 inline-block rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-600">
-                已连接
-              </span>
-            )}
+          {/* Header with View Mode Tabs */}
+          <div className="border-b border-gray-200 bg-white px-6 py-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">
+                  {projectName || requirement?.slice(0, 30) || '新建项目'}
+                </h1>
+                <div className="mt-1 flex items-center gap-2">
+                  {template && (
+                    <span className="inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-600">
+                      {template.name} 模板
+                    </span>
+                  )}
+                  {isConnected && isStarted && (
+                    <span className="inline-block rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-600">
+                      已连接
+                    </span>
+                  )}
+                </div>
+              </div>
+              {/* View Mode Tabs */}
+              {isStarted && (
+                <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+                  <button
+                    onClick={() => setViewMode('collaboration')}
+                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                      viewMode === 'collaboration'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"
+                      />
+                    </svg>
+                    协作视图
+                  </button>
+                  <button
+                    onClick={() => setViewMode('workspace')}
+                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                      viewMode === 'workspace'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+                      />
+                    </svg>
+                    代码工作区
+                    {generatedFiles.length > 0 && (
+                      <span className="ml-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-600">
+                        {generatedFiles.length}
+                      </span>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Content */}
@@ -813,9 +907,49 @@ function NewCodingProjectPageContent() {
                   </button>
                 </div>
               </div>
+            ) : viewMode === 'workspace' ? (
+              /* Code Workspace View */
+              <div className="-m-6 h-full">
+                <DevWorkspace
+                  files={generatedFiles}
+                  currentAgent={
+                    currentAgent
+                      ? {
+                          role: currentAgent,
+                          name:
+                            agents.find((a) => a.role === currentAgent)?.name ||
+                            '',
+                          icon:
+                            agents.find((a) => a.role === currentAgent)?.icon ||
+                            '',
+                          isActive:
+                            agents.find((a) => a.role === currentAgent)
+                              ?.status === 'running',
+                          streamingContent: thinkingContent,
+                        }
+                      : undefined
+                  }
+                  isGenerating={!!currentAgent && !isCompleted}
+                  showPreview={true}
+                />
+              </div>
             ) : (
               /* Collaboration Messages - Enhanced Visualization */
               <div className="space-y-4">
+                {/* AI Thinking Panel */}
+                {currentAgent && !isCompleted && thinkingContent && (
+                  <ThinkingPanel
+                    agentName={
+                      agents.find((a) => a.role === currentAgent)?.name || ''
+                    }
+                    agentIcon={
+                      agents.find((a) => a.role === currentAgent)?.icon || ''
+                    }
+                    isActive={true}
+                    streamingContent={thinkingContent}
+                  />
+                )}
+
                 {/* Progress Timeline */}
                 <div className="rounded-xl border border-gray-200 bg-white p-4">
                   <div className="mb-3 flex items-center justify-between">
