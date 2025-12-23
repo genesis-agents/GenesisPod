@@ -23,6 +23,7 @@ import {
   useAiCodingSocket,
   ProjectProgressEvent,
   AgentStatusEvent,
+  CodingAgentRole,
 } from '@/hooks/useAiCodingSocket';
 import { TeamStatusPanel } from '@/components/ai-coding/AgentStatusCard';
 import TeamChatPanel from '@/components/ai-coding/TeamChatPanel';
@@ -201,10 +202,28 @@ function CodeViewer({ files }: { files: ProjectFile[] }) {
 }
 
 // Document viewer component
-function DocumentViewer({ documents }: { documents: ProjectDocument[] }) {
-  const [selectedDoc, setSelectedDoc] = useState<ProjectDocument | null>(
-    documents[0] || null
-  );
+function DocumentViewer({
+  documents,
+  initialDocType,
+}: {
+  documents: ProjectDocument[];
+  initialDocType?: string;
+}) {
+  const [selectedDoc, setSelectedDoc] = useState<ProjectDocument | null>(() => {
+    if (initialDocType) {
+      const doc = documents.find((d) => d.type === initialDocType);
+      if (doc) return doc;
+    }
+    return documents[0] || null;
+  });
+
+  // Update selected doc when initialDocType changes
+  useEffect(() => {
+    if (initialDocType) {
+      const doc = documents.find((d) => d.type === initialDocType);
+      if (doc) setSelectedDoc(doc);
+    }
+  }, [initialDocType, documents]);
 
   const docTypeLabels: Record<string, string> = {
     PRD: '产品需求文档',
@@ -288,8 +307,32 @@ export default function ProjectDetailPage() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
   const [githubStatus, setGithubStatus] = useState<GithubStatus | null>(null);
+  const [initialDocType, setInitialDocType] = useState<string | undefined>();
 
   const isAuthenticated = !!accessToken;
+
+  // Handle agent card click - navigate to corresponding output
+  const handleAgentClick = useCallback((role: CodingAgentRole) => {
+    // Map agent role to document type or tab
+    const roleToDocType: Record<CodingAgentRole, string | null> = {
+      PM: 'PRD',
+      ARCHITECT: 'DESIGN',
+      PM_LEAD: null, // Tasks - go to code tab
+      ENGINEER: null, // Code - go to code tab
+      QA: null, // Tests - go to code tab
+    };
+
+    const docType = roleToDocType[role];
+
+    if (docType) {
+      // Navigate to documents tab and select the document
+      setInitialDocType(docType);
+      setActiveTab('documents');
+    } else {
+      // For PM_LEAD, ENGINEER, QA - go to code tab
+      setActiveTab('code');
+    }
+  }, []);
 
   // Fetch project data
   const fetchProject = useCallback(async () => {
@@ -871,6 +914,7 @@ export default function ProjectDetailPage() {
               <TeamStatusPanel
                 teamMembers={teamMembers}
                 legacyAgentStatus={project.agentStatus}
+                onAgentClick={handleAgentClick}
               />
             </div>
           )}
@@ -886,6 +930,7 @@ export default function ProjectDetailPage() {
                   showDetails
                   compact
                   className="h-full"
+                  onAgentClick={handleAgentClick}
                 />
               </div>
 
@@ -916,7 +961,10 @@ export default function ProjectDetailPage() {
 
           {/* Documents Tab */}
           {activeTab === 'documents' && (
-            <DocumentViewer documents={documents} />
+            <DocumentViewer
+              documents={documents}
+              initialDocType={initialDocType}
+            />
           )}
 
           {/* Code Tab */}

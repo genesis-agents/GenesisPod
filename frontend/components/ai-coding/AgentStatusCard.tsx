@@ -208,7 +208,9 @@ export function AgentStatusCard({
   return (
     <div
       className={`rounded-xl border p-4 transition-all duration-300 ${cardClasses} ${
-        onClick ? 'cursor-pointer' : ''
+        onClick
+          ? 'cursor-pointer hover:shadow-md hover:ring-2 hover:ring-emerald-200'
+          : ''
       }`}
       onClick={onClick}
     >
@@ -287,7 +289,7 @@ export function AgentStatusCard({
         </div>
 
         {/* 状态图标 */}
-        <div className="flex-shrink-0">
+        <div className="flex flex-shrink-0 items-center gap-1">
           {(currentStatus === 'WORKING' || currentStatus === 'running') && (
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
           )}
@@ -317,6 +319,25 @@ export function AgentStatusCard({
               />
             </svg>
           )}
+          {/* 可点击指示箭头 */}
+          {onClick &&
+            (currentStatus === 'completed' ||
+              !currentStatus ||
+              currentStatus === 'IDLE') && (
+              <svg
+                className="h-4 w-4 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            )}
         </div>
       </div>
     </div>
@@ -337,6 +358,8 @@ interface TeamStatusPanelProps {
   className?: string;
   /** 使用紧凑布局（单列） */
   compact?: boolean;
+  /** Agent 点击回调 */
+  onAgentClick?: (role: CodingAgentRole) => void;
 }
 
 export function TeamStatusPanel({
@@ -345,6 +368,7 @@ export function TeamStatusPanel({
   showDetails = false,
   className = '',
   compact = false,
+  onAgentClick,
 }: TeamStatusPanelProps) {
   // 创建成员映射
   const memberByRole = useMemo(() => {
@@ -399,6 +423,7 @@ export function TeamStatusPanel({
             member={memberByRole.get(role)}
             legacyStatus={legacyStatusMap[role]}
             showDetails={showDetails}
+            onClick={onAgentClick ? () => onAgentClick(role) : undefined}
           />
         ))}
       </div>
