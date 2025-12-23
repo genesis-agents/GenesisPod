@@ -11,12 +11,9 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ className = '' }: SidebarProps) {
-  // 折叠状态（持久化）
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    const stored = window.localStorage.getItem('sidebar-collapsed');
-    return stored === 'true';
-  });
+  // 折叠状态（始终默认展开）
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
+
   // 悬停展开
   const [isHovered, setIsHovered] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -26,16 +23,6 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
   // 锁定时始终展开，否则悬停时展开
   const showExpanded = !isCollapsed || isHovered;
-
-  // 持久化折叠状态
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(
-        'sidebar-collapsed',
-        isCollapsed ? 'true' : 'false'
-      );
-    }
-  }, [isCollapsed]);
 
   // 检查鼠标是否在侧边栏内
   const checkMouseInSidebar = useCallback(() => {
