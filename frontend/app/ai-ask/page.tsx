@@ -864,22 +864,6 @@ export default function AskPage() {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 setShowTools(false);
-                                router.push('/ai-office?tab=developer');
-                              }}
-                            >
-                              <span className="text-base">💻</span>
-                              <span className="flex-1">AI Developer</span>
-                              <span className="text-xs text-gray-400">
-                                Code
-                              </span>
-                            </button>
-                            <button
-                              type="button"
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setShowTools(false);
                                 router.push('/ai-office?tab=designer');
                               }}
                             >
@@ -1656,22 +1640,6 @@ export default function AskPage() {
                                 <span className="flex-1">AI Docs</span>
                                 <span className="text-xs text-gray-400">
                                   Word
-                                </span>
-                              </button>
-                              <button
-                                type="button"
-                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setShowTools(false);
-                                  router.push('/ai-office?tab=developer');
-                                }}
-                              >
-                                <span className="text-base">💻</span>
-                                <span className="flex-1">AI Developer</span>
-                                <span className="text-xs text-gray-400">
-                                  Code
                                 </span>
                               </button>
                               <button

@@ -23,7 +23,6 @@ import {
   Sparkles,
   FileText,
   Image as ImageIcon,
-  Code,
   Presentation,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -52,7 +51,6 @@ const QUICK_COMMANDS = [
   { cmd: '/ppt', agent: AgentType.SLIDES, icon: Presentation, label: 'PPT' },
   { cmd: '/doc', agent: AgentType.DOCS, icon: FileText, label: '文档' },
   { cmd: '/design', agent: AgentType.DESIGNER, icon: ImageIcon, label: '设计' },
-  { cmd: '/code', agent: AgentType.DEVELOPER, icon: Code, label: '代码' },
 ];
 
 export function PromptBar({
@@ -170,8 +168,6 @@ export function PromptBar({
         return '📄';
       case AgentType.DESIGNER:
         return '🎨';
-      case AgentType.DEVELOPER:
-        return '💻';
       default:
         return '✨';
     }
