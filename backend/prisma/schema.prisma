@@ -1980,6 +1980,7 @@ model ResearchProject {
   notes   ResearchProjectNote[]
   chats   ResearchProjectChat[]
   outputs ResearchProjectOutput[]
+  deepResearchSessions DeepResearchSession[]
 
   @@index([userId])
   @@index([status])
@@ -3824,4 +3825,61 @@ model CodingMissionLog {
   @@index([eventType])
   @@index([createdAt])
   @@map("coding_mission_logs")
+}
+
+// ============ AI Studio Deep Research ============
+
+enum DeepResearchStatus {
+  PLANNING    // AI 正在规划研究步骤
+  SEARCHING   // 正在执行搜索
+  REFLECTING  // 正在自我反思评估
+  SYNTHESIZING // 正在合成报告
+  COMPLETED   // 研究完成
+  FAILED      // 研究失败
+}
+
+model DeepResearchSession {
+  id        String             @id @default(uuid())
+  projectId String             @map("project_id")
+
+  // 研究查询
+  query     String             @db.Text
+
+  // 状态
+  status    DeepResearchStatus @default(PLANNING)
+
+  // AI 生成的研究计划
+  plan      Json?              // { objective, steps: [{ id, type, query, rationale }] }
+
+  // 搜索轮次记录
+  searchRounds Json[]          @default([]) @map("search_rounds") // [{ round, query, resultsCount, sources }]
+
+  // 自我反思记录
+  reflections Json[]           @default([]) // [{ assessment, decision, reasoning }]
+
+  // 思考链
+  thinkingChain Json[]         @default([]) @map("thinking_chain") // [{ step, content, timestamp }]
+
+  // 最终报告
+  report    Json?              // { executiveSummary, sections, conclusion, references }
+
+  // 统计信息
+  sourcesUsed Int              @default(0) @map("sources_used")
+  tokensUsed  Int              @default(0) @map("tokens_used")
+
+  // 错误信息
+  error     String?            @db.Text
+
+  // 时间戳
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  completedAt DateTime?        @map("completed_at")
+
+  // 关系
+  project   ResearchProject    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("deep_research_sessions")
 }
