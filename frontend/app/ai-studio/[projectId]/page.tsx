@@ -62,6 +62,7 @@ import {
   SourceCardHighlight,
   type SourceReference,
 } from '@/components/ai-studio/citations';
+import { DeepResearchPanel } from '@/components/ai-studio/DeepResearchPanel';
 
 // ==================== 类型定义 ====================
 interface Source {
@@ -1849,6 +1850,7 @@ export default function ProjectDetailPage() {
   const [sourcesCollapsed, setSourcesCollapsed] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>('');
+  const [viewMode, setViewMode] = useState<'chat' | 'deep-research'>('chat');
 
   // Scroll to source callback for citation system
   const handleScrollToSource = useCallback(
@@ -2286,7 +2288,31 @@ export default function ProjectDetailPage() {
               <h1 className="font-semibold text-gray-900">{project.name}</h1>
             </div>
           </div>
-          {/* Future: Share and Settings buttons */}
+          {/* Mode Toggle */}
+          <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-1">
+            <button
+              onClick={() => setViewMode('chat')}
+              className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                viewMode === 'chat'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Sparkles className="h-4 w-4" />
+              Chat
+            </button>
+            <button
+              onClick={() => setViewMode('deep-research')}
+              className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                viewMode === 'deep-research'
+                  ? 'bg-white text-purple-600 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Microscope className="h-4 w-4" />
+              Deep Research
+            </button>
+          </div>
         </div>
 
         {/* Three-column Layout */}
@@ -2304,24 +2330,31 @@ export default function ProjectDetailPage() {
             projectId={projectId}
           />
 
-          {/* Center: Chat */}
-          <ChatPanel
-            chat={project.chats[0] || null}
-            sources={project.sources}
-            selectedSourceIds={selectedSourceIds}
-            onSendMessage={handleSendMessage}
-            onSaveAsNote={handleSaveAsNote}
-            isLoading={chatLoading}
-            models={aiModels.map((m) => ({
-              id: m.id,
-              name: m.name,
-              modelName: m.modelName,
-              icon: m.icon,
-              isDefault: m.isDefault,
-            }))}
-            selectedModel={selectedModel}
-            onModelChange={setSelectedModel}
-          />
+          {/* Center: Chat or Deep Research */}
+          {viewMode === 'chat' ? (
+            <ChatPanel
+              chat={project.chats[0] || null}
+              sources={project.sources}
+              selectedSourceIds={selectedSourceIds}
+              onSendMessage={handleSendMessage}
+              onSaveAsNote={handleSaveAsNote}
+              isLoading={chatLoading}
+              models={aiModels.map((m) => ({
+                id: m.id,
+                name: m.name,
+                modelName: m.modelName,
+                icon: m.icon,
+                isDefault: m.isDefault,
+              }))}
+              selectedModel={selectedModel}
+              onModelChange={setSelectedModel}
+            />
+          ) : (
+            <DeepResearchPanel
+              projectId={projectId}
+              className="flex-1 overflow-hidden"
+            />
+          )}
 
           {/* Right: Studio */}
           <StudioPanel
