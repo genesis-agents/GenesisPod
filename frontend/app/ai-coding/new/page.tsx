@@ -193,6 +193,12 @@ function NewCodingProjectPageContent() {
   );
   const [generatedFiles, setGeneratedFiles] = useState<ParsedFile[]>([]);
   const [thinkingContent, setThinkingContent] = useState<string>('');
+  const [selectedOutput, setSelectedOutput] = useState<{
+    type: string;
+    name: string;
+    content: string;
+    agentRole: string;
+  } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isAuthenticated = !!accessToken;
@@ -1372,16 +1378,28 @@ function NewCodingProjectPageContent() {
                   },
                   { type: 'test', name: '测试用例', icon: '🔍', role: 'qa' },
                 ].map((output) => {
-                  const hasOutput = messages.some(
+                  const outputMessage = messages.find(
                     (m) => m.status === 'done' && m.agentRole === output.role
                   );
+                  const hasOutput = !!outputMessage;
                   return (
-                    <div
+                    <button
                       key={output.type}
-                      className={`flex items-center gap-3 rounded-lg p-3 ${
+                      onClick={() => {
+                        if (hasOutput && outputMessage) {
+                          setSelectedOutput({
+                            type: output.type,
+                            name: output.name,
+                            content: outputMessage.content,
+                            agentRole: output.role,
+                          });
+                        }
+                      }}
+                      disabled={!hasOutput}
+                      className={`flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors ${
                         hasOutput
-                          ? 'cursor-pointer bg-gray-50 hover:bg-gray-100'
-                          : 'opacity-50'
+                          ? 'cursor-pointer bg-gray-50 hover:bg-emerald-50 hover:ring-1 hover:ring-emerald-200'
+                          : 'cursor-not-allowed opacity-50'
                       }`}
                     >
                       <span className="text-xl">{output.icon}</span>
@@ -1389,23 +1407,38 @@ function NewCodingProjectPageContent() {
                         {output.name}
                       </span>
                       {hasOutput ? (
-                        <svg
-                          className="h-5 w-5 text-emerald-500"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
+                        <div className="flex items-center gap-1.5">
+                          <svg
+                            className="h-4 w-4 text-emerald-500"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                          <svg
+                            className="h-4 w-4 text-gray-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 5l7 7-7 7"
+                            />
+                          </svg>
+                        </div>
                       ) : (
                         <span className="text-xs text-gray-400">待生成</span>
                       )}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -1445,6 +1478,104 @@ function NewCodingProjectPageContent() {
           </div>
         )}
       </main>
+
+      {/* Output Detail Modal */}
+      {selectedOutput && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">
+                  {selectedOutput.type === 'prd'
+                    ? '📝'
+                    : selectedOutput.type === 'design'
+                      ? '🏗️'
+                      : selectedOutput.type === 'task'
+                        ? '📋'
+                        : selectedOutput.type === 'code'
+                          ? '💻'
+                          : '🔍'}
+                </span>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    {selectedOutput.name}
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    由{' '}
+                    {selectedOutput.agentRole === 'pm'
+                      ? '产品经理'
+                      : selectedOutput.agentRole === 'architect'
+                        ? '架构师'
+                        : selectedOutput.agentRole === 'pmLead'
+                          ? '项目经理'
+                          : selectedOutput.agentRole === 'engineer'
+                            ? '工程师'
+                            : 'QA 工程师'}{' '}
+                    生成
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedOutput(null)}
+                className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <svg
+                  className="h-6 w-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <AIMessageRenderer content={selectedOutput.content} />
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <button
+                onClick={() => {
+                  // Copy content to clipboard
+                  navigator.clipboard.writeText(selectedOutput.content);
+                  alert('内容已复制到剪贴板');
+                }}
+                className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+                复制内容
+              </button>
+              <button
+                onClick={() => setSelectedOutput(null)}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
