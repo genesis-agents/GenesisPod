@@ -197,6 +197,24 @@ async function removeSource(
   if (!res.ok) throw new Error('Failed to remove source');
 }
 
+async function batchRemoveSources(
+  projectId: string,
+  sourceIds: string[]
+): Promise<{ success: string[]; failed: string[] }> {
+  const results = { success: [] as string[], failed: [] as string[] };
+  await Promise.all(
+    sourceIds.map(async (sourceId) => {
+      try {
+        await removeSource(projectId, sourceId);
+        results.success.push(sourceId);
+      } catch {
+        results.failed.push(sourceId);
+      }
+    })
+  );
+  return results;
+}
+
 async function sendChatMessage(
   projectId: string,
   message: string,
@@ -327,6 +345,7 @@ function SourcesPanel({
   onAddSource,
   onAddSources,
   onRemoveSource,
+  onBatchRemoveSources,
   collapsed,
   onToggleCollapse,
   projectId,
@@ -338,6 +357,7 @@ function SourcesPanel({
   onAddSource: (source: Partial<Source>) => void;
   onAddSources: (sources: Source[]) => void;
   onRemoveSource: (id: string) => void;
+  onBatchRemoveSources: (ids: string[]) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
   projectId: string;
@@ -624,16 +644,29 @@ function SourcesPanel({
             <span className="text-gray-500">
               {selectedIds.length} selected for chat
             </span>
-            <button
-              onClick={() => {
-                uniqueSources.forEach((s) => {
-                  if (selectedIdSet.has(s.id)) onToggleSelect(s.id);
-                });
-              }}
-              className="text-purple-600 hover:underline"
-            >
-              Clear
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  if (confirm(`确定要删除选中的 ${selectedIds.length} 个资料吗？此操作无法撤销。`)) {
+                    onBatchRemoveSources(selectedIds);
+                  }
+                }}
+                className="flex items-center gap-1 text-red-600 hover:underline"
+              >
+                <Trash2 className="h-3 w-3" />
+                Delete
+              </button>
+              <button
+                onClick={() => {
+                  uniqueSources.forEach((s) => {
+                    if (selectedIdSet.has(s.id)) onToggleSelect(s.id);
+                  });
+                }}
+                className="text-purple-600 hover:underline"
+              >
+                Clear
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1774,6 +1807,7 @@ function SourcesFullView({
   onAddSource,
   onAddSources,
   onRemoveSource,
+  onBatchRemoveSources,
   projectId,
 }: {
   sources: Source[];
@@ -1782,6 +1816,7 @@ function SourcesFullView({
   onAddSource: (source: Partial<Source>) => void;
   onAddSources: (sources: Source[]) => void;
   onRemoveSource: (id: string) => void;
+  onBatchRemoveSources: (ids: string[]) => void;
   projectId: string;
 }) {
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -1881,15 +1916,35 @@ function SourcesFullView({
               </h2>
               <p className="mt-1 text-sm text-gray-500">
                 {uniqueSources.length} sources in this project
+                {selectedIds.length > 0 && (
+                  <span className="ml-2 text-purple-600">
+                    · {selectedIds.length} selected
+                  </span>
+                )}
               </p>
             </div>
-            <button
-              onClick={() => setShowAddDialog(true)}
-              className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2.5 font-medium text-white hover:bg-purple-700"
-            >
-              <Plus className="h-4 w-4" />
-              Add Sources
-            </button>
+            <div className="flex items-center gap-2">
+              {selectedIds.length > 0 && (
+                <button
+                  onClick={() => {
+                    if (confirm(`确定要删除选中的 ${selectedIds.length} 个资料吗？此操作无法撤销。`)) {
+                      onBatchRemoveSources(selectedIds);
+                    }
+                  }}
+                  className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 font-medium text-red-600 hover:bg-red-100"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete Selected ({selectedIds.length})
+                </button>
+              )}
+              <button
+                onClick={() => setShowAddDialog(true)}
+                className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2.5 font-medium text-white hover:bg-purple-700"
+              >
+                <Plus className="h-4 w-4" />
+                Add Sources
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -2823,6 +2878,36 @@ export default function ProjectDetailPage() {
     }
   };
 
+  // Batch remove sources
+  const handleBatchRemoveSources = async (ids: string[]) => {
+    if (!project || ids.length === 0) return;
+    try {
+      const results = await batchRemoveSources(projectId, ids);
+      // Remove successfully deleted sources from state
+      if (results.success.length > 0) {
+        const successSet = new Set(results.success);
+        setProject((prev) =>
+          prev
+            ? {
+                ...prev,
+                sources: prev.sources.filter((s) => !successSet.has(s.id)),
+              }
+            : null
+        );
+        setSelectedSourceIds((prev) =>
+          prev.filter((sourceId) => !successSet.has(sourceId))
+        );
+      }
+      // Notify user of results
+      if (results.failed.length > 0) {
+        alert(`删除完成：成功 ${results.success.length} 个，失败 ${results.failed.length} 个`);
+      }
+    } catch (err) {
+      console.error('Failed to batch remove sources:', err);
+      alert('批量删除失败，请重试');
+    }
+  };
+
   // Send chat message
   const handleSendMessage = async (message: string) => {
     if (!project) return;
@@ -3194,6 +3279,7 @@ export default function ProjectDetailPage() {
                 onAddSource={handleAddSource}
                 onAddSources={handleAddSources}
                 onRemoveSource={handleRemoveSource}
+                onBatchRemoveSources={handleBatchRemoveSources}
                 collapsed={sourcesCollapsed}
                 onToggleCollapse={() => setSourcesCollapsed(!sourcesCollapsed)}
                 projectId={projectId}
@@ -3228,6 +3314,7 @@ export default function ProjectDetailPage() {
               onAddSource={handleAddSource}
               onAddSources={handleAddSources}
               onRemoveSource={handleRemoveSource}
+              onBatchRemoveSources={handleBatchRemoveSources}
               projectId={projectId}
             />
           )}
