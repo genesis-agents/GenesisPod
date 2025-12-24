@@ -2,8 +2,8 @@
 
 /**
  * AI Studio - 研究项目详情页
- * 三栏布局：Sources | Chat | Studio (Notes + Outputs)
- * 对标 NotebookLM 设计
+ * Tab导航架构：Ask AI | Sources | Research | Outputs
+ * 每个Tab独立全宽展示
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -52,6 +52,9 @@ import {
   Layers,
   Brain,
   GraduationCap,
+  MessageSquare,
+  FolderOpen,
+  FileOutput,
 } from 'lucide-react';
 import { FileUploader } from '@/components/ai-studio/FileUploader';
 import { OutputViewer } from '@/components/ai-studio/outputs/OutputViewer';
@@ -61,7 +64,7 @@ import {
   SourceCardHighlight,
   type SourceReference,
 } from '@/components/ai-studio/citations';
-import { DeepResearchPanel } from '@/components/ai-studio/DeepResearchPanel';
+import { ResearchTab } from '@/components/ai-studio/ResearchTab';
 
 // ==================== 类型定义 ====================
 interface Source {
@@ -1763,6 +1766,888 @@ function StudioPanel({
   );
 }
 
+// ==================== Sources Full View (Tab) ====================
+function SourcesFullView({
+  sources,
+  selectedIds,
+  onToggleSelect,
+  onAddSource,
+  onAddSources,
+  onRemoveSource,
+  projectId,
+}: {
+  sources: Source[];
+  selectedIds: string[];
+  onToggleSelect: (id: string) => void;
+  onAddSource: (source: Partial<Source>) => void;
+  onAddSources: (sources: Source[]) => void;
+  onRemoveSource: (id: string) => void;
+  projectId: string;
+}) {
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [dialogTab, setDialogTab] = useState<'search' | 'upload'>('search');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchStats, setSearchStats] = useState<SearchStats | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [searchSources, setSearchSources] = useState<string[]>([
+    'local',
+    'web',
+    'arxiv',
+    'github',
+  ]);
+  const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
+  const [addingId, setAddingId] = useState<string | null>(null);
+  const [viewingSource, setViewingSource] = useState<Source | null>(null);
+
+  const selectedIdSet = new Set(selectedIds);
+
+  const toggleSearchSource = (source: string) => {
+    setSearchSources((prev) =>
+      prev.includes(source)
+        ? prev.filter((s) => s !== source)
+        : [...prev, source]
+    );
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim() || searchSources.length === 0) return;
+    setSearching(true);
+    setSearchStats(null);
+    setSearchResults([]);
+    try {
+      const result = await searchSourcesApi(
+        searchQuery,
+        'quick',
+        searchSources
+      );
+      setSearchResults(result.results || []);
+      setSearchStats(result.stats);
+    } catch (err) {
+      console.error('Search failed:', err);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const getSourceIcon = (type: string) => {
+    switch (type.toLowerCase()) {
+      case 'paper':
+        return <FileText className="h-5 w-5 text-blue-500" />;
+      case 'github':
+        return <Github className="h-5 w-5 text-gray-700" />;
+      case 'news':
+        return <Newspaper className="h-5 w-5 text-orange-500" />;
+      case 'video':
+        return <Play className="h-5 w-5 text-red-500" />;
+      case 'web':
+        return <Globe className="h-5 w-5 text-green-500" />;
+      default:
+        return <BookOpen className="h-5 w-5 text-gray-500" />;
+    }
+  };
+
+  const getStatusIcon = (status: Source['analysisStatus']) => {
+    switch (status) {
+      case 'COMPLETED':
+        return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+      case 'ANALYZING':
+        return <Loader2 className="h-4 w-4 animate-spin text-blue-500" />;
+      case 'FAILED':
+        return <AlertCircle className="h-4 w-4 text-red-500" />;
+      default:
+        return <Circle className="h-4 w-4 text-gray-300" />;
+    }
+  };
+
+  // Deduplicate sources
+  const uniqueSources = sources.reduce((acc: Source[], source) => {
+    const exists = acc.some(
+      (s) => s.title.toLowerCase() === source.title.toLowerCase()
+    );
+    if (!exists) acc.push(source);
+    return acc;
+  }, []);
+
+  return (
+    <div className="flex flex-1 flex-col bg-gray-50">
+      {/* Header */}
+      <div className="border-b bg-white px-6 py-4">
+        <div className="mx-auto max-w-6xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">
+                Research Sources
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                {uniqueSources.length} sources in this project
+              </p>
+            </div>
+            <button
+              onClick={() => setShowAddDialog(true)}
+              className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2.5 font-medium text-white hover:bg-purple-700"
+            >
+              <Plus className="h-4 w-4" />
+              Add Sources
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Source Grid */}
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="mx-auto max-w-6xl">
+          {uniqueSources.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="mb-4 rounded-2xl bg-gray-100 p-4">
+                <BookOpen className="h-12 w-12 text-gray-400" />
+              </div>
+              <h3 className="mb-2 text-lg font-semibold text-gray-900">
+                No sources yet
+              </h3>
+              <p className="mb-6 max-w-md text-gray-500">
+                Add research papers, articles, websites, and more to build your
+                knowledge base.
+              </p>
+              <button
+                onClick={() => setShowAddDialog(true)}
+                className="flex items-center gap-2 rounded-lg bg-purple-600 px-6 py-3 font-medium text-white hover:bg-purple-700"
+              >
+                <Plus className="h-5 w-5" />
+                Add Your First Source
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {uniqueSources.map((source) => {
+                const isSelected = selectedIdSet.has(source.id);
+                return (
+                  <div
+                    key={source.id}
+                    className={`group relative cursor-pointer rounded-xl border-2 bg-white p-4 transition-all hover:shadow-md ${
+                      isSelected
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    onClick={() => onToggleSelect(source.id)}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 rounded-lg bg-gray-100 p-2">
+                        {getSourceIcon(source.sourceType)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="line-clamp-2 font-medium text-gray-900">
+                          {source.title}
+                        </h4>
+                        <p className="mt-1 line-clamp-2 text-sm text-gray-500">
+                          {source.abstract ||
+                            source.aiSummary ||
+                            'No description'}
+                        </p>
+                        <div className="mt-2 flex items-center gap-2">
+                          {getStatusIcon(source.analysisStatus)}
+                          <span className="text-xs text-gray-400">
+                            {source.sourceType}
+                            {source.publishedAt &&
+                              ` · ${new Date(source.publishedAt).toLocaleDateString()}`}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Selection indicator */}
+                    <div className="absolute right-2 top-2">
+                      {isSelected ? (
+                        <CheckCircle2 className="h-5 w-5 text-purple-600" />
+                      ) : (
+                        <Circle className="h-5 w-5 text-gray-300 group-hover:text-gray-400" />
+                      )}
+                    </div>
+                    {/* Actions */}
+                    <div className="absolute bottom-2 right-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      {source.sourceUrl && (
+                        <a
+                          href={source.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded-lg p-1.5 hover:bg-gray-100"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ExternalLink className="h-4 w-4 text-gray-400" />
+                        </a>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setViewingSource(source);
+                        }}
+                        className="rounded-lg p-1.5 hover:bg-gray-100"
+                      >
+                        <Eye className="h-4 w-4 text-gray-400" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRemoveSource(source.id);
+                        }}
+                        className="rounded-lg p-1.5 hover:bg-red-100"
+                      >
+                        <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-500" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Add Source Dialog */}
+      {showAddDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Add Research Sources
+              </h2>
+              <button
+                onClick={() => setShowAddDialog(false)}
+                className="rounded-lg p-1 hover:bg-gray-100"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Dialog Tabs */}
+            <div className="mb-4 flex border-b border-gray-200">
+              <button
+                onClick={() => setDialogTab('search')}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium ${
+                  dialogTab === 'search'
+                    ? 'border-b-2 border-purple-600 text-purple-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Search className="h-4 w-4" />
+                Search Sources
+              </button>
+              <button
+                onClick={() => setDialogTab('upload')}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium ${
+                  dialogTab === 'upload'
+                    ? 'border-b-2 border-purple-600 text-purple-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Upload className="h-4 w-4" />
+                Upload Files
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {dialogTab === 'upload' ? (
+                <FileUploader
+                  projectId={projectId}
+                  onFilesUploaded={(newSources) => {
+                    onAddSources(newSources);
+                    setShowAddDialog(false);
+                  }}
+                  onClose={() => setShowAddDialog(false)}
+                />
+              ) : (
+                <>
+                  {/* Search Input */}
+                  <div className="mb-4 flex gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                        placeholder="Search papers, code, articles..."
+                        className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                      />
+                    </div>
+                    <button
+                      onClick={handleSearch}
+                      disabled={searching || !searchQuery.trim()}
+                      className="flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+                    >
+                      {searching ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Search className="h-4 w-4" />
+                      )}
+                      Search
+                    </button>
+                  </div>
+
+                  {/* Source Toggles */}
+                  <div className="mb-4 flex flex-wrap items-center gap-2">
+                    {[
+                      { id: 'web', label: 'Web', icon: Globe },
+                      { id: 'arxiv', label: 'arXiv', icon: FileText },
+                      { id: 'github', label: 'GitHub', icon: Github },
+                      { id: 'news', label: 'News', icon: Newspaper },
+                      { id: 'local', label: 'Library', icon: Database },
+                    ].map(({ id, label, icon: Icon }) => (
+                      <button
+                        key={id}
+                        onClick={() => toggleSearchSource(id)}
+                        className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                          searchSources.includes(id)
+                            ? 'bg-purple-100 text-purple-700'
+                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        }`}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Search Results */}
+                  <div className="max-h-80 space-y-2 overflow-y-auto">
+                    {searchResults.length > 0 ? (
+                      searchResults.map((result, idx) => (
+                        <div
+                          key={result.id || `result-${idx}`}
+                          className="flex items-start gap-3 rounded-lg bg-gray-50 p-3 hover:bg-gray-100"
+                        >
+                          <div className="mt-0.5 flex-shrink-0">
+                            {getSourceIcon(result.source || result.sourceType)}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h4 className="line-clamp-1 font-medium text-gray-900">
+                              {result.title}
+                            </h4>
+                            <p className="mt-1 line-clamp-2 text-sm text-gray-500">
+                              {result.abstract}
+                            </p>
+                          </div>
+                          {addedIds.has(result.id || `result-${idx}`) ? (
+                            <span className="flex items-center gap-1 rounded-lg bg-green-100 px-3 py-1.5 text-xs font-medium text-green-700">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Added
+                            </span>
+                          ) : (
+                            <button
+                              onClick={async () => {
+                                const resultId = result.id || `result-${idx}`;
+                                setAddingId(resultId);
+                                try {
+                                  await onAddSource({
+                                    title: result.title,
+                                    sourceType:
+                                      result.sourceType || result.source,
+                                    sourceUrl: result.sourceUrl,
+                                    abstract: result.abstract,
+                                    authors: result.authors,
+                                    publishedAt: result.publishedAt,
+                                    resourceId: result.id,
+                                    metadata: result.metadata,
+                                  });
+                                  setAddedIds((prev) =>
+                                    new Set(prev).add(resultId)
+                                  );
+                                } catch (err) {
+                                  console.error('Failed to add source:', err);
+                                } finally {
+                                  setAddingId(null);
+                                }
+                              }}
+                              disabled={
+                                addingId === (result.id || `result-${idx}`)
+                              }
+                              className="flex items-center gap-1 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+                            >
+                              {addingId === (result.id || `result-${idx}`) ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Plus className="h-3 w-3" />
+                              )}
+                              Add
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    ) : searching ? (
+                      <div className="flex flex-col items-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+                        <p className="mt-3 text-sm text-gray-500">
+                          Searching across sources...
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="py-12 text-center">
+                        <Search className="mx-auto h-10 w-10 text-gray-300" />
+                        <p className="mt-3 text-sm text-gray-500">
+                          Search for papers, code, and articles
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Source Detail Modal */}
+      {viewingSource && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <h3 className="font-semibold text-gray-900">Source Details</h3>
+              <button
+                onClick={() => setViewingSource(null)}
+                className="rounded-lg p-1 hover:bg-gray-100"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="mb-4 flex items-start gap-3">
+                {getSourceIcon(viewingSource.sourceType)}
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {viewingSource.title}
+                </h2>
+              </div>
+              {viewingSource.abstract && (
+                <div className="mb-4">
+                  <h4 className="mb-2 text-sm font-medium text-gray-700">
+                    Abstract
+                  </h4>
+                  <p className="text-sm leading-relaxed text-gray-600">
+                    {viewingSource.abstract}
+                  </p>
+                </div>
+              )}
+              {viewingSource.aiSummary && (
+                <div className="mb-4">
+                  <h4 className="mb-2 text-sm font-medium text-gray-700">
+                    AI Summary
+                  </h4>
+                  <p className="text-sm leading-relaxed text-gray-600">
+                    {viewingSource.aiSummary}
+                  </p>
+                </div>
+              )}
+              {viewingSource.content && (
+                <div>
+                  <h4 className="mb-2 text-sm font-medium text-gray-700">
+                    Content
+                  </h4>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-600">
+                    {viewingSource.content.length > 2000
+                      ? viewingSource.content.slice(0, 2000) + '...'
+                      : viewingSource.content}
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-between border-t px-6 py-4">
+              {viewingSource.sourceUrl ? (
+                <a
+                  href={viewingSource.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm text-purple-600 hover:underline"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Open Original
+                </a>
+              ) : (
+                <span />
+              )}
+              <button
+                onClick={() => setViewingSource(null)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==================== Outputs Full View (Tab) ====================
+function OutputsFullView({
+  outputs,
+  notes,
+  selectedSourceIds,
+  onGenerateOutput,
+  onRegenerateOutput,
+  onCreateNote,
+  onUpdateNote,
+  onDeleteNote,
+  projectId,
+}: {
+  outputs: Output[];
+  notes: Note[];
+  selectedSourceIds: string[];
+  onGenerateOutput: (type: string) => void;
+  onRegenerateOutput: (outputId: string) => void;
+  onCreateNote: (note: Partial<Note>) => void;
+  onUpdateNote: (id: string, updates: Partial<Note>) => void;
+  onDeleteNote: (id: string) => void;
+  projectId: string;
+}) {
+  const [activeSection, setActiveSection] = useState<'outputs' | 'notes'>(
+    'outputs'
+  );
+  const [viewingOutput, setViewingOutput] = useState<Output | null>(null);
+  const [showNewNote, setShowNewNote] = useState(false);
+  const [newNoteContent, setNewNoteContent] = useState('');
+
+  const outputTypes = [
+    {
+      type: 'STUDY_GUIDE',
+      icon: BookMarked,
+      label: 'Study Guide',
+      desc: 'Comprehensive study materials',
+    },
+    {
+      type: 'BRIEFING_DOC',
+      icon: ClipboardList,
+      label: 'Briefing Doc',
+      desc: 'Executive summary document',
+    },
+    {
+      type: 'FAQ',
+      icon: HelpCircle,
+      label: 'FAQ',
+      desc: 'Frequently asked questions',
+    },
+    {
+      type: 'TIMELINE',
+      icon: Calendar,
+      label: 'Timeline',
+      desc: 'Chronological overview',
+    },
+    {
+      type: 'TREND_REPORT',
+      icon: TrendingUp,
+      label: 'Trend Report',
+      desc: 'Analysis of trends',
+    },
+    {
+      type: 'COMPARISON',
+      icon: GitCompare,
+      label: 'Comparison',
+      desc: 'Side-by-side analysis',
+    },
+    {
+      type: 'KNOWLEDGE_GRAPH',
+      icon: Network,
+      label: 'Knowledge Graph',
+      desc: 'Visual concept map',
+    },
+    {
+      type: 'FLASHCARDS',
+      icon: Layers,
+      label: 'Flashcards',
+      desc: 'Study flashcards',
+    },
+    {
+      type: 'QUIZ',
+      icon: GraduationCap,
+      label: 'Quiz',
+      desc: 'Test your knowledge',
+    },
+    {
+      type: 'MIND_MAP',
+      icon: Brain,
+      label: 'Mind Map',
+      desc: 'Structured visualization',
+    },
+  ];
+
+  const handleCreateNote = () => {
+    if (newNoteContent.trim()) {
+      onCreateNote({ content: newNoteContent.trim() });
+      setNewNoteContent('');
+      setShowNewNote(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-1 flex-col bg-gray-50">
+      {/* Header */}
+      <div className="border-b bg-white px-6 py-4">
+        <div className="mx-auto max-w-6xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Studio</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Generate outputs and manage notes
+              </p>
+            </div>
+            {selectedSourceIds.length > 0 && (
+              <span className="flex items-center gap-1.5 rounded-full bg-purple-100 px-3 py-1.5 text-sm text-purple-700">
+                <CheckCircle2 className="h-4 w-4" />
+                {selectedSourceIds.length} sources selected
+              </span>
+            )}
+          </div>
+
+          {/* Section Tabs */}
+          <div className="mt-4 flex gap-4">
+            <button
+              onClick={() => setActiveSection('outputs')}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                activeSection === 'outputs'
+                  ? 'bg-purple-100 text-purple-700'
+                  : 'text-gray-500 hover:bg-gray-100'
+              }`}
+            >
+              Generate Outputs
+            </button>
+            <button
+              onClick={() => setActiveSection('notes')}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                activeSection === 'notes'
+                  ? 'bg-purple-100 text-purple-700'
+                  : 'text-gray-500 hover:bg-gray-100'
+              }`}
+            >
+              Notes ({notes.length})
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="mx-auto max-w-6xl">
+          {activeSection === 'outputs' ? (
+            <div>
+              {/* Output Types Grid */}
+              <h3 className="mb-4 text-sm font-medium text-gray-500">
+                Generate New Output
+              </h3>
+              <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+                {outputTypes.map(({ type, icon: Icon, label, desc }) => (
+                  <button
+                    key={type}
+                    onClick={() => onGenerateOutput(type)}
+                    disabled={selectedSourceIds.length === 0}
+                    className="group flex flex-col items-center gap-2 rounded-xl border-2 border-gray-200 bg-white p-4 transition-all hover:border-purple-300 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <div className="rounded-xl bg-gray-100 p-3 transition-colors group-hover:bg-purple-100">
+                      <Icon className="h-6 w-6 text-gray-600 group-hover:text-purple-600" />
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">
+                      {label}
+                    </span>
+                    <span className="text-center text-xs text-gray-500">
+                      {desc}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Generated Outputs */}
+              {outputs.length > 0 && (
+                <div>
+                  <h3 className="mb-4 text-sm font-medium text-gray-500">
+                    Generated Outputs
+                  </h3>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {outputs.map((output) => (
+                      <div
+                        key={output.id}
+                        onClick={() =>
+                          output.status === 'COMPLETED' &&
+                          setViewingOutput(output)
+                        }
+                        className={`rounded-xl border border-gray-200 bg-white p-4 ${
+                          output.status === 'COMPLETED'
+                            ? 'cursor-pointer hover:border-purple-300 hover:shadow-md'
+                            : ''
+                        } transition-all`}
+                      >
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="font-medium text-gray-900">
+                            {output.title}
+                          </span>
+                          {output.status === 'GENERATING' ? (
+                            <Loader2 className="h-5 w-5 animate-spin text-purple-600" />
+                          ) : output.status === 'COMPLETED' ? (
+                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                          ) : output.status === 'FAILED' ? (
+                            <AlertCircle className="h-5 w-5 text-red-500" />
+                          ) : (
+                            <Circle className="h-5 w-5 text-gray-300" />
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-500">
+                          {output.status === 'COMPLETED'
+                            ? 'Click to view'
+                            : output.status === 'GENERATING'
+                              ? 'Generating...'
+                              : output.status === 'FAILED'
+                                ? 'Generation failed'
+                                : 'Queued'}
+                        </p>
+                        {output.status === 'FAILED' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRegenerateOutput(output.id);
+                            }}
+                            className="mt-2 flex items-center gap-1 text-sm text-purple-600 hover:underline"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            Retry
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              {/* New Note */}
+              {!showNewNote ? (
+                <button
+                  onClick={() => setShowNewNote(true)}
+                  className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 p-4 text-gray-500 transition-colors hover:border-purple-300 hover:text-purple-600"
+                >
+                  <Plus className="h-5 w-5" />
+                  Add Note
+                </button>
+              ) : (
+                <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4">
+                  <textarea
+                    value={newNoteContent}
+                    onChange={(e) => setNewNoteContent(e.target.value)}
+                    placeholder="Write your note..."
+                    className="w-full resize-none border-0 p-0 text-gray-900 focus:outline-none focus:ring-0"
+                    rows={4}
+                    autoFocus
+                  />
+                  <div className="mt-3 flex justify-end gap-2">
+                    <button
+                      onClick={() => {
+                        setShowNewNote(false);
+                        setNewNoteContent('');
+                      }}
+                      className="rounded-lg px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleCreateNote}
+                      disabled={!newNoteContent.trim()}
+                      className="rounded-lg bg-purple-600 px-3 py-1.5 text-sm text-white hover:bg-purple-700 disabled:opacity-50"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Notes List */}
+              <div className="space-y-3">
+                {notes.map((note) => (
+                  <div
+                    key={note.id}
+                    className="group rounded-xl border border-gray-200 bg-white p-4 transition-all hover:border-gray-300"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        {note.title && (
+                          <h4 className="mb-1 font-medium text-gray-900">
+                            {note.title}
+                          </h4>
+                        )}
+                        <p className="text-gray-600">{note.content}</p>
+                        <div className="mt-2 text-xs text-gray-400">
+                          {new Date(note.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                        <button
+                          onClick={() =>
+                            onUpdateNote(note.id, { isPinned: !note.isPinned })
+                          }
+                          className="rounded-lg p-1.5 hover:bg-gray-100"
+                        >
+                          {note.isPinned ? (
+                            <PinOff className="h-4 w-4 text-purple-600" />
+                          ) : (
+                            <Pin className="h-4 w-4 text-gray-400" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => onDeleteNote(note.id)}
+                          className="rounded-lg p-1.5 hover:bg-red-100"
+                        >
+                          <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-500" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Output Detail Modal */}
+      {viewingOutput && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <h3 className="font-semibold text-gray-900">
+                {viewingOutput.title}
+              </h3>
+              <button
+                onClick={() => setViewingOutput(null)}
+                className="rounded-lg p-1 hover:bg-gray-100"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <OutputViewer
+                output={viewingOutput}
+                projectId={projectId}
+                onRegenerate={() => {
+                  onRegenerateOutput(viewingOutput.id);
+                  setViewingOutput(null);
+                }}
+                onExport={(format) => {
+                  const content = viewingOutput.content || '';
+                  const blob = new Blob([content], {
+                    type:
+                      format === 'json' ? 'application/json' : 'text/markdown',
+                  });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${viewingOutput.title}.${format === 'json' ? 'json' : 'md'}`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ==================== Main Page ====================
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -1778,7 +2663,10 @@ export default function ProjectDetailPage() {
   const [sourcesCollapsed, setSourcesCollapsed] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'chat' | 'deep-research'>('chat');
+  // Tab导航: ask-ai | sources | research | outputs
+  const [activeTab, setActiveTab] = useState<
+    'ask-ai' | 'sources' | 'research' | 'outputs'
+  >('ask-ai');
 
   // Scroll to source callback for citation system
   const handleScrollToSource = useCallback(
@@ -2196,100 +3084,180 @@ export default function ProjectDetailPage() {
     );
   }
 
+  // Tab configuration
+  const tabs: Array<{
+    id: 'ask-ai' | 'sources' | 'research' | 'outputs';
+    label: string;
+    icon: typeof MessageSquare;
+    count?: number;
+  }> = [
+    {
+      id: 'ask-ai',
+      label: 'Ask AI',
+      icon: MessageSquare,
+      count: project.chats[0]?.messages?.length || 0,
+    },
+    {
+      id: 'sources',
+      label: 'Sources',
+      icon: FolderOpen,
+      count: project.sources.length,
+    },
+    { id: 'research', label: 'Research', icon: Microscope },
+    {
+      id: 'outputs',
+      label: 'Outputs',
+      icon: FileOutput,
+      count: project.outputs.length,
+    },
+  ];
+
   return (
     <CitationProvider
       sources={sourceReferences}
       onScrollToSource={handleScrollToSource}
     >
-      <div className="flex h-screen flex-col bg-gray-100">
+      <div className="flex h-screen flex-col bg-gray-50">
         {/* Top Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.push('/studio')}
-              className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-            <div className="flex items-center gap-2">
-              <span className="text-xl">{project.icon || '📚'}</span>
-              <h1 className="font-semibold text-gray-900">{project.name}</h1>
+        <div className="border-b border-gray-200 bg-white">
+          <div className="flex items-center justify-between px-4 py-2">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.push('/studio')}
+                className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+              <div className="flex items-center gap-2">
+                <span className="text-xl">{project.icon || '📚'}</span>
+                <h1 className="font-semibold text-gray-900">{project.name}</h1>
+              </div>
+            </div>
+            {/* Source Count Badge */}
+            <div className="flex items-center gap-3">
+              {selectedSourceIds.length > 0 && activeTab === 'ask-ai' && (
+                <span className="flex items-center gap-1.5 rounded-full bg-purple-100 px-3 py-1 text-sm text-purple-700">
+                  <CheckCircle2 className="h-4 w-4" />
+                  {selectedSourceIds.length} sources selected
+                </span>
+              )}
             </div>
           </div>
-          {/* Deep Research Button / Indicator */}
-          {viewMode === 'chat' ? (
-            <button
-              onClick={() => setViewMode('deep-research')}
-              className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-purple-700 hover:to-indigo-700"
-            >
-              <Microscope className="h-4 w-4" />
-              Deep Research
-            </button>
-          ) : (
-            <button
-              onClick={() => setViewMode('chat')}
-              className="flex items-center gap-2 rounded-lg bg-purple-100 px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-200"
-            >
-              <Microscope className="h-4 w-4" />
-              Deep Research
-              <X className="h-4 w-4" />
-            </button>
-          )}
+
+          {/* Tab Navigation */}
+          <div className="flex px-4">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                  className={`relative flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'text-purple-700'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {tab.label}
+                  {tab.count !== undefined && tab.count > 0 && (
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-xs ${
+                        isActive
+                          ? 'bg-purple-100 text-purple-700'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      {tab.count}
+                    </span>
+                  )}
+                  {isActive && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Three-column Layout */}
+        {/* Tab Content */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Left: Sources */}
-          <SourcesPanel
-            sources={project.sources}
-            selectedIds={selectedSourceIds}
-            onToggleSelect={handleToggleSource}
-            onAddSource={handleAddSource}
-            onAddSources={handleAddSources}
-            onRemoveSource={handleRemoveSource}
-            collapsed={sourcesCollapsed}
-            onToggleCollapse={() => setSourcesCollapsed(!sourcesCollapsed)}
-            projectId={projectId}
-          />
+          {/* Ask AI Tab */}
+          {activeTab === 'ask-ai' && (
+            <div className="flex flex-1 overflow-hidden">
+              {/* Sources Sidebar */}
+              <SourcesPanel
+                sources={project.sources}
+                selectedIds={selectedSourceIds}
+                onToggleSelect={handleToggleSource}
+                onAddSource={handleAddSource}
+                onAddSources={handleAddSources}
+                onRemoveSource={handleRemoveSource}
+                collapsed={sourcesCollapsed}
+                onToggleCollapse={() => setSourcesCollapsed(!sourcesCollapsed)}
+                projectId={projectId}
+              />
+              {/* Chat Area */}
+              <ChatPanel
+                chat={project.chats[0] || null}
+                sources={project.sources}
+                selectedSourceIds={selectedSourceIds}
+                onSendMessage={handleSendMessage}
+                onSaveAsNote={handleSaveAsNote}
+                isLoading={chatLoading}
+                models={aiModels.map((m) => ({
+                  id: m.id,
+                  name: m.name,
+                  modelName: m.modelName,
+                  icon: m.icon,
+                  isDefault: m.isDefault,
+                }))}
+                selectedModel={selectedModel}
+                onModelChange={setSelectedModel}
+              />
+            </div>
+          )}
 
-          {/* Center: Chat or Deep Research */}
-          {viewMode === 'chat' ? (
-            <ChatPanel
-              chat={project.chats[0] || null}
+          {/* Sources Tab - Full Width */}
+          {activeTab === 'sources' && (
+            <SourcesFullView
               sources={project.sources}
-              selectedSourceIds={selectedSourceIds}
-              onSendMessage={handleSendMessage}
-              onSaveAsNote={handleSaveAsNote}
-              isLoading={chatLoading}
-              models={aiModels.map((m) => ({
-                id: m.id,
-                name: m.name,
-                modelName: m.modelName,
-                icon: m.icon,
-                isDefault: m.isDefault,
-              }))}
-              selectedModel={selectedModel}
-              onModelChange={setSelectedModel}
-            />
-          ) : (
-            <DeepResearchPanel
+              selectedIds={selectedSourceIds}
+              onToggleSelect={handleToggleSource}
+              onAddSource={handleAddSource}
+              onAddSources={handleAddSources}
+              onRemoveSource={handleRemoveSource}
               projectId={projectId}
-              className="flex-1 overflow-hidden"
             />
           )}
 
-          {/* Right: Studio */}
-          <StudioPanel
-            notes={project.notes}
-            outputs={project.outputs}
-            onCreateNote={handleCreateNote}
-            onUpdateNote={handleUpdateNote}
-            onDeleteNote={handleDeleteNote}
-            onGenerateOutput={handleGenerateOutput}
-            onRegenerateOutput={handleRegenerateOutput}
-            selectedSourceIds={selectedSourceIds}
-            projectId={projectId}
-          />
+          {/* Research Tab - Full Width */}
+          {activeTab === 'research' && (
+            <ResearchTab
+              projectId={projectId}
+              onExportToOutputs={(report) => {
+                // TODO: Export research report to outputs
+                console.log('Export research report:', report);
+              }}
+              className="flex-1"
+            />
+          )}
+
+          {/* Outputs Tab - Full Width */}
+          {activeTab === 'outputs' && (
+            <OutputsFullView
+              outputs={project.outputs}
+              notes={project.notes}
+              selectedSourceIds={selectedSourceIds}
+              onGenerateOutput={handleGenerateOutput}
+              onRegenerateOutput={handleRegenerateOutput}
+              onCreateNote={handleCreateNote}
+              onUpdateNote={handleUpdateNote}
+              onDeleteNote={handleDeleteNote}
+              projectId={projectId}
+            />
+          )}
         </div>
       </div>
     </CitationProvider>
