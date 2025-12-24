@@ -118,6 +118,9 @@ function splitSqlStatements(sql: string): string[] {
 async function getCustomMigrations(): Promise<string[]> {
   const migrationsDir = path.join(__dirname, "migrations");
 
+  console.log(`   📁 Migrations directory: ${migrationsDir}`);
+  console.log(`   📁 Directory exists: ${fs.existsSync(migrationsDir)}`);
+
   // 定义需要手动执行的迁移文件模式
   const customMigrationPatterns = [
     "20251202_add_office_documents",
@@ -137,18 +140,21 @@ async function getCustomMigrations(): Promise<string[]> {
     "20251222_add_encrypted_column",
     "20251222_fix_missing_columns",
     "20251222_force_fix_columns", // Force fix - always runs
-    "20251223_add_deep_research_sessions",
+    "20251223_force_add_deep_research_sessions", // Force - ensure table exists
   ];
 
   const migrations: string[] = [];
 
   for (const pattern of customMigrationPatterns) {
     const migrationPath = path.join(migrationsDir, pattern, "migration.sql");
-    if (fs.existsSync(migrationPath)) {
+    const exists = fs.existsSync(migrationPath);
+    console.log(`   📄 ${pattern}: ${exists ? "✅ found" : "❌ not found"}`);
+    if (exists) {
       migrations.push(migrationPath);
     }
   }
 
+  console.log(`   📊 Total migrations found: ${migrations.length}`);
   return migrations;
 }
 
