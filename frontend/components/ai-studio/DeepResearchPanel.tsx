@@ -33,16 +33,20 @@ interface DeepResearchPanelProps {
   projectId: string;
   onReportGenerated?: (report: DeepResearchReport) => void;
   className?: string;
+  /** 初始查询，设置后自动开始研究 */
+  initialQuery?: string;
 }
 
 export function DeepResearchPanel({
   projectId,
   onReportGenerated,
   className,
+  initialQuery,
 }: DeepResearchPanelProps) {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery || '');
   const [showThinking, setShowThinking] = useState(true);
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
+  const [hasAutoStarted, setHasAutoStarted] = useState(false);
 
   const { state, startResearch, stop, reset, isSearching } = useDeepResearch(
     projectId,
@@ -55,6 +59,24 @@ export function DeepResearchPanel({
       },
     }
   );
+
+  // 自动开始研究（当有 initialQuery 时）
+  React.useEffect(() => {
+    if (
+      initialQuery &&
+      initialQuery.trim() &&
+      !hasAutoStarted &&
+      !isSearching
+    ) {
+      setQuery(initialQuery);
+      setHasAutoStarted(true);
+      startResearch(initialQuery, {
+        depth: 'standard',
+        includeAcademic: true,
+        language: 'zh-CN',
+      });
+    }
+  }, [initialQuery, hasAutoStarted, isSearching, startResearch]);
 
   const handleStartResearch = useCallback(async () => {
     if (!query.trim() || isSearching) return;

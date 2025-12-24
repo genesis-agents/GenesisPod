@@ -4,14 +4,12 @@ import {
   Get,
   Param,
   Body,
-  Sse,
+  Res,
   Logger,
-  MessageEvent,
 } from "@nestjs/common";
-import { Observable } from "rxjs";
-import { map } from "rxjs/operators";
+import { Response } from "express";
 import { DeepResearchAgentService } from "./deep-research-agent.service";
-import { StartDeepResearchDto, DeepResearchSSEEvent } from "./types";
+import { StartDeepResearchDto } from "./types";
 
 /**
  * 深度研究 API 控制器
@@ -25,30 +23,50 @@ export class DeepResearchController {
 
   /**
    * 启动深度研究（SSE 流式响应）
-   *
-   * 前端通过 EventSource 连接此端点，接收实时进度更新
-   *
-   * @example
-   * const es = new EventSource('/api/v1/ai-studio/projects/xxx/deep-research/stream?query=...');
-   * es.addEventListener('thought_summary', (e) => {...});
-   * es.addEventListener('search_progress', (e) => {...});
+   * 使用 POST 方法支持请求体
    */
-  @Sse("stream")
-  startResearchStream(
+  @Post("stream")
+  async startResearchStream(
     @Param("projectId") projectId: string,
     @Body() dto: StartDeepResearchDto,
-  ): Observable<MessageEvent> {
+    @Res() res: Response,
+  ): Promise<void> {
     this.logger.log(
       `Starting deep research stream for project ${projectId}: "${dto.query.slice(0, 50)}..."`,
     );
 
-    return this.deepResearchAgent.startResearch(projectId, dto).pipe(
-      map((event: DeepResearchSSEEvent) => ({
-        data: JSON.stringify(event.data),
-        type: event.type,
-        id: `${event.type}-${Date.now()}`,
-      })),
-    );
+    // 设置 SSE 响应头
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders();
+
+    // 订阅研究流
+    const subscription = this.deepResearchAgent
+      .startResearch(projectId, dto)
+      .subscribe({
+        next: (event) => {
+          const eventData = `event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`;
+          res.write(eventData);
+        },
+        error: (error) => {
+          this.logger.error(`Research stream error: ${error}`);
+          const errorEvent = `event: error\ndata: ${JSON.stringify({ code: "STREAM_ERROR", message: error.message, recoverable: false })}\n\n`;
+          res.write(errorEvent);
+          res.end();
+        },
+        complete: () => {
+          this.logger.log(`Research stream completed for project ${projectId}`);
+          res.end();
+        },
+      });
+
+    // 客户端断开连接时取消订阅
+    res.on("close", () => {
+      this.logger.log(`Client disconnected from research stream`);
+      subscription.unsubscribe();
+    });
   }
 
   /**

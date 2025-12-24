@@ -43,7 +43,6 @@ import {
   Network,
   X,
   Globe,
-  Zap,
   Microscope,
   Eye,
   Copy,
@@ -345,7 +344,6 @@ function SourcesPanel({
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [dialogTab, setDialogTab] = useState<'search' | 'upload'>('search');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchMode, setSearchMode] = useState<'quick' | 'deep'>('quick');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchStats, setSearchStats] = useState<SearchStats | null>(null);
   const [searching, setSearching] = useState(false);
@@ -403,7 +401,7 @@ function SourcesPanel({
     try {
       const result: SearchResponse = await searchSourcesApi(
         searchQuery,
-        searchMode,
+        'quick',
         searchSources
       );
       setSearchResults(result.results || []);
@@ -696,57 +694,50 @@ function SourcesPanel({
             {/* Search Tab Content */}
             {dialogTab === 'search' && (
               <>
-                {/* Search Mode */}
-                <div className="mt-4 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setSearchMode('quick')}
-                      className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${
-                        searchMode === 'quick'
-                          ? 'bg-purple-100 text-purple-700'
-                          : 'text-gray-600 hover:bg-gray-100'
-                      }`}
-                    >
-                      <Zap className="h-4 w-4" />
-                      Quick Search
-                    </button>
-                    <button
-                      onClick={() => setSearchMode('deep')}
-                      className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${
-                        searchMode === 'deep'
-                          ? 'bg-purple-100 text-purple-700'
-                          : 'text-gray-600 hover:bg-gray-100'
-                      }`}
-                    >
-                      <Microscope className="h-4 w-4" />
-                      Deep Research
-                    </button>
+                {/* Search Input */}
+                <div className="mt-4 flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                      placeholder="Search papers, code, articles..."
+                      className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    />
                   </div>
-                  <p className="text-xs text-gray-500">
-                    {searchMode === 'quick'
-                      ? 'Fast parallel search across sources'
-                      : 'Multi-round iterative search with AI refinement'}
-                  </p>
+                  <button
+                    onClick={handleSearch}
+                    disabled={
+                      searching ||
+                      !searchQuery.trim() ||
+                      searchSources.length === 0
+                    }
+                    className="flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+                  >
+                    {searching ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Search className="h-4 w-4" />
+                    )}
+                    Search
+                  </button>
                 </div>
 
-                {/* Source Toggles */}
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-gray-500">Search in:</span>
+                {/* Source Toggles - Simplified */}
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
                   {[
-                    { id: 'local', label: 'Local DB', icon: Database },
                     { id: 'web', label: 'Web', icon: Globe },
                     { id: 'arxiv', label: 'arXiv', icon: FileText },
                     { id: 'github', label: 'GitHub', icon: Github },
                     { id: 'news', label: 'News', icon: Newspaper },
-                    { id: 'scholar', label: 'Scholar', icon: BookOpen },
-                    { id: 'blogs', label: 'Blogs', icon: FileText },
-                    { id: 'reports', label: 'Reports', icon: FileText },
-                    { id: 'policy', label: 'Policy', icon: FileText },
+                    { id: 'local', label: 'Library', icon: Database },
                   ].map(({ id, label, icon: Icon }) => (
                     <button
                       key={id}
                       onClick={() => toggleSearchSource(id)}
-                      className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                      className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
                         searchSources.includes(id)
                           ? 'bg-purple-100 text-purple-700'
                           : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
@@ -758,74 +749,13 @@ function SourcesPanel({
                   ))}
                 </div>
 
-                {/* Search Input */}
-                <div className="mt-4 flex gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                      placeholder={`Search ${searchSources.join(', ')}...`}
-                      className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                    />
-                  </div>
-                  <button
-                    onClick={handleSearch}
-                    disabled={
-                      searching ||
-                      !searchQuery.trim() ||
-                      searchSources.length === 0
-                    }
-                    className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
-                  >
-                    {searching ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Search className="h-4 w-4" />
-                    )}
-                    {searchMode === 'deep' ? 'Deep Search' : 'Search'}
-                  </button>
-                </div>
-
                 {/* Search Stats */}
                 {searchStats && (
-                  <div className="mt-3 rounded-lg bg-gray-50 px-3 py-2">
-                    <div className="flex items-center justify-between text-xs text-gray-600">
-                      <span>
-                        Found <strong>{searchStats.totalResults}</strong>{' '}
-                        results in{' '}
-                        <strong>
-                          {(searchStats.durationMs / 1000).toFixed(1)}s
-                        </strong>
-                      </span>
-                      {searchStats.searchRounds && (
-                        <span className="text-purple-600">
-                          {searchStats.searchRounds} search rounds
-                        </span>
-                      )}
-                    </div>
-                    {searchStats.queriesExecuted &&
-                      searchStats.queriesExecuted.length > 1 && (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {searchStats.queriesExecuted
-                            .slice(0, 5)
-                            .map((q, i) => (
-                              <span
-                                key={i}
-                                className="rounded bg-gray-200 px-1.5 py-0.5 text-xs text-gray-600"
-                              >
-                                {q.length > 30 ? `${q.slice(0, 30)}...` : q}
-                              </span>
-                            ))}
-                          {searchStats.queriesExecuted.length > 5 && (
-                            <span className="text-xs text-gray-400">
-                              +{searchStats.queriesExecuted.length - 5} more
-                            </span>
-                          )}
-                        </div>
-                      )}
+                  <div className="mt-3 text-xs text-gray-500">
+                    Found <strong>{searchStats.totalResults}</strong> results in{' '}
+                    <strong>
+                      {(searchStats.durationMs / 1000).toFixed(1)}s
+                    </strong>
                   </div>
                 )}
 
@@ -1059,9 +989,7 @@ function SourcesPanel({
                       <div className="flex flex-col items-center justify-center py-12">
                         <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
                         <p className="mt-3 text-sm text-gray-500">
-                          {searchMode === 'deep'
-                            ? 'Running deep research across multiple rounds...'
-                            : 'Searching across sources...'}
+                          Searching across sources...
                         </p>
                       </div>
                     ) : (
@@ -2288,31 +2216,25 @@ export default function ProjectDetailPage() {
               <h1 className="font-semibold text-gray-900">{project.name}</h1>
             </div>
           </div>
-          {/* Mode Toggle */}
-          <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-1">
-            <button
-              onClick={() => setViewMode('chat')}
-              className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                viewMode === 'chat'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <Sparkles className="h-4 w-4" />
-              Chat
-            </button>
+          {/* Deep Research Button / Indicator */}
+          {viewMode === 'chat' ? (
             <button
               onClick={() => setViewMode('deep-research')}
-              className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                viewMode === 'deep-research'
-                  ? 'bg-white text-purple-600 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
+              className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-purple-700 hover:to-indigo-700"
             >
               <Microscope className="h-4 w-4" />
               Deep Research
             </button>
-          </div>
+          ) : (
+            <button
+              onClick={() => setViewMode('chat')}
+              className="flex items-center gap-2 rounded-lg bg-purple-100 px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-200"
+            >
+              <Microscope className="h-4 w-4" />
+              Deep Research
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         {/* Three-column Layout */}
