@@ -15,7 +15,7 @@ import { StartDeepResearchDto } from "./types";
  * 深度研究 API 控制器
  * 提供 SSE 流式端点
  */
-@Controller("api/v1/ai-studio/projects/:projectId/deep-research")
+@Controller("ai-studio/projects/:projectId/deep-research")
 export class DeepResearchController {
   private readonly logger = new Logger(DeepResearchController.name);
 
