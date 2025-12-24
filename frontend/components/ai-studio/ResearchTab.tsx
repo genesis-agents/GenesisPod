@@ -660,6 +660,31 @@ function CompletedReportView({
   onCopySection: (content: string, section: string) => void;
 }) {
   const [expandedRefs, setExpandedRefs] = useState(false);
+  const [highlightedRef, setHighlightedRef] = useState<number | null>(null);
+
+  // Handle citation click - scroll to reference
+  const handleCitationClick = useCallback(
+    (refId: number) => {
+      // Expand references if collapsed
+      if (!expandedRefs) {
+        setExpandedRefs(true);
+      }
+      // Wait for animation then scroll
+      setTimeout(
+        () => {
+          const refElement = document.getElementById(`ref-${refId}`);
+          if (refElement) {
+            refElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Highlight the reference
+            setHighlightedRef(refId);
+            setTimeout(() => setHighlightedRef(null), 2000);
+          }
+        },
+        expandedRefs ? 0 : 300
+      );
+    },
+    [expandedRefs]
+  );
 
   return (
     <div className="space-y-8">
@@ -711,7 +736,11 @@ function CompletedReportView({
             />
           </div>
           <div className="prose prose-purple max-w-none">
-            {formatContentWithCitations(section.content, section.citations)}
+            {formatContentWithCitations(
+              section.content,
+              section.citations,
+              handleCitationClick
+            )}
           </div>
         </section>
       ))}
@@ -760,7 +789,12 @@ function CompletedReportView({
               {report.references.map((ref) => (
                 <div
                   key={ref.id}
-                  className="flex items-start gap-3 rounded-lg border bg-white p-3"
+                  id={`ref-${ref.id}`}
+                  className={`flex items-start gap-3 rounded-lg border p-3 transition-all duration-300 ${
+                    highlightedRef === ref.id
+                      ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-300'
+                      : 'bg-white'
+                  }`}
                 >
                   <span className="flex-shrink-0 rounded bg-purple-100 px-2 py-0.5 text-xs font-bold text-purple-700">
                     [{ref.id}]
@@ -855,7 +889,8 @@ function getSectionTitle(section: string): string {
 
 function formatContentWithCitations(
   content: string,
-  citations: number[]
+  citations: number[],
+  onCitationClick?: (refId: number) => void
 ): React.ReactNode {
   const parts = content.split(/(\[\d+\])/g);
   return parts.map((part, index) => {
@@ -865,7 +900,9 @@ function formatContentWithCitations(
         return (
           <sup
             key={index}
-            className="cursor-pointer font-medium text-purple-600 hover:text-purple-800"
+            onClick={() => onCitationClick?.(num)}
+            className="cursor-pointer rounded px-0.5 font-medium text-purple-600 hover:bg-purple-100 hover:text-purple-800"
+            title={`跳转到引用 [${num}]`}
           >
             {part}
           </sup>
