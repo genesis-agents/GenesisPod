@@ -116,10 +116,31 @@ function splitSqlStatements(sql: string): string[] {
  * 获取待执行的自定义迁移
  */
 async function getCustomMigrations(): Promise<string[]> {
-  const migrationsDir = path.join(__dirname, "migrations");
+  // 尝试多种路径解析方式
+  const possibleDirs = [
+    path.join(__dirname, "migrations"),
+    path.join(process.cwd(), "prisma", "migrations"),
+    path.join(process.cwd(), "backend", "prisma", "migrations"),
+    "/app/prisma/migrations",
+  ];
 
-  console.log(`   📁 Migrations directory: ${migrationsDir}`);
-  console.log(`   📁 Directory exists: ${fs.existsSync(migrationsDir)}`);
+  let migrationsDir = "";
+  for (const dir of possibleDirs) {
+    console.log(`   🔍 Checking: ${dir} - exists: ${fs.existsSync(dir)}`);
+    if (fs.existsSync(dir)) {
+      migrationsDir = dir;
+      break;
+    }
+  }
+
+  if (!migrationsDir) {
+    console.error("   ❌ No migrations directory found!");
+    console.log(`   📁 __dirname: ${__dirname}`);
+    console.log(`   📁 cwd: ${process.cwd()}`);
+    return [];
+  }
+
+  console.log(`   ✅ Using migrations directory: ${migrationsDir}`);
 
   // 定义需要手动执行的迁移文件模式
   const customMigrationPatterns = [
@@ -322,7 +343,7 @@ async function deploy() {
   }
 
   // Step 5: 验证表是否创建成功
-  console.log("🔍 Step 5: Verifying AI Office tables...");
+  console.log("🔍 Step 5: Verifying critical tables...");
   try {
     const tables = await prisma.$queryRaw<Array<{ tablename: string }>>`
       SELECT tablename
@@ -335,7 +356,8 @@ async function deploy() {
         'office_document_templates',
         'office_agent_tasks',
         'office_agent_artifacts',
-        'office_agent_tool_logs'
+        'office_agent_tool_logs',
+        'deep_research_sessions'
       )
     `;
 
@@ -348,6 +370,7 @@ async function deploy() {
       "office_agent_tasks",
       "office_agent_artifacts",
       "office_agent_tool_logs",
+      "deep_research_sessions",
     ];
 
     for (const table of requiredTables) {
@@ -403,6 +426,84 @@ async function deploy() {
     console.log("");
   } catch (error) {
     console.log("   ⚠️ Could not verify enums\n");
+  }
+
+  // Step 7: 紧急回退 - 确保 deep_research_sessions 表存在
+  console.log("🔧 Step 7: Emergency fallback for deep_research_sessions...");
+  try {
+    const deepResearchExists = await prisma.$queryRaw<
+      Array<{ exists: boolean }>
+    >`
+      SELECT EXISTS (
+        SELECT FROM pg_tables
+        WHERE schemaname = 'public'
+        AND tablename = 'deep_research_sessions'
+      )
+    `;
+
+    if (!deepResearchExists[0]?.exists) {
+      console.log(
+        "   ⚠️ deep_research_sessions table missing, creating directly...",
+      );
+
+      // 创建枚举类型
+      await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+          CREATE TYPE "DeepResearchStatus" AS ENUM ('PLANNING', 'SEARCHING', 'REFLECTING', 'SYNTHESIZING', 'COMPLETED', 'FAILED');
+        EXCEPTION
+          WHEN duplicate_object THEN null;
+        END $$;
+      `);
+
+      // 创建表
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "deep_research_sessions" (
+          "id" TEXT NOT NULL,
+          "project_id" TEXT NOT NULL,
+          "query" TEXT NOT NULL,
+          "status" "DeepResearchStatus" NOT NULL DEFAULT 'PLANNING',
+          "plan" JSONB,
+          "search_rounds" JSONB[] DEFAULT ARRAY[]::JSONB[],
+          "reflections" JSONB[] DEFAULT ARRAY[]::JSONB[],
+          "thinking_chain" JSONB[] DEFAULT ARRAY[]::JSONB[],
+          "report" JSONB,
+          "sources_used" INTEGER NOT NULL DEFAULT 0,
+          "tokens_used" INTEGER NOT NULL DEFAULT 0,
+          "error" TEXT,
+          "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "completed_at" TIMESTAMP(3),
+          CONSTRAINT "deep_research_sessions_pkey" PRIMARY KEY ("id")
+        );
+      `);
+
+      // 创建索引
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "deep_research_sessions_project_id_idx" ON "deep_research_sessions"("project_id");`,
+      );
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "deep_research_sessions_status_idx" ON "deep_research_sessions"("status");`,
+      );
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "deep_research_sessions_created_at_idx" ON "deep_research_sessions"("created_at" DESC);`,
+      );
+
+      // 添加外键
+      await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+          ALTER TABLE "deep_research_sessions" ADD CONSTRAINT "deep_research_sessions_project_id_fkey"
+          FOREIGN KEY ("project_id") REFERENCES "research_projects"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        EXCEPTION
+          WHEN duplicate_object THEN null;
+        END $$;
+      `);
+
+      console.log("   ✅ deep_research_sessions table created successfully!");
+    } else {
+      console.log("   ✅ deep_research_sessions table already exists");
+    }
+  } catch (error: any) {
+    console.error(`   ❌ Emergency fallback failed: ${error.message}`);
   }
 
   // 完成
