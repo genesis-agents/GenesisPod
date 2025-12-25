@@ -338,3 +338,348 @@ body {
 .prose-invert table tr:hover {
   background-color: rgba(255, 255, 255, 0.1);
 }
+
+/* ============================================
+   Enhanced Prose Styles for AI Message Output
+   ============================================ */
+
+/* Headings - More prominent with accent colors */
+.prose h1,
+.prose h2 {
+  color: #6d28d9; /* violet-700 */
+  font-weight: 700;
+  margin-top: 1.5em;
+  margin-bottom: 0.75em;
+  padding-bottom: 0.3em;
+  border-bottom: 2px solid #e9d5ff; /* violet-200 */
+}
+
+.prose h2 {
+  font-size: 1.25em;
+}
+
+.prose h3 {
+  color: #7c3aed; /* violet-600 */
+  font-weight: 600;
+  margin-top: 1.25em;
+  margin-bottom: 0.5em;
+}
+
+.prose h4 {
+  color: #8b5cf6; /* violet-500 */
+  font-weight: 600;
+  margin-top: 1em;
+}
+
+/* Key term labels - bold text followed by colon */
+.prose strong {
+  color: #1f2937; /* gray-800 */
+  font-weight: 600;
+  background: linear-gradient(to bottom, transparent 60%, rgba(139, 92, 246, 0.15) 60%);
+  padding: 0 2px;
+}
+
+/* Section numbers (1. 2. etc at start of headings) - highlight with badge style */
+.prose h2:first-letter,
+.prose h3:first-letter {
+  font-weight: 700;
+}
+
+/* Lists - Better visual hierarchy */
+.prose ul,
+.prose ol {
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
+  padding-left: 1.5em;
+}
+
+.prose li {
+  margin-top: 0.375em;
+  margin-bottom: 0.375em;
+}
+
+.prose li::marker {
+  color: #7c3aed; /* violet-600 */
+  font-weight: 600;
+}
+
+.prose ol > li::marker {
+  color: #7c3aed;
+  font-weight: 700;
+}
+
+/* Nested list indent */
+.prose li > ul,
+.prose li > ol {
+  margin-top: 0.375em;
+  margin-bottom: 0.375em;
+}
+
+/* Code blocks - Enhanced styling */
+.prose code {
+  background-color: #f3f4f6;
+  padding: 0.125em 0.375em;
+  border-radius: 0.25em;
+  font-size: 0.875em;
+  color: #be185d; /* pink-700 */
+  font-weight: 500;
+}
+
+.prose pre {
+  background-color: #1f2937;
+  border-radius: 0.5em;
+  padding: 1em;
+  overflow-x: auto;
+  margin: 1em 0;
+  border: 1px solid #374151;
+}
+
+.prose pre code {
+  background: transparent;
+  padding: 0;
+  color: #e5e7eb;
+  font-weight: 400;
+}
+
+/* Blockquotes - More prominent */
+.prose blockquote {
+  border-left: 4px solid #8b5cf6;
+  background-color: #faf5ff; /* violet-50 */
+  padding: 0.75em 1em;
+  margin: 1em 0;
+  border-radius: 0 0.375em 0.375em 0;
+  font-style: normal;
+}
+
+.prose blockquote p {
+  margin: 0;
+}
+
+/* Links - Accent color with underline */
+.prose a {
+  color: #7c3aed;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prose a:hover {
+  color: #6d28d9;
+}
+
+/* Horizontal rules - Styled dividers */
+.prose hr {
+  border: none;
+  border-top: 2px solid #e9d5ff;
+  margin: 1.5em 0;
+}
+
+/* Paragraphs - Spacing */
+.prose p {
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
+  line-height: 1.7;
+}
+
+/* First paragraph after heading - no top margin */
+.prose h1 + p,
+.prose h2 + p,
+.prose h3 + p,
+.prose h4 + p {
+  margin-top: 0.25em;
+}
+
+/* Definition-like patterns (bold followed by colon) */
+.prose p > strong:first-child {
+  display: inline-block;
+  min-width: 3em;
+  color: #6d28d9;
+}
+
+/* Inverted (dark) prose styles */
+.prose-invert h1,
+.prose-invert h2 {
+  color: #c4b5fd; /* violet-300 */
+  border-bottom-color: rgba(139, 92, 246, 0.3);
+}
+
+.prose-invert h3 {
+  color: #ddd6fe; /* violet-200 */
+}
+
+.prose-invert h4 {
+  color: #ede9fe; /* violet-100 */
+}
+
+.prose-invert strong {
+  color: #f9fafb;
+  background: linear-gradient(to bottom, transparent 60%, rgba(139, 92, 246, 0.25) 60%);
+}
+
+.prose-invert li::marker {
+  color: #c4b5fd;
+}
+
+.prose-invert code {
+  background-color: rgba(139, 92, 246, 0.2);
+  color: #f0abfc;
+}
+
+.prose-invert blockquote {
+  background-color: rgba(139, 92, 246, 0.1);
+  border-left-color: #a78bfa;
+}
+
+.prose-invert a {
+  color: #c4b5fd;
+}
+
+.prose-invert a:hover {
+  color: #ddd6fe;
+}
+
+.prose-invert hr {
+  border-top-color: rgba(139, 92, 246, 0.3);
+}
+
+.prose-invert p > strong:first-child {
+  color: #c4b5fd;
+}
+
+/* ============================================
+   AI Message Special Formatting
+   ============================================ */
+
+/* Numbered section headings (1. xxx, 2. xxx) - highlight badge style */
+.prose p:has(> strong:first-child) {
+  position: relative;
+}
+
+/* Key term styling - when bold text appears at start of paragraph */
+.prose p > strong:only-child,
+.prose li > strong:first-child {
+  color: #6d28d9;
+  font-weight: 600;
+}
+
+/* Special heading patterns: numbered items like "1. 定制你的设置" */
+.ai-message-enhanced h2,
+.ai-message-enhanced h3,
+.ai-message-enhanced .section-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+/* Section number badge style */
+.section-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75em;
+  height: 1.75em;
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: white;
+  font-weight: 700;
+  font-size: 0.875em;
+  border-radius: 0.375em;
+  margin-right: 0.5em;
+  flex-shrink: 0;
+}
+
+/* Definition list style - for patterns like "作用：xxx" */
+.prose dl {
+  margin: 1em 0;
+}
+
+.prose dt {
+  font-weight: 600;
+  color: #6d28d9;
+  margin-top: 0.75em;
+}
+
+.prose dd {
+  margin-left: 1.5em;
+  margin-top: 0.25em;
+  color: #374151;
+}
+
+/* Callout/Tip boxes */
+.prose .callout,
+.prose .tip,
+.prose .note {
+  background-color: #f5f3ff;
+  border: 1px solid #e9d5ff;
+  border-left: 4px solid #8b5cf6;
+  border-radius: 0.375em;
+  padding: 0.75em 1em;
+  margin: 1em 0;
+}
+
+.prose .callout-title,
+.prose .tip-title {
+  font-weight: 600;
+  color: #6d28d9;
+  margin-bottom: 0.25em;
+}
+
+/* Warning/Important boxes */
+.prose .warning {
+  background-color: #fffbeb;
+  border-color: #fde68a;
+  border-left-color: #f59e0b;
+}
+
+.prose .warning .callout-title {
+  color: #b45309;
+}
+
+/* Emoji prefix for tips/notes */
+.prose p:has(> strong:first-child):before {
+  content: none;
+}
+
+/* Enhanced code block with filename header */
+.prose pre[data-filename]::before {
+  content: attr(data-filename);
+  display: block;
+  background-color: #374151;
+  padding: 0.375em 1em;
+  margin: -1em -1em 0.75em -1em;
+  border-radius: 0.5em 0.5em 0 0;
+  font-size: 0.75em;
+  color: #9ca3af;
+  border-bottom: 1px solid #4b5563;
+}
+
+/* Keyboard shortcuts style */
+.prose kbd {
+  background-color: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 0.25em;
+  padding: 0.125em 0.375em;
+  font-size: 0.875em;
+  font-family: inherit;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Inverted styles for dark backgrounds */
+.prose-invert dl dt {
+  color: #c4b5fd;
+}
+
+.prose-invert dl dd {
+  color: #d1d5db;
+}
+
+.prose-invert .callout,
+.prose-invert .tip,
+.prose-invert .note {
+  background-color: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.prose-invert kbd {
+  background-color: #374151;
+  border-color: #4b5563;
+  color: #e5e7eb;
+}
