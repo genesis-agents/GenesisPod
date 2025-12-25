@@ -32,7 +32,7 @@ export class ResearchPlannerService {
       includeAcademic?: boolean;
     },
   ): Promise<ResearchPlan> {
-    this.logger.log(
+    this.logger.debug(
       `Generating research plan for query: ${query.slice(0, 100)}...`,
     );
 
@@ -64,7 +64,7 @@ export class ResearchPlannerService {
       });
 
       const plan = this.parsePlanResponse(result.content, query);
-      this.logger.log(`Generated plan with ${plan.steps.length} steps`);
+      this.logger.debug(`Generated plan with ${plan.steps.length} steps`);
 
       return plan;
     } catch (error) {

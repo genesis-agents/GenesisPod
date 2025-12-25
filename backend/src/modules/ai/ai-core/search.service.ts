@@ -158,7 +158,7 @@ export class SearchService {
     apiKey: string,
     maxResults: number,
   ): Promise<SearchResponse> {
-    this.logger.log(`Searching with Tavily: "${query}"`);
+    this.logger.debug(`Searching with Tavily: "${query}"`);
 
     // Request more results for better ranking/filtering
     const requestedResults = Math.min(maxResults * 2, 20);
@@ -197,7 +197,7 @@ export class SearchService {
     // Apply comprehensive ranking algorithm
     const rankedResults = this.rankSearchResults(rawResults, query, maxResults);
 
-    this.logger.log(
+    this.logger.debug(
       `Tavily returned ${rawResults.length} results, ranked to ${rankedResults.length}`,
     );
     return { success: true, results: rankedResults };
@@ -488,7 +488,7 @@ export class SearchService {
     apiKey: string,
     maxResults: number,
   ): Promise<SearchResponse> {
-    this.logger.log(`Searching with Serper: "${query}"`);
+    this.logger.debug(`Searching with Serper: "${query}"`);
 
     const response = await firstValueFrom(
       this.httpService.post(
@@ -515,7 +515,7 @@ export class SearchService {
       }),
     );
 
-    this.logger.log(`Serper returned ${results.length} results`);
+    this.logger.debug(`Serper returned ${results.length} results`);
     return { success: true, results };
   }
 
@@ -554,7 +554,7 @@ export class SearchService {
     error?: string;
   }> {
     try {
-      this.logger.log(`Fetching URL content: ${url}`);
+      this.logger.debug(`Fetching URL content: ${url}`);
 
       const response = await firstValueFrom(
         this.httpService.get(url, {
@@ -606,7 +606,7 @@ export class SearchService {
         content = content.substring(0, 3000) + "...";
       }
 
-      this.logger.log(
+      this.logger.debug(
         `Fetched URL content: ${title} (${content.length} chars)`,
       );
 

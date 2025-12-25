@@ -35,7 +35,7 @@ export class ReportSynthesizerService {
     },
   ): Promise<DeepResearchReport> {
     const startTime = Date.now();
-    this.logger.log(`Generating report for query: ${query.slice(0, 50)}...`);
+    this.logger.debug(`Generating report for query: ${query.slice(0, 50)}...`);
 
     // 准备来源和引用
     const sources = this.prepareSources(searchRounds);

@@ -162,7 +162,7 @@ export class AiChatService {
           const delay =
             aiError.getRetryDelay() * Math.pow(2, attempt - 1) +
             Math.random() * 500;
-          this.logger.log(
+          this.logger.debug(
             `[${operationName}] Retrying in ${Math.round(delay)}ms...`,
           );
           await this.sleep(delay);
@@ -1462,10 +1462,10 @@ Format the summary in a clear, structured manner using markdown.`;
     headers: Record<string, string>,
     modelName: string,
   ): Promise<ChatCompletionResult> {
-    this.logger.log(
+    this.logger.debug(
       `[${modelName}] Calling API: ${url.replace(/Bearer\s+\S+/, "Bearer ***")}`,
     );
-    this.logger.log(`[${modelName}] Request body model: ${body.model}`);
+    this.logger.debug(`[${modelName}] Request body model: ${body.model}`);
 
     // Wrap API call with retry logic for network errors
     return await this.withRetry(
@@ -1483,16 +1483,16 @@ Format the summary in a clear, structured manner using markdown.`;
         const data = response.data;
         const content = data.choices?.[0]?.message?.content;
 
-        // Log response details for debugging
-        this.logger.log(`[${modelName}] Response status: ${response.status}`);
-        this.logger.log(
+        // Log response details for debugging (debug level to avoid production log spam)
+        this.logger.debug(`[${modelName}] Response status: ${response.status}`);
+        this.logger.debug(
           `[${modelName}] Response has choices: ${!!data.choices}, length: ${data.choices?.length || 0}`,
         );
         if (data.choices?.[0]) {
-          this.logger.log(
+          this.logger.debug(
             `[${modelName}] Choice finish_reason: ${data.choices[0].finish_reason}`,
           );
-          this.logger.log(
+          this.logger.debug(
             `[${modelName}] Message content length: ${content?.length || 0}`,
           );
         }

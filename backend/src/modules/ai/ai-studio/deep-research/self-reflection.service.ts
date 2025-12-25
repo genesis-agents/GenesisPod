@@ -35,7 +35,7 @@ export class SelfReflectionService {
     currentRound: number,
     maxRounds: number,
   ): Promise<Reflection> {
-    this.logger.log(`Reflecting on round ${currentRound}/${maxRounds}`);
+    this.logger.debug(`Reflecting on round ${currentRound}/${maxRounds}`);
 
     // 获取 AI 模型
     const model = await this.getDefaultModel();
@@ -70,7 +70,7 @@ export class SelfReflectionService {
         result.content,
         currentRound,
       );
-      this.logger.log(`Reflection decision: ${reflection.decision}`);
+      this.logger.debug(`Reflection decision: ${reflection.decision}`);
 
       return reflection;
     } catch (error) {

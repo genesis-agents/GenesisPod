@@ -24,7 +24,7 @@ export class IterativeSearchService {
     step: ResearchPlanStep,
     round: number,
   ): Promise<SearchRound> {
-    this.logger.log(`Executing search step ${step.id}: ${step.query}`);
+    this.logger.debug(`Executing search step ${step.id}: ${step.query}`);
 
     const startTime = Date.now();
     const maxResults = step.type === "academic" ? 10 : 15;
@@ -55,7 +55,7 @@ export class IterativeSearchService {
       };
 
       const duration = Date.now() - startTime;
-      this.logger.log(
+      this.logger.debug(
         `Step ${step.id} completed: ${sources.length} results in ${duration}ms`,
       );
 

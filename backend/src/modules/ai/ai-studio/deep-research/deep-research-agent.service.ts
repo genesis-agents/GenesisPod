@@ -22,6 +22,9 @@ import {
 export class DeepResearchAgentService {
   private readonly logger = new Logger(DeepResearchAgentService.name);
 
+  // 单个阶段的最大超时时间 (2 分钟)
+  private readonly STAGE_TIMEOUT = 2 * 60 * 1000;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly plannerService: ResearchPlannerService,
@@ -95,10 +98,14 @@ export class DeepResearchAgentService {
         "正在制定研究计划，确定搜索步骤...",
       );
 
-      const plan = await this.plannerService.generatePlan(dto.query, {
-        depth: dto.options?.depth,
-        includeAcademic: dto.options?.includeAcademic,
-      });
+      const plan = await this.withTimeout(
+        this.plannerService.generatePlan(dto.query, {
+          depth: dto.options?.depth,
+          includeAcademic: dto.options?.includeAcademic,
+        }),
+        this.STAGE_TIMEOUT,
+        "研究计划生成",
+      );
 
       // 发送计划就绪事件
       subject.next({
@@ -145,10 +152,11 @@ export class DeepResearchAgentService {
             },
           });
 
-          // 执行搜索
-          const round = await this.searchService.executeStep(
-            step,
-            currentRound,
+          // 执行搜索 (带超时保护)
+          const round = await this.withTimeout(
+            this.searchService.executeStep(step, currentRound),
+            this.STAGE_TIMEOUT,
+            `搜索步骤 ${currentRound}`,
           );
           searchRounds.push(round);
 
@@ -178,12 +186,17 @@ export class DeepResearchAgentService {
               status: DeepResearchStatus.REFLECTING,
             });
 
-            const reflection = await this.reflectionService.reflect(
-              dto.query,
-              plan,
-              searchRounds,
-              currentRound,
-              maxRounds,
+            // 反思评估 (带超时保护)
+            const reflection = await this.withTimeout(
+              this.reflectionService.reflect(
+                dto.query,
+                plan,
+                searchRounds,
+                currentRound,
+                maxRounds,
+              ),
+              this.STAGE_TIMEOUT,
+              `反思评估 (轮次 ${currentRound})`,
             );
             reflections.push(reflection);
 
@@ -256,11 +269,13 @@ export class DeepResearchAgentService {
         });
       }
 
-      // 生成完整报告
-      const report = await this.reportService.generateReport(
-        dto.query,
-        searchRounds,
-        { language: dto.options?.language },
+      // 生成完整报告 (带超时保护)
+      const report = await this.withTimeout(
+        this.reportService.generateReport(dto.query, searchRounds, {
+          language: dto.options?.language,
+        }),
+        this.STAGE_TIMEOUT,
+        "报告生成",
       );
 
       // ========== 完成 ==========
@@ -390,5 +405,31 @@ export class DeepResearchAgentService {
       }
     }
     return urls.size;
+  }
+
+  /**
+   * 带超时的 Promise 包装器
+   */
+  private async withTimeout<T>(
+    promise: Promise<T>,
+    timeoutMs: number,
+    operationName: string,
+  ): Promise<T> {
+    let timeoutId: NodeJS.Timeout;
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error(`${operationName} 超时 (${timeoutMs / 1000}秒)`));
+      }, timeoutMs);
+    });
+
+    try {
+      const result = await Promise.race([promise, timeoutPromise]);
+      clearTimeout(timeoutId!);
+      return result;
+    } catch (error) {
+      clearTimeout(timeoutId!);
+      throw error;
+    }
   }
 }
