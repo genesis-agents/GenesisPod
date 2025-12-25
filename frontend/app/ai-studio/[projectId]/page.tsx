@@ -2,8 +2,10 @@
 
 /**
  * AI Studio - 研究项目详情页
- * Tab导航架构：Ask AI | Sources | Research | Outputs
- * 每个Tab独立全宽展示
+ * Tab导航架构：Fast Research | Deep Research | Outputs
+ * - Fast Research: Sources管理 + AI对话
+ * - Deep Research: 多轮迭代深度研究
+ * - Outputs: 生成的文档和笔记
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -55,6 +57,7 @@ import {
   MessageSquare,
   FolderOpen,
   FileOutput,
+  Zap,
 } from 'lucide-react';
 import { FileUploader } from '@/components/ai-studio/FileUploader';
 import { OutputViewer } from '@/components/ai-studio/outputs/OutputViewer';
@@ -647,7 +650,11 @@ function SourcesPanel({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
-                  if (confirm(`确定要删除选中的 ${selectedIds.length} 个资料吗？此操作无法撤销。`)) {
+                  if (
+                    confirm(
+                      `确定要删除选中的 ${selectedIds.length} 个资料吗？此操作无法撤销。`
+                    )
+                  ) {
                     onBatchRemoveSources(selectedIds);
                   }
                 }}
@@ -1799,538 +1806,6 @@ function StudioPanel({
   );
 }
 
-// ==================== Sources Full View (Tab) ====================
-function SourcesFullView({
-  sources,
-  selectedIds,
-  onToggleSelect,
-  onAddSource,
-  onAddSources,
-  onRemoveSource,
-  onBatchRemoveSources,
-  projectId,
-}: {
-  sources: Source[];
-  selectedIds: string[];
-  onToggleSelect: (id: string) => void;
-  onAddSource: (source: Partial<Source>) => void;
-  onAddSources: (sources: Source[]) => void;
-  onRemoveSource: (id: string) => void;
-  onBatchRemoveSources: (ids: string[]) => void;
-  projectId: string;
-}) {
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [dialogTab, setDialogTab] = useState<'search' | 'upload'>('search');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [searchStats, setSearchStats] = useState<SearchStats | null>(null);
-  const [searching, setSearching] = useState(false);
-  const [searchSources, setSearchSources] = useState<string[]>([
-    'local',
-    'web',
-    'arxiv',
-    'github',
-  ]);
-  const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
-  const [addingId, setAddingId] = useState<string | null>(null);
-  const [viewingSource, setViewingSource] = useState<Source | null>(null);
-
-  const selectedIdSet = new Set(selectedIds);
-
-  const toggleSearchSource = (source: string) => {
-    setSearchSources((prev) =>
-      prev.includes(source)
-        ? prev.filter((s) => s !== source)
-        : [...prev, source]
-    );
-  };
-
-  const handleSearch = async () => {
-    if (!searchQuery.trim() || searchSources.length === 0) return;
-    setSearching(true);
-    setSearchStats(null);
-    setSearchResults([]);
-    try {
-      const result = await searchSourcesApi(
-        searchQuery,
-        'quick',
-        searchSources
-      );
-      setSearchResults(result.results || []);
-      setSearchStats(result.stats);
-    } catch (err) {
-      console.error('Search failed:', err);
-    } finally {
-      setSearching(false);
-    }
-  };
-
-  const getSourceIcon = (type: string) => {
-    switch (type.toLowerCase()) {
-      case 'paper':
-        return <FileText className="h-5 w-5 text-blue-500" />;
-      case 'github':
-        return <Github className="h-5 w-5 text-gray-700" />;
-      case 'news':
-        return <Newspaper className="h-5 w-5 text-orange-500" />;
-      case 'video':
-        return <Play className="h-5 w-5 text-red-500" />;
-      case 'web':
-        return <Globe className="h-5 w-5 text-green-500" />;
-      default:
-        return <BookOpen className="h-5 w-5 text-gray-500" />;
-    }
-  };
-
-  const getStatusIcon = (status: Source['analysisStatus']) => {
-    switch (status) {
-      case 'COMPLETED':
-        return <CheckCircle2 className="h-4 w-4 text-green-500" />;
-      case 'ANALYZING':
-        return <Loader2 className="h-4 w-4 animate-spin text-blue-500" />;
-      case 'FAILED':
-        return <AlertCircle className="h-4 w-4 text-red-500" />;
-      default:
-        return <Circle className="h-4 w-4 text-gray-300" />;
-    }
-  };
-
-  // Deduplicate sources
-  const uniqueSources = sources.reduce((acc: Source[], source) => {
-    const exists = acc.some(
-      (s) => s.title.toLowerCase() === source.title.toLowerCase()
-    );
-    if (!exists) acc.push(source);
-    return acc;
-  }, []);
-
-  return (
-    <div className="flex flex-1 flex-col bg-gray-50">
-      {/* Header */}
-      <div className="border-b bg-white px-6 py-4">
-        <div className="mx-auto max-w-6xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">
-                Research Sources
-              </h2>
-              <p className="mt-1 text-sm text-gray-500">
-                {uniqueSources.length} sources in this project
-                {selectedIds.length > 0 && (
-                  <span className="ml-2 text-purple-600">
-                    · {selectedIds.length} selected
-                  </span>
-                )}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {selectedIds.length > 0 && (
-                <button
-                  onClick={() => {
-                    if (confirm(`确定要删除选中的 ${selectedIds.length} 个资料吗？此操作无法撤销。`)) {
-                      onBatchRemoveSources(selectedIds);
-                    }
-                  }}
-                  className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 font-medium text-red-600 hover:bg-red-100"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Delete Selected ({selectedIds.length})
-                </button>
-              )}
-              <button
-                onClick={() => setShowAddDialog(true)}
-                className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2.5 font-medium text-white hover:bg-purple-700"
-              >
-                <Plus className="h-4 w-4" />
-                Add Sources
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Source Grid */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="mx-auto max-w-6xl">
-          {uniqueSources.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="mb-4 rounded-2xl bg-gray-100 p-4">
-                <BookOpen className="h-12 w-12 text-gray-400" />
-              </div>
-              <h3 className="mb-2 text-lg font-semibold text-gray-900">
-                No sources yet
-              </h3>
-              <p className="mb-6 max-w-md text-gray-500">
-                Add research papers, articles, websites, and more to build your
-                knowledge base.
-              </p>
-              <button
-                onClick={() => setShowAddDialog(true)}
-                className="flex items-center gap-2 rounded-lg bg-purple-600 px-6 py-3 font-medium text-white hover:bg-purple-700"
-              >
-                <Plus className="h-5 w-5" />
-                Add Your First Source
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {uniqueSources.map((source) => {
-                const isSelected = selectedIdSet.has(source.id);
-                return (
-                  <div
-                    key={source.id}
-                    className={`group relative cursor-pointer rounded-xl border-2 bg-white p-4 transition-all hover:shadow-md ${
-                      isSelected
-                        ? 'border-purple-500 bg-purple-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                    onClick={() => onToggleSelect(source.id)}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 rounded-lg bg-gray-100 p-2">
-                        {getSourceIcon(source.sourceType)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h4 className="line-clamp-2 font-medium text-gray-900">
-                          {source.title}
-                        </h4>
-                        <p className="mt-1 line-clamp-2 text-sm text-gray-500">
-                          {source.abstract ||
-                            source.aiSummary ||
-                            'No description'}
-                        </p>
-                        <div className="mt-2 flex items-center gap-2">
-                          {getStatusIcon(source.analysisStatus)}
-                          <span className="text-xs text-gray-400">
-                            {source.sourceType}
-                            {source.publishedAt &&
-                              ` · ${new Date(source.publishedAt).toLocaleDateString()}`}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    {/* Selection indicator */}
-                    <div className="absolute right-2 top-2">
-                      {isSelected ? (
-                        <CheckCircle2 className="h-5 w-5 text-purple-600" />
-                      ) : (
-                        <Circle className="h-5 w-5 text-gray-300 group-hover:text-gray-400" />
-                      )}
-                    </div>
-                    {/* Actions */}
-                    <div className="absolute bottom-2 right-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                      {source.sourceUrl && (
-                        <a
-                          href={source.sourceUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded-lg p-1.5 hover:bg-gray-100"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <ExternalLink className="h-4 w-4 text-gray-400" />
-                        </a>
-                      )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setViewingSource(source);
-                        }}
-                        className="rounded-lg p-1.5 hover:bg-gray-100"
-                      >
-                        <Eye className="h-4 w-4 text-gray-400" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRemoveSource(source.id);
-                        }}
-                        className="rounded-lg p-1.5 hover:bg-red-100"
-                      >
-                        <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-500" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Add Source Dialog */}
-      {showAddDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Add Research Sources
-              </h2>
-              <button
-                onClick={() => setShowAddDialog(false)}
-                className="rounded-lg p-1 hover:bg-gray-100"
-              >
-                <X className="h-5 w-5 text-gray-500" />
-              </button>
-            </div>
-
-            {/* Dialog Tabs */}
-            <div className="mb-4 flex border-b border-gray-200">
-              <button
-                onClick={() => setDialogTab('search')}
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium ${
-                  dialogTab === 'search'
-                    ? 'border-b-2 border-purple-600 text-purple-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <Search className="h-4 w-4" />
-                Search Sources
-              </button>
-              <button
-                onClick={() => setDialogTab('upload')}
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium ${
-                  dialogTab === 'upload'
-                    ? 'border-b-2 border-purple-600 text-purple-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <Upload className="h-4 w-4" />
-                Upload Files
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto">
-              {dialogTab === 'upload' ? (
-                <FileUploader
-                  projectId={projectId}
-                  onFilesUploaded={(newSources) => {
-                    onAddSources(newSources);
-                    setShowAddDialog(false);
-                  }}
-                  onClose={() => setShowAddDialog(false)}
-                />
-              ) : (
-                <>
-                  {/* Search Input */}
-                  <div className="mb-4 flex gap-2">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                        placeholder="Search papers, code, articles..."
-                        className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                      />
-                    </div>
-                    <button
-                      onClick={handleSearch}
-                      disabled={searching || !searchQuery.trim()}
-                      className="flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
-                    >
-                      {searching ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Search className="h-4 w-4" />
-                      )}
-                      Search
-                    </button>
-                  </div>
-
-                  {/* Source Toggles */}
-                  <div className="mb-4 flex flex-wrap items-center gap-2">
-                    {[
-                      { id: 'web', label: 'Web', icon: Globe },
-                      { id: 'arxiv', label: 'arXiv', icon: FileText },
-                      { id: 'github', label: 'GitHub', icon: Github },
-                      { id: 'news', label: 'News', icon: Newspaper },
-                      { id: 'local', label: 'Library', icon: Database },
-                    ].map(({ id, label, icon: Icon }) => (
-                      <button
-                        key={id}
-                        onClick={() => toggleSearchSource(id)}
-                        className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                          searchSources.includes(id)
-                            ? 'bg-purple-100 text-purple-700'
-                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                        }`}
-                      >
-                        <Icon className="h-3.5 w-3.5" />
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Search Results */}
-                  <div className="max-h-80 space-y-2 overflow-y-auto">
-                    {searchResults.length > 0 ? (
-                      searchResults.map((result, idx) => (
-                        <div
-                          key={result.id || `result-${idx}`}
-                          className="flex items-start gap-3 rounded-lg bg-gray-50 p-3 hover:bg-gray-100"
-                        >
-                          <div className="mt-0.5 flex-shrink-0">
-                            {getSourceIcon(result.source || result.sourceType)}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <h4 className="line-clamp-1 font-medium text-gray-900">
-                              {result.title}
-                            </h4>
-                            <p className="mt-1 line-clamp-2 text-sm text-gray-500">
-                              {result.abstract}
-                            </p>
-                          </div>
-                          {addedIds.has(result.id || `result-${idx}`) ? (
-                            <span className="flex items-center gap-1 rounded-lg bg-green-100 px-3 py-1.5 text-xs font-medium text-green-700">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Added
-                            </span>
-                          ) : (
-                            <button
-                              onClick={async () => {
-                                const resultId = result.id || `result-${idx}`;
-                                setAddingId(resultId);
-                                try {
-                                  await onAddSource({
-                                    title: result.title,
-                                    sourceType:
-                                      result.sourceType || result.source,
-                                    sourceUrl: result.sourceUrl,
-                                    abstract: result.abstract,
-                                    authors: result.authors,
-                                    publishedAt: result.publishedAt,
-                                    resourceId: result.id,
-                                    metadata: result.metadata,
-                                  });
-                                  setAddedIds((prev) =>
-                                    new Set(prev).add(resultId)
-                                  );
-                                } catch (err) {
-                                  console.error('Failed to add source:', err);
-                                } finally {
-                                  setAddingId(null);
-                                }
-                              }}
-                              disabled={
-                                addingId === (result.id || `result-${idx}`)
-                              }
-                              className="flex items-center gap-1 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-purple-700 disabled:opacity-50"
-                            >
-                              {addingId === (result.id || `result-${idx}`) ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <Plus className="h-3 w-3" />
-                              )}
-                              Add
-                            </button>
-                          )}
-                        </div>
-                      ))
-                    ) : searching ? (
-                      <div className="flex flex-col items-center py-12">
-                        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-                        <p className="mt-3 text-sm text-gray-500">
-                          Searching across sources...
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="py-12 text-center">
-                        <Search className="mx-auto h-10 w-10 text-gray-300" />
-                        <p className="mt-3 text-sm text-gray-500">
-                          Search for papers, code, and articles
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Source Detail Modal */}
-      {viewingSource && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b px-6 py-4">
-              <h3 className="font-semibold text-gray-900">Source Details</h3>
-              <button
-                onClick={() => setViewingSource(null)}
-                className="rounded-lg p-1 hover:bg-gray-100"
-              >
-                <X className="h-5 w-5 text-gray-500" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="mb-4 flex items-start gap-3">
-                {getSourceIcon(viewingSource.sourceType)}
-                <h2 className="text-lg font-semibold text-gray-900">
-                  {viewingSource.title}
-                </h2>
-              </div>
-              {viewingSource.abstract && (
-                <div className="mb-4">
-                  <h4 className="mb-2 text-sm font-medium text-gray-700">
-                    Abstract
-                  </h4>
-                  <p className="text-sm leading-relaxed text-gray-600">
-                    {viewingSource.abstract}
-                  </p>
-                </div>
-              )}
-              {viewingSource.aiSummary && (
-                <div className="mb-4">
-                  <h4 className="mb-2 text-sm font-medium text-gray-700">
-                    AI Summary
-                  </h4>
-                  <p className="text-sm leading-relaxed text-gray-600">
-                    {viewingSource.aiSummary}
-                  </p>
-                </div>
-              )}
-              {viewingSource.content && (
-                <div>
-                  <h4 className="mb-2 text-sm font-medium text-gray-700">
-                    Content
-                  </h4>
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-600">
-                    {viewingSource.content.length > 2000
-                      ? viewingSource.content.slice(0, 2000) + '...'
-                      : viewingSource.content}
-                  </p>
-                </div>
-              )}
-            </div>
-            <div className="flex items-center justify-between border-t px-6 py-4">
-              {viewingSource.sourceUrl ? (
-                <a
-                  href={viewingSource.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-purple-600 hover:underline"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Open Original
-                </a>
-              ) : (
-                <span />
-              )}
-              <button
-                onClick={() => setViewingSource(null)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ==================== Outputs Full View (Tab) ====================
 function OutputsFullView({
   outputs,
@@ -2718,10 +2193,10 @@ export default function ProjectDetailPage() {
   const [sourcesCollapsed, setSourcesCollapsed] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>('');
-  // Tab导航: ask-ai | sources | research | outputs
+  // Tab导航: fast-research | deep-research | outputs
   const [activeTab, setActiveTab] = useState<
-    'ask-ai' | 'sources' | 'research' | 'outputs'
-  >('ask-ai');
+    'fast-research' | 'deep-research' | 'outputs'
+  >('fast-research');
 
   // Scroll to source callback for citation system
   const handleScrollToSource = useCallback(
@@ -2900,7 +2375,9 @@ export default function ProjectDetailPage() {
       }
       // Notify user of results
       if (results.failed.length > 0) {
-        alert(`删除完成：成功 ${results.success.length} 个，失败 ${results.failed.length} 个`);
+        alert(
+          `删除完成：成功 ${results.success.length} 个，失败 ${results.failed.length} 个`
+        );
       }
     } catch (err) {
       console.error('Failed to batch remove sources:', err);
@@ -3171,24 +2648,22 @@ export default function ProjectDetailPage() {
 
   // Tab configuration
   const tabs: Array<{
-    id: 'ask-ai' | 'sources' | 'research' | 'outputs';
+    id: 'fast-research' | 'deep-research' | 'outputs';
     label: string;
     icon: typeof MessageSquare;
     count?: number;
   }> = [
     {
-      id: 'ask-ai',
-      label: 'Ask AI',
-      icon: MessageSquare,
-      count: project.chats[0]?.messages?.length || 0,
-    },
-    {
-      id: 'sources',
-      label: 'Sources',
-      icon: FolderOpen,
+      id: 'fast-research',
+      label: 'Fast Research',
+      icon: Zap,
       count: project.sources.length,
     },
-    { id: 'research', label: 'Research', icon: Microscope },
+    {
+      id: 'deep-research',
+      label: 'Deep Research',
+      icon: Microscope,
+    },
     {
       id: 'outputs',
       label: 'Outputs',
@@ -3220,12 +2695,13 @@ export default function ProjectDetailPage() {
             </div>
             {/* Source Count Badge */}
             <div className="flex items-center gap-3">
-              {selectedSourceIds.length > 0 && activeTab === 'ask-ai' && (
-                <span className="flex items-center gap-1.5 rounded-full bg-purple-100 px-3 py-1 text-sm text-purple-700">
-                  <CheckCircle2 className="h-4 w-4" />
-                  {selectedSourceIds.length} sources selected
-                </span>
-              )}
+              {selectedSourceIds.length > 0 &&
+                activeTab === 'fast-research' && (
+                  <span className="flex items-center gap-1.5 rounded-full bg-purple-100 px-3 py-1 text-sm text-purple-700">
+                    <CheckCircle2 className="h-4 w-4" />
+                    {selectedSourceIds.length} sources selected
+                  </span>
+                )}
             </div>
           </div>
 
@@ -3268,8 +2744,8 @@ export default function ProjectDetailPage() {
 
         {/* Tab Content */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Ask AI Tab */}
-          {activeTab === 'ask-ai' && (
+          {/* Fast Research Tab - Sources + Chat */}
+          {activeTab === 'fast-research' && (
             <div className="flex flex-1 overflow-hidden">
               {/* Sources Sidebar */}
               <SourcesPanel
@@ -3305,22 +2781,8 @@ export default function ProjectDetailPage() {
             </div>
           )}
 
-          {/* Sources Tab - Full Width */}
-          {activeTab === 'sources' && (
-            <SourcesFullView
-              sources={project.sources}
-              selectedIds={selectedSourceIds}
-              onToggleSelect={handleToggleSource}
-              onAddSource={handleAddSource}
-              onAddSources={handleAddSources}
-              onRemoveSource={handleRemoveSource}
-              onBatchRemoveSources={handleBatchRemoveSources}
-              projectId={projectId}
-            />
-          )}
-
-          {/* Research Tab - Full Width */}
-          {activeTab === 'research' && (
+          {/* Deep Research Tab - Full Width */}
+          {activeTab === 'deep-research' && (
             <ResearchTab
               projectId={projectId}
               onExportToOutputs={(report) => {
