@@ -345,6 +345,24 @@ export class DeepResearchAgentService {
   }
 
   /**
+   * 删除研究会话
+   */
+  async deleteSession(sessionId: string) {
+    return this.prisma.deepResearchSession.delete({
+      where: { id: sessionId },
+    });
+  }
+
+  /**
+   * 批量删除研究会话
+   */
+  async deleteSessions(sessionIds: string[]) {
+    return this.prisma.deepResearchSession.deleteMany({
+      where: { id: { in: sessionIds } },
+    });
+  }
+
+  /**
    * 发送思考链事件
    */
   private emitThinking(

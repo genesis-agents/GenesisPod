@@ -83,6 +83,9 @@ export function ResearchTab({
   const [showThinking, setShowThinking] = useState(true);
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
   const [followUpQuery, setFollowUpQuery] = useState('');
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(
+    null
+  );
 
   const { state, startResearch, stop, reset, isSearching } = useDeepResearch(
     projectId,
@@ -179,6 +182,38 @@ export function ResearchTab({
     });
   }, [followUpQuery, viewingSession, startResearch]);
 
+  const handleDeleteSession = useCallback(
+    async (sessionId: string, e: React.MouseEvent) => {
+      e.stopPropagation(); // Prevent triggering onClick
+      if (deletingSessionId) return;
+
+      setDeletingSessionId(sessionId);
+      try {
+        const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+        const res = await fetch(
+          `${API_BASE}/api/v1/ai-studio/projects/${projectId}/deep-research/sessions/${sessionId}`,
+          {
+            method: 'DELETE',
+            credentials: 'include',
+          }
+        );
+        if (res.ok) {
+          setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+          // If viewing the deleted session, go back to list
+          if (viewingSession?.id === sessionId) {
+            setViewingSession(null);
+            setView('list');
+          }
+        }
+      } catch (err) {
+        console.error('Failed to delete session:', err);
+      } finally {
+        setDeletingSessionId(null);
+      }
+    },
+    [deletingSessionId, projectId, viewingSession]
+  );
+
   // ==================== Render Views ====================
 
   // List View
@@ -271,6 +306,8 @@ export function ResearchTab({
                     key={session.id}
                     session={session}
                     onClick={() => handleViewSession(session)}
+                    onDelete={(e) => handleDeleteSession(session.id, e)}
+                    isDeleting={deletingSessionId === session.id}
                   />
                 ))}
               </div>
@@ -526,9 +563,13 @@ function EmptyResearchState() {
 function ResearchSessionCard({
   session,
   onClick,
+  onDelete,
+  isDeleting,
 }: {
   session: ResearchSession;
   onClick: () => void;
+  onDelete: (e: React.MouseEvent) => void;
+  isDeleting: boolean;
 }) {
   const statusConfig = {
     COMPLETED: {
@@ -605,7 +646,21 @@ function ResearchSessionCard({
             </span>
           </div>
         </div>
-        <ChevronRight className="h-5 w-5 text-gray-300 transition-colors group-hover:text-purple-500" />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onDelete}
+            disabled={isDeleting}
+            className="rounded-lg p-2 text-gray-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-500 disabled:opacity-50 group-hover:opacity-100"
+            title="删除研究"
+          >
+            {isDeleting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
+          </button>
+          <ChevronRight className="h-5 w-5 text-gray-300 transition-colors group-hover:text-purple-500" />
+        </div>
       </div>
     </div>
   );

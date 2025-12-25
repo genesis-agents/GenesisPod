@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
   Param,
   Body,
   Res,
@@ -143,5 +144,58 @@ export class DeepResearchController {
       success: true,
       data: sessions,
     };
+  }
+
+  /**
+   * 删除单个研究会话
+   */
+  @Delete("sessions/:sessionId")
+  async deleteSession(
+    @Param("projectId") projectId: string,
+    @Param("sessionId") sessionId: string,
+  ) {
+    this.logger.log(`Deleting session ${sessionId} for project ${projectId}`);
+
+    try {
+      await this.deepResearchAgent.deleteSession(sessionId);
+      return {
+        success: true,
+        message: "研究会话已删除",
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "删除失败",
+      };
+    }
+  }
+
+  /**
+   * 批量删除研究会话
+   */
+  @Delete("sessions")
+  async deleteSessions(
+    @Param("projectId") projectId: string,
+    @Body() body: { sessionIds: string[] },
+  ) {
+    this.logger.log(
+      `Deleting ${body.sessionIds.length} sessions for project ${projectId}`,
+    );
+
+    try {
+      const result = await this.deepResearchAgent.deleteSessions(
+        body.sessionIds,
+      );
+      return {
+        success: true,
+        deleted: result.count,
+        message: `已删除 ${result.count} 个研究会话`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "批量删除失败",
+      };
+    }
   }
 }
