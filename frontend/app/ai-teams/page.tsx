@@ -9,10 +9,12 @@ import { useAIModels, AIModel } from '@/hooks/useAIModels';
 import Sidebar from '@/components/layout/Sidebar';
 import * as api from '@/lib/api/ai-teams';
 import { PublicTopic, JoinRequest } from '@/lib/api/ai-teams';
+import { useTranslation } from '@/lib/i18n';
 
 type TabType = 'my-teams' | 'discover';
 
 export default function AIGroupPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { user, accessToken, isLoading: authLoading } = useAuth();
   const {
@@ -94,9 +96,9 @@ export default function AIGroupPage() {
       setMyJoinRequests(requests);
       setShowJoinDialog(null);
       setJoinRequestMessage('');
-      alert(`已发送加入申请到 "${topic.name}"，请等待管理员审核。`);
+      alert(t('aiTeams.joinRequest.sentAlert', { name: topic.name }));
     } catch (error: any) {
-      alert(error.message || '发送加入请求失败');
+      alert(error.message || t('aiTeams.joinRequest.sendFailed'));
     } finally {
       setJoiningTopicId(null);
     }
@@ -104,13 +106,13 @@ export default function AIGroupPage() {
 
   // Cancel join request
   const handleCancelJoinRequest = async (requestId: string) => {
-    if (!confirm('确定要取消这个加入申请吗？')) return;
+    if (!confirm(t('aiTeams.pendingRequests.confirmCancel'))) return;
     try {
       await api.cancelJoinRequest(requestId);
       const requests = await api.getMyJoinRequests();
       setMyJoinRequests(requests);
     } catch (error: any) {
-      alert(error.message || '取消请求失败');
+      alert(error.message || t('aiTeams.pendingRequests.cancelFailed'));
     }
   };
 
@@ -153,11 +155,9 @@ export default function AIGroupPage() {
             />
           </svg>
           <h2 className="text-xl font-semibold text-gray-700">
-            Please sign in to access AI Teams
+            {t('aiTeams.signInRequired')}
           </h2>
-          <p className="text-gray-500">
-            Create and join collaborative teams with AI assistants
-          </p>
+          <p className="text-gray-500">{t('aiTeams.signInDesc')}</p>
         </div>
       </div>
     );
@@ -189,8 +189,12 @@ export default function AIGroupPage() {
                   </svg>
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">AI Teams</h1>
-                  <p className="text-sm text-gray-500">多人多AI协作讨论社区</p>
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    {t('aiTeams.title')}
+                  </h1>
+                  <p className="text-sm text-gray-500">
+                    {t('aiTeams.subtitle')}
+                  </p>
                 </div>
               </div>
               <button
@@ -210,7 +214,7 @@ export default function AIGroupPage() {
                     d="M12 4v16m8-8H4"
                   />
                 </svg>
-                New Team
+                {t('aiTeams.newTeam')}
               </button>
             </div>
 
@@ -224,7 +228,7 @@ export default function AIGroupPage() {
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                我的团队
+                {t('aiTeams.myTeams')}
                 {topics.length > 0 && (
                   <span className="ml-2 rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-600">
                     {topics.length}
@@ -239,7 +243,7 @@ export default function AIGroupPage() {
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                发现团队
+                {t('aiTeams.discover')}
                 {myJoinRequests.filter((r) => r.status === 'PENDING').length >
                   0 && (
                   <span className="ml-2 rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-600">
@@ -247,7 +251,7 @@ export default function AIGroupPage() {
                       myJoinRequests.filter((r) => r.status === 'PENDING')
                         .length
                     }{' '}
-                    申请中
+                    {t('aiTeams.pendingRequests.pending')}
                   </span>
                 )}
               </button>
@@ -273,8 +277,8 @@ export default function AIGroupPage() {
                   type="text"
                   placeholder={
                     activeTab === 'my-teams'
-                      ? '搜索我的团队...'
-                      : '搜索公开团队...'
+                      ? t('aiTeams.search.myTeams')
+                      : t('aiTeams.search.publicTeams')
                   }
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -310,23 +314,23 @@ export default function AIGroupPage() {
                     />
                   </svg>
                   <h3 className="mt-4 text-lg font-medium text-gray-700">
-                    还没有团队
+                    {t('aiTeams.empty.noTeams')}
                   </h3>
                   <p className="mt-2 text-sm text-gray-500">
-                    创建一个新团队或者去发现公开团队加入
+                    {t('aiTeams.empty.noTeamsDesc')}
                   </p>
                   <div className="mt-4 flex gap-3">
                     <button
                       onClick={() => setShowCreateDialog(true)}
                       className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
                     >
-                      创建团队
+                      {t('aiTeams.createTeam')}
                     </button>
                     <button
                       onClick={() => setActiveTab('discover')}
                       className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                     >
-                      发现团队
+                      {t('aiTeams.empty.discoverTeams')}
                     </button>
                   </div>
                 </div>
@@ -342,11 +346,7 @@ export default function AIGroupPage() {
                         setEditingTopic(topic);
                       }}
                       onDelete={async (topicId) => {
-                        if (
-                          confirm(
-                            'Are you sure you want to delete this team? This action cannot be undone.'
-                          )
-                        ) {
+                        if (confirm(t('aiTeams.confirmDelete'))) {
                           await deleteTopic(topicId);
                           await fetchTopics();
                         }
@@ -374,7 +374,7 @@ export default function AIGroupPage() {
                       />
                     </svg>
                     <span className="mt-2 text-sm font-medium text-gray-600">
-                      创建新团队
+                      {t('aiTeams.newTeam')}
                     </span>
                   </button>
                 </div>
@@ -388,7 +388,7 @@ export default function AIGroupPage() {
                 0 && (
                 <div className="mb-6">
                   <h3 className="mb-3 text-sm font-semibold text-gray-700">
-                    我的申请 (
+                    {t('aiTeams.pendingRequests.title')} (
                     {
                       myJoinRequests.filter((r) => r.status === 'PENDING')
                         .length
@@ -405,17 +405,18 @@ export default function AIGroupPage() {
                         >
                           <div>
                             <span className="font-medium text-gray-900">
-                              {request.topic?.name || '未知团队'}
+                              {request.topic?.name ||
+                                t('aiTeams.pendingRequests.unknownTeam')}
                             </span>
                             <span className="ml-2 rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-600">
-                              待审核
+                              {t('aiTeams.pendingRequests.pending')}
                             </span>
                           </div>
                           <button
                             onClick={() => handleCancelJoinRequest(request.id)}
                             className="text-sm text-gray-500 hover:text-red-600"
                           >
-                            取消申请
+                            {t('aiTeams.pendingRequests.cancelRequest')}
                           </button>
                         </div>
                       ))}
@@ -444,10 +445,10 @@ export default function AIGroupPage() {
                     />
                   </svg>
                   <h3 className="mt-4 text-lg font-medium text-gray-700">
-                    暂无公开团队
+                    {t('aiTeams.empty.noPublicTeams')}
                   </h3>
                   <p className="mt-2 text-sm text-gray-500">
-                    目前没有可加入的公开团队，可以创建自己的团队
+                    {t('aiTeams.empty.noPublicTeamsDesc')}
                   </p>
                   <button
                     onClick={() => {
@@ -456,7 +457,7 @@ export default function AIGroupPage() {
                     }}
                     className="mt-4 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
                   >
-                    创建团队
+                    {t('aiTeams.createTeam')}
                   </button>
                 </div>
               ) : (
@@ -482,7 +483,7 @@ export default function AIGroupPage() {
           <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
               <h2 className="text-lg font-semibold text-gray-900">
-                申请加入团队
+                {t('aiTeams.joinRequest.title')}
               </h2>
               <button
                 onClick={() => {
@@ -532,8 +533,13 @@ export default function AIGroupPage() {
                     {showJoinDialog.name}
                   </h3>
                   <p className="text-sm text-gray-500">
-                    {showJoinDialog.memberCount} 成员 ·{' '}
-                    {showJoinDialog.aiMemberCount} AI
+                    {t('aiTeams.joinRequest.members', {
+                      count: showJoinDialog.memberCount,
+                    })}{' '}
+                    ·{' '}
+                    {t('aiTeams.joinRequest.aiMembers', {
+                      count: showJoinDialog.aiMemberCount,
+                    })}
                   </p>
                 </div>
               </div>
@@ -544,12 +550,12 @@ export default function AIGroupPage() {
               )}
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  申请留言 (可选)
+                  {t('aiTeams.joinRequest.messageLabel')}
                 </label>
                 <textarea
                   value={joinRequestMessage}
                   onChange={(e) => setJoinRequestMessage(e.target.value)}
-                  placeholder="向管理员介绍一下自己..."
+                  placeholder={t('aiTeams.joinRequest.messagePlaceholder')}
                   rows={3}
                   className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                 />
@@ -563,7 +569,7 @@ export default function AIGroupPage() {
                 }}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
-                取消
+                {t('aiTeams.joinRequest.cancel')}
               </button>
               <button
                 onClick={() => handleJoinRequest(showJoinDialog)}
@@ -571,8 +577,8 @@ export default function AIGroupPage() {
                 className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {joiningTopicId === showJoinDialog.id
-                  ? '发送中...'
-                  : '发送申请'}
+                  ? t('aiTeams.joinRequest.sending')
+                  : t('aiTeams.joinRequest.sendRequest')}
               </button>
             </div>
           </div>
@@ -623,6 +629,8 @@ function TopicCard({
   onDelete: (topicId: string) => void;
   findModel: (aiModel: string) => AIModel | undefined;
 }) {
+  const { t } = useTranslation();
+
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
     const now = new Date();
@@ -631,10 +639,10 @@ function TopicCard({
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
 
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
+    if (minutes < 1) return t('aiTeams.card.justNow');
+    if (minutes < 60) return t('aiTeams.card.mAgo', { count: minutes });
+    if (hours < 24) return t('aiTeams.card.hAgo', { count: hours });
+    if (days < 7) return t('aiTeams.card.dAgo', { count: days });
     return date.toLocaleDateString();
   };
 
@@ -652,7 +660,7 @@ function TopicCard({
               onEdit(topic);
             }}
             className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm hover:bg-gray-50 hover:text-blue-600"
-            title="Edit team"
+            title={t('aiTeams.card.editTeam')}
           >
             <svg
               className="h-4 w-4"
@@ -674,7 +682,7 @@ function TopicCard({
               onDelete(topic.id);
             }}
             className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm hover:bg-red-50 hover:text-red-600"
-            title="Delete team"
+            title={t('aiTeams.card.deleteTeam')}
           >
             <svg
               className="h-4 w-4"
@@ -874,6 +882,7 @@ function CreateTopicDialog({
   onClose: () => void;
   onCreate: (dto: CreateTopicDto) => Promise<void>;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedAI, setSelectedAI] = useState<string[]>([]);
@@ -922,7 +931,7 @@ function CreateTopicDialog({
         {/* Header */}
         <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
           <h2 className="text-lg font-semibold text-gray-900">
-            Create New Team
+            {t('aiTeams.create.title')}
           </h2>
           <button
             onClick={onClose}
@@ -949,13 +958,13 @@ function CreateTopicDialog({
           {/* Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Team Name *
+              {t('aiTeams.create.nameRequired')}
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Tech Discussion, Weekly Meeting"
+              placeholder={t('aiTeams.create.namePlaceholder')}
               className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
@@ -963,12 +972,12 @@ function CreateTopicDialog({
           {/* Description */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Description
+              {t('aiTeams.create.description')}
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="What is this team about?"
+              placeholder={t('aiTeams.create.descriptionPlaceholder')}
               rows={3}
               className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
@@ -977,7 +986,7 @@ function CreateTopicDialog({
           {/* Tags */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Tags
+              {t('aiTeams.create.tags')}
             </label>
             <div className="mt-1 flex gap-2">
               <input
@@ -990,7 +999,7 @@ function CreateTopicDialog({
                     handleAddTag();
                   }
                 }}
-                placeholder="Add tags (press Enter)"
+                placeholder={t('aiTeams.create.tagsPlaceholder')}
                 className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
               <button
@@ -998,7 +1007,7 @@ function CreateTopicDialog({
                 onClick={handleAddTag}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
               >
-                Add
+                {t('aiTeams.create.add')}
               </button>
             </div>
             {tags.length > 0 && (
@@ -1037,7 +1046,7 @@ function CreateTopicDialog({
           {/* AI Members */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Add AI Assistants
+              {t('aiTeams.create.addAI')}
             </label>
             <div className="mt-2 grid grid-cols-2 gap-2">
               {(aiModels || []).map((model) => (
@@ -1096,14 +1105,16 @@ function CreateTopicDialog({
             onClick={onClose}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
-            Cancel
+            {t('aiTeams.create.cancel')}
           </button>
           <button
             onClick={handleCreate}
             disabled={!name.trim() || isCreating}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isCreating ? 'Creating...' : 'Create Team'}
+            {isCreating
+              ? t('aiTeams.create.creating')
+              : t('aiTeams.create.createButton')}
           </button>
         </div>
       </div>
@@ -1121,6 +1132,7 @@ function EditTopicDialog({
   onClose: () => void;
   onUpdate: (topicId: string, dto: UpdateTopicDto) => Promise<void>;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(topic.name);
   const [description, setDescription] = useState(topic.description || '');
   const [tags, setTags] = useState<string[]>(
@@ -1161,7 +1173,9 @@ function EditTopicDialog({
       <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl">
         {/* Header */}
         <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">Edit Team</h2>
+          <h2 className="text-lg font-semibold text-gray-900">
+            {t('aiTeams.edit.title')}
+          </h2>
           <button
             onClick={onClose}
             className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
@@ -1187,7 +1201,7 @@ function EditTopicDialog({
           {/* Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Team Name *
+              {t('aiTeams.create.nameRequired')}
             </label>
             <input
               type="text"
@@ -1200,7 +1214,7 @@ function EditTopicDialog({
           {/* Description */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Description
+              {t('aiTeams.create.description')}
             </label>
             <textarea
               value={description}
@@ -1213,7 +1227,7 @@ function EditTopicDialog({
           {/* Tags */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Tags
+              {t('aiTeams.create.tags')}
             </label>
             <div className="mt-1 flex gap-2">
               <input
@@ -1226,7 +1240,7 @@ function EditTopicDialog({
                     handleAddTag();
                   }
                 }}
-                placeholder="Add tags (press Enter)"
+                placeholder={t('aiTeams.create.tagsPlaceholder')}
                 className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
               <button
@@ -1234,7 +1248,7 @@ function EditTopicDialog({
                 onClick={handleAddTag}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
               >
-                Add
+                {t('aiTeams.create.add')}
               </button>
             </div>
             {tags.length > 0 && (
@@ -1277,14 +1291,16 @@ function EditTopicDialog({
             onClick={onClose}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
-            Cancel
+            {t('aiTeams.create.cancel')}
           </button>
           <button
             onClick={handleUpdate}
             disabled={!name.trim() || isUpdating}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isUpdating ? 'Updating...' : 'Update Team'}
+            {isUpdating
+              ? t('aiTeams.edit.updating')
+              : t('aiTeams.edit.updateButton')}
           </button>
         </div>
       </div>
@@ -1302,15 +1318,18 @@ function PublicTopicCard({
   onJoinRequest: () => void;
   isJoining: boolean;
 }) {
+  const { t } = useTranslation();
+
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const days = Math.floor(diff / 86400000);
 
-    if (days < 1) return '今天';
-    if (days < 7) return `${days}天前`;
-    if (days < 30) return `${Math.floor(days / 7)}周前`;
+    if (days < 1) return t('aiTeams.publicCard.today');
+    if (days < 7) return t('aiTeams.publicCard.daysAgo', { count: days });
+    if (days < 30)
+      return t('aiTeams.publicCard.weeksAgo', { count: Math.floor(days / 7) });
     return date.toLocaleDateString();
   };
 
@@ -1340,7 +1359,7 @@ function PublicTopicCard({
             )}
           </div>
           <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-600">
-            公开
+            {t('aiTeams.publicCard.public')}
           </span>
         </div>
 
@@ -1389,7 +1408,7 @@ function PublicTopicCard({
                 d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
               />
             </svg>
-            {topic.memberCount} 成员
+            {t('aiTeams.publicCard.members', { count: topic.memberCount })}
           </span>
           <span className="flex items-center gap-1">
             <svg
@@ -1426,8 +1445,10 @@ function PublicTopicCard({
             )}
           </div>
           <span className="text-xs text-gray-500">
-            由 {topic.createdBy.fullName || topic.createdBy.username || '用户'}{' '}
-            创建
+            {t('aiTeams.publicCard.createdBy', {
+              name:
+                topic.createdBy.fullName || topic.createdBy.username || 'User',
+            })}
           </span>
         </div>
 
@@ -1437,7 +1458,9 @@ function PublicTopicCard({
           disabled={isJoining}
           className="mt-4 w-full rounded-lg bg-violet-600 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isJoining ? '申请中...' : '申请加入'}
+          {isJoining
+            ? t('aiTeams.publicCard.applying')
+            : t('aiTeams.publicCard.applyToJoin')}
         </button>
       </div>
     </div>
