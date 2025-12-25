@@ -283,8 +283,11 @@
   },
   "aiTeams": {
     "title": "AI 团队",
+    "subtitle": "多人多AI协作讨论社区",
     "createTeam": "创建团队",
+    "newTeam": "新建团队",
     "myTeams": "我的团队",
+    "discover": "发现",
     "teamMembers": "团队成员",
     "missions": "任务",
     "startMission": "启动任务",
@@ -293,7 +296,79 @@
       "running": "进行中",
       "completed": "已完成",
       "failed": "失败"
-    }
+    },
+    "search": {
+      "myTeams": "搜索我的团队...",
+      "publicTeams": "搜索公开团队..."
+    },
+    "empty": {
+      "noTeams": "暂无团队",
+      "noTeamsDesc": "创建新团队或发现公开团队加入",
+      "discoverTeams": "发现团队",
+      "noPublicTeams": "暂无公开团队",
+      "noPublicTeamsDesc": "目前没有可用的公开团队。创建您自己的团队吧！"
+    },
+    "create": {
+      "title": "创建新团队",
+      "name": "团队名称",
+      "namePlaceholder": "例如：技术讨论、周会",
+      "nameRequired": "团队名称 *",
+      "description": "描述",
+      "descriptionPlaceholder": "这个团队是关于什么的？",
+      "tags": "标签",
+      "tagsPlaceholder": "添加标签（按回车）",
+      "addAI": "添加 AI 助手",
+      "add": "添加",
+      "cancel": "取消",
+      "creating": "创建中...",
+      "createButton": "创建团队"
+    },
+    "edit": {
+      "title": "编辑团队",
+      "updating": "更新中...",
+      "updateButton": "更新团队"
+    },
+    "card": {
+      "editTeam": "编辑团队",
+      "deleteTeam": "删除团队",
+      "justNow": "刚刚",
+      "mAgo": "{{count}}分钟前",
+      "hAgo": "{{count}}小时前",
+      "dAgo": "{{count}}天前"
+    },
+    "joinRequest": {
+      "title": "申请加入团队",
+      "members": "{{count}} 位成员",
+      "aiMembers": "{{count}} 个AI",
+      "messageLabel": "申请留言（可选）",
+      "messagePlaceholder": "向管理员介绍自己...",
+      "cancel": "取消",
+      "sending": "发送中...",
+      "sendRequest": "发送申请",
+      "sentAlert": "已向「{{name}}」发送加入申请，请等待管理员审批。",
+      "sendFailed": "发送申请失败"
+    },
+    "pendingRequests": {
+      "title": "我的申请",
+      "pending": "待审核",
+      "unknownTeam": "未知团队",
+      "cancelRequest": "取消申请",
+      "confirmCancel": "确定要取消此加入申请吗？",
+      "cancelFailed": "取消申请失败"
+    },
+    "publicCard": {
+      "public": "公开",
+      "members": "{{count}} 位成员",
+      "today": "今天",
+      "daysAgo": "{{count}}天前",
+      "weeksAgo": "{{count}}周前",
+      "createdBy": "由 {{name}} 创建",
+      "applying": "申请中...",
+      "applyToJoin": "申请加入"
+    },
+    "confirmDelete": "确定要删除此团队吗？此操作无法撤销。",
+    "signInRequired": "请登录以访问 AI 团队",
+    "signInDesc": "创建并加入与 AI 助手协作的团队"
   },
   "aiOffice": {
     "title": "AI 办公",
