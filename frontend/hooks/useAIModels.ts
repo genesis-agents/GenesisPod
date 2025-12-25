@@ -43,10 +43,29 @@ export function useAIModels() {
     const fetchModels = async () => {
       // 检查缓存是否有效
       const now = Date.now();
-      if (cachedModels && now - cacheTimestamp < CACHE_DURATION) {
-        setModels(cachedModels);
+
+      // 验证缓存数据是否包含 modelType 字段（兼容性检查）
+      const isCacheValid =
+        cachedModels &&
+        now - cacheTimestamp < CACHE_DURATION &&
+        cachedModels.every((m) => m.modelType !== undefined);
+
+      if (isCacheValid) {
+        setModels(cachedModels!);
         setLoading(false);
         return;
+      }
+
+      // 如果缓存无效或缺少 modelType，清除缓存并重新获取
+      if (
+        cachedModels &&
+        !cachedModels.every((m) => m.modelType !== undefined)
+      ) {
+        console.log(
+          '[useAIModels] Cache invalid: missing modelType, clearing...'
+        );
+        cachedModels = null;
+        cacheTimestamp = 0;
       }
 
       try {
@@ -95,25 +114,143 @@ export function getDefaultModelByType(
   models: AIModel[],
   modelType: AIModelType
 ): AIModel | undefined {
+  // Debug: 输出所有模型的 modelType 信息
+  if (process.env.NODE_ENV === 'development') {
+    console.log(
+      '[getDefaultModelByType] Looking for type:',
+      modelType,
+      'Available models:',
+      models.map((m) => ({
+        name: m.name,
+        modelName: m.modelName,
+        modelType: m.modelType,
+        isDefault: m.isDefault,
+      }))
+    );
+  }
+
   // 1. 优先查找该类型中标记为默认的模型
   const defaultOfType = models.find(
     (m) => m.modelType === modelType && m.isDefault
   );
-  if (defaultOfType) return defaultOfType;
+  if (defaultOfType) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(
+        '[getDefaultModelByType] Found default of type:',
+        defaultOfType.name
+      );
+    }
+    return defaultOfType;
+  }
 
   // 2. 如果没有默认的，返回该类型的第一个模型
   const firstOfType = models.find((m) => m.modelType === modelType);
-  if (firstOfType) return firstOfType;
+  if (firstOfType) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(
+        '[getDefaultModelByType] Found first of type:',
+        firstOfType.name
+      );
+    }
+    return firstOfType;
+  }
 
   // 3. 如果该类型没有模型，返回 undefined
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[getDefaultModelByType] No model found for type:', modelType);
+  }
   return undefined;
 }
 
 /**
+ * 判断模型是否为聊天类型（CHAT 或 CHAT_FAST）
+ * 通过 modelType 字段或模型名称推断
+ */
+function isChatModel(model: AIModel): boolean {
+  // 1. 首先检查 modelType 字段
+  if (model.modelType === 'CHAT' || model.modelType === 'CHAT_FAST') {
+    return true;
+  }
+
+  // 2. 如果 modelType 为空或未知，根据模型名称/ID 推断
+  const nameLower = (model.name || '').toLowerCase();
+  const modelIdLower = (model.modelId || '').toLowerCase();
+
+  // 排除明确的图像生成模型
+  if (
+    nameLower.includes('imagen') ||
+    modelIdLower.includes('imagen') ||
+    nameLower.includes('dall-e') ||
+    modelIdLower.includes('dall-e') ||
+    model.modelType === 'IMAGE_GENERATION' ||
+    model.modelType === 'IMAGE_EDITING'
+  ) {
+    return false;
+  }
+
+  // 常见聊天模型关键词
+  const chatKeywords = [
+    'gpt',
+    'claude',
+    'gemini',
+    'grok',
+    'chat',
+    'llama',
+    'mistral',
+    'deepseek',
+  ];
+  for (const keyword of chatKeywords) {
+    if (nameLower.includes(keyword) || modelIdLower.includes(keyword)) {
+      return true;
+    }
+  }
+
+  // 默认不确定的模型不作为聊天模型
+  return false;
+}
+
+/**
  * 获取标准聊天的默认模型（用于 AI Studio 等复杂对话场景）
+ * 增强版：支持 modelType 为空时的后备逻辑
  */
 export function getDefaultChatModel(models: AIModel[]): AIModel | undefined {
-  return getDefaultModelByType(models, 'CHAT');
+  // 1. 首先尝试通过 modelType === 'CHAT' 查找
+  const byType = getDefaultModelByType(models, 'CHAT');
+  if (byType) return byType;
+
+  // 2. 如果没找到，尝试通过名称推断
+  // 这是为了兼容 modelType 字段未设置的旧数据
+  if (process.env.NODE_ENV === 'development') {
+    console.log(
+      '[getDefaultChatModel] No CHAT type found, trying to infer from name...'
+    );
+  }
+
+  // 查找标记为默认且看起来像聊天模型的
+  const defaultChat = models.find((m) => m.isDefault && isChatModel(m));
+  if (defaultChat) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(
+        '[getDefaultChatModel] Found default chat model by inference:',
+        defaultChat.name
+      );
+    }
+    return defaultChat;
+  }
+
+  // 查找任意看起来像聊天模型的
+  const anyChat = models.find((m) => isChatModel(m));
+  if (anyChat) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(
+        '[getDefaultChatModel] Found chat model by inference:',
+        anyChat.name
+      );
+    }
+    return anyChat;
+  }
+
+  return undefined;
 }
 
 /**

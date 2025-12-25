@@ -2861,11 +2861,25 @@ export default function ProjectDetailPage() {
   // AI Studio uses standard chat model (CHAT type) for complex conversations
   useEffect(() => {
     if (aiModels.length > 0 && !selectedModel) {
+      // Debug: 输出所有可用模型
+      console.log(
+        '[AI Studio] Available models:',
+        aiModels.map((m) => ({
+          name: m.name,
+          modelName: m.modelName,
+          modelType: m.modelType,
+          isDefault: m.isDefault,
+        }))
+      );
+
       // 优先使用标准聊天(CHAT)类型的默认模型
+      const chatModel = getDefaultChatModel(aiModels);
+      console.log('[AI Studio] getDefaultChatModel returned:', chatModel?.name);
+
       const defaultModel =
-        getDefaultChatModel(aiModels) ||
-        aiModels.find((m) => m.isDefault) ||
-        aiModels[0];
+        chatModel || aiModels.find((m) => m.isDefault) || aiModels[0];
+      console.log('[AI Studio] Final selected model:', defaultModel?.name);
+
       if (defaultModel) {
         setSelectedModel(defaultModel.modelName);
       }
