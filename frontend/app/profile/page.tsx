@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/layout/Sidebar';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from '@/lib/i18n';
 import {
   useThemeStore,
   USER_MESSAGE_STYLES,
@@ -38,6 +39,7 @@ interface UserStats {
 }
 
 function ProfileContent() {
+  const { t } = useTranslation();
   const { user, isLoading, accessToken } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<
@@ -287,7 +289,7 @@ function ProfileContent() {
         {/* Header */}
         <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
           <h1 className="text-2xl font-bold text-gray-900">
-            Profile & Settings
+            {t('profile.header')}
           </h1>
         </header>
 
@@ -304,7 +306,7 @@ function ProfileContent() {
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                Profile
+                {t('profile.tabs.profile')}
               </button>
               <button
                 onClick={() => setActiveTab('settings')}
@@ -314,7 +316,7 @@ function ProfileContent() {
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                Settings
+                {t('profile.tabs.settings')}
               </button>
               <button
                 onClick={() => setActiveTab('stats')}
@@ -324,7 +326,7 @@ function ProfileContent() {
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                Statistics
+                {t('profile.tabs.stats')}
               </button>
               <button
                 onClick={() => setActiveTab('integrations')}
@@ -334,7 +336,7 @@ function ProfileContent() {
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                Integrations
+                {t('profile.tabs.integrations')}
               </button>
             </div>
 
@@ -344,7 +346,7 @@ function ProfileContent() {
                 {/* Avatar Section */}
                 <div className="rounded-lg border border-gray-200 bg-white p-6">
                   <h2 className="mb-4 text-lg font-semibold">
-                    Profile Picture
+                    {t('profile.profilePicture')}
                   </h2>
                   <div className="flex items-center gap-4">
                     <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-gray-200">
@@ -362,10 +364,10 @@ function ProfileContent() {
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">
-                        Profile picture is managed by Google
+                        {t('profile.managedByGoogle')}
                       </p>
                       <p className="mt-1 text-xs text-gray-500">
-                        Update your Google profile to change your avatar
+                        {t('profile.updateGoogleProfile')}
                       </p>
                     </div>
                   </div>
@@ -374,12 +376,12 @@ function ProfileContent() {
                 {/* Basic Info */}
                 <div className="rounded-lg border border-gray-200 bg-white p-6">
                   <h2 className="mb-4 text-lg font-semibold">
-                    Basic Information
+                    {t('profile.basicInfo')}
                   </h2>
                   <div className="space-y-4">
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Name
+                        {t('profile.name')}
                       </label>
                       <input
                         type="text"
@@ -392,7 +394,7 @@ function ProfileContent() {
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Email
+                        {t('profile.email')}
                       </label>
                       <input
                         type="email"
@@ -401,12 +403,12 @@ function ProfileContent() {
                         className="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-gray-500"
                       />
                       <p className="mt-1 text-xs text-gray-500">
-                        Email cannot be changed
+                        {t('profile.emailCannotChange')}
                       </p>
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Bio
+                        {t('profile.bio')}
                       </label>
                       <textarea
                         value={userData.bio}
@@ -423,7 +425,7 @@ function ProfileContent() {
                 {/* Interests */}
                 <div className="rounded-lg border border-gray-200 bg-white p-6">
                   <h2 className="mb-4 text-lg font-semibold">
-                    Research Interests
+                    {t('profile.researchInterests')}
                   </h2>
                   <div className="mb-3 flex flex-wrap gap-2">
                     {userData.interests.map((interest: string, idx: number) => (
@@ -449,14 +451,14 @@ function ProfileContent() {
                       onKeyPress={(e) =>
                         e.key === 'Enter' && handleAddInterest()
                       }
-                      placeholder="Enter interest..."
+                      placeholder={t('profile.enterInterest')}
                       className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                     />
                     <button
                       onClick={handleAddInterest}
                       className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
                     >
-                      Add
+                      {t('profile.add')}
                     </button>
                   </div>
                 </div>
@@ -481,7 +483,7 @@ function ProfileContent() {
                     disabled={saving}
                     className="rounded-lg bg-red-600 px-6 py-2 font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {saving ? 'Saving...' : 'Save Changes'}
+                    {saving ? t('profile.saving') : t('profile.saveChanges')}
                   </button>
                 </div>
               </div>
@@ -493,13 +495,13 @@ function ProfileContent() {
                 {/* Chat Appearance Settings */}
                 <div className="rounded-lg border border-gray-200 bg-white p-6">
                   <h2 className="mb-4 text-lg font-semibold">
-                    Chat Appearance
+                    {t('profile.chatAppearance')}
                   </h2>
                   <div className="space-y-6">
                     {/* User Message Style */}
                     <div>
                       <p className="mb-3 font-medium text-gray-900">
-                        My Message Style
+                        {t('profile.myMessageStyle')}
                       </p>
                       <div className="flex flex-wrap gap-3">
                         {USER_MESSAGE_STYLES.map((style) => (
@@ -536,7 +538,7 @@ function ProfileContent() {
                     {/* AI Message Style */}
                     <div>
                       <p className="mb-3 font-medium text-gray-900">
-                        AI Message Style
+                        {t('profile.aiMessageStyle')}
                       </p>
                       <div className="flex flex-wrap gap-3">
                         {AI_MESSAGE_STYLES.map((style) => (
@@ -573,7 +575,7 @@ function ProfileContent() {
                     {/* Preview */}
                     <div className="mt-4 rounded-xl bg-gray-50 p-4">
                       <p className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-500">
-                        Preview
+                        {t('profile.preview')}
                       </p>
                       <div className="space-y-4">
                         <div className="flex justify-end">
@@ -602,16 +604,16 @@ function ProfileContent() {
                 {/* Notification Preferences */}
                 <div className="rounded-lg border border-gray-200 bg-white p-6">
                   <h2 className="mb-4 text-lg font-semibold">
-                    Notification Preferences
+                    {t('profile.notificationPrefs')}
                   </h2>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-medium text-gray-900">
-                          Email Notifications
+                          {t('profile.emailNotifications')}
                         </p>
                         <p className="text-sm text-gray-500">
-                          Receive email updates about your activity
+                          {t('profile.emailNotificationsDesc')}
                         </p>
                       </div>
                       <label className="relative inline-flex cursor-pointer items-center">
@@ -632,10 +634,10 @@ function ProfileContent() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-medium text-gray-900">
-                          Recommendation Notifications
+                          {t('profile.recommendationNotifications')}
                         </p>
                         <p className="text-sm text-gray-500">
-                          Get notified about new paper recommendations
+                          {t('profile.recommendationNotificationsDesc')}
                         </p>
                       </div>
                       <label className="relative inline-flex cursor-pointer items-center">
@@ -656,10 +658,10 @@ function ProfileContent() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-medium text-gray-900">
-                          Weekly Digest
+                          {t('profile.weeklyDigest')}
                         </p>
                         <p className="text-sm text-gray-500">
-                          Receive a weekly summary of trending papers
+                          {t('profile.weeklyDigestDesc')}
                         </p>
                       </div>
                       <label className="relative inline-flex cursor-pointer items-center">
@@ -682,13 +684,17 @@ function ProfileContent() {
 
                 {/* Appearance Settings */}
                 <div className="rounded-lg border border-gray-200 bg-white p-6">
-                  <h2 className="mb-4 text-lg font-semibold">Appearance</h2>
+                  <h2 className="mb-4 text-lg font-semibold">
+                    {t('profile.appearance')}
+                  </h2>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-medium text-gray-900">Dark Mode</p>
+                        <p className="font-medium text-gray-900">
+                          {t('profile.darkMode')}
+                        </p>
                         <p className="text-sm text-gray-500">
-                          Use dark theme across the application
+                          {t('profile.darkModeDesc')}
                         </p>
                       </div>
                       <label className="relative inline-flex cursor-pointer items-center">
@@ -708,7 +714,7 @@ function ProfileContent() {
                     </div>
                     <div>
                       <label className="mb-2 block text-sm font-medium text-gray-700">
-                        Language
+                        {t('profile.language')}
                       </label>
                       <select
                         value={settings.language}
@@ -717,8 +723,8 @@ function ProfileContent() {
                         }
                         className="rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
                       >
-                        <option value="en">English</option>
-                        <option value="zh">中文</option>
+                        <option value="en">{t('language.en')}</option>
+                        <option value="zh">{t('language.zh')}</option>
                       </select>
                     </div>
                   </div>
@@ -727,7 +733,7 @@ function ProfileContent() {
                 {/* Save Button */}
                 <div className="flex justify-end">
                   <button className="rounded-lg bg-red-600 px-6 py-2 font-medium text-white transition-colors hover:bg-red-700">
-                    Save Settings
+                    {t('profile.saveSettings')}
                   </button>
                 </div>
               </div>
@@ -747,7 +753,7 @@ function ProfileContent() {
                       <div className="rounded-lg border border-gray-200 bg-white p-6">
                         <div className="mb-2 flex items-center justify-between">
                           <p className="text-sm font-medium text-gray-600">
-                            Bookmarked
+                            {t('profile.stats.bookmarked')}
                           </p>
                           <svg
                             className="h-5 w-5 text-red-600"
@@ -764,7 +770,7 @@ function ProfileContent() {
                       <div className="rounded-lg border border-gray-200 bg-white p-6">
                         <div className="mb-2 flex items-center justify-between">
                           <p className="text-sm font-medium text-gray-600">
-                            Resources Viewed
+                            {t('profile.stats.resourcesViewed')}
                           </p>
                           <svg
                             className="h-5 w-5 text-blue-600"
@@ -793,7 +799,7 @@ function ProfileContent() {
                       <div className="rounded-lg border border-gray-200 bg-white p-6">
                         <div className="mb-2 flex items-center justify-between">
                           <p className="text-sm font-medium text-gray-600">
-                            Comments
+                            {t('profile.stats.comments')}
                           </p>
                           <svg
                             className="h-5 w-5 text-green-600"
@@ -816,7 +822,7 @@ function ProfileContent() {
                       <div className="rounded-lg border border-gray-200 bg-white p-6">
                         <div className="mb-2 flex items-center justify-between">
                           <p className="text-sm font-medium text-gray-600">
-                            Member Since
+                            {t('profile.stats.memberSince')}
                           </p>
                           <svg
                             className="h-5 w-5 text-purple-600"
@@ -847,7 +853,7 @@ function ProfileContent() {
                       <div className="rounded-lg border border-gray-200 bg-white p-6">
                         <div className="mb-2 flex items-center justify-between">
                           <p className="text-sm font-medium text-gray-600">
-                            Notes
+                            {t('profile.stats.notes')}
                           </p>
                           <svg
                             className="h-5 w-5 text-yellow-600"
@@ -870,7 +876,7 @@ function ProfileContent() {
                       <div className="rounded-lg border border-gray-200 bg-white p-6">
                         <div className="mb-2 flex items-center justify-between">
                           <p className="text-sm font-medium text-gray-600">
-                            Reports
+                            {t('profile.stats.reports')}
                           </p>
                           <svg
                             className="h-5 w-5 text-indigo-600"
@@ -893,7 +899,7 @@ function ProfileContent() {
                       <div className="rounded-lg border border-gray-200 bg-white p-6">
                         <div className="mb-2 flex items-center justify-between">
                           <p className="text-sm font-medium text-gray-600">
-                            AI Chats
+                            {t('profile.stats.aiChats')}
                           </p>
                           <svg
                             className="h-5 w-5 text-cyan-600"
@@ -916,7 +922,7 @@ function ProfileContent() {
                       <div className="rounded-lg border border-gray-200 bg-white p-6">
                         <div className="mb-2 flex items-center justify-between">
                           <p className="text-sm font-medium text-gray-600">
-                            Images Generated
+                            {t('profile.stats.imagesGenerated')}
                           </p>
                           <svg
                             className="h-5 w-5 text-pink-600"
@@ -941,7 +947,7 @@ function ProfileContent() {
                     {/* Recent Activity */}
                     <div className="rounded-lg border border-gray-200 bg-white p-6">
                       <h2 className="mb-4 text-lg font-semibold">
-                        Recent Activity (Last 30 Days)
+                        {t('profile.stats.recentActivity')}
                       </h2>
                       <div className="flex items-center gap-4">
                         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
@@ -951,7 +957,7 @@ function ProfileContent() {
                         </div>
                         <div>
                           <p className="text-sm text-gray-600">
-                            Total activities in the last 30 days
+                            {t('profile.stats.totalActivities')}
                           </p>
                           {userStats?.activity.breakdown &&
                             userStats.activity.breakdown.length > 0 && (
@@ -973,7 +979,7 @@ function ProfileContent() {
                     {/* AI Teams Created */}
                     <div className="rounded-lg border border-gray-200 bg-white p-6">
                       <h2 className="mb-4 text-lg font-semibold">
-                        AI Teams Created
+                        {t('profile.stats.aiTeamsCreated')}
                       </h2>
                       <div className="flex items-center gap-4">
                         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-purple-100">
@@ -983,7 +989,7 @@ function ProfileContent() {
                         </div>
                         <div>
                           <p className="text-sm text-gray-600">
-                            AI Teams topics you have created
+                            {t('profile.stats.aiTeamsDesc')}
                           </p>
                         </div>
                       </div>
@@ -1010,10 +1016,10 @@ function ProfileContent() {
                     </div>
                     <div>
                       <h2 className="text-lg font-semibold text-gray-900">
-                        Notion Integration
+                        {t('profile.integrations.notionIntegration')}
                       </h2>
                       <p className="text-sm text-gray-500">
-                        Sync your Notion pages and databases with DeepDive
+                        {t('profile.integrations.notionDesc')}
                       </p>
                     </div>
                   </div>
@@ -1041,7 +1047,7 @@ function ProfileContent() {
                             />
                           </svg>
                           <span className="font-medium text-green-800">
-                            Connected Workspaces
+                            {t('profile.integrations.connectedWorkspaces')}
                           </span>
                         </div>
                         <div className="space-y-3">
@@ -1092,7 +1098,7 @@ function ProfileContent() {
                                 onClick={() => handleDisconnectNotion(conn.id)}
                                 className="rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
                               >
-                                Disconnect
+                                {t('profile.integrations.disconnect')}
                               </button>
                             </div>
                           ))}
@@ -1118,24 +1124,24 @@ function ProfileContent() {
                             d="M12 4v16m8-8H4"
                           />
                         </svg>
-                        Add another workspace
+                        {t('profile.integrations.addWorkspace')}
                       </button>
 
                       {/* Quick Link to Library */}
                       <div className="flex items-center justify-between rounded-lg bg-gray-50 p-4">
                         <div>
                           <p className="font-medium text-gray-900">
-                            View your Notion pages
+                            {t('profile.integrations.viewNotionPages')}
                           </p>
                           <p className="text-sm text-gray-500">
-                            Access synced pages in the Library
+                            {t('profile.integrations.accessSyncedPages')}
                           </p>
                         </div>
                         <Link
                           href="/library?tab=notion"
                           className="flex items-center gap-1.5 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800"
                         >
-                          Open Library
+                          {t('profile.integrations.openLibrary')}
                           <svg
                             className="h-4 w-4"
                             fill="none"
@@ -1157,7 +1163,7 @@ function ProfileContent() {
                       {/* Setup Guide */}
                       <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
                         <h3 className="mb-3 font-medium text-blue-900">
-                          Setup Guide
+                          {t('profile.integrations.setupGuide')}
                         </h3>
                         <div className="space-y-4">
                           <div className="flex gap-3">
@@ -1166,11 +1172,10 @@ function ProfileContent() {
                             </div>
                             <div>
                               <p className="font-medium text-blue-900">
-                                Click "Connect Notion" below
+                                {t('profile.integrations.clickConnect')}
                               </p>
                               <p className="text-sm text-blue-700">
-                                You'll be redirected to Notion's authorization
-                                page
+                                {t('profile.integrations.redirectToNotion')}
                               </p>
                             </div>
                           </div>
@@ -1180,11 +1185,10 @@ function ProfileContent() {
                             </div>
                             <div>
                               <p className="font-medium text-blue-900">
-                                Select pages to share
+                                {t('profile.integrations.selectPages')}
                               </p>
                               <p className="text-sm text-blue-700">
-                                Choose which pages and databases DeepDive can
-                                access
+                                {t('profile.integrations.selectPagesDesc')}
                               </p>
                             </div>
                           </div>
@@ -1194,11 +1198,10 @@ function ProfileContent() {
                             </div>
                             <div>
                               <p className="font-medium text-blue-900">
-                                Start syncing
+                                {t('profile.integrations.startSyncing')}
                               </p>
                               <p className="text-sm text-blue-700">
-                                Your pages will be synced and available in the
-                                Library
+                                {t('profile.integrations.startSyncingDesc')}
                               </p>
                             </div>
                           </div>
@@ -1232,7 +1235,7 @@ function ProfileContent() {
                                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                               />
                             </svg>
-                            Connecting...
+                            {t('profile.integrations.connecting')}
                           </>
                         ) : (
                           <>
@@ -1243,16 +1246,14 @@ function ProfileContent() {
                             >
                               <path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.981-.7-2.055-.607L3.01 2.295c-.466.046-.56.28-.374.466l1.823 1.447z" />
                             </svg>
-                            Connect Notion
+                            {t('profile.integrations.connectNotion')}
                           </>
                         )}
                       </button>
 
                       {/* Privacy Note */}
                       <p className="text-center text-xs text-gray-500">
-                        DeepDive only accesses pages you explicitly share. Your
-                        data is stored securely and never shared with third
-                        parties.
+                        {t('profile.integrations.privacyNote')}
                       </p>
                     </div>
                   )}
@@ -1261,7 +1262,7 @@ function ProfileContent() {
                 {/* Other Integrations - Coming Soon */}
                 <div className="rounded-lg border border-gray-200 bg-white p-6">
                   <h2 className="mb-4 text-lg font-semibold text-gray-900">
-                    More Integrations
+                    {t('profile.integrations.moreIntegrations')}
                   </h2>
                   <div className="grid gap-4 sm:grid-cols-2">
                     {/* Google Drive */}
@@ -1283,11 +1284,13 @@ function ProfileContent() {
                           <p className="font-medium text-gray-900">
                             Google Drive
                           </p>
-                          <p className="text-xs text-gray-500">Coming soon</p>
+                          <p className="text-xs text-gray-500">
+                            {t('profile.integrations.comingSoon')}
+                          </p>
                         </div>
                       </div>
                       <span className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-500">
-                        Soon
+                        {t('profile.integrations.comingSoon')}
                       </span>
                     </div>
 
@@ -1305,11 +1308,13 @@ function ProfileContent() {
                         </div>
                         <div>
                           <p className="font-medium text-gray-900">Obsidian</p>
-                          <p className="text-xs text-gray-500">Coming soon</p>
+                          <p className="text-xs text-gray-500">
+                            {t('profile.integrations.comingSoon')}
+                          </p>
                         </div>
                       </div>
                       <span className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-500">
-                        Soon
+                        {t('profile.integrations.comingSoon')}
                       </span>
                     </div>
 
@@ -1327,11 +1332,13 @@ function ProfileContent() {
                         </div>
                         <div>
                           <p className="font-medium text-gray-900">Zotero</p>
-                          <p className="text-xs text-gray-500">Coming soon</p>
+                          <p className="text-xs text-gray-500">
+                            {t('profile.integrations.comingSoon')}
+                          </p>
                         </div>
                       </div>
                       <span className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-500">
-                        Soon
+                        {t('profile.integrations.comingSoon')}
                       </span>
                     </div>
 
@@ -1351,11 +1358,13 @@ function ProfileContent() {
                           <p className="font-medium text-gray-900">
                             Roam Research
                           </p>
-                          <p className="text-xs text-gray-500">Coming soon</p>
+                          <p className="text-xs text-gray-500">
+                            {t('profile.integrations.comingSoon')}
+                          </p>
                         </div>
                       </div>
                       <span className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-500">
-                        Soon
+                        {t('profile.integrations.comingSoon')}
                       </span>
                     </div>
                   </div>
