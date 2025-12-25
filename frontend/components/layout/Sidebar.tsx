@@ -682,11 +682,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
         </div>
 
         {/* Language Switcher */}
-        <div
-          className={`flex items-center ${!showExpanded ? 'justify-center' : ''}`}
-        >
-          <LanguageSwitcher variant={showExpanded ? 'compact' : 'icon'} />
-        </div>
+        <LanguageSwitcher variant={showExpanded ? 'sidebar' : 'icon'} />
 
         <Link
           href="/labs"
