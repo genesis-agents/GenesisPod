@@ -13,6 +13,7 @@ import {
   XCircle,
   Loader2,
 } from 'lucide-react';
+import EmailSettings from './EmailSettings';
 
 interface SearchConfig {
   provider: string;
@@ -445,6 +446,9 @@ export default function SystemSettings() {
           </div>
         </div>
       </div>
+
+      {/* Email Settings */}
+      <EmailSettings />
 
       {/* Crawler Settings */}
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">

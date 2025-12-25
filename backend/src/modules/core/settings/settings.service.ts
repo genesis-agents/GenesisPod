@@ -221,7 +221,12 @@ export class SettingsService implements OnModuleInit {
 
     return {
       provider,
-      enabled: (await this.get("email_enabled", "false")) === "true",
+      enabled:
+        (await this.getWithEnvFallback(
+          "email_enabled",
+          "EMAIL_ENABLED",
+          "false",
+        )) === "true",
       from:
         (await this.getWithEnvFallback("email_from", "EMAIL_FROM")) ||
         "DeepDive <noreply@deepdive.ai>",
@@ -317,7 +322,12 @@ export class SettingsService implements OnModuleInit {
       from:
         (await this.getWithEnvFallback("smtp_from", "SMTP_FROM")) ||
         "DeepDive <noreply@deepdive.ai>",
-      enabled: (await this.get("email_enabled", "false")) === "true",
+      enabled:
+        (await this.getWithEnvFallback(
+          "email_enabled",
+          "EMAIL_ENABLED",
+          "false",
+        )) === "true",
       adminEmail: await this.getWithEnvFallback("admin_email", "ADMIN_EMAIL"),
     };
   }

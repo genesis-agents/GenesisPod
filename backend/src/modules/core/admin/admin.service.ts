@@ -2085,6 +2085,272 @@ export class AdminService {
     }
   }
 
+  // ============ Unified Email Settings (SMTP + Resend) ============
+
+  /**
+   * Get unified email settings (supports both SMTP and Resend)
+   * Uses same keys as settings.service.ts for consistency
+   */
+  async getEmailSettingsUnified() {
+    const [
+      provider,
+      enabled,
+      from,
+      adminEmail,
+      host,
+      port,
+      user,
+      pass,
+      resendApiKey,
+    ] = await Promise.all([
+      this.getSetting("email_provider"),
+      this.getSetting("email_enabled"),
+      this.getSetting("email_from"),
+      this.getSetting("admin_email"),
+      this.getSetting("smtp_host"),
+      this.getSetting("smtp_port"),
+      this.getSetting("smtp_user"),
+      this.getSetting("smtp_pass"),
+      this.getSetting("resend_api_key"),
+    ]);
+
+    // Also check environment variables as fallback
+    const envEnabled = process.env.EMAIL_ENABLED === "true";
+    const envAdminEmail = process.env.ADMIN_EMAIL;
+
+    return {
+      provider: provider || process.env.EMAIL_PROVIDER || "smtp",
+      enabled: enabled === "true" || enabled === true || envEnabled,
+      from: from || process.env.EMAIL_FROM || "DeepDive <noreply@deepdive.ai>",
+      adminEmail: adminEmail || envAdminEmail || null,
+      host: host || process.env.SMTP_HOST || null,
+      port: parseInt(port || process.env.SMTP_PORT || "587"),
+      user: user || process.env.SMTP_USER || null,
+      hasPassword: !!(pass || process.env.SMTP_PASS),
+      hasResendKey: !!(resendApiKey || process.env.RESEND_API_KEY),
+    };
+  }
+
+  /**
+   * Update unified email settings (supports both SMTP and Resend)
+   * Uses same keys as settings.service.ts for consistency
+   */
+  async updateEmailSettingsUnified(settings: {
+    provider?: "smtp" | "resend";
+    enabled?: boolean;
+    from?: string;
+    adminEmail?: string;
+    host?: string;
+    port?: number;
+    user?: string;
+    pass?: string;
+    resendApiKey?: string;
+  }) {
+    const updates: Array<{
+      key: string;
+      value: any;
+      description?: string;
+      category: string;
+    }> = [];
+
+    if (settings.provider !== undefined) {
+      updates.push({
+        key: "email_provider",
+        value: settings.provider,
+        description: "Email provider (smtp or resend)",
+        category: "email",
+      });
+    }
+    if (settings.enabled !== undefined) {
+      updates.push({
+        key: "email_enabled",
+        value: settings.enabled.toString(),
+        description: "Enable email notifications",
+        category: "email",
+      });
+    }
+    if (settings.from !== undefined) {
+      updates.push({
+        key: "email_from",
+        value: settings.from,
+        description: "Email from address",
+        category: "email",
+      });
+    }
+    if (settings.adminEmail !== undefined) {
+      updates.push({
+        key: "admin_email",
+        value: settings.adminEmail,
+        description: "Admin email for notifications",
+        category: "email",
+      });
+    }
+
+    // SMTP-specific settings
+    if (settings.host !== undefined) {
+      updates.push({
+        key: "smtp_host",
+        value: settings.host,
+        description: "SMTP host",
+        category: "email",
+      });
+    }
+    if (settings.port !== undefined) {
+      updates.push({
+        key: "smtp_port",
+        value: settings.port.toString(),
+        description: "SMTP port",
+        category: "email",
+      });
+    }
+    if (settings.user !== undefined) {
+      updates.push({
+        key: "smtp_user",
+        value: settings.user,
+        description: "SMTP username",
+        category: "email",
+      });
+    }
+    // Only update password if it's not masked
+    if (settings.pass && settings.pass.trim() && !settings.pass.includes("•")) {
+      updates.push({
+        key: "smtp_pass",
+        value: settings.pass,
+        description: "SMTP password",
+        category: "email",
+      });
+    }
+
+    // Resend-specific settings
+    if (
+      settings.resendApiKey &&
+      settings.resendApiKey.trim() &&
+      !settings.resendApiKey.includes("•")
+    ) {
+      updates.push({
+        key: "resend_api_key",
+        value: settings.resendApiKey,
+        description: "Resend API key",
+        category: "email",
+      });
+    }
+
+    if (updates.length > 0) {
+      await this.setSettings(updates);
+    }
+
+    return this.getEmailSettingsUnified();
+  }
+
+  /**
+   * Test email connection (supports both SMTP and Resend)
+   * Uses same keys as settings.service.ts for consistency
+   */
+  async testEmailConnection() {
+    const provider =
+      (await this.getSetting("email_provider")) ||
+      process.env.EMAIL_PROVIDER ||
+      "smtp";
+    const adminEmail =
+      (await this.getSetting("admin_email")) || process.env.ADMIN_EMAIL;
+    const from =
+      (await this.getSetting("email_from")) ||
+      process.env.EMAIL_FROM ||
+      "DeepDive <noreply@deepdive.ai>";
+
+    if (!adminEmail) {
+      return {
+        success: false,
+        message:
+          "Admin email is not configured. Please set an admin email first.",
+      };
+    }
+
+    try {
+      if (provider === "resend") {
+        // Test Resend
+        const resendApiKey =
+          (await this.getSetting("resend_api_key")) ||
+          process.env.RESEND_API_KEY;
+        if (!resendApiKey) {
+          return {
+            success: false,
+            message: "Resend API key is not configured.",
+          };
+        }
+
+        const { Resend } = await import("resend");
+        const resend = new Resend(resendApiKey);
+
+        await resend.emails.send({
+          from: from,
+          to: adminEmail,
+          subject: "DeepDive Email Test",
+          html: "<p>This is a test email from DeepDive. <strong>Resend is configured correctly!</strong></p>",
+        });
+
+        return {
+          success: true,
+          message: `Test email sent to ${adminEmail} via Resend`,
+        };
+      } else {
+        // Test SMTP
+        const [host, port, user, pass] = await Promise.all([
+          this.getSetting("smtp_host"),
+          this.getSetting("smtp_port"),
+          this.getSetting("smtp_user"),
+          this.getSetting("smtp_pass"),
+        ]);
+
+        // Check env fallback
+        const smtpHost = host || process.env.SMTP_HOST;
+        const smtpPort = parseInt(port || process.env.SMTP_PORT || "587");
+        const smtpUser = user || process.env.SMTP_USER;
+        const smtpPass = pass || process.env.SMTP_PASS;
+
+        if (!smtpHost || !smtpUser || !smtpPass) {
+          return {
+            success: false,
+            message:
+              "SMTP configuration is incomplete. Please configure host, user, and password.",
+          };
+        }
+
+        const nodemailer = await import("nodemailer");
+        const transporter = nodemailer.createTransport({
+          host: smtpHost,
+          port: smtpPort,
+          secure: smtpPort === 465,
+          auth: {
+            user: smtpUser,
+            pass: smtpPass,
+          },
+          connectionTimeout: 10000,
+          greetingTimeout: 10000,
+        });
+
+        await transporter.verify();
+        await transporter.sendMail({
+          from: from,
+          to: adminEmail,
+          subject: "DeepDive Email Test",
+          html: "<p>This is a test email from DeepDive. <strong>SMTP is configured correctly!</strong></p>",
+        });
+
+        return {
+          success: true,
+          message: `Test email sent to ${adminEmail} via SMTP`,
+        };
+      }
+    } catch (error) {
+      this.logger.error(`Email test failed: ${error}`);
+      return {
+        success: false,
+        message: `Test failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      };
+    }
+  }
+
   /**
    * Get Site settings
    */

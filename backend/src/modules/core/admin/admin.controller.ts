@@ -367,6 +367,51 @@ export class AdminController {
     return this.adminService.testSmtpConnection();
   }
 
+  // ============ Unified Email Settings (SMTP + Resend) ============
+
+  /**
+   * Get unified email settings
+   * GET /api/v1/admin/settings/email
+   */
+  @Get("settings/email")
+  async getEmailSettings() {
+    this.logger.log("Admin: Fetching unified email settings");
+    return this.adminService.getEmailSettingsUnified();
+  }
+
+  /**
+   * Update unified email settings
+   * PUT /api/v1/admin/settings/email
+   */
+  @Put("settings/email")
+  async updateEmailSettings(
+    @Body()
+    body: {
+      provider?: "smtp" | "resend";
+      enabled?: boolean;
+      from?: string;
+      adminEmail?: string;
+      host?: string;
+      port?: number;
+      user?: string;
+      pass?: string;
+      resendApiKey?: string;
+    },
+  ) {
+    this.logger.log("Admin: Updating unified email settings");
+    return this.adminService.updateEmailSettingsUnified(body);
+  }
+
+  /**
+   * Test email connection (supports both SMTP and Resend)
+   * POST /api/v1/admin/settings/email/test
+   */
+  @Post("settings/email/test")
+  async testEmailConnection() {
+    this.logger.log("Admin: Testing email connection");
+    return this.adminService.testEmailConnection();
+  }
+
   /**
    * Get Site settings
    * GET /api/v1/admin/settings/site

@@ -39,7 +39,7 @@ export class EmailService implements OnModuleInit {
   private provider: EmailProvider = "smtp";
   private isConfigured = false;
   private emailFrom = "DeepDive <noreply@deepdive.ai>";
-  private adminEmail = "hello.junjie.duan@gmail.com";
+  private adminEmail = ""; // Will be loaded from settings/env
 
   constructor(
     private configService: ConfigService,
@@ -59,13 +59,22 @@ export class EmailService implements OnModuleInit {
 
       this.provider = emailSettings.provider;
       this.emailFrom = emailSettings.from;
-      this.adminEmail = emailSettings.adminEmail || this.adminEmail;
+      this.adminEmail =
+        emailSettings.adminEmail || process.env.ADMIN_EMAIL || "";
 
-      this.logger.log(`Email provider: ${this.provider}`);
+      this.logger.log(
+        `Email provider: ${this.provider}, adminEmail: ${this.adminEmail ? "configured" : "NOT configured"}`,
+      );
+
+      if (!this.adminEmail) {
+        this.logger.warn(
+          "Admin email is not configured. Set ADMIN_EMAIL env var or configure in Admin > Settings > Email.",
+        );
+      }
 
       if (!emailSettings.enabled) {
         this.logger.warn(
-          "Email service is disabled. Enable it in Admin > Settings > Email.",
+          "Email service is disabled. Enable it in Admin > Settings > Email or set EMAIL_ENABLED=true.",
         );
         return;
       }
@@ -418,8 +427,15 @@ export class EmailService implements OnModuleInit {
     attachments?: Array<{ filename: string; content: Buffer }>;
   }): Promise<boolean> {
     this.logger.log(
-      `Sending feedback notification for: ${feedback.id} (Email enabled: ${this.isEnabled()})`,
+      `Sending feedback notification for: ${feedback.id} (Email enabled: ${this.isEnabled()}, Admin email: ${this.adminEmail ? "configured" : "NOT configured"})`,
     );
+
+    if (!this.adminEmail) {
+      this.logger.warn(
+        "Cannot send feedback notification: Admin email is not configured",
+      );
+      return false;
+    }
 
     const typeColors: Record<string, string> = {
       BUG: "#dc2626",
