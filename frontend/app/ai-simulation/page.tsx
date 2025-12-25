@@ -11,8 +11,10 @@ import { SCENARIO_TEMPLATES } from './constants';
 import { EditorModal } from './components/EditorModal';
 import { TemplateCard } from './components/TemplateCard';
 import { ScenarioCardItem } from './components/ScenarioCardItem';
+import { useTranslation } from '@/lib/i18n';
 
 export default function AISimulationPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -32,10 +34,10 @@ export default function AISimulationPage() {
       if (res.ok) {
         setScenarios(await res.json());
       } else {
-        setMessage('加载场景失败，请确认已登录且有权限');
+        setMessage(t('aiSimulation.error.loadFailed'));
       }
     } catch (err: any) {
-      setMessage(err.message || '加载场景失败');
+      setMessage(err.message || t('aiSimulation.error.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -81,7 +83,7 @@ export default function AISimulationPage() {
   const handleDelete = async (scenario: ScenarioCard, e: React.MouseEvent) => {
     e.stopPropagation();
 
-    if (!confirm(`确认删除场景"${scenario.name}"？此操作不可恢复。`)) {
+    if (!confirm(t('aiSimulation.confirm.delete', { name: scenario.name }))) {
       return;
     }
 
@@ -96,15 +98,15 @@ export default function AISimulationPage() {
       );
 
       if (res.ok) {
-        setMessage('场景删除成功');
+        setMessage(t('aiSimulation.success.deleted'));
         setTimeout(() => setMessage(null), 3000);
         await fetchScenarios();
       } else {
-        setMessage('删除失败，请稍后重试');
+        setMessage(t('aiSimulation.error.deleteFailed'));
       }
     } catch (err) {
       console.error('Failed to delete scenario:', err);
-      setMessage('删除失败');
+      setMessage(t('aiSimulation.error.deleteFailed'));
     }
   };
 
@@ -135,9 +137,11 @@ export default function AISimulationPage() {
         <Sidebar />
         <main className="flex-1 p-12">
           <div className="mx-auto max-w-3xl rounded-2xl border border-gray-100 bg-white p-10 text-center shadow-sm">
-            <h2 className="text-2xl font-semibold text-gray-800">请先登录</h2>
+            <h2 className="text-2xl font-semibold text-gray-800">
+              {t('aiSimulation.signIn.title')}
+            </h2>
             <p className="mt-2 text-sm text-gray-500">
-              进入 AI Simulation 需要登录并拥有管理员权限。
+              {t('aiSimulation.signIn.description')}
             </p>
           </div>
         </main>
@@ -171,10 +175,10 @@ export default function AISimulationPage() {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">
-                    AI Simulation
+                    {t('aiSimulation.title')}
                   </h1>
                   <p className="text-sm text-gray-500">
-                    战略推演：多军对抗、真实数据、人类介入
+                    {t('aiSimulation.subtitle')}
                   </p>
                 </div>
               </div>
@@ -195,7 +199,7 @@ export default function AISimulationPage() {
                     d="M12 4v16m8-8H4"
                   />
                 </svg>
-                新建推演
+                {t('aiSimulation.newSimulation')}
               </button>
             </div>
           </div>
@@ -205,19 +209,19 @@ export default function AISimulationPage() {
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-semibold text-gray-900">
-                  行业模板
+                  {t('aiSimulation.templates.title')}
                 </h2>
                 <p className="text-xs text-gray-500">
-                  选择模板快速创建推演场景
+                  {t('aiSimulation.templates.description')}
                 </p>
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {SCENARIO_TEMPLATES.map((t) => (
+              {SCENARIO_TEMPLATES.map((template) => (
                 <TemplateCard
-                  key={t.name}
-                  template={t}
-                  onClick={() => handleTemplate(t)}
+                  key={template.name}
+                  template={template}
+                  onClick={() => handleTemplate(template)}
                 />
               ))}
             </div>
@@ -235,22 +239,22 @@ export default function AISimulationPage() {
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-semibold text-gray-900">
-                  场景列表
+                  {t('aiSimulation.scenarios.title')}
                 </h2>
                 <p className="text-xs text-gray-500">
-                  点击卡片可查看/编辑，最新运行状态实时展示
+                  {t('aiSimulation.scenarios.description')}
                 </p>
               </div>
               <button
                 onClick={() => void fetchScenarios()}
                 className="text-xs text-gray-600 hover:text-gray-800"
               >
-                刷新
+                {t('aiSimulation.refresh')}
               </button>
             </div>
             {loading ? (
               <div className="py-10 text-center text-sm text-gray-500">
-                加载中...
+                {t('aiSimulation.loading')}
               </div>
             ) : scenarios.length === 0 ? (
               <div className="rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50 px-6 py-12 text-center">
@@ -268,10 +272,10 @@ export default function AISimulationPage() {
                   />
                 </svg>
                 <h3 className="mt-4 text-sm font-medium text-gray-900">
-                  暂无推演场景
+                  {t('aiSimulation.scenarios.empty.title')}
                 </h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  点击上方"新建推演"或选择模板开始
+                  {t('aiSimulation.scenarios.empty.description')}
                 </p>
               </div>
             ) : (

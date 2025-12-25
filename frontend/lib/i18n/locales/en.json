@@ -549,6 +549,215 @@
     "templates": "Templates",
     "recentDocuments": "Recent Documents"
   },
+  "aiCoding": {
+    "title": "AI Coding",
+    "subtitle": "Describe requirements, AI team builds it for you",
+    "signIn": {
+      "title": "Please sign in to access AI Coding",
+      "description": "Build software with AI-powered multi-agent collaboration"
+    },
+    "search": {
+      "placeholder": "Search projects..."
+    },
+    "loading": "Loading projects...",
+    "error": {
+      "retry": "Retry"
+    },
+    "hero": {
+      "title": "Describe Your Requirements in Natural Language",
+      "description": "AI team helps you complete the entire process from design to coding",
+      "startButton": "Start New Project"
+    },
+    "features": {
+      "prd": {
+        "title": "Auto PRD Generation",
+        "description": "AI PM analyzes requirements"
+      },
+      "architecture": {
+        "title": "Architecture Design",
+        "description": "AI Architect designs solutions"
+      },
+      "code": {
+        "title": "Code Generation",
+        "description": "AI Engineer implements code"
+      }
+    },
+    "projects": {
+      "recent": "Recent Projects",
+      "createNew": "Create New Project",
+      "progress": "Progress"
+    },
+    "templates": {
+      "title": "Quick Start Templates",
+      "web-app": {
+        "name": "Web App",
+        "description": "Full-stack Web Application",
+        "example": "Build a task management app with add, edit, delete and mark complete features"
+      },
+      "cli-tool": {
+        "name": "CLI Tool",
+        "description": "Command Line Tool",
+        "example": "Build a batch file renaming tool with regex matching support"
+      },
+      "api-server": {
+        "name": "API Server",
+        "description": "RESTful API Service",
+        "example": "Build a user authentication API with registration, login, and password reset"
+      },
+      "data-analysis": {
+        "name": "Data Analysis",
+        "description": "Data Analysis Script",
+        "example": "Build a sales data analysis script that generates visual reports"
+      }
+    },
+    "agents": {
+      "title": "AI Development Team",
+      "teamDescription": "Five AI agents collaborate to simulate a real software development team",
+      "pm": {
+        "name": "Product Manager",
+        "description": "Requirements analysis & PRD writing"
+      },
+      "architect": {
+        "name": "Architect",
+        "description": "Technical architecture design"
+      },
+      "projectManager": {
+        "name": "Project Manager",
+        "description": "Task breakdown & scheduling"
+      },
+      "engineer": {
+        "name": "Engineer",
+        "description": "Code implementation"
+      },
+      "qa": {
+        "name": "QA",
+        "description": "Testing & code review"
+      }
+    },
+    "status": {
+      "draft": "Draft",
+      "inProgress": "In Progress",
+      "completed": "Completed",
+      "failed": "Failed"
+    },
+    "time": {
+      "justNow": "Just now",
+      "mAgo": "{{count}}m ago",
+      "hAgo": "{{count}}h ago",
+      "dAgo": "{{count}}d ago"
+    },
+    "createDialog": {
+      "title": "Describe Your Project Requirements",
+      "placeholder": "e.g., Build a simple Todo app using React frontend and Node.js backend, with add, complete, and delete task features...",
+      "examplesLabel": "Example Requirements:",
+      "examples": {
+        "blog": "Build a blog system",
+        "api": "Create an API server",
+        "cli": "Make a CLI tool",
+        "data": "Write a data analysis script"
+      },
+      "cancel": "Cancel",
+      "submit": "Start Creating"
+    },
+    "kanban": "Kanban",
+    "newProject": "New Project"
+  },
+  "aiSimulation": {
+    "title": "AI Simulation",
+    "subtitle": "Strategic Simulation: Multi-party Confrontation, Real Data, Human Intervention",
+    "signIn": {
+      "title": "Please Sign In",
+      "description": "Access to AI Simulation requires login with admin privileges."
+    },
+    "newSimulation": "New Simulation",
+    "templates": {
+      "title": "Industry Templates",
+      "description": "Select a template to quickly create simulation scenarios"
+    },
+    "scenarios": {
+      "title": "Scenario List",
+      "description": "Click on a card to view/edit, latest run status displayed in real-time",
+      "empty": {
+        "title": "No Simulation Scenarios",
+        "description": "Click 'New Simulation' above or select a template to start"
+      }
+    },
+    "loading": "Loading...",
+    "refresh": "Refresh",
+    "error": {
+      "loadFailed": "Failed to load scenarios. Please confirm you are logged in with proper permissions.",
+      "deleteFailed": "Delete failed, please try again later"
+    },
+    "success": {
+      "deleted": "Scenario deleted successfully"
+    },
+    "confirm": {
+      "delete": "Are you sure you want to delete scenario \"{{name}}\"? This action cannot be undone."
+    }
+  },
+  "aiStore": {
+    "title": "AI Store",
+    "subtitle": "Discover and explore the best AI tools and applications",
+    "search": {
+      "placeholder": "Search AI tools, features or tags..."
+    },
+    "sort": {
+      "byRating": "Sort by Rating",
+      "byUsers": "Sort by Users",
+      "byName": "Sort by Name"
+    },
+    "featured": "Editor's Pick",
+    "featuredBadge": "Featured",
+    "users": "users",
+    "allTools": "All Tools",
+    "toolCount": "({{count}} tools)",
+    "empty": {
+      "title": "No matching tools found",
+      "description": "Try adjusting your search terms or selecting a different category"
+    },
+    "visit": "Visit",
+    "submit": {
+      "title": "Found a great AI tool?",
+      "description": "Submit your favorite AI tool and share with the community",
+      "button": "Submit Tool"
+    },
+    "categories": {
+      "all": "All Tools",
+      "chat": "Chat & Assistant",
+      "image": "Image Generation",
+      "video": "Video & Audio",
+      "code": "Code & Dev",
+      "writing": "Writing & Content",
+      "data": "Data & Analytics",
+      "productivity": "Productivity"
+    }
+  },
+  "labs": {
+    "title": "Labs",
+    "subtitle": "Customize your AI experience",
+    "resetDefaults": "Reset to defaults",
+    "enabled": "Enabled",
+    "banner": {
+      "title": "AI Feature Controls",
+      "description": "Toggle AI features on or off to customize your DeepDive experience. Changes are saved automatically."
+    },
+    "core": {
+      "title": "Core AI Features"
+    },
+    "beta": {
+      "title": "Beta Features",
+      "badge": "Experimental",
+      "warning": "Beta features are still in development. They may not work perfectly and could change at any time."
+    },
+    "ui": {
+      "title": "UI Experiments"
+    },
+    "feedback": {
+      "title": "Have feedback on these features?",
+      "description": "Your input helps us improve. Let us know what works and what doesn't!",
+      "button": "Send Feedback"
+    }
+  },
   "admin": {
     "title": "Admin Dashboard",
     "users": "Users",

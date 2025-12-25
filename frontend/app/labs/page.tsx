@@ -16,8 +16,10 @@ import {
   RotateCcw,
   MessageSquare,
 } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 
 export default function Labs() {
+  const { t } = useTranslation();
   const { aiFeatures, setAIFeature, resetAIFeatures } = useSettingsStore();
   const [mounted, setMounted] = useState(false);
 
@@ -186,7 +188,7 @@ export default function Labs() {
               <p className="text-sm text-gray-600">{feature.description}</p>
               {isEnabled && (
                 <p className="mt-2 text-xs font-medium text-green-600">
-                  Enabled
+                  {t('labs.enabled')}
                 </p>
               )}
             </div>
@@ -227,10 +229,10 @@ export default function Labs() {
           <div className="flex items-center gap-3">
             <FlaskConical className="h-6 w-6 text-violet-600" />
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Labs</h1>
-              <p className="text-sm text-gray-500">
-                Customize your AI experience
-              </p>
+              <h1 className="text-xl font-bold text-gray-900">
+                {t('labs.title')}
+              </h1>
+              <p className="text-sm text-gray-500">{t('labs.subtitle')}</p>
             </div>
           </div>
           <button
@@ -238,7 +240,7 @@ export default function Labs() {
             className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50"
           >
             <RotateCcw className="h-4 w-4" />
-            Reset to defaults
+            {t('labs.resetDefaults')}
           </button>
         </header>
 
@@ -251,11 +253,10 @@ export default function Labs() {
                 <Sparkles className="h-5 w-5 flex-shrink-0 text-violet-600" />
                 <div>
                   <h3 className="font-semibold text-violet-900">
-                    AI Feature Controls
+                    {t('labs.banner.title')}
                   </h3>
                   <p className="mt-1 text-sm text-violet-700">
-                    Toggle AI features on or off to customize your DeepDive
-                    experience. Changes are saved automatically.
+                    {t('labs.banner.description')}
                   </p>
                 </div>
               </div>
@@ -267,7 +268,7 @@ export default function Labs() {
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-600">
                   {coreFeatures.filter((f) => aiFeatures[f.key]).length}
                 </span>
-                Core AI Features
+                {t('labs.core.title')}
               </h2>
               <div className="space-y-3">
                 {coreFeatures.map((feature) =>
@@ -282,15 +283,14 @@ export default function Labs() {
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-600">
                   {betaFeatures.filter((f) => aiFeatures[f.key]).length}
                 </span>
-                Beta Features
+                {t('labs.beta.title')}
                 <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                  Experimental
+                  {t('labs.beta.badge')}
                 </span>
               </h2>
               <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
                 <p className="text-sm text-amber-800">
-                  Beta features are still in development. They may not work
-                  perfectly and could change at any time.
+                  {t('labs.beta.warning')}
                 </p>
               </div>
               <div className="space-y-3">
@@ -306,7 +306,7 @@ export default function Labs() {
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-600">
                   {uiFeatures.filter((f) => aiFeatures[f.key]).length}
                 </span>
-                UI Experiments
+                {t('labs.ui.title')}
               </h2>
               <div className="space-y-3">
                 {uiFeatures.map((feature) =>
@@ -323,18 +323,17 @@ export default function Labs() {
                 </div>
                 <div className="flex-1">
                   <h3 className="font-semibold text-gray-900">
-                    Have feedback on these features?
+                    {t('labs.feedback.title')}
                   </h3>
                   <p className="text-sm text-gray-600">
-                    Your input helps us improve. Let us know what works and what
-                    doesn't!
+                    {t('labs.feedback.description')}
                   </p>
                 </div>
                 <Link
                   href="/feedback"
                   className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700"
                 >
-                  Send Feedback
+                  {t('labs.feedback.button')}
                   <svg
                     className="h-4 w-4"
                     fill="none"

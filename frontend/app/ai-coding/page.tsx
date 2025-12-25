@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from '@/components/layout/Sidebar';
 import { getProjects, CodingProject } from '@/lib/api/ai-coding';
+import { useTranslation } from '@/lib/i18n';
 
 interface AgentStatus {
   status: 'pending' | 'running' | 'completed' | 'failed';
@@ -30,49 +31,50 @@ const PROJECT_TEMPLATES: ProjectTemplate[] = [
   {
     id: 'web-app',
     name: 'Web App',
-    description: '全栈 Web 应用',
+    description: '', // Will use i18n
     icon: '🌐',
     techStack: {
       frontend: 'React',
       backend: 'Node.js',
       database: 'PostgreSQL',
     },
-    examplePrompt: '开发一个任务管理应用，支持添加、编辑、删除和标记完成任务',
+    examplePrompt: '', // Will use i18n
   },
   {
     id: 'cli-tool',
     name: 'CLI Tool',
-    description: '命令行工具',
+    description: '', // Will use i18n
     icon: '⌨️',
     techStack: {
       backend: 'Python',
     },
-    examplePrompt: '开发一个文件批量重命名工具，支持正则表达式匹配',
+    examplePrompt: '', // Will use i18n
   },
   {
     id: 'api-server',
     name: 'API Server',
-    description: 'RESTful API 服务',
+    description: '', // Will use i18n
     icon: '🔌',
     techStack: {
       backend: 'Node.js',
       database: 'PostgreSQL',
     },
-    examplePrompt: '开发一个用户认证 API，支持注册、登录、密码重置',
+    examplePrompt: '', // Will use i18n
   },
   {
     id: 'data-analysis',
     name: 'Data Analysis',
-    description: '数据分析脚本',
+    description: '', // Will use i18n
     icon: '📊',
     techStack: {
       backend: 'Python',
     },
-    examplePrompt: '开发一个销售数据分析脚本，生成可视化报表',
+    examplePrompt: '', // Will use i18n
   },
 ];
 
 export default function AICodingPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { accessToken, isLoading: authLoading } = useAuth();
 
@@ -158,11 +160,9 @@ export default function AICodingPage() {
             />
           </svg>
           <h2 className="text-xl font-semibold text-gray-700">
-            Please sign in to access AI Coding
+            {t('aiCoding.signIn.title')}
           </h2>
-          <p className="text-gray-500">
-            Build software with AI-powered multi-agent collaboration
-          </p>
+          <p className="text-gray-500">{t('aiCoding.signIn.description')}</p>
         </div>
       </div>
     );
@@ -195,10 +195,10 @@ export default function AICodingPage() {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">
-                    AI Coding
+                    {t('aiCoding.title')}
                   </h1>
                   <p className="text-sm text-gray-500">
-                    一句话需求，AI 团队帮你实现
+                    {t('aiCoding.subtitle')}
                   </p>
                 </div>
               </div>
@@ -220,7 +220,7 @@ export default function AICodingPage() {
                       d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"
                     />
                   </svg>
-                  Kanban
+                  {t('aiCoding.kanban')}
                 </button>
                 <button
                   onClick={handleCreateProject}
@@ -239,7 +239,7 @@ export default function AICodingPage() {
                       d="M12 4v16m8-8H4"
                     />
                   </svg>
-                  New Project
+                  {t('aiCoding.newProject')}
                 </button>
               </div>
             </div>
@@ -262,7 +262,7 @@ export default function AICodingPage() {
                 </svg>
                 <input
                   type="text"
-                  placeholder="搜索项目..."
+                  placeholder={t('aiCoding.search.placeholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
@@ -279,7 +279,7 @@ export default function AICodingPage() {
             <div className="flex items-center justify-center py-16">
               <div className="flex flex-col items-center gap-4">
                 <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
-                <p className="text-sm text-gray-500">加载项目中...</p>
+                <p className="text-sm text-gray-500">{t('aiCoding.loading')}</p>
               </div>
             </div>
           )}
@@ -306,7 +306,7 @@ export default function AICodingPage() {
                   onClick={() => window.location.reload()}
                   className="ml-auto text-sm font-medium text-red-600 hover:text-red-700"
                 >
-                  重试
+                  {t('aiCoding.error.retry')}
                 </button>
               </div>
             </div>
@@ -332,10 +332,10 @@ export default function AICodingPage() {
                   </svg>
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900">
-                  用自然语言描述需求
+                  {t('aiCoding.hero.title')}
                 </h2>
                 <p className="mt-2 text-gray-600">
-                  AI 团队帮你完成从设计到编码的全流程
+                  {t('aiCoding.hero.description')}
                 </p>
 
                 {/* Quick Start Input */}
@@ -357,7 +357,7 @@ export default function AICodingPage() {
                         d="M12 4v16m8-8H4"
                       />
                     </svg>
-                    开始新项目
+                    {t('aiCoding.hero.startButton')}
                   </button>
                 </div>
 
@@ -366,28 +366,28 @@ export default function AICodingPage() {
                   <div className="rounded-xl bg-white/70 p-4 backdrop-blur-sm">
                     <div className="mb-2 text-2xl">📝</div>
                     <div className="text-sm font-medium text-gray-900">
-                      PRD 自动生成
+                      {t('aiCoding.features.prd.title')}
                     </div>
                     <div className="mt-1 text-xs text-gray-500">
-                      AI 产品经理分析需求
+                      {t('aiCoding.features.prd.description')}
                     </div>
                   </div>
                   <div className="rounded-xl bg-white/70 p-4 backdrop-blur-sm">
                     <div className="mb-2 text-2xl">🏗️</div>
                     <div className="text-sm font-medium text-gray-900">
-                      架构设计
+                      {t('aiCoding.features.architecture.title')}
                     </div>
                     <div className="mt-1 text-xs text-gray-500">
-                      AI 架构师设计方案
+                      {t('aiCoding.features.architecture.description')}
                     </div>
                   </div>
                   <div className="rounded-xl bg-white/70 p-4 backdrop-blur-sm">
                     <div className="mb-2 text-2xl">💻</div>
                     <div className="text-sm font-medium text-gray-900">
-                      代码生成
+                      {t('aiCoding.features.code.title')}
                     </div>
                     <div className="mt-1 text-xs text-gray-500">
-                      AI 工程师实现代码
+                      {t('aiCoding.features.code.description')}
                     </div>
                   </div>
                 </div>
@@ -400,7 +400,7 @@ export default function AICodingPage() {
             <div className="mb-8">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  最近项目
+                  {t('aiCoding.projects.recent')}
                 </h3>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -431,7 +431,7 @@ export default function AICodingPage() {
                     />
                   </svg>
                   <span className="mt-2 text-sm font-medium text-gray-600">
-                    创建新项目
+                    {t('aiCoding.projects.createNew')}
                   </span>
                 </button>
               </div>
@@ -442,7 +442,7 @@ export default function AICodingPage() {
           {!isLoadingProjects && (
             <div>
               <h3 className="mb-4 text-lg font-semibold text-gray-900">
-                模板快速开始
+                {t('aiCoding.templates.title')}
               </h3>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 {PROJECT_TEMPLATES.map((template) => (
@@ -453,10 +453,10 @@ export default function AICodingPage() {
                   >
                     <div className="mb-3 text-3xl">{template.icon}</div>
                     <div className="font-medium text-gray-900 group-hover:text-emerald-600">
-                      {template.name}
+                      {t(`aiCoding.templates.${template.id}.name`)}
                     </div>
                     <div className="mt-1 text-sm text-gray-500">
-                      {template.description}
+                      {t(`aiCoding.templates.${template.id}.description`)}
                     </div>
                     <div className="mt-3 flex flex-wrap gap-1">
                       {template.techStack.frontend && (
@@ -485,42 +485,37 @@ export default function AICodingPage() {
           {!isLoadingProjects && (
             <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-6">
               <h3 className="mb-4 text-lg font-semibold text-gray-900">
-                AI 开发团队
+                {t('aiCoding.agents.title')}
               </h3>
               <div className="grid grid-cols-5 gap-4">
                 {[
                   {
-                    name: '产品经理',
+                    key: 'pm',
                     role: 'PM',
-                    description: '需求分析与 PRD 编写',
                     icon: '📝',
                     color: 'blue',
                   },
                   {
-                    name: '架构师',
+                    key: 'architect',
                     role: 'Architect',
-                    description: '技术架构设计',
                     icon: '🏗️',
                     color: 'purple',
                   },
                   {
-                    name: '项目经理',
+                    key: 'projectManager',
                     role: 'PM Lead',
-                    description: '任务拆分与排期',
                     icon: '📋',
                     color: 'orange',
                   },
                   {
-                    name: '工程师',
+                    key: 'engineer',
                     role: 'Engineer',
-                    description: '代码实现',
                     icon: '💻',
                     color: 'green',
                   },
                   {
-                    name: 'QA',
+                    key: 'qa',
                     role: 'QA Engineer',
-                    description: '测试与代码审查',
                     icon: '🔍',
                     color: 'red',
                   },
@@ -531,16 +526,16 @@ export default function AICodingPage() {
                   >
                     <div className="mb-2 text-2xl">{agent.icon}</div>
                     <div className="font-medium text-gray-900">
-                      {agent.name}
+                      {t(`aiCoding.agents.${agent.key}.name`)}
                     </div>
                     <div className="mt-1 text-xs text-gray-500">
-                      {agent.description}
+                      {t(`aiCoding.agents.${agent.key}.description`)}
                     </div>
                   </div>
                 ))}
               </div>
               <p className="mt-4 text-center text-sm text-gray-500">
-                五个 AI 智能体协同工作，模拟真实软件开发团队
+                {t('aiCoding.agents.teamDescription')}
               </p>
             </div>
           )}
@@ -571,6 +566,8 @@ function ProjectCard({
   project: CodingProject;
   onClick: () => void;
 }) {
+  const { t } = useTranslation();
+
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
     const now = new Date();
@@ -579,10 +576,10 @@ function ProjectCard({
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
 
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
+    if (minutes < 1) return t('aiCoding.time.justNow');
+    if (minutes < 60) return t('aiCoding.time.mAgo', { count: minutes });
+    if (hours < 24) return t('aiCoding.time.hAgo', { count: hours });
+    if (days < 7) return t('aiCoding.time.dAgo', { count: days });
     return date.toLocaleDateString();
   };
 
@@ -594,11 +591,14 @@ function ProjectCard({
     FAILED: 'bg-red-100 text-red-600',
   };
 
-  const statusLabels: Record<string, string> = {
-    DRAFT: '草稿',
-    IN_PROGRESS: '进行中',
-    COMPLETED: '已完成',
-    FAILED: '失败',
+  const getStatusLabel = (status: string) => {
+    const statusKeys: Record<string, string> = {
+      DRAFT: 'draft',
+      IN_PROGRESS: 'inProgress',
+      COMPLETED: 'completed',
+      FAILED: 'failed',
+    };
+    return t(`aiCoding.status.${statusKeys[status] || 'draft'}`);
   };
 
   return (
@@ -614,7 +614,7 @@ function ProjectCard({
         <span
           className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[project.status]}`}
         >
-          {statusLabels[project.status]}
+          {getStatusLabel(project.status)}
         </span>
       </div>
 
@@ -646,7 +646,9 @@ function ProjectCard({
       {project.status === 'IN_PROGRESS' && (
         <div className="mt-3">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-500">进度</span>
+            <span className="text-gray-500">
+              {t('aiCoding.projects.progress')}
+            </span>
             <span className="font-medium text-emerald-600">
               {project.progress}%
             </span>
@@ -676,6 +678,7 @@ function CreateProjectDialog({
   onClose: () => void;
   onCreate: (requirement: string) => void;
 }) {
+  const { t } = useTranslation();
   const [requirement, setRequirement] = useState('');
 
   const handleSubmit = () => {
@@ -690,7 +693,7 @@ function CreateProjectDialog({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <h2 className="text-lg font-semibold text-gray-900">
-            描述你的项目需求
+            {t('aiCoding.createDialog.title')}
           </h2>
           <button
             onClick={onClose}
@@ -717,7 +720,7 @@ function CreateProjectDialog({
           <textarea
             value={requirement}
             onChange={(e) => setRequirement(e.target.value)}
-            placeholder="例如：开发一个简单的 Todo 待办事项应用，使用 React 前端和 Node.js 后端，支持添加、完成、删除任务功能..."
+            placeholder={t('aiCoding.createDialog.placeholder')}
             rows={6}
             className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
             autoFocus
@@ -725,20 +728,19 @@ function CreateProjectDialog({
 
           {/* Example Prompts */}
           <div className="mt-4">
-            <p className="mb-2 text-sm font-medium text-gray-700">示例需求：</p>
+            <p className="mb-2 text-sm font-medium text-gray-700">
+              {t('aiCoding.createDialog.examplesLabel')}
+            </p>
             <div className="flex flex-wrap gap-2">
-              {[
-                '开发一个博客系统',
-                '创建一个 API 服务器',
-                '做一个命令行工具',
-                '写一个数据分析脚本',
-              ].map((example) => (
+              {(['blog', 'api', 'cli', 'data'] as const).map((key) => (
                 <button
-                  key={example}
-                  onClick={() => setRequirement(example)}
+                  key={key}
+                  onClick={() =>
+                    setRequirement(t(`aiCoding.createDialog.examples.${key}`))
+                  }
                   className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-sm text-gray-600 transition-colors hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-600"
                 >
-                  {example}
+                  {t(`aiCoding.createDialog.examples.${key}`)}
                 </button>
               ))}
             </div>
@@ -751,14 +753,14 @@ function CreateProjectDialog({
             onClick={onClose}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
-            取消
+            {t('aiCoding.createDialog.cancel')}
           </button>
           <button
             onClick={handleSubmit}
             disabled={!requirement.trim()}
             className="rounded-lg bg-emerald-600 px-6 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            开始创建
+            {t('aiCoding.createDialog.submit')}
           </button>
         </div>
       </div>

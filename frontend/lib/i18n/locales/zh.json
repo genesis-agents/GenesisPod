@@ -549,6 +549,215 @@
     "templates": "模板",
     "recentDocuments": "最近文档"
   },
+  "aiCoding": {
+    "title": "AI Coding",
+    "subtitle": "一句话需求，AI 团队帮你实现",
+    "signIn": {
+      "title": "请登录以访问 AI Coding",
+      "description": "AI 多智能体协作帮你开发软件"
+    },
+    "search": {
+      "placeholder": "搜索项目..."
+    },
+    "loading": "加载项目中...",
+    "error": {
+      "retry": "重试"
+    },
+    "hero": {
+      "title": "用自然语言描述需求",
+      "description": "AI 团队帮你完成从设计到编码的全流程",
+      "startButton": "开始新项目"
+    },
+    "features": {
+      "prd": {
+        "title": "PRD 自动生成",
+        "description": "AI 产品经理分析需求"
+      },
+      "architecture": {
+        "title": "架构设计",
+        "description": "AI 架构师设计方案"
+      },
+      "code": {
+        "title": "代码生成",
+        "description": "AI 工程师实现代码"
+      }
+    },
+    "projects": {
+      "recent": "最近项目",
+      "createNew": "创建新项目",
+      "progress": "进度"
+    },
+    "templates": {
+      "title": "模板快速开始",
+      "web-app": {
+        "name": "Web App",
+        "description": "全栈 Web 应用",
+        "example": "开发一个任务管理应用，支持添加、编辑、删除和标记完成任务"
+      },
+      "cli-tool": {
+        "name": "CLI Tool",
+        "description": "命令行工具",
+        "example": "开发一个文件批量重命名工具，支持正则表达式匹配"
+      },
+      "api-server": {
+        "name": "API Server",
+        "description": "RESTful API 服务",
+        "example": "开发一个用户认证 API，支持注册、登录、密码重置"
+      },
+      "data-analysis": {
+        "name": "Data Analysis",
+        "description": "数据分析脚本",
+        "example": "开发一个销售数据分析脚本，生成可视化报表"
+      }
+    },
+    "agents": {
+      "title": "AI 开发团队",
+      "teamDescription": "五个 AI 智能体协同工作，模拟真实软件开发团队",
+      "pm": {
+        "name": "产品经理",
+        "description": "需求分析与 PRD 编写"
+      },
+      "architect": {
+        "name": "架构师",
+        "description": "技术架构设计"
+      },
+      "projectManager": {
+        "name": "项目经理",
+        "description": "任务拆分与排期"
+      },
+      "engineer": {
+        "name": "工程师",
+        "description": "代码实现"
+      },
+      "qa": {
+        "name": "QA",
+        "description": "测试与代码审查"
+      }
+    },
+    "status": {
+      "draft": "草稿",
+      "inProgress": "进行中",
+      "completed": "已完成",
+      "failed": "失败"
+    },
+    "time": {
+      "justNow": "刚刚",
+      "mAgo": "{{count}}分钟前",
+      "hAgo": "{{count}}小时前",
+      "dAgo": "{{count}}天前"
+    },
+    "createDialog": {
+      "title": "描述你的项目需求",
+      "placeholder": "例如：开发一个简单的 Todo 待办事项应用，使用 React 前端和 Node.js 后端，支持添加、完成、删除任务功能...",
+      "examplesLabel": "示例需求：",
+      "examples": {
+        "blog": "开发一个博客系统",
+        "api": "创建一个 API 服务器",
+        "cli": "做一个命令行工具",
+        "data": "写一个数据分析脚本"
+      },
+      "cancel": "取消",
+      "submit": "开始创建"
+    },
+    "kanban": "看板",
+    "newProject": "新建项目"
+  },
+  "aiSimulation": {
+    "title": "AI 推演",
+    "subtitle": "战略推演：多军对抗、真实数据、人类介入",
+    "signIn": {
+      "title": "请先登录",
+      "description": "进入 AI Simulation 需要登录并拥有管理员权限。"
+    },
+    "newSimulation": "新建推演",
+    "templates": {
+      "title": "行业模板",
+      "description": "选择模板快速创建推演场景"
+    },
+    "scenarios": {
+      "title": "场景列表",
+      "description": "点击卡片可查看/编辑，最新运行状态实时展示",
+      "empty": {
+        "title": "暂无推演场景",
+        "description": "点击上方「新建推演」或选择模板开始"
+      }
+    },
+    "loading": "加载中...",
+    "refresh": "刷新",
+    "error": {
+      "loadFailed": "加载场景失败，请确认已登录且有权限",
+      "deleteFailed": "删除失败，请稍后重试"
+    },
+    "success": {
+      "deleted": "场景删除成功"
+    },
+    "confirm": {
+      "delete": "确认删除场景「{{name}}」？此操作不可恢复。"
+    }
+  },
+  "aiStore": {
+    "title": "AI 商店",
+    "subtitle": "发现和探索最佳AI工具与应用",
+    "search": {
+      "placeholder": "搜索AI工具、功能或标签..."
+    },
+    "sort": {
+      "byRating": "按评分排序",
+      "byUsers": "按用户数排序",
+      "byName": "按名称排序"
+    },
+    "featured": "编辑精选",
+    "featuredBadge": "精选",
+    "users": "用户",
+    "allTools": "全部工具",
+    "toolCount": "({{count}} 个工具)",
+    "empty": {
+      "title": "未找到匹配的工具",
+      "description": "尝试调整搜索词或选择其他分类"
+    },
+    "visit": "访问",
+    "submit": {
+      "title": "发现了好用的AI工具？",
+      "description": "提交你喜爱的AI工具，与社区分享",
+      "button": "提交工具"
+    },
+    "categories": {
+      "all": "全部工具",
+      "chat": "聊天助手",
+      "image": "图像生成",
+      "video": "视频 & 音频",
+      "code": "代码开发",
+      "writing": "写作内容",
+      "data": "数据分析",
+      "productivity": "效率工具"
+    }
+  },
+  "labs": {
+    "title": "实验室",
+    "subtitle": "自定义你的 AI 体验",
+    "resetDefaults": "重置为默认",
+    "enabled": "已启用",
+    "banner": {
+      "title": "AI 功能控制",
+      "description": "开启或关闭 AI 功能来自定义你的 DeepDive 体验。更改会自动保存。"
+    },
+    "core": {
+      "title": "核心 AI 功能"
+    },
+    "beta": {
+      "title": "Beta 功能",
+      "badge": "实验性",
+      "warning": "Beta 功能仍在开发中，可能无法完美运行，且随时可能更改。"
+    },
+    "ui": {
+      "title": "界面实验"
+    },
+    "feedback": {
+      "title": "对这些功能有反馈？",
+      "description": "你的意见帮助我们改进。告诉我们哪些有效，哪些无效！",
+      "button": "发送反馈"
+    }
+  },
   "admin": {
     "title": "管理后台",
     "users": "用户管理",

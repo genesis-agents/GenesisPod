@@ -2,27 +2,18 @@
 
 import { useState } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
+import { useTranslation } from '@/lib/i18n';
 
 // AI工具分类
 const categories = [
-  { id: 'all', name: 'All Tools', icon: '🔮', color: 'bg-gray-100' },
-  { id: 'chat', name: 'Chat & Assistant', icon: '💬', color: 'bg-blue-100' },
-  { id: 'image', name: 'Image Generation', icon: '🎨', color: 'bg-purple-100' },
-  { id: 'video', name: 'Video & Audio', icon: '🎬', color: 'bg-pink-100' },
-  { id: 'code', name: 'Code & Dev', icon: '💻', color: 'bg-green-100' },
-  {
-    id: 'writing',
-    name: 'Writing & Content',
-    icon: '✍️',
-    color: 'bg-amber-100',
-  },
-  { id: 'data', name: 'Data & Analytics', icon: '📊', color: 'bg-cyan-100' },
-  {
-    id: 'productivity',
-    name: 'Productivity',
-    icon: '⚡',
-    color: 'bg-orange-100',
-  },
+  { id: 'all', icon: '🔮', color: 'bg-gray-100' },
+  { id: 'chat', icon: '💬', color: 'bg-blue-100' },
+  { id: 'image', icon: '🎨', color: 'bg-purple-100' },
+  { id: 'video', icon: '🎬', color: 'bg-pink-100' },
+  { id: 'code', icon: '💻', color: 'bg-green-100' },
+  { id: 'writing', icon: '✍️', color: 'bg-amber-100' },
+  { id: 'data', icon: '📊', color: 'bg-cyan-100' },
+  { id: 'productivity', icon: '⚡', color: 'bg-orange-100' },
 ];
 
 // AI工具数据
@@ -238,6 +229,7 @@ const aiTools = [
 ];
 
 export default function AIStorePage() {
+  const { t } = useTranslation();
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'rating' | 'users' | 'name'>('rating');
@@ -294,10 +286,10 @@ export default function AIStorePage() {
                 </svg>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">AI Store</h1>
-                <p className="text-sm text-gray-500">
-                  发现和探索最佳AI工具与应用
-                </p>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {t('aiStore.title')}
+                </h1>
+                <p className="text-sm text-gray-500">{t('aiStore.subtitle')}</p>
               </div>
             </div>
 
@@ -319,7 +311,7 @@ export default function AIStorePage() {
                 </svg>
                 <input
                   type="text"
-                  placeholder="搜索AI工具、功能或标签..."
+                  placeholder={t('aiStore.search.placeholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
@@ -332,9 +324,9 @@ export default function AIStorePage() {
                 }
                 className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
               >
-                <option value="rating">按评分排序</option>
-                <option value="users">按用户数排序</option>
-                <option value="name">按名称排序</option>
+                <option value="rating">{t('aiStore.sort.byRating')}</option>
+                <option value="users">{t('aiStore.sort.byUsers')}</option>
+                <option value="name">{t('aiStore.sort.byName')}</option>
               </select>
             </div>
           </div>
@@ -345,7 +337,7 @@ export default function AIStorePage() {
           {selectedCategory === 'all' && !searchQuery && (
             <section className="mb-10">
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
-                <span className="text-xl">⭐</span> 编辑精选
+                <span className="text-xl">⭐</span> {t('aiStore.featured')}
               </h2>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {featuredTools.slice(0, 6).map((tool) => (
@@ -358,7 +350,7 @@ export default function AIStorePage() {
                   >
                     <div className="absolute right-3 top-3">
                       <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                        精选
+                        {t('aiStore.featuredBadge')}
                       </span>
                     </div>
                     <div className="flex items-start gap-4">
@@ -386,7 +378,9 @@ export default function AIStorePage() {
                           </svg>
                           {tool.rating}
                         </span>
-                        <span>{tool.users} 用户</span>
+                        <span>
+                          {tool.users} {t('aiStore.users')}
+                        </span>
                       </div>
                       <span
                         className={`rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -420,7 +414,7 @@ export default function AIStorePage() {
                   }`}
                 >
                   <span>{category.icon}</span>
-                  <span>{category.name}</span>
+                  <span>{t(`aiStore.categories.${category.id}`)}</span>
                 </button>
               ))}
             </div>
@@ -430,11 +424,9 @@ export default function AIStorePage() {
           <section>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">
-                {selectedCategory === 'all'
-                  ? '全部工具'
-                  : categories.find((c) => c.id === selectedCategory)?.name}
+                {t(`aiStore.categories.${selectedCategory}`)}
                 <span className="ml-2 text-sm font-normal text-gray-500">
-                  ({filteredTools.length} 个工具)
+                  {t('aiStore.toolCount', { count: filteredTools.length })}
                 </span>
               </h2>
             </div>
@@ -443,10 +435,10 @@ export default function AIStorePage() {
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <div className="mb-4 text-6xl">🔍</div>
                 <h3 className="text-lg font-medium text-gray-900">
-                  未找到匹配的工具
+                  {t('aiStore.empty.title')}
                 </h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  尝试调整搜索词或选择其他分类
+                  {t('aiStore.empty.description')}
                 </p>
               </div>
             ) : (
@@ -509,7 +501,7 @@ export default function AIStorePage() {
                         {tool.pricing}
                       </span>
                       <span className="text-xs text-gray-400 group-hover:text-cyan-500">
-                        访问 →
+                        {t('aiStore.visit')} →
                       </span>
                     </div>
                   </a>
@@ -520,10 +512,12 @@ export default function AIStorePage() {
 
           {/* Submit Tool CTA */}
           <section className="mt-12 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 p-8 text-center text-white">
-            <h2 className="text-xl font-bold">发现了好用的AI工具？</h2>
-            <p className="mt-2 text-cyan-100">提交你喜爱的AI工具，与社区分享</p>
+            <h2 className="text-xl font-bold">{t('aiStore.submit.title')}</h2>
+            <p className="mt-2 text-cyan-100">
+              {t('aiStore.submit.description')}
+            </p>
             <button className="mt-4 rounded-full bg-white px-6 py-2.5 text-sm font-medium text-cyan-600 transition-all hover:bg-cyan-50 hover:shadow-lg">
-              提交工具
+              {t('aiStore.submit.button')}
             </button>
           </section>
         </div>
