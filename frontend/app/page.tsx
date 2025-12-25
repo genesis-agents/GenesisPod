@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 import { config } from '@/lib/utils/config';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAuthHeader } from '@/lib/utils/auth';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import VersionUpdateBanner from '@/components/layout/VersionUpdateBanner';
 import PDFThumbnail from '@/components/ui/PDFThumbnail';
 import ReactMarkdown from 'react-markdown';
@@ -1882,10 +1882,9 @@ function HomeContent() {
   };
 
   return (
-    <div className="relative flex h-screen w-screen overflow-hidden bg-gray-50">
+    <AppShell>
       <VersionUpdateBanner />
       <ReportWorkspace />
-      <Sidebar />
 
       {/* Center Content Area */}
       <main
@@ -3858,7 +3857,7 @@ function HomeContent() {
         onApply={handleApplyFilters}
         onReset={handleResetFilters}
       />
-    </div>
+    </AppShell>
   );
 }
 

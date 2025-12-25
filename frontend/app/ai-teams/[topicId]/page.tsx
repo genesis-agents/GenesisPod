@@ -88,7 +88,7 @@ const CAPABILITY_CONFIG: Record<
 import { useAIModels, AIModel } from '@/hooks/useAIModels';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -2263,24 +2263,16 @@ export default function TopicPage() {
 
   if (!currentTopic) {
     return (
-      <div className="flex h-screen overflow-hidden">
-        <div className="h-full flex-shrink-0">
-          <Sidebar className="h-full" />
-        </div>
+      <AppShell>
         <div className="flex min-w-0 flex-1 items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
-      {/* Global Sidebar - flex-shrink-0 ensures it never shrinks */}
-      <div className="h-full flex-shrink-0">
-        <Sidebar className="h-full" />
-      </div>
-
+    <AppShell>
       {/* Member Panel - Collapsible Sidebar */}
       <div className="relative h-full flex-shrink-0">
         {/* Sidebar Content */}
@@ -2985,6 +2977,6 @@ export default function TopicPage() {
           </div>
         </div>
       )}
-    </div>
+    </AppShell>
   );
 }

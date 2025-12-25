@@ -1,13 +1,12 @@
 'use client';
 
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import { DataManagementDashboard } from '@/components/admin/data-management/DataManagementDashboard';
 
 export default function Page() {
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
+    <AppShell>
       <DataManagementDashboard />
-    </div>
+    </AppShell>
   );
 }

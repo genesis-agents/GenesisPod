@@ -37,7 +37,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import { useResourceStore, useDocumentStore } from '@/stores/aiOfficeStore';
 import { cn } from '@/lib/utils/common';
 import {
@@ -938,8 +938,7 @@ ${layoutText}
   );
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
+    <AppShell>
       <div ref={containerRef} className="flex flex-1 overflow-hidden">
         {/* 左侧面板：资源 + 生成流程 */}
         <div
@@ -1482,7 +1481,7 @@ ${layoutText}
                         <textarea
                           value={editingContent}
                           onChange={(e) => setEditingContent(e.target.value)}
-                          className="h-full w-full resize-none rounded-lg border border-gray-200 p-4 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="font-mono h-full w-full resize-none rounded-lg border border-gray-200 p-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           placeholder="在此编辑幻灯片内容（Markdown格式）"
                         />
                       </div>
@@ -1505,6 +1504,6 @@ ${layoutText}
           )}
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 }

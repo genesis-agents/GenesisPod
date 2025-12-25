@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import {
   useSettingsStore,
   AI_FEATURE_INFO,
@@ -29,12 +29,11 @@ export default function Labs() {
 
   if (!mounted) {
     return (
-      <div className="flex h-screen bg-gray-50">
-        <Sidebar />
+      <AppShell>
         <div className="flex flex-1 items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
         </div>
-      </div>
+      </AppShell>
     );
   }
 
@@ -220,9 +219,7 @@ export default function Labs() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-
+    <AppShell>
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
         <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
@@ -353,6 +350,6 @@ export default function Labs() {
           </div>
         </main>
       </div>
-    </div>
+    </AppShell>
   );
 }

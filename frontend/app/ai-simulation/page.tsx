@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
@@ -133,8 +133,7 @@ export default function AISimulationPage() {
 
   if (!user) {
     return (
-      <div className="flex min-h-screen bg-gray-50">
-        <Sidebar />
+      <AppShell>
         <main className="flex-1 p-12">
           <div className="mx-auto max-w-3xl rounded-2xl border border-gray-100 bg-white p-10 text-center shadow-sm">
             <h2 className="text-2xl font-semibold text-gray-800">
@@ -145,13 +144,12 @@ export default function AISimulationPage() {
             </p>
           </div>
         </main>
-      </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar />
+    <AppShell>
       <main className="flex-1 overflow-auto">
         <div className="px-8 py-6">
           {/* Header */}
@@ -305,6 +303,6 @@ export default function AISimulationPage() {
           onSaved={handleEditorSaved}
         />
       )}
-    </div>
+    </AppShell>
   );
 }

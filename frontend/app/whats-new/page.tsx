@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import {
   CHANGELOG,
   CURRENT_VERSION,
@@ -22,9 +22,7 @@ function WhatsNewContent() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-
+    <AppShell>
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
@@ -107,7 +105,7 @@ function WhatsNewContent() {
           </div>
         </main>
       </div>
-    </div>
+    </AppShell>
   );
 }
 

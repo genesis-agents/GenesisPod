@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import { getProjects, CodingProject } from '@/lib/api/ai-coding';
 import KanbanBoard from '@/components/ai-coding/KanbanBoard';
 
@@ -40,15 +40,14 @@ export default function KanbanPage() {
 
   if (authLoading || isLoading) {
     return (
-      <div className="flex h-screen">
-        <Sidebar />
+      <AppShell>
         <div className="flex flex-1 items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
             <p className="text-sm text-gray-500">Loading Kanban board...</p>
           </div>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
@@ -58,9 +57,7 @@ export default function KanbanPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-
+    <AppShell>
       <main className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
         <div className="border-b border-gray-100 bg-white/50 px-8 py-6 backdrop-blur-sm">
@@ -175,6 +172,6 @@ export default function KanbanPage() {
           )}
         </div>
       </main>
-    </div>
+    </AppShell>
   );
 }

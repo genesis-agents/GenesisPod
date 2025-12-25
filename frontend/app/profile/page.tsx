@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/lib/i18n';
 import {
@@ -281,9 +281,7 @@ function ProfileContent() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-
+    <AppShell>
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
@@ -1387,7 +1385,7 @@ function ProfileContent() {
           </div>
         </main>
       </div>
-    </div>
+    </AppShell>
   );
 }
 

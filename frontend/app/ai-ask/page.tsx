@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIModels, AIModel } from '@/hooks/useAIModels';
 import { config } from '@/lib/utils/config';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import SessionSidebar from '@/components/ai-ask/SessionSidebar';
 import MessageContextMenu from '@/components/ai-ask/MessageContextMenu';
 import ReactMarkdown from 'react-markdown';
@@ -749,9 +749,7 @@ export default function AskPage() {
   ];
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-
+    <AppShell>
       {/* Session Sidebar */}
       <SessionSidebar
         currentSessionId={currentSessionId || undefined}
@@ -1982,6 +1980,6 @@ export default function AskPage() {
       {toastMessage && (
         <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
       )}
-    </div>
+    </AppShell>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import { useTranslation } from '@/lib/i18n';
 import {
   MessageSquare,
@@ -239,9 +239,7 @@ export default function Feedback() {
   const selectedType = feedbackTypes.find((t) => t.value === feedbackType)!;
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-
+    <AppShell>
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
         <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
@@ -641,6 +639,6 @@ export default function Feedback() {
           </div>
         </main>
       </div>
-    </div>
+    </AppShell>
   );
 }

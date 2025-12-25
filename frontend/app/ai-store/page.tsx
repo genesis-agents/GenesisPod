@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import { useTranslation } from '@/lib/i18n';
 
 // AI工具分类
@@ -261,9 +261,7 @@ export default function AIStorePage() {
   const featuredTools = aiTools.filter((tool) => tool.featured);
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-slate-50 via-white to-cyan-50/30">
-      <Sidebar />
-
+    <AppShell>
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto">
         {/* Header */}
@@ -522,6 +520,6 @@ export default function AIStorePage() {
           </section>
         </div>
       </main>
-    </div>
+    </AppShell>
   );
 }

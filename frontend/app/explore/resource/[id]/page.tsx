@@ -7,7 +7,7 @@ import { config } from '@/lib/utils/config';
 import NoteEditor from '@/components/features/NoteEditor';
 import NotesList from '@/components/features/NotesList';
 import CommentsList from '@/components/features/CommentsList';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import dynamic from 'next/dynamic';
 import {
   StructuredAISummaryRouter,
@@ -168,9 +168,7 @@ export default function ResourcePage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar className="flex-shrink-0" />
-
+    <AppShell>
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-4xl px-8 py-8">
@@ -737,6 +735,6 @@ export default function ResourcePage() {
           </div>
         </div>
       </main>
-    </div>
+    </AppShell>
   );
 }

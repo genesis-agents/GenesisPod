@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
@@ -308,23 +308,21 @@ export default function ScenarioDetailPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex min-h-screen bg-gray-50">
-        <Sidebar />
+      <AppShell>
         <main className="flex flex-1 items-center justify-center">
           <div className="text-gray-500">加载中...</div>
         </main>
-      </div>
+      </AppShell>
     );
   }
 
   if (!user || !scenario) {
     return (
-      <div className="flex min-h-screen bg-gray-50">
-        <Sidebar />
+      <AppShell>
         <main className="flex flex-1 items-center justify-center">
           <div className="text-gray-500">场景不存在或无权访问</div>
         </main>
-      </div>
+      </AppShell>
     );
   }
 
@@ -333,9 +331,7 @@ export default function ScenarioDetailPage() {
     scenario?.agents?.filter((a: any) => a.team === 'BLUE') || [];
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar />
-
+    <AppShell>
       {/* 启动中全屏遮罩 */}
       {startingRun && (
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-gradient-to-br from-indigo-900/95 via-purple-900/95 to-indigo-900/95">
@@ -1527,7 +1523,7 @@ export default function ScenarioDetailPage() {
                                   <summary className="cursor-pointer text-gray-400 hover:text-gray-600">
                                     更多配置...
                                   </summary>
-                                  <div className="mt-1 rounded bg-gray-50 p-2 font-mono text-[10px] text-gray-500">
+                                  <div className="font-mono mt-1 rounded bg-gray-50 p-2 text-[10px] text-gray-500">
                                     {Object.entries(persona)
                                       .filter(
                                         ([k]) =>
@@ -1953,6 +1949,6 @@ export default function ScenarioDetailPage() {
           </div>
         </div>
       </main>
-    </div>
+    </AppShell>
   );
 }

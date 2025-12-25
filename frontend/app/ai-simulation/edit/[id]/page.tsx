@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
@@ -76,23 +76,21 @@ export default function EditScenarioPage() {
   // 加载中
   if (authLoading || loading) {
     return (
-      <div className="flex min-h-screen bg-gray-50">
-        <Sidebar />
+      <AppShell>
         <main className="flex flex-1 items-center justify-center">
           <div className="text-center">
             <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent"></div>
             <div className="text-gray-500">加载中...</div>
           </div>
         </main>
-      </div>
+      </AppShell>
     );
   }
 
   // 未登录或加载失败
   if (!user || error) {
     return (
-      <div className="flex min-h-screen bg-gray-50">
-        <Sidebar />
+      <AppShell>
         <main className="flex flex-1 items-center justify-center">
           <div className="text-center">
             <div className="mb-4 text-6xl text-gray-300">404</div>
@@ -105,20 +103,19 @@ export default function EditScenarioPage() {
             </button>
           </div>
         </main>
-      </div>
+      </AppShell>
     );
   }
 
   // 正在跳转
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar />
+    <AppShell>
       <main className="flex flex-1 items-center justify-center">
         <div className="text-center">
           <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent"></div>
           <div className="text-gray-500">正在跳转到编辑器...</div>
         </div>
       </main>
-    </div>
+    </AppShell>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import {
   LayoutDashboard,
   Database,
@@ -96,8 +96,7 @@ export default function AdminLayout({
   };
 
   return (
-    <div className="flex h-screen bg-gray-50/30">
-      <Sidebar />
+    <AppShell>
       <div className="flex-1 overflow-hidden">
         <div className="flex h-full flex-col">
           {/* Header */}
@@ -173,7 +172,7 @@ export default function AdminLayout({
 
       {/* AI Assistant */}
       <AIAssistant context={getAIContext(pathname)} />
-    </div>
+    </AppShell>
   );
 }
 

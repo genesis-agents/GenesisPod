@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAiGroupStore } from '@/stores/aiTeamsStore';
 import { Topic, CreateTopicDto, UpdateTopicDto } from '@/types/ai-teams';
 import { useAIModels, AIModel } from '@/hooks/useAIModels';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import * as api from '@/lib/api/ai-teams';
 import { PublicTopic, JoinRequest } from '@/lib/api/ai-teams';
 import { useTranslation } from '@/lib/i18n';
@@ -127,19 +127,17 @@ export default function AIGroupPage() {
 
   if (authLoading) {
     return (
-      <div className="flex h-screen">
-        <Sidebar />
+      <AppShell>
         <div className="flex flex-1 items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   if (!isAuthenticated) {
     return (
-      <div className="flex h-screen">
-        <Sidebar />
+      <AppShell>
         <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
           <svg
             className="h-16 w-16 text-gray-300"
@@ -159,14 +157,12 @@ export default function AIGroupPage() {
           </h2>
           <p className="text-gray-500">{t('aiTeams.signInDesc')}</p>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-
+    <AppShell>
       <main className="flex-1 overflow-auto">
         {/* Header */}
         <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
@@ -609,7 +605,7 @@ export default function AIGroupPage() {
           }}
         />
       )}
-    </div>
+    </AppShell>
   );
 }
 

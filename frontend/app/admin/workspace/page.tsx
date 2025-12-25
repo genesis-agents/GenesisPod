@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import {
   WorkspaceTaskSummary,
   WorkspaceTemplate,
@@ -529,8 +529,7 @@ export default function WorkspacePage() {
 
   if (!workspaceFeatureEnabled) {
     return (
-      <div className="flex min-h-screen bg-gray-50">
-        <Sidebar />
+      <AppShell>
         <div className="mx-auto flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
           <div className="rounded-full bg-gray-100 p-3 text-gray-500">
             <svg
@@ -554,13 +553,12 @@ export default function WorkspacePage() {
             请联系系统管理员启用 `WORKSPACE_AI_V2_ENABLED`，或稍后再试。
           </p>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar />
+    <AppShell>
       <div className="flex-1 overflow-y-auto pb-16">
         <header className="border-b border-gray-200 bg-white">
           <div className="mx-auto flex max-w-7xl flex-col gap-4 px-8 py-6 lg:flex-row lg:items-center lg:justify-between">
@@ -1005,6 +1003,6 @@ export default function WorkspacePage() {
           </section>
         </main>
       </div>
-    </div>
+    </AppShell>
   );
 }

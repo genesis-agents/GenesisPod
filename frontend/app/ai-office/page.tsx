@@ -2,7 +2,7 @@
 
 import { Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import WorkspaceLayout from '@/components/ai-office/layout/WorkspaceLayout';
 import { LogIn } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
@@ -40,8 +40,7 @@ export default function AIOfficePage() {
   // 未登录
   if (!user) {
     return (
-      <div className="flex h-screen bg-gray-50">
-        <Sidebar />
+      <AppShell>
         <main className="flex flex-1 items-center justify-center">
           <div className="mx-auto max-w-md text-center">
             <div className="mb-6 flex justify-center">
@@ -76,14 +75,13 @@ export default function AIOfficePage() {
             </button>
           </div>
         </main>
-      </div>
+      </AppShell>
     );
   }
 
   // 已登录
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
+    <AppShell>
       <main className="flex-1 overflow-auto">
         {/* Header */}
         <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
@@ -128,6 +126,6 @@ export default function AIOfficePage() {
           </Suspense>
         </div>
       </main>
-    </div>
+    </AppShell>
   );
 }

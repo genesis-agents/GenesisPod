@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import { PromptBar } from '@/components/ai-office/core/PromptBar';
 import {
   ProgressTracker,
@@ -194,10 +194,7 @@ export default function DesignerPage() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* 全局左侧菜单 */}
-      <Sidebar />
-
+    <AppShell>
       {/* 主内容区域 */}
       <div className="bg-background flex flex-1 flex-col overflow-hidden">
         {/* 头部 */}
@@ -475,6 +472,6 @@ export default function DesignerPage() {
           )}
         </AnimatePresence>
       </div>
-    </div>
+    </AppShell>
   );
 }

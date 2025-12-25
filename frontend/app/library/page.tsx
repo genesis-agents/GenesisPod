@@ -7,7 +7,7 @@ import dynamicImport from 'next/dynamic';
 import { config } from '@/lib/utils/config';
 import { Bookmark, FileText, Image, Share2 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import { Tag, UserStats } from '@/components/library/CollectionNav';
 import ReadStatusBadge from '@/components/library/ReadStatusBadge';
 import TagList from '@/components/library/TagList';
@@ -1294,9 +1294,7 @@ function LibraryPageContent() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-
+    <AppShell>
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto bg-gray-50">
         {/* Sticky Search Bar Container */}
@@ -2556,7 +2554,7 @@ function LibraryPageContent() {
           }}
         />
       )}
-    </div>
+    </AppShell>
   );
 }
 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import {
   getProject,
   getProjectFiles,
@@ -550,15 +550,14 @@ export default function ProjectDetailPage() {
 
   if (authLoading || isLoading) {
     return (
-      <div className="flex h-screen">
-        <Sidebar />
+      <AppShell>
         <div className="flex flex-1 items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
             <p className="text-sm text-gray-500">加载项目中...</p>
           </div>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
@@ -569,8 +568,7 @@ export default function ProjectDetailPage() {
 
   if (error || !project) {
     return (
-      <div className="flex h-screen">
-        <Sidebar />
+      <AppShell>
         <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
           <svg
             className="h-16 w-16 text-red-400"
@@ -595,7 +593,7 @@ export default function ProjectDetailPage() {
             返回项目列表
           </button>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
@@ -614,9 +612,7 @@ export default function ProjectDetailPage() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-
+    <AppShell>
       <main className="flex-1 overflow-auto">
         {/* Header */}
         <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
@@ -994,7 +990,7 @@ export default function ProjectDetailPage() {
           isPushing={isPushing}
         />
       )}
-    </div>
+    </AppShell>
   );
 }
 

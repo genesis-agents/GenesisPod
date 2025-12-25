@@ -10,7 +10,7 @@ import {
   pushToNotion,
   NotionPage,
 } from '@/lib/api/notion';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 
 // Dynamically import the editor to avoid SSR issues
 const NotionBlockEditor = dynamic(
@@ -107,19 +107,17 @@ export default function NotionPageDetail() {
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-gray-50">
-        <Sidebar />
+      <AppShell>
         <div className="flex flex-1 items-center justify-center">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-gray-300 border-t-gray-900" />
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   if (error || !page) {
     return (
-      <div className="flex h-screen bg-gray-50">
-        <Sidebar />
+      <AppShell>
         <div className="flex flex-1 flex-col items-center justify-center">
           <div className="text-center">
             <h2 className="text-2xl font-semibold text-gray-900">
@@ -149,13 +147,12 @@ export default function NotionPageDetail() {
             </Link>
           </div>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
+    <AppShell>
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
         <header className="border-b border-gray-200 bg-white px-8 py-4">
@@ -387,6 +384,6 @@ export default function NotionPageDetail() {
           </article>
         </main>
       </div>
-    </div>
+    </AppShell>
   );
 }

@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import AIMessageRenderer from '@/components/ui/AIMessageRenderer';
 import {
   useAiCodingSocket,
@@ -145,12 +145,11 @@ export default function NewCodingProjectPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-screen">
-          <Sidebar />
+        <AppShell>
           <div className="flex flex-1 items-center justify-center">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
           </div>
-        </div>
+        </AppShell>
       }
     >
       <NewCodingProjectPageContent />
@@ -544,32 +543,28 @@ function NewCodingProjectPageContent() {
 
   if (authLoading) {
     return (
-      <div className="flex h-screen">
-        <Sidebar />
+      <AppShell>
         <div className="flex flex-1 items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   if (!isAuthenticated) {
     return (
-      <div className="flex h-screen">
-        <Sidebar />
+      <AppShell>
         <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
           <h2 className="text-xl font-semibold text-gray-700">
             Please sign in to access AI Coding
           </h2>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-
+    <AppShell>
       <main className="flex flex-1 overflow-hidden">
         {/* Left Panel - Agent Status */}
         <div className="w-64 flex-shrink-0 border-r border-gray-200 bg-white">
@@ -1576,6 +1571,6 @@ function NewCodingProjectPageContent() {
           </div>
         </div>
       )}
-    </div>
+    </AppShell>
   );
 }

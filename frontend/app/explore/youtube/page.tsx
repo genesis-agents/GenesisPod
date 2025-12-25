@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { config } from '@/lib/utils/config';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import NotesList from '@/components/features/NotesList';
 import {
   AIContextBuilder,
@@ -916,8 +916,7 @@ function YouTubeTLDWContent() {
 
   if (!videoId) {
     return (
-      <div className="flex h-screen bg-gray-50">
-        <Sidebar />
+      <AppShell>
         <main className="flex flex-1 items-center justify-center">
           <div className="text-center">
             <p className="text-lg text-gray-600">
@@ -925,14 +924,12 @@ function YouTubeTLDWContent() {
             </p>
           </div>
         </main>
-      </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="flex h-screen bg-white">
-      <Sidebar />
-
+    <AppShell>
       {/* Main Content - 2 Column Layout */}
       <main className="flex flex-1 overflow-hidden overflow-x-hidden">
         {/* Left Column - Video & Topics */}
@@ -1810,7 +1807,7 @@ function YouTubeTLDWContent() {
           </button>
         </div>
       )}
-    </div>
+    </AppShell>
   );
 }
 

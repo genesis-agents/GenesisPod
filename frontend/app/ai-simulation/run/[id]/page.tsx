@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
@@ -369,31 +369,28 @@ export default function RunConsolePage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex min-h-screen bg-gray-50">
-        <Sidebar />
+      <AppShell>
         <main className="flex flex-1 items-center justify-center">
           <div className="text-gray-500">加载中...</div>
         </main>
-      </div>
+      </AppShell>
     );
   }
 
   if (!user || !run) {
     return (
-      <div className="flex min-h-screen bg-gray-50">
-        <Sidebar />
+      <AppShell>
         <main className="flex flex-1 items-center justify-center">
           <div className="text-gray-500">推演不存在或无权访问</div>
         </main>
-      </div>
+      </AppShell>
     );
   }
 
   const progress = run.rounds > 0 ? (run.currentRound / run.rounds) * 100 : 0;
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
+    <AppShell>
       <main className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
         <div className="border-b border-gray-200 bg-white px-6 py-4">
@@ -1432,7 +1429,7 @@ export default function RunConsolePage() {
                           🔍 原始世界状态 (JSON)
                         </summary>
                         <div className="border-t border-gray-200 p-3">
-                          <pre className="max-h-60 overflow-auto whitespace-pre-wrap rounded bg-gray-50 p-2 font-mono text-[10px] text-gray-600">
+                          <pre className="font-mono max-h-60 overflow-auto whitespace-pre-wrap rounded bg-gray-50 p-2 text-[10px] text-gray-600">
                             {JSON.stringify(run.worldState, null, 2)}
                           </pre>
                         </div>
@@ -1870,6 +1867,6 @@ export default function RunConsolePage() {
           </div>
         )}
       </main>
-    </div>
+    </AppShell>
   );
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dynamicImport from 'next/dynamic';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader, getCurrentUser } from '@/lib/utils/auth';
 
@@ -223,8 +223,7 @@ function KnowledgeGraphPageContent() {
   const hasData = graphData && graphData.nodes && graphData.nodes.length > 0;
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      <Sidebar />
+    <AppShell>
       <main className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
         <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
@@ -358,7 +357,7 @@ function KnowledgeGraphPageContent() {
           )}
         </div>
       </main>
-    </div>
+    </AppShell>
   );
 }
 

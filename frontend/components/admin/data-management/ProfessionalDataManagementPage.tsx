@@ -11,7 +11,7 @@ import {
   Loader2,
   XCircle,
 } from 'lucide-react';
-import Sidebar from '@/components/layout/Sidebar';
+import AppShell from '@/components/layout/AppShell';
 import { CollectionConfigurationPanel } from './CollectionConfigurationPanel';
 import { useQuery } from '@tanstack/react-query';
 import { RecentTasksTimeline } from './RecentTasksTimeline';
@@ -214,9 +214,8 @@ export function ProfessionalDataManagementPage() {
   )!;
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Global Sidebar */}
-      <Sidebar />
+    <AppShell>
+      {/* AppShell provides Sidebar and MobileNav */}
 
       {/* Main Content Area */}
       <div className="flex flex-1 flex-col overflow-hidden">
@@ -434,7 +433,7 @@ export function ProfessionalDataManagementPage() {
                     <div className="rounded-xl border border-gray-200 bg-white p-6 transition-shadow hover:shadow-md">
                       <div>
                         <p className="text-sm text-gray-600">最后更新</p>
-                        <p className="mt-2 font-mono text-sm text-gray-900">
+                        <p className="font-mono mt-2 text-sm text-gray-900">
                           {stats.lastUpdate}
                         </p>
                       </div>
@@ -598,6 +597,6 @@ export function ProfessionalDataManagementPage() {
           </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
