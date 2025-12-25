@@ -183,7 +183,8 @@
       "hoursAgo": "{{count}} 小时前",
       "yesterday": "昨天",
       "daysAgo": "{{count}} 天前",
-      "never": "从未"
+      "never": "从未",
+      "justNow": "刚刚"
     },
     "search": {
       "placeholder": "搜索专题研究..."
@@ -197,7 +198,88 @@
       "archiveFailed": "归档项目失败"
     },
     "confirmDelete": "确定要删除此项目吗？",
-    "tryAgain": "重试"
+    "tryAgain": "重试",
+    "deepResearch": {
+      "title": "深度研究",
+      "subtitle": "AI驱动的多轮迭代深度研究",
+      "researchCount": "{{count}} 次研究",
+      "inputPlaceholder": "输入你想深入研究的问题...",
+      "startButton": "开始研究",
+      "hotTopics": "热门主题:",
+      "topics": {
+        "aiTrends": "AI发展趋势",
+        "quantumComputing": "量子计算应用",
+        "climateChange": "气候变化影响",
+        "newEnergy": "新能源技术",
+        "web3": "Web3生态"
+      },
+      "recentResearch": "最近研究",
+      "stopResearch": "停止研究",
+      "hideThinking": "隐藏思考过程",
+      "showThinking": "显示思考过程",
+      "sourcesCount": "{{count}} 来源",
+      "duration": "{{duration}}s",
+      "followUpPlaceholder": "基于此研究继续追问...",
+      "followUp": "追问",
+      "deleteResearch": "删除研究",
+      "empty": {
+        "title": "开始你的第一次深度研究",
+        "description": "输入研究主题，AI 将进行多轮迭代搜索，自动规划研究路径，并生成带引用的专业研究报告。",
+        "features": {
+          "planning": {
+            "title": "AI规划研究路径",
+            "desc": "自动分解问题，制定搜索策略"
+          },
+          "searching": {
+            "title": "多轮迭代搜索",
+            "desc": "最多5轮深度搜索，覆盖全面"
+          },
+          "reflecting": {
+            "title": "自我反思优化",
+            "desc": "实时评估质量，动态调整方向"
+          },
+          "reporting": {
+            "title": "专业报告生成",
+            "desc": "结构化报告，完整引用标注"
+          }
+        }
+      },
+      "status": {
+        "completed": "已完成",
+        "failed": "失败",
+        "planning": "规划中",
+        "searching": "搜索中",
+        "reflecting": "反思中",
+        "synthesizing": "生成中"
+      },
+      "phase": {
+        "idle": "准备就绪",
+        "planning": "制定研究计划...",
+        "searching": "执行搜索...",
+        "reflecting": "分析和反思...",
+        "synthesizing": "生成研究报告...",
+        "completed": "研究完成",
+        "error": "发生错误"
+      },
+      "streaming": {
+        "collecting": "正在收集和分析信息...",
+        "executing": "AI正在执行研究计划"
+      },
+      "report": {
+        "sourcesCount": "{{count}} 个来源",
+        "searchRounds": "{{count}} 轮搜索",
+        "duration": "{{duration}} 秒",
+        "executiveSummary": "执行摘要",
+        "conclusion": "结论",
+        "references": "参考文献",
+        "clickToJump": "点击引用跳转到此来源",
+        "clickToView": "点击查看完整来源"
+      },
+      "copy": {
+        "copied": "已复制",
+        "copy": "复制"
+      }
+    }
   },
   "aiTeams": {
     "title": "AI 团队",

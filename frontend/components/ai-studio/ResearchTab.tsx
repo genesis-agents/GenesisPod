@@ -44,6 +44,7 @@ import {
   ReportReference,
 } from '@/hooks/useDeepResearch';
 import ThinkingChainPanel from './ThinkingChainPanel';
+import { useTranslation } from '@/lib/i18n';
 
 // ==================== Types ====================
 interface ResearchSession {
@@ -76,6 +77,7 @@ export function ResearchTab({
   onExportToOutputs,
   className,
 }: ResearchTabProps) {
+  const { t } = useTranslation();
   // View state: 'list' | 'researching' | 'viewing'
   const [view, setView] = useState<'list' | 'researching' | 'viewing'>('list');
   const [query, setQuery] = useState('');
@@ -225,6 +227,15 @@ export function ResearchTab({
 
   // ==================== Render Views ====================
 
+  // Hot topics mapping for i18n
+  const hotTopics = [
+    { key: 'aiTrends', fallback: 'AI发展趋势' },
+    { key: 'quantumComputing', fallback: '量子计算应用' },
+    { key: 'climateChange', fallback: '气候变化影响' },
+    { key: 'newEnergy', fallback: '新能源技术' },
+    { key: 'web3', fallback: 'Web3生态' },
+  ];
+
   // List View
   if (view === 'list') {
     return (
@@ -239,17 +250,19 @@ export function ResearchTab({
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-gray-900">
-                    Deep Research
+                    {t('aiStudio.deepResearch.title')}
                   </h1>
                   <p className="text-sm text-gray-500">
-                    AI驱动的多轮迭代深度研究
+                    {t('aiStudio.deepResearch.subtitle')}
                   </p>
                 </div>
               </div>
               {sessions.length > 0 && (
                 <button className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
                   <History className="h-4 w-4" />
-                  {sessions.length} 次研究
+                  {t('aiStudio.deepResearch.researchCount', {
+                    count: sessions.length,
+                  })}
                 </button>
               )}
             </div>
@@ -262,7 +275,7 @@ export function ResearchTab({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleStartResearch()}
-                placeholder="输入你想深入研究的问题..."
+                placeholder={t('aiStudio.deepResearch.inputPlaceholder')}
                 className="w-full rounded-2xl border-2 border-gray-200 py-4 pl-12 pr-32 text-lg outline-none transition-all focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
               />
               <button
@@ -270,26 +283,26 @@ export function ResearchTab({
                 disabled={!query.trim()}
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-2.5 font-medium text-white transition-all hover:from-purple-700 hover:to-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                开始研究
+                {t('aiStudio.deepResearch.startButton')}
               </button>
             </div>
 
             {/* Quick Topics */}
             <div className="mt-4 flex flex-wrap gap-2">
-              <span className="text-xs text-gray-400">热门主题:</span>
-              {[
-                'AI发展趋势',
-                '量子计算应用',
-                '气候变化影响',
-                '新能源技术',
-                'Web3生态',
-              ].map((topic) => (
+              <span className="text-xs text-gray-400">
+                {t('aiStudio.deepResearch.hotTopics')}
+              </span>
+              {hotTopics.map(({ key, fallback }) => (
                 <button
-                  key={topic}
-                  onClick={() => setQuery(topic)}
+                  key={key}
+                  onClick={() =>
+                    setQuery(
+                      t(`aiStudio.deepResearch.topics.${key}`) || fallback
+                    )
+                  }
                   className="rounded-full bg-gray-100 px-3 py-1 text-xs transition-colors hover:bg-purple-100 hover:text-purple-700"
                 >
-                  {topic}
+                  {t(`aiStudio.deepResearch.topics.${key}`) || fallback}
                 </button>
               ))}
             </div>
@@ -308,7 +321,7 @@ export function ResearchTab({
             ) : (
               <div className="space-y-3">
                 <h3 className="mb-4 text-sm font-medium text-gray-500">
-                  最近研究
+                  {t('aiStudio.deepResearch.recentResearch')}
                 </h3>
                 {sessions.map((session) => (
                   <ResearchSessionCard
@@ -346,7 +359,7 @@ export function ResearchTab({
               </h2>
               <div className="flex items-center gap-2 text-sm text-gray-500">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                <span>{getPhaseLabel(state.phase)}</span>
+                <span>{getPhaseLabel(state.phase, t)}</span>
               </div>
             </div>
           </div>
@@ -355,7 +368,7 @@ export function ResearchTab({
             className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-2 text-red-600 transition-colors hover:bg-red-100"
           >
             <X className="h-4 w-4" />
-            停止研究
+            {t('aiStudio.deepResearch.stopResearch')}
           </button>
         </div>
 
@@ -393,7 +406,9 @@ export function ResearchTab({
             className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
           >
             <Brain className="h-4 w-4" />
-            {showThinking ? '隐藏思考过程' : '显示思考过程'}
+            {showThinking
+              ? t('aiStudio.deepResearch.hideThinking')
+              : t('aiStudio.deepResearch.showThinking')}
             {showThinking ? (
               <ChevronUp className="h-4 w-4" />
             ) : (
@@ -450,11 +465,16 @@ export function ResearchTab({
               <div className="flex items-center gap-3 text-sm text-gray-500">
                 <span className="flex items-center gap-1">
                   <FileText className="h-3.5 w-3.5" />
-                  {viewingSession.sourcesUsed} 来源
+                  {t('aiStudio.deepResearch.sourcesCount', {
+                    count: viewingSession.sourcesUsed,
+                  })}
                 </span>
                 <span className="flex items-center gap-1">
                   <Clock className="h-3.5 w-3.5" />
-                  {viewingSession.report.metadata.duration.toFixed(1)}s
+                  {t('aiStudio.deepResearch.duration', {
+                    duration:
+                      viewingSession.report.metadata.duration.toFixed(1),
+                  })}
                 </span>
               </div>
             </div>
@@ -465,11 +485,11 @@ export function ResearchTab({
               className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               <FileOutput className="h-4 w-4" />
-              导出
+              {t('common.export')}
             </button>
             <button className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
               <Share2 className="h-4 w-4" />
-              分享
+              {t('common.share')}
             </button>
           </div>
         </div>
@@ -495,7 +515,7 @@ export function ResearchTab({
                 value={followUpQuery}
                 onChange={(e) => setFollowUpQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleFollowUp()}
-                placeholder="基于此研究继续追问..."
+                placeholder={t('aiStudio.deepResearch.followUpPlaceholder')}
                 className="w-full rounded-xl border border-gray-300 py-3 pl-12 pr-4 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
               />
             </div>
@@ -504,7 +524,7 @@ export function ResearchTab({
               disabled={!followUpQuery.trim()}
               className="rounded-xl bg-purple-600 px-6 py-3 font-medium text-white transition-colors hover:bg-purple-700 disabled:opacity-50"
             >
-              追问
+              {t('aiStudio.deepResearch.followUp')}
             </button>
           </div>
         </div>
@@ -518,49 +538,52 @@ export function ResearchTab({
 // ==================== Sub Components ====================
 
 function EmptyResearchState() {
+  const { t } = useTranslation();
+
+  const features = [
+    {
+      icon: Brain,
+      key: 'planning',
+    },
+    {
+      icon: Search,
+      key: 'searching',
+    },
+    {
+      icon: Sparkles,
+      key: 'reflecting',
+    },
+    {
+      icon: FileText,
+      key: 'reporting',
+    },
+  ];
+
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <div className="mb-4 rounded-2xl bg-purple-50 p-4">
         <Microscope className="h-12 w-12 text-purple-500" />
       </div>
       <h3 className="mb-2 text-lg font-semibold text-gray-900">
-        开始你的第一次深度研究
+        {t('aiStudio.deepResearch.empty.title')}
       </h3>
       <p className="max-w-md text-gray-500">
-        输入研究主题，AI
-        将进行多轮迭代搜索，自动规划研究路径，并生成带引用的专业研究报告。
+        {t('aiStudio.deepResearch.empty.description')}
       </p>
       <div className="mt-6 grid max-w-lg grid-cols-2 gap-4 text-left">
-        {[
-          {
-            icon: Brain,
-            title: 'AI规划研究路径',
-            desc: '自动分解问题，制定搜索策略',
-          },
-          {
-            icon: Search,
-            title: '多轮迭代搜索',
-            desc: '最多5轮深度搜索，覆盖全面',
-          },
-          {
-            icon: Sparkles,
-            title: '自我反思优化',
-            desc: '实时评估质量，动态调整方向',
-          },
-          {
-            icon: FileText,
-            title: '专业报告生成',
-            desc: '结构化报告，完整引用标注',
-          },
-        ].map(({ icon: Icon, title, desc }) => (
+        {features.map(({ icon: Icon, key }) => (
           <div
-            key={title}
+            key={key}
             className="flex items-start gap-3 rounded-lg border bg-white p-3"
           >
             <Icon className="mt-0.5 h-5 w-5 flex-shrink-0 text-purple-500" />
             <div>
-              <div className="text-sm font-medium text-gray-900">{title}</div>
-              <div className="text-xs text-gray-500">{desc}</div>
+              <div className="text-sm font-medium text-gray-900">
+                {t(`aiStudio.deepResearch.empty.features.${key}.title`)}
+              </div>
+              <div className="text-xs text-gray-500">
+                {t(`aiStudio.deepResearch.empty.features.${key}.desc`)}
+              </div>
             </div>
           </div>
         ))}
@@ -580,36 +603,41 @@ function ResearchSessionCard({
   onDelete: (e: React.MouseEvent) => void;
   isDeleting: boolean;
 }) {
-  const statusConfig = {
+  const { t } = useTranslation();
+
+  const statusConfig: Record<
+    string,
+    { color: string; icon: typeof CheckCircle2; key: string }
+  > = {
     COMPLETED: {
       color: 'text-green-600 bg-green-50',
       icon: CheckCircle2,
-      label: '已完成',
+      key: 'completed',
     },
     FAILED: {
       color: 'text-red-600 bg-red-50',
       icon: AlertCircle,
-      label: '失败',
+      key: 'failed',
     },
     PLANNING: {
       color: 'text-blue-600 bg-blue-50',
       icon: Loader2,
-      label: '规划中',
+      key: 'planning',
     },
     SEARCHING: {
       color: 'text-purple-600 bg-purple-50',
       icon: Search,
-      label: '搜索中',
+      key: 'searching',
     },
     REFLECTING: {
       color: 'text-yellow-600 bg-yellow-50',
       icon: Brain,
-      label: '反思中',
+      key: 'reflecting',
     },
     SYNTHESIZING: {
       color: 'text-indigo-600 bg-indigo-50',
       icon: FileText,
-      label: '生成中',
+      key: 'synthesizing',
     },
   };
 
@@ -641,17 +669,19 @@ function ResearchSessionCard({
                     'animate-spin'
                 )}
               />
-              {config.label}
+              {t(`aiStudio.deepResearch.status.${config.key}`)}
             </span>
             {session.sourcesUsed > 0 && (
               <span className="flex items-center gap-1">
                 <FileText className="h-3.5 w-3.5" />
-                {session.sourcesUsed} 来源
+                {t('aiStudio.deepResearch.sourcesCount', {
+                  count: session.sourcesUsed,
+                })}
               </span>
             )}
             <span className="flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" />
-              {formatTimeAgo(session.createdAt)}
+              {formatTimeAgo(session.createdAt, t)}
             </span>
           </div>
         </div>
@@ -660,7 +690,7 @@ function ResearchSessionCard({
             onClick={onDelete}
             disabled={isDeleting}
             className="rounded-lg p-2 text-gray-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-500 disabled:opacity-50 group-hover:opacity-100"
-            title="删除研究"
+            title={t('aiStudio.deepResearch.deleteResearch')}
           >
             {isDeleting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -682,14 +712,19 @@ function StreamingReportView({
   reportContent: Record<string, string>;
   phase: string;
 }) {
+  const { t } = useTranslation();
   const sections = Object.entries(reportContent);
 
   if (sections.length === 0 && phase !== 'synthesizing') {
     return (
       <div className="flex h-full flex-col items-center justify-center">
         <Loader2 className="mb-4 h-10 w-10 animate-spin text-purple-500" />
-        <p className="text-gray-500">正在收集和分析信息...</p>
-        <p className="mt-1 text-sm text-gray-400">AI正在执行研究计划</p>
+        <p className="text-gray-500">
+          {t('aiStudio.deepResearch.streaming.collecting')}
+        </p>
+        <p className="mt-1 text-sm text-gray-400">
+          {t('aiStudio.deepResearch.streaming.executing')}
+        </p>
       </div>
     );
   }
@@ -700,7 +735,7 @@ function StreamingReportView({
         <div key={section} className="mb-8">
           <h2 className="mb-4 flex items-center gap-2 text-xl font-bold text-gray-900">
             {getSectionIcon(section)}
-            {getSectionTitle(section)}
+            {getSectionTitle(section, t)}
           </h2>
           <div className="whitespace-pre-wrap leading-relaxed text-gray-700">
             {content}
@@ -723,6 +758,7 @@ function CompletedReportView({
   copiedSection: string | null;
   onCopySection: (content: string, section: string) => void;
 }) {
+  const { t } = useTranslation();
   const [expandedRefs, setExpandedRefs] = useState(true); // Default expanded for better UX
   const [highlightedRef, setHighlightedRef] = useState<number | null>(null);
   const [highlightedQuote, setHighlightedQuote] = useState<string | null>(null);
@@ -762,15 +798,21 @@ function CompletedReportView({
       <div className="flex flex-wrap gap-4 rounded-xl bg-gradient-to-r from-purple-50 to-indigo-50 p-4 text-sm">
         <span className="flex items-center gap-2 text-purple-700">
           <FileText className="h-4 w-4" />
-          {report.metadata.totalSources} 个来源
+          {t('aiStudio.deepResearch.report.sourcesCount', {
+            count: report.metadata.totalSources,
+          })}
         </span>
         <span className="flex items-center gap-2 text-purple-700">
           <Search className="h-4 w-4" />
-          {report.metadata.searchRounds} 轮搜索
+          {t('aiStudio.deepResearch.report.searchRounds', {
+            count: report.metadata.searchRounds,
+          })}
         </span>
         <span className="flex items-center gap-2 text-purple-700">
           <Clock className="h-4 w-4" />
-          {report.metadata.duration.toFixed(1)} 秒
+          {t('aiStudio.deepResearch.report.duration', {
+            duration: report.metadata.duration.toFixed(1),
+          })}
         </span>
       </div>
 
@@ -779,7 +821,7 @@ function CompletedReportView({
         <div className="mb-4 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-xl font-bold text-gray-900">
             <Sparkles className="h-5 w-5 text-purple-500" />
-            执行摘要
+            {t('aiStudio.deepResearch.report.executiveSummary')}
           </h2>
           <CopyButton
             content={report.executiveSummary}
@@ -826,7 +868,7 @@ function CompletedReportView({
         <div className="mb-4 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-xl font-bold text-gray-900">
             <CheckCircle2 className="h-5 w-5 text-green-500" />
-            结论
+            {t('aiStudio.deepResearch.report.conclusion')}
           </h2>
           <CopyButton
             content={report.conclusion}
@@ -853,7 +895,8 @@ function CompletedReportView({
         >
           <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
             <FileText className="h-5 w-5 text-gray-500" />
-            参考文献 ({report.references.length})
+            {t('aiStudio.deepResearch.report.references')} (
+            {report.references.length})
           </h2>
           {expandedRefs ? (
             <ChevronUp className="h-5 w-5 text-gray-400" />
@@ -916,7 +959,7 @@ function CompletedReportView({
                             className="mt-2 border-t border-purple-200 pt-2"
                           >
                             <p className="text-xs italic text-purple-600">
-                              点击引用跳转到此来源
+                              {t('aiStudio.deepResearch.report.clickToJump')}
                             </p>
                           </motion.div>
                         )}
@@ -986,6 +1029,7 @@ function CopyButton({
   copied: boolean;
   onCopy: (content: string, section: string) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <button
       onClick={() => onCopy(content, section)}
@@ -994,12 +1038,12 @@ function CopyButton({
       {copied ? (
         <>
           <CheckCircle2 className="h-4 w-4 text-green-500" />
-          已复制
+          {t('aiStudio.deepResearch.copy.copied')}
         </>
       ) : (
         <>
           <Copy className="h-4 w-4" />
-          复制
+          {t('aiStudio.deepResearch.copy.copy')}
         </>
       )}
     </button>
@@ -1008,17 +1052,14 @@ function CopyButton({
 
 // ==================== Helpers ====================
 
-function getPhaseLabel(phase: string): string {
-  const labels: Record<string, string> = {
-    idle: '准备就绪',
-    planning: '制定研究计划...',
-    searching: '执行搜索...',
-    reflecting: '分析和反思...',
-    synthesizing: '生成研究报告...',
-    completed: '研究完成',
-    error: '发生错误',
-  };
-  return labels[phase] || phase;
+type TranslateFunction = (
+  key: string,
+  params?: Record<string, string | number>
+) => string;
+
+function getPhaseLabel(phase: string, t: TranslateFunction): string {
+  const key = `aiStudio.deepResearch.phase.${phase}`;
+  return t(key) || phase;
 }
 
 function getSectionIcon(section: string) {
@@ -1031,12 +1072,14 @@ function getSectionIcon(section: string) {
   return <FileText className="h-5 w-5 text-gray-400" />;
 }
 
-function getSectionTitle(section: string): string {
-  const titles: Record<string, string> = {
-    executive_summary: '执行摘要',
-    conclusion: '结论',
-  };
-  return titles[section] || section;
+function getSectionTitle(section: string, t: TranslateFunction): string {
+  if (section === 'executive_summary' || section.includes('摘要')) {
+    return t('aiStudio.deepResearch.report.executiveSummary');
+  }
+  if (section === 'conclusion' || section.includes('结论')) {
+    return t('aiStudio.deepResearch.report.conclusion');
+  }
+  return section;
 }
 
 /**
@@ -1140,6 +1183,7 @@ function DeepCitationLink({
   sourceSnippet?: string;
   onClick?: () => void;
 }) {
+  const { t } = useTranslation();
   const [showTooltip, setShowTooltip] = useState(false);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
@@ -1161,7 +1205,7 @@ function DeepCitationLink({
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
         className="mx-0.5 cursor-pointer rounded px-0.5 font-medium text-purple-600 transition-all hover:bg-purple-100 hover:text-purple-800"
-        title={`跳转到引用 [${sourceIndex}]`}
+        title={`${t('aiStudio.deepResearch.report.clickToJump')} [${sourceIndex}]`}
       >
         [{sourceIndex}]
       </sup>
@@ -1201,7 +1245,7 @@ function DeepCitationLink({
           {/* Footer */}
           <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-3 py-1.5">
             <span className="text-[10px] text-gray-400">
-              Click to view full source
+              {t('aiStudio.deepResearch.report.clickToView')}
             </span>
             <ExternalLink className="h-3 w-3 text-gray-400" />
           </div>
@@ -1216,7 +1260,7 @@ function DeepCitationLink({
   );
 }
 
-function formatTimeAgo(dateString: string): string {
+function formatTimeAgo(dateString: string, t: TranslateFunction): string {
   const date = new Date(dateString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -1224,10 +1268,11 @@ function formatTimeAgo(dateString: string): string {
   const diffHours = Math.floor(diffMins / 60);
   const diffDays = Math.floor(diffHours / 24);
 
-  if (diffMins < 1) return '刚刚';
-  if (diffMins < 60) return `${diffMins}分钟前`;
-  if (diffHours < 24) return `${diffHours}小时前`;
-  if (diffDays < 7) return `${diffDays}天前`;
+  if (diffMins < 1) return t('aiStudio.time.justNow');
+  if (diffMins < 60) return t('aiStudio.time.minutesAgo', { count: diffMins });
+  if (diffHours < 24) return t('aiStudio.time.hoursAgo', { count: diffHours });
+  if (diffDays === 1) return t('aiStudio.time.yesterday');
+  if (diffDays < 7) return t('aiStudio.time.daysAgo', { count: diffDays });
   return date.toLocaleDateString();
 }
 

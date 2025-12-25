@@ -183,7 +183,8 @@
       "hoursAgo": "{{count}} hours ago",
       "yesterday": "Yesterday",
       "daysAgo": "{{count}} days ago",
-      "never": "Never"
+      "never": "Never",
+      "justNow": "Just now"
     },
     "search": {
       "placeholder": "Search special research..."
@@ -197,7 +198,88 @@
       "archiveFailed": "Failed to archive project"
     },
     "confirmDelete": "Are you sure you want to delete this project?",
-    "tryAgain": "Try again"
+    "tryAgain": "Try again",
+    "deepResearch": {
+      "title": "Deep Research",
+      "subtitle": "AI-powered multi-round iterative deep research",
+      "researchCount": "{{count}} researches",
+      "inputPlaceholder": "Enter a topic you want to research deeply...",
+      "startButton": "Start Research",
+      "hotTopics": "Hot topics:",
+      "topics": {
+        "aiTrends": "AI Trends",
+        "quantumComputing": "Quantum Computing",
+        "climateChange": "Climate Change",
+        "newEnergy": "New Energy Tech",
+        "web3": "Web3 Ecosystem"
+      },
+      "recentResearch": "Recent Research",
+      "stopResearch": "Stop Research",
+      "hideThinking": "Hide thinking process",
+      "showThinking": "Show thinking process",
+      "sourcesCount": "{{count}} sources",
+      "duration": "{{duration}}s",
+      "followUpPlaceholder": "Continue asking based on this research...",
+      "followUp": "Follow Up",
+      "deleteResearch": "Delete research",
+      "empty": {
+        "title": "Start your first deep research",
+        "description": "Enter a research topic, and AI will perform multi-round iterative searches, automatically plan research paths, and generate professional reports with citations.",
+        "features": {
+          "planning": {
+            "title": "AI Plans Research Path",
+            "desc": "Automatically decompose questions, formulate search strategies"
+          },
+          "searching": {
+            "title": "Multi-round Iterative Search",
+            "desc": "Up to 5 rounds of deep search, comprehensive coverage"
+          },
+          "reflecting": {
+            "title": "Self-reflection Optimization",
+            "desc": "Real-time quality evaluation, dynamic direction adjustment"
+          },
+          "reporting": {
+            "title": "Professional Report Generation",
+            "desc": "Structured report, complete citation markup"
+          }
+        }
+      },
+      "status": {
+        "completed": "Completed",
+        "failed": "Failed",
+        "planning": "Planning",
+        "searching": "Searching",
+        "reflecting": "Reflecting",
+        "synthesizing": "Generating"
+      },
+      "phase": {
+        "idle": "Ready",
+        "planning": "Creating research plan...",
+        "searching": "Executing search...",
+        "reflecting": "Analyzing and reflecting...",
+        "synthesizing": "Generating research report...",
+        "completed": "Research completed",
+        "error": "An error occurred"
+      },
+      "streaming": {
+        "collecting": "Collecting and analyzing information...",
+        "executing": "AI is executing research plan"
+      },
+      "report": {
+        "sourcesCount": "{{count}} sources",
+        "searchRounds": "{{count}} search rounds",
+        "duration": "{{duration}} seconds",
+        "executiveSummary": "Executive Summary",
+        "conclusion": "Conclusion",
+        "references": "References",
+        "clickToJump": "Click citation to jump to this source",
+        "clickToView": "Click to view full source"
+      },
+      "copy": {
+        "copied": "Copied",
+        "copy": "Copy"
+      }
+    }
   },
   "aiTeams": {
     "title": "AI Teams",
