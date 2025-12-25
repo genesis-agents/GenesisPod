@@ -1824,7 +1824,371 @@ function StudioPanel({
   );
 }
 
-// ==================== Artifacts View (Tab) ====================
+// ==================== Artifacts Sidebar (Collapsible) ====================
+function ArtifactsSidebar({
+  outputs,
+  notes,
+  selectedSourceIds,
+  onGenerateOutput,
+  onRegenerateOutput,
+  onCreateNote,
+  onUpdateNote,
+  onDeleteNote,
+  projectId,
+  collapsed,
+  onToggleCollapse,
+}: {
+  outputs: Output[];
+  notes: Note[];
+  selectedSourceIds: string[];
+  onGenerateOutput: (type: string) => void;
+  onRegenerateOutput: (outputId: string) => void;
+  onCreateNote: (note: Partial<Note>) => void;
+  onUpdateNote: (id: string, updates: Partial<Note>) => void;
+  onDeleteNote: (id: string) => void;
+  projectId: string;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+}) {
+  const [activeSection, setActiveSection] = useState<'create' | 'notes'>(
+    'create'
+  );
+  const [viewingOutput, setViewingOutput] = useState<Output | null>(null);
+  const [showNewNote, setShowNewNote] = useState(false);
+  const [newNoteContent, setNewNoteContent] = useState('');
+
+  const outputTypes = [
+    {
+      type: 'STUDY_GUIDE',
+      icon: BookMarked,
+      label: 'Study Guide',
+      desc: 'Comprehensive study materials',
+    },
+    {
+      type: 'BRIEFING_DOC',
+      icon: ClipboardList,
+      label: 'Briefing Doc',
+      desc: 'Executive summary document',
+    },
+    {
+      type: 'FAQ',
+      icon: HelpCircle,
+      label: 'FAQ',
+      desc: 'Frequently asked questions',
+    },
+    {
+      type: 'TIMELINE',
+      icon: Calendar,
+      label: 'Timeline',
+      desc: 'Chronological overview',
+    },
+    {
+      type: 'TREND_REPORT',
+      icon: TrendingUp,
+      label: 'Trend Report',
+      desc: 'Analysis of trends',
+    },
+    {
+      type: 'COMPARISON',
+      icon: GitCompare,
+      label: 'Comparison',
+      desc: 'Side-by-side analysis',
+    },
+    {
+      type: 'KNOWLEDGE_GRAPH',
+      icon: Network,
+      label: 'Knowledge Graph',
+      desc: 'Visual concept map',
+    },
+    {
+      type: 'FLASHCARDS',
+      icon: Layers,
+      label: 'Flashcards',
+      desc: 'Study flashcards',
+    },
+    {
+      type: 'QUIZ',
+      icon: GraduationCap,
+      label: 'Quiz',
+      desc: 'Test your knowledge',
+    },
+    {
+      type: 'MIND_MAP',
+      icon: Brain,
+      label: 'Mind Map',
+      desc: 'Structured visualization',
+    },
+  ];
+
+  const handleCreateNote = () => {
+    if (newNoteContent.trim()) {
+      onCreateNote({ content: newNoteContent.trim() });
+      setNewNoteContent('');
+      setShowNewNote(false);
+    }
+  };
+
+  if (collapsed) {
+    return null;
+  }
+
+  return (
+    <>
+      <div className="flex w-80 flex-shrink-0 flex-col border-l border-gray-200 bg-white">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Shapes className="h-5 w-5 text-purple-600" />
+            <h3 className="font-semibold text-gray-900">Artifacts</h3>
+          </div>
+          <button
+            onClick={onToggleCollapse}
+            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Section Tabs */}
+        <div className="flex gap-2 border-b border-gray-200 px-4 py-2">
+          <button
+            onClick={() => setActiveSection('create')}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              activeSection === 'create'
+                ? 'bg-purple-100 text-purple-700'
+                : 'text-gray-500 hover:bg-gray-100'
+            }`}
+          >
+            Create
+          </button>
+          <button
+            onClick={() => setActiveSection('notes')}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              activeSection === 'notes'
+                ? 'bg-purple-100 text-purple-700'
+                : 'text-gray-500 hover:bg-gray-100'
+            }`}
+          >
+            Notes ({notes.length})
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {activeSection === 'create' ? (
+            <div className="space-y-4">
+              {/* Artifact Types Grid - Compact */}
+              <div>
+                <h4 className="mb-2 text-xs font-medium text-gray-500">
+                  Create New
+                </h4>
+                <div className="grid grid-cols-2 gap-2">
+                  {outputTypes.map(({ type, icon: Icon, label }) => (
+                    <button
+                      key={type}
+                      onClick={() => onGenerateOutput(type)}
+                      disabled={selectedSourceIds.length === 0}
+                      className="group flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-2 text-left transition-all hover:border-purple-300 hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <div className="rounded-lg bg-gray-100 p-1.5 transition-colors group-hover:bg-purple-100">
+                        <Icon className="h-3.5 w-3.5 text-gray-600 group-hover:text-purple-600" />
+                      </div>
+                      <span className="text-xs font-medium text-gray-700">
+                        {label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Your Artifacts - Compact List */}
+              {outputs.length > 0 && (
+                <div>
+                  <h4 className="mb-2 text-xs font-medium text-gray-500">
+                    Your Artifacts ({outputs.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {outputs.map((output) => (
+                      <div
+                        key={output.id}
+                        onClick={() =>
+                          output.status === 'COMPLETED' &&
+                          setViewingOutput(output)
+                        }
+                        className={`rounded-lg border border-gray-200 bg-white p-3 ${
+                          output.status === 'COMPLETED'
+                            ? 'cursor-pointer hover:border-purple-300 hover:shadow-sm'
+                            : ''
+                        } transition-all`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="line-clamp-1 text-sm font-medium text-gray-900">
+                            {output.title}
+                          </span>
+                          {output.status === 'GENERATING' ? (
+                            <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-purple-600" />
+                          ) : output.status === 'COMPLETED' ? (
+                            <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-green-500" />
+                          ) : output.status === 'FAILED' ? (
+                            <AlertCircle className="h-4 w-4 flex-shrink-0 text-red-500" />
+                          ) : (
+                            <Circle className="h-4 w-4 flex-shrink-0 text-gray-300" />
+                          )}
+                        </div>
+                        {output.status === 'FAILED' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRegenerateOutput(output.id);
+                            }}
+                            className="mt-1 flex items-center gap-1 text-xs text-purple-600 hover:underline"
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                            Retry
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {/* New Note */}
+              {!showNewNote ? (
+                <button
+                  onClick={() => setShowNewNote(true)}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 p-3 text-sm text-gray-500 transition-colors hover:border-purple-300 hover:text-purple-600"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Note
+                </button>
+              ) : (
+                <div className="rounded-lg border border-gray-200 bg-white p-3">
+                  <textarea
+                    value={newNoteContent}
+                    onChange={(e) => setNewNoteContent(e.target.value)}
+                    placeholder="Write your note..."
+                    className="w-full resize-none border-0 p-0 text-sm text-gray-900 focus:outline-none focus:ring-0"
+                    rows={3}
+                    autoFocus
+                  />
+                  <div className="mt-2 flex justify-end gap-2">
+                    <button
+                      onClick={() => {
+                        setShowNewNote(false);
+                        setNewNoteContent('');
+                      }}
+                      className="rounded-lg px-2 py-1 text-xs text-gray-500 hover:bg-gray-100"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleCreateNote}
+                      disabled={!newNoteContent.trim()}
+                      className="rounded-lg bg-purple-600 px-2 py-1 text-xs text-white hover:bg-purple-700 disabled:opacity-50"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Notes List */}
+              {notes.map((note) => (
+                <div
+                  key={note.id}
+                  className="group rounded-lg border border-gray-200 bg-white p-3 transition-all hover:border-gray-300"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      {note.title && (
+                        <h4 className="mb-1 line-clamp-1 text-sm font-medium text-gray-900">
+                          {note.title}
+                        </h4>
+                      )}
+                      <p className="line-clamp-2 text-sm text-gray-600">
+                        {note.content}
+                      </p>
+                      <div className="mt-1 text-xs text-gray-400">
+                        {new Date(note.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      <button
+                        onClick={() =>
+                          onUpdateNote(note.id, { isPinned: !note.isPinned })
+                        }
+                        className="rounded p-1 hover:bg-gray-100"
+                      >
+                        {note.isPinned ? (
+                          <PinOff className="h-3.5 w-3.5 text-purple-600" />
+                        ) : (
+                          <Pin className="h-3.5 w-3.5 text-gray-400" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => onDeleteNote(note.id)}
+                        className="rounded p-1 hover:bg-red-100"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-gray-400 hover:text-red-500" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Output Detail Modal */}
+      {viewingOutput && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <h3 className="font-semibold text-gray-900">
+                {viewingOutput.title}
+              </h3>
+              <button
+                onClick={() => setViewingOutput(null)}
+                className="rounded-lg p-1 hover:bg-gray-100"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <OutputViewer
+                output={viewingOutput}
+                projectId={projectId}
+                onRegenerate={() => {
+                  onRegenerateOutput(viewingOutput.id);
+                  setViewingOutput(null);
+                }}
+                onExport={(format) => {
+                  const content = viewingOutput.content || '';
+                  const blob = new Blob([content], {
+                    type:
+                      format === 'json' ? 'application/json' : 'text/markdown',
+                  });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${viewingOutput.title}.${format === 'json' ? 'json' : 'md'}`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ==================== Artifacts View (Tab) - Now deprecated but kept for reference ====================
 function ArtifactsView({
   outputs,
   notes,
@@ -2209,12 +2573,13 @@ export default function ProjectDetailPage() {
   // [1] = first selected, [2] = second selected, etc.
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
   const [sourcesCollapsed, setSourcesCollapsed] = useState(false);
+  const [artifactsCollapsed, setArtifactsCollapsed] = useState(true);
   const [chatLoading, setChatLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>('');
-  // Tab导航: fast-research | deep-research | artifacts
-  const [activeTab, setActiveTab] = useState<
-    'fast-research' | 'deep-research' | 'artifacts'
-  >('fast-research');
+  // Tab导航: fast-research | deep-research (Artifacts moved to sidebar)
+  const [activeTab, setActiveTab] = useState<'fast-research' | 'deep-research'>(
+    'fast-research'
+  );
 
   // Scroll to source callback for citation system
   const handleScrollToSource = useCallback(
@@ -2664,9 +3029,9 @@ export default function ProjectDetailPage() {
     );
   }
 
-  // Tab configuration
+  // Tab configuration (Artifacts moved to right sidebar)
   const tabs: Array<{
-    id: 'fast-research' | 'deep-research' | 'artifacts';
+    id: 'fast-research' | 'deep-research';
     label: string;
     icon: typeof MessageSquare;
     count?: number;
@@ -2681,12 +3046,6 @@ export default function ProjectDetailPage() {
       id: 'deep-research',
       label: 'Deep Research',
       icon: Microscope,
-    },
-    {
-      id: 'artifacts',
-      label: 'Artifacts',
-      icon: Shapes,
-      count: project.outputs.length,
     },
   ];
 
@@ -2711,7 +3070,7 @@ export default function ProjectDetailPage() {
                 <h1 className="font-semibold text-gray-900">{project.name}</h1>
               </div>
             </div>
-            {/* Source Count Badge */}
+            {/* Header Actions */}
             <div className="flex items-center gap-3">
               {selectedSourceIds.length > 0 &&
                 activeTab === 'fast-research' && (
@@ -2720,6 +3079,29 @@ export default function ProjectDetailPage() {
                     {selectedSourceIds.length} sources selected
                   </span>
                 )}
+              {/* Artifacts Toggle Button */}
+              <button
+                onClick={() => setArtifactsCollapsed(!artifactsCollapsed)}
+                className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                  !artifactsCollapsed
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+                }`}
+              >
+                <Shapes className="h-4 w-4" />
+                Artifacts
+                {project.outputs.length > 0 && (
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 text-xs ${
+                      !artifactsCollapsed
+                        ? 'bg-purple-200 text-purple-800'
+                        : 'bg-gray-200 text-gray-600'
+                    }`}
+                  >
+                    {project.outputs.length}
+                  </span>
+                )}
+              </button>
             </div>
           </div>
 
@@ -2762,68 +3144,91 @@ export default function ProjectDetailPage() {
 
         {/* Tab Content */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Fast Research Tab - Sources + Chat */}
+          {/* Fast Research Tab - Sources + Chat + Artifacts Sidebar */}
           {activeTab === 'fast-research' && (
-            <div className="flex flex-1 overflow-hidden">
-              {/* Sources Sidebar */}
-              <SourcesPanel
-                sources={project.sources}
-                selectedIds={selectedSourceIds}
-                onToggleSelect={handleToggleSource}
-                onAddSource={handleAddSource}
-                onAddSources={handleAddSources}
-                onRemoveSource={handleRemoveSource}
-                onBatchRemoveSources={handleBatchRemoveSources}
-                collapsed={sourcesCollapsed}
-                onToggleCollapse={() => setSourcesCollapsed(!sourcesCollapsed)}
-                projectId={projectId}
-              />
-              {/* Chat Area */}
-              <ChatPanel
-                chat={project.chats[0] || null}
-                sources={project.sources}
+            <>
+              <div className="flex flex-1 overflow-hidden">
+                {/* Sources Sidebar */}
+                <SourcesPanel
+                  sources={project.sources}
+                  selectedIds={selectedSourceIds}
+                  onToggleSelect={handleToggleSource}
+                  onAddSource={handleAddSource}
+                  onAddSources={handleAddSources}
+                  onRemoveSource={handleRemoveSource}
+                  onBatchRemoveSources={handleBatchRemoveSources}
+                  collapsed={sourcesCollapsed}
+                  onToggleCollapse={() =>
+                    setSourcesCollapsed(!sourcesCollapsed)
+                  }
+                  projectId={projectId}
+                />
+                {/* Chat Area */}
+                <ChatPanel
+                  chat={project.chats[0] || null}
+                  sources={project.sources}
+                  selectedSourceIds={selectedSourceIds}
+                  onSendMessage={handleSendMessage}
+                  onSaveAsNote={handleSaveAsNote}
+                  isLoading={chatLoading}
+                  models={aiModels.map((m) => ({
+                    id: m.id,
+                    name: m.name,
+                    modelName: m.modelName,
+                    icon: m.icon,
+                    isDefault: m.isDefault,
+                  }))}
+                  selectedModel={selectedModel}
+                  onModelChange={setSelectedModel}
+                />
+              </div>
+              {/* Artifacts Sidebar */}
+              <ArtifactsSidebar
+                outputs={project.outputs}
+                notes={project.notes}
                 selectedSourceIds={selectedSourceIds}
-                onSendMessage={handleSendMessage}
-                onSaveAsNote={handleSaveAsNote}
-                isLoading={chatLoading}
-                models={aiModels.map((m) => ({
-                  id: m.id,
-                  name: m.name,
-                  modelName: m.modelName,
-                  icon: m.icon,
-                  isDefault: m.isDefault,
-                }))}
-                selectedModel={selectedModel}
-                onModelChange={setSelectedModel}
+                onGenerateOutput={handleGenerateOutput}
+                onRegenerateOutput={handleRegenerateOutput}
+                onCreateNote={handleCreateNote}
+                onUpdateNote={handleUpdateNote}
+                onDeleteNote={handleDeleteNote}
+                projectId={projectId}
+                collapsed={artifactsCollapsed}
+                onToggleCollapse={() =>
+                  setArtifactsCollapsed(!artifactsCollapsed)
+                }
               />
-            </div>
+            </>
           )}
 
-          {/* Deep Research Tab - Full Width */}
+          {/* Deep Research Tab - Research + Artifacts Sidebar */}
           {activeTab === 'deep-research' && (
-            <ResearchTab
-              projectId={projectId}
-              onExportToOutputs={(report) => {
-                // TODO: Export research report to outputs
-                console.log('Export research report:', report);
-              }}
-              className="flex-1"
-            />
-          )}
-
-          {/* Artifacts Tab - Full Width */}
-          {activeTab === 'artifacts' && (
-            <ArtifactsView
-              outputs={project.outputs}
-              notes={project.notes}
-              selectedSourceIds={selectedSourceIds}
-              onGenerateOutput={handleGenerateOutput}
-              onRegenerateOutput={handleRegenerateOutput}
-              onCreateNote={handleCreateNote}
-              onUpdateNote={handleUpdateNote}
-              onDeleteNote={handleDeleteNote}
-              projectId={projectId}
-            />
+            <>
+              <ResearchTab
+                projectId={projectId}
+                onExportToOutputs={(report) => {
+                  // TODO: Export research report to outputs
+                  console.log('Export research report:', report);
+                }}
+                className="flex-1"
+              />
+              {/* Artifacts Sidebar */}
+              <ArtifactsSidebar
+                outputs={project.outputs}
+                notes={project.notes}
+                selectedSourceIds={selectedSourceIds}
+                onGenerateOutput={handleGenerateOutput}
+                onRegenerateOutput={handleRegenerateOutput}
+                onCreateNote={handleCreateNote}
+                onUpdateNote={handleUpdateNote}
+                onDeleteNote={handleDeleteNote}
+                projectId={projectId}
+                collapsed={artifactsCollapsed}
+                onToggleCollapse={() =>
+                  setArtifactsCollapsed(!artifactsCollapsed)
+                }
+              />
+            </>
           )}
         </div>
       </div>
