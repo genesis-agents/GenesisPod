@@ -9,7 +9,7 @@
  * 3. 研究完成：全宽报告 + 底部操作栏
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
@@ -38,7 +38,11 @@ import {
   FileOutput,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
-import { useDeepResearch, DeepResearchReport } from '@/hooks/useDeepResearch';
+import {
+  useDeepResearch,
+  DeepResearchReport,
+  ReportReference,
+} from '@/hooks/useDeepResearch';
 import ThinkingChainPanel from './ThinkingChainPanel';
 
 // ==================== Types ====================
@@ -783,7 +787,8 @@ function CompletedReportView({
           {formatContentWithCitations(
             report.executiveSummary,
             [], // Summary typically doesn't have citations
-            handleCitationClick
+            handleCitationClick,
+            report.references
           )}
         </div>
       </section>
@@ -804,7 +809,8 @@ function CompletedReportView({
             {formatContentWithCitations(
               section.content,
               section.citations,
-              handleCitationClick
+              handleCitationClick,
+              report.references
             )}
           </div>
         </section>
@@ -828,7 +834,8 @@ function CompletedReportView({
           {formatContentWithCitations(
             report.conclusion,
             [],
-            handleCitationClick
+            handleCitationClick,
+            report.references
           )}
         </div>
       </section>
@@ -1037,7 +1044,8 @@ function getSectionTitle(section: string): string {
 function formatContentWithCitations(
   content: string,
   citations: number[],
-  onCitationClick?: (refId: number, surroundingContext?: string) => void
+  onCitationClick?: (refId: number, surroundingContext?: string) => void,
+  references?: ReportReference[]
 ): React.ReactNode {
   // Match all citation formats
   const pattern =
@@ -1085,19 +1093,19 @@ function formatContentWithCitations(
       .trim();
 
     // Create citation links for each index
-    indices.forEach((num, i) => {
+    indices.forEach((num) => {
       // Only show citations that are in the valid citation list, or show all if list is empty
       const shouldShow = citations.length === 0 || citations.includes(num);
       if (shouldShow) {
+        const reference = references?.find((r) => r.id === num);
         parts.push(
-          <sup
+          <DeepCitationLink
             key={`${match!.index}-${num}`}
+            sourceIndex={num}
+            sourceTitle={reference?.title}
+            sourceSnippet={reference?.snippet}
             onClick={() => onCitationClick?.(num, surroundingContext)}
-            className="mx-0.5 cursor-pointer rounded px-0.5 font-medium text-purple-600 transition-all hover:bg-purple-100 hover:text-purple-800"
-            title={`跳转到引用 [${num}]`}
-          >
-            [{num}]
-          </sup>
+          />
         );
       }
     });
@@ -1111,6 +1119,96 @@ function formatContentWithCitations(
   }
 
   return parts.length === 0 ? content : parts;
+}
+
+/**
+ * Citation link with NotebookLM-style tooltip
+ */
+function DeepCitationLink({
+  sourceIndex,
+  sourceTitle,
+  sourceSnippet,
+  onClick,
+}: {
+  sourceIndex: number;
+  sourceTitle?: string;
+  sourceSnippet?: string;
+  onClick?: () => void;
+}) {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
+  // Get preview text
+  const preview = sourceSnippet
+    ? sourceSnippet.length > 150
+      ? sourceSnippet.slice(0, 150) + '...'
+      : sourceSnippet
+    : null;
+
+  return (
+    <span className="relative inline">
+      <sup
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onClick?.();
+        }}
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+        className="mx-0.5 cursor-pointer rounded px-0.5 font-medium text-purple-600 transition-all hover:bg-purple-100 hover:text-purple-800"
+        title={`跳转到引用 [${sourceIndex}]`}
+      >
+        [{sourceIndex}]
+      </sup>
+
+      {/* Tooltip with source details - NotebookLM style */}
+      {showTooltip && sourceTitle && (
+        <div
+          ref={tooltipRef}
+          className="absolute bottom-full left-1/2 z-50 mb-2 w-72 -translate-x-1/2 rounded-lg border border-gray-200 bg-white shadow-xl"
+          onMouseEnter={() => setShowTooltip(true)}
+          onMouseLeave={() => setShowTooltip(false)}
+        >
+          {/* Header */}
+          <div className="flex items-start gap-2 border-b border-gray-100 px-3 py-2">
+            <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-purple-100">
+              <FileText className="h-3.5 w-3.5 text-purple-600" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1">
+                <span className="rounded bg-purple-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  {sourceIndex}
+                </span>
+                <span className="truncate text-sm font-medium text-gray-900">
+                  {sourceTitle}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Content Preview */}
+          {preview && (
+            <div className="px-3 py-2">
+              <p className="text-xs leading-relaxed text-gray-600">{preview}</p>
+            </div>
+          )}
+
+          {/* Footer */}
+          <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-3 py-1.5">
+            <span className="text-[10px] text-gray-400">
+              Click to view full source
+            </span>
+            <ExternalLink className="h-3 w-3 text-gray-400" />
+          </div>
+
+          {/* Arrow */}
+          <div className="absolute left-1/2 top-full -translate-x-1/2">
+            <div className="h-2 w-2 -translate-y-1 rotate-45 border-b border-r border-gray-200 bg-gray-50" />
+          </div>
+        </div>
+      )}
+    </span>
+  );
 }
 
 function formatTimeAgo(dateString: string): string {
