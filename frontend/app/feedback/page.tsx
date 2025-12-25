@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Sidebar from '@/components/layout/Sidebar';
+import { useTranslation } from '@/lib/i18n';
 import {
   MessageSquare,
   Bug,
@@ -46,6 +47,7 @@ const ALLOWED_TYPES = [
 ];
 
 export default function Feedback() {
+  const { t } = useTranslation();
   const [feedbackType, setFeedbackType] = useState<FeedbackType>('feature');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -198,36 +200,36 @@ export default function Feedback() {
   const feedbackTypes = [
     {
       value: 'bug' as FeedbackType,
-      label: 'Bug Report',
+      label: t('feedback.feedbackType.bug'),
       icon: Bug,
-      description: 'Report a bug or issue',
+      description: t('feedback.typeDescription.bug'),
       color: 'text-red-600',
       bgColor: 'bg-red-100',
       borderColor: 'border-red-500',
     },
     {
       value: 'feature' as FeedbackType,
-      label: 'Feature Request',
+      label: t('feedback.feedbackType.feature'),
       icon: Lightbulb,
-      description: 'Suggest a new feature',
+      description: t('feedback.typeDescription.feature'),
       color: 'text-amber-600',
       bgColor: 'bg-amber-100',
       borderColor: 'border-amber-500',
     },
     {
       value: 'improvement' as FeedbackType,
-      label: 'Improvement',
+      label: t('feedback.feedbackType.improvement'),
       icon: Zap,
-      description: 'Suggest an improvement',
+      description: t('feedback.typeDescription.improvement'),
       color: 'text-blue-600',
       bgColor: 'bg-blue-100',
       borderColor: 'border-blue-500',
     },
     {
       value: 'other' as FeedbackType,
-      label: 'Other',
+      label: t('feedback.feedbackType.other'),
       icon: MessageCircle,
-      description: 'General feedback',
+      description: t('feedback.typeDescription.other'),
       color: 'text-gray-600',
       bgColor: 'bg-gray-100',
       borderColor: 'border-gray-500',
@@ -246,8 +248,12 @@ export default function Feedback() {
           <div className="flex items-center gap-3">
             <MessageSquare className="h-6 w-6 text-violet-600" />
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Send Feedback</h1>
-              <p className="text-sm text-gray-500">Help us improve DeepDive</p>
+              <h1 className="text-xl font-bold text-gray-900">
+                {t('feedback.sendFeedback')}
+              </h1>
+              <p className="text-sm text-gray-500">
+                {t('feedback.helpImprove')}
+              </p>
             </div>
           </div>
           <Link
@@ -255,7 +261,7 @@ export default function Feedback() {
             className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
             <FileText className="h-4 w-4" />
-            My Feedback
+            {t('feedback.myFeedback')}
           </Link>
         </header>
 
@@ -269,14 +275,14 @@ export default function Feedback() {
                   <CheckCircle className="h-8 w-8 text-green-600" />
                 </div>
                 <h2 className="mb-2 text-2xl font-bold text-gray-900">
-                  Thank you!
+                  {t('feedback.thankYou')}
                 </h2>
                 <p className="mb-4 text-gray-600">
-                  Your feedback has been submitted successfully.
+                  {t('feedback.submittedSuccess')}
                 </p>
                 {feedbackId && (
                   <p className="mb-4 text-sm text-gray-500">
-                    Reference: {feedbackId}
+                    {t('feedback.reference')}: {feedbackId}
                   </p>
                 )}
                 <div className="flex flex-col items-center gap-3">
@@ -284,7 +290,7 @@ export default function Feedback() {
                     onClick={resetForm}
                     className="rounded-lg bg-violet-600 px-6 py-2 font-medium text-white transition-colors hover:bg-violet-700"
                   >
-                    Submit Another
+                    {t('feedback.submitAnother')}
                   </button>
                   <a
                     href={GITHUB_ISSUES_URL}
@@ -293,7 +299,7 @@ export default function Feedback() {
                     className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"
                   >
                     <Github className="h-4 w-4" />
-                    Or open a GitHub Issue for faster tracking
+                    {t('feedback.githubIssueAlt')}
                     <ExternalLink className="h-3 w-3" />
                   </a>
                 </div>
@@ -325,7 +331,7 @@ export default function Feedback() {
                 {/* Feedback Type Selection */}
                 <div className="rounded-xl border border-gray-200 bg-white p-6">
                   <label className="mb-3 block text-sm font-medium text-gray-700">
-                    What type of feedback do you have?
+                    {t('feedback.whatType')}
                   </label>
                   <div className="grid grid-cols-2 gap-3">
                     {feedbackTypes.map((type) => {
@@ -373,20 +379,21 @@ export default function Feedback() {
                     htmlFor="title"
                     className="mb-2 block text-sm font-medium text-gray-700"
                   >
-                    Title <span className="text-red-500">*</span>
+                    {t('feedback.feedbackTitle')}{' '}
+                    <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="title"
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Brief summary of your feedback"
+                    placeholder={t('feedback.titlePlaceholder')}
                     required
                     maxLength={200}
                     className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    {title.length}/200 characters
+                    {title.length}/200
                   </p>
                 </div>
 
@@ -396,21 +403,16 @@ export default function Feedback() {
                     htmlFor="description"
                     className="mb-2 block text-sm font-medium text-gray-700"
                   >
-                    Description <span className="text-red-500">*</span>
+                    {t('feedback.feedbackDescription')}{' '}
+                    <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     id="description"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder={
-                      feedbackType === 'bug'
-                        ? 'Please describe the issue, steps to reproduce, and any error messages...'
-                        : feedbackType === 'feature'
-                          ? "Describe the feature you'd like to see and how it would help you..."
-                          : feedbackType === 'improvement'
-                            ? 'Explain what could be improved and why...'
-                            : 'Share your thoughts, suggestions, or questions...'
-                    }
+                    placeholder={t(
+                      `feedback.descriptionPlaceholder.${feedbackType}`
+                    )}
                     required
                     rows={6}
                     className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
@@ -423,9 +425,9 @@ export default function Feedback() {
                     htmlFor="email"
                     className="mb-2 block text-sm font-medium text-gray-700"
                   >
-                    Your Email{' '}
+                    {t('feedback.yourEmail')}{' '}
                     <span className="font-normal text-gray-500">
-                      (Optional)
+                      ({t('feedback.optional')})
                     </span>
                   </label>
                   <input
@@ -437,16 +439,17 @@ export default function Feedback() {
                     className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                   />
                   <p className="mt-2 text-xs text-gray-500">
-                    Provide your email if you'd like us to follow up with you.
+                    {t('feedback.emailHint')}
                   </p>
                 </div>
 
                 {/* Attachments (Optional) */}
                 <div className="rounded-xl border border-gray-200 bg-white p-6">
                   <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Attachments{' '}
+                    {t('feedback.attachments')}{' '}
                     <span className="font-normal text-gray-500">
-                      (Optional, max {MAX_FILES} files, 10MB each)
+                      ({t('feedback.optional')},{' '}
+                      {t('feedback.maxFiles', { count: MAX_FILES })})
                     </span>
                   </label>
 
@@ -478,11 +481,11 @@ export default function Feedback() {
                     />
                     <p className="mt-2 text-sm text-gray-600">
                       {dragActive
-                        ? 'Drop files here'
-                        : 'Drag and drop files here, or click to select'}
+                        ? t('feedback.dropHere')
+                        : t('feedback.dragDrop')}
                     </p>
                     <p className="mt-1 text-xs text-gray-500">
-                      Images, PDF, or text files
+                      {t('feedback.allowedFiles')}
                     </p>
                   </div>
 
@@ -535,7 +538,8 @@ export default function Feedback() {
                 {/* Submit Button */}
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-gray-500">
-                    <span className="text-red-500">*</span> Required fields
+                    <span className="text-red-500">*</span>{' '}
+                    {t('feedback.requiredFields')}
                   </p>
                   <button
                     type="submit"
@@ -545,12 +549,12 @@ export default function Feedback() {
                     {submitting ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Submitting...
+                        {t('feedback.submitting')}
                       </>
                     ) : (
                       <>
                         <Send className="h-4 w-4" />
-                        Submit Feedback
+                        {t('feedback.submit')}
                       </>
                     )}
                   </button>
@@ -567,10 +571,10 @@ export default function Feedback() {
                     <MessageSquare className="h-5 w-5 flex-shrink-0 text-violet-600" />
                     <div>
                       <h3 className="font-semibold text-violet-900">
-                        Direct Contact
+                        {t('feedback.directContact')}
                       </h3>
                       <p className="mt-1 text-sm text-violet-700">
-                        You can also reach us directly at{' '}
+                        {t('feedback.reachUs')}{' '}
                         <a
                           href={`mailto:${FEEDBACK_EMAIL}`}
                           className="font-medium underline hover:no-underline"
@@ -588,17 +592,17 @@ export default function Feedback() {
                     <Github className="h-5 w-5 flex-shrink-0 text-gray-700" />
                     <div>
                       <h3 className="font-semibold text-gray-900">
-                        GitHub Issues
+                        {t('feedback.githubIssues')}
                       </h3>
                       <p className="mt-1 text-sm text-gray-600">
-                        For bug reports and feature requests, you can also{' '}
+                        {t('feedback.githubIssueDesc')}{' '}
                         <a
                           href={GITHUB_ISSUES_URL}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 font-medium text-violet-600 hover:text-violet-700"
                         >
-                          open an issue on GitHub
+                          {t('feedback.openGithubIssue')}
                           <ExternalLink className="h-3 w-3" />
                         </a>
                       </p>
@@ -624,12 +628,10 @@ export default function Feedback() {
                     </svg>
                     <div>
                       <h3 className="font-semibold text-blue-900">
-                        Your privacy matters
+                        {t('feedback.privacy')}
                       </h3>
                       <p className="mt-1 text-sm text-blue-700">
-                        We take your feedback seriously and will use it to
-                        improve DeepDive. Your information will never be shared
-                        with third parties.
+                        {t('feedback.privacyDesc')}
                       </p>
                     </div>
                   </div>

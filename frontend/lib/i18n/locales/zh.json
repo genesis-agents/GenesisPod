@@ -49,6 +49,7 @@
     "aiAsk": "AI 问答",
     "aiCoding": "AI 编程",
     "aiStore": "AI 商店",
+    "aiSimulation": "AI 推演",
     "labs": "实验室",
     "admin": "管理后台",
     "profile": "个人资料",
@@ -88,7 +89,49 @@
       "books": "书籍",
       "podcasts": "播客",
       "courses": "课程"
-    }
+    },
+    "tabs": {
+      "bookmarks": "书签",
+      "notes": "笔记",
+      "images": "图片",
+      "graph": "知识图谱",
+      "notion": "Notion"
+    },
+    "search": {
+      "resources": "搜索所有资源...",
+      "notes": "搜索笔记..."
+    },
+    "sort": {
+      "recentlyAdded": "最近添加",
+      "oldestFirst": "最早优先",
+      "titleAZ": "标题 A-Z",
+      "titleZA": "标题 Z-A",
+      "latestPublished": "最新发布",
+      "earliestPublished": "最早发布"
+    },
+    "actions": {
+      "select": "选择",
+      "cancel": "取消",
+      "selectAll": "选择本页全部",
+      "clearSearch": "清除搜索",
+      "viewGraph": "查看知识图谱"
+    },
+    "empty": {
+      "noBookmarks": "暂无书签",
+      "noBookmarksDesc": "浏览资源并点击书签按钮保存您的收藏",
+      "browseResources": "浏览资源",
+      "noImages": "暂无收藏图片",
+      "noImagesDesc": "在 AI 绘图中生成图片并收藏，即可在此查看"
+    },
+    "selection": {
+      "selected": "已选择 {{count}} / {{total}}"
+    },
+    "categories": {
+      "videos": "视频",
+      "documents": "文档",
+      "other": "其他资源"
+    },
+    "loadingGraph": "加载知识图谱中..."
   },
   "explore": {
     "title": "探索",
@@ -146,17 +189,23 @@
       "title": "邮件设置",
       "description": "配置反馈和告警的邮件通知",
       "enabled": "启用邮件",
+      "enabledDescription": "启用后将发送反馈和系统告警的邮件通知",
+      "disabledWarning": "邮件通知已禁用。启用后可接收反馈提醒。",
       "provider": "邮件服务商",
       "adminEmail": "管理员邮箱",
+      "adminEmailHint": "反馈通知将发送至此邮箱",
       "fromAddress": "发件人地址",
       "testEmail": "发送测试邮件",
       "saveSettings": "保存邮件设置",
+      "reinitialize": "重新初始化",
       "smtpConfig": "SMTP 配置",
       "smtpHost": "SMTP 主机",
       "smtpPort": "端口",
       "smtpUser": "用户名 / 邮箱",
       "smtpPassword": "密码 / 应用密码",
+      "smtpPasswordHint": "Gmail 用户请使用应用专用密码",
       "resendApiKey": "Resend API 密钥",
+      "resendHint": "从 resend.com 获取 API 密钥",
       "configured": "已配置",
       "notConfigured": "未配置"
     }
@@ -178,17 +227,54 @@
   "feedback": {
     "title": "反馈",
     "sendFeedback": "发送反馈",
+    "helpImprove": "帮助我们改进 DeepDive",
+    "myFeedback": "我的反馈",
     "feedbackType": {
       "bug": "Bug 报告",
       "feature": "功能请求",
       "improvement": "改进建议",
       "other": "其他"
     },
+    "typeDescription": {
+      "bug": "报告问题或错误",
+      "feature": "建议新功能",
+      "improvement": "提出改进建议",
+      "other": "一般性反馈"
+    },
+    "whatType": "您想提交什么类型的反馈？",
     "feedbackTitle": "标题",
     "feedbackDescription": "描述",
+    "titlePlaceholder": "简要描述您的反馈",
+    "descriptionPlaceholder": {
+      "bug": "请描述问题、复现步骤和任何错误信息...",
+      "feature": "描述您希望看到的功能以及它如何帮助您...",
+      "improvement": "说明可以改进的地方以及原因...",
+      "other": "分享您的想法、建议或问题..."
+    },
+    "yourEmail": "您的邮箱",
+    "optional": "可选",
+    "emailHint": "如果您希望我们与您联系，请提供邮箱。",
+    "attachments": "附件",
+    "maxFiles": "最多 {{count}} 个文件，每个不超过 10MB",
+    "dragDrop": "拖放文件到此处，或点击选择",
+    "dropHere": "放置文件到这里",
+    "allowedFiles": "支持图片、PDF 或文本文件",
+    "requiredFields": "必填项",
     "attachScreenshot": "附加截图",
     "submit": "提交反馈",
-    "thankYou": "感谢您的反馈！",
+    "submitting": "提交中...",
+    "submitAnother": "提交另一条",
+    "thankYou": "谢谢！",
+    "submittedSuccess": "您的反馈已成功提交。",
+    "reference": "参考编号",
+    "githubIssueAlt": "或在 GitHub 提交 Issue 以获得更快的跟踪",
+    "directContact": "直接联系",
+    "reachUs": "您也可以直接联系我们：",
+    "githubIssues": "GitHub Issues",
+    "githubIssueDesc": "如需报告问题或请求功能，您也可以",
+    "openGithubIssue": "在 GitHub 上提交 Issue",
+    "privacy": "您的隐私很重要",
+    "privacyDesc": "我们认真对待您的反馈，并将用它来改进 DeepDive。您的信息绝不会与第三方共享。",
     "status": {
       "pending": "待处理",
       "reviewed": "已审核",

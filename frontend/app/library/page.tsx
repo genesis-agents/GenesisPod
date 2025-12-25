@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import dynamicImport from 'next/dynamic';
 import { config } from '@/lib/utils/config';
 import { Bookmark, FileText, Image, Share2 } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 import Sidebar from '@/components/layout/Sidebar';
 import { Tag, UserStats } from '@/components/library/CollectionNav';
 import ReadStatusBadge from '@/components/library/ReadStatusBadge';
@@ -35,7 +36,7 @@ const KnowledgeGraphView = dynamicImport(
   { ssr: false, loading: () => <GraphLoadingSkeleton /> }
 );
 
-// Graph loading skeleton
+// Graph loading skeleton - Note: Cannot use hooks here since it's outside component
 function GraphLoadingSkeleton() {
   return (
     <div className="flex h-[600px] items-center justify-center rounded-lg border border-gray-200 bg-gradient-to-br from-gray-50 to-gray-100">
@@ -118,6 +119,7 @@ interface BookmarkedImage {
 }
 
 function LibraryPageContent() {
+  const { t } = useTranslation();
   const searchParams = useSearchParams();
   const tabParam = searchParams?.get('tab');
 
@@ -1323,8 +1325,8 @@ function LibraryPageContent() {
                     type="text"
                     placeholder={
                       activeTab === 'notes'
-                        ? 'Search notes...'
-                        : 'Search all resources...'
+                        ? t('library.search.notes')
+                        : t('library.search.resources')
                     }
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -1364,15 +1366,23 @@ function LibraryPageContent() {
                         }}
                         className="cursor-pointer rounded border border-gray-300 bg-white px-3 py-2 text-xs font-medium transition-all focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
-                        <option value="addedAt-desc">Recently Added</option>
-                        <option value="addedAt-asc">Oldest First</option>
-                        <option value="title-asc">Title A-Z</option>
-                        <option value="title-desc">Title Z-A</option>
+                        <option value="addedAt-desc">
+                          {t('library.sort.recentlyAdded')}
+                        </option>
+                        <option value="addedAt-asc">
+                          {t('library.sort.oldestFirst')}
+                        </option>
+                        <option value="title-asc">
+                          {t('library.sort.titleAZ')}
+                        </option>
+                        <option value="title-desc">
+                          {t('library.sort.titleZA')}
+                        </option>
                         <option value="publishedAt-desc">
-                          Latest Published
+                          {t('library.sort.latestPublished')}
                         </option>
                         <option value="publishedAt-asc">
-                          Earliest Published
+                          {t('library.sort.earliestPublished')}
                         </option>
                       </select>
                     )}
@@ -1395,7 +1405,9 @@ function LibraryPageContent() {
                               : 'border border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
                           }`}
                         >
-                          {selectionMode ? 'Cancel' : 'Select'}
+                          {selectionMode
+                            ? t('library.actions.cancel')
+                            : t('library.actions.select')}
                         </button>
                       )}
                     {/* View Graph button - 切换到 Graph Tab */}
@@ -1421,7 +1433,7 @@ function LibraryPageContent() {
                           d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
                         />
                       </svg>
-                      Graph
+                      {t('library.tabs.graph')}
                     </button>
                   </div>
                 </div>
@@ -1439,7 +1451,7 @@ function LibraryPageContent() {
                 }`}
               >
                 <Bookmark className="h-4 w-4" />
-                Bookmarks
+                {t('library.tabs.bookmarks')}
               </button>
               <button
                 onClick={() => setActiveTab('notes')}
@@ -1450,7 +1462,7 @@ function LibraryPageContent() {
                 }`}
               >
                 <FileText className="h-4 w-4" />
-                Notes
+                {t('library.tabs.notes')}
               </button>
               <button
                 onClick={() => setActiveTab('images')}
@@ -1461,7 +1473,7 @@ function LibraryPageContent() {
                 }`}
               >
                 <Image className="h-4 w-4" />
-                Images
+                {t('library.tabs.images')}
               </button>
               <button
                 onClick={() => setActiveTab('notion')}
@@ -1478,7 +1490,7 @@ function LibraryPageContent() {
                 >
                   <path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.981-.7-2.055-.607L3.01 2.295c-.466.046-.56.28-.374.466l1.823 1.447zm.793 3.08v13.904c0 .747.373 1.027 1.214.98l14.523-.84c.841-.046.935-.56.935-1.167V6.354c0-.606-.233-.933-.748-.887l-15.177.887c-.56.047-.747.327-.747.933zm14.337.745c.093.42 0 .84-.42.888l-.7.14v10.264c-.608.327-1.168.514-1.635.514-.748 0-.935-.234-1.495-.933l-4.577-7.186v6.952l1.448.327s0 .84-1.168.84l-3.22.186c-.094-.186 0-.653.327-.746l.84-.233V9.854L7.822 9.62c-.094-.42.14-1.026.793-1.073l3.456-.233 4.763 7.279V9.014l-1.215-.14c-.093-.513.28-.886.747-.933l3.223-.186z" />
                 </svg>
-                Notion
+                {t('library.tabs.notion')}
               </button>
               <button
                 onClick={() => setActiveTab('graph')}
@@ -1489,7 +1501,7 @@ function LibraryPageContent() {
                 }`}
               >
                 <Share2 className="h-4 w-4" />
-                Graph
+                {t('library.tabs.graph')}
               </button>
             </div>
           </div>
@@ -1546,17 +1558,16 @@ function LibraryPageContent() {
                       />
                     </svg>
                     <h3 className="mt-2 text-sm font-medium text-gray-900">
-                      No bookmarks yet
+                      {t('library.empty.noBookmarks')}
                     </h3>
                     <p className="mt-1 text-sm text-gray-500">
-                      Browse resources and click the bookmark button to save
-                      your favorites
+                      {t('library.empty.noBookmarksDesc')}
                     </p>
                     <Link
                       href="/"
                       className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
                     >
-                      <span>Browse Resources</span>
+                      <span>{t('library.empty.browseResources')}</span>
                     </Link>
                   </div>
                 )}
@@ -1575,7 +1586,7 @@ function LibraryPageContent() {
                       }
                       className="text-sm font-medium text-blue-600 hover:text-blue-700"
                     >
-                      Select all on this page
+                      {t('library.actions.selectAll')}
                     </button>
                   </div>
                 )}

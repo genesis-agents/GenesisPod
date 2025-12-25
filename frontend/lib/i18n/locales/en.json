@@ -49,6 +49,7 @@
     "aiAsk": "Ask AI",
     "aiCoding": "AI Coding",
     "aiStore": "AI Store",
+    "aiSimulation": "AI Simulation",
     "labs": "Labs",
     "admin": "Admin",
     "profile": "Profile",
@@ -88,7 +89,49 @@
       "books": "Books",
       "podcasts": "Podcasts",
       "courses": "Courses"
-    }
+    },
+    "tabs": {
+      "bookmarks": "Bookmarks",
+      "notes": "Notes",
+      "images": "Images",
+      "graph": "Graph",
+      "notion": "Notion"
+    },
+    "search": {
+      "resources": "Search all resources...",
+      "notes": "Search notes..."
+    },
+    "sort": {
+      "recentlyAdded": "Recently Added",
+      "oldestFirst": "Oldest First",
+      "titleAZ": "Title A-Z",
+      "titleZA": "Title Z-A",
+      "latestPublished": "Latest Published",
+      "earliestPublished": "Earliest Published"
+    },
+    "actions": {
+      "select": "Select",
+      "cancel": "Cancel",
+      "selectAll": "Select all on this page",
+      "clearSearch": "Clear search",
+      "viewGraph": "View Knowledge Graph"
+    },
+    "empty": {
+      "noBookmarks": "No bookmarks yet",
+      "noBookmarksDesc": "Browse resources and click the bookmark button to save your favorites",
+      "browseResources": "Browse Resources",
+      "noImages": "No bookmarked images yet",
+      "noImagesDesc": "Generate images in AI Image and bookmark your favorites to see them here"
+    },
+    "selection": {
+      "selected": "{{count}} of {{total}} selected"
+    },
+    "categories": {
+      "videos": "Videos",
+      "documents": "Documents",
+      "other": "Other Resources"
+    },
+    "loadingGraph": "Loading knowledge graph..."
   },
   "explore": {
     "title": "Explore",
@@ -146,17 +189,23 @@
       "title": "Email Settings",
       "description": "Configure email notifications for feedback and alerts",
       "enabled": "Enable Email",
+      "enabledDescription": "Send email notifications for feedback and system alerts",
+      "disabledWarning": "Email notifications are disabled. Enable them to receive feedback alerts.",
       "provider": "Email Provider",
       "adminEmail": "Admin Email",
+      "adminEmailHint": "Feedback notifications will be sent to this email",
       "fromAddress": "From Address",
       "testEmail": "Send Test Email",
       "saveSettings": "Save Email Settings",
+      "reinitialize": "Reinitialize",
       "smtpConfig": "SMTP Configuration",
       "smtpHost": "SMTP Host",
       "smtpPort": "Port",
       "smtpUser": "Username / Email",
       "smtpPassword": "Password / App Password",
+      "smtpPasswordHint": "For Gmail, use an App Password",
       "resendApiKey": "Resend API Key",
+      "resendHint": "Get your API key from resend.com",
       "configured": "Configured",
       "notConfigured": "Not Configured"
     }
@@ -178,17 +227,54 @@
   "feedback": {
     "title": "Feedback",
     "sendFeedback": "Send Feedback",
+    "helpImprove": "Help us improve DeepDive",
+    "myFeedback": "My Feedback",
     "feedbackType": {
       "bug": "Bug Report",
       "feature": "Feature Request",
       "improvement": "Improvement",
       "other": "Other"
     },
+    "typeDescription": {
+      "bug": "Report a bug or issue",
+      "feature": "Suggest a new feature",
+      "improvement": "Suggest an improvement",
+      "other": "General feedback"
+    },
+    "whatType": "What type of feedback do you have?",
     "feedbackTitle": "Title",
     "feedbackDescription": "Description",
+    "titlePlaceholder": "Brief summary of your feedback",
+    "descriptionPlaceholder": {
+      "bug": "Please describe the issue, steps to reproduce, and any error messages...",
+      "feature": "Describe the feature you'd like to see and how it would help you...",
+      "improvement": "Explain what could be improved and why...",
+      "other": "Share your thoughts, suggestions, or questions..."
+    },
+    "yourEmail": "Your Email",
+    "optional": "Optional",
+    "emailHint": "Provide your email if you'd like us to follow up with you.",
+    "attachments": "Attachments",
+    "maxFiles": "max {{count}} files, 10MB each",
+    "dragDrop": "Drag and drop files here, or click to select",
+    "dropHere": "Drop files here",
+    "allowedFiles": "Images, PDF, or text files",
+    "requiredFields": "Required fields",
     "attachScreenshot": "Attach Screenshot",
     "submit": "Submit Feedback",
-    "thankYou": "Thank you for your feedback!",
+    "submitting": "Submitting...",
+    "submitAnother": "Submit Another",
+    "thankYou": "Thank you!",
+    "submittedSuccess": "Your feedback has been submitted successfully.",
+    "reference": "Reference",
+    "githubIssueAlt": "Or open a GitHub Issue for faster tracking",
+    "directContact": "Direct Contact",
+    "reachUs": "You can also reach us directly at",
+    "githubIssues": "GitHub Issues",
+    "githubIssueDesc": "For bug reports and feature requests, you can also",
+    "openGithubIssue": "open an issue on GitHub",
+    "privacy": "Your privacy matters",
+    "privacyDesc": "We take your feedback seriously and will use it to improve DeepDive. Your information will never be shared with third parties.",
     "status": {
       "pending": "Pending",
       "reviewed": "Reviewed",

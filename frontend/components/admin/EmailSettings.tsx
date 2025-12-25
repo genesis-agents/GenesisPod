@@ -12,6 +12,7 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 
 interface EmailConfig {
   provider: 'smtp' | 'resend';
@@ -26,6 +27,7 @@ interface EmailConfig {
 }
 
 export default function EmailSettings() {
+  const { t } = useTranslation();
   const [config, setConfig] = useState<EmailConfig>({
     provider: 'smtp',
     enabled: false,
@@ -181,9 +183,11 @@ export default function EmailSettings() {
           <Mail className="h-5 w-5 text-pink-600" />
         </div>
         <div>
-          <h3 className="font-semibold text-gray-900">Email Settings</h3>
+          <h3 className="font-semibold text-gray-900">
+            {t('admin.email.title')}
+          </h3>
           <p className="text-sm text-gray-500">
-            Configure email notifications for feedback and alerts
+            {t('admin.email.description')}
           </p>
         </div>
       </div>
@@ -193,8 +197,7 @@ export default function EmailSettings() {
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
           <AlertCircle className="h-5 w-5 text-amber-600" />
           <span className="text-sm text-amber-800">
-            Email notifications are disabled. Enable them to receive feedback
-            alerts.
+            {t('admin.email.disabledWarning')}
           </span>
         </div>
       )}
@@ -203,9 +206,11 @@ export default function EmailSettings() {
         {/* Enable/Disable */}
         <div className="flex items-center justify-between">
           <div>
-            <label className="font-medium text-gray-700">Enable Email</label>
+            <label className="font-medium text-gray-700">
+              {t('admin.email.enabled')}
+            </label>
             <p className="text-sm text-gray-500">
-              Send email notifications for feedback and system alerts
+              {t('admin.email.enabledDescription')}
             </p>
           </div>
           <button
@@ -225,7 +230,7 @@ export default function EmailSettings() {
         {/* Provider Selection */}
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Email Provider
+            {t('admin.email.provider')}
           </label>
           <select
             value={config.provider}
@@ -245,7 +250,7 @@ export default function EmailSettings() {
         {/* Admin Email */}
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Admin Email
+            {t('admin.email.adminEmail')}
           </label>
           <input
             type="email"
@@ -257,14 +262,14 @@ export default function EmailSettings() {
             className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-pink-500 focus:outline-none focus:ring-1 focus:ring-pink-500"
           />
           <p className="mt-1 text-xs text-gray-500">
-            Feedback notifications will be sent to this email
+            {t('admin.email.adminEmailHint')}
           </p>
         </div>
 
         {/* From Address */}
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            From Address
+            {t('admin.email.fromAddress')}
           </label>
           <input
             type="text"
@@ -278,12 +283,14 @@ export default function EmailSettings() {
         {/* SMTP Settings */}
         {config.provider === 'smtp' && (
           <div className="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
-            <h4 className="font-medium text-gray-700">SMTP Configuration</h4>
+            <h4 className="font-medium text-gray-700">
+              {t('admin.email.smtpConfig')}
+            </h4>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  SMTP Host
+                  {t('admin.email.smtpHost')}
                 </label>
                 <input
                   type="text"
@@ -297,7 +304,7 @@ export default function EmailSettings() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Port
+                  {t('admin.email.smtpPort')}
                 </label>
                 <input
                   type="number"
@@ -316,7 +323,7 @@ export default function EmailSettings() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Username / Email
+                {t('admin.email.smtpUser')}
               </label>
               <input
                 type="text"
@@ -330,12 +337,12 @@ export default function EmailSettings() {
             <div>
               <div className="flex items-center justify-between">
                 <label className="block text-sm font-medium text-gray-700">
-                  Password / App Password
+                  {t('admin.email.smtpPassword')}
                 </label>
                 {config.hasPassword && (
                   <span className="flex items-center gap-1 text-xs text-green-600">
                     <CheckCircle className="h-3 w-3" />
-                    Configured
+                    {t('admin.email.configured')}
                   </span>
                 )}
               </div>
@@ -362,7 +369,7 @@ export default function EmailSettings() {
                 </button>
               </div>
               <p className="mt-1 text-xs text-gray-500">
-                For Gmail, use an{' '}
+                {t('admin.email.smtpPasswordHint')}{' '}
                 <a
                   href="https://myaccount.google.com/apppasswords"
                   target="_blank"
@@ -382,10 +389,10 @@ export default function EmailSettings() {
             <div className="flex items-center justify-between">
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Resend API Key
+                  {t('admin.email.resendApiKey')}
                 </label>
                 <p className="text-xs text-gray-500">
-                  Get your API key from{' '}
+                  {t('admin.email.resendHint')}{' '}
                   <a
                     href="https://resend.com"
                     target="_blank"
@@ -399,7 +406,7 @@ export default function EmailSettings() {
               {config.hasResendKey && (
                 <span className="flex items-center gap-1 text-xs text-green-600">
                   <CheckCircle className="h-3 w-3" />
-                  Configured
+                  {t('admin.email.configured')}
                 </span>
               )}
             </div>
@@ -452,13 +459,13 @@ export default function EmailSettings() {
               ) : (
                 <Send className="h-4 w-4" />
               )}
-              Send Test Email
+              {t('admin.email.testEmail')}
             </button>
             <button
               onClick={handleReinitialize}
               className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
             >
-              Reinitialize
+              {t('admin.email.reinitialize')}
             </button>
           </div>
           <button
@@ -471,7 +478,7 @@ export default function EmailSettings() {
             ) : (
               <Save className="h-4 w-4" />
             )}
-            Save Email Settings
+            {t('admin.email.saveSettings')}
           </button>
         </div>
       </div>
