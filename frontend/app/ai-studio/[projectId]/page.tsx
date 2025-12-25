@@ -2,10 +2,10 @@
 
 /**
  * AI Studio - 研究项目详情页
- * Tab导航架构：Fast Research | Deep Research | Outputs
+ * Tab导航架构：Fast Research | Deep Research | Artifacts
  * - Fast Research: Sources管理 + AI对话
  * - Deep Research: 多轮迭代深度研究
- * - Outputs: 生成的文档和笔记
+ * - Artifacts: AI生成的知识产物（文档、笔记等）
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -56,7 +56,7 @@ import {
   GraduationCap,
   MessageSquare,
   FolderOpen,
-  FileOutput,
+  Shapes,
   Zap,
 } from 'lucide-react';
 import { FileUploader } from '@/components/ai-studio/FileUploader';
@@ -1806,8 +1806,8 @@ function StudioPanel({
   );
 }
 
-// ==================== Outputs Full View (Tab) ====================
-function OutputsFullView({
+// ==================== Artifacts View (Tab) ====================
+function ArtifactsView({
   outputs,
   notes,
   selectedSourceIds,
@@ -1828,8 +1828,8 @@ function OutputsFullView({
   onDeleteNote: (id: string) => void;
   projectId: string;
 }) {
-  const [activeSection, setActiveSection] = useState<'outputs' | 'notes'>(
-    'outputs'
+  const [activeSection, setActiveSection] = useState<'create' | 'notes'>(
+    'create'
   );
   const [viewingOutput, setViewingOutput] = useState<Output | null>(null);
   const [showNewNote, setShowNewNote] = useState(false);
@@ -1913,9 +1913,9 @@ function OutputsFullView({
         <div className="mx-auto max-w-6xl">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">Studio</h2>
+              <h2 className="text-xl font-bold text-gray-900">Artifacts</h2>
               <p className="mt-1 text-sm text-gray-500">
-                Generate outputs and manage notes
+                Transform your research into knowledge products
               </p>
             </div>
             {selectedSourceIds.length > 0 && (
@@ -1929,14 +1929,14 @@ function OutputsFullView({
           {/* Section Tabs */}
           <div className="mt-4 flex gap-4">
             <button
-              onClick={() => setActiveSection('outputs')}
+              onClick={() => setActiveSection('create')}
               className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                activeSection === 'outputs'
+                activeSection === 'create'
                   ? 'bg-purple-100 text-purple-700'
                   : 'text-gray-500 hover:bg-gray-100'
               }`}
             >
-              Generate Outputs
+              Create
             </button>
             <button
               onClick={() => setActiveSection('notes')}
@@ -1955,11 +1955,11 @@ function OutputsFullView({
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
         <div className="mx-auto max-w-6xl">
-          {activeSection === 'outputs' ? (
+          {activeSection === 'create' ? (
             <div>
-              {/* Output Types Grid */}
+              {/* Artifact Types Grid */}
               <h3 className="mb-4 text-sm font-medium text-gray-500">
-                Generate New Output
+                Create New Artifact
               </h3>
               <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
                 {outputTypes.map(({ type, icon: Icon, label, desc }) => (
@@ -1982,11 +1982,11 @@ function OutputsFullView({
                 ))}
               </div>
 
-              {/* Generated Outputs */}
+              {/* Your Artifacts */}
               {outputs.length > 0 && (
                 <div>
                   <h3 className="mb-4 text-sm font-medium text-gray-500">
-                    Generated Outputs
+                    Your Artifacts
                   </h3>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {outputs.map((output) => (
@@ -2193,9 +2193,9 @@ export default function ProjectDetailPage() {
   const [sourcesCollapsed, setSourcesCollapsed] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>('');
-  // Tab导航: fast-research | deep-research | outputs
+  // Tab导航: fast-research | deep-research | artifacts
   const [activeTab, setActiveTab] = useState<
-    'fast-research' | 'deep-research' | 'outputs'
+    'fast-research' | 'deep-research' | 'artifacts'
   >('fast-research');
 
   // Scroll to source callback for citation system
@@ -2648,7 +2648,7 @@ export default function ProjectDetailPage() {
 
   // Tab configuration
   const tabs: Array<{
-    id: 'fast-research' | 'deep-research' | 'outputs';
+    id: 'fast-research' | 'deep-research' | 'artifacts';
     label: string;
     icon: typeof MessageSquare;
     count?: number;
@@ -2665,9 +2665,9 @@ export default function ProjectDetailPage() {
       icon: Microscope,
     },
     {
-      id: 'outputs',
-      label: 'Outputs',
-      icon: FileOutput,
+      id: 'artifacts',
+      label: 'Artifacts',
+      icon: Shapes,
       count: project.outputs.length,
     },
   ];
@@ -2793,9 +2793,9 @@ export default function ProjectDetailPage() {
             />
           )}
 
-          {/* Outputs Tab - Full Width */}
-          {activeTab === 'outputs' && (
-            <OutputsFullView
+          {/* Artifacts Tab - Full Width */}
+          {activeTab === 'artifacts' && (
+            <ArtifactsView
               outputs={project.outputs}
               notes={project.notes}
               selectedSourceIds={selectedSourceIds}
