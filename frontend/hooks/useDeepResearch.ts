@@ -392,7 +392,7 @@ export function useDeepResearch(
 
       try {
         // 使用 POST 创建 SSE 连接
-        const url = `/api/v1/ai-studio/projects/${projectId}/deep-research/stream`;
+        const url = `/ai-studio/projects/${projectId}/deep-research/stream`;
         const body = {
           query,
           options: researchOptions,
