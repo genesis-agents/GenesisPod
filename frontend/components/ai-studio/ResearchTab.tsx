@@ -714,16 +714,19 @@ function CompletedReportView({
   copiedSection: string | null;
   onCopySection: (content: string, section: string) => void;
 }) {
-  const [expandedRefs, setExpandedRefs] = useState(false);
+  const [expandedRefs, setExpandedRefs] = useState(true); // Default expanded for better UX
   const [highlightedRef, setHighlightedRef] = useState<number | null>(null);
+  const [highlightedQuote, setHighlightedQuote] = useState<string | null>(null);
 
-  // Handle citation click - scroll to reference
+  // Handle citation click - scroll to reference and highlight quote
   const handleCitationClick = useCallback(
-    (refId: number) => {
+    (refId: number, surroundingContext?: string) => {
       // Expand references if collapsed
       if (!expandedRefs) {
         setExpandedRefs(true);
       }
+      // Set highlighted quote for the reference
+      setHighlightedQuote(surroundingContext || null);
       // Wait for animation then scroll
       setTimeout(
         () => {
@@ -732,7 +735,10 @@ function CompletedReportView({
             refElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
             // Highlight the reference
             setHighlightedRef(refId);
-            setTimeout(() => setHighlightedRef(null), 2000);
+            setTimeout(() => {
+              setHighlightedRef(null);
+              setHighlightedQuote(null);
+            }, 5000);
           }
         },
         expandedRefs ? 0 : 300
@@ -773,9 +779,13 @@ function CompletedReportView({
             onCopy={onCopySection}
           />
         </div>
-        <p className="leading-relaxed text-gray-700">
-          {report.executiveSummary}
-        </p>
+        <div className="prose prose-purple max-w-none leading-relaxed text-gray-700">
+          {formatContentWithCitations(
+            report.executiveSummary,
+            [], // Summary typically doesn't have citations
+            handleCitationClick
+          )}
+        </div>
       </section>
 
       {/* Main Sections */}
@@ -814,10 +824,16 @@ function CompletedReportView({
             onCopy={onCopySection}
           />
         </div>
-        <p className="leading-relaxed text-gray-700">{report.conclusion}</p>
+        <div className="prose prose-purple max-w-none leading-relaxed text-gray-700">
+          {formatContentWithCitations(
+            report.conclusion,
+            [],
+            handleCitationClick
+          )}
+        </div>
       </section>
 
-      {/* References */}
+      {/* References - NotebookLM style with expandable content */}
       <section className="rounded-xl bg-gray-50 p-6">
         <button
           onClick={() => setExpandedRefs(!expandedRefs)}
@@ -841,40 +857,109 @@ function CompletedReportView({
               exit={{ height: 0, opacity: 0 }}
               className="mt-4 space-y-2 overflow-hidden"
             >
-              {report.references.map((ref) => (
-                <div
-                  key={ref.id}
-                  id={`ref-${ref.id}`}
-                  className={`flex items-start gap-3 rounded-lg border p-3 transition-all duration-300 ${
-                    highlightedRef === ref.id
-                      ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-300'
-                      : 'bg-white'
-                  }`}
-                >
-                  <span className="flex-shrink-0 rounded bg-purple-100 px-2 py-0.5 text-xs font-bold text-purple-700">
-                    [{ref.id}]
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <a
-                      href={ref.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="line-clamp-1 flex items-center gap-1 text-sm font-medium text-blue-600 hover:underline"
-                    >
-                      {ref.title}
-                      <ExternalLink className="h-3 w-3 flex-shrink-0" />
-                    </a>
-                    <p className="mt-1 line-clamp-2 text-xs text-gray-500">
-                      {ref.snippet}
-                    </p>
+              {report.references.map((ref) => {
+                const isHighlighted = highlightedRef === ref.id;
+                return (
+                  <div
+                    key={ref.id}
+                    id={`ref-${ref.id}`}
+                    className={`rounded-lg border transition-all duration-300 ${
+                      isHighlighted
+                        ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-300 ring-offset-2'
+                        : 'bg-white'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3 p-3">
+                      <span className="flex-shrink-0 rounded bg-purple-600 px-2 py-0.5 text-xs font-bold text-white">
+                        [{ref.id}]
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <a
+                          href={ref.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:underline"
+                        >
+                          <span className="line-clamp-1">{ref.title}</span>
+                          <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                        </a>
+                        {/* Show snippet with quote highlighting */}
+                        {ref.snippet && (
+                          <div className="mt-2 text-xs leading-relaxed text-gray-600">
+                            {isHighlighted && highlightedQuote ? (
+                              <HighlightedSnippet
+                                snippet={ref.snippet}
+                                quote={highlightedQuote}
+                              />
+                            ) : (
+                              <p className="line-clamp-3">{ref.snippet}</p>
+                            )}
+                          </div>
+                        )}
+                        {/* Show full content when highlighted */}
+                        {isHighlighted && ref.snippet && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            className="mt-2 border-t border-purple-200 pt-2"
+                          >
+                            <p className="text-xs italic text-purple-600">
+                              点击引用跳转到此来源
+                            </p>
+                          </motion.div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </motion.div>
           )}
         </AnimatePresence>
       </section>
     </div>
+  );
+}
+
+// Highlight matching quote in snippet
+function HighlightedSnippet({
+  snippet,
+  quote,
+}: {
+  snippet: string;
+  quote: string;
+}) {
+  // Clean quote for matching
+  const cleanQuote = quote
+    .replace(/\[[\d,\s]+\]/g, '')
+    .replace(/\[资料\s*[\d,、\s]+\]/g, '')
+    .replace(/CITE_GROUP_\d+(?:_\d+)*/g, '')
+    .trim()
+    .slice(0, 50); // Use first 50 chars for matching
+
+  const lowerSnippet = snippet.toLowerCase();
+  const lowerQuote = cleanQuote.toLowerCase();
+  const matchIndex = lowerSnippet.indexOf(lowerQuote);
+
+  if (matchIndex === -1 || cleanQuote.length < 10) {
+    // No match found, show full snippet with yellow background
+    return (
+      <p className="animate-pulse rounded bg-yellow-100 px-1">{snippet}</p>
+    );
+  }
+
+  const before = snippet.slice(0, matchIndex);
+  const highlighted = snippet.slice(matchIndex, matchIndex + cleanQuote.length);
+  const after = snippet.slice(matchIndex + cleanQuote.length);
+
+  return (
+    <p>
+      {before}
+      <span className="animate-pulse rounded bg-yellow-200 px-0.5 font-medium text-gray-900">
+        {highlighted}
+      </span>
+      {after}
+    </p>
   );
 }
 
@@ -942,30 +1027,90 @@ function getSectionTitle(section: string): string {
   return titles[section] || section;
 }
 
+/**
+ * Format content with clickable citations
+ * Supports multiple formats:
+ * - [1], [1, 2] - standard citation format
+ * - [资料 1], [资料 1, 2] - Chinese reference format
+ * - CITE_GROUP_1_2 - AI output format
+ */
 function formatContentWithCitations(
   content: string,
   citations: number[],
-  onCitationClick?: (refId: number) => void
+  onCitationClick?: (refId: number, surroundingContext?: string) => void
 ): React.ReactNode {
-  const parts = content.split(/(\[\d+\])/g);
-  return parts.map((part, index) => {
-    if (/^\[\d+\]$/.test(part)) {
-      const num = parseInt(part.slice(1, -1));
-      if (citations.includes(num)) {
-        return (
+  // Match all citation formats
+  const pattern =
+    /(\[(\d+(?:\s*,\s*\d+)*)\]|\[资料\s*(\d+(?:\s*[,、]\s*\d+)*)\]|CITE_GROUP_(\d+(?:_\d+)*))/g;
+
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(content)) !== null) {
+    // Add text before match
+    if (match.index > lastIndex) {
+      parts.push(content.slice(lastIndex, match.index));
+    }
+
+    // Parse indices based on format
+    let indices: number[];
+    if (match[2]) {
+      // Standard [1] or [1, 2] format
+      indices = match[2].split(/\s*,\s*/).map((s) => parseInt(s, 10));
+    } else if (match[3]) {
+      // Chinese [资料 1] format
+      indices = match[3].split(/\s*[,、]\s*/).map((s) => parseInt(s, 10));
+    } else if (match[4]) {
+      // CITE_GROUP_1_2 format
+      indices = match[4].split('_').map((s) => parseInt(s, 10));
+    } else {
+      parts.push(match[0]);
+      lastIndex = match.index + match[0].length;
+      continue;
+    }
+
+    // Extract surrounding context for quote-based highlighting
+    const contextStart = Math.max(0, match.index - 80);
+    const contextEnd = Math.min(
+      content.length,
+      match.index + match[0].length + 80
+    );
+    let surroundingContext = content.slice(contextStart, contextEnd);
+    // Clean citation markers from context
+    surroundingContext = surroundingContext
+      .replace(/\[[\d,\s]+\]/g, '')
+      .replace(/\[资料\s*[\d,、\s]+\]/g, '')
+      .replace(/CITE_GROUP_\d+(?:_\d+)*/g, '')
+      .trim();
+
+    // Create citation links for each index
+    indices.forEach((num, i) => {
+      // Only show citations that are in the valid citation list, or show all if list is empty
+      const shouldShow = citations.length === 0 || citations.includes(num);
+      if (shouldShow) {
+        parts.push(
           <sup
-            key={index}
-            onClick={() => onCitationClick?.(num)}
-            className="cursor-pointer rounded px-0.5 font-medium text-purple-600 hover:bg-purple-100 hover:text-purple-800"
+            key={`${match!.index}-${num}`}
+            onClick={() => onCitationClick?.(num, surroundingContext)}
+            className="mx-0.5 cursor-pointer rounded px-0.5 font-medium text-purple-600 transition-all hover:bg-purple-100 hover:text-purple-800"
             title={`跳转到引用 [${num}]`}
           >
-            {part}
+            [{num}]
           </sup>
         );
       }
-    }
-    return part;
-  });
+    });
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Add remaining text
+  if (lastIndex < content.length) {
+    parts.push(content.slice(lastIndex));
+  }
+
+  return parts.length === 0 ? content : parts;
 }
 
 function formatTimeAgo(dateString: string): string {
