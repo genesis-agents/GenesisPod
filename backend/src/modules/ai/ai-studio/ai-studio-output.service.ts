@@ -839,6 +839,43 @@ Based on the above sources, generate the requested output following the exact JS
   }
 
   /**
+   * Update output properties (e.g., rename) - user-facing API
+   */
+  async updateOutputProperties(
+    userId: string,
+    projectId: string,
+    outputId: string,
+    updates: { title?: string },
+  ) {
+    const project = await this.prisma.researchProject.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project) {
+      throw new NotFoundException("Project not found");
+    }
+
+    if (project.userId !== userId) {
+      throw new ForbiddenException("Access denied");
+    }
+
+    const output = await this.prisma.researchProjectOutput.findUnique({
+      where: { id: outputId },
+    });
+
+    if (!output || output.projectId !== projectId) {
+      throw new NotFoundException("Output not found");
+    }
+
+    return this.prisma.researchProjectOutput.update({
+      where: { id: outputId },
+      data: {
+        ...(updates.title && { title: updates.title }),
+      },
+    });
+  }
+
+  /**
    * Regenerate an output
    */
   async regenerateOutput(userId: string, projectId: string, outputId: string) {

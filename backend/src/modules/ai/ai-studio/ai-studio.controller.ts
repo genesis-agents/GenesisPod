@@ -508,6 +508,28 @@ export class AiStudioController {
   }
 
   /**
+   * Update an output (e.g., rename)
+   */
+  @Patch("projects/:projectId/outputs/:outputId")
+  async updateOutput(
+    @Request() req: any,
+    @Param("projectId") projectId: string,
+    @Param("outputId") outputId: string,
+    @Body() body: { title?: string },
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.outputService.updateOutputProperties(
+      userId,
+      projectId,
+      outputId,
+      body,
+    );
+  }
+
+  /**
    * Regenerate an output
    */
   @Post("projects/:projectId/outputs/:outputId/regenerate")

@@ -58,6 +58,8 @@ import {
   FolderOpen,
   Shapes,
   Zap,
+  Pencil,
+  Check,
 } from 'lucide-react';
 import { FileUploader } from '@/components/ai-studio/FileUploader';
 import { OutputViewer } from '@/components/ai-studio/outputs/OutputViewer';
@@ -309,6 +311,37 @@ async function fetchOutput(
     { headers: getAuthHeaders() }
   );
   if (!res.ok) throw new Error('Failed to fetch output');
+  return res.json();
+}
+
+async function deleteOutput(
+  projectId: string,
+  outputId: string
+): Promise<void> {
+  const res = await fetch(
+    `${API_BASE}/api/v1/ai-studio/projects/${projectId}/outputs/${outputId}`,
+    {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    }
+  );
+  if (!res.ok) throw new Error('Failed to delete output');
+}
+
+async function updateOutput(
+  projectId: string,
+  outputId: string,
+  updates: Partial<Output>
+): Promise<Output> {
+  const res = await fetch(
+    `${API_BASE}/api/v1/ai-studio/projects/${projectId}/outputs/${outputId}`,
+    {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(updates),
+    }
+  );
+  if (!res.ok) throw new Error('Failed to update output');
   return res.json();
 }
 
@@ -1831,6 +1864,8 @@ function ArtifactsSidebar({
   selectedSourceIds,
   onGenerateOutput,
   onRegenerateOutput,
+  onDeleteOutput,
+  onUpdateOutput,
   onCreateNote,
   onUpdateNote,
   onDeleteNote,
@@ -1843,6 +1878,8 @@ function ArtifactsSidebar({
   selectedSourceIds: string[];
   onGenerateOutput: (type: string) => void;
   onRegenerateOutput: (outputId: string) => void;
+  onDeleteOutput: (outputId: string) => void;
+  onUpdateOutput: (outputId: string, updates: Partial<Output>) => void;
   onCreateNote: (note: Partial<Note>) => void;
   onUpdateNote: (id: string, updates: Partial<Note>) => void;
   onDeleteNote: (id: string) => void;
@@ -1859,6 +1896,8 @@ function ArtifactsSidebar({
   const [width, setWidth] = useState(320);
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const [editingOutputId, setEditingOutputId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
 
   // Handle resize drag
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -2129,29 +2168,116 @@ function ArtifactsSidebar({
                     {outputs.map((output) => (
                       <div
                         key={output.id}
-                        onClick={() =>
+                        className={`group rounded-lg border border-gray-200 bg-white p-3 ${
                           output.status === 'COMPLETED' &&
-                          setViewingOutput(output)
-                        }
-                        className={`rounded-lg border border-gray-200 bg-white p-3 ${
-                          output.status === 'COMPLETED'
+                          editingOutputId !== output.id
                             ? 'cursor-pointer hover:border-purple-300 hover:shadow-sm'
                             : ''
                         } transition-all`}
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="line-clamp-1 text-sm font-medium text-gray-900">
-                            {output.title}
-                          </span>
-                          {output.status === 'GENERATING' ? (
-                            <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-purple-600" />
-                          ) : output.status === 'COMPLETED' ? (
-                            <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-green-500" />
-                          ) : output.status === 'FAILED' ? (
-                            <AlertCircle className="h-4 w-4 flex-shrink-0 text-red-500" />
+                        <div className="flex items-center justify-between gap-2">
+                          {/* Title - Editable */}
+                          {editingOutputId === output.id ? (
+                            <div className="flex flex-1 items-center gap-1">
+                              <input
+                                type="text"
+                                value={editingTitle}
+                                onChange={(e) =>
+                                  setEditingTitle(e.target.value)
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    onUpdateOutput(output.id, {
+                                      title: editingTitle,
+                                    });
+                                    setEditingOutputId(null);
+                                  } else if (e.key === 'Escape') {
+                                    setEditingOutputId(null);
+                                  }
+                                }}
+                                className="flex-1 rounded border border-purple-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                autoFocus
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onUpdateOutput(output.id, {
+                                    title: editingTitle,
+                                  });
+                                  setEditingOutputId(null);
+                                }}
+                                className="rounded p-1 text-green-600 hover:bg-green-100"
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingOutputId(null);
+                                }}
+                                className="rounded p-1 text-gray-400 hover:bg-gray-100"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           ) : (
-                            <Circle className="h-4 w-4 flex-shrink-0 text-gray-300" />
+                            <span
+                              className="line-clamp-1 flex-1 text-sm font-medium text-gray-900"
+                              onClick={() =>
+                                output.status === 'COMPLETED' &&
+                                setViewingOutput(output)
+                              }
+                            >
+                              {output.title}
+                            </span>
                           )}
+
+                          {/* Status Icon & Actions */}
+                          <div className="flex flex-shrink-0 items-center gap-1">
+                            {/* Edit/Delete buttons - show on hover */}
+                            {editingOutputId !== output.id && (
+                              <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingOutputId(output.id);
+                                    setEditingTitle(output.title);
+                                  }}
+                                  className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                                  title="Rename"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (
+                                      confirm(
+                                        'Are you sure you want to delete this artifact?'
+                                      )
+                                    ) {
+                                      onDeleteOutput(output.id);
+                                    }
+                                  }}
+                                  className="rounded p-1 text-gray-400 hover:bg-red-100 hover:text-red-500"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            )}
+                            {/* Status Icon */}
+                            {output.status === 'GENERATING' ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
+                            ) : output.status === 'COMPLETED' ? (
+                              <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            ) : output.status === 'FAILED' ? (
+                              <AlertCircle className="h-4 w-4 text-red-500" />
+                            ) : (
+                              <Circle className="h-4 w-4 text-gray-300" />
+                            )}
+                          </div>
                         </div>
                         {output.status === 'FAILED' && (
                           <button
@@ -3124,6 +3250,47 @@ export default function ProjectDetailPage() {
     }
   };
 
+  // Delete output
+  const handleDeleteOutput = async (outputId: string) => {
+    if (!project) return;
+    try {
+      await deleteOutput(projectId, outputId);
+      setProject((prev) =>
+        prev
+          ? {
+              ...prev,
+              outputs: prev.outputs.filter((o) => o.id !== outputId),
+            }
+          : null
+      );
+    } catch (err) {
+      console.error('Failed to delete output:', err);
+    }
+  };
+
+  // Update output (for renaming)
+  const handleUpdateOutput = async (
+    outputId: string,
+    updates: Partial<Output>
+  ) => {
+    if (!project) return;
+    try {
+      const updated = await updateOutput(projectId, outputId, updates);
+      setProject((prev) =>
+        prev
+          ? {
+              ...prev,
+              outputs: prev.outputs.map((o) =>
+                o.id === outputId ? { ...o, ...updated } : o
+              ),
+            }
+          : null
+      );
+    } catch (err) {
+      console.error('Failed to update output:', err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -3284,6 +3451,8 @@ export default function ProjectDetailPage() {
                 selectedSourceIds={selectedSourceIds}
                 onGenerateOutput={handleGenerateOutput}
                 onRegenerateOutput={handleRegenerateOutput}
+                onDeleteOutput={handleDeleteOutput}
+                onUpdateOutput={handleUpdateOutput}
                 onCreateNote={handleCreateNote}
                 onUpdateNote={handleUpdateNote}
                 onDeleteNote={handleDeleteNote}
@@ -3314,6 +3483,8 @@ export default function ProjectDetailPage() {
                 selectedSourceIds={selectedSourceIds}
                 onGenerateOutput={handleGenerateOutput}
                 onRegenerateOutput={handleRegenerateOutput}
+                onDeleteOutput={handleDeleteOutput}
+                onUpdateOutput={handleUpdateOutput}
                 onCreateNote={handleCreateNote}
                 onUpdateNote={handleUpdateNote}
                 onDeleteNote={handleDeleteNote}
