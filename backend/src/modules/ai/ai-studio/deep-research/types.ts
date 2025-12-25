@@ -186,6 +186,13 @@ export type DeepResearchSSEEvent =
 
 // ==================== 请求/响应相关 ====================
 
+export interface PreviousReportContext {
+  executiveSummary: string;
+  sections: { title: string; content: string }[];
+  conclusion: string;
+  references: { title: string; url: string }[];
+}
+
 export interface StartDeepResearchDto {
   query: string;
   options?: {
@@ -194,6 +201,9 @@ export interface StartDeepResearchDto {
     language?: string; // 报告语言
     depth?: "quick" | "standard" | "thorough"; // 研究深度
   };
+  // 追问模式：在现有报告基础上继续研究
+  isFollowUp?: boolean;
+  previousContext?: PreviousReportContext;
 }
 
 export interface DeepResearchSessionResponse {

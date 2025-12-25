@@ -174,8 +174,10 @@ export function ResearchTab({
   }, []);
 
   const handleFollowUp = useCallback(async () => {
-    if (!followUpQuery.trim() || !viewingSession) return;
-    // Start new research with follow-up context
+    if (!followUpQuery.trim() || !viewingSession || !viewingSession.report)
+      return;
+    // Start follow-up research with previous report context
+    // This allows the AI to build upon the existing analysis
     setQuery(followUpQuery);
     setFollowUpQuery('');
     setView('researching');
@@ -183,6 +185,9 @@ export function ResearchTab({
       depth: 'standard',
       includeAcademic: true,
       language: 'zh-CN',
+      // 传入之前的报告作为上下文，实现追问追加
+      isFollowUp: true,
+      previousReport: viewingSession.report,
     });
   }, [followUpQuery, viewingSession, startResearch]);
 

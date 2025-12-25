@@ -84,24 +84,33 @@ export class DeepResearchAgentService {
 
     try {
       // ========== 阶段 1: 规划 ==========
+      const isFollowUp = dto.isFollowUp ?? false;
+      const previousContext = dto.previousContext;
+
       this.emitThinking(
         subject,
         thinkingChain,
         "analyzing_query",
-        `正在分析研究主题: "${dto.query.slice(0, 50)}..."`,
+        isFollowUp
+          ? `正在分析追问内容: "${dto.query.slice(0, 50)}..."`
+          : `正在分析研究主题: "${dto.query.slice(0, 50)}..."`,
       );
 
       this.emitThinking(
         subject,
         thinkingChain,
         "planning_research",
-        "正在制定研究计划，确定搜索步骤...",
+        isFollowUp
+          ? "正在规划补充研究步骤，确定扩展方向..."
+          : "正在制定研究计划，确定搜索步骤...",
       );
 
       const plan = await this.withTimeout(
         this.plannerService.generatePlan(dto.query, {
           depth: dto.options?.depth,
           includeAcademic: dto.options?.includeAcademic,
+          isFollowUp,
+          previousContext,
         }),
         this.STAGE_TIMEOUT,
         "研究计划生成",
@@ -247,7 +256,9 @@ export class DeepResearchAgentService {
         subject,
         thinkingChain,
         "synthesizing",
-        "正在综合搜索结果，生成研究报告...",
+        isFollowUp
+          ? "正在综合新搜索结果，扩展研究报告..."
+          : "正在综合搜索结果，生成研究报告...",
       );
 
       await this.updateSession(session.id, {
@@ -273,6 +284,8 @@ export class DeepResearchAgentService {
       const report = await this.withTimeout(
         this.reportService.generateReport(dto.query, searchRounds, {
           language: dto.options?.language,
+          isFollowUp,
+          previousContext,
         }),
         this.STAGE_TIMEOUT,
         "报告生成",

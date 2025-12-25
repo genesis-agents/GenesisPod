@@ -213,17 +213,20 @@ export interface UseDeepResearchOptions {
   onSearchProgress?: (progress: SearchProgressEvent['data']) => void;
 }
 
+export interface ResearchOptions {
+  maxRounds?: number;
+  includeAcademic?: boolean;
+  language?: string;
+  depth?: 'quick' | 'standard' | 'thorough';
+  // 追问模式：传入之前的报告作为上下文
+  previousReport?: DeepResearchReport;
+  // 是否是追问模式
+  isFollowUp?: boolean;
+}
+
 export interface UseDeepResearchResult {
   state: DeepResearchState;
-  startResearch: (
-    query: string,
-    options?: {
-      maxRounds?: number;
-      includeAcademic?: boolean;
-      language?: string;
-      depth?: 'quick' | 'standard' | 'thorough';
-    }
-  ) => Promise<void>;
+  startResearch: (query: string, options?: ResearchOptions) => Promise<void>;
   stop: () => void;
   reset: () => void;
   isSearching: boolean;
@@ -372,15 +375,7 @@ export function useDeepResearch(
 
   // 启动研究
   const startResearch = useCallback(
-    async (
-      query: string,
-      researchOptions?: {
-        maxRounds?: number;
-        includeAcademic?: boolean;
-        language?: string;
-        depth?: 'quick' | 'standard' | 'thorough';
-      }
-    ) => {
+    async (query: string, researchOptions?: ResearchOptions) => {
       // 清理之前的连接
       cleanup();
 
@@ -393,10 +388,46 @@ export function useDeepResearch(
       try {
         // 使用 POST 创建 SSE 连接
         const url = `/ai-studio/projects/${projectId}/deep-research/stream`;
-        const body = {
+
+        // 构建请求体，包含追问上下文
+        const body: {
+          query: string;
+          options?: Omit<ResearchOptions, 'previousReport' | 'isFollowUp'>;
+          isFollowUp?: boolean;
+          previousContext?: {
+            executiveSummary: string;
+            sections: { title: string; content: string }[];
+            conclusion: string;
+            references: { title: string; url: string }[];
+          };
+        } = {
           query,
-          options: researchOptions,
+          options: researchOptions
+            ? {
+                maxRounds: researchOptions.maxRounds,
+                includeAcademic: researchOptions.includeAcademic,
+                language: researchOptions.language,
+                depth: researchOptions.depth,
+              }
+            : undefined,
         };
+
+        // 如果是追问模式，添加之前报告的上下文
+        if (researchOptions?.isFollowUp && researchOptions?.previousReport) {
+          body.isFollowUp = true;
+          body.previousContext = {
+            executiveSummary: researchOptions.previousReport.executiveSummary,
+            sections: researchOptions.previousReport.sections.map((s) => ({
+              title: s.title,
+              content: s.content,
+            })),
+            conclusion: researchOptions.previousReport.conclusion,
+            references: researchOptions.previousReport.references.map((r) => ({
+              title: r.title,
+              url: r.url,
+            })),
+          };
+        }
 
         // 创建 EventSource (需要特殊处理 POST)
         // 由于标准 EventSource 不支持 POST，使用 fetch + ReadableStream

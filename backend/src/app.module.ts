@@ -50,6 +50,8 @@ import { RecommendationsModule } from "./modules/data-services/recommendations/r
 import { ProxyModule } from "./modules/integrations/proxy/proxy.module";
 import { WechatWorkModule } from "./modules/integrations/wechat-work/wechat-work.module";
 import { NotionModule } from "./modules/integrations/notion/notion.module";
+// Export module
+import { ExportModule } from "./modules/export";
 
 @Module({
   imports: [
@@ -129,6 +131,9 @@ import { NotionModule } from "./modules/integrations/notion/notion.module";
     ProxyModule,
     WechatWorkModule,
     NotionModule,
+
+    // Export module
+    ExportModule,
   ],
   controllers: [AppController],
   providers: [

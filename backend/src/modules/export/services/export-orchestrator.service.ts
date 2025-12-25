@@ -1,0 +1,420 @@
+/**
+ * 统一导出系统 - 导出编排器服务
+ * 负责协调整个导出流程
+ */
+
+import { Injectable, Logger, NotFoundException, Inject } from "@nestjs/common";
+import { PrismaService } from "../../../common/prisma/prisma.service";
+import { ExportFormat, ExportJobStatus, Prisma } from "@prisma/client";
+import { ContentTransformerService } from "./content-transformer.service";
+import { TemplateManagerService } from "./template-manager.service";
+import {
+  ExportRequest,
+  ExportJobResponse,
+  ExportOptions,
+} from "../types/export-options";
+import { UnifiedContent } from "../types/unified-content";
+import {
+  ExportRenderer,
+  RENDERER_TOKEN,
+  FILE_EXTENSIONS,
+  MIME_TYPES,
+} from "../renderers/renderer.interface";
+import * as path from "path";
+import * as fs from "fs/promises";
+
+@Injectable()
+export class ExportOrchestratorService {
+  private readonly logger = new Logger(ExportOrchestratorService.name);
+  private readonly exportDir: string;
+  private readonly urlExpireHours = 24; // 下载链接有效期
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly contentTransformer: ContentTransformerService,
+    private readonly templateManager: TemplateManagerService,
+    @Inject(RENDERER_TOKEN)
+    private readonly renderers: Map<ExportFormat, ExportRenderer>,
+  ) {
+    // 设置导出目录
+    this.exportDir =
+      process.env.EXPORT_DIR || path.join(process.cwd(), "exports");
+    this.ensureExportDir();
+  }
+
+  /**
+   * 创建导出任务
+   */
+  async createExportJob(
+    userId: string,
+    request: ExportRequest,
+  ): Promise<ExportJobResponse> {
+    // 验证格式支持
+    const renderer = this.renderers.get(request.format);
+    if (!renderer) {
+      throw new Error(`Unsupported export format: ${request.format}`);
+    }
+
+    // 构建源数据
+    const sourceData: Prisma.InputJsonValue | undefined =
+      request.source.type === "RAW"
+        ? {
+            content: (request.source as any).content,
+            contentType: (request.source as any).contentType,
+            title: (request.source as any).title,
+          }
+        : undefined;
+
+    // 构建选项
+    const options: Prisma.InputJsonValue = {
+      ...(request.options as object),
+      customTheme: request.customTheme as object | undefined,
+      customLayout: request.customLayout as object | undefined,
+    };
+
+    // 创建导出任务
+    const job = await this.prisma.exportJob.create({
+      data: {
+        userId,
+        sourceType: request.source.type,
+        sourceId:
+          "documentId" in request.source
+            ? request.source.documentId
+            : "sessionId" in request.source
+              ? request.source.sessionId
+              : "reportId" in request.source
+                ? request.source.reportId
+                : null,
+        sourceData,
+        format: request.format,
+        templateId: request.templateId,
+        options,
+        status: ExportJobStatus.QUEUED,
+      },
+    });
+
+    this.logger.log(`Created export job: ${job.id}`);
+
+    // 异步执行导出
+    this.processExportJob(job.id).catch((error) => {
+      this.logger.error(`Export job failed: ${job.id}`, error);
+    });
+
+    return {
+      jobId: job.id,
+      status: "QUEUED",
+      progress: 0,
+      estimatedTime: this.estimateTime(request.format),
+    };
+  }
+
+  /**
+   * 获取导出任务状态
+   */
+  async getJobStatus(
+    jobId: string,
+    userId: string,
+  ): Promise<ExportJobResponse> {
+    const job = await this.prisma.exportJob.findUnique({
+      where: { id: jobId },
+    });
+
+    if (!job) {
+      throw new NotFoundException(`Export job not found: ${jobId}`);
+    }
+
+    if (job.userId !== userId) {
+      throw new NotFoundException(`Export job not found: ${jobId}`);
+    }
+
+    return {
+      jobId: job.id,
+      status: job.status,
+      progress: job.progress,
+      downloadUrl: job.downloadUrl || undefined,
+      expiresAt: job.expiresAt?.toISOString(),
+      fileName: job.fileName || undefined,
+      fileSize: job.fileSize || undefined,
+      error: job.error || undefined,
+    };
+  }
+
+  /**
+   * 获取导出文件
+   */
+  async getExportFile(
+    jobId: string,
+    userId: string,
+  ): Promise<{ buffer: Buffer; fileName: string; mimeType: string }> {
+    const job = await this.prisma.exportJob.findUnique({
+      where: { id: jobId },
+    });
+
+    if (!job) {
+      throw new NotFoundException(`Export job not found: ${jobId}`);
+    }
+
+    if (job.userId !== userId) {
+      throw new NotFoundException(`Export job not found: ${jobId}`);
+    }
+
+    if (job.status !== ExportJobStatus.COMPLETED) {
+      throw new Error(`Export job not completed: ${jobId}`);
+    }
+
+    if (!job.filePath) {
+      throw new Error(`Export file not found: ${jobId}`);
+    }
+
+    // 检查链接是否过期
+    if (job.expiresAt && job.expiresAt < new Date()) {
+      throw new Error("Download link has expired");
+    }
+
+    const buffer = await fs.readFile(job.filePath);
+    const mimeType = MIME_TYPES[job.format];
+
+    return {
+      buffer,
+      fileName: job.fileName || `export${FILE_EXTENSIONS[job.format]}`,
+      mimeType,
+    };
+  }
+
+  /**
+   * 处理导出任务
+   */
+  private async processExportJob(jobId: string): Promise<void> {
+    const job = await this.prisma.exportJob.findUnique({
+      where: { id: jobId },
+    });
+
+    if (!job) {
+      throw new Error(`Job not found: ${jobId}`);
+    }
+
+    try {
+      // 更新状态为处理中
+      await this.updateJobStatus(jobId, ExportJobStatus.PROCESSING, 10);
+
+      // 1. 获取源内容
+      const source = this.reconstructSource(job);
+      const content = await this.contentTransformer.transform(source);
+      await this.updateJobStatus(jobId, ExportJobStatus.PROCESSING, 30);
+
+      // 2. 获取模板配置
+      const options = job.options as any;
+      const { theme, layout } = await this.templateManager.getThemeAndLayout(
+        job.templateId || undefined,
+        options?.customTheme,
+        options?.customLayout,
+      );
+      await this.updateJobStatus(jobId, ExportJobStatus.PROCESSING, 40);
+
+      // 3. 渲染文档
+      const renderer = this.renderers.get(job.format);
+      if (!renderer) {
+        throw new Error(`No renderer for format: ${job.format}`);
+      }
+
+      const buffer = await renderer.render(
+        content,
+        theme,
+        layout,
+        options as ExportOptions,
+      );
+      await this.updateJobStatus(jobId, ExportJobStatus.PROCESSING, 80);
+
+      // 4. 保存文件
+      const fileName = this.generateFileName(content, job.format, options);
+      const filePath = await this.saveFile(jobId, buffer, fileName);
+      await this.updateJobStatus(jobId, ExportJobStatus.PROCESSING, 95);
+
+      // 5. 生成下载链接
+      const downloadUrl = this.generateDownloadUrl(jobId);
+      const expiresAt = new Date(
+        Date.now() + this.urlExpireHours * 60 * 60 * 1000,
+      );
+
+      // 6. 完成
+      await this.prisma.exportJob.update({
+        where: { id: jobId },
+        data: {
+          status: ExportJobStatus.COMPLETED,
+          progress: 100,
+          fileName,
+          fileSize: buffer.length,
+          filePath,
+          downloadUrl,
+          expiresAt,
+          completedAt: new Date(),
+        },
+      });
+
+      this.logger.log(`Export job completed: ${jobId}`);
+    } catch (error) {
+      this.logger.error(`Export job failed: ${jobId}`, error);
+
+      await this.prisma.exportJob.update({
+        where: { id: jobId },
+        data: {
+          status: ExportJobStatus.FAILED,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+    }
+  }
+
+  /**
+   * 重构导出源
+   */
+  private reconstructSource(job: any): any {
+    switch (job.sourceType) {
+      case "DOCUMENT":
+        return { type: "DOCUMENT", documentId: job.sourceId };
+      case "RESEARCH":
+        return { type: "RESEARCH", sessionId: job.sourceId };
+      case "REPORT":
+        return { type: "REPORT", reportId: job.sourceId };
+      case "RAW":
+        return {
+          type: "RAW",
+          content: job.sourceData.content,
+          contentType: job.sourceData.contentType,
+          title: job.sourceData.title,
+        };
+      default:
+        throw new Error(`Unknown source type: ${job.sourceType}`);
+    }
+  }
+
+  /**
+   * 更新任务状态
+   */
+  private async updateJobStatus(
+    jobId: string,
+    status: ExportJobStatus,
+    progress: number,
+  ): Promise<void> {
+    await this.prisma.exportJob.update({
+      where: { id: jobId },
+      data: { status, progress },
+    });
+  }
+
+  /**
+   * 生成文件名
+   */
+  private generateFileName(
+    content: UnifiedContent,
+    format: ExportFormat,
+    options?: ExportOptions,
+  ): string {
+    if (options?.fileName) {
+      const ext = FILE_EXTENSIONS[format];
+      return options.fileName.endsWith(ext)
+        ? options.fileName
+        : `${options.fileName}${ext}`;
+    }
+
+    // 从标题生成文件名
+    const title = content.metadata.title || "export";
+    const safeTitle = title
+      .replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, "_")
+      .slice(0, 50);
+    const timestamp = new Date().toISOString().slice(0, 10);
+
+    return `${safeTitle}_${timestamp}${FILE_EXTENSIONS[format]}`;
+  }
+
+  /**
+   * 保存文件
+   */
+  private async saveFile(
+    jobId: string,
+    buffer: Buffer,
+    fileName: string,
+  ): Promise<string> {
+    const filePath = path.join(this.exportDir, jobId, fileName);
+    const dir = path.dirname(filePath);
+
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(filePath, buffer);
+
+    return filePath;
+  }
+
+  /**
+   * 生成下载链接
+   */
+  private generateDownloadUrl(jobId: string): string {
+    const baseUrl = process.env.API_BASE_URL || "http://localhost:3001";
+    return `${baseUrl}/api/export/${jobId}/download`;
+  }
+
+  /**
+   * 估算导出时间（秒）
+   */
+  private estimateTime(format: ExportFormat): number {
+    const estimates: Record<ExportFormat, number> = {
+      PDF: 15,
+      DOCX: 10,
+      PPTX: 20,
+      XLSX: 8,
+      MARKDOWN: 2,
+      HTML: 3,
+    };
+    return estimates[format] || 10;
+  }
+
+  /**
+   * 确保导出目录存在
+   */
+  private async ensureExportDir(): Promise<void> {
+    try {
+      await fs.mkdir(this.exportDir, { recursive: true });
+    } catch (error) {
+      this.logger.warn(`Failed to create export directory: ${error}`);
+    }
+  }
+
+  /**
+   * 清理过期的导出文件
+   */
+  async cleanupExpiredExports(): Promise<number> {
+    const expiredJobs = await this.prisma.exportJob.findMany({
+      where: {
+        status: ExportJobStatus.COMPLETED,
+        expiresAt: { lt: new Date() },
+        filePath: { not: null },
+      },
+    });
+
+    let cleaned = 0;
+    for (const job of expiredJobs) {
+      try {
+        if (job.filePath) {
+          await fs.rm(path.dirname(job.filePath), {
+            recursive: true,
+            force: true,
+          });
+        }
+
+        await this.prisma.exportJob.update({
+          where: { id: job.id },
+          data: {
+            filePath: null,
+            downloadUrl: null,
+          },
+        });
+
+        cleaned++;
+      } catch (error) {
+        this.logger.warn(`Failed to cleanup job ${job.id}: ${error}`);
+      }
+    }
+
+    this.logger.log(`Cleaned up ${cleaned} expired export jobs`);
+    return cleaned;
+  }
+}

@@ -8,6 +8,7 @@ import {
   DeepResearchReport,
   ReportSection,
   ReportReference,
+  PreviousReportContext,
 } from "./types";
 
 /**
@@ -32,14 +33,42 @@ export class ReportSynthesizerService {
     options?: {
       language?: string;
       style?: "academic" | "business" | "casual";
+      isFollowUp?: boolean;
+      previousContext?: PreviousReportContext;
     },
   ): Promise<DeepResearchReport> {
     const startTime = Date.now();
-    this.logger.debug(`Generating report for query: ${query.slice(0, 50)}...`);
+    this.logger.debug(
+      `Generating report for query: ${query.slice(0, 50)}... (follow-up: ${options?.isFollowUp})`,
+    );
 
     // 准备来源和引用
     const sources = this.prepareSources(searchRounds);
-    const references = this.buildReferences(sources);
+
+    // 对于追问模式，合并之前的引用
+    let allReferences: ReportReference[];
+    let previousRefsCount = 0;
+    if (options?.isFollowUp && options?.previousContext?.references) {
+      previousRefsCount = options.previousContext.references.length;
+      // 之前的引用保持原编号
+      const previousRefs = options.previousContext.references.map(
+        (ref, index) => ({
+          id: index + 1,
+          title: ref.title,
+          url: ref.url,
+          snippet: "",
+          accessedAt: new Date(),
+        }),
+      );
+      // 新引用从之前的编号继续
+      const newRefs = this.buildReferences(sources).map((ref, index) => ({
+        ...ref,
+        id: previousRefsCount + index + 1,
+      }));
+      allReferences = [...previousRefs, ...newRefs];
+    } else {
+      allReferences = this.buildReferences(sources);
+    }
 
     // 获取 AI 模型
     const model = await this.getDefaultModel();
@@ -51,6 +80,9 @@ export class ReportSynthesizerService {
       model,
       options?.language || "zh-CN",
       options?.style || "business",
+      options?.isFollowUp,
+      options?.previousContext,
+      previousRefsCount,
     );
 
     const duration = (Date.now() - startTime) / 1000;
@@ -59,9 +91,9 @@ export class ReportSynthesizerService {
       executiveSummary: reportContent.executiveSummary,
       sections: reportContent.sections,
       conclusion: reportContent.conclusion,
-      references,
+      references: allReferences,
       metadata: {
-        totalSources: sources.length,
+        totalSources: sources.length + previousRefsCount,
         totalTokens: 0, // TODO: Track token usage
         duration,
         searchRounds: searchRounds.length,
@@ -189,13 +221,27 @@ export class ReportSynthesizerService {
     model: any,
     language: string,
     style: string,
+    isFollowUp?: boolean,
+    previousContext?: PreviousReportContext,
+    previousRefsCount?: number,
   ): Promise<{
     executiveSummary: string;
     sections: ReportSection[];
     conclusion: string;
   }> {
-    const systemPrompt = this.buildReportSystemPrompt(language, style);
-    const userPrompt = this.buildReportUserPrompt(query, sources);
+    const systemPrompt = this.buildReportSystemPrompt(
+      language,
+      style,
+      isFollowUp,
+      previousContext,
+    );
+    const userPrompt = this.buildReportUserPrompt(
+      query,
+      sources,
+      isFollowUp,
+      previousContext,
+      previousRefsCount,
+    );
 
     try {
       const result = await this.aiChatService.generateChatCompletionWithKey({
@@ -263,13 +309,71 @@ export class ReportSynthesizerService {
   /**
    * 构建报告系统提示词
    */
-  private buildReportSystemPrompt(language: string, style: string): string {
+  private buildReportSystemPrompt(
+    language: string,
+    style: string,
+    isFollowUp?: boolean,
+    previousContext?: PreviousReportContext,
+  ): string {
     const styleGuide = {
       academic: "使用学术论文的正式语言，注重数据和证据",
       business: "使用专业商务语言，注重洞察和可行性",
       casual: "使用易懂的语言，适合一般读者",
     };
 
+    // 追问模式的特殊提示
+    if (isFollowUp && previousContext) {
+      return `你是一个专业的研究报告撰写助手。这是一个追问研究，你需要在已有研究报告的基础上进行扩展和深化。
+
+## 已有研究报告
+
+### 执行摘要
+${previousContext.executiveSummary}
+
+### 主要章节
+${previousContext.sections.map((s) => `**${s.title}**\n${s.content}`).join("\n\n")}
+
+### 结论
+${previousContext.conclusion}
+
+## 语言要求
+${language === "zh-CN" ? "使用中文撰写" : "使用英文撰写"}
+
+## 风格要求
+${styleGuide[style as keyof typeof styleGuide] || styleGuide.business}
+
+## 追问模式要求
+1. **执行摘要**：更新摘要以包含新发现，保持300-400字
+2. **新增章节**：针对追问内容添加新的分析章节
+3. **结论**：更新结论以整合新旧发现
+
+## 重要原则
+- 不要重复已有研究中的信息，而是进行扩展和深化
+- 明确标注新发现与原有结论的关系（支持、补充、或修正）
+- 新引用从 [N+1] 开始编号（N 为已有引用数量）
+
+## 引用格式
+- 在文中使用 [1]、[2] 等数字标记引用来源
+- 引用必须基于提供的来源内容
+
+## 输出格式
+请以 JSON 格式输出：
+\`\`\`json
+{
+  "executiveSummary": "更新后的执行摘要（整合原有和新发现）",
+  "sections": [
+    {
+      "title": "新章节标题（如：追问分析：XXX）",
+      "content": "新增的分析内容，包含引用标记",
+      "citations": [N+1, N+2]
+    }
+  ],
+  "conclusion": "更新后的结论（整合所有发现）"
+}
+\`\`\``;
+    }
+
+    // 常规模式
     return `你是一个专业的研究报告撰写助手。请根据提供的搜索结果，撰写一份结构化的研究报告。
 
 ## 语言要求
@@ -310,14 +414,35 @@ ${styleGuide[style as keyof typeof styleGuide] || styleGuide.business}
   private buildReportUserPrompt(
     query: string,
     sources: SearchSource[],
+    isFollowUp?: boolean,
+    previousContext?: PreviousReportContext,
+    previousRefsCount?: number,
   ): string {
+    // 追问模式：引用编号从之前的数量继续
+    const startIndex = isFollowUp && previousRefsCount ? previousRefsCount : 0;
+
     const sourcesList = sources
       .slice(0, 20)
       .map(
         (s, i) =>
-          `[${i + 1}] ${s.title}\n来源: ${s.domain}\n内容: ${s.snippet}`,
+          `[${startIndex + i + 1}] ${s.title}\n来源: ${s.domain}\n内容: ${s.snippet}`,
       )
       .join("\n\n");
+
+    if (isFollowUp && previousContext) {
+      return `## 追问内容
+${query}
+
+## 新搜索结果来源
+（引用编号从 [${startIndex + 1}] 开始）
+
+${sourcesList}
+
+请基于以上新来源，在原有研究报告的基础上进行扩展和深化分析。注意：
+1. 执行摘要应该更新以反映新发现
+2. 添加新的分析章节针对追问内容
+3. 结论应该整合所有发现（原有 + 新增）`;
+    }
 
     return `## 研究主题
 ${query}
