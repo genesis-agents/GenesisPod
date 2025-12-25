@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import UserProfileButton from './UserProfileButton';
+import LanguageSwitcher from '@/components/common/LanguageSwitcher';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface SidebarProps {
@@ -676,6 +677,13 @@ export default function Sidebar({ className = '' }: SidebarProps) {
         {/* User Profile / Login Button */}
         <div>
           <UserProfileButton isCollapsed={!showExpanded} />
+        </div>
+
+        {/* Language Switcher */}
+        <div
+          className={`flex items-center ${!showExpanded ? 'justify-center' : ''}`}
+        >
+          <LanguageSwitcher variant={showExpanded ? 'compact' : 'icon'} />
         </div>
 
         <Link

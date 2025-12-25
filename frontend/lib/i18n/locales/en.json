@@ -1,0 +1,225 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "search": "Search",
+    "filter": "Filter",
+    "refresh": "Refresh",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "confirm": "Confirm",
+    "close": "Close",
+    "yes": "Yes",
+    "no": "No",
+    "all": "All",
+    "none": "None",
+    "select": "Select",
+    "upload": "Upload",
+    "download": "Download",
+    "export": "Export",
+    "import": "Import",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "share": "Share",
+    "settings": "Settings",
+    "logout": "Log out",
+    "login": "Log in",
+    "signup": "Sign up",
+    "viewAll": "View All",
+    "seeMore": "See More",
+    "showLess": "Show Less",
+    "noResults": "No results found",
+    "tryAgain": "Try Again",
+    "learnMore": "Learn More"
+  },
+  "nav": {
+    "home": "Home",
+    "library": "Library",
+    "explore": "Explore",
+    "aiStudio": "AI Studio",
+    "aiTeams": "AI Teams",
+    "aiOffice": "AI Office",
+    "aiAsk": "Ask AI",
+    "aiCoding": "AI Coding",
+    "aiStore": "AI Store",
+    "labs": "Labs",
+    "admin": "Admin",
+    "profile": "Profile",
+    "notifications": "Notifications",
+    "feedback": "Feedback",
+    "whatsNew": "What's New"
+  },
+  "home": {
+    "welcome": "Welcome to DeepDive",
+    "tagline": "AI-Powered Knowledge Discovery Platform",
+    "getStarted": "Get Started",
+    "quickActions": "Quick Actions",
+    "recentActivity": "Recent Activity",
+    "stats": {
+      "resources": "Resources",
+      "collections": "Collections",
+      "notes": "Notes"
+    }
+  },
+  "library": {
+    "title": "Library",
+    "myLibrary": "My Library",
+    "collections": "Collections",
+    "resources": "Resources",
+    "addResource": "Add Resource",
+    "createCollection": "Create Collection",
+    "importFromUrl": "Import from URL",
+    "emptyState": {
+      "title": "Your library is empty",
+      "description": "Start by adding resources or creating collections"
+    },
+    "filters": {
+      "all": "All",
+      "articles": "Articles",
+      "papers": "Papers",
+      "videos": "Videos",
+      "books": "Books",
+      "podcasts": "Podcasts",
+      "courses": "Courses"
+    }
+  },
+  "explore": {
+    "title": "Explore",
+    "trending": "Trending",
+    "recommended": "Recommended for You",
+    "categories": "Categories",
+    "searchPlaceholder": "Search topics, resources..."
+  },
+  "aiStudio": {
+    "title": "AI Studio",
+    "research": "Deep Research",
+    "chat": "Chat",
+    "artifacts": "Artifacts",
+    "newResearch": "New Research",
+    "researchHistory": "Research History",
+    "startResearch": "Start Research",
+    "researchPlaceholder": "What would you like to research?",
+    "generating": "Generating...",
+    "report": "Report",
+    "sources": "Sources",
+    "citations": "Citations"
+  },
+  "aiTeams": {
+    "title": "AI Teams",
+    "createTeam": "Create Team",
+    "myTeams": "My Teams",
+    "teamMembers": "Team Members",
+    "missions": "Missions",
+    "startMission": "Start Mission",
+    "missionStatus": {
+      "pending": "Pending",
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed"
+    }
+  },
+  "aiOffice": {
+    "title": "AI Office",
+    "documents": "Documents",
+    "presentations": "Presentations",
+    "spreadsheets": "Spreadsheets",
+    "createDocument": "Create Document",
+    "templates": "Templates",
+    "recentDocuments": "Recent Documents"
+  },
+  "admin": {
+    "title": "Admin Dashboard",
+    "users": "Users",
+    "settings": "Settings",
+    "aiModels": "AI Models",
+    "systemStats": "System Stats",
+    "dataCollection": "Data Collection",
+    "feedback": "Feedback",
+    "email": {
+      "title": "Email Settings",
+      "description": "Configure email notifications for feedback and alerts",
+      "enabled": "Enable Email",
+      "provider": "Email Provider",
+      "adminEmail": "Admin Email",
+      "fromAddress": "From Address",
+      "testEmail": "Send Test Email",
+      "saveSettings": "Save Email Settings",
+      "smtpConfig": "SMTP Configuration",
+      "smtpHost": "SMTP Host",
+      "smtpPort": "Port",
+      "smtpUser": "Username / Email",
+      "smtpPassword": "Password / App Password",
+      "resendApiKey": "Resend API Key",
+      "configured": "Configured",
+      "notConfigured": "Not Configured"
+    }
+  },
+  "auth": {
+    "login": "Log In",
+    "signup": "Sign Up",
+    "logout": "Log Out",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "forgotPassword": "Forgot Password?",
+    "resetPassword": "Reset Password",
+    "orContinueWith": "Or continue with",
+    "alreadyHaveAccount": "Already have an account?",
+    "dontHaveAccount": "Don't have an account?",
+    "googleLogin": "Continue with Google"
+  },
+  "feedback": {
+    "title": "Feedback",
+    "sendFeedback": "Send Feedback",
+    "feedbackType": {
+      "bug": "Bug Report",
+      "feature": "Feature Request",
+      "improvement": "Improvement",
+      "other": "Other"
+    },
+    "feedbackTitle": "Title",
+    "feedbackDescription": "Description",
+    "attachScreenshot": "Attach Screenshot",
+    "submit": "Submit Feedback",
+    "thankYou": "Thank you for your feedback!",
+    "status": {
+      "pending": "Pending",
+      "reviewed": "Reviewed",
+      "inProgress": "In Progress",
+      "resolved": "Resolved",
+      "closed": "Closed"
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "editProfile": "Edit Profile",
+    "username": "Username",
+    "bio": "Bio",
+    "avatar": "Avatar",
+    "changePassword": "Change Password",
+    "preferences": "Preferences",
+    "language": "Language",
+    "theme": "Theme",
+    "notifications": "Notifications"
+  },
+  "errors": {
+    "somethingWentWrong": "Something went wrong",
+    "pageNotFound": "Page not found",
+    "unauthorized": "Unauthorized",
+    "forbidden": "Forbidden",
+    "serverError": "Server error",
+    "networkError": "Network error",
+    "pleaseLogin": "Please log in to continue"
+  },
+  "language": {
+    "en": "English",
+    "zh": "中文"
+  }
+}

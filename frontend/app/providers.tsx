@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { I18nProvider } from '@/lib/i18n';
 import { ChunkErrorHandler } from '@/components/shared/ChunkErrorHandler';
 import { ToastContainer } from '@/components/ui/Toast';
 import { toast } from '@/stores/toastStore';
@@ -34,9 +35,11 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ChunkErrorHandler />
-      <AuthProvider>{children}</AuthProvider>
-      <ToastContainer />
+      <I18nProvider>
+        <ChunkErrorHandler />
+        <AuthProvider>{children}</AuthProvider>
+        <ToastContainer />
+      </I18nProvider>
     </QueryClientProvider>
   );
 }

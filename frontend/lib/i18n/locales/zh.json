@@ -1,0 +1,225 @@
+{
+  "common": {
+    "loading": "加载中...",
+    "error": "错误",
+    "success": "成功",
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "edit": "编辑",
+    "create": "创建",
+    "search": "搜索",
+    "filter": "筛选",
+    "refresh": "刷新",
+    "back": "返回",
+    "next": "下一步",
+    "previous": "上一步",
+    "confirm": "确认",
+    "close": "关闭",
+    "yes": "是",
+    "no": "否",
+    "all": "全部",
+    "none": "无",
+    "select": "选择",
+    "upload": "上传",
+    "download": "下载",
+    "export": "导出",
+    "import": "导入",
+    "copy": "复制",
+    "copied": "已复制！",
+    "share": "分享",
+    "settings": "设置",
+    "logout": "退出登录",
+    "login": "登录",
+    "signup": "注册",
+    "viewAll": "查看全部",
+    "seeMore": "查看更多",
+    "showLess": "收起",
+    "noResults": "未找到结果",
+    "tryAgain": "重试",
+    "learnMore": "了解更多"
+  },
+  "nav": {
+    "home": "首页",
+    "library": "资源库",
+    "explore": "探索",
+    "aiStudio": "AI 工作室",
+    "aiTeams": "AI 团队",
+    "aiOffice": "AI 办公",
+    "aiAsk": "AI 问答",
+    "aiCoding": "AI 编程",
+    "aiStore": "AI 商店",
+    "labs": "实验室",
+    "admin": "管理后台",
+    "profile": "个人资料",
+    "notifications": "通知",
+    "feedback": "反馈",
+    "whatsNew": "最新动态"
+  },
+  "home": {
+    "welcome": "欢迎使用 DeepDive",
+    "tagline": "AI 驱动的知识发现平台",
+    "getStarted": "开始使用",
+    "quickActions": "快捷操作",
+    "recentActivity": "最近活动",
+    "stats": {
+      "resources": "资源",
+      "collections": "收藏夹",
+      "notes": "笔记"
+    }
+  },
+  "library": {
+    "title": "资源库",
+    "myLibrary": "我的资源库",
+    "collections": "收藏夹",
+    "resources": "资源",
+    "addResource": "添加资源",
+    "createCollection": "创建收藏夹",
+    "importFromUrl": "从 URL 导入",
+    "emptyState": {
+      "title": "资源库为空",
+      "description": "开始添加资源或创建收藏夹吧"
+    },
+    "filters": {
+      "all": "全部",
+      "articles": "文章",
+      "papers": "论文",
+      "videos": "视频",
+      "books": "书籍",
+      "podcasts": "播客",
+      "courses": "课程"
+    }
+  },
+  "explore": {
+    "title": "探索",
+    "trending": "热门趋势",
+    "recommended": "为你推荐",
+    "categories": "分类",
+    "searchPlaceholder": "搜索主题、资源..."
+  },
+  "aiStudio": {
+    "title": "AI 工作室",
+    "research": "深度研究",
+    "chat": "对话",
+    "artifacts": "制品",
+    "newResearch": "新建研究",
+    "researchHistory": "研究历史",
+    "startResearch": "开始研究",
+    "researchPlaceholder": "你想研究什么？",
+    "generating": "生成中...",
+    "report": "报告",
+    "sources": "来源",
+    "citations": "引用"
+  },
+  "aiTeams": {
+    "title": "AI 团队",
+    "createTeam": "创建团队",
+    "myTeams": "我的团队",
+    "teamMembers": "团队成员",
+    "missions": "任务",
+    "startMission": "启动任务",
+    "missionStatus": {
+      "pending": "待处理",
+      "running": "进行中",
+      "completed": "已完成",
+      "failed": "失败"
+    }
+  },
+  "aiOffice": {
+    "title": "AI 办公",
+    "documents": "文档",
+    "presentations": "演示文稿",
+    "spreadsheets": "表格",
+    "createDocument": "创建文档",
+    "templates": "模板",
+    "recentDocuments": "最近文档"
+  },
+  "admin": {
+    "title": "管理后台",
+    "users": "用户管理",
+    "settings": "系统设置",
+    "aiModels": "AI 模型",
+    "systemStats": "系统统计",
+    "dataCollection": "数据采集",
+    "feedback": "用户反馈",
+    "email": {
+      "title": "邮件设置",
+      "description": "配置反馈和告警的邮件通知",
+      "enabled": "启用邮件",
+      "provider": "邮件服务商",
+      "adminEmail": "管理员邮箱",
+      "fromAddress": "发件人地址",
+      "testEmail": "发送测试邮件",
+      "saveSettings": "保存邮件设置",
+      "smtpConfig": "SMTP 配置",
+      "smtpHost": "SMTP 主机",
+      "smtpPort": "端口",
+      "smtpUser": "用户名 / 邮箱",
+      "smtpPassword": "密码 / 应用密码",
+      "resendApiKey": "Resend API 密钥",
+      "configured": "已配置",
+      "notConfigured": "未配置"
+    }
+  },
+  "auth": {
+    "login": "登录",
+    "signup": "注册",
+    "logout": "退出登录",
+    "email": "邮箱",
+    "password": "密码",
+    "confirmPassword": "确认密码",
+    "forgotPassword": "忘记密码？",
+    "resetPassword": "重置密码",
+    "orContinueWith": "或使用以下方式继续",
+    "alreadyHaveAccount": "已有账号？",
+    "dontHaveAccount": "没有账号？",
+    "googleLogin": "使用 Google 登录"
+  },
+  "feedback": {
+    "title": "反馈",
+    "sendFeedback": "发送反馈",
+    "feedbackType": {
+      "bug": "Bug 报告",
+      "feature": "功能请求",
+      "improvement": "改进建议",
+      "other": "其他"
+    },
+    "feedbackTitle": "标题",
+    "feedbackDescription": "描述",
+    "attachScreenshot": "附加截图",
+    "submit": "提交反馈",
+    "thankYou": "感谢您的反馈！",
+    "status": {
+      "pending": "待处理",
+      "reviewed": "已审核",
+      "inProgress": "处理中",
+      "resolved": "已解决",
+      "closed": "已关闭"
+    }
+  },
+  "profile": {
+    "title": "个人资料",
+    "editProfile": "编辑资料",
+    "username": "用户名",
+    "bio": "简介",
+    "avatar": "头像",
+    "changePassword": "修改密码",
+    "preferences": "偏好设置",
+    "language": "语言",
+    "theme": "主题",
+    "notifications": "通知"
+  },
+  "errors": {
+    "somethingWentWrong": "出了点问题",
+    "pageNotFound": "页面未找到",
+    "unauthorized": "未授权",
+    "forbidden": "禁止访问",
+    "serverError": "服务器错误",
+    "networkError": "网络错误",
+    "pleaseLogin": "请登录后继续"
+  },
+  "language": {
+    "en": "English",
+    "zh": "中文"
+  }
+}
