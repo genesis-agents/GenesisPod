@@ -11,7 +11,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getAuthTokens } from '@/lib/utils/auth';
-import { useAIModels } from '@/hooks/useAIModels';
+import { useAIModels, getDefaultChatModel } from '@/hooks/useAIModels';
 import MessageRenderer from '@/components/ai-office/chat/MessageRenderer';
 import {
   ArrowLeft,
@@ -2858,10 +2858,17 @@ export default function ProjectDetailPage() {
   const { models: aiModels, loading: modelsLoading } = useAIModels();
 
   // Set default model when models are loaded
+  // AI Studio uses standard chat model (CHAT type) for complex conversations
   useEffect(() => {
     if (aiModels.length > 0 && !selectedModel) {
-      const defaultModel = aiModels.find((m) => m.isDefault) || aiModels[0];
-      setSelectedModel(defaultModel.modelName);
+      // 优先使用标准聊天(CHAT)类型的默认模型
+      const defaultModel =
+        getDefaultChatModel(aiModels) ||
+        aiModels.find((m) => m.isDefault) ||
+        aiModels[0];
+      if (defaultModel) {
+        setSelectedModel(defaultModel.modelName);
+      }
     }
   }, [aiModels, selectedModel]);
 

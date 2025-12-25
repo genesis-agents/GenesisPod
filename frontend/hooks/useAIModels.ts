@@ -3,12 +3,13 @@
 import { useState, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
 
-// AI模型类型
+// AI模型类型 - 与后端 Prisma schema 保持一致
 export type AIModelType =
-  | 'CHAT'
-  | 'IMAGE_GENERATION'
-  | 'IMAGE_EDITING'
-  | 'MULTIMODAL';
+  | 'CHAT' // 标准聊天模型 (GPT-4, Claude, Gemini Pro)
+  | 'CHAT_FAST' // 快速/低成本聊天模型 (GPT-4o-mini, Claude Haiku, Gemini Flash)
+  | 'IMAGE_GENERATION' // 图片生成模型 (DALL-E 3, Imagen 4)
+  | 'IMAGE_EDITING' // 图片编辑模型 (Imagen 3)
+  | 'MULTIMODAL'; // 多模态模型 (Gemini 2.0 Flash)
 
 export interface AIModel {
   id: string; // 数据库唯一 ID（用于前端选中状态）
@@ -82,6 +83,53 @@ export function useAIModels() {
 export function clearAIModelsCache() {
   cachedModels = null;
   cacheTimestamp = 0;
+}
+
+/**
+ * 根据模型类型获取默认模型
+ * @param models 模型列表
+ * @param modelType 目标模型类型 (CHAT, CHAT_FAST, IMAGE_GENERATION, etc.)
+ * @returns 默认模型或 undefined
+ */
+export function getDefaultModelByType(
+  models: AIModel[],
+  modelType: AIModelType
+): AIModel | undefined {
+  // 1. 优先查找该类型中标记为默认的模型
+  const defaultOfType = models.find(
+    (m) => m.modelType === modelType && m.isDefault
+  );
+  if (defaultOfType) return defaultOfType;
+
+  // 2. 如果没有默认的，返回该类型的第一个模型
+  const firstOfType = models.find((m) => m.modelType === modelType);
+  if (firstOfType) return firstOfType;
+
+  // 3. 如果该类型没有模型，返回 undefined
+  return undefined;
+}
+
+/**
+ * 获取标准聊天的默认模型（用于 AI Studio 等复杂对话场景）
+ */
+export function getDefaultChatModel(models: AIModel[]): AIModel | undefined {
+  return getDefaultModelByType(models, 'CHAT');
+}
+
+/**
+ * 获取快速聊天的默认模型（用于简单任务：分类、翻译、摘要等）
+ */
+export function getDefaultFastChatModel(
+  models: AIModel[]
+): AIModel | undefined {
+  return getDefaultModelByType(models, 'CHAT_FAST');
+}
+
+/**
+ * 获取图片生成的默认模型
+ */
+export function getDefaultImageModel(models: AIModel[]): AIModel | undefined {
+  return getDefaultModelByType(models, 'IMAGE_GENERATION');
 }
 
 /**
