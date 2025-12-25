@@ -24,13 +24,37 @@ export function CitationLink({
   const citationContext = useCitationOptional();
   const [showTooltip, setShowTooltip] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState<
+    'center' | 'left' | 'right'
+  >('center');
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLElement>(null);
 
   // Get source content from context
   const source = citationContext?.sources.find(
     (s) => s.id === citation.sourceId
   );
   const sourceContent = source?.content || source?.abstract || '';
+
+  // Calculate tooltip position to avoid edge overflow
+  useEffect(() => {
+    if (showTooltip && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const tooltipWidth = 288; // w-72 = 18rem = 288px
+      const viewportWidth = window.innerWidth;
+
+      // Check if tooltip would overflow on left
+      if (rect.left - tooltipWidth / 2 < 16) {
+        setTooltipPosition('left');
+      }
+      // Check if tooltip would overflow on right
+      else if (rect.right + tooltipWidth / 2 > viewportWidth - 16) {
+        setTooltipPosition('right');
+      } else {
+        setTooltipPosition('center');
+      }
+    }
+  }, [showTooltip]);
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -69,9 +93,34 @@ export function CitationLink({
 
   const preview = getPreview();
 
+  // Get tooltip position classes based on edge detection
+  const getTooltipPositionClasses = () => {
+    switch (tooltipPosition) {
+      case 'left':
+        return 'left-0'; // Align to left edge
+      case 'right':
+        return 'right-0'; // Align to right edge
+      default:
+        return 'left-1/2 -translate-x-1/2'; // Center (default)
+    }
+  };
+
+  // Get arrow position classes
+  const getArrowPositionClasses = () => {
+    switch (tooltipPosition) {
+      case 'left':
+        return 'left-4';
+      case 'right':
+        return 'right-4';
+      default:
+        return 'left-1/2 -translate-x-1/2';
+    }
+  };
+
   return (
     <span className="relative inline">
       <sup
+        ref={triggerRef as React.RefObject<HTMLElement>}
         onClick={handleClick}
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
@@ -95,12 +144,12 @@ export function CitationLink({
       {showTooltip && (
         <div
           ref={tooltipRef}
-          className="
-            absolute bottom-full left-1/2 z-50 mb-2 w-72
-            -translate-x-1/2 rounded-lg
-            border border-gray-200 bg-white
+          className={`
+            absolute bottom-full z-50 mb-2 w-72
+            rounded-lg border border-gray-200 bg-white
             shadow-xl
-          "
+            ${getTooltipPositionClasses()}
+          `}
           onMouseEnter={() => setShowTooltip(true)}
           onMouseLeave={() => setShowTooltip(false)}
         >
@@ -143,7 +192,7 @@ export function CitationLink({
           </div>
 
           {/* Arrow */}
-          <div className="absolute left-1/2 top-full -translate-x-1/2">
+          <div className={`absolute top-full ${getArrowPositionClasses()}`}>
             <div className="h-2 w-2 -translate-y-1 rotate-45 border-b border-r border-gray-200 bg-gray-50" />
           </div>
         </div>

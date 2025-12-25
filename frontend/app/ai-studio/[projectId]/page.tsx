@@ -1444,64 +1444,63 @@ function ChatPanel({
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {messages.map((msg) => (
               <div
                 key={msg.id}
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <div
-                  className={`group relative max-w-[85%] rounded-xl px-4 py-3 ${
-                    msg.role === 'user'
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-gray-100 text-gray-900'
-                  }`}
-                >
-                  {msg.role === 'assistant' ? (
-                    <div className="text-sm">
-                      {/* Use CitedContent for AI messages to enable clickable citations */}
-                      {/* Use msg.sourceContext (correct order) if available, fallback to sources */}
-                      <CitedContent
-                        content={msg.content}
-                        sources={
-                          msg.sourceContext && msg.sourceContext.length > 0
-                            ? msg.sourceContext
-                            : sources.map((s) => ({
-                                id: s.id,
-                                title: s.title,
-                                content: s.content,
-                                abstract: s.abstract,
-                              }))
-                        }
-                        markdown={true}
-                      />
+                {msg.role === 'assistant' ? (
+                  /* AI message - full width, clean design */
+                  <div className="group relative w-full">
+                    <div className="rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-sm">
+                      <div className="text-sm leading-relaxed">
+                        {/* Use CitedContent for AI messages to enable clickable citations */}
+                        {/* Use msg.sourceContext (correct order) if available, fallback to sources */}
+                        <CitedContent
+                          content={msg.content}
+                          sources={
+                            msg.sourceContext && msg.sourceContext.length > 0
+                              ? msg.sourceContext
+                              : sources.map((s) => ({
+                                  id: s.id,
+                                  title: s.title,
+                                  content: s.content,
+                                  abstract: s.abstract,
+                                }))
+                          }
+                          markdown={true}
+                        />
+                      </div>
                     </div>
-                  ) : (
-                    <div className="whitespace-pre-wrap text-sm">
-                      {msg.content}
-                    </div>
-                  )}
-                  {msg.role === 'assistant' && (
-                    <div className="absolute -bottom-6 left-0 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    {/* Action buttons */}
+                    <div className="mt-2 flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
                       <button
                         onClick={() => onSaveAsNote(msg.content)}
-                        className="flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-200"
+                        className="flex items-center gap-1 rounded-md bg-gray-50 px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
                       >
-                        <BookMarked className="h-3 w-3" />
+                        <BookMarked className="h-3.5 w-3.5" />
                         Save as note
                       </button>
                       <button
                         onClick={() =>
                           navigator.clipboard.writeText(msg.content)
                         }
-                        className="flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-200"
+                        className="flex items-center gap-1 rounded-md bg-gray-50 px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
                       >
-                        <Copy className="h-3 w-3" />
+                        <Copy className="h-3.5 w-3.5" />
                         Copy
                       </button>
                     </div>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  /* User message - right aligned bubble */
+                  <div className="max-w-[80%] rounded-xl bg-purple-600 px-4 py-3 text-white">
+                    <div className="whitespace-pre-wrap text-sm">
+                      {msg.content}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
             {isLoading && (

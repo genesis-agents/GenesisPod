@@ -193,7 +193,25 @@ export function CitedMarkdown({
   );
 
   return (
-    <div className={`prose prose-sm max-w-none ${className}`}>
+    <div
+      className={`
+        prose prose-sm prose-headings:font-semibold
+        prose-headings:text-gray-900 prose-h1:text-lg
+        prose-h1:mt-4 prose-h1:mb-2 prose-h2:text-base
+        prose-h2:mt-3 prose-h2:mb-2 prose-h3:text-sm
+        prose-h3:mt-2 prose-h3:mb-1 prose-p:text-gray-700
+        prose-p:leading-relaxed prose-p:my-2 prose-ul:my-2
+        prose-ul:pl-4 prose-ol:my-2
+        prose-ol:pl-4 prose-li:my-1
+        prose-li:text-gray-700 prose-strong:text-gray-900
+        prose-strong:font-semibold prose-blockquote:border-l-purple-400
+        prose-blockquote:bg-purple-50 prose-blockquote:py-1
+        prose-blockquote:px-3 prose-blockquote:my-2 prose-blockquote:rounded-r
+        prose-blockquote:text-gray-700 prose-code:text-purple-600
+        prose-code:bg-purple-50 prose-code:px-1 prose-code:rounded max-w-none
+        ${className}
+      `}
+    >
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {processedContent}
       </ReactMarkdown>
