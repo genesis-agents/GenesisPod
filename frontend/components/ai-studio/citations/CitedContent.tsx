@@ -309,6 +309,29 @@ function processText(
       continue;
     }
 
+    // Extract surrounding context for quote-based highlighting
+    // Get the sentence or phrase around the citation for better matching
+    const contextStart = Math.max(0, match.index - 100);
+    const contextEnd = Math.min(
+      text.length,
+      match.index + match[0].length + 100
+    );
+    let surroundingContext = text.slice(contextStart, contextEnd);
+
+    // Clean the context - remove citation markers and trim to sentence boundaries
+    surroundingContext = surroundingContext
+      .replace(/\[[\d,\s]+\]/g, '') // Remove [1], [1, 2] patterns
+      .replace(/\[资料\s*[\d,、\s]+\]/g, '') // Remove Chinese patterns
+      .replace(/__CITE_GROUP_[\d_]+__/g, '') // Remove internal markers
+      .replace(/CITE_GROUP_\d+(?:_\d+)*/g, '') // Remove AI markers
+      .trim();
+
+    // Try to extract a meaningful phrase (between punctuation)
+    const sentenceMatch = surroundingContext.match(/[^。！？.!?]*[^。！？.!?]/);
+    const quote = sentenceMatch
+      ? sentenceMatch[0].trim()
+      : surroundingContext.slice(0, 80);
+
     // Create citation links
     for (let i = 0; i < indices.length; i++) {
       const sourceIndex = indices[i];
@@ -322,6 +345,7 @@ function processText(
               sourceIndex,
               sourceId: source.id,
               sourceTitle: source.title,
+              quote: quote.length > 10 ? quote : undefined, // Only use if meaningful
             }}
             className="mx-0.5"
           />

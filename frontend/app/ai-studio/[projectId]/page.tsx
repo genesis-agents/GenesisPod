@@ -65,6 +65,8 @@ import {
   CitationProvider,
   CitedContent,
   SourceCardHighlight,
+  SourceHighlight,
+  useCitationOptional,
   type SourceReference,
 } from '@/components/ai-studio/citations';
 import { ResearchTab } from '@/components/ai-studio/ResearchTab';
@@ -372,6 +374,9 @@ function SourcesPanel({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchStats, setSearchStats] = useState<SearchStats | null>(null);
+
+  // Citation context for highlighting sources when citations are clicked
+  const citationContext = useCitationOptional();
   const [searching, setSearching] = useState(false);
   const [searchSources, setSearchSources] = useState<string[]>([
     'local',
@@ -567,6 +572,9 @@ function SourcesPanel({
             {uniqueSources.map((source) => {
               const citationIndex = getCitationIndex(source.id);
               const isSelected = selectedIdSet.has(source.id);
+              const isHighlighted =
+                citationContext?.highlightedSource?.sourceId === source.id;
+              const sourceContent = source.content || source.abstract || '';
               return (
                 <SourceCardHighlight
                   key={source.id}
@@ -609,6 +617,16 @@ function SourcesPanel({
                             ` · ${new Date(source.publishedAt).toLocaleDateString()}`}
                         </span>
                       </div>
+                      {/* Show highlighted content when this source is referenced */}
+                      {isHighlighted && sourceContent && (
+                        <div className="mt-2 border-t border-purple-200 pt-2">
+                          <SourceHighlight
+                            sourceId={source.id}
+                            content={sourceContent}
+                            className="line-clamp-6 text-xs leading-relaxed text-gray-600"
+                          />
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                       {source.sourceUrl && (
