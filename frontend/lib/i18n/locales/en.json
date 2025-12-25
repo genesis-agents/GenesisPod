@@ -142,6 +142,7 @@
   },
   "aiStudio": {
     "title": "AI Studio",
+    "subtitle": "Upload materials and let AI help you research and analyze",
     "research": "Deep Research",
     "chat": "Chat",
     "artifacts": "Artifacts",
@@ -152,7 +153,51 @@
     "generating": "Generating...",
     "report": "Report",
     "sources": "Sources",
-    "citations": "Citations"
+    "citations": "Citations",
+    "tabs": {
+      "specialResearch": "Special Research",
+      "createImage": "Create Image"
+    },
+    "project": {
+      "createTitle": "Create New Research Project",
+      "createDesc": "Start a new research project to organize your sources and insights",
+      "name": "Project Name",
+      "namePlaceholder": "e.g., LLM Inference Optimization Research",
+      "descriptionOptional": "Description (optional)",
+      "descriptionPlaceholder": "Brief description of your research goals...",
+      "create": "Create Project",
+      "newProject": "New Project",
+      "archive": "Archive",
+      "delete": "Delete",
+      "sourcesCount": "{{count}} sources",
+      "notesCount": "{{count}} notes"
+    },
+    "empty": {
+      "noProjects": "No special research yet",
+      "noProjectsDesc": "Create your first special research to get started",
+      "createFirst": "Create Special Research",
+      "createNew": "Create New Research"
+    },
+    "time": {
+      "minutesAgo": "{{count}} minutes ago",
+      "hoursAgo": "{{count}} hours ago",
+      "yesterday": "Yesterday",
+      "daysAgo": "{{count}} days ago",
+      "never": "Never"
+    },
+    "search": {
+      "placeholder": "Search special research..."
+    },
+    "errors": {
+      "signInToView": "Please sign in to view projects",
+      "signInToCreate": "Please sign in to create a project",
+      "fetchFailed": "Failed to fetch projects",
+      "createFailed": "Failed to create project",
+      "deleteFailed": "Failed to delete project",
+      "archiveFailed": "Failed to archive project"
+    },
+    "confirmDelete": "Are you sure you want to delete this project?",
+    "tryAgain": "Try again"
   },
   "aiTeams": {
     "title": "AI Teams",

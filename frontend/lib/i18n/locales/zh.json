@@ -142,6 +142,7 @@
   },
   "aiStudio": {
     "title": "AI 工作室",
+    "subtitle": "上传资料，让AI帮你研究和分析",
     "research": "深度研究",
     "chat": "对话",
     "artifacts": "制品",
@@ -152,7 +153,51 @@
     "generating": "生成中...",
     "report": "报告",
     "sources": "来源",
-    "citations": "引用"
+    "citations": "引用",
+    "tabs": {
+      "specialResearch": "专题研究",
+      "createImage": "AI 绘图"
+    },
+    "project": {
+      "createTitle": "创建新研究项目",
+      "createDesc": "开始一个新的研究项目来整理你的资料和见解",
+      "name": "项目名称",
+      "namePlaceholder": "例如：LLM 推理优化研究",
+      "descriptionOptional": "描述（可选）",
+      "descriptionPlaceholder": "简要描述你的研究目标...",
+      "create": "创建项目",
+      "newProject": "新建项目",
+      "archive": "归档",
+      "delete": "删除",
+      "sourcesCount": "{{count}} 个来源",
+      "notesCount": "{{count}} 条笔记"
+    },
+    "empty": {
+      "noProjects": "暂无专题研究",
+      "noProjectsDesc": "创建你的第一个专题研究开始使用",
+      "createFirst": "创建专题研究",
+      "createNew": "创建新研究"
+    },
+    "time": {
+      "minutesAgo": "{{count}} 分钟前",
+      "hoursAgo": "{{count}} 小时前",
+      "yesterday": "昨天",
+      "daysAgo": "{{count}} 天前",
+      "never": "从未"
+    },
+    "search": {
+      "placeholder": "搜索专题研究..."
+    },
+    "errors": {
+      "signInToView": "请登录以查看项目",
+      "signInToCreate": "请登录以创建项目",
+      "fetchFailed": "获取项目失败",
+      "createFailed": "创建项目失败",
+      "deleteFailed": "删除项目失败",
+      "archiveFailed": "归档项目失败"
+    },
+    "confirmDelete": "确定要删除此项目吗？",
+    "tryAgain": "重试"
   },
   "aiTeams": {
     "title": "AI 团队",

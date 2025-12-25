@@ -9,6 +9,7 @@ import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { getAuthTokens } from '@/lib/utils/auth';
+import { useTranslation } from '@/lib/i18n';
 
 // 懒加载重型组件 (3182 行)
 const ImageGenerator = dynamic(
@@ -295,6 +296,7 @@ function CreateProjectDialog({
   onClose: () => void;
   onCreated: (project: ResearchProject) => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
@@ -329,22 +331,22 @@ function CreateProjectDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
         <h2 className="text-xl font-semibold text-gray-900">
-          Create New Research Project
+          {t('aiStudio.project.createTitle')}
         </h2>
         <p className="mt-1 text-sm text-gray-500">
-          Start a new research project to organize your sources and insights
+          {t('aiStudio.project.createDesc')}
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Project Name
+              {t('aiStudio.project.name')}
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., LLM Inference Optimization Research"
+              placeholder={t('aiStudio.project.namePlaceholder')}
               className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
               autoFocus
             />
@@ -352,12 +354,12 @@ function CreateProjectDialog({
 
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Description (optional)
+              {t('aiStudio.project.descriptionOptional')}
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Brief description of your research goals..."
+              placeholder={t('aiStudio.project.descriptionPlaceholder')}
               rows={3}
               className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
             />
@@ -375,7 +377,7 @@ function CreateProjectDialog({
               onClick={onClose}
               className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
@@ -383,7 +385,7 @@ function CreateProjectDialog({
               className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
             >
               {loading && <LoaderIcon className="h-4 w-4 animate-spin" />}
-              Create Project
+              {t('aiStudio.project.create')}
             </button>
           </div>
         </form>
@@ -404,10 +406,11 @@ function ProjectCard({
   onArchive: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation();
   const [showMenu, setShowMenu] = useState(false);
 
   const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return 'Never';
+    if (!dateStr) return t('aiStudio.time.never');
     const date = new Date(dateStr);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -417,12 +420,12 @@ function ProjectCard({
       const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
       if (diffHours === 0) {
         const diffMins = Math.floor(diffMs / (1000 * 60));
-        return `${diffMins} minutes ago`;
+        return t('aiStudio.time.minutesAgo', { count: diffMins });
       }
-      return `${diffHours} hours ago`;
+      return t('aiStudio.time.hoursAgo', { count: diffHours });
     }
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays === 1) return t('aiStudio.time.yesterday');
+    if (diffDays < 7) return t('aiStudio.time.daysAgo', { count: diffDays });
     return date.toLocaleDateString();
   };
 
@@ -459,7 +462,7 @@ function ProjectCard({
             className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
           >
             <ArchiveIcon className="h-4 w-4" />
-            Archive
+            {t('aiStudio.project.archive')}
           </button>
           <button
             onClick={() => {
@@ -469,7 +472,7 @@ function ProjectCard({
             className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
           >
             <TrashIcon className="h-4 w-4" />
-            Delete
+            {t('aiStudio.project.delete')}
           </button>
         </div>
       )}
@@ -505,11 +508,13 @@ function ProjectCard({
       <div className="mt-4 flex items-center gap-4 text-xs text-gray-500">
         <div className="flex items-center gap-1">
           <FileTextIcon className="h-3.5 w-3.5" />
-          <span>{sourceCount} sources</span>
+          <span>
+            {t('aiStudio.project.sourcesCount', { count: sourceCount })}
+          </span>
         </div>
         <div className="flex items-center gap-1">
           <MessageSquareIcon className="h-3.5 w-3.5" />
-          <span>{noteCount} notes</span>
+          <span>{t('aiStudio.project.notesCount', { count: noteCount })}</span>
         </div>
       </div>
 
@@ -524,6 +529,7 @@ function ProjectCard({
 
 // ==================== 主页面内容 ====================
 function StudioPageContent() {
+  const { t } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams?.get('tab');
@@ -620,9 +626,11 @@ function StudioPageContent() {
                 </svg>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">AI Studio</h1>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {t('aiStudio.title')}
+                </h1>
                 <p className="text-sm text-gray-500">
-                  上传资料，让AI帮你研究和分析
+                  {t('aiStudio.subtitle')}
                 </p>
               </div>
             </div>
@@ -632,7 +640,7 @@ function StudioPageContent() {
                 className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-violet-700"
               >
                 <PlusIcon className="h-5 w-5" />
-                New Project
+                {t('aiStudio.project.newProject')}
               </button>
             )}
           </div>
@@ -661,7 +669,7 @@ function StudioPageContent() {
                     d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
                   />
                 </svg>
-                Special Research
+                {t('aiStudio.tabs.specialResearch')}
               </div>
               {activeTab === 'projects' && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-600" />
@@ -689,7 +697,7 @@ function StudioPageContent() {
                     d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                   />
                 </svg>
-                Create Image
+                {t('aiStudio.tabs.createImage')}
               </div>
               {activeTab === 'create' && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600" />
@@ -706,7 +714,7 @@ function StudioPageContent() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="搜索专题研究..."
+                  placeholder={t('aiStudio.search.placeholder')}
                   className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
                 />
               </div>
@@ -741,24 +749,24 @@ function StudioPageContent() {
                   onClick={loadProjects}
                   className="mt-4 text-sm text-purple-600 hover:underline"
                 >
-                  Try again
+                  {t('aiStudio.tryAgain')}
                 </button>
               </div>
             ) : projects.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-20">
                 <FolderOpenIcon className="h-16 w-16 text-gray-300" />
                 <h3 className="mt-4 text-lg font-medium text-gray-900">
-                  No special research yet
+                  {t('aiStudio.empty.noProjects')}
                 </h3>
                 <p className="mt-1 text-gray-500">
-                  Create your first special research to get started
+                  {t('aiStudio.empty.noProjectsDesc')}
                 </p>
                 <button
                   onClick={() => setShowCreateDialog(true)}
                   className="mt-6 flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2.5 font-medium text-white hover:bg-purple-700"
                 >
                   <PlusIcon className="h-5 w-5" />
-                  Create Special Research
+                  {t('aiStudio.empty.createFirst')}
                 </button>
               </div>
             ) : (
@@ -780,7 +788,7 @@ function StudioPageContent() {
                 >
                   <PlusIcon className="h-10 w-10 text-gray-400" />
                   <span className="mt-2 text-sm font-medium text-gray-600">
-                    Create New Research
+                    {t('aiStudio.empty.createNew')}
                   </span>
                 </button>
               </div>
