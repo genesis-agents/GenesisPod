@@ -71,28 +71,25 @@ export function CitationLink({
 
   return (
     <span className="relative inline">
-      <button
+      <sup
         onClick={handleClick}
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
         className={`
-          inline-flex min-w-[1.5rem] items-center
-          justify-center rounded px-1
-          py-0.5 text-xs
+          cursor-pointer rounded px-0.5
           font-medium
           transition-all duration-200
           ${
             isHighlighted
               ? 'bg-purple-600 text-white'
-              : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+              : 'text-purple-600 hover:bg-purple-100 hover:text-purple-800'
           }
-          cursor-pointer
           ${className}
         `}
-        title={`Source: ${citation.sourceTitle}`}
+        title={`跳转到引用 [${citation.sourceIndex}]`}
       >
-        {citation.sourceIndex}
-      </button>
+        [{citation.sourceIndex}]
+      </sup>
 
       {/* Tooltip with source details - NotebookLM style */}
       {showTooltip && (

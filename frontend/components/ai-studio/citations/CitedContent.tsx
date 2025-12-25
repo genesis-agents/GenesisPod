@@ -73,19 +73,31 @@ export function CitedMarkdown({
 }: CitedMarkdownProps) {
   // Pre-process content to replace citation patterns with placeholder markers
   // that won't be affected by markdown parsing
+  // Supports: [1], [1, 2], CITE_GROUP_6_8
   const { processedContent, citationMap } = useMemo(() => {
     const map = new Map<
       string,
       { sourceIndex: number; sourceId: string; sourceTitle: string }
     >();
-    const pattern = /\[(\d+(?:\s*,\s*\d+)*)\]/g;
     let processed = content;
+
+    // First, handle CITE_GROUP_x_y format (AI output without delimiters)
+    // Convert to standard [x] [y] format for uniform processing
+    const citeGroupPattern = /CITE_GROUP_(\d+(?:_\d+)*)/g;
+    processed = processed.replace(citeGroupPattern, (match, indicesStr) => {
+      const indices = indicesStr.split('_').map((s: string) => parseInt(s, 10));
+      // Convert CITE_GROUP_6_8 to [6] [8] format
+      return indices.map((idx: number) => `[${idx}]`).join(' ');
+    });
+
+    // Now handle standard [1], [1, 2] patterns
+    const pattern = /\[(\d+(?:\s*,\s*\d+)*)\]/g;
     let match: RegExpExecArray | null;
 
     // Reset pattern
     pattern.lastIndex = 0;
 
-    while ((match = pattern.exec(content)) !== null) {
+    while ((match = pattern.exec(processed)) !== null) {
       const indicesStr = match[1];
       const indices = indicesStr.split(/\s*,\s*/).map((s) => parseInt(s, 10));
 
@@ -175,13 +187,21 @@ function processChildren(
 
 /**
  * Process text to replace citation markers with CitationLink components
+ * Supports multiple formats:
+ * - [1], [2], [1, 2] - standard citation format
+ * - __CITE_GROUP_1_2__ - internal marker format
+ * - CITE_GROUP_6_8 - AI output format (without delimiters)
  */
 function processText(
   text: string,
   sources: SourceReference[]
 ): React.ReactNode {
-  // Match both original [1] pattern and __CITE_GROUP_1_2__ markers
-  const pattern = /(__CITE_GROUP_[\d_]+__|\[(\d+(?:\s*,\s*\d+)*)\])/g;
+  // Match multiple citation formats:
+  // 1. __CITE_GROUP_1_2__ - internal marker with delimiters
+  // 2. CITE_GROUP_6_8 - AI output format without delimiters
+  // 3. [1] or [1, 2] - standard citation format
+  const pattern =
+    /(__CITE_GROUP_[\d_]+__|CITE_GROUP_\d+(?:_\d+)*|\[(\d+(?:\s*,\s*\d+)*)\])/g;
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -194,13 +214,17 @@ function processText(
       parts.push(text.slice(lastIndex, match.index));
     }
 
-    // Parse indices
+    // Parse indices based on format
     let indices: number[];
     if (match[0].startsWith('__CITE_GROUP_')) {
-      // Extract indices from marker
+      // Extract indices from __CITE_GROUP_1_2__ marker
       const indicesStr = match[0]
         .replace('__CITE_GROUP_', '')
         .replace('__', '');
+      indices = indicesStr.split('_').map((s) => parseInt(s, 10));
+    } else if (match[0].startsWith('CITE_GROUP_')) {
+      // Extract indices from CITE_GROUP_6_8 format (AI output)
+      const indicesStr = match[0].replace('CITE_GROUP_', '');
       indices = indicesStr.split('_').map((s) => parseInt(s, 10));
     } else {
       // Original [1] or [1, 2] format
