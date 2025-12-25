@@ -82,58 +82,54 @@ export function CitedMarkdown({
     let processed = content;
 
     // First, handle CITE_GROUP_x_y format (AI output without delimiters)
-    // Convert to standard [x] [y] format for uniform processing
+    // Convert to internal __CITE_GROUP_x_y__ marker format directly
     const citeGroupPattern = /CITE_GROUP_(\d+(?:_\d+)*)/g;
     processed = processed.replace(citeGroupPattern, (match, indicesStr) => {
       const indices = indicesStr.split('_').map((s: string) => parseInt(s, 10));
-      // Convert CITE_GROUP_6_8 to [6] [8] format
-      return indices.map((idx: number) => `[${idx}]`).join(' ');
-    });
-
-    // Now handle standard [1], [1, 2] patterns
-    const pattern = /\[(\d+(?:\s*,\s*\d+)*)\]/g;
-    let match: RegExpExecArray | null;
-
-    // Reset pattern
-    pattern.lastIndex = 0;
-
-    while ((match = pattern.exec(processed)) !== null) {
-      const indicesStr = match[1];
-      const indices = indicesStr.split(/\s*,\s*/).map((s) => parseInt(s, 10));
-
-      // Create a unique marker for each citation group
-      const marker = `__CITE_${match.index}__`;
-
       // Store citation info
       for (const sourceIndex of indices) {
         const source = sources[sourceIndex - 1];
         if (source) {
-          map.set(`${marker}_${sourceIndex}`, {
+          map.set(`__CITE_GROUP_${indices.join('_')}___${sourceIndex}`, {
             sourceIndex,
             sourceId: source.id,
             sourceTitle: source.title,
           });
         }
       }
+      // Convert CITE_GROUP_6_8 to __CITE_GROUP_6_8__ marker format
+      return `__CITE_GROUP_${indices.join('_')}__`;
+    });
 
-      // Replace with marker that includes all indices
-      const markerWithIndices = `__CITE_GROUP_${indices.join('_')}__`;
-      map.set(markerWithIndices, {
-        sourceIndex: indices[0],
-        sourceId: sources[indices[0] - 1]?.id || '',
-        sourceTitle: sources[indices[0] - 1]?.title || '',
-      });
-
-      processed = processed.replace(match[0], markerWithIndices);
-    }
+    // Now handle standard [1], [1, 2] patterns - convert to marker format in one pass
+    const bracketPattern = /\[(\d+(?:\s*,\s*\d+)*)\]/g;
+    processed = processed.replace(bracketPattern, (match, indicesStr) => {
+      const indices = indicesStr
+        .split(/\s*,\s*/)
+        .map((s: string) => parseInt(s, 10));
+      // Store citation info
+      for (const sourceIndex of indices) {
+        const source = sources[sourceIndex - 1];
+        if (source) {
+          map.set(`__CITE_GROUP_${indices.join('_')}___${sourceIndex}`, {
+            sourceIndex,
+            sourceId: source.id,
+            sourceTitle: source.title,
+          });
+        }
+      }
+      // Convert [1, 2] to __CITE_GROUP_1_2__ marker format
+      return `__CITE_GROUP_${indices.join('_')}__`;
+    });
 
     return { processedContent: processed, citationMap: map };
   }, [content, sources]);
 
   // Custom component to render citation markers
+  // Override all common markdown elements to ensure citations are processed everywhere
   const components = useMemo(
     () => ({
-      // Override text rendering to handle citation markers
+      // Block elements
       p: ({ children, ...props }: any) => {
         return <p {...props}>{processChildren(children, sources)}</p>;
       },
@@ -142,6 +138,55 @@ export function CitedMarkdown({
       },
       td: ({ children, ...props }: any) => {
         return <td {...props}>{processChildren(children, sources)}</td>;
+      },
+      th: ({ children, ...props }: any) => {
+        return <th {...props}>{processChildren(children, sources)}</th>;
+      },
+      blockquote: ({ children, ...props }: any) => {
+        return (
+          <blockquote {...props}>
+            {processChildren(children, sources)}
+          </blockquote>
+        );
+      },
+      // Headings
+      h1: ({ children, ...props }: any) => {
+        return <h1 {...props}>{processChildren(children, sources)}</h1>;
+      },
+      h2: ({ children, ...props }: any) => {
+        return <h2 {...props}>{processChildren(children, sources)}</h2>;
+      },
+      h3: ({ children, ...props }: any) => {
+        return <h3 {...props}>{processChildren(children, sources)}</h3>;
+      },
+      h4: ({ children, ...props }: any) => {
+        return <h4 {...props}>{processChildren(children, sources)}</h4>;
+      },
+      h5: ({ children, ...props }: any) => {
+        return <h5 {...props}>{processChildren(children, sources)}</h5>;
+      },
+      h6: ({ children, ...props }: any) => {
+        return <h6 {...props}>{processChildren(children, sources)}</h6>;
+      },
+      // Inline elements
+      strong: ({ children, ...props }: any) => {
+        return <strong {...props}>{processChildren(children, sources)}</strong>;
+      },
+      em: ({ children, ...props }: any) => {
+        return <em {...props}>{processChildren(children, sources)}</em>;
+      },
+      a: ({ children, ...props }: any) => {
+        return <a {...props}>{processChildren(children, sources)}</a>;
+      },
+      span: ({ children, ...props }: any) => {
+        return <span {...props}>{processChildren(children, sources)}</span>;
+      },
+      code: ({ children, inline, ...props }: any) => {
+        // Don't process citations in code blocks
+        if (!inline) {
+          return <code {...props}>{children}</code>;
+        }
+        return <code {...props}>{processChildren(children, sources)}</code>;
       },
     }),
     [sources]
@@ -158,6 +203,7 @@ export function CitedMarkdown({
 
 /**
  * Process children to replace citation markers with CitationLink components
+ * Recursively processes nested React elements to handle citations in any context
  */
 function processChildren(
   children: React.ReactNode,
@@ -169,6 +215,10 @@ function processChildren(
     return processText(children, sources);
   }
 
+  if (typeof children === 'number') {
+    return children;
+  }
+
   if (Array.isArray(children)) {
     return children.map((child, index) => {
       if (typeof child === 'string') {
@@ -178,8 +228,27 @@ function processChildren(
           </React.Fragment>
         );
       }
+      // Recursively process nested elements
+      if (React.isValidElement(child)) {
+        const childProps = child.props as { children?: React.ReactNode };
+        return React.cloneElement(
+          child as React.ReactElement<{ children?: React.ReactNode }>,
+          { key: index },
+          processChildren(childProps.children, sources)
+        );
+      }
       return child;
     });
+  }
+
+  // Handle single React element - recursively process its children
+  if (React.isValidElement(children)) {
+    const childProps = children.props as { children?: React.ReactNode };
+    return React.cloneElement(
+      children as React.ReactElement<{ children?: React.ReactNode }>,
+      {},
+      processChildren(childProps.children, sources)
+    );
   }
 
   return children;
