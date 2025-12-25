@@ -1824,7 +1824,7 @@ function StudioPanel({
   );
 }
 
-// ==================== Artifacts Sidebar (Collapsible) ====================
+// ==================== Artifacts Sidebar (Collapsible & Resizable) ====================
 function ArtifactsSidebar({
   outputs,
   notes,
@@ -1856,6 +1856,70 @@ function ArtifactsSidebar({
   const [viewingOutput, setViewingOutput] = useState<Output | null>(null);
   const [showNewNote, setShowNewNote] = useState(false);
   const [newNoteContent, setNewNoteContent] = useState('');
+  const [width, setWidth] = useState(320);
+  const [isResizing, setIsResizing] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
+  // Handle resize drag
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      const newWidth = window.innerWidth - e.clientX;
+      // Clamp between 280 and 500
+      setWidth(Math.max(280, Math.min(500, newWidth)));
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing]);
+
+  // Get output type icon
+  const getOutputIcon = (type: string) => {
+    switch (type) {
+      case 'STUDY_GUIDE':
+        return BookMarked;
+      case 'BRIEFING_DOC':
+        return ClipboardList;
+      case 'FAQ':
+        return HelpCircle;
+      case 'TIMELINE':
+        return Calendar;
+      case 'TREND_REPORT':
+        return TrendingUp;
+      case 'COMPARISON':
+        return GitCompare;
+      case 'KNOWLEDGE_GRAPH':
+        return Network;
+      case 'FLASHCARDS':
+        return Layers;
+      case 'QUIZ':
+        return GraduationCap;
+      case 'MIND_MAP':
+        return Brain;
+      default:
+        return FileText;
+    }
+  };
 
   const outputTypes = [
     {
@@ -1928,24 +1992,78 @@ function ArtifactsSidebar({
     }
   };
 
+  // Collapsed state - show narrow bar with expand button
   if (collapsed) {
-    return null;
+    return (
+      <div className="flex w-12 flex-shrink-0 flex-col border-l border-gray-200 bg-gray-50">
+        <button
+          onClick={onToggleCollapse}
+          className="flex h-12 items-center justify-center border-b border-gray-200 hover:bg-gray-100"
+          title="Expand Artifacts"
+        >
+          <ChevronRight className="h-4 w-4 rotate-180 text-gray-500" />
+        </button>
+        <div className="flex flex-1 flex-col items-center gap-2 py-4">
+          {/* Show artifact type icons for recent outputs */}
+          {outputs.slice(0, 5).map((output) => {
+            const IconComponent = getOutputIcon(output.type);
+            return (
+              <div
+                key={output.id}
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm"
+                title={output.title}
+              >
+                <IconComponent className="h-4 w-4 text-purple-600" />
+              </div>
+            );
+          })}
+          {outputs.length > 5 && (
+            <span className="text-xs text-gray-400">+{outputs.length - 5}</span>
+          )}
+          {outputs.length === 0 && (
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm"
+              title="Create Artifacts"
+            >
+              <Shapes className="h-4 w-4 text-gray-400" />
+            </div>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (
     <>
-      <div className="flex w-80 flex-shrink-0 flex-col border-l border-gray-200 bg-white">
+      {/* Resize Handle */}
+      <div
+        onMouseDown={handleMouseDown}
+        className={`w-1 cursor-col-resize bg-transparent transition-colors hover:bg-purple-300 ${
+          isResizing ? 'bg-purple-400' : ''
+        }`}
+      />
+      <div
+        ref={sidebarRef}
+        style={{ width }}
+        className="flex flex-shrink-0 flex-col border-l border-gray-200 bg-white"
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
           <div className="flex items-center gap-2">
             <Shapes className="h-5 w-5 text-purple-600" />
             <h3 className="font-semibold text-gray-900">Artifacts</h3>
+            {outputs.length > 0 && (
+              <span className="rounded-full bg-purple-100 px-1.5 py-0.5 text-xs text-purple-700">
+                {outputs.length}
+              </span>
+            )}
           </div>
           <button
             onClick={onToggleCollapse}
             className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            title="Collapse"
           >
-            <X className="h-4 w-4" />
+            <ChevronRight className="h-4 w-4 text-gray-500" />
           </button>
         </div>
 
@@ -2573,7 +2691,7 @@ export default function ProjectDetailPage() {
   // [1] = first selected, [2] = second selected, etc.
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
   const [sourcesCollapsed, setSourcesCollapsed] = useState(false);
-  const [artifactsCollapsed, setArtifactsCollapsed] = useState(true);
+  const [artifactsCollapsed, setArtifactsCollapsed] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>('');
   // Tab导航: fast-research | deep-research (Artifacts moved to sidebar)
@@ -3079,29 +3197,6 @@ export default function ProjectDetailPage() {
                     {selectedSourceIds.length} sources selected
                   </span>
                 )}
-              {/* Artifacts Toggle Button */}
-              <button
-                onClick={() => setArtifactsCollapsed(!artifactsCollapsed)}
-                className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                  !artifactsCollapsed
-                    ? 'bg-purple-100 text-purple-700'
-                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
-                }`}
-              >
-                <Shapes className="h-4 w-4" />
-                Artifacts
-                {project.outputs.length > 0 && (
-                  <span
-                    className={`rounded-full px-1.5 py-0.5 text-xs ${
-                      !artifactsCollapsed
-                        ? 'bg-purple-200 text-purple-800'
-                        : 'bg-gray-200 text-gray-600'
-                    }`}
-                  >
-                    {project.outputs.length}
-                  </span>
-                )}
-              </button>
             </div>
           </div>
 
