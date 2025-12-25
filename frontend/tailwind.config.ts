@@ -7,6 +7,27 @@ const config: Config = {
     './app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
+    fontFamily: {
+      // Custom font stack with proper Chinese font support
+      sans: [
+        'Inter',
+        'ui-sans-serif',
+        'system-ui',
+        '-apple-system',
+        'BlinkMacSystemFont',
+        '"Segoe UI"',
+        'Roboto',
+        '"PingFang SC"',
+        '"Hiragino Sans GB"',
+        '"Microsoft YaHei"',
+        '"Noto Sans SC"',
+        'sans-serif',
+        '"Apple Color Emoji"',
+        '"Segoe UI Emoji"',
+        '"Segoe UI Symbol"',
+        '"Noto Color Emoji"',
+      ],
+    },
     screens: {
       // Mobile first breakpoints - matching our responsive design
       xs: '375px', // Small mobile
