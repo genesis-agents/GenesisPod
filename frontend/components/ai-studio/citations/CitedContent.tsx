@@ -258,6 +258,7 @@ function processChildren(
  * Process text to replace citation markers with CitationLink components
  * Supports multiple formats:
  * - [1], [2], [1, 2] - standard citation format
+ * - [资料 1], [资料 1, 2] - Chinese "资料" format
  * - __CITE_GROUP_1_2__ - internal marker format
  * - CITE_GROUP_6_8 - AI output format (without delimiters)
  */
@@ -268,9 +269,10 @@ function processText(
   // Match multiple citation formats:
   // 1. __CITE_GROUP_1_2__ - internal marker with delimiters
   // 2. CITE_GROUP_6_8 - AI output format without delimiters
-  // 3. [1] or [1, 2] - standard citation format
+  // 3. [资料 1] or [资料 1, 2] - Chinese reference format
+  // 4. [1] or [1, 2] - standard citation format
   const pattern =
-    /(__CITE_GROUP_[\d_]+__|CITE_GROUP_\d+(?:_\d+)*|\[(\d+(?:\s*,\s*\d+)*)\])/g;
+    /(__CITE_GROUP_[\d_]+__|CITE_GROUP_\d+(?:_\d+)*|\[资料\s*(\d+(?:\s*[,、]\s*\d+)*)\]|\[(\d+(?:\s*,\s*\d+)*)\])/g;
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -295,9 +297,16 @@ function processText(
       // Extract indices from CITE_GROUP_6_8 format (AI output)
       const indicesStr = match[0].replace('CITE_GROUP_', '');
       indices = indicesStr.split('_').map((s) => parseInt(s, 10));
-    } else {
+    } else if (match[2]) {
+      // [资料 1] or [资料 1, 2] format - Chinese reference style
+      // Split by comma (,) or Chinese comma (、)
+      indices = match[2].split(/\s*[,、]\s*/).map((s) => parseInt(s, 10));
+    } else if (match[3]) {
       // Original [1] or [1, 2] format
-      indices = match[2].split(/\s*,\s*/).map((s) => parseInt(s, 10));
+      indices = match[3].split(/\s*,\s*/).map((s) => parseInt(s, 10));
+    } else {
+      // Fallback - should not happen
+      continue;
     }
 
     // Create citation links
