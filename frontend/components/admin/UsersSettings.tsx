@@ -1,59 +1,43 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
+import { Users, UserPlus, Shield, Trash2, Edit, Search } from 'lucide-react';
+import { useAdminUsers } from '@/hooks/domain';
 import {
-  Users,
-  UserPlus,
-  Shield,
-  Trash2,
-  Edit,
-  Loader2,
-  Search,
-  MoreVertical,
-} from 'lucide-react';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: 'admin' | 'editor' | 'viewer';
-  status: 'active' | 'inactive';
-  createdAt: string;
-  lastLogin: string | null;
-}
+  LoadingState,
+  ErrorState,
+  EmptyState,
+  useConfirm,
+} from '@/components/ui';
 
 export default function UsersSettings() {
-  const [loading, setLoading] = useState(true);
-  const [users, setUsers] = useState<User[]>([]);
+  const { users, loading, error, refreshUsers, deleteUser, isDeleting } =
+    useAdminUsers();
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
+  const { confirm, dialog } = useConfirm({
+    title: '确认删除',
+    description: '删除后无法恢复，确定要删除这个用户吗？',
+    type: 'danger',
+    confirmText: '删除',
+  });
 
-  const loadUsers = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/v1/admin/users', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUsers(data.users || []);
-      }
-    } catch (error) {
-      console.error('Failed to load users:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filteredUsers = users.filter(
-    (user) =>
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredUsers = useMemo(
+    () =>
+      users.filter(
+        (user) =>
+          user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          user.name.toLowerCase().includes(searchQuery.toLowerCase())
+      ),
+    [users, searchQuery]
   );
+
+  const handleDeleteUser = (userId: string) => {
+    confirm(async () => {
+      await deleteUser(userId);
+    });
+  };
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
@@ -73,176 +57,189 @@ export default function UsersSettings() {
   };
 
   if (loading) {
+    return <LoadingState text="加载用户数据..." />;
+  }
+
+  if (error) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-      </div>
+      <ErrorState
+        error={error.message || '未知错误'}
+        onRetry={refreshUsers}
+        title="加载用户失败"
+      />
     );
   }
 
   return (
-    <div className="p-8">
-      <div className="mx-auto max-w-6xl">
-        {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">
-              User Management
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Manage user accounts and permissions
-            </p>
+    <>
+      {dialog}
+      <div className="p-8">
+        <div className="mx-auto max-w-6xl">
+          {/* Header */}
+          <div className="mb-8 flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">
+                User Management
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Manage user accounts and permissions
+              </p>
+            </div>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-white transition-colors hover:bg-violet-700"
+            >
+              <UserPlus className="h-4 w-4" />
+              Add User
+            </button>
           </div>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-white transition-colors hover:bg-violet-700"
-          >
-            <UserPlus className="h-4 w-4" />
-            Add User
-          </button>
-        </div>
 
-        {/* Search */}
-        <div className="mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search users..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-violet-500 focus:ring-violet-500"
-            />
+          {/* Search */}
+          <div className="mb-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search users..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-violet-500 focus:ring-violet-500"
+              />
+            </div>
           </div>
-        </div>
 
-        {/* Users Table */}
-        <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  User
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Role
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Last Login
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
-              {filteredUsers.length === 0 ? (
+          {/* Users Table */}
+          <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="px-6 py-12 text-center text-gray-500"
-                  >
-                    <Users className="mx-auto mb-4 h-12 w-12 text-gray-300" />
-                    <p>No users found</p>
-                  </td>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                    User
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                    Role
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                    Last Login
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+                    Actions
+                  </th>
                 </tr>
-              ) : (
-                filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <div className="flex items-center">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100">
-                          <span className="text-sm font-medium text-violet-600">
-                            {user.name.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {user.name}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {user.email}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <span
-                        className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getRoleBadgeColor(
-                          user.role
-                        )}`}
-                      >
-                        {user.role}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <span
-                        className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getStatusBadgeColor(
-                          user.status
-                        )}`}
-                      >
-                        {user.status}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                      {user.lastLogin
-                        ? new Date(user.lastLogin).toLocaleDateString()
-                        : 'Never'}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
-                      <div className="flex items-center justify-end gap-2">
-                        <button className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-red-600">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
+              </thead>
+              <tbody className="divide-y divide-gray-200 bg-white">
+                {filteredUsers.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="px-6 py-12 text-center text-gray-500"
+                    >
+                      <Users className="mx-auto mb-4 h-12 w-12 text-gray-300" />
+                      <p>No users found</p>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Role Permissions Info */}
-        <div className="mt-8 rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
-            <Shield className="h-5 w-5 text-violet-600" />
-            <h3 className="font-medium text-gray-900">Role Permissions</h3>
+                ) : (
+                  filteredUsers.map((user) => (
+                    <tr key={user.id} className="hover:bg-gray-50">
+                      <td className="whitespace-nowrap px-6 py-4">
+                        <div className="flex items-center">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100">
+                            <span className="text-sm font-medium text-violet-600">
+                              {user.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {user.name}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {user.email}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getRoleBadgeColor(
+                            user.role
+                          )}`}
+                        >
+                          {user.role}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getStatusBadgeColor(
+                            user.status
+                          )}`}
+                        >
+                          {user.status}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                        {user.lastLoginAt
+                          ? new Date(user.lastLoginAt).toLocaleDateString()
+                          : 'Never'}
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
+                        <div className="flex items-center justify-end gap-2">
+                          <button className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteUser(user.id)}
+                            disabled={isDeleting}
+                            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-red-600 disabled:opacity-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-lg bg-gray-50 p-4">
-              <h4 className="mb-2 font-medium text-red-700">Admin</h4>
-              <ul className="space-y-1 text-sm text-gray-600">
-                <li>• Full system access</li>
-                <li>• User management</li>
-                <li>• System configuration</li>
-              </ul>
+
+          {/* Role Permissions Info */}
+          <div className="mt-8 rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <Shield className="h-5 w-5 text-violet-600" />
+              <h3 className="font-medium text-gray-900">Role Permissions</h3>
             </div>
-            <div className="rounded-lg bg-gray-50 p-4">
-              <h4 className="mb-2 font-medium text-blue-700">Editor</h4>
-              <ul className="space-y-1 text-sm text-gray-600">
-                <li>• Create/edit content</li>
-                <li>• Manage resources</li>
-                <li>• Run AI features</li>
-              </ul>
-            </div>
-            <div className="rounded-lg bg-gray-50 p-4">
-              <h4 className="mb-2 font-medium text-gray-700">Viewer</h4>
-              <ul className="space-y-1 text-sm text-gray-600">
-                <li>• View content only</li>
-                <li>• Read-only access</li>
-                <li>• No modifications</li>
-              </ul>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-lg bg-gray-50 p-4">
+                <h4 className="mb-2 font-medium text-red-700">Admin</h4>
+                <ul className="space-y-1 text-sm text-gray-600">
+                  <li>• Full system access</li>
+                  <li>• User management</li>
+                  <li>• System configuration</li>
+                </ul>
+              </div>
+              <div className="rounded-lg bg-gray-50 p-4">
+                <h4 className="mb-2 font-medium text-blue-700">Editor</h4>
+                <ul className="space-y-1 text-sm text-gray-600">
+                  <li>• Create/edit content</li>
+                  <li>• Manage resources</li>
+                  <li>• Run AI features</li>
+                </ul>
+              </div>
+              <div className="rounded-lg bg-gray-50 p-4">
+                <h4 className="mb-2 font-medium text-gray-700">Viewer</h4>
+                <ul className="space-y-1 text-sm text-gray-600">
+                  <li>• View content only</li>
+                  <li>• Read-only access</li>
+                  <li>• No modifications</li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -8,7 +8,7 @@ import {
   updateWorkspaceResources,
   WorkspaceResponse,
 } from '@/lib/api/workspace';
-import { useReportWorkspace } from '@/hooks/useReportWorkspace';
+import { useReportWorkspace } from './useReportWorkspace';
 
 interface UseWorkspaceSyncOptions {
   autoSync?: boolean;

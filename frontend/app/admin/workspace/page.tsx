@@ -12,9 +12,7 @@ import {
   getWorkspaceTask,
   listWorkspaceTemplates,
 } from '@/lib/api/workspace';
-import { useReportWorkspace } from '@/hooks/useReportWorkspace';
-import { useWorkspaceSync } from '@/hooks/useWorkspaceSync';
-import { useAIModels } from '@/hooks/useAIModels';
+import { useReportWorkspace, useWorkspaceSync, useAIModels } from '@/hooks';
 
 const TERMINAL_STATUSES = new Set(['SUCCESS', 'FAILED']);
 

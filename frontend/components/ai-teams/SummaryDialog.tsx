@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Topic, TopicSummary, GenerateSummaryDto } from '@/types/ai-teams';
-import { useAIModels } from '@/hooks/useAIModels';
+import { useAIModels } from '@/hooks';
 import * as api from '@/lib/api/ai-teams';
 import { useResourceStore } from '@/stores/aiOfficeStore';
 import { FileText, Download, CheckCircle } from 'lucide-react';

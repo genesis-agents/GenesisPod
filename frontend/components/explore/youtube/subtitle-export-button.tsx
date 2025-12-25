@@ -5,8 +5,8 @@ import { ExportDialog } from './export-dialog';
 import {
   useYoutubeSubtitleExport,
   BilingualSubtitles,
-  ExportOptions,
-} from '@/hooks/useYoutubeSubtitleExport';
+  SubtitleExportOptions,
+} from '@/hooks';
 
 interface SubtitleExportButtonProps {
   videoId: string;
@@ -45,7 +45,7 @@ export function SubtitleExportButton({
     }
   };
 
-  const handleExport = async (options: ExportOptions) => {
+  const handleExport = async (options: SubtitleExportOptions) => {
     if (!subtitles) {
       setFetchError('No subtitles available. Please try again.');
       return;

@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ExportOptions } from '@/hooks/useYoutubeSubtitleExport';
+import { SubtitleExportOptions } from '@/hooks';
 
 interface ExportDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onExport: (options: ExportOptions) => void;
+  onExport: (options: SubtitleExportOptions) => void;
   isLoading?: boolean;
 }
 
@@ -16,7 +16,7 @@ export function ExportDialog({
   onExport,
   isLoading = false,
 }: ExportDialogProps) {
-  const [options, setOptions] = useState<ExportOptions>({
+  const [options, setOptions] = useState<SubtitleExportOptions>({
     format: 'bilingual-side',
     includeTimestamps: true,
     includeVideoUrl: true,
@@ -56,7 +56,7 @@ export function ExportDialog({
                   onChange={(e) =>
                     setOptions({
                       ...options,
-                      format: e.target.value as ExportOptions['format'],
+                      format: e.target.value as SubtitleExportOptions['format'],
                     })
                   }
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500"
@@ -80,7 +80,7 @@ export function ExportDialog({
                   onChange={(e) =>
                     setOptions({
                       ...options,
-                      format: e.target.value as ExportOptions['format'],
+                      format: e.target.value as SubtitleExportOptions['format'],
                     })
                   }
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500"
@@ -104,7 +104,7 @@ export function ExportDialog({
                   onChange={(e) =>
                     setOptions({
                       ...options,
-                      format: e.target.value as ExportOptions['format'],
+                      format: e.target.value as SubtitleExportOptions['format'],
                     })
                   }
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500"
@@ -128,7 +128,7 @@ export function ExportDialog({
                   onChange={(e) =>
                     setOptions({
                       ...options,
-                      format: e.target.value as ExportOptions['format'],
+                      format: e.target.value as SubtitleExportOptions['format'],
                     })
                   }
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500"

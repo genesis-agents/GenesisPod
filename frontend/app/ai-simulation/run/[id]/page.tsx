@@ -26,7 +26,7 @@ import {
   PerspectiveSelector,
   ViewPerspective,
 } from '@/components/ai-simulation/PerspectiveSelector';
-import { useSimulationPerspective } from '@/hooks/useSimulationPerspective';
+import { useSimulationPerspective } from '@/hooks';
 import { isContentVisible } from '@/lib/ai-simulation/perspectiveFilter';
 
 // 智能解析长文本，提取结构化信息

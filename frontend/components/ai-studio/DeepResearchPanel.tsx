@@ -26,7 +26,7 @@ import {
   Brain,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
-import { useDeepResearch, DeepResearchReport } from '@/hooks/useDeepResearch';
+import { useDeepResearch, DeepResearchReport } from '@/hooks';
 import ThinkingChainPanel from './ThinkingChainPanel';
 
 interface DeepResearchPanelProps {

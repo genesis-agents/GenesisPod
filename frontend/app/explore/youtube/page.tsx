@@ -21,7 +21,7 @@ import KeyMomentsPanel, {
   type KeyMoment,
 } from '@/components/explore/youtube/KeyMomentsPanel';
 import { SubtitleExportButton } from '@/components/explore/youtube';
-import { useAIModels } from '@/hooks/useAIModels';
+import { useAIModels } from '@/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   fetchTranscriptSmart,

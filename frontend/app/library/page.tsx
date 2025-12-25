@@ -12,14 +12,14 @@ import { Tag, UserStats } from '@/components/library/CollectionNav';
 import ReadStatusBadge from '@/components/library/ReadStatusBadge';
 import TagList from '@/components/library/TagList';
 import { getAuthHeader } from '@/lib/utils/auth';
-import { useMultiSelect } from '@/hooks/useMultiSelect';
 import {
+  useMultiSelect,
   useCollections,
   ReadStatus,
   CollectionItem,
   Collection,
   PaginatedResult,
-} from '@/hooks/useCollections';
+} from '@/hooks';
 import { useResourceStore } from '@/stores/aiOfficeStore';
 import { useImageSourceStore } from '@/stores/imageSourceStore';
 import type { Resource as AIOfficeResource } from '@/types/ai-office';

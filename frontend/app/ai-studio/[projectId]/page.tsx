@@ -11,7 +11,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getAuthTokens } from '@/lib/utils/auth';
-import { useAIModels, getDefaultChatModel } from '@/hooks/useAIModels';
+import { useAIModels, getDefaultChatModel } from '@/hooks';
 import MessageRenderer from '@/components/ai-office/chat/MessageRenderer';
 import {
   ArrowLeft,

@@ -20,7 +20,7 @@ import remarkGfm from 'remark-gfm';
 import ReportWorkspace from '@/components/features/ReportWorkspace';
 import ResourceThumbnail from '@/components/explore/ResourceThumbnail';
 import { InsightChip } from '@/components/explore/InsightBadge';
-import { useReportWorkspace } from '@/hooks/useReportWorkspace';
+import { useReportWorkspace } from '@/hooks';
 import FilterPanel from '@/components/features/FilterPanel';
 import { ImportUrlDialog } from '@/components/shared/dialogs/ImportUrlDialog';
 import { ImportFileDialog } from '@/components/shared/dialogs/ImportFileDialog';
@@ -35,7 +35,7 @@ import {
 import { useResourceStore } from '@/stores/aiOfficeStore';
 import type { Resource as AIOfficeResource } from '@/types/ai-office';
 import { ThumbsUp, TrendingUp, Clock, Star, ChevronDown } from 'lucide-react';
-import { useAIModels } from '@/hooks/useAIModels';
+import { useAIModels } from '@/hooks';
 import { useImageSourceStore } from '@/stores/imageSourceStore';
 
 // Import extracted modules

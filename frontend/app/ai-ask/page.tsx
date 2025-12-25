@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAIModels, AIModel } from '@/hooks/useAIModels';
+import { useAIModels, AIModel } from '@/hooks';
 import { config } from '@/lib/utils/config';
 import AppShell from '@/components/layout/AppShell';
 import SessionSidebar from '@/components/ai-ask/SessionSidebar';

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAiGroupStore } from '@/stores/aiTeamsStore';
 import { Topic, CreateTopicDto, UpdateTopicDto } from '@/types/ai-teams';
-import { useAIModels, AIModel } from '@/hooks/useAIModels';
+import { useAIModels, AIModel } from '@/hooks';
 import AppShell from '@/components/layout/AppShell';
 import * as api from '@/lib/api/ai-teams';
 import { PublicTopic, JoinRequest } from '@/lib/api/ai-teams';

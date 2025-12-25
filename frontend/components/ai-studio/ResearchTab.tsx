@@ -38,11 +38,7 @@ import {
   FileOutput,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
-import {
-  useDeepResearch,
-  DeepResearchReport,
-  ReportReference,
-} from '@/hooks/useDeepResearch';
+import { useDeepResearch, DeepResearchReport, ReportReference } from '@/hooks';
 import ThinkingChainPanel from './ThinkingChainPanel';
 import { useTranslation } from '@/lib/i18n';
 

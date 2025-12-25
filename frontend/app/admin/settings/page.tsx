@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useApiGet, useApiPut, useApiPost } from '@/hooks/useApi';
+import { useApiGet, useApiPut, useApiPost } from '@/hooks';
 import {
   Mail,
   Globe,
@@ -398,7 +398,7 @@ function EmailSettingsTab() {
                 setForm({ ...form, resendApiKey: e.target.value })
               }
               placeholder="re_xxxxxxxxxxxx"
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="font-mono mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
             <p className="mt-1 text-xs text-gray-500">
               Get your API key from resend.com

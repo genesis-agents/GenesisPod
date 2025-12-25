@@ -140,7 +140,7 @@ function Base64Image({ src, alt }: { src: string; alt: string }) {
     </div>
   );
 }
-import { useReportWorkspace } from '@/hooks/useReportWorkspace';
+import { useReportWorkspace } from '@/hooks';
 
 // 懒加载对话框组件
 const FilterPanel = dynamic(() => import('@/components/features/FilterPanel'), {
@@ -173,7 +173,7 @@ import {
 import { useResourceStore } from '@/stores/aiOfficeStore';
 import type { Resource as AIOfficeResource } from '@/types/ai-office';
 import { ThumbsUp, TrendingUp, Clock, Star, ChevronDown } from 'lucide-react';
-import { useAIModels } from '@/hooks/useAIModels';
+import { useAIModels } from '@/hooks';
 import { useImageSourceStore } from '@/stores/imageSourceStore';
 
 interface Resource {

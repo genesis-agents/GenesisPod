@@ -2,10 +2,7 @@
 
 import { useState, useEffect, memo, useCallback } from 'react';
 import { config } from '@/lib/utils/config';
-import {
-  useThumbnailGenerator,
-  needsThumbnail,
-} from '@/hooks/useThumbnailGeneratorClient';
+import { useThumbnailGenerator, needsThumbnail } from '@/hooks';
 import { useRouter } from 'next/navigation';
 import { useImageSourceStore } from '@/stores/imageSourceStore';
 

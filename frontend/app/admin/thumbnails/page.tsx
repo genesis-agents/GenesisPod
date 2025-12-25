@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
-import { useThumbnailGenerator } from '@/hooks/useThumbnailGeneratorClient';
+import { useThumbnailGenerator } from '@/hooks';
 
 // Disable static generation for this page (requires browser APIs)
 export const dynamic = 'force-dynamic';

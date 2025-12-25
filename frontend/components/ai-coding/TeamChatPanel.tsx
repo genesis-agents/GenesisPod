@@ -7,11 +7,7 @@
  */
 
 import { useEffect, useRef, useMemo } from 'react';
-import {
-  TeamMember,
-  CodingAgentRole,
-  CodingMessageType,
-} from '@/hooks/useAiCodingSocket';
+import { TeamMember, CodingAgentRole, CodingMessageType } from '@/hooks';
 
 interface TeamMessage {
   id: string;

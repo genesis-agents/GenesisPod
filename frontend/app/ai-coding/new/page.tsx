@@ -19,7 +19,7 @@ import {
   AgentStatusEvent,
   ProjectCompleteEvent,
   ProjectErrorEvent,
-} from '@/hooks/useAiCodingSocket';
+} from '@/hooks';
 import {
   DevWorkspace,
   ThinkingPanel,

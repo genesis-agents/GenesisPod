@@ -14,7 +14,7 @@ import {
   TopicRole,
   AICapability,
 } from '@/types/ai-teams';
-import { useUrlDetection } from '@/hooks/useUrlDetection';
+import { useUrlDetection } from '@/hooks';
 import { LinkPreviewList } from '@/components/ai-teams/LinkPreviewCard';
 import type { ParsedUrl } from '@/lib/api/ai-teams';
 import { getProviderBrand } from '@/lib/ai-provider-logos';
@@ -85,7 +85,7 @@ const CAPABILITY_CONFIG: Record<
     icon: '📋',
   },
 };
-import { useAIModels, AIModel } from '@/hooks/useAIModels';
+import { useAIModels, AIModel } from '@/hooks';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import AppShell from '@/components/layout/AppShell';

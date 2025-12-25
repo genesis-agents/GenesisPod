@@ -212,11 +212,11 @@ export function useApiPut<T, P = unknown>(
 /**
  * DELETE 请求 Hook
  */
-export function useApiDelete<T>(
+export function useApiDelete<T, P = void>(
   path: string,
   options: Omit<UseApiOptions<T>, 'immediate' | 'deps'> = {}
-): UseApiResult<T> {
-  return useMutationBase<T>('delete', path, options);
+): UseApiResult<T, P> {
+  return useMutationBase<T, P>('delete', path, options);
 }
 
 /**

@@ -24,7 +24,7 @@ import {
   ProjectProgressEvent,
   AgentStatusEvent,
   CodingAgentRole,
-} from '@/hooks/useAiCodingSocket';
+} from '@/hooks';
 import { TeamStatusPanel } from '@/components/ai-coding/AgentStatusCard';
 import TeamChatPanel from '@/components/ai-coding/TeamChatPanel';
 import { DevWorkspace } from '@/components/ai-coding/DevWorkspace';

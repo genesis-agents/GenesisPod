@@ -14,7 +14,7 @@ export interface BilingualSubtitles {
   chinese: SubtitleSegment[];
 }
 
-export interface ExportOptions {
+export interface SubtitleExportOptions {
   format:
     | 'bilingual-side'
     | 'bilingual-stack'
@@ -34,7 +34,7 @@ interface UseYoutubeSubtitleExportReturn {
     title: string,
     englishSubtitles: SubtitleSegment[],
     chineseSubtitles: SubtitleSegment[],
-    options: ExportOptions
+    options: SubtitleExportOptions
   ) => Promise<void>;
 }
 
@@ -96,7 +96,7 @@ export function useYoutubeSubtitleExport(): UseYoutubeSubtitleExportReturn {
       title: string,
       englishSubtitles: SubtitleSegment[],
       chineseSubtitles: SubtitleSegment[],
-      options: ExportOptions
+      options: SubtitleExportOptions
     ): Promise<void> => {
       setIsLoading(true);
       setError(null);

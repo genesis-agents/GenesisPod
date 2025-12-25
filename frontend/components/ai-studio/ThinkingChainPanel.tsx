@@ -33,7 +33,7 @@ import {
   ResearchPlan,
   Reflection,
   ThinkingStepType,
-} from '@/hooks/useDeepResearch';
+} from '@/hooks';
 
 interface ThinkingChainPanelProps {
   state: DeepResearchState;

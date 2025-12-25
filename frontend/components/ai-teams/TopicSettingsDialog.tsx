@@ -8,7 +8,7 @@ import {
   AddAIMemberDto,
 } from '@/types/ai-teams';
 import { useAiGroupStore } from '@/stores/aiTeamsStore';
-import { useAIModels, AIModel } from '@/hooks/useAIModels';
+import { useAIModels, AIModel } from '@/hooks';
 import { config } from '@/lib/utils/config';
 import * as aiGroupApi from '@/lib/api/ai-teams';
 import { JoinRequest } from '@/lib/api/ai-teams';

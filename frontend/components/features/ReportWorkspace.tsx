@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useReportWorkspace } from '@/hooks/useReportWorkspace';
+import { useReportWorkspace } from '@/hooks';
 import { config } from '@/lib/utils/config';
 
 export default function ReportWorkspace() {

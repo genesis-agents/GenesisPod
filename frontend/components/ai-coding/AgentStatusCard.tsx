@@ -7,11 +7,7 @@
  */
 
 import { useMemo } from 'react';
-import {
-  TeamMember,
-  CodingAgentRole,
-  CodingAgentMemberStatus,
-} from '@/hooks/useAiCodingSocket';
+import { TeamMember, CodingAgentRole, CodingAgentMemberStatus } from '@/hooks';
 
 interface AgentStatusCardProps {
   /** Agent 角色 */

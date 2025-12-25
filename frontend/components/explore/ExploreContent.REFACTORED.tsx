@@ -38,9 +38,8 @@ import { useBookmarks } from './hooks/useBookmarks';
 import { usePDFText } from './hooks/usePDFText';
 import { useResources } from './hooks/useResources';
 import { useAIAssistant } from './hooks/useAIAssistant';
-import { useAIModels } from '@/hooks/useAIModels';
+import { useAIModels, useReportWorkspace } from '@/hooks';
 import { useResourceStore } from '@/stores/aiOfficeStore';
-import { useReportWorkspace } from '@/hooks/useReportWorkspace';
 
 function HomeContent() {
   const router = useRouter();
