@@ -371,7 +371,177 @@
     "signInDesc": "创建并加入与 AI 助手协作的团队"
   },
   "aiOffice": {
-    "title": "AI 办公",
+    "title": "AI Office",
+    "subtitle": "智能文档生成工作区",
+    "loading": "加载中...",
+    "signIn": {
+      "title": "AI Office",
+      "description": "登录后即可使用智能文档生成功能，包括 PPT、Word、Excel 等",
+      "button": "使用 Google 登录"
+    },
+    "header": {
+      "selectResources": "选择资源，自定义生成"
+    },
+    "tabs": {
+      "slides": "AI Slides",
+      "docs": "AI Docs",
+      "designer": "AI Designer"
+    },
+    "taskButton": {
+      "title": "打开任务列表",
+      "label": "任务"
+    },
+    "taskList": {
+      "title": "任务列表",
+      "total": "共 {{count}} 个任务",
+      "empty": {
+        "title": "还没有任务",
+        "description": "开始创建文档或PPT，任务会自动保存在这里"
+      },
+      "types": {
+        "article": "文章",
+        "ppt": "演示文稿",
+        "summary": "摘要",
+        "analysis": "分析报告"
+      },
+      "createdAt": "创建于",
+      "refreshedAt": "刷新于",
+      "words": "{{count}} 字",
+      "deleteConfirm": "确定要删除这个任务吗？"
+    },
+    "slides": {
+      "title": "AI Slides",
+      "subtitle": "智能PPT生成器",
+      "restart": "重新开始",
+      "steps": {
+        "outline": "大纲规划",
+        "layout": "布局配色",
+        "content": "内容生成"
+      },
+      "aiUnderstanding": "AI 理解:",
+      "linksDetected": "{{count}} 个链接",
+      "pagesCount": "{{count}}页",
+      "history": {
+        "title": "生成历史",
+        "recent": "最近 {{count}} 条记录",
+        "clear": "清空",
+        "empty": "暂无历史记录",
+        "pages": "{{count}} 页",
+        "viewResult": "查看结果",
+        "delete": "删除",
+        "failed": "失败"
+      },
+      "resources": {
+        "title": "已选资源",
+        "selected": "已选 {{selected}}/{{total}}",
+        "noTitle": "无标题",
+        "addResources": "在 Explore 页面添加资源"
+      },
+      "idle": {
+        "title": "开始创建PPT",
+        "description": "描述主题和要求，AI会为你规划大纲、设计布局",
+        "placeholder": "直接描述你想要的PPT，AI会自动理解你的需求：\n\n例如：\n• 帮我做一个10页的AI发展历程PPT，用漫画风格\n• 基于 https://example.com/report 这篇文章做一个哆啦A梦风格的介绍\n• 做一份关于新能源汽车的商业报告，要专业一点，15页左右",
+        "supportHint": "支持直接粘贴URL、指定风格、页数、配色等，AI会自动理解",
+        "generateButton": "生成PPT"
+      },
+      "outline": {
+        "title": "PPT 大纲",
+        "regenerate": "重新生成",
+        "confirm": "确认大纲",
+        "waiting": "等待生成大纲...",
+        "slideTitle": "幻灯片标题",
+        "pointContent": "要点内容",
+        "addPoint": "+ 添加要点",
+        "addSlide": "添加幻灯片",
+        "viewDesignSpec": "查看设计规格",
+        "visualIntent": "视觉意图：",
+        "imageHint": "图片建议：",
+        "purposeLabels": {
+          "title": "标题页",
+          "agenda": "议程",
+          "section_header": "章节",
+          "content": "内容",
+          "comparison": "对比",
+          "timeline": "时间线",
+          "statistics": "数据",
+          "quote": "引用",
+          "team": "团队",
+          "image_focus": "图片",
+          "chart": "图表",
+          "closing": "结束",
+          "qna": "问答"
+        },
+        "emphasis": {
+          "high": "Hero",
+          "medium": "重点",
+          "low": "辅助"
+        }
+      },
+      "layout": {
+        "title": "布局与配色",
+        "startGenerate": "开始生成",
+        "waiting": "等待规划布局...",
+        "pageNum": "第 {{num}} 页",
+        "layoutType": "布局类型",
+        "colorScheme": "配色方案",
+        "layoutTypes": {
+          "title": "标题页",
+          "content": "内容页",
+          "twoColumn": "双栏布局",
+          "chart": "图表页",
+          "image": "图片页",
+          "summary": "总结页"
+        },
+        "colorSchemes": {
+          "professional": "专业蓝",
+          "modern": "现代紫",
+          "nature": "自然绿",
+          "warm": "温暖橙",
+          "elegant": "典雅灰"
+        }
+      },
+      "generating": {
+        "title": "正在生成PPT...",
+        "description": "AI正在根据大纲和布局配置生成内容"
+      },
+      "complete": {
+        "title": "PPT生成完成！",
+        "description": "共 {{count}} 页，可在右侧预览和编辑",
+        "createNew": "创建新PPT",
+        "imagesIncluded": "共 {{slideCount}} 页，包含 {{imageCount}} 张AI生成的图片"
+      },
+      "preview": {
+        "untitled": "未命名演示文稿",
+        "slideCount": "{{count}} 页幻灯片",
+        "waiting": "等待生成...",
+        "ready": "准备生成PPT",
+        "describeContent": "在左侧描述你想要的PPT内容",
+        "slideNum": "幻灯片 {{current}} / {{total}}",
+        "edit": "编辑",
+        "source": "源码",
+        "preview": "预览",
+        "prev": "上一页",
+        "next": "下一页",
+        "editPlaceholder": "在此编辑幻灯片内容（Markdown格式）"
+      },
+      "messages": {
+        "outlineGenerated": "已生成专业 PPT 大纲（{{count}} 页）：\n\n{{summary}}\n\n推荐主题: {{theme}}\n{{narrative}}\n\n请在右侧查看和编辑。",
+        "outlineError": "抱歉，生成大纲时出错：{{error}}",
+        "outlineConfirmed": "大纲已确认！现在请为每页选择布局类型和配色方案。",
+        "generationProgress": "正在生成: {{message}}...",
+        "generationComplete": "PPT生成完成！共 {{count}} 页。",
+        "generationCompleteWithImages": "PPT生成完成！共 {{slideCount}} 页，包含 {{imageCount}} 张AI生成的图片。",
+        "generationError": "抱歉，生成内容时出错，请重试。"
+      }
+    },
+    "promptBar": {
+      "placeholder": "描述你想要创建的内容...",
+      "commands": {
+        "ppt": "PPT",
+        "doc": "文档",
+        "design": "设计"
+      }
+    },
     "documents": "文档",
     "presentations": "演示文稿",
     "spreadsheets": "表格",

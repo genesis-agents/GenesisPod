@@ -18,6 +18,7 @@ import CommandPalette, {
 import SlidesTab from '../tabs/SlidesTab';
 import DocsTab from '../tabs/DocsTab';
 import DesignerTab from '../tabs/DesignerTab';
+import { useTranslation } from '@/lib/i18n';
 
 // 工作模式类型 - 三个专项Tab
 type WorkspaceTab = 'slides' | 'docs' | 'designer';
@@ -32,6 +33,7 @@ const VALID_TABS: WorkspaceTab[] = ['slides', 'docs', 'designer'];
 export default function WorkspaceLayout({
   children: _children,
 }: WorkspaceLayoutProps) {
+  const { t } = useTranslation();
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -70,7 +72,7 @@ export default function WorkspaceLayout({
             }`}
           >
             <Presentation className="h-4 w-4" />
-            <span>AI Slides</span>
+            <span>{t('aiOffice.tabs.slides')}</span>
           </button>
 
           {/* AI Docs Tab */}
@@ -83,7 +85,7 @@ export default function WorkspaceLayout({
             }`}
           >
             <FileText className="h-4 w-4" />
-            <span>AI Docs</span>
+            <span>{t('aiOffice.tabs.docs')}</span>
           </button>
 
           {/* AI Designer Tab */}
@@ -96,7 +98,7 @@ export default function WorkspaceLayout({
             }`}
           >
             <Palette className="h-4 w-4" />
-            <span>AI Designer</span>
+            <span>{t('aiOffice.tabs.designer')}</span>
           </button>
         </div>
       </div>
@@ -130,10 +132,10 @@ export default function WorkspaceLayout({
         <button
           onClick={toggleTaskList}
           className="fixed bottom-6 right-6 z-30 flex items-center space-x-2 rounded-full bg-blue-600 px-5 py-3 text-white shadow-lg transition-all hover:scale-105 hover:bg-blue-700 hover:shadow-xl active:scale-95"
-          title="打开任务列表"
+          title={t('aiOffice.taskButton.title')}
         >
           <ListTodo className="h-5 w-5" />
-          <span className="font-medium">任务</span>
+          <span className="font-medium">{t('aiOffice.taskButton.label')}</span>
           {tasks.length > 0 && (
             <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs font-bold text-blue-600">
               {tasks.length}

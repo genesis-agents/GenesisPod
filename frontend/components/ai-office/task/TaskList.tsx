@@ -20,7 +20,8 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { zhCN } from 'date-fns/locale';
+import { zhCN, enUS } from 'date-fns/locale';
+import { useTranslation } from '@/lib/i18n';
 
 // 任务类型图标映射
 const TASK_TYPE_ICONS: Record<Task['type'], React.ElementType> = {
@@ -30,15 +31,8 @@ const TASK_TYPE_ICONS: Record<Task['type'], React.ElementType> = {
   analysis: BarChart,
 };
 
-// 任务类型中文名称
-const TASK_TYPE_NAMES: Record<Task['type'], string> = {
-  article: '文章',
-  ppt: '演示文稿',
-  summary: '摘要',
-  analysis: '分析报告',
-};
-
 export default function TaskList() {
+  const { t, locale } = useTranslation();
   const tasks = useTaskStore((state) => state.tasks);
   const currentTaskId = useTaskStore((state) => state.currentTaskId);
   const isTaskListOpen = useTaskStore((state) => state.isTaskListOpen);
@@ -47,6 +41,14 @@ export default function TaskList() {
   const deleteTask = useTaskStore((state) => state.deleteTask);
 
   const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
+
+  // Get the date-fns locale based on current language
+  const dateLocale = locale === 'zh' ? zhCN : enUS;
+
+  // Get task type name from translation
+  const getTaskTypeName = (type: Task['type']) => {
+    return t(`aiOffice.taskList.types.${type}`);
+  };
 
   if (!isTaskListOpen) {
     return null;
@@ -58,7 +60,7 @@ export default function TaskList() {
 
   const handleDeleteTask = (e: React.MouseEvent, taskId: string) => {
     e.stopPropagation(); // 阻止触发任务点击
-    if (confirm('确定要删除这个任务吗？')) {
+    if (confirm(t('aiOffice.taskList.deleteConfirm'))) {
       deleteTask(taskId);
     }
   };
@@ -73,8 +75,12 @@ export default function TaskList() {
               <ListTodo className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-900">任务列表</h2>
-              <p className="text-xs text-gray-500">共 {tasks.length} 个任务</p>
+              <h2 className="text-lg font-bold text-gray-900">
+                {t('aiOffice.taskList.title')}
+              </h2>
+              <p className="text-xs text-gray-500">
+                {t('aiOffice.taskList.total', { count: tasks.length })}
+              </p>
             </div>
           </div>
           <button
@@ -93,9 +99,11 @@ export default function TaskList() {
             <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
               <ListTodo className="h-10 w-10 text-gray-400" />
             </div>
-            <p className="mb-1 text-sm font-medium text-gray-900">还没有任务</p>
+            <p className="mb-1 text-sm font-medium text-gray-900">
+              {t('aiOffice.taskList.empty.title')}
+            </p>
             <p className="text-xs text-gray-500">
-              开始创建文档或PPT，任务会自动保存在这里
+              {t('aiOffice.taskList.empty.description')}
             </p>
           </div>
         ) : (
@@ -162,7 +170,7 @@ export default function TaskList() {
                       {/* 类型标签 */}
                       <div className="mb-2 flex items-center space-x-2">
                         <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
-                          {TASK_TYPE_NAMES[task.type]}
+                          {getTaskTypeName(task.type)}
                         </span>
                         {task.metadata.description && (
                           <span className="max-w-[150px] truncate text-xs text-gray-400">
@@ -175,11 +183,11 @@ export default function TaskList() {
                       <div className="space-y-1">
                         <div className="flex items-center space-x-1 text-xs text-gray-500">
                           <Clock className="h-3 w-3" />
-                          <span>创建于</span>
+                          <span>{t('aiOffice.taskList.createdAt')}</span>
                           <span className="font-medium">
                             {formatDistanceToNow(new Date(task.createdAt), {
                               addSuffix: true,
-                              locale: zhCN,
+                              locale: dateLocale,
                             })}
                           </span>
                         </div>
@@ -187,11 +195,11 @@ export default function TaskList() {
                         {hasBeenRefreshed && (
                           <div className="flex items-center space-x-1 text-xs text-blue-600">
                             <RefreshCw className="h-3 w-3" />
-                            <span>刷新于</span>
+                            <span>{t('aiOffice.taskList.refreshedAt')}</span>
                             <span className="font-medium">
                               {formatDistanceToNow(new Date(task.refreshedAt), {
                                 addSuffix: true,
-                                locale: zhCN,
+                                locale: dateLocale,
                               })}
                             </span>
                           </div>
@@ -201,7 +209,9 @@ export default function TaskList() {
                       {/* 元数据 */}
                       {task.metadata.wordCount && (
                         <div className="mt-2 text-xs text-gray-500">
-                          {task.metadata.wordCount} 字
+                          {t('aiOffice.taskList.words', {
+                            count: task.metadata.wordCount,
+                          })}
                         </div>
                       )}
                     </div>

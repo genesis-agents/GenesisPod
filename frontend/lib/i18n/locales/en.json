@@ -372,6 +372,176 @@
   },
   "aiOffice": {
     "title": "AI Office",
+    "subtitle": "Smart Document Generation Workspace",
+    "loading": "Loading...",
+    "signIn": {
+      "title": "AI Office",
+      "description": "Sign in to use smart document generation, including PPT, Word, Excel, and more",
+      "button": "Sign in with Google"
+    },
+    "header": {
+      "selectResources": "Select resources, customize generation"
+    },
+    "tabs": {
+      "slides": "AI Slides",
+      "docs": "AI Docs",
+      "designer": "AI Designer"
+    },
+    "taskButton": {
+      "title": "Open task list",
+      "label": "Tasks"
+    },
+    "taskList": {
+      "title": "Task List",
+      "total": "{{count}} tasks total",
+      "empty": {
+        "title": "No tasks yet",
+        "description": "Start creating documents or PPT, tasks will be saved here automatically"
+      },
+      "types": {
+        "article": "Article",
+        "ppt": "Presentation",
+        "summary": "Summary",
+        "analysis": "Analysis Report"
+      },
+      "createdAt": "Created",
+      "refreshedAt": "Refreshed",
+      "words": "{{count}} words",
+      "deleteConfirm": "Are you sure you want to delete this task?"
+    },
+    "slides": {
+      "title": "AI Slides",
+      "subtitle": "Smart PPT Generator",
+      "restart": "Restart",
+      "steps": {
+        "outline": "Outline Planning",
+        "layout": "Layout & Colors",
+        "content": "Content Generation"
+      },
+      "aiUnderstanding": "AI Understanding:",
+      "linksDetected": "{{count}} links detected",
+      "pagesCount": "{{count}} pages",
+      "history": {
+        "title": "Generation History",
+        "recent": "Recent {{count}} records",
+        "clear": "Clear",
+        "empty": "No history records",
+        "pages": "{{count}} pages",
+        "viewResult": "View result",
+        "delete": "Delete",
+        "failed": "Failed"
+      },
+      "resources": {
+        "title": "Selected Resources",
+        "selected": "{{selected}}/{{total}} selected",
+        "noTitle": "Untitled",
+        "addResources": "Add resources in Explore page"
+      },
+      "idle": {
+        "title": "Start Creating PPT",
+        "description": "Describe the topic and requirements, AI will plan the outline and design layout for you",
+        "placeholder": "Describe the PPT you want, AI will automatically understand your needs:\n\nExamples:\n• Create a 10-page AI history PPT in comic style\n• Based on this article https://example.com/report, make a Doraemon style intro\n• Create a professional business report about new energy vehicles, around 15 pages",
+        "supportHint": "Supports pasting URLs, specifying style, page count, colors - AI understands automatically",
+        "generateButton": "Generate PPT"
+      },
+      "outline": {
+        "title": "PPT Outline",
+        "regenerate": "Regenerate",
+        "confirm": "Confirm Outline",
+        "waiting": "Waiting for outline generation...",
+        "slideTitle": "Slide title",
+        "pointContent": "Point content",
+        "addPoint": "+ Add point",
+        "addSlide": "Add slide",
+        "viewDesignSpec": "View design spec",
+        "visualIntent": "Visual intent:",
+        "imageHint": "Image suggestion:",
+        "purposeLabels": {
+          "title": "Title",
+          "agenda": "Agenda",
+          "section_header": "Section",
+          "content": "Content",
+          "comparison": "Comparison",
+          "timeline": "Timeline",
+          "statistics": "Statistics",
+          "quote": "Quote",
+          "team": "Team",
+          "image_focus": "Image",
+          "chart": "Chart",
+          "closing": "Closing",
+          "qna": "Q&A"
+        },
+        "emphasis": {
+          "high": "Hero",
+          "medium": "Key",
+          "low": "Supporting"
+        }
+      },
+      "layout": {
+        "title": "Layout & Colors",
+        "startGenerate": "Start Generating",
+        "waiting": "Waiting for layout planning...",
+        "pageNum": "Page {{num}}",
+        "layoutType": "Layout Type",
+        "colorScheme": "Color Scheme",
+        "layoutTypes": {
+          "title": "Title Page",
+          "content": "Content Page",
+          "twoColumn": "Two Column",
+          "chart": "Chart Page",
+          "image": "Image Page",
+          "summary": "Summary Page"
+        },
+        "colorSchemes": {
+          "professional": "Professional Blue",
+          "modern": "Modern Purple",
+          "nature": "Nature Green",
+          "warm": "Warm Orange",
+          "elegant": "Elegant Gray"
+        }
+      },
+      "generating": {
+        "title": "Generating PPT...",
+        "description": "AI is generating content based on outline and layout"
+      },
+      "complete": {
+        "title": "PPT Generated!",
+        "description": "{{count}} pages total, preview and edit on the right",
+        "createNew": "Create New PPT",
+        "imagesIncluded": "{{slideCount}} pages, including {{imageCount}} AI-generated images"
+      },
+      "preview": {
+        "untitled": "Untitled Presentation",
+        "slideCount": "{{count}} slides",
+        "waiting": "Waiting for generation...",
+        "ready": "Ready to generate PPT",
+        "describeContent": "Describe the PPT content on the left",
+        "slideNum": "Slide {{current}} / {{total}}",
+        "edit": "Edit",
+        "source": "Source",
+        "preview": "Preview",
+        "prev": "Previous",
+        "next": "Next",
+        "editPlaceholder": "Edit slide content here (Markdown format)"
+      },
+      "messages": {
+        "outlineGenerated": "Generated professional PPT outline ({{count}} pages):\n\n{{summary}}\n\nRecommended theme: {{theme}}\n{{narrative}}\n\nPlease review and edit on the right.",
+        "outlineError": "Sorry, error generating outline: {{error}}",
+        "outlineConfirmed": "Outline confirmed! Now select layout type and color scheme for each page.",
+        "generationProgress": "Generating: {{message}}...",
+        "generationComplete": "PPT generated! {{count}} pages total.",
+        "generationCompleteWithImages": "PPT generated! {{slideCount}} pages, including {{imageCount}} AI-generated images.",
+        "generationError": "Sorry, error generating content, please try again."
+      }
+    },
+    "promptBar": {
+      "placeholder": "Describe what you want to create...",
+      "commands": {
+        "ppt": "PPT",
+        "doc": "Document",
+        "design": "Design"
+      }
+    },
     "documents": "Documents",
     "presentations": "Presentations",
     "spreadsheets": "Spreadsheets",

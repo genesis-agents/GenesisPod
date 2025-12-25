@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from '@/components/layout/Sidebar';
 import WorkspaceLayout from '@/components/ai-office/layout/WorkspaceLayout';
 import { LogIn } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 
 // Loading fallback for Suspense
 function WorkspaceLoading() {
@@ -22,6 +23,7 @@ function WorkspaceLoading() {
  */
 export default function AIOfficePage() {
   const { user, isLoading, loginWithGoogle } = useAuth();
+  const { t } = useTranslation();
 
   // 加载中
   if (isLoading) {
@@ -29,7 +31,7 @@ export default function AIOfficePage() {
       <div className="flex h-screen items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-4">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
-          <p className="text-gray-500">加载中...</p>
+          <p className="text-gray-500">{t('aiOffice.loading')}</p>
         </div>
       </div>
     );
@@ -59,16 +61,18 @@ export default function AIOfficePage() {
                 </svg>
               </div>
             </div>
-            <h1 className="mb-2 text-2xl font-bold text-gray-900">AI Office</h1>
+            <h1 className="mb-2 text-2xl font-bold text-gray-900">
+              {t('aiOffice.signIn.title')}
+            </h1>
             <p className="mb-8 text-gray-500">
-              登录后即可使用智能文档生成功能，包括 PPT、Word、Excel 等
+              {t('aiOffice.signIn.description')}
             </p>
             <button
               onClick={loginWithGoogle}
               className="inline-flex items-center gap-3 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-8 py-4 text-lg font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-xl hover:shadow-violet-500/30"
             >
               <LogIn className="h-5 w-5" />
-              使用 Google 登录
+              {t('aiOffice.signIn.button')}
             </button>
           </div>
         </main>
@@ -103,12 +107,16 @@ export default function AIOfficePage() {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">
-                    AI Office
+                    {t('aiOffice.title')}
                   </h1>
-                  <p className="text-sm text-gray-500">智能文档生成工作区</p>
+                  <p className="text-sm text-gray-500">
+                    {t('aiOffice.subtitle')}
+                  </p>
                 </div>
               </div>
-              <div className="text-sm text-gray-500">选择资源，自定义生成</div>
+              <div className="text-sm text-gray-500">
+                {t('aiOffice.header.selectResources')}
+              </div>
             </div>
           </div>
         </div>
