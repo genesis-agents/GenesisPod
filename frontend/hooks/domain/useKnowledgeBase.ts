@@ -106,7 +106,7 @@ export function useKnowledgeBase() {
     loading: listLoading,
     error: listError,
     execute: fetchList,
-  } = useApiGet<KnowledgeBase[]>('/api/rag/knowledge-bases', {
+  } = useApiGet<KnowledgeBase[]>('/rag/knowledge-bases', {
     immediate: true,
   });
 
@@ -114,14 +114,14 @@ export function useKnowledgeBase() {
   const { execute: createKnowledgeBase, loading: creating } = useApiPost<
     KnowledgeBase,
     CreateKnowledgeBaseDto
-  >('/api/rag/knowledge-bases');
+  >('/rag/knowledge-bases');
 
   // 删除知识库 - 使用 apiClient 直接调用
   const deleteKnowledgeBase = useCallback(
     async (id: string) => {
       setDeleting(true);
       try {
-        await apiClient.delete(`/api/rag/knowledge-bases/${id}`);
+        await apiClient.delete(`/rag/knowledge-bases/${id}`);
         await fetchList();
       } finally {
         setDeleting(false);
@@ -157,10 +157,9 @@ export function useKnowledgeBaseDetail(id: string | null) {
     loading,
     error,
     execute: refresh,
-  } = useApiGet<KnowledgeBase>(
-    `/api/rag/knowledge-bases/${id || 'placeholder'}`,
-    { immediate: !!id }
-  );
+  } = useApiGet<KnowledgeBase>(`/rag/knowledge-bases/${id || 'placeholder'}`, {
+    immediate: !!id,
+  });
 
   // 获取统计信息
   const {
@@ -168,7 +167,7 @@ export function useKnowledgeBaseDetail(id: string | null) {
     loading: statsLoading,
     execute: fetchStats,
   } = useApiGet<KnowledgeBaseStats>(
-    `/api/rag/knowledge-bases/${id || 'placeholder'}/stats`,
+    `/rag/knowledge-bases/${id || 'placeholder'}/stats`,
     { immediate: !!id }
   );
 
@@ -176,13 +175,13 @@ export function useKnowledgeBaseDetail(id: string | null) {
   const { execute: updateKnowledgeBase, loading: updating } = useApiMutation<
     KnowledgeBase,
     Partial<CreateKnowledgeBaseDto>
-  >('patch', `/api/rag/knowledge-bases/${id || 'placeholder'}`);
+  >('patch', `/rag/knowledge-bases/${id || 'placeholder'}`);
 
   // 处理文档
   const { execute: processDocuments, loading: processing } = useApiPost<
     { processed: number },
     Record<string, never>
-  >(`/api/rag/knowledge-bases/${id || 'placeholder'}/process`);
+  >(`/rag/knowledge-bases/${id || 'placeholder'}/process`);
 
   // 同步 Google Drive
   const { execute: syncGoogleDrive, loading: syncing } = useApiPost<
@@ -193,13 +192,13 @@ export function useKnowledgeBaseDetail(id: string | null) {
       errors: string[];
     },
     Record<string, never>
-  >(`/api/rag/knowledge-bases/${id || 'placeholder'}/sync`);
+  >(`/rag/knowledge-bases/${id || 'placeholder'}/sync`);
 
   // 添加文档
   const { execute: addDocument, loading: addingDocument } = useApiPost<
     KnowledgeBaseDocument,
     AddDocumentDto
-  >(`/api/rag/knowledge-bases/${id || 'placeholder'}/documents`);
+  >(`/rag/knowledge-bases/${id || 'placeholder'}/documents`);
 
   return {
     knowledgeBase: id ? knowledgeBase : undefined,
@@ -265,19 +264,11 @@ export function useRAGQuery() {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch('/api/rag/query', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: queryText,
-            knowledgeBaseIds,
-            ...options,
-          }),
+        const data = await apiClient.post<RAGQueryResult>('/rag/query', {
+          query: queryText,
+          knowledgeBaseIds,
+          ...options,
         });
-        if (!response.ok) {
-          throw new Error('Query failed');
-        }
-        const data = await response.json();
         setResult(data);
         return data;
       } catch (err) {
