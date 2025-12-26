@@ -1,5 +1,8 @@
 #!/bin/sh
 
+echo "🔧 Step 0: Fixing enum values (outside Prisma transaction)..."
+node ./scripts/fix-enum-values.js || true
+
 echo "🔧 Step 1: Resolving failed migrations..."
 
 # Check if the migration is marked as failed and resolve it

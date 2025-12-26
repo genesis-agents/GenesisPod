@@ -302,6 +302,10 @@ function LibraryPageContent() {
     []
   );
   const [bookmarkedImagesLoading, setBookmarkedImagesLoading] = useState(false);
+  const [bookmarkedImagesError, setBookmarkedImagesError] = useState<
+    string | null
+  >(null);
+  const [bookmarkedImagesLoaded, setBookmarkedImagesLoaded] = useState(false);
 
   // Selected image ID for navigation from bookmarks to Images tab
   const [selectedImageId, setSelectedImageId] = useState<string | undefined>(
@@ -525,23 +529,42 @@ function LibraryPageContent() {
   }, []);
 
   // Load bookmarked images
-  const loadBookmarkedImages = useCallback(async () => {
-    setBookmarkedImagesLoading(true);
-    try {
-      const response = await fetch(
-        `${config.apiBaseUrl}/api/v1/ai-image/bookmarks`,
-        { headers: { ...getAuthHeader() } }
-      );
-      if (response.ok) {
-        const data: BookmarkedImage[] = await response.json();
-        setBookmarkedImages(data);
+  const loadBookmarkedImages = useCallback(
+    async (force = false) => {
+      // 如果已经加载过且没有强制刷新，则跳过
+      if (bookmarkedImagesLoaded && !force) {
+        return;
       }
-    } catch (err) {
-      console.error('Failed to load bookmarked images:', err);
-    } finally {
-      setBookmarkedImagesLoading(false);
-    }
-  }, []);
+
+      setBookmarkedImagesLoading(true);
+      setBookmarkedImagesError(null);
+      try {
+        const response = await fetch(
+          `${config.apiBaseUrl}/api/v1/ai-image/bookmarks`,
+          { headers: { ...getAuthHeader() } }
+        );
+        if (response.ok) {
+          const data: BookmarkedImage[] = await response.json();
+          setBookmarkedImages(data);
+          setBookmarkedImagesLoaded(true);
+        } else if (response.status === 429) {
+          // Rate limit - 不设置 loaded，但设置错误信息，避免无限重试
+          setBookmarkedImagesError('请求过于频繁，请稍后重试');
+          setBookmarkedImagesLoaded(true); // 标记为已加载，避免重试
+        } else {
+          setBookmarkedImagesError('加载图片失败');
+          setBookmarkedImagesLoaded(true);
+        }
+      } catch (err) {
+        console.error('Failed to load bookmarked images:', err);
+        setBookmarkedImagesError('网络错误，请重试');
+        setBookmarkedImagesLoaded(true); // 防止无限重试
+      } finally {
+        setBookmarkedImagesLoading(false);
+      }
+    },
+    [bookmarkedImagesLoaded]
+  );
 
   // Load items when switching to bookmarks subtab
   useEffect(() => {
@@ -1068,14 +1091,52 @@ function LibraryPageContent() {
 
   // Images Tab Content Component
   const ImagesTabContent = () => {
+    // 仅在组件首次挂载时加载一次
     useEffect(() => {
       loadBookmarkedImages();
-    }, [loadBookmarkedImages]);
+    }, []); // 空依赖数组，只运行一次
 
     if (bookmarkedImagesLoading) {
       return (
         <div className="flex items-center justify-center py-12">
           <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-pink-600"></div>
+        </div>
+      );
+    }
+
+    // 显示错误状态
+    if (bookmarkedImagesError) {
+      return (
+        <div className="flex flex-col items-center justify-center py-16">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+            <svg
+              className="h-8 w-8 text-red-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+          </div>
+          <h3 className="mb-2 text-lg font-semibold text-gray-900">加载失败</h3>
+          <p className="mb-6 text-center text-sm text-gray-500">
+            {bookmarkedImagesError}
+          </p>
+          <button
+            onClick={() => {
+              setBookmarkedImagesLoaded(false);
+              setBookmarkedImagesError(null);
+              loadBookmarkedImages(true);
+            }}
+            className="rounded-lg bg-pink-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-pink-700"
+          >
+            重试
+          </button>
         </div>
       );
     }
