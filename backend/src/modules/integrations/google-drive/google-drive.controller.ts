@@ -141,6 +141,53 @@ export class GoogleDriveController {
     return { connection };
   }
 
+  // ============ Connections (复数路由，兼容前端) ============
+
+  @Get("connections")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "获取用户的所有连接（兼容前端）" })
+  @ApiResponse({ status: 200, description: "返回连接列表" })
+  async getConnections(@Req() req: AuthenticatedRequest) {
+    const userId = this.getUserId(req);
+    const connection = await this.authService.getConnection(userId);
+    // 返回数组格式，兼容前端期望的 connections 列表
+    return { connections: connection ? [connection] : [] };
+  }
+
+  @Get("connections/:id")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "获取单个连接详情" })
+  @ApiResponse({ status: 200, description: "返回连接信息" })
+  async getConnectionById(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+  ) {
+    const userId = this.getUserId(req);
+    const connection = await this.authService.getConnection(userId);
+    if (!connection || connection.id !== id) {
+      throw new HttpException("Connection not found", HttpStatus.NOT_FOUND);
+    }
+    return { connection };
+  }
+
+  @Patch("connections/:id")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "更新连接配置（通过 ID）" })
+  @ApiResponse({ status: 200, description: "更新成功" })
+  async updateConnectionById(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Body() dto: UpdateConnectionDto,
+  ) {
+    const userId = this.getUserId(req);
+    const connection = await this.authService.getConnection(userId);
+    if (!connection || connection.id !== id) {
+      throw new HttpException("Connection not found", HttpStatus.NOT_FOUND);
+    }
+    const updated = await this.authService.updateConnection(userId, dto);
+    return { connection: updated };
+  }
+
   // ============ Files ============
 
   @Get("files")
