@@ -5,7 +5,17 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import dynamicImport from 'next/dynamic';
 import { config } from '@/lib/utils/config';
-import { Bookmark, FileText, Image, Share2, Database } from 'lucide-react';
+import {
+  Bookmark,
+  FileText,
+  Image,
+  Share2,
+  Database,
+  User,
+  Users,
+  HardDrive,
+  BookOpen,
+} from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import AppShell from '@/components/layout/AppShell';
 import { Tag, UserStats } from '@/components/library/CollectionNav';
@@ -107,6 +117,42 @@ const KnowledgeBaseTabContent = dynamicImport(
   }
 );
 
+const PersonalKnowledgeBaseTab = dynamicImport(
+  () => import('@/components/library/PersonalKnowledgeBaseTab'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
+      </div>
+    ),
+  }
+);
+
+const TeamKnowledgeBaseTab = dynamicImport(
+  () => import('@/components/library/TeamKnowledgeBaseTab'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-purple-600"></div>
+      </div>
+    ),
+  }
+);
+
+const DataSourcesTab = dynamicImport(
+  () => import('@/components/library/DataSourcesTab'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-green-600"></div>
+      </div>
+    ),
+  }
+);
+
 export const dynamic = 'force-dynamic';
 
 interface YouTubeVideo {
@@ -155,6 +201,9 @@ function LibraryPageContent() {
     | 'notion'
     | 'google-drive'
     | 'knowledge-base'
+    | 'personal-kb'
+    | 'team-kb'
+    | 'data-sources'
   >(() => {
     // Initialize from URL parameter if present
     if (
@@ -163,11 +212,14 @@ function LibraryPageContent() {
       tabParam === 'graph' ||
       tabParam === 'notion' ||
       tabParam === 'google-drive' ||
-      tabParam === 'knowledge-base'
+      tabParam === 'knowledge-base' ||
+      tabParam === 'personal-kb' ||
+      tabParam === 'team-kb' ||
+      tabParam === 'data-sources'
     ) {
       return tabParam;
     }
-    return 'bookmarks';
+    return 'personal-kb'; // Default to personal KB
   });
 
   // Update activeTab when URL parameter changes
@@ -179,7 +231,10 @@ function LibraryPageContent() {
       tabParam === 'graph' ||
       tabParam === 'notion' ||
       tabParam === 'google-drive' ||
-      tabParam === 'knowledge-base'
+      tabParam === 'knowledge-base' ||
+      tabParam === 'personal-kb' ||
+      tabParam === 'team-kb' ||
+      tabParam === 'data-sources'
     ) {
       setActiveTab(tabParam);
     }
@@ -1472,8 +1527,47 @@ function LibraryPageContent() {
               </div>
             </div>
 
-            {/* Navigation Tabs - Professional design with icons and colors */}
-            <div className="flex items-center gap-2 pb-1">
+            {/* Navigation Tabs - Knowledge Base focused with new tabs */}
+            <div className="flex flex-wrap items-center gap-2 pb-1">
+              {/* Primary Knowledge Base Tabs */}
+              <button
+                onClick={() => setActiveTab('personal-kb')}
+                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
+                  activeTab === 'personal-kb'
+                    ? 'border-blue-400 bg-blue-50 text-blue-700 shadow-sm'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-700'
+                }`}
+              >
+                <User className="h-4 w-4" />
+                个人知识库
+              </button>
+              <button
+                onClick={() => setActiveTab('team-kb')}
+                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
+                  activeTab === 'team-kb'
+                    ? 'border-purple-400 bg-purple-50 text-purple-700 shadow-sm'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-purple-300 hover:bg-purple-50/50 hover:text-purple-700'
+                }`}
+              >
+                <Users className="h-4 w-4" />
+                团队知识库
+              </button>
+              <button
+                onClick={() => setActiveTab('data-sources')}
+                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
+                  activeTab === 'data-sources'
+                    ? 'border-green-400 bg-green-50 text-green-700 shadow-sm'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-green-300 hover:bg-green-50/50 hover:text-green-700'
+                }`}
+              >
+                <HardDrive className="h-4 w-4" />
+                数据源
+              </button>
+
+              {/* Divider */}
+              <div className="mx-1 h-6 w-px bg-gray-200" />
+
+              {/* Legacy Tabs */}
               <button
                 onClick={() => setActiveTab('bookmarks')}
                 className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
@@ -1956,13 +2050,22 @@ function LibraryPageContent() {
             </div>
           )}
 
+          {/* Personal Knowledge Base Tab */}
+          {activeTab === 'personal-kb' && <PersonalKnowledgeBaseTab />}
+
+          {/* Team Knowledge Base Tab */}
+          {activeTab === 'team-kb' && <TeamKnowledgeBaseTab />}
+
+          {/* Data Sources Tab */}
+          {activeTab === 'data-sources' && <DataSourcesTab />}
+
           {/* Notion Tab */}
           {activeTab === 'notion' && <NotionTabContent />}
 
           {/* Google Drive Tab */}
           {activeTab === 'google-drive' && <GoogleDriveTabContent />}
 
-          {/* Knowledge Base Tab */}
+          {/* Knowledge Base Tab (Legacy) */}
           {activeTab === 'knowledge-base' && <KnowledgeBaseTabContent />}
 
           {/* Knowledge Graph View */}

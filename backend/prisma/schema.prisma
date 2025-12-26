@@ -119,6 +119,9 @@ model User {
   // RAG 知识库
   knowledgeBases KnowledgeBase[]
 
+  // 用户数据源连接 (用于知识库)
+  userDataSources UserDataSource[]
+
   @@map("users")
 }
 
@@ -1495,13 +1498,14 @@ model Topic {
   updatedAt  DateTime  @updatedAt @map("updated_at")
   archivedAt DateTime? @map("archived_at")
 
-  members      TopicMember[]
-  aiMembers    TopicAIMember[]
-  messages     TopicMessage[]
-  resources    TopicResource[]
-  summaries    TopicSummary[]
-  missions     TeamMission[]
-  joinRequests TopicJoinRequest[]
+  members        TopicMember[]
+  aiMembers      TopicAIMember[]
+  messages       TopicMessage[]
+  resources      TopicResource[]
+  summaries      TopicSummary[]
+  missions       TeamMission[]
+  joinRequests   TopicJoinRequest[]
+  knowledgeBases TopicKnowledgeBase[] // 关联的知识库
 
   @@index([createdById])
   @@index([type])
@@ -1985,12 +1989,13 @@ model ResearchProject {
   lastAccessAt DateTime? @map("last_access_at")
 
   // 关系
-  user                 User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                 User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
   sources              ResearchProjectSource[]
   notes                ResearchProjectNote[]
   chats                ResearchProjectChat[]
   outputs              ResearchProjectOutput[]
   deepResearchSessions DeepResearchSession[]
+  knowledgeBases       ResearchProjectKnowledgeBase[] // 关联的知识库
 
   @@index([userId])
   @@index([status])
@@ -2180,6 +2185,10 @@ enum AIModelType {
 
   // === 多模态 Tier ===
   MULTIMODAL // 多模态模型 (Gemini 2.0 Flash - 同时支持文本和图片)
+
+  // === 向量和检索 Tier ===
+  EMBEDDING // 向量嵌入模型 (text-embedding-3-small, text-embedding-3-large)
+  RERANK // 重排序模型 (Cohere rerank)
 }
 
 model AIModel {
@@ -2203,6 +2212,10 @@ model AIModel {
   // 模型参数
   maxTokens   Int   @default(4096) @map("max_tokens")
   temperature Float @default(0.7)
+
+  // Embedding 模型专用参数
+  embeddingDimensions Int? @map("embedding_dimensions") // 向量维度 (1536, 3072 等)
+  maxInputTokens      Int? @map("max_input_tokens") // 最大输入 token 数
 
   // 状态
   isEnabled Boolean @default(true) @map("is_enabled")
@@ -2549,10 +2562,11 @@ model OfficeDocument {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // 关联
-  user         User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace    Workspace?                  @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
-  versions     OfficeDocumentVersion[]
-  resourceRefs OfficeDocumentResourceRef[]
+  user           User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace      Workspace?                    @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  versions       OfficeDocumentVersion[]
+  resourceRefs   OfficeDocumentResourceRef[]
+  knowledgeBases OfficeDocumentKnowledgeBase[] // 关联的知识库
 
   @@index([userId, createdAt])
   @@index([workspaceId])
@@ -2680,8 +2694,9 @@ model AskSession {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages AskMessage[]
+  user           User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages       AskMessage[]
+  knowledgeBases AskSessionKnowledgeBase[] // 关联的知识库
 
   @@index([userId, updatedAt])
   @@index([userId, isBookmarked])
@@ -4078,9 +4093,9 @@ model GoogleDriveConnection {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // 关系
-  user          User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  syncHistory   GoogleDriveSyncHistory[]
-  importedFiles GoogleDriveImportedFile[]
+  user           User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  syncHistory    GoogleDriveSyncHistory[]
+  importedFiles  GoogleDriveImportedFile[]
   knowledgeBases KnowledgeBase[]
 
   @@index([userId, status])
@@ -4166,12 +4181,40 @@ enum KnowledgeBaseSourceType {
   URL
 }
 
+// 知识库类型
+enum KnowledgeBaseType {
+  PERSONAL // 个人知识库
+  TEAM // 团队知识库
+}
+
+// 用户数据源类型 (用于知识库)
+enum UserDataSourceType {
+  GOOGLE_DRIVE
+  NOTION
+  BOOKMARK // 平台内书签
+  NOTE // 平台内笔记
+  UPLOAD // 手动上传文件
+  URL // URL 抓取
+  IMAGE // 图片 (OCR)
+}
+
+// 搜索优先级 (用于 AI Studio 等模块)
+enum SearchPriority {
+  KNOWLEDGE_BASE_FIRST // 知识库优先
+  WEB_FIRST // 网络优先
+  BALANCED // 平衡模式
+}
+
 model KnowledgeBase {
   id          String                  @id @default(uuid())
   name        String
   description String?                 @db.Text
   sourceType  KnowledgeBaseSourceType @default(MANUAL) @map("source_type")
   status      KnowledgeBaseStatus     @default(PENDING)
+
+  // 知识库类型 (个人/团队)
+  type   KnowledgeBaseType @default(PERSONAL)
+  teamId String?           @map("team_id") // 团队知识库关联的团队ID
 
   // User ownership
   userId String @map("user_id")
@@ -4190,19 +4233,30 @@ model KnowledgeBase {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  // Relations
+  // Relations - 文档
   documents KnowledgeBaseDocument[]
+
+  // Relations - 数据源 (多对多)
+  sources KnowledgeBaseSource[]
+
+  // Relations - 被其他模块引用
+  askSessions      AskSessionKnowledgeBase[]
+  researchProjects ResearchProjectKnowledgeBase[]
+  topics           TopicKnowledgeBase[]
+  officeDocuments  OfficeDocumentKnowledgeBase[]
 
   @@index([userId])
   @@index([status])
+  @@index([type])
+  @@index([teamId])
   @@index([googleDriveConnectionId])
   @@map("knowledge_bases")
 }
 
 model KnowledgeBaseDocument {
-  id               String              @id @default(uuid())
-  knowledgeBaseId  String              @map("knowledge_base_id")
-  knowledgeBase    KnowledgeBase       @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  id              String        @id @default(uuid())
+  knowledgeBaseId String        @map("knowledge_base_id")
+  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
 
   // Document info
   title      String
@@ -4244,7 +4298,7 @@ model ParentChunk {
   // Content
   content    String @db.Text
   tokenCount Int    @map("token_count")
-  position   Int    // Order within document
+  position   Int // Order within document
 
   // Document location info (for source citation)
   pageStart    Int?    @map("page_start")
@@ -4276,7 +4330,7 @@ model ChildChunk {
   // Content
   content    String @db.Text
   tokenCount Int    @map("token_count")
-  position   Int    // Order within parent
+  position   Int // Order within parent
 
   // Timestamps
   createdAt DateTime @default(now()) @map("created_at")
@@ -4307,4 +4361,124 @@ model ChildEmbedding {
 
   @@index([childChunkId])
   @@map("child_embeddings")
+}
+
+// ============ 用户数据源管理 (用于知识库) ============
+
+// 用户连接的数据源 (区别于 DataSource 采集数据源)
+model UserDataSource {
+  id     String             @id @default(uuid())
+  userId String             @map("user_id")
+  type   UserDataSourceType
+
+  // 连接状态
+  isConnected Boolean   @default(false) @map("is_connected")
+  lastSyncAt  DateTime? @map("last_sync_at")
+  lastError   String?   @map("last_error") @db.Text
+
+  // 配置 (JSON)
+  // Google Drive: { folderId, accessToken, refreshToken }
+  // Notion: { workspaceId, accessToken, selectedPages }
+  config Json @default("{}")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  user      User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kbSources KnowledgeBaseSource[]
+
+  @@index([userId, type])
+  @@map("user_data_sources")
+}
+
+// 知识库与用户数据源的多对多关系
+model KnowledgeBaseSource {
+  id              String @id @default(uuid())
+  knowledgeBaseId String @map("knowledge_base_id")
+  dataSourceId    String @map("data_source_id")
+
+  // 同步配置
+  syncEnabled  Boolean   @default(true) @map("sync_enabled")
+  syncInterval Int       @default(3600) @map("sync_interval") // 秒
+  lastSyncAt   DateTime? @map("last_sync_at")
+
+  // 过滤规则 (可选)
+  // 例如: { includeFolders: ['xxx'], excludePatterns: ['*.tmp'] }
+  filterConfig Json @default("{}") @map("filter_config")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // 关系
+  knowledgeBase KnowledgeBase  @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  dataSource    UserDataSource @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+
+  @@unique([knowledgeBaseId, dataSourceId])
+  @@map("knowledge_base_sources")
+}
+
+// ============ 知识库模块关联表 ============
+
+// Ask Session 与知识库关联
+model AskSessionKnowledgeBase {
+  id              String @id @default(uuid())
+  askSessionId    String @map("ask_session_id")
+  knowledgeBaseId String @map("knowledge_base_id")
+
+  // RAG 配置
+  enableHyDE   Boolean @default(false) @map("enable_hyde")
+  enableRerank Boolean @default(true) @map("enable_rerank")
+  weight       Float   @default(1.0) // 多知识库时的权重
+
+  askSession    AskSession    @relation(fields: [askSessionId], references: [id], onDelete: Cascade)
+  knowledgeBase KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+
+  @@unique([askSessionId, knowledgeBaseId])
+  @@map("ask_session_knowledge_bases")
+}
+
+// Research Project 与知识库关联
+model ResearchProjectKnowledgeBase {
+  id                String @id @default(uuid())
+  researchProjectId String @map("research_project_id")
+  knowledgeBaseId   String @map("knowledge_base_id")
+
+  // 搜索优先级
+  searchPriority SearchPriority @default(BALANCED) @map("search_priority")
+  enableHyDE     Boolean        @default(false) @map("enable_hyde")
+  enableRerank   Boolean        @default(true) @map("enable_rerank")
+
+  researchProject ResearchProject @relation(fields: [researchProjectId], references: [id], onDelete: Cascade)
+  knowledgeBase   KnowledgeBase   @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+
+  @@unique([researchProjectId, knowledgeBaseId])
+  @@map("research_project_knowledge_bases")
+}
+
+// Topic (AI Teams) 与知识库关联
+model TopicKnowledgeBase {
+  id              String @id @default(uuid())
+  topicId         String @map("topic_id")
+  knowledgeBaseId String @map("knowledge_base_id")
+
+  topic         Topic         @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  knowledgeBase KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+
+  @@unique([topicId, knowledgeBaseId])
+  @@map("topic_knowledge_bases")
+}
+
+// Office Document 与知识库关联
+model OfficeDocumentKnowledgeBase {
+  id               String @id @default(uuid())
+  officeDocumentId String @map("office_document_id")
+  knowledgeBaseId  String @map("knowledge_base_id")
+
+  officeDocument OfficeDocument @relation(fields: [officeDocumentId], references: [id], onDelete: Cascade)
+  knowledgeBase  KnowledgeBase  @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+
+  @@unique([officeDocumentId, knowledgeBaseId])
+  @@map("office_document_knowledge_bases")
 }

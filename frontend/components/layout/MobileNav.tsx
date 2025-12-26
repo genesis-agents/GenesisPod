@@ -54,9 +54,9 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
     },
     {
       href: '/library',
-      label: t('nav.library'),
-      icon: 'book',
-      activeClass: 'bg-amber-50',
+      label: 'Knowledge',
+      icon: 'lightbulb',
+      activeClass: 'bg-indigo-50',
     },
     {
       href: '/ai-studio',

@@ -102,12 +102,16 @@ export default function RAGPage() {
   };
 
   const getSourceTypeLabel = (type: KnowledgeBase['sourceType']) => {
-    const labels = {
+    const labels: Record<KnowledgeBase['sourceType'], string> = {
       GOOGLE_DRIVE: 'Google Drive',
       MANUAL: '手动上传',
       URL: 'URL 抓取',
+      NOTION: 'Notion',
+      BOOKMARK: '书签',
+      NOTE: '笔记',
+      IMAGE: '图片',
     };
-    return labels[type];
+    return labels[type] || type;
   };
 
   return (

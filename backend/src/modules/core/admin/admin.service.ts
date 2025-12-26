@@ -1802,6 +1802,8 @@ export class AdminService {
       "IMAGE_GENERATION",
       "IMAGE_EDITING",
       "MULTIMODAL",
+      "EMBEDDING",
+      "RERANK",
     ];
 
     const result: Record<

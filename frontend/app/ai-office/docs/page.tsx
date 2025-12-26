@@ -18,6 +18,7 @@ import Link from 'next/link';
 
 import AppShell from '@/components/layout/AppShell';
 import { PromptBar } from '@/components/ai-office/core/PromptBar';
+import { KnowledgeBaseSelector } from '@/components/shared/selectors';
 import {
   ProgressTracker,
   ProgressOverlay,
@@ -114,6 +115,9 @@ export default function DocsPage() {
   const [documentType, setDocumentType] = useState('ARTICLE');
   const [exportFormat, setExportFormat] = useState('docx');
   const [detailLevel, setDetailLevel] = useState(2);
+  const [selectedKnowledgeBases, setSelectedKnowledgeBases] = useState<
+    string[]
+  >([]);
 
   // 处理提交
   const handleSubmit = useCallback(
@@ -135,6 +139,10 @@ export default function DocsPage() {
             documentType,
             exportFormat,
             detailLevel,
+            knowledgeBaseIds:
+              selectedKnowledgeBases.length > 0
+                ? selectedKnowledgeBases
+                : undefined,
           },
         };
 
@@ -405,7 +413,19 @@ export default function DocsPage() {
 
           {/* 输入区域 - 始终显示在底部 */}
           <div className="from-background via-background fixed bottom-0 left-0 right-0 bg-gradient-to-t to-transparent p-4 pl-64">
-            <div className="mx-auto max-w-3xl">
+            <div className="mx-auto max-w-3xl space-y-2">
+              {/* Knowledge Base Selector */}
+              <div className="flex items-center justify-end">
+                <KnowledgeBaseSelector
+                  selectedIds={selectedKnowledgeBases}
+                  onSelectionChange={setSelectedKnowledgeBases}
+                  multiple={true}
+                  maxSelections={3}
+                  placeholder="引用知识库"
+                  compact={true}
+                  disabled={isGenerating}
+                />
+              </div>
               <PromptBar
                 agentType={AgentType.DOCS}
                 placeholder="描述你想要创建的文档，例如：撰写一份关于人工智能发展趋势的研究报告..."

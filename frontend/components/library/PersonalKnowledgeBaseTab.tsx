@@ -7,23 +7,22 @@ import {
   Plus,
   FileText,
   RefreshCw,
-  Search,
   ExternalLink,
   Loader2,
-  FolderOpen,
+  User,
+  Search,
 } from 'lucide-react';
 import {
   useKnowledgeBase,
   type KnowledgeBase,
-  type CreateKnowledgeBaseDto,
 } from '@/hooks/domain/useKnowledgeBase';
-import GoogleDriveFolderPicker from './GoogleDriveFolderPicker';
+import CreateKnowledgeBaseDialog from './CreateKnowledgeBaseDialog';
 
 /**
- * Library 页面的知识库 TAB 内容
- * 显示用户的知识库列表，支持创建和快速查看
+ * 个人知识库 TAB
+ * 显示用户的个人知识库列表
  */
-export default function KnowledgeBaseTabContent() {
+export default function PersonalKnowledgeBaseTab() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const {
     knowledgeBases,
@@ -34,8 +33,13 @@ export default function KnowledgeBaseTabContent() {
     refreshList,
   } = useKnowledgeBase();
 
-  const handleCreate = async (dto: CreateKnowledgeBaseDto) => {
-    await createKnowledgeBase(dto);
+  // Filter personal knowledge bases (type = PERSONAL or type is not set)
+  const personalKBs = knowledgeBases.filter(
+    (kb: any) => !kb.type || kb.type === 'PERSONAL'
+  );
+
+  const handleCreate = async (dto: any) => {
+    await createKnowledgeBase({ ...dto, type: 'PERSONAL' });
     setShowCreateDialog(false);
   };
 
@@ -63,15 +67,26 @@ export default function KnowledgeBaseTabContent() {
     );
   };
 
+  const getSourceTypeIcon = (type: KnowledgeBase['sourceType']) => {
+    const icons: Record<string, string> = {
+      GOOGLE_DRIVE: '📁',
+      MANUAL: '📄',
+      URL: '🔗',
+      NOTION: '📝',
+      BOOKMARK: '🔖',
+      NOTE: '✍️',
+    };
+    return icons[type] || '📚';
+  };
+
   const getSourceTypeLabel = (type: KnowledgeBase['sourceType']) => {
-    const labels: Record<KnowledgeBase['sourceType'], string> = {
+    const labels: Record<string, string> = {
       GOOGLE_DRIVE: 'Google Drive',
       MANUAL: '手动上传',
       URL: 'URL 抓取',
       NOTION: 'Notion',
       BOOKMARK: '书签',
       NOTE: '笔记',
-      IMAGE: '图片',
     };
     return labels[type] || type;
   };
@@ -98,23 +113,25 @@ export default function KnowledgeBaseTabContent() {
     );
   }
 
-  // 空状态
-  if (knowledgeBases.length === 0) {
+  // Empty state
+  if (personalKBs.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-16">
-        <Database className="h-16 w-16 text-gray-400" />
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-50">
+          <User className="h-10 w-10 text-blue-600" />
+        </div>
         <h3 className="mt-4 text-lg font-medium text-gray-900">
-          创建你的第一个知识库
+          创建你的第一个个人知识库
         </h3>
         <p className="mt-2 max-w-md text-center text-gray-500">
-          知识库可以存储你的文档、笔记和资料，支持 AI 智能检索和问答。
+          个人知识库用于存储你的私人文档、笔记和资料，支持 AI 智能检索和问答。
         </p>
         <button
           onClick={() => setShowCreateDialog(true)}
           className="mt-6 flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-white transition-colors hover:bg-blue-700"
         >
           <Plus className="h-5 w-5" />
-          创建知识库
+          新建个人知识库
         </button>
 
         {showCreateDialog && (
@@ -122,6 +139,7 @@ export default function KnowledgeBaseTabContent() {
             onClose={() => setShowCreateDialog(false)}
             onCreate={handleCreate}
             creating={creating}
+            kbType="PERSONAL"
           />
         )}
       </div>
@@ -130,12 +148,12 @@ export default function KnowledgeBaseTabContent() {
 
   return (
     <div className="space-y-6">
-      {/* 头部操作栏 */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Database className="h-5 w-5 text-gray-600" />
-          <span className="text-sm text-gray-600">
-            {knowledgeBases.length} 个知识库
+          <User className="h-5 w-5 text-blue-600" />
+          <span className="text-sm font-medium text-gray-700">
+            {personalKBs.length} 个个人知识库
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -156,9 +174,9 @@ export default function KnowledgeBaseTabContent() {
         </div>
       </div>
 
-      {/* 知识库列表 */}
+      {/* Knowledge Base Grid */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {knowledgeBases.map((kb) => (
+        {personalKBs.map((kb) => (
           <Link
             key={kb.id}
             href={`/rag?kb=${kb.id}`}
@@ -166,8 +184,8 @@ export default function KnowledgeBaseTabContent() {
           >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                  <Database className="h-5 w-5" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 text-lg">
+                  {getSourceTypeIcon(kb.sourceType)}
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900 group-hover:text-blue-600">
@@ -200,7 +218,7 @@ export default function KnowledgeBaseTabContent() {
         ))}
       </div>
 
-      {/* 快捷入口 */}
+      {/* Quick Access */}
       <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -223,157 +241,15 @@ export default function KnowledgeBaseTabContent() {
         </div>
       </div>
 
-      {/* 创建对话框 */}
+      {/* Create Dialog */}
       {showCreateDialog && (
         <CreateKnowledgeBaseDialog
           onClose={() => setShowCreateDialog(false)}
           onCreate={handleCreate}
           creating={creating}
+          kbType="PERSONAL"
         />
       )}
-    </div>
-  );
-}
-
-/**
- * 创建知识库对话框
- */
-function CreateKnowledgeBaseDialog({
-  onClose,
-  onCreate,
-  creating,
-}: {
-  onClose: () => void;
-  onCreate: (dto: CreateKnowledgeBaseDto) => void;
-  creating: boolean;
-}) {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [sourceType, setSourceType] = useState<
-    'MANUAL' | 'GOOGLE_DRIVE' | 'URL'
-  >('MANUAL');
-  const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>([]);
-  const [selectedFolderNames, setSelectedFolderNames] = useState<string[]>([]);
-
-  const handleFolderSelectionChange = (
-    folderIds: string[],
-    folderNames: string[]
-  ) => {
-    setSelectedFolderIds(folderIds);
-    setSelectedFolderNames(folderNames);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onCreate({
-      name,
-      description: description || undefined,
-      sourceType,
-      googleDriveFolderIds:
-        sourceType === 'GOOGLE_DRIVE' && selectedFolderIds.length > 0
-          ? selectedFolderIds
-          : undefined,
-    });
-  };
-
-  // 检查表单是否可以提交
-  const canSubmit =
-    name.trim() &&
-    !creating &&
-    (sourceType !== 'GOOGLE_DRIVE' || selectedFolderIds.length > 0);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-gray-900">创建知识库</h2>
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              名称
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="输入知识库名称"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              描述 (可选)
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="描述这个知识库的用途"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              数据来源
-            </label>
-            <select
-              value={sourceType}
-              onChange={(e) => {
-                setSourceType(e.target.value as typeof sourceType);
-                // 切换来源类型时清空文件夹选择
-                if (e.target.value !== 'GOOGLE_DRIVE') {
-                  setSelectedFolderIds([]);
-                  setSelectedFolderNames([]);
-                }
-              }}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="MANUAL">手动上传文档</option>
-              <option value="GOOGLE_DRIVE">同步 Google Drive</option>
-              <option value="URL">URL 抓取</option>
-            </select>
-          </div>
-
-          {/* Google Drive 文件夹选择器 */}
-          {sourceType === 'GOOGLE_DRIVE' && (
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                选择要同步的文件夹
-                <span className="ml-1 text-xs text-gray-500">
-                  (单击选择，双击进入)
-                </span>
-              </label>
-              <GoogleDriveFolderPicker
-                selectedFolderIds={selectedFolderIds}
-                onSelectionChange={handleFolderSelectionChange}
-                disabled={creating}
-              />
-              {selectedFolderIds.length === 0 && (
-                <p className="mt-2 text-xs text-amber-600">
-                  请至少选择一个文件夹
-                </p>
-              )}
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              {creating ? '创建中...' : '创建'}
-            </button>
-          </div>
-        </form>
-      </div>
     </div>
   );
 }

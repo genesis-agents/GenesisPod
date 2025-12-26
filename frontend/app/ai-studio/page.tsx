@@ -10,6 +10,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { getAuthTokens } from '@/lib/utils/auth';
 import { useTranslation } from '@/lib/i18n';
+import { KnowledgeBaseSelector } from '@/components/shared/selectors';
 
 // 懒加载重型组件 (3182 行)
 const ImageGenerator = dynamic(
@@ -298,6 +299,9 @@ function CreateProjectDialog({
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [selectedKnowledgeBases, setSelectedKnowledgeBases] = useState<
+    string[]
+  >([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -312,10 +316,13 @@ function CreateProjectDialog({
       const project = await createProject({
         name: name.trim(),
         description: description.trim() || undefined,
+        // TODO: Pass knowledgeBaseIds to backend when API supports it
+        // knowledgeBaseIds: selectedKnowledgeBases.length > 0 ? selectedKnowledgeBases : undefined,
       });
       onCreated(project);
       setName('');
       setDescription('');
+      setSelectedKnowledgeBases([]);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create project');
@@ -362,6 +369,21 @@ function CreateProjectDialog({
               rows={3}
               className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
             />
+          </div>
+
+          {/* Knowledge Base Selector */}
+          <div>
+            <KnowledgeBaseSelector
+              selectedIds={selectedKnowledgeBases}
+              onSelectionChange={setSelectedKnowledgeBases}
+              multiple={true}
+              maxSelections={5}
+              placeholder="选择关联的知识库 (可选)"
+              disabled={loading}
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              关联知识库后，AI 研究将优先使用知识库中的内容
+            </p>
           </div>
 
           {error && (

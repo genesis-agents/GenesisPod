@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIModels, AIModel } from '@/hooks';
 import { config } from '@/lib/utils/config';
+import { KnowledgeBaseSelector } from '@/components/shared/selectors';
 import AppShell from '@/components/layout/AppShell';
 import SessionSidebar from '@/components/ai-ask/SessionSidebar';
 import MessageContextMenu from '@/components/ai-ask/MessageContextMenu';
@@ -831,6 +832,9 @@ export default function AskPage() {
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [showTools, setShowTools] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [selectedKnowledgeBases, setSelectedKnowledgeBases] = useState<
+    string[]
+  >([]);
   const [mixtureResponses, setMixtureResponses] = useState<MixtureResponse[]>(
     []
   );
@@ -1140,6 +1144,10 @@ export default function AskPage() {
         model: modelName,
         stream: false,
         webSearch: enableWebSearch,
+        knowledgeBaseIds:
+          selectedKnowledgeBases.length > 0
+            ? selectedKnowledgeBases
+            : undefined,
       }),
       signal,
     });
@@ -1780,6 +1788,17 @@ export default function AskPage() {
                           </svg>
                         )}
                       </button>
+
+                      {/* Knowledge Base Selector */}
+                      <KnowledgeBaseSelector
+                        selectedIds={selectedKnowledgeBases}
+                        onSelectionChange={setSelectedKnowledgeBases}
+                        multiple={true}
+                        maxSelections={3}
+                        placeholder="知识库"
+                        compact={true}
+                        disabled={isLoading}
+                      />
                     </div>
 
                     {/* Send/Stop Button */}
@@ -2601,6 +2620,17 @@ export default function AskPage() {
                             </svg>
                           )}
                         </button>
+
+                        {/* Knowledge Base Selector */}
+                        <KnowledgeBaseSelector
+                          selectedIds={selectedKnowledgeBases}
+                          onSelectionChange={setSelectedKnowledgeBases}
+                          multiple={true}
+                          maxSelections={3}
+                          placeholder="知识库"
+                          compact={true}
+                          disabled={isLoading}
+                        />
                       </div>
                       <button
                         type="button"

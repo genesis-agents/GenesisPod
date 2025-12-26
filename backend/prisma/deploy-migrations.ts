@@ -166,6 +166,7 @@ async function getCustomMigrations(): Promise<string[]> {
     "20251226_force_add_google_drive", // Add Google Drive tables
     "20251226_fix_google_drive_schema", // Fix Google Drive table structure
     "20251226_add_rag_knowledge_base", // RAG Knowledge Base with pgvector
+    "20251226_extend_knowledge_base_system", // Extend KB with types, data sources, AI module associations
   ];
 
   const migrations: string[] = [];
@@ -366,7 +367,9 @@ async function deploy() {
         'knowledge_base_documents',
         'parent_chunks',
         'child_chunks',
-        'child_embeddings'
+        'child_embeddings',
+        'user_data_sources',
+        'knowledge_base_sources'
       )
     `;
 
@@ -385,6 +388,8 @@ async function deploy() {
       "parent_chunks",
       "child_chunks",
       "child_embeddings",
+      "user_data_sources",
+      "knowledge_base_sources",
     ];
 
     for (const table of requiredTables) {
@@ -416,7 +421,10 @@ async function deploy() {
         'OfficeTaskStatus',
         'OfficeArtifactType',
         'KnowledgeBaseStatus',
-        'KnowledgeBaseSourceType'
+        'KnowledgeBaseSourceType',
+        'KnowledgeBaseType',
+        'UserDataSourceType',
+        'SearchPriority'
       )
     `;
 
@@ -432,6 +440,9 @@ async function deploy() {
       "OfficeArtifactType",
       "KnowledgeBaseStatus",
       "KnowledgeBaseSourceType",
+      "KnowledgeBaseType",
+      "UserDataSourceType",
+      "SearchPriority",
     ];
 
     for (const enumName of requiredEnums) {

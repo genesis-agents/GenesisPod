@@ -10,7 +10,9 @@ type AIModelType =
   | 'CHAT_FAST'
   | 'IMAGE_GENERATION'
   | 'IMAGE_EDITING'
-  | 'MULTIMODAL';
+  | 'MULTIMODAL'
+  | 'EMBEDDING'
+  | 'RERANK';
 
 // 模型类型选项 - 按 Tier 分组
 const MODEL_TYPE_OPTIONS = [
@@ -48,6 +50,19 @@ const MODEL_TYPE_OPTIONS = [
     description: 'Gemini 2.0 Flash - 同时支持文本和图片',
     tier: 'multimodal',
   },
+  // === 向量和检索 Tier ===
+  {
+    value: 'EMBEDDING',
+    label: '向量嵌入',
+    description: 'text-embedding-3-small/large - 用于知识库向量化',
+    tier: 'embedding',
+  },
+  {
+    value: 'RERANK',
+    label: '重排序',
+    description: 'Cohere rerank - 用于搜索结果重排序',
+    tier: 'embedding',
+  },
 ];
 
 interface AIModel {
@@ -67,6 +82,9 @@ interface AIModel {
   maxTokens: number;
   temperature: number;
   description: string | null;
+  // Embedding 模型专用参数
+  embeddingDimensions?: number;
+  maxInputTokens?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -120,6 +138,7 @@ const STANDARD_MODEL_CONFIGS = [
     defaultModelId: 'grok-3-latest',
     defaultEndpoint: 'https://api.x.ai/v1/chat/completions',
     icon: '/icons/ai/grok.svg',
+    defaultType: 'CHAT',
   },
   {
     id: 'gpt-4',
@@ -128,6 +147,7 @@ const STANDARD_MODEL_CONFIGS = [
     defaultModelId: 'gpt-4-turbo',
     defaultEndpoint: 'https://api.openai.com/v1/chat/completions',
     icon: '/icons/ai/openai.svg',
+    defaultType: 'CHAT',
   },
   {
     id: 'claude',
@@ -136,6 +156,7 @@ const STANDARD_MODEL_CONFIGS = [
     defaultModelId: 'claude-sonnet-4-20250514',
     defaultEndpoint: 'https://api.anthropic.com/v1/messages',
     icon: '/icons/ai/claude.svg',
+    defaultType: 'CHAT',
   },
   {
     id: 'gemini',
@@ -144,6 +165,25 @@ const STANDARD_MODEL_CONFIGS = [
     defaultModelId: 'gemini-2.0-flash',
     defaultEndpoint: 'https://generativelanguage.googleapis.com/v1beta/models',
     icon: '/icons/ai/gemini.svg',
+    defaultType: 'CHAT',
+  },
+  {
+    id: 'embedding',
+    name: 'OpenAI Embedding',
+    provider: 'OpenAI',
+    defaultModelId: 'text-embedding-3-small',
+    defaultEndpoint: 'https://api.openai.com/v1/embeddings',
+    icon: '/icons/ai/openai.svg',
+    defaultType: 'EMBEDDING',
+  },
+  {
+    id: 'rerank',
+    name: 'Cohere Rerank',
+    provider: 'Cohere',
+    defaultModelId: 'rerank-v3.5',
+    defaultEndpoint: 'https://api.cohere.com/v2/rerank',
+    icon: '🔄',
+    defaultType: 'RERANK',
   },
 ] as const;
 
@@ -232,7 +272,7 @@ function ModelIdSelector({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="gpt-4-turbo"
-          className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 font-mono text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="font-mono flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
         <button
           type="button"
@@ -289,7 +329,7 @@ function ModelIdSelector({
                 key={model.id}
                 type="button"
                 onClick={() => onChange(model.id)}
-                className={`rounded-md border px-2 py-1 font-mono text-xs transition-colors ${
+                className={`font-mono rounded-md border px-2 py-1 text-xs transition-colors ${
                   value === model.id
                     ? 'border-blue-500 bg-blue-100 text-blue-700'
                     : 'border-gray-300 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50'
@@ -819,11 +859,17 @@ export default function AIModelSettings() {
                   className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                     model.modelType === 'CHAT'
                       ? 'bg-blue-100 text-blue-700'
-                      : model.modelType === 'IMAGE_GENERATION'
-                        ? 'bg-green-100 text-green-700'
-                        : model.modelType === 'IMAGE_EDITING'
-                          ? 'bg-orange-100 text-orange-700'
-                          : 'bg-purple-100 text-purple-700'
+                      : model.modelType === 'CHAT_FAST'
+                        ? 'bg-sky-100 text-sky-700'
+                        : model.modelType === 'IMAGE_GENERATION'
+                          ? 'bg-green-100 text-green-700'
+                          : model.modelType === 'IMAGE_EDITING'
+                            ? 'bg-orange-100 text-orange-700'
+                            : model.modelType === 'EMBEDDING'
+                              ? 'bg-indigo-100 text-indigo-700'
+                              : model.modelType === 'RERANK'
+                                ? 'bg-pink-100 text-pink-700'
+                                : 'bg-purple-100 text-purple-700'
                   }`}
                 >
                   {MODEL_TYPE_OPTIONS.find((o) => o.value === model.modelType)
@@ -1087,7 +1133,7 @@ export default function AIModelSettings() {
                       <td className="px-4 py-2 text-gray-600">
                         {model.provider}
                       </td>
-                      <td className="px-4 py-2 font-mono text-xs text-gray-600">
+                      <td className="font-mono px-4 py-2 text-xs text-gray-600">
                         {model.modelId}
                       </td>
                       <td className="px-4 py-2 text-center">
@@ -1112,7 +1158,7 @@ export default function AIModelSettings() {
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-2 font-mono text-xs text-gray-500">
+                      <td className="font-mono px-4 py-2 text-xs text-gray-500">
                         {model.apiKeyPrefix || '-'}
                       </td>
                       <td className="px-4 py-2 text-center">
@@ -1327,7 +1373,7 @@ function EditModelModal({
                   onChange={(e) =>
                     setFormData({ ...formData, apiEndpoint: e.target.value })
                   }
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 font-mono text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="font-mono w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
 
@@ -1347,7 +1393,7 @@ function EditModelModal({
                         value={apiKey}
                         onChange={(e) => handleApiKeyChange(e.target.value)}
                         placeholder={model.hasApiKey ? '' : 'sk-...'}
-                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 pr-10 font-mono text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="font-mono w-full rounded-lg border border-gray-300 bg-white px-3 py-2 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
                       <button
                         type="button"
@@ -1388,7 +1434,7 @@ function EditModelModal({
                       setFormData({ ...formData, icon: e.target.value })
                     }
                     placeholder="/icons/ai/grok.svg"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="font-mono w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -1565,6 +1611,7 @@ function AddModelModal({
                     modelId: selected.defaultModelId,
                     apiEndpoint: selected.defaultEndpoint,
                     icon: selected.icon,
+                    modelType: (selected.defaultType || 'CHAT') as AIModelType,
                   });
                 }
               }}
@@ -1654,7 +1701,7 @@ function AddModelModal({
                     setFormData({ ...formData, apiEndpoint: e.target.value })
                   }
                   placeholder="https://api.openai.com/v1/chat/completions"
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 font-mono text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="font-mono w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
 
@@ -1673,7 +1720,7 @@ function AddModelModal({
                       })
                     }
                     placeholder="sk-..."
-                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 pr-10 font-mono text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="font-mono w-full rounded-lg border border-gray-300 bg-white px-3 py-2 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                   <button
                     type="button"
@@ -1712,7 +1759,7 @@ function AddModelModal({
                       setFormData({ ...formData, icon: e.target.value })
                     }
                     placeholder="/icons/ai/grok.svg"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="font-mono w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
                 <div>

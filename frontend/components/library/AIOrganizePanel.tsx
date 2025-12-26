@@ -33,7 +33,10 @@ interface AIOrganizePanelProps {
     | 'graph'
     | 'notion'
     | 'google-drive'
-    | 'knowledge-base';
+    | 'knowledge-base'
+    | 'personal-kb'
+    | 'team-kb'
+    | 'data-sources';
 }
 
 type TaskType =

@@ -11,8 +11,17 @@ export interface KnowledgeBase {
   id: string;
   name: string;
   description?: string;
-  sourceType: 'GOOGLE_DRIVE' | 'MANUAL' | 'URL';
+  type?: 'PERSONAL' | 'TEAM';
+  sourceType:
+    | 'GOOGLE_DRIVE'
+    | 'MANUAL'
+    | 'URL'
+    | 'NOTION'
+    | 'BOOKMARK'
+    | 'NOTE'
+    | 'IMAGE';
   status: 'PENDING' | 'PROCESSING' | 'READY' | 'UPDATING' | 'ERROR';
+  teamId?: string;
   googleDriveConnectionId?: string;
   googleDriveFolderIds?: string[];
   lastSyncedAt?: string;
@@ -49,7 +58,16 @@ export interface KnowledgeBaseDocument {
 export interface CreateKnowledgeBaseDto {
   name: string;
   description?: string;
-  sourceType: 'GOOGLE_DRIVE' | 'MANUAL' | 'URL';
+  type?: 'PERSONAL' | 'TEAM';
+  sourceType:
+    | 'GOOGLE_DRIVE'
+    | 'MANUAL'
+    | 'URL'
+    | 'NOTION'
+    | 'BOOKMARK'
+    | 'NOTE'
+    | 'IMAGE';
+  teamId?: string;
   googleDriveConnectionId?: string;
   googleDriveFolderIds?: string[];
 }
