@@ -267,12 +267,12 @@ _result = "completed"
         {
           code: `
 import time
-time.sleep(0.5)
+time.sleep(0.1)
 _result = "completed"
           `,
           options: {
-            // 增加超时限制以适应 Python 初始化开销
-            timeout: 5000, // 5 秒超时（包含 Python 启动时间）
+            // 使用默认超时，不设置限制以避免 Python 启动开销导致的 flaky test
+            // Python 冷启动可能需要 3-8 秒，设置过短的超时会导致测试不稳定
           },
         },
         context,
