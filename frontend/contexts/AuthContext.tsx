@@ -33,20 +33,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load auth state from localStorage on mount
+  // Load auth state from localStorage on mount and validate token
   useEffect(() => {
-    const tokens = getAuthTokens();
-    const user = getCurrentUser();
+    const validateAndRestoreAuth = async () => {
+      const tokens = getAuthTokens();
+      const cachedUser = getCurrentUser();
 
-    if (tokens && user) {
-      setAuthState({
-        user,
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-      });
-    }
+      if (!tokens || !cachedUser) {
+        setIsLoading(false);
+        return;
+      }
 
-    setIsLoading(false);
+      try {
+        // 验证 token 是否仍然有效
+        const response = await fetch(`${config.apiUrl}/auth/me`, {
+          headers: {
+            Authorization: `Bearer ${tokens.accessToken}`,
+          },
+        });
+
+        if (response.ok) {
+          const user = await response.json();
+          // Token 有效，更新用户信息
+          saveCurrentUser(user);
+          setAuthState({
+            user,
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+          });
+        } else {
+          // Token 无效，清除登录状态
+          console.warn('Token validation failed, clearing auth state');
+          clearAuthTokens();
+        }
+      } catch (error) {
+        // 网络错误时使用缓存的用户数据
+        console.warn(
+          'Token validation failed due to network error, using cached user'
+        );
+        setAuthState({
+          user: cachedUser,
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+        });
+      }
+
+      setIsLoading(false);
+    };
+
+    validateAndRestoreAuth();
   }, []);
 
   const login = (user: User, accessToken: string, refreshToken: string) => {

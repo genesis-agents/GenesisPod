@@ -15,7 +15,11 @@ import { RequestLoggerInterceptor } from "./common/interceptors/request-logger.i
  */
 function validateEnvConfig(): void {
   const required: string[] = ["DATABASE_URL", "JWT_SECRET"];
-  const recommended: string[] = ["ADMIN_EMAILS", "STORAGE_ADMIN_KEY"];
+  const recommended: string[] = [
+    "ADMIN_EMAILS",
+    "STORAGE_ADMIN_KEY",
+    "FRONTEND_URL",
+  ];
 
   const missing = required.filter((key) => !process.env[key]);
   const missingRecommended = recommended.filter((key) => !process.env[key]);
@@ -34,6 +38,18 @@ function validateEnvConfig(): void {
     missingRecommended.forEach((key) => console.warn(`   - ${key}`));
     console.warn("   These should be set in production.\n");
   }
+
+  // JWT_SECRET 指纹验证 (帮助调试跨部署的一致性问题)
+  const jwtSecret = process.env.JWT_SECRET || "";
+  const secretFingerprint = require("crypto")
+    .createHash("sha256")
+    .update(jwtSecret)
+    .digest("hex")
+    .substring(0, 8);
+  console.log(`🔐 JWT_SECRET fingerprint: ${secretFingerprint}`);
+  console.log(
+    `🌐 FRONTEND_URL: ${process.env.FRONTEND_URL || "(not set - using default)"}`,
+  );
 
   console.log("✅ Environment configuration validated");
 }
