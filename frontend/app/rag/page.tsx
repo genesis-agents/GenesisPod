@@ -9,6 +9,7 @@ import {
   FileText,
   Search,
   Settings,
+  Pencil,
 } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
 import {
@@ -28,6 +29,7 @@ export default function RAGPage() {
   const [selectedKB, setSelectedKB] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showQueryPanel, setShowQueryPanel] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   const {
     knowledgeBases,
@@ -45,13 +47,22 @@ export default function RAGPage() {
     loading: detailLoading,
     syncing,
     processing,
+    updating,
     syncGoogleDrive,
     processDocuments,
+    updateKnowledgeBase,
+    refresh: refreshDetail,
   } = useKnowledgeBaseDetail(selectedKB);
 
   const handleCreate = async (dto: CreateKnowledgeBaseDto) => {
     await createKnowledgeBase(dto);
     setShowCreateDialog(false);
+  };
+
+  const handleEdit = async (data: { name: string; description?: string }) => {
+    await updateKnowledgeBase(data);
+    await refreshList();
+    setShowEditDialog(false);
   };
 
   const handleDelete = async (id: string) => {
@@ -224,8 +235,16 @@ export default function RAGPage() {
                       测试查询
                     </button>
                     <button
+                      onClick={() => setShowEditDialog(true)}
+                      className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100"
+                      title="编辑知识库"
+                    >
+                      <Pencil className="h-5 w-5" />
+                    </button>
+                    <button
                       onClick={() => handleDelete(knowledgeBase.id)}
                       className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50"
+                      title="删除知识库"
                     >
                       <Trash2 className="h-5 w-5" />
                     </button>
@@ -315,6 +334,16 @@ export default function RAGPage() {
           <QueryPanel
             knowledgeBaseId={selectedKB}
             onClose={() => setShowQueryPanel(false)}
+          />
+        )}
+
+        {/* 编辑对话框 */}
+        {showEditDialog && knowledgeBase && (
+          <EditKnowledgeBaseDialog
+            knowledgeBase={knowledgeBase}
+            onClose={() => setShowEditDialog(false)}
+            onSave={handleEdit}
+            saving={updating}
           />
         )}
       </div>
@@ -610,6 +639,85 @@ function QueryPanel({
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 编辑知识库对话框
+ */
+function EditKnowledgeBaseDialog({
+  knowledgeBase,
+  onClose,
+  onSave,
+  saving,
+}: {
+  knowledgeBase: KnowledgeBase;
+  onClose: () => void;
+  onSave: (data: { name: string; description?: string }) => void;
+  saving: boolean;
+}) {
+  const [name, setName] = useState(knowledgeBase.name);
+  const [description, setDescription] = useState(
+    knowledgeBase.description || ''
+  );
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({
+      name,
+      description: description || undefined,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        <h2 className="text-lg font-semibold text-gray-900">编辑知识库</h2>
+        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              名称
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="输入知识库名称"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              描述 (可选)
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="描述这个知识库的用途"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              disabled={saving || !name.trim()}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {saving ? '保存中...' : '保存'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
