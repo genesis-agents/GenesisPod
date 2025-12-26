@@ -20,8 +20,10 @@ import {
   useKnowledgeBase,
   useKnowledgeBaseDetail,
   type KnowledgeBase,
+  type KnowledgeBaseSourceType,
 } from '@/hooks/domain/useKnowledgeBase';
 import CreateKnowledgeBaseDialog from './CreateKnowledgeBaseDialog';
+import EditKnowledgeBaseDialog from './EditKnowledgeBaseDialog';
 
 /**
  * 个人知识库 TAB
@@ -29,6 +31,7 @@ import CreateKnowledgeBaseDialog from './CreateKnowledgeBaseDialog';
  */
 export default function PersonalKnowledgeBaseTab() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedKbId, setSelectedKbId] = useState<string | null>(null);
 
   const {
@@ -46,10 +49,12 @@ export default function PersonalKnowledgeBaseTab() {
     knowledgeBase: selectedKB,
     stats: kbStats,
     loading: detailLoading,
+    updating,
     syncing,
     processing,
     syncGoogleDrive,
     processDocuments,
+    updateKnowledgeBase,
     refresh: refreshDetail,
   } = useKnowledgeBaseDetail(selectedKbId);
 
@@ -73,6 +78,16 @@ export default function PersonalKnowledgeBaseTab() {
     if (selectedKbId === id) {
       setSelectedKbId(null);
     }
+  };
+
+  const handleUpdate = async (data: {
+    name?: string;
+    description?: string;
+    sourceTypes?: KnowledgeBaseSourceType[];
+    googleDriveFolderIds?: string[];
+  }) => {
+    await updateKnowledgeBase(data);
+    await refreshList(); // Also refresh the list to update any displayed info
   };
 
   const handleBackToList = () => {
@@ -115,7 +130,7 @@ export default function PersonalKnowledgeBaseTab() {
     return icons[type] || '📚';
   };
 
-  const getSourceTypeLabel = (type: KnowledgeBase['sourceType']) => {
+  const getSourceTypeLabel = (type: KnowledgeBase['sourceType'] | string) => {
     const labels: Record<string, string> = {
       GOOGLE_DRIVE: 'Google Drive',
       MANUAL: '手动上传',
@@ -123,6 +138,7 @@ export default function PersonalKnowledgeBaseTab() {
       NOTION: 'Notion',
       BOOKMARK: '书签',
       NOTE: '笔记',
+      IMAGE: '图片',
     };
     return labels[type] || type;
   };
@@ -210,9 +226,20 @@ export default function PersonalKnowledgeBaseTab() {
                 <h2 className="text-xl font-bold text-gray-900">
                   {selectedKB.name}
                 </h2>
-                <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
+                <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-gray-500">
                   {getStatusBadge(selectedKB.status)}
-                  <span>来源: {getSourceTypeLabel(selectedKB.sourceType)}</span>
+                  <span className="flex flex-wrap items-center gap-1">
+                    来源:{' '}
+                    {(selectedKB.sourceTypes?.length
+                      ? selectedKB.sourceTypes
+                      : [selectedKB.sourceType]
+                    ).map((type, idx, arr) => (
+                      <span key={type}>
+                        {getSourceTypeLabel(type)}
+                        {idx < arr.length - 1 && ', '}
+                      </span>
+                    ))}
+                  </span>
                   {selectedKB.lastSyncedAt && (
                     <span>
                       上次同步:{' '}
@@ -225,7 +252,8 @@ export default function PersonalKnowledgeBaseTab() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {selectedKB.sourceType === 'GOOGLE_DRIVE' && (
+              {(selectedKB.sourceType === 'GOOGLE_DRIVE' ||
+                selectedKB.sourceTypes?.includes('GOOGLE_DRIVE')) && (
                 <button
                   onClick={() => syncGoogleDrive()}
                   disabled={syncing}
@@ -246,6 +274,13 @@ export default function PersonalKnowledgeBaseTab() {
                   className={`h-4 w-4 ${processing ? 'animate-spin' : ''}`}
                 />
                 {processing ? '处理中...' : '处理文档'}
+              </button>
+              <button
+                onClick={() => setShowEditDialog(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                <Pencil className="h-4 w-4" />
+                编辑
               </button>
               <button
                 onClick={() => handleDelete(selectedKB.id)}
@@ -321,6 +356,16 @@ export default function PersonalKnowledgeBaseTab() {
             </a>
           </div>
         </div>
+
+        {/* Edit Dialog */}
+        {showEditDialog && (
+          <EditKnowledgeBaseDialog
+            knowledgeBase={selectedKB}
+            onClose={() => setShowEditDialog(false)}
+            onUpdate={handleUpdate}
+            updating={updating}
+          />
+        )}
       </div>
     );
   }
@@ -371,8 +416,10 @@ export default function PersonalKnowledgeBaseTab() {
                   <h3 className="font-semibold text-gray-900 group-hover:text-blue-600">
                     {kb.name}
                   </h3>
-                  <p className="text-xs text-gray-500">
-                    {getSourceTypeLabel(kb.sourceType)}
+                  <p className="truncate text-xs text-gray-500">
+                    {(kb.sourceTypes?.length ? kb.sourceTypes : [kb.sourceType])
+                      .map((t) => getSourceTypeLabel(t))
+                      .join(', ')}
                   </p>
                 </div>
               </div>

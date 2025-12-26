@@ -78,7 +78,7 @@ export default function TeamKnowledgeBaseTab() {
     return icons[type] || '📚';
   };
 
-  const getSourceTypeLabel = (type: KnowledgeBase['sourceType']) => {
+  const getSourceTypeLabel = (type: KnowledgeBase['sourceType'] | string) => {
     const labels: Record<string, string> = {
       GOOGLE_DRIVE: 'Google Drive',
       MANUAL: '手动上传',
@@ -86,6 +86,7 @@ export default function TeamKnowledgeBaseTab() {
       NOTION: 'Notion',
       BOOKMARK: '书签',
       NOTE: '笔记',
+      IMAGE: '图片',
     };
     return labels[type] || type;
   };
@@ -206,8 +207,10 @@ export default function TeamKnowledgeBaseTab() {
                   <h3 className="font-semibold text-gray-900 group-hover:text-purple-600">
                     {kb.name}
                   </h3>
-                  <p className="text-xs text-gray-500">
-                    {getSourceTypeLabel(kb.sourceType)}
+                  <p className="truncate text-xs text-gray-500">
+                    {(kb.sourceTypes?.length ? kb.sourceTypes : [kb.sourceType])
+                      .map((t) => getSourceTypeLabel(t))
+                      .join(', ')}
                   </p>
                 </div>
               </div>

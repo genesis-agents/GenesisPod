@@ -152,15 +152,32 @@ export class KnowledgeBaseService {
     data: {
       name?: string;
       description?: string;
+      sourceTypes?: string[];
       googleDriveFolderIds?: string[];
     },
   ) {
     // Verify ownership (throws if not found)
     await this.findById(id, userId);
 
+    // Build update data
+    const updateData: {
+      name?: string;
+      description?: string;
+      sourceTypes?: string[];
+      googleDriveFolderIds?: string[];
+    } = {};
+
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.description !== undefined)
+      updateData.description = data.description;
+    if (data.sourceTypes !== undefined)
+      updateData.sourceTypes = data.sourceTypes;
+    if (data.googleDriveFolderIds !== undefined)
+      updateData.googleDriveFolderIds = data.googleDriveFolderIds;
+
     return this.prisma.knowledgeBase.update({
       where: { id },
-      data,
+      data: updateData,
     });
   }
 
