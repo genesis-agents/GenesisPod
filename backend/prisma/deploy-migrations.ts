@@ -555,7 +555,7 @@ async function deploy() {
       `);
       console.log("   ✅ GoogleDriveSyncStatus enum created");
 
-      // 创建 google_drive_connections 表
+      // 创建 google_drive_connections 表 (列名必须与 Prisma schema 一致)
       await prisma.$executeRawUnsafe(`
         CREATE TABLE IF NOT EXISTS "google_drive_connections" (
           "id" TEXT NOT NULL,
@@ -566,16 +566,12 @@ async function deploy() {
           "photo_url" TEXT,
           "access_token" TEXT NOT NULL,
           "refresh_token" TEXT NOT NULL,
-          "token_expires_at" TIMESTAMP(3) NOT NULL,
-          "scopes" TEXT[],
-          "root_folder_id" TEXT,
-          "storage_quota" BIGINT,
+          "token_expiry" TIMESTAMP(3) NOT NULL,
+          "storage_limit" BIGINT,
           "storage_usage" BIGINT,
           "status" "GoogleDriveConnectionStatus" NOT NULL DEFAULT 'ACTIVE',
           "last_error" TEXT,
           "last_sync_at" TIMESTAMP(3),
-          "sync_enabled" BOOLEAN NOT NULL DEFAULT true,
-          "sync_folder_ids" TEXT[],
           "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
           "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
           CONSTRAINT "google_drive_connections_pkey" PRIMARY KEY ("id"),
@@ -675,7 +671,89 @@ async function deploy() {
 
       console.log("   ✅ All Google Drive tables created successfully!");
     } else {
-      console.log("   ✅ google_drive_connections table already exists");
+      console.log(
+        "   ⚠️ google_drive_connections table exists, checking column names...",
+      );
+
+      // 修复已存在表的错误列名
+      try {
+        // 修复 token_expires_at -> token_expiry
+        await prisma.$executeRawUnsafe(`
+          DO $$ BEGIN
+            IF EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'google_drive_connections' AND column_name = 'token_expires_at'
+            ) AND NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'google_drive_connections' AND column_name = 'token_expiry'
+            ) THEN
+              ALTER TABLE "google_drive_connections" RENAME COLUMN "token_expires_at" TO "token_expiry";
+              RAISE NOTICE 'Renamed token_expires_at to token_expiry';
+            END IF;
+          END $$;
+        `);
+
+        // 修复 storage_quota -> storage_limit
+        await prisma.$executeRawUnsafe(`
+          DO $$ BEGIN
+            IF EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'google_drive_connections' AND column_name = 'storage_quota'
+            ) AND NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'google_drive_connections' AND column_name = 'storage_limit'
+            ) THEN
+              ALTER TABLE "google_drive_connections" RENAME COLUMN "storage_quota" TO "storage_limit";
+              RAISE NOTICE 'Renamed storage_quota to storage_limit';
+            END IF;
+          END $$;
+        `);
+
+        // 添加 token_expiry 列（如果完全不存在）
+        await prisma.$executeRawUnsafe(`
+          DO $$ BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'google_drive_connections' AND column_name = 'token_expiry'
+            ) THEN
+              ALTER TABLE "google_drive_connections" ADD COLUMN "token_expiry" TIMESTAMP(3) NOT NULL DEFAULT NOW();
+              RAISE NOTICE 'Added token_expiry column';
+            END IF;
+          END $$;
+        `);
+
+        // 添加 storage_limit 列（如果完全不存在）
+        await prisma.$executeRawUnsafe(`
+          DO $$ BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'google_drive_connections' AND column_name = 'storage_limit'
+            ) THEN
+              ALTER TABLE "google_drive_connections" ADD COLUMN "storage_limit" BIGINT;
+              RAISE NOTICE 'Added storage_limit column';
+            END IF;
+          END $$;
+        `);
+
+        // 添加 storage_usage 列（如果不存在）
+        await prisma.$executeRawUnsafe(`
+          DO $$ BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'google_drive_connections' AND column_name = 'storage_usage'
+            ) THEN
+              ALTER TABLE "google_drive_connections" ADD COLUMN "storage_usage" BIGINT;
+              RAISE NOTICE 'Added storage_usage column';
+            END IF;
+          END $$;
+        `);
+
+        console.log("   ✅ Column names verified/fixed");
+      } catch (fixError: any) {
+        console.error(
+          `   ⚠️ Column fix error (non-fatal): ${fixError.message}`,
+        );
+      }
     }
   } catch (error: any) {
     console.error(`   ❌ Google Drive fallback failed: ${error.message}`);
