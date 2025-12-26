@@ -116,6 +116,9 @@ model User {
   // Google Drive 集成
   googleDriveConnection GoogleDriveConnection?
 
+  // RAG 知识库
+  knowledgeBases KnowledgeBase[]
+
   @@map("users")
 }
 
@@ -4078,6 +4081,7 @@ model GoogleDriveConnection {
   user          User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   syncHistory   GoogleDriveSyncHistory[]
   importedFiles GoogleDriveImportedFile[]
+  knowledgeBases KnowledgeBase[]
 
   @@index([userId, status])
   @@index([googleId])
@@ -4144,4 +4148,163 @@ model GoogleDriveImportedFile {
   @@index([connectionId, googleFileId])
   @@index([resourceId])
   @@map("google_drive_imported_files")
+}
+
+// ============ RAG Knowledge Base ============
+
+enum KnowledgeBaseStatus {
+  PENDING
+  PROCESSING
+  READY
+  UPDATING
+  ERROR
+}
+
+enum KnowledgeBaseSourceType {
+  GOOGLE_DRIVE
+  MANUAL
+  URL
+}
+
+model KnowledgeBase {
+  id          String                  @id @default(uuid())
+  name        String
+  description String?                 @db.Text
+  sourceType  KnowledgeBaseSourceType @default(MANUAL) @map("source_type")
+  status      KnowledgeBaseStatus     @default(PENDING)
+
+  // User ownership
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Google Drive connection (for GOOGLE_DRIVE source)
+  googleDriveConnectionId String?                @map("google_drive_connection_id")
+  googleDriveConnection   GoogleDriveConnection? @relation(fields: [googleDriveConnectionId], references: [id], onDelete: SetNull)
+  googleDriveFolderIds    Json                   @default("[]") @map("google_drive_folder_ids")
+
+  // Sync metadata
+  lastSyncedAt DateTime? @map("last_synced_at")
+  lastError    String?   @map("last_error") @db.Text
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  documents KnowledgeBaseDocument[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([googleDriveConnectionId])
+  @@map("knowledge_bases")
+}
+
+model KnowledgeBaseDocument {
+  id               String              @id @default(uuid())
+  knowledgeBaseId  String              @map("knowledge_base_id")
+  knowledgeBase    KnowledgeBase       @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+
+  // Document info
+  title      String
+  sourceType String  @map("source_type")
+  sourceId   String? @map("source_id")
+  sourceUrl  String? @map("source_url") @db.Text
+  mimeType   String? @map("mime_type")
+
+  // Content
+  rawContent String @map("raw_content") @db.Text
+
+  // Processing status
+  status      KnowledgeBaseStatus @default(PENDING)
+  processedAt DateTime?           @map("processed_at")
+  chunkCount  Int                 @default(0) @map("chunk_count")
+  lastError   String?             @map("last_error") @db.Text
+
+  // Metadata
+  metadata Json @default("{}")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  parentChunks ParentChunk[]
+
+  @@index([knowledgeBaseId])
+  @@index([sourceId])
+  @@index([status])
+  @@map("knowledge_base_documents")
+}
+
+model ParentChunk {
+  id         String                @id @default(uuid())
+  documentId String                @map("document_id")
+  document   KnowledgeBaseDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  // Content
+  content    String @db.Text
+  tokenCount Int    @map("token_count")
+  position   Int    // Order within document
+
+  // Document location info (for source citation)
+  pageStart    Int?    @map("page_start")
+  pageEnd      Int?    @map("page_end")
+  sectionTitle String? @map("section_title") @db.VarChar(500)
+
+  // Metadata (JSON for flexible storage)
+  metadata Json? @default("{}")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  childChunks ChildChunk[]
+
+  @@index([documentId])
+  @@map("parent_chunks")
+}
+
+model ChildChunk {
+  id            String      @id @default(uuid())
+  parentChunkId String      @map("parent_chunk_id")
+  parentChunk   ParentChunk @relation(fields: [parentChunkId], references: [id], onDelete: Cascade)
+
+  // Denormalized document reference (for convenience queries)
+  documentId String? @map("document_id")
+
+  // Content
+  content    String @db.Text
+  tokenCount Int    @map("token_count")
+  position   Int    // Order within parent
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  embeddings ChildEmbedding[]
+
+  @@index([parentChunkId])
+  @@index([documentId])
+  @@map("child_chunks")
+}
+
+// Note: ChildEmbedding uses pgvector which requires raw SQL for the embedding column
+// The 'embedding' field is managed via raw SQL, not Prisma
+model ChildEmbedding {
+  id           String     @id @default(uuid())
+  childChunkId String     @map("child_chunk_id")
+  childChunk   ChildChunk @relation(fields: [childChunkId], references: [id], onDelete: Cascade)
+
+  // Embedding metadata (actual vector stored via raw SQL)
+  model      String @default("text-embedding-3-small")
+  dimensions Int    @default(1536)
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([childChunkId])
+  @@map("child_embeddings")
 }

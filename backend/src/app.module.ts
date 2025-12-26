@@ -30,6 +30,7 @@ import { AiSimulationModule } from "./modules/ai/ai-simulation/ai-simulation.mod
 import { AiStudioModule } from "./modules/ai/ai-studio/ai-studio.module";
 import { AiTeamsModule } from "./modules/ai/ai-teams/ai-teams.module";
 import { AiCodingModule } from "./modules/ai/ai-coding/ai-coding.module";
+import { RAGModule } from "./modules/ai/rag/rag.module";
 // Content modules
 import { CollectionsModule } from "./modules/content/collections/collections.module";
 import { CommentsModule } from "./modules/content/comments/comments.module";
@@ -109,6 +110,7 @@ import { ExportModule } from "./modules/export";
     AiStudioModule,
     AiTeamsModule,
     AiCodingModule,
+    RAGModule,
 
     // Content modules
     CrawlerModule,

@@ -165,6 +165,7 @@ async function getCustomMigrations(): Promise<string[]> {
     "20251225_add_session_bookmark", // Add isBookmarked to ask_sessions
     "20251226_force_add_google_drive", // Add Google Drive tables
     "20251226_fix_google_drive_schema", // Fix Google Drive table structure
+    "20251226_add_rag_knowledge_base", // RAG Knowledge Base with pgvector
   ];
 
   const migrations: string[] = [];
@@ -360,7 +361,12 @@ async function deploy() {
         'office_agent_tasks',
         'office_agent_artifacts',
         'office_agent_tool_logs',
-        'deep_research_sessions'
+        'deep_research_sessions',
+        'knowledge_bases',
+        'knowledge_base_documents',
+        'parent_chunks',
+        'child_chunks',
+        'child_embeddings'
       )
     `;
 
@@ -374,6 +380,11 @@ async function deploy() {
       "office_agent_artifacts",
       "office_agent_tool_logs",
       "deep_research_sessions",
+      "knowledge_bases",
+      "knowledge_base_documents",
+      "parent_chunks",
+      "child_chunks",
+      "child_embeddings",
     ];
 
     for (const table of requiredTables) {
@@ -403,7 +414,9 @@ async function deploy() {
         'TemplateCategory',
         'OfficeAgentType',
         'OfficeTaskStatus',
-        'OfficeArtifactType'
+        'OfficeArtifactType',
+        'KnowledgeBaseStatus',
+        'KnowledgeBaseSourceType'
       )
     `;
 
@@ -417,6 +430,8 @@ async function deploy() {
       "OfficeAgentType",
       "OfficeTaskStatus",
       "OfficeArtifactType",
+      "KnowledgeBaseStatus",
+      "KnowledgeBaseSourceType",
     ];
 
     for (const enumName of requiredEnums) {
@@ -757,6 +772,230 @@ async function deploy() {
     }
   } catch (error: any) {
     console.error(`   ❌ Google Drive fallback failed: ${error.message}`);
+  }
+
+  // Step 9: 紧急回退 - 确保 RAG 知识库表存在
+  console.log("🔧 Step 9: Emergency fallback for RAG Knowledge Base tables...");
+  try {
+    const ragExists = await prisma.$queryRaw<Array<{ exists: boolean }>>`
+      SELECT EXISTS (
+        SELECT FROM pg_tables
+        WHERE schemaname = 'public'
+        AND tablename = 'knowledge_bases'
+      )
+    `;
+
+    if (!ragExists[0]?.exists) {
+      console.log("   ⚠️ knowledge_bases table missing, creating directly...");
+
+      // 启用 pgvector 扩展
+      try {
+        await prisma.$executeRawUnsafe(
+          `CREATE EXTENSION IF NOT EXISTS vector;`,
+        );
+        console.log("   ✅ pgvector extension enabled");
+      } catch (e: any) {
+        console.log(`   ⚠️ pgvector extension: ${e.message}`);
+      }
+
+      // 创建枚举类型
+      await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+          CREATE TYPE "KnowledgeBaseStatus" AS ENUM ('PENDING', 'PROCESSING', 'READY', 'UPDATING', 'ERROR');
+        EXCEPTION
+          WHEN duplicate_object THEN null;
+        END $$;
+      `);
+      console.log("   ✅ KnowledgeBaseStatus enum created");
+
+      await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+          CREATE TYPE "KnowledgeBaseSourceType" AS ENUM ('GOOGLE_DRIVE', 'MANUAL', 'URL');
+        EXCEPTION
+          WHEN duplicate_object THEN null;
+        END $$;
+      `);
+      console.log("   ✅ KnowledgeBaseSourceType enum created");
+
+      // 创建 knowledge_bases 表
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "knowledge_bases" (
+          "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+          "name" VARCHAR(255) NOT NULL,
+          "description" TEXT,
+          "source_type" "KnowledgeBaseSourceType" NOT NULL DEFAULT 'MANUAL',
+          "status" "KnowledgeBaseStatus" NOT NULL DEFAULT 'PENDING',
+          "user_id" UUID NOT NULL,
+          "google_drive_connection_id" UUID,
+          "google_drive_folder_ids" JSONB NOT NULL DEFAULT '[]',
+          "last_synced_at" TIMESTAMP(3),
+          "last_error" TEXT,
+          "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "knowledge_bases_pkey" PRIMARY KEY ("id")
+        );
+      `);
+      console.log("   ✅ knowledge_bases table created");
+
+      // 创建 knowledge_base_documents 表
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "knowledge_base_documents" (
+          "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+          "knowledge_base_id" UUID NOT NULL,
+          "title" VARCHAR(500) NOT NULL,
+          "source_type" VARCHAR(100) NOT NULL,
+          "source_id" VARCHAR(255),
+          "source_url" TEXT,
+          "mime_type" VARCHAR(100),
+          "raw_content" TEXT NOT NULL,
+          "status" "KnowledgeBaseStatus" NOT NULL DEFAULT 'PENDING',
+          "processed_at" TIMESTAMP(3),
+          "chunk_count" INTEGER NOT NULL DEFAULT 0,
+          "last_error" TEXT,
+          "metadata" JSONB NOT NULL DEFAULT '{}',
+          "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "knowledge_base_documents_pkey" PRIMARY KEY ("id")
+        );
+      `);
+      console.log("   ✅ knowledge_base_documents table created");
+
+      // 创建 parent_chunks 表
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "parent_chunks" (
+          "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+          "document_id" UUID NOT NULL,
+          "content" TEXT NOT NULL,
+          "token_count" INTEGER NOT NULL,
+          "position" INTEGER NOT NULL,
+          "page_start" INTEGER,
+          "page_end" INTEGER,
+          "section_title" VARCHAR(500),
+          "metadata" JSONB NOT NULL DEFAULT '{}',
+          "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "parent_chunks_pkey" PRIMARY KEY ("id")
+        );
+      `);
+      console.log("   ✅ parent_chunks table created");
+
+      // 创建 child_chunks 表
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "child_chunks" (
+          "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+          "parent_chunk_id" UUID NOT NULL,
+          "document_id" UUID,
+          "content" TEXT NOT NULL,
+          "token_count" INTEGER NOT NULL,
+          "position" INTEGER NOT NULL,
+          "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "child_chunks_pkey" PRIMARY KEY ("id")
+        );
+      `);
+      console.log("   ✅ child_chunks table created");
+
+      // 添加 tsvector 列
+      await prisma.$executeRawUnsafe(`
+        ALTER TABLE "child_chunks" ADD COLUMN IF NOT EXISTS "content_tsv" tsvector
+        GENERATED ALWAYS AS (to_tsvector('english', content)) STORED;
+      `);
+      console.log("   ✅ child_chunks tsvector column added");
+
+      // 创建 child_embeddings 表 (pgvector)
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "child_embeddings" (
+          "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+          "child_chunk_id" UUID NOT NULL,
+          "embedding" vector(1536) NOT NULL,
+          "model" VARCHAR(100) NOT NULL DEFAULT 'text-embedding-3-small',
+          "dimensions" INTEGER NOT NULL DEFAULT 1536,
+          "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "child_embeddings_pkey" PRIMARY KEY ("id")
+        );
+      `);
+      console.log("   ✅ child_embeddings table created");
+
+      // 添加外键约束
+      await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+          ALTER TABLE "knowledge_bases" ADD CONSTRAINT "knowledge_bases_user_id_fkey"
+            FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        EXCEPTION WHEN duplicate_object THEN null; END $$;
+      `);
+      await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+          ALTER TABLE "knowledge_base_documents" ADD CONSTRAINT "knowledge_base_documents_knowledge_base_id_fkey"
+            FOREIGN KEY ("knowledge_base_id") REFERENCES "knowledge_bases"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        EXCEPTION WHEN duplicate_object THEN null; END $$;
+      `);
+      await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+          ALTER TABLE "parent_chunks" ADD CONSTRAINT "parent_chunks_document_id_fkey"
+            FOREIGN KEY ("document_id") REFERENCES "knowledge_base_documents"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        EXCEPTION WHEN duplicate_object THEN null; END $$;
+      `);
+      await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+          ALTER TABLE "child_chunks" ADD CONSTRAINT "child_chunks_parent_chunk_id_fkey"
+            FOREIGN KEY ("parent_chunk_id") REFERENCES "parent_chunks"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        EXCEPTION WHEN duplicate_object THEN null; END $$;
+      `);
+      await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+          ALTER TABLE "child_embeddings" ADD CONSTRAINT "child_embeddings_child_chunk_id_fkey"
+            FOREIGN KEY ("child_chunk_id") REFERENCES "child_chunks"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        EXCEPTION WHEN duplicate_object THEN null; END $$;
+      `);
+      console.log("   ✅ Foreign keys created");
+
+      // 创建索引
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "knowledge_bases_user_id_idx" ON "knowledge_bases"("user_id");`,
+      );
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "knowledge_bases_status_idx" ON "knowledge_bases"("status");`,
+      );
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "knowledge_base_documents_knowledge_base_id_idx" ON "knowledge_base_documents"("knowledge_base_id");`,
+      );
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "parent_chunks_document_id_idx" ON "parent_chunks"("document_id");`,
+      );
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "child_chunks_parent_chunk_id_idx" ON "child_chunks"("parent_chunk_id");`,
+      );
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "child_chunks_document_id_idx" ON "child_chunks"("document_id");`,
+      );
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "child_embeddings_child_chunk_id_idx" ON "child_embeddings"("child_chunk_id");`,
+      );
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "child_chunks_content_tsv_idx" ON "child_chunks" USING GIN ("content_tsv");`,
+      );
+      console.log("   ✅ Indexes created");
+
+      // 创建 vector 相似度索引 (IVFFlat)
+      try {
+        await prisma.$executeRawUnsafe(`
+          CREATE INDEX IF NOT EXISTS "child_embeddings_embedding_idx" ON "child_embeddings"
+            USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+        `);
+        console.log("   ✅ Vector similarity index created");
+      } catch (e: any) {
+        console.log(
+          `   ⚠️ Vector index (will be created when data is added): ${e.message}`,
+        );
+      }
+
+      console.log("   ✅ All RAG tables created successfully!");
+    } else {
+      console.log("   ✅ knowledge_bases table already exists");
+    }
+  } catch (error: any) {
+    console.error(`   ❌ RAG tables fallback failed: ${error.message}`);
   }
 
   // 完成

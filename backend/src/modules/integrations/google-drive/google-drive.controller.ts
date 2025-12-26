@@ -118,6 +118,24 @@ export class GoogleDriveController {
     return { success: true, message: "Google Drive disconnected" };
   }
 
+  @Delete("disconnect/:connectionId")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "断开 Google Drive 连接（通过 ID）" })
+  @ApiResponse({ status: 200, description: "断开成功" })
+  async disconnectById(
+    @Req() req: AuthenticatedRequest,
+    @Param("connectionId") connectionId: string,
+  ) {
+    const userId = this.getUserId(req);
+    // 验证 connectionId 属于当前用户
+    const connection = await this.authService.getConnection(userId);
+    if (!connection || connection.id !== connectionId) {
+      throw new HttpException("Connection not found", HttpStatus.NOT_FOUND);
+    }
+    await this.authService.disconnect(userId);
+    return { success: true, message: "Google Drive disconnected" };
+  }
+
   @Get("connection")
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: "获取连接信息" })

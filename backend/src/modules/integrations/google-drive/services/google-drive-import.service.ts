@@ -176,13 +176,13 @@ export class GoogleDriveImportService {
         content: extractedContent,
         metadata: {
           source: "google_drive",
-          fileId: file.id,
+          fileId: file.driveFileId,
           mimeType: file.mimeType,
           size: file.size,
-          createdTime: file.createdTime,
-          modifiedTime: file.modifiedTime,
-          iconLink: file.iconLink,
-          thumbnailLink: file.thumbnailLink,
+          createdTime: file.driveCreatedAt,
+          modifiedTime: file.driveModifiedAt,
+          iconLink: file.iconUrl,
+          thumbnailLink: file.thumbnailUrl,
         },
         tags: dto.tags || [],
         // 通过 CollectionItem 关联到用户的收藏

@@ -2649,4 +2649,229 @@ export class AdminService {
     await this.setSettings(updates);
     return { success: true };
   }
+
+  // ============ OpenAI Configuration ============
+
+  /**
+   * 获取 OpenAI API 配置
+   */
+  async getOpenAIConfig() {
+    const apiKey = await this.getSetting("openai.apiKey");
+    const enabled = await this.getSetting("openai.enabled");
+
+    return {
+      enabled: enabled !== false,
+      hasApiKey: !!apiKey,
+      apiKey: apiKey ? this.maskApiKey(apiKey) : null,
+    };
+  }
+
+  /**
+   * 更新 OpenAI API 配置
+   */
+  async updateOpenAIConfig(config: { enabled?: boolean; apiKey?: string }) {
+    const updates: Array<{
+      key: string;
+      value: any;
+      description?: string;
+      category: string;
+    }> = [];
+
+    if (config.enabled !== undefined) {
+      updates.push({
+        key: "openai.enabled",
+        value: config.enabled,
+        description: "Enable or disable OpenAI API",
+        category: "openai",
+      });
+    }
+
+    if (
+      config.apiKey &&
+      !config.apiKey.includes("****") &&
+      config.apiKey.trim() !== ""
+    ) {
+      updates.push({
+        key: "openai.apiKey",
+        value: config.apiKey.trim(),
+        description: "OpenAI API Key",
+        category: "openai",
+      });
+    }
+
+    if (updates.length > 0) {
+      await this.setSettings(updates);
+    }
+
+    return this.getOpenAIConfig();
+  }
+
+  /**
+   * 获取 OpenAI API Key（内部使用，返回实际值）
+   */
+  async getOpenAIApiKey(): Promise<string | null> {
+    // First check system settings
+    const settingKey = await this.getSetting("openai.apiKey");
+    if (settingKey) {
+      return settingKey;
+    }
+
+    // Fallback to environment variable
+    return process.env.OPENAI_API_KEY || null;
+  }
+
+  /**
+   * 测试 OpenAI 连接
+   */
+  async testOpenAIConnection(
+    apiKey: string,
+  ): Promise<{ success: boolean; message: string; latency?: number }> {
+    try {
+      const start = Date.now();
+
+      const response = await fetch("https://api.openai.com/v1/models", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
+      });
+
+      const latency = Date.now() - start;
+
+      if (response.ok) {
+        return {
+          success: true,
+          message: "OpenAI connection successful",
+          latency,
+        };
+      } else if (response.status === 401) {
+        return { success: false, message: "Invalid API key" };
+      } else {
+        return { success: false, message: `HTTP ${response.status}` };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "Connection failed",
+      };
+    }
+  }
+
+  // ============ Cohere Rerank Configuration ============
+
+  /**
+   * 获取 Cohere API 配置
+   */
+  async getCohereConfig() {
+    const apiKey = await this.getSetting("cohere.apiKey");
+    const enabled = await this.getSetting("cohere.enabled");
+
+    return {
+      enabled: enabled !== false,
+      hasApiKey: !!apiKey,
+      apiKey: apiKey ? this.maskApiKey(apiKey) : null,
+    };
+  }
+
+  /**
+   * 更新 Cohere API 配置
+   */
+  async updateCohereConfig(config: { enabled?: boolean; apiKey?: string }) {
+    const updates: Array<{
+      key: string;
+      value: any;
+      description?: string;
+      category: string;
+    }> = [];
+
+    if (config.enabled !== undefined) {
+      updates.push({
+        key: "cohere.enabled",
+        value: config.enabled,
+        description: "Enable or disable Cohere Rerank API",
+        category: "cohere",
+      });
+    }
+
+    if (
+      config.apiKey &&
+      !config.apiKey.includes("****") &&
+      config.apiKey.trim() !== ""
+    ) {
+      updates.push({
+        key: "cohere.apiKey",
+        value: config.apiKey.trim(),
+        description: "Cohere API Key",
+        category: "cohere",
+      });
+    }
+
+    if (updates.length > 0) {
+      await this.setSettings(updates);
+    }
+
+    return this.getCohereConfig();
+  }
+
+  /**
+   * 获取 Cohere API Key（内部使用，返回实际值）
+   */
+  async getCohereApiKey(): Promise<string | null> {
+    // First check system settings
+    const settingKey = await this.getSetting("cohere.apiKey");
+    if (settingKey) {
+      return settingKey;
+    }
+
+    // Fallback to environment variable
+    return process.env.COHERE_API_KEY || null;
+  }
+
+  /**
+   * 测试 Cohere 连接
+   */
+  async testCohereConnection(
+    apiKey: string,
+  ): Promise<{ success: boolean; message: string; latency?: number }> {
+    try {
+      const start = Date.now();
+
+      const response = await fetch("https://api.cohere.com/v2/rerank", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "rerank-v3.5",
+          query: "test",
+          documents: ["test document"],
+          top_n: 1,
+        }),
+      });
+
+      const latency = Date.now() - start;
+
+      if (response.ok) {
+        return {
+          success: true,
+          message: "Cohere connection successful",
+          latency,
+        };
+      } else if (response.status === 401) {
+        return { success: false, message: "Invalid API key" };
+      } else {
+        const errorText = await response.text();
+        return {
+          success: false,
+          message: `HTTP ${response.status}: ${errorText}`,
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "Connection failed",
+      };
+    }
+  }
 }

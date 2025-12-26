@@ -5,23 +5,39 @@ import { ListFilesDto } from "../dto/google-drive.dto";
 
 export interface DriveFile {
   id: string;
+  driveFileId: string; // Google Drive 原始 ID
   name: string;
   mimeType: string;
-  size?: number;
-  createdTime: string;
-  modifiedTime: string;
-  iconLink?: string;
-  thumbnailLink?: string;
-  webViewLink?: string;
-  webContentLink?: string;
-  parents?: string[];
-  starred?: boolean;
-  trashed?: boolean;
+  size: number;
+  iconUrl: string | null;
+  thumbnailUrl: string | null;
+  webViewLink: string;
+  webContentLink: string | null;
+  parentId: string | null;
   isFolder: boolean;
+  description: string | null;
+  driveCreatedAt: string;
+  driveModifiedAt: string;
+  syncStatus: "PENDING" | "SYNCING" | "SUCCESS" | "FAILED";
+  lastSyncedAt: string | null;
+  linkedResourceId: string | null;
+}
+
+export interface FolderPathItem {
+  id: string;
+  name: string;
+  driveFileId: string;
 }
 
 export interface ListFilesResult {
   files: DriveFile[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  folderPath?: FolderPathItem[];
   nextPageToken?: string;
 }
 
@@ -89,23 +105,39 @@ export class GoogleDriveFileService {
 
       const files: DriveFile[] = (response.data.files || []).map((file) => ({
         id: file.id!,
+        driveFileId: file.id!, // 前端用这个字段导航
         name: file.name!,
         mimeType: file.mimeType!,
-        size: file.size ? parseInt(file.size, 10) : undefined,
-        createdTime: file.createdTime!,
-        modifiedTime: file.modifiedTime!,
-        iconLink: file.iconLink || undefined,
-        thumbnailLink: file.thumbnailLink || undefined,
-        webViewLink: file.webViewLink || undefined,
-        webContentLink: file.webContentLink || undefined,
-        parents: file.parents || undefined,
-        starred: file.starred || false,
-        trashed: file.trashed || false,
+        size: file.size ? parseInt(file.size, 10) : 0,
+        iconUrl: file.iconLink || null,
+        thumbnailUrl: file.thumbnailLink || null,
+        webViewLink: file.webViewLink || "",
+        webContentLink: file.webContentLink || null,
+        parentId: file.parents?.[0] || null,
         isFolder: file.mimeType === "application/vnd.google-apps.folder",
+        description: null, // Google API 需要额外请求
+        driveCreatedAt: file.createdTime!,
+        driveModifiedAt: file.modifiedTime!,
+        syncStatus: "SUCCESS" as const,
+        lastSyncedAt: new Date().toISOString(),
+        linkedResourceId: null,
       }));
+
+      // 构建文件夹路径
+      let folderPath: FolderPathItem[] | undefined;
+      if (folderId && folderId !== "root") {
+        folderPath = await this.buildFolderPath(userId, folderId);
+      }
 
       return {
         files,
+        pagination: {
+          page: 1, // Google Drive API 使用 pageToken，不是 page number
+          limit: pageSize,
+          total: files.length, // Google API 不直接返回总数
+          totalPages: response.data.nextPageToken ? 2 : 1, // 估算
+        },
+        folderPath,
         nextPageToken: response.data.nextPageToken || undefined,
       };
     } catch (error: any) {
@@ -136,24 +168,64 @@ export class GoogleDriveFileService {
       const file = response.data;
       return {
         id: file.id!,
+        driveFileId: file.id!,
         name: file.name!,
         mimeType: file.mimeType!,
-        size: file.size ? parseInt(file.size, 10) : undefined,
-        createdTime: file.createdTime!,
-        modifiedTime: file.modifiedTime!,
-        iconLink: file.iconLink || undefined,
-        thumbnailLink: file.thumbnailLink || undefined,
-        webViewLink: file.webViewLink || undefined,
-        webContentLink: file.webContentLink || undefined,
-        parents: file.parents || undefined,
-        starred: file.starred || false,
-        trashed: file.trashed || false,
+        size: file.size ? parseInt(file.size, 10) : 0,
+        iconUrl: file.iconLink || null,
+        thumbnailUrl: file.thumbnailLink || null,
+        webViewLink: file.webViewLink || "",
+        webContentLink: file.webContentLink || null,
+        parentId: file.parents?.[0] || null,
         isFolder: file.mimeType === "application/vnd.google-apps.folder",
+        description: null,
+        driveCreatedAt: file.createdTime!,
+        driveModifiedAt: file.modifiedTime!,
+        syncStatus: "SUCCESS" as const,
+        lastSyncedAt: new Date().toISOString(),
+        linkedResourceId: null,
       };
     } catch (error) {
       this.logger.error(`Failed to get file ${fileId}: ${error}`);
       throw new BadRequestException("Failed to get file from Google Drive");
     }
+  }
+
+  /**
+   * 构建文件夹路径（面包屑导航）
+   */
+  private async buildFolderPath(
+    userId: string,
+    folderId: string,
+  ): Promise<FolderPathItem[]> {
+    const path: FolderPathItem[] = [];
+    let currentId = folderId;
+
+    try {
+      const client = await this.authService.getAuthenticatedClient(userId);
+      const drive = google.drive({ version: "v3", auth: client });
+
+      // 最多追溯 10 层，防止无限循环
+      for (let i = 0; i < 10 && currentId && currentId !== "root"; i++) {
+        const response = await drive.files.get({
+          fileId: currentId,
+          fields: "id, name, parents",
+        });
+
+        const folder = response.data;
+        path.unshift({
+          id: folder.id!,
+          name: folder.name!,
+          driveFileId: folder.id!,
+        });
+
+        currentId = folder.parents?.[0] || "";
+      }
+    } catch (error) {
+      this.logger.warn(`Failed to build folder path: ${error}`);
+    }
+
+    return path;
   }
 
   /**
@@ -268,13 +340,22 @@ export class GoogleDriveFileService {
       const file = response.data;
       return {
         id: file.id!,
+        driveFileId: file.id!,
         name: file.name!,
         mimeType: file.mimeType!,
-        size: file.size ? parseInt(file.size, 10) : undefined,
-        createdTime: file.createdTime!,
-        modifiedTime: file.modifiedTime!,
-        webViewLink: file.webViewLink || undefined,
+        size: file.size ? parseInt(file.size, 10) : 0,
+        iconUrl: null,
+        thumbnailUrl: null,
+        webViewLink: file.webViewLink || "",
+        webContentLink: null,
+        parentId: folderId || null,
         isFolder: file.mimeType === "application/vnd.google-apps.folder",
+        description: null,
+        driveCreatedAt: file.createdTime!,
+        driveModifiedAt: file.modifiedTime!,
+        syncStatus: "SUCCESS" as const,
+        lastSyncedAt: new Date().toISOString(),
+        linkedResourceId: null,
       };
     } catch (error) {
       this.logger.error(`Failed to upload file: ${error}`);
@@ -308,12 +389,22 @@ export class GoogleDriveFileService {
       const file = response.data;
       return {
         id: file.id!,
+        driveFileId: file.id!,
         name: file.name!,
         mimeType: file.mimeType!,
-        createdTime: file.createdTime!,
-        modifiedTime: file.modifiedTime!,
-        webViewLink: file.webViewLink || undefined,
-        isFolder: true, // createFolder always creates a folder
+        size: 0,
+        iconUrl: null,
+        thumbnailUrl: null,
+        webViewLink: file.webViewLink || "",
+        webContentLink: null,
+        parentId: parentId || null,
+        isFolder: true,
+        description: null,
+        driveCreatedAt: file.createdTime!,
+        driveModifiedAt: file.modifiedTime!,
+        syncStatus: "SUCCESS" as const,
+        lastSyncedAt: new Date().toISOString(),
+        linkedResourceId: null,
       };
     } catch (error) {
       this.logger.error(`Failed to create folder: ${error}`);
