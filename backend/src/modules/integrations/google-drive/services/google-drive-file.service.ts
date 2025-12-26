@@ -41,27 +41,47 @@ export class GoogleDriveFileService {
     const drive = google.drive({ version: "v3", auth: client });
 
     try {
+      // 规范化参数（处理前端兼容性别名）
+      const folderId = options.folderId || options.parentId;
+      const pageSize = options.pageSize || options.limit || 20;
+      const searchQuery = options.query || options.search;
+
+      // 构建排序字段
+      let orderBy = options.orderBy;
+      if (!orderBy && options.sortBy) {
+        const sortDirection = options.sortOrder === "asc" ? "" : " desc";
+        orderBy = `${options.sortBy}${sortDirection}`;
+      }
+      orderBy = orderBy || "modifiedTime desc";
+
       // 构建查询条件
       const queryParts: string[] = ["trashed = false"];
 
-      if (options.folderId) {
-        queryParts.push(`'${options.folderId}' in parents`);
-      } else if (!options.query) {
+      if (folderId) {
+        queryParts.push(`'${folderId}' in parents`);
+      } else if (!searchQuery) {
         // 如果没有提供 folderId 和自定义 query，则列出 root 目录
         queryParts.push("'root' in parents");
       }
 
-      if (options.query) {
-        queryParts.push(options.query);
+      if (searchQuery) {
+        // 如果是简单搜索关键字，转换为 name contains 查询
+        if (!searchQuery.includes(" contains ") && !searchQuery.includes("=")) {
+          queryParts.push(`name contains '${searchQuery}'`);
+        } else {
+          queryParts.push(searchQuery);
+        }
       }
 
       const q = queryParts.join(" and ");
 
+      this.logger.debug(`Google Drive query: ${q}, orderBy: ${orderBy}`);
+
       const response = await drive.files.list({
         q,
-        pageSize: options.pageSize || 20,
+        pageSize,
         pageToken: options.pageToken,
-        orderBy: options.orderBy || "modifiedTime desc",
+        orderBy,
         fields:
           "nextPageToken, files(id, name, mimeType, size, createdTime, modifiedTime, iconLink, thumbnailLink, webViewLink, webContentLink, parents, starred, trashed)",
       });
@@ -86,9 +106,14 @@ export class GoogleDriveFileService {
         files,
         nextPageToken: response.data.nextPageToken || undefined,
       };
-    } catch (error) {
-      this.logger.error(`Failed to list files: ${error}`);
-      throw new BadRequestException("Failed to list files from Google Drive");
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to list files: ${error?.message || error}`,
+        error?.stack,
+      );
+      throw new BadRequestException(
+        `Failed to list files from Google Drive: ${error?.message || "Unknown error"}`,
+      );
     }
   }
 

@@ -34,6 +34,13 @@ export class ListFilesDto {
   @IsString()
   folderId?: string;
 
+  @ApiPropertyOptional({
+    description: "父文件夹 ID（folderId 的别名，兼容前端）",
+  })
+  @IsOptional()
+  @IsString()
+  parentId?: string;
+
   @ApiPropertyOptional({ description: "分页 Token" })
   @IsOptional()
   @IsString()
@@ -47,10 +54,23 @@ export class ListFilesDto {
   @Max(100)
   pageSize?: number;
 
+  @ApiPropertyOptional({ description: "每页数量（pageSize 的别名，兼容前端）" })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+
   @ApiPropertyOptional({ description: "搜索查询（Google Drive 查询语法）" })
   @IsOptional()
   @IsString()
   query?: string;
+
+  @ApiPropertyOptional({ description: "搜索关键字（兼容前端）" })
+  @IsOptional()
+  @IsString()
+  search?: string;
 
   @ApiPropertyOptional({
     description: "排序字段",
@@ -59,6 +79,16 @@ export class ListFilesDto {
   @IsOptional()
   @IsString()
   orderBy?: string;
+
+  @ApiPropertyOptional({ description: "排序字段（兼容前端）" })
+  @IsOptional()
+  @IsString()
+  sortBy?: string;
+
+  @ApiPropertyOptional({ description: "排序方向（兼容前端）" })
+  @IsOptional()
+  @IsString()
+  sortOrder?: string;
 }
 
 /**
