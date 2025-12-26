@@ -10,12 +10,14 @@ import {
   Search,
   ExternalLink,
   Loader2,
+  FolderOpen,
 } from 'lucide-react';
 import {
   useKnowledgeBase,
   type KnowledgeBase,
   type CreateKnowledgeBaseDto,
 } from '@/hooks/domain/useKnowledgeBase';
+import GoogleDriveFolderPicker from './GoogleDriveFolderPicker';
 
 /**
  * Library 页面的知识库 TAB 内容
@@ -246,6 +248,16 @@ function CreateKnowledgeBaseDialog({
   const [sourceType, setSourceType] = useState<
     'MANUAL' | 'GOOGLE_DRIVE' | 'URL'
   >('MANUAL');
+  const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>([]);
+  const [selectedFolderNames, setSelectedFolderNames] = useState<string[]>([]);
+
+  const handleFolderSelectionChange = (
+    folderIds: string[],
+    folderNames: string[]
+  ) => {
+    setSelectedFolderIds(folderIds);
+    setSelectedFolderNames(folderNames);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -253,12 +265,22 @@ function CreateKnowledgeBaseDialog({
       name,
       description: description || undefined,
       sourceType,
+      googleDriveFolderIds:
+        sourceType === 'GOOGLE_DRIVE' && selectedFolderIds.length > 0
+          ? selectedFolderIds
+          : undefined,
     });
   };
 
+  // 检查表单是否可以提交
+  const canSubmit =
+    name.trim() &&
+    !creating &&
+    (sourceType !== 'GOOGLE_DRIVE' || selectedFolderIds.length > 0);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
         <h2 className="text-lg font-semibold text-gray-900">创建知识库</h2>
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           <div>
@@ -292,9 +314,14 @@ function CreateKnowledgeBaseDialog({
             </label>
             <select
               value={sourceType}
-              onChange={(e) =>
-                setSourceType(e.target.value as typeof sourceType)
-              }
+              onChange={(e) => {
+                setSourceType(e.target.value as typeof sourceType);
+                // 切换来源类型时清空文件夹选择
+                if (e.target.value !== 'GOOGLE_DRIVE') {
+                  setSelectedFolderIds([]);
+                  setSelectedFolderNames([]);
+                }
+              }}
               className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               <option value="MANUAL">手动上传文档</option>
@@ -302,6 +329,29 @@ function CreateKnowledgeBaseDialog({
               <option value="URL">URL 抓取</option>
             </select>
           </div>
+
+          {/* Google Drive 文件夹选择器 */}
+          {sourceType === 'GOOGLE_DRIVE' && (
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                选择要同步的文件夹
+                <span className="ml-1 text-xs text-gray-500">
+                  (单击选择，双击进入)
+                </span>
+              </label>
+              <GoogleDriveFolderPicker
+                selectedFolderIds={selectedFolderIds}
+                onSelectionChange={handleFolderSelectionChange}
+                disabled={creating}
+              />
+              {selectedFolderIds.length === 0 && (
+                <p className="mt-2 text-xs text-amber-600">
+                  请至少选择一个文件夹
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="flex justify-end gap-2 pt-4">
             <button
               type="button"
@@ -312,7 +362,7 @@ function CreateKnowledgeBaseDialog({
             </button>
             <button
               type="submit"
-              disabled={creating || !name.trim()}
+              disabled={!canSubmit}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
               {creating ? '创建中...' : '创建'}

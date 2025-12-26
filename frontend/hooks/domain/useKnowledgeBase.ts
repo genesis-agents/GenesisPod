@@ -62,6 +62,14 @@ export interface AddDocumentDto {
   mimeType?: string;
 }
 
+export interface GoogleDriveFolder {
+  id: string;
+  name: string;
+  parentId?: string;
+  fileCount: number;
+  modifiedTime?: string;
+}
+
 export interface RAGQueryResult {
   context: {
     text: string;
@@ -238,6 +246,76 @@ export function useKnowledgeBaseDetail(id: string | null) {
       await fetchStats();
       return result;
     },
+  };
+}
+
+/**
+ * Google Drive 文件夹选择 Hook
+ */
+export function useGoogleDriveFolders() {
+  const [folders, setFolders] = useState<GoogleDriveFolder[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [parentStack, setParentStack] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
+
+  const fetchFolders = useCallback(async (parentId?: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const url = parentId
+        ? `/rag/google-drive/folders?parentId=${parentId}`
+        : '/rag/google-drive/folders';
+      const data = await apiClient.get<GoogleDriveFolder[]>(url);
+      setFolders(data);
+      return data;
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const navigateToFolder = useCallback(
+    async (folder: GoogleDriveFolder) => {
+      setParentStack((prev) => [...prev, { id: folder.id, name: folder.name }]);
+      await fetchFolders(folder.id);
+    },
+    [fetchFolders]
+  );
+
+  const navigateBack = useCallback(async () => {
+    if (parentStack.length === 0) return;
+
+    const newStack = [...parentStack];
+    newStack.pop();
+    setParentStack(newStack);
+
+    const parentId =
+      newStack.length > 0 ? newStack[newStack.length - 1].id : undefined;
+    await fetchFolders(parentId);
+  }, [parentStack, fetchFolders]);
+
+  const navigateToRoot = useCallback(async () => {
+    setParentStack([]);
+    await fetchFolders();
+  }, [fetchFolders]);
+
+  return {
+    folders,
+    loading,
+    error,
+    parentStack,
+    currentParentId:
+      parentStack.length > 0
+        ? parentStack[parentStack.length - 1].id
+        : undefined,
+    fetchFolders,
+    navigateToFolder,
+    navigateBack,
+    navigateToRoot,
   };
 }
 
