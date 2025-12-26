@@ -543,6 +543,13 @@ function LibraryPageContent() {
     }
   }, []);
 
+  // Load items when switching to bookmarks subtab
+  useEffect(() => {
+    if (activeTab === 'data-sources') {
+      loadItems(1, false);
+    }
+  }, [activeTab]);
+
   // Load knowledge graph data
   const loadGraphData = useCallback(async () => {
     setGraphLoading(true);
@@ -1059,6 +1066,100 @@ function LibraryPageContent() {
     },
   };
 
+  // Images Tab Content Component
+  const ImagesTabContent = () => {
+    useEffect(() => {
+      loadBookmarkedImages();
+    }, [loadBookmarkedImages]);
+
+    if (bookmarkedImagesLoading) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-pink-600"></div>
+        </div>
+      );
+    }
+
+    if (!bookmarkedImages.length) {
+      return (
+        <div className="flex flex-col items-center justify-center py-16">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+            <Image className="h-8 w-8 text-gray-400" />
+          </div>
+          <h3 className="mb-2 text-lg font-semibold text-gray-900">暂无图片</h3>
+          <p className="mb-6 text-center text-sm text-gray-500">
+            在 AI Image 页面收藏图片后，会显示在这里
+          </p>
+          <Link
+            href="/ai-image"
+            className="rounded-lg bg-pink-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-pink-700"
+          >
+            前往 AI Image
+          </Link>
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        {bookmarkedImages.map((image) => (
+          <div
+            key={image.id}
+            className="group relative cursor-pointer overflow-hidden rounded-lg border border-gray-200 bg-white transition-all hover:shadow-lg"
+            onClick={() => handleImageClick(image)}
+          >
+            {/* 图片 */}
+            <div className="aspect-square overflow-hidden bg-gray-100">
+              <img
+                src={image.imageUrl}
+                alt={image.prompt}
+                className="h-full w-full object-cover transition-transform group-hover:scale-105"
+              />
+            </div>
+
+            {/* 悬浮信息 */}
+            <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 to-transparent p-3 opacity-0 transition-opacity group-hover:opacity-100">
+              <p className="line-clamp-2 text-xs text-white">
+                {image.enhancedPrompt || image.prompt}
+              </p>
+            </div>
+
+            {/* 删除按钮 */}
+            <button
+              onClick={(e) => handleRemoveImageBookmark(image.id, e)}
+              className="absolute right-2 top-2 rounded-lg bg-white p-1.5 opacity-0 shadow-md transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+              title="删除"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
+              </svg>
+            </button>
+
+            {/* 底部信息 */}
+            <div className="border-t border-gray-100 bg-white px-2 py-1.5">
+              <div className="flex items-center justify-between text-xs text-gray-500">
+                <span>
+                  {image.width}×{image.height}
+                </span>
+                <span>{new Date(image.createdAt).toLocaleDateString()}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   // Resource Card Component with selection support
   const ResourceCard = ({ item }: { item: CollectionItem }) => {
     const { resource } = item;
@@ -1543,6 +1644,80 @@ function LibraryPageContent() {
           {activeTab === 'data-sources' && (
             <DataSourcesTab
               initialSubTab={initialDataSourceSubTab as any}
+              renderBookmarks={() => {
+                // 书签列表视图
+                if (loading && !paginatedItems) {
+                  return (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
+                    </div>
+                  );
+                }
+
+                if (!paginatedItems?.items?.length) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-16">
+                      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+                        <Bookmark className="h-8 w-8 text-gray-400" />
+                      </div>
+                      <h3 className="mb-2 text-lg font-semibold text-gray-900">
+                        暂无书签
+                      </h3>
+                      <p className="mb-6 text-center text-sm text-gray-500">
+                        在 Explore 页面收藏资源后，会显示在这里
+                      </p>
+                      <Link
+                        href="/explore"
+                        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                      >
+                        前往探索
+                      </Link>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-4">
+                    {/* 资源网格 */}
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                      {paginatedItems.items.map((item) => (
+                        <ResourceCard key={item.id} item={item} />
+                      ))}
+                    </div>
+
+                    {/* 加载更多指示器 */}
+                    {paginatedItems.pagination.hasMore && (
+                      <div
+                        ref={loadMoreRef}
+                        className="flex items-center justify-center py-8"
+                      >
+                        {loadingMore ? (
+                          <div className="flex items-center gap-2 text-sm text-gray-500">
+                            <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-blue-600"></div>
+                            <span>加载更多...</span>
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-400">
+                            滚动加载更多
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 总计信息 */}
+                    {paginatedItems.pagination.total > 0 && (
+                      <div className="text-center text-sm text-gray-500">
+                        显示 {paginatedItems.items.length} /{' '}
+                        {paginatedItems.pagination.total} 个书签
+                      </div>
+                    )}
+                  </div>
+                );
+              }}
+              renderNotes={() => (
+                <NotesList showActions onAddToOffice={handleAddNoteToOffice} />
+              )}
+              renderImages={() => <ImagesTabContent />}
               renderNotion={() => <NotionTabContent />}
               renderGoogleDrive={() => <GoogleDriveTabContent />}
             />

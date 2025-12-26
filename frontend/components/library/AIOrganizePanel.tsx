@@ -509,6 +509,12 @@ export default function AIOrganizePanel({
                 'Sync management, AI insights, and cross-linking'}
               {activeTab === 'graph' &&
                 'Knowledge graph visualization and exploration'}
+              {activeTab === 'data-sources' &&
+                '请选择一个子数据源（书签、笔记、图片）来使用 AI 整理功能'}
+              {activeTab === 'personal-kb' &&
+                '个人知识库 - 可在 RAG 工作台使用 AI 智能检索'}
+              {activeTab === 'team-kb' &&
+                '团队知识库 - 可在 RAG 工作台使用 AI 智能检索'}
             </p>
           </div>
         </div>
@@ -566,6 +572,48 @@ export default function AIOrganizePanel({
               <p className="text-gray-800">
                 AI can help organize your Notion pages, extract key insights,
                 and find connections with your Library content.
+              </p>
+            </div>
+          )}
+
+          {/* Data Sources Tab Info */}
+          {activeTab === 'data-sources' && (
+            <div className="mb-4 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 text-sm">
+              <p className="text-blue-800">
+                请在上方选择一个具体的数据源类型（书签、笔记、图片等），然后即可使用对应的
+                AI 整理功能。
+              </p>
+            </div>
+          )}
+
+          {/* Personal KB Tab Info */}
+          {activeTab === 'personal-kb' && (
+            <div className="mb-4 rounded-lg bg-gradient-to-r from-violet-50 to-purple-50 px-4 py-3 text-sm">
+              <p className="text-violet-800">
+                个人知识库已具备 AI 向量检索能力。前往{' '}
+                <a
+                  href="/rag"
+                  className="font-medium underline hover:text-violet-900"
+                >
+                  RAG 工作台
+                </a>{' '}
+                进行智能问答和知识检索。
+              </p>
+            </div>
+          )}
+
+          {/* Team KB Tab Info */}
+          {activeTab === 'team-kb' && (
+            <div className="mb-4 rounded-lg bg-gradient-to-r from-teal-50 to-cyan-50 px-4 py-3 text-sm">
+              <p className="text-teal-800">
+                团队知识库支持多人协作和 AI 智能检索。前往{' '}
+                <a
+                  href="/rag"
+                  className="font-medium underline hover:text-teal-900"
+                >
+                  RAG 工作台
+                </a>{' '}
+                进行团队知识问答。
               </p>
             </div>
           )}
