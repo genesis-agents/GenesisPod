@@ -145,10 +145,14 @@ export default function GoogleDriveTabContent() {
   };
 
   // 格式化文件大小
-  const formatSize = (bytes: number) => {
+  const formatSize = (bytes: number | null | undefined) => {
+    if (bytes === null || bytes === undefined || isNaN(bytes) || bytes === 0) {
+      return '0 B';
+    }
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
+    if (i < 0 || i >= sizes.length) return '0 B';
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
   };
 
@@ -254,9 +258,9 @@ export default function GoogleDriveTabContent() {
                   <div className="flex items-center gap-2 text-xs text-gray-500">
                     <span>{conn.email}</span>
                     <span>·</span>
-                    <span>{conn.filesCount} files</span>
+                    <span>{conn.filesCount ?? 0} files</span>
                     <span>·</span>
-                    <span>{formatSize(conn.totalSize)}</span>
+                    <span>{formatSize(conn.totalSize ?? 0)}</span>
                     {isSyncing && (
                       <>
                         <span>·</span>

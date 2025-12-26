@@ -18,3 +18,18 @@ export { useGoogleDrive } from './useGoogleDrive';
 export { useGoogleDriveFiles } from './useGoogleDriveFiles';
 export { useGoogleDriveImport } from './useGoogleDriveImport';
 export { useGoogleDriveExport } from './useGoogleDriveExport';
+
+// Knowledge Base / RAG hooks
+export {
+  useKnowledgeBase,
+  useKnowledgeBaseDetail,
+  useRAGQuery,
+} from './useKnowledgeBase';
+export type {
+  KnowledgeBase,
+  KnowledgeBaseStats,
+  KnowledgeBaseDocument,
+  CreateKnowledgeBaseDto,
+  AddDocumentDto,
+  RAGQueryResult,
+} from './useKnowledgeBase';
