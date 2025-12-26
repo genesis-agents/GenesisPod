@@ -10,6 +10,7 @@ import {
   Search,
   Settings,
 } from 'lucide-react';
+import AppShell from '@/components/layout/AppShell';
 import {
   useKnowledgeBase,
   useKnowledgeBaseDetail,
@@ -99,221 +100,225 @@ export default function RAGPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-64px)]">
-      {/* 左侧：知识库列表 */}
-      <div className="w-80 flex-shrink-0 border-r border-gray-200 bg-gray-50">
-        <div className="p-4">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">知识库</h2>
-            <button
-              onClick={() => setShowCreateDialog(true)}
-              className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-            >
-              <Plus className="h-4 w-4" />
-              新建
-            </button>
-          </div>
-
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
-            </div>
-          ) : error ? (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-              <p className="text-sm text-red-600">加载失败: {error.message}</p>
-              <button
-                onClick={() => refreshList()}
-                className="mt-2 text-sm text-red-700 underline"
-              >
-                重试
-              </button>
-            </div>
-          ) : knowledgeBases.length === 0 ? (
-            <div className="rounded-lg border-2 border-dashed border-gray-300 p-6 text-center">
-              <Database className="mx-auto h-10 w-10 text-gray-400" />
-              <p className="mt-2 text-sm text-gray-500">还没有知识库</p>
+    <AppShell>
+      <div className="flex h-[calc(100vh-140px)]">
+        {/* 左侧：知识库列表 */}
+        <div className="w-80 flex-shrink-0 border-r border-gray-200 bg-gray-50">
+          <div className="p-4">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">知识库</h2>
               <button
                 onClick={() => setShowCreateDialog(true)}
-                className="mt-3 text-sm font-medium text-blue-600 hover:text-blue-700"
+                className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
               >
-                创建第一个知识库
+                <Plus className="h-4 w-4" />
+                新建
               </button>
             </div>
-          ) : (
-            <div className="space-y-2">
-              {knowledgeBases.map((kb) => (
-                <button
-                  key={kb.id}
-                  onClick={() => setSelectedKB(kb.id)}
-                  className={`w-full rounded-lg border p-3 text-left transition-all ${
-                    selectedKB === kb.id
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h3 className="font-medium text-gray-900">{kb.name}</h3>
-                      {kb.description && (
-                        <p className="mt-0.5 line-clamp-2 text-xs text-gray-500">
-                          {kb.description}
-                        </p>
-                      )}
-                    </div>
-                    {getStatusBadge(kb.status)}
-                  </div>
-                  <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
-                    <span>{getSourceTypeLabel(kb.sourceType)}</span>
-                    <span>·</span>
-                    <span>{kb._count?.documents ?? 0} 文档</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
 
-      {/* 右侧：详情面板 */}
-      <div className="flex-1 overflow-auto">
-        {selectedKB && knowledgeBase ? (
-          <div className="p-6">
-            {/* 头部信息 */}
-            <div className="mb-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">
-                    {knowledgeBase.name}
-                  </h1>
-                  {knowledgeBase.description && (
-                    <p className="mt-1 text-gray-600">
-                      {knowledgeBase.description}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {knowledgeBase.sourceType === 'GOOGLE_DRIVE' && (
-                    <button
-                      onClick={() => syncGoogleDrive()}
-                      disabled={syncing}
-                      className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      <RefreshCw
-                        className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`}
-                      />
-                      {syncing ? '同步中...' : '同步 Drive'}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => processDocuments()}
-                    disabled={processing}
-                    className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    <FileText className="h-4 w-4" />
-                    {processing ? '处理中...' : '处理文档'}
-                  </button>
-                  <button
-                    onClick={() => setShowQueryPanel(true)}
-                    className="flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700"
-                  >
-                    <Search className="h-4 w-4" />
-                    测试查询
-                  </button>
-                  <button
-                    onClick={() => handleDelete(knowledgeBase.id)}
-                    className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50"
-                  >
-                    <Trash2 className="h-5 w-5" />
-                  </button>
-                </div>
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
               </div>
+            ) : error ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                <p className="text-sm text-red-600">
+                  加载失败: {error.message}
+                </p>
+                <button
+                  onClick={() => refreshList()}
+                  className="mt-2 text-sm text-red-700 underline"
+                >
+                  重试
+                </button>
+              </div>
+            ) : knowledgeBases.length === 0 ? (
+              <div className="rounded-lg border-2 border-dashed border-gray-300 p-6 text-center">
+                <Database className="mx-auto h-10 w-10 text-gray-400" />
+                <p className="mt-2 text-sm text-gray-500">还没有知识库</p>
+                <button
+                  onClick={() => setShowCreateDialog(true)}
+                  className="mt-3 text-sm font-medium text-blue-600 hover:text-blue-700"
+                >
+                  创建第一个知识库
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {knowledgeBases.map((kb) => (
+                  <button
+                    key={kb.id}
+                    onClick={() => setSelectedKB(kb.id)}
+                    className={`w-full rounded-lg border p-3 text-left transition-all ${
+                      selectedKB === kb.id
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-medium text-gray-900">{kb.name}</h3>
+                        {kb.description && (
+                          <p className="mt-0.5 line-clamp-2 text-xs text-gray-500">
+                            {kb.description}
+                          </p>
+                        )}
+                      </div>
+                      {getStatusBadge(kb.status)}
+                    </div>
+                    <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+                      <span>{getSourceTypeLabel(kb.sourceType)}</span>
+                      <span>·</span>
+                      <span>{kb._count?.documents ?? 0} 文档</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
-              <div className="mt-4 flex items-center gap-4">
-                {getStatusBadge(knowledgeBase.status)}
-                <span className="text-sm text-gray-500">
-                  来源: {getSourceTypeLabel(knowledgeBase.sourceType)}
-                </span>
-                {knowledgeBase.lastSyncedAt && (
-                  <span className="text-sm text-gray-500">
-                    上次同步:{' '}
-                    {new Date(knowledgeBase.lastSyncedAt).toLocaleString(
-                      'zh-CN'
+        {/* 右侧：详情面板 */}
+        <div className="flex-1 overflow-auto">
+          {selectedKB && knowledgeBase ? (
+            <div className="p-6">
+              {/* 头部信息 */}
+              <div className="mb-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h1 className="text-2xl font-bold text-gray-900">
+                      {knowledgeBase.name}
+                    </h1>
+                    {knowledgeBase.description && (
+                      <p className="mt-1 text-gray-600">
+                        {knowledgeBase.description}
+                      </p>
                     )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {knowledgeBase.sourceType === 'GOOGLE_DRIVE' && (
+                      <button
+                        onClick={() => syncGoogleDrive()}
+                        disabled={syncing}
+                        className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        <RefreshCw
+                          className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`}
+                        />
+                        {syncing ? '同步中...' : '同步 Drive'}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => processDocuments()}
+                      disabled={processing}
+                      className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      <FileText className="h-4 w-4" />
+                      {processing ? '处理中...' : '处理文档'}
+                    </button>
+                    <button
+                      onClick={() => setShowQueryPanel(true)}
+                      className="flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700"
+                    >
+                      <Search className="h-4 w-4" />
+                      测试查询
+                    </button>
+                    <button
+                      onClick={() => handleDelete(knowledgeBase.id)}
+                      className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-center gap-4">
+                  {getStatusBadge(knowledgeBase.status)}
+                  <span className="text-sm text-gray-500">
+                    来源: {getSourceTypeLabel(knowledgeBase.sourceType)}
                   </span>
+                  {knowledgeBase.lastSyncedAt && (
+                    <span className="text-sm text-gray-500">
+                      上次同步:{' '}
+                      {new Date(knowledgeBase.lastSyncedAt).toLocaleString(
+                        'zh-CN'
+                      )}
+                    </span>
+                  )}
+                </div>
+
+                {knowledgeBase.lastError && (
+                  <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3">
+                    <p className="text-sm text-red-700">
+                      {knowledgeBase.lastError}
+                    </p>
+                  </div>
                 )}
               </div>
 
-              {knowledgeBase.lastError && (
-                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3">
-                  <p className="text-sm text-red-700">
-                    {knowledgeBase.lastError}
-                  </p>
+              {/* 统计信息 */}
+              {stats && (
+                <div className="mb-6 grid grid-cols-4 gap-4">
+                  <div className="rounded-lg border border-gray-200 bg-white p-4">
+                    <p className="text-2xl font-bold text-gray-900">
+                      {stats.documentCount}
+                    </p>
+                    <p className="text-sm text-gray-500">文档数</p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 bg-white p-4">
+                    <p className="text-2xl font-bold text-gray-900">
+                      {stats.parentChunkCount}
+                    </p>
+                    <p className="text-sm text-gray-500">父分块</p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 bg-white p-4">
+                    <p className="text-2xl font-bold text-gray-900">
+                      {stats.childChunkCount}
+                    </p>
+                    <p className="text-sm text-gray-500">子分块 (向量)</p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 bg-white p-4">
+                    <p className="text-2xl font-bold text-gray-900">
+                      {(stats.totalTokens / 1000).toFixed(1)}k
+                    </p>
+                    <p className="text-sm text-gray-500">总 Token 数</p>
+                  </div>
                 </div>
               )}
-            </div>
 
-            {/* 统计信息 */}
-            {stats && (
-              <div className="mb-6 grid grid-cols-4 gap-4">
-                <div className="rounded-lg border border-gray-200 bg-white p-4">
-                  <p className="text-2xl font-bold text-gray-900">
-                    {stats.documentCount}
-                  </p>
-                  <p className="text-sm text-gray-500">文档数</p>
-                </div>
-                <div className="rounded-lg border border-gray-200 bg-white p-4">
-                  <p className="text-2xl font-bold text-gray-900">
-                    {stats.parentChunkCount}
-                  </p>
-                  <p className="text-sm text-gray-500">父分块</p>
-                </div>
-                <div className="rounded-lg border border-gray-200 bg-white p-4">
-                  <p className="text-2xl font-bold text-gray-900">
-                    {stats.childChunkCount}
-                  </p>
-                  <p className="text-sm text-gray-500">子分块 (向量)</p>
-                </div>
-                <div className="rounded-lg border border-gray-200 bg-white p-4">
-                  <p className="text-2xl font-bold text-gray-900">
-                    {(stats.totalTokens / 1000).toFixed(1)}k
-                  </p>
-                  <p className="text-sm text-gray-500">总 Token 数</p>
-                </div>
+              {/* 添加文档 */}
+              {knowledgeBase.sourceType === 'MANUAL' && (
+                <AddDocumentForm knowledgeBaseId={knowledgeBase.id} />
+              )}
+            </div>
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <div className="text-center">
+                <Database className="mx-auto h-16 w-16 text-gray-300" />
+                <p className="mt-4 text-gray-500">选择一个知识库查看详情</p>
               </div>
-            )}
-
-            {/* 添加文档 */}
-            {knowledgeBase.sourceType === 'MANUAL' && (
-              <AddDocumentForm knowledgeBaseId={knowledgeBase.id} />
-            )}
-          </div>
-        ) : (
-          <div className="flex h-full items-center justify-center">
-            <div className="text-center">
-              <Database className="mx-auto h-16 w-16 text-gray-300" />
-              <p className="mt-4 text-gray-500">选择一个知识库查看详情</p>
             </div>
-          </div>
+          )}
+        </div>
+
+        {/* 创建对话框 */}
+        {showCreateDialog && (
+          <CreateKnowledgeBaseDialog
+            onClose={() => setShowCreateDialog(false)}
+            onCreate={handleCreate}
+            creating={creating}
+          />
+        )}
+
+        {/* 查询面板 */}
+        {showQueryPanel && selectedKB && (
+          <QueryPanel
+            knowledgeBaseId={selectedKB}
+            onClose={() => setShowQueryPanel(false)}
+          />
         )}
       </div>
-
-      {/* 创建对话框 */}
-      {showCreateDialog && (
-        <CreateKnowledgeBaseDialog
-          onClose={() => setShowCreateDialog(false)}
-          onCreate={handleCreate}
-          creating={creating}
-        />
-      )}
-
-      {/* 查询面板 */}
-      {showQueryPanel && selectedKB && (
-        <QueryPanel
-          knowledgeBaseId={selectedKB}
-          onClose={() => setShowQueryPanel(false)}
-        />
-      )}
-    </div>
+    </AppShell>
   );
 }
 

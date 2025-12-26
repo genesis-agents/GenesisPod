@@ -769,6 +769,169 @@ async function deploy() {
           `   ⚠️ Column fix error (non-fatal): ${fixError.message}`,
         );
       }
+
+      // 修复 google_drive_sync_history 表结构
+      console.log("   🔧 Fixing google_drive_sync_history table structure...");
+      try {
+        // 创建 GoogleDriveSyncAction 枚举（如果不存在）
+        await prisma.$executeRawUnsafe(`
+          DO $$ BEGIN
+            CREATE TYPE "GoogleDriveSyncAction" AS ENUM ('IMPORT', 'EXPORT');
+          EXCEPTION
+            WHEN duplicate_object THEN null;
+          END $$;
+        `);
+
+        // 添加 action 列（如果不存在）
+        await prisma.$executeRawUnsafe(`
+          DO $$ BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'google_drive_sync_history' AND column_name = 'action'
+            ) THEN
+              ALTER TABLE "google_drive_sync_history" ADD COLUMN "action" "GoogleDriveSyncAction" NOT NULL DEFAULT 'IMPORT';
+              RAISE NOTICE 'Added action column to google_drive_sync_history';
+            END IF;
+          END $$;
+        `);
+
+        // 添加 google_file_id 列（如果不存在）
+        await prisma.$executeRawUnsafe(`
+          DO $$ BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'google_drive_sync_history' AND column_name = 'google_file_id'
+            ) THEN
+              ALTER TABLE "google_drive_sync_history" ADD COLUMN "google_file_id" TEXT;
+              RAISE NOTICE 'Added google_file_id column to google_drive_sync_history';
+            END IF;
+          END $$;
+        `);
+
+        // 添加 google_file_name 列（如果不存在）
+        await prisma.$executeRawUnsafe(`
+          DO $$ BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'google_drive_sync_history' AND column_name = 'google_file_name'
+            ) THEN
+              ALTER TABLE "google_drive_sync_history" ADD COLUMN "google_file_name" TEXT;
+              RAISE NOTICE 'Added google_file_name column to google_drive_sync_history';
+            END IF;
+          END $$;
+        `);
+
+        // 添加 resource_id 列（如果不存在）
+        await prisma.$executeRawUnsafe(`
+          DO $$ BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'google_drive_sync_history' AND column_name = 'resource_id'
+            ) THEN
+              ALTER TABLE "google_drive_sync_history" ADD COLUMN "resource_id" TEXT;
+              RAISE NOTICE 'Added resource_id column to google_drive_sync_history';
+            END IF;
+          END $$;
+        `);
+
+        // 添加 error 列（如果不存在）
+        await prisma.$executeRawUnsafe(`
+          DO $$ BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'google_drive_sync_history' AND column_name = 'error'
+            ) THEN
+              ALTER TABLE "google_drive_sync_history" ADD COLUMN "error" TEXT;
+              RAISE NOTICE 'Added error column to google_drive_sync_history';
+            END IF;
+          END $$;
+        `);
+
+        // 添加 metadata 列（如果不存在）
+        await prisma.$executeRawUnsafe(`
+          DO $$ BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'google_drive_sync_history' AND column_name = 'metadata'
+            ) THEN
+              ALTER TABLE "google_drive_sync_history" ADD COLUMN "metadata" JSONB;
+              RAISE NOTICE 'Added metadata column to google_drive_sync_history';
+            END IF;
+          END $$;
+        `);
+
+        // 添加 export_format 列（如果不存在）
+        await prisma.$executeRawUnsafe(`
+          DO $$ BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'google_drive_sync_history' AND column_name = 'export_format'
+            ) THEN
+              ALTER TABLE "google_drive_sync_history" ADD COLUMN "export_format" TEXT;
+              RAISE NOTICE 'Added export_format column to google_drive_sync_history';
+            END IF;
+          END $$;
+        `);
+
+        // 添加 target_folder_id 列（如果不存在）
+        await prisma.$executeRawUnsafe(`
+          DO $$ BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'google_drive_sync_history' AND column_name = 'target_folder_id'
+            ) THEN
+              ALTER TABLE "google_drive_sync_history" ADD COLUMN "target_folder_id" TEXT;
+              RAISE NOTICE 'Added target_folder_id column to google_drive_sync_history';
+            END IF;
+          END $$;
+        `);
+
+        // 修复 google_drive_imported_files 表结构
+        await prisma.$executeRawUnsafe(`
+          DO $$ BEGIN
+            -- Rename google_mime_type to mime_type if needed
+            IF EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'google_drive_imported_files' AND column_name = 'google_mime_type'
+            ) AND NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'google_drive_imported_files' AND column_name = 'mime_type'
+            ) THEN
+              ALTER TABLE "google_drive_imported_files" RENAME COLUMN "google_mime_type" TO "mime_type";
+              RAISE NOTICE 'Renamed google_mime_type to mime_type';
+            END IF;
+
+            -- Add mime_type if neither exists
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'google_drive_imported_files' AND column_name = 'mime_type'
+            ) AND NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'google_drive_imported_files' AND column_name = 'google_mime_type'
+            ) THEN
+              ALTER TABLE "google_drive_imported_files" ADD COLUMN "mime_type" TEXT NOT NULL DEFAULT 'application/octet-stream';
+              RAISE NOTICE 'Added mime_type column';
+            END IF;
+
+            -- Add google_modified_time if missing
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'google_drive_imported_files' AND column_name = 'google_modified_time'
+            ) THEN
+              ALTER TABLE "google_drive_imported_files" ADD COLUMN "google_modified_time" TIMESTAMP(3) NOT NULL DEFAULT NOW();
+              RAISE NOTICE 'Added google_modified_time column';
+            END IF;
+          END $$;
+        `);
+
+        console.log(
+          "   ✅ google_drive_sync_history and google_drive_imported_files structure fixed",
+        );
+      } catch (syncHistoryError: any) {
+        console.error(
+          `   ⚠️ Sync history fix error: ${syncHistoryError.message}`,
+        );
+      }
     }
   } catch (error: any) {
     console.error(`   ❌ Google Drive fallback failed: ${error.message}`);
