@@ -2506,11 +2506,13 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
   /**
    * Fetch available models from a provider's API
    * Returns list of model IDs and their metadata
+   * @param modelType - Filter by model type: CHAT, CHAT_FAST, EMBEDDING, IMAGE_GENERATION, RERANK, etc.
    */
   async fetchAvailableModels(
     provider: string,
     apiKey: string,
     _apiEndpoint?: string, // Reserved for future custom endpoint support
+    modelType?: string,
   ): Promise<{
     success: boolean;
     models?: Array<{ id: string; name: string; description?: string }>;
@@ -2524,19 +2526,22 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
       switch (provider.toLowerCase()) {
         case "xai":
         case "grok":
-          return await this.fetchXAIModels(apiKey);
+          return await this.fetchXAIModels(apiKey, modelType);
 
         case "openai":
         case "gpt":
-          return await this.fetchOpenAIModels(apiKey);
+          return await this.fetchOpenAIModels(apiKey, modelType);
 
         case "anthropic":
         case "claude":
-          return this.getAnthropicModels();
+          return this.getAnthropicModels(modelType);
 
         case "google":
         case "gemini":
-          return await this.fetchGeminiModels(apiKey);
+          return await this.fetchGeminiModels(apiKey, modelType);
+
+        case "cohere":
+          return this.getCohereModels(modelType);
 
         default:
           return { success: false, error: `Unknown provider: ${provider}` };
@@ -2555,7 +2560,7 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
   /**
    * Fetch models from xAI API
    */
-  private async fetchXAIModels(apiKey: string) {
+  private async fetchXAIModels(apiKey: string, modelType?: string) {
     const response = await firstValueFrom(
       this.httpService.get("https://api.x.ai/v1/models", {
         headers: {
@@ -2565,7 +2570,27 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
       }),
     );
 
-    const models = response.data?.data || [];
+    let models = response.data?.data || [];
+
+    // Filter by model type if specified
+    if (modelType === "EMBEDDING") {
+      models = models.filter(
+        (m: any) =>
+          m.id.includes("embed") || m.id.includes("embedding") || m.id === "v1",
+      );
+    } else if (
+      modelType === "CHAT" ||
+      modelType === "CHAT_FAST" ||
+      modelType === "MULTIMODAL"
+    ) {
+      models = models.filter(
+        (m: any) =>
+          m.id.includes("grok") &&
+          !m.id.includes("embed") &&
+          !m.id.includes("embedding"),
+      );
+    }
+
     return {
       success: true,
       models: models.map((m: any) => ({
@@ -2578,8 +2603,9 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
 
   /**
    * Fetch models from OpenAI API
+   * Filters models based on modelType parameter
    */
-  private async fetchOpenAIModels(apiKey: string) {
+  private async fetchOpenAIModels(apiKey: string, modelType?: string) {
     const response = await firstValueFrom(
       this.httpService.get("https://api.openai.com/v1/models", {
         headers: {
@@ -2589,20 +2615,48 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
       }),
     );
 
-    const models = response.data?.data || [];
-    // Filter to show only chat models (gpt-*)
-    const chatModels = models
-      .filter(
+    const allModels = response.data?.data || [];
+    let filteredModels: any[];
+
+    // Filter models based on modelType
+    if (modelType === "EMBEDDING") {
+      // Embedding models: text-embedding-*, ada-*
+      filteredModels = allModels.filter(
+        (m: any) =>
+          m.id.includes("embedding") ||
+          m.id.startsWith("text-embedding") ||
+          (m.id.includes("ada") && m.id.includes("002")),
+      );
+    } else if (
+      modelType === "IMAGE_GENERATION" ||
+      modelType === "IMAGE_EDITING"
+    ) {
+      // Image models: dall-e-*
+      filteredModels = allModels.filter((m: any) => m.id.startsWith("dall-e"));
+    } else if (modelType === "CHAT_FAST") {
+      // Fast chat models: gpt-4o-mini, gpt-3.5-turbo
+      filteredModels = allModels.filter(
+        (m: any) =>
+          m.id.includes("mini") ||
+          m.id.includes("3.5") ||
+          m.id.includes("turbo"),
+      );
+    } else {
+      // Default: Chat models (gpt-4*, o1*, o3*)
+      filteredModels = allModels.filter(
         (m: any) =>
           m.id.startsWith("gpt-") ||
           m.id.startsWith("o1") ||
           m.id.startsWith("o3"),
-      )
-      .sort((a: any, b: any) => b.created - a.created);
+      );
+    }
+
+    // Sort by creation date (newest first)
+    filteredModels.sort((a: any, b: any) => b.created - a.created);
 
     return {
       success: true,
-      models: chatModels.map((m: any) => ({
+      models: filteredModels.map((m: any) => ({
         id: m.id,
         name: m.id,
         description: `OpenAI ${m.id}`,
@@ -2612,11 +2666,26 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
 
   /**
    * Get Anthropic models (no public list API, return known models)
+   * Anthropic doesn't have embedding or image models, only chat models
    */
-  private getAnthropicModels() {
+  private getAnthropicModels(modelType?: string) {
+    // Anthropic only has chat models - no embedding or image models
+    if (
+      modelType === "EMBEDDING" ||
+      modelType === "IMAGE_GENERATION" ||
+      modelType === "IMAGE_EDITING" ||
+      modelType === "RERANK"
+    ) {
+      return {
+        success: true,
+        models: [],
+        error: `Anthropic does not support ${modelType} models`,
+      };
+    }
+
     // Anthropic doesn't have a public models list API
-    // Return known production models
-    const models = [
+    // Return known production models based on type
+    let models = [
       {
         id: "claude-sonnet-4-20250514",
         name: "Claude Sonnet 4",
@@ -2639,14 +2708,19 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
       },
     ];
 
+    // Filter for CHAT_FAST - only return fast models
+    if (modelType === "CHAT_FAST") {
+      models = models.filter((m) => m.id.includes("haiku"));
+    }
+
     return { success: true, models };
   }
 
   /**
    * Fetch models from Google Gemini API
-   * Includes both Gemini text/multimodal models and Imagen image generation models
+   * Filters based on modelType: EMBEDDING, IMAGE_GENERATION, CHAT, etc.
    */
-  private async fetchGeminiModels(apiKey: string) {
+  private async fetchGeminiModels(apiKey: string, modelType?: string) {
     const response = await firstValueFrom(
       this.httpService.get(
         `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
@@ -2656,59 +2730,134 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
       ),
     );
 
-    const models = response.data?.models || [];
-    // Filter to relevant models - include both gemini and imagen models
-    const relevantModels = models.filter((m: any) => {
-      const modelName = m.name.toLowerCase();
-      const supportsGenerate =
-        m.supportedGenerationMethods?.includes("generateContent");
+    const allModels = response.data?.models || [];
+    let filteredModels: any[];
 
-      // Include Gemini models that support generateContent
-      if (modelName.includes("gemini") && supportsGenerate) {
-        return true;
-      }
+    // Filter models based on modelType
+    if (modelType === "EMBEDDING") {
+      filteredModels = allModels.filter((m: any) => {
+        const name = m.name.toLowerCase();
+        return (
+          name.includes("embedding") ||
+          name.includes("text-embedding") ||
+          m.supportedGenerationMethods?.includes("embedContent")
+        );
+      });
+    } else if (
+      modelType === "IMAGE_GENERATION" ||
+      modelType === "IMAGE_EDITING"
+    ) {
+      filteredModels = allModels.filter((m: any) => {
+        const name = m.name.toLowerCase();
+        return name.includes("imagen");
+      });
+    } else if (modelType === "MULTIMODAL") {
+      filteredModels = allModels.filter((m: any) => {
+        const name = m.name.toLowerCase();
+        return (
+          name.includes("gemini") &&
+          m.supportedGenerationMethods?.includes("generateContent")
+        );
+      });
+    } else {
+      // Default: Chat models (gemini-*)
+      filteredModels = allModels.filter((m: any) => {
+        const name = m.name.toLowerCase();
+        return (
+          name.includes("gemini") &&
+          m.supportedGenerationMethods?.includes("generateContent") &&
+          !name.includes("embedding")
+        );
+      });
+    }
 
-      // Include Imagen models for image generation
-      if (modelName.includes("imagen")) {
-        return true;
-      }
-
-      return false;
-    });
-
-    // Sort models: gemini-2.0-flash-exp first (supports image gen), then others
-    const sortedModels = relevantModels.sort((a: any, b: any) => {
-      const aName = a.name.toLowerCase();
-      const bName = b.name.toLowerCase();
-
-      // Prioritize image-capable models
-      const aIsImageCapable =
-        aName.includes("gemini-2.0-flash-exp") || aName.includes("imagen");
-      const bIsImageCapable =
-        bName.includes("gemini-2.0-flash-exp") || bName.includes("imagen");
-
-      if (aIsImageCapable && !bIsImageCapable) return -1;
-      if (!aIsImageCapable && bIsImageCapable) return 1;
-
-      return aName.localeCompare(bName);
-    });
+    // Sort models by name
+    filteredModels.sort((a: any, b: any) =>
+      a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
+    );
 
     return {
       success: true,
-      models: sortedModels.map((m: any) => {
+      models: filteredModels.map((m: any) => {
         const modelId = m.name.replace("models/", "");
-        const isImageModel =
-          modelId.includes("imagen") ||
-          modelId.includes("gemini-2.0-flash-exp");
         return {
           id: modelId,
           name: m.displayName || modelId,
-          description:
-            m.description ||
-            `Google ${m.displayName}${isImageModel ? " (supports image generation)" : ""}`,
+          description: m.description || `Google ${m.displayName}`,
         };
       }),
     };
+  }
+
+  /**
+   * Get Cohere models (return known models based on type)
+   */
+  private getCohereModels(modelType?: string) {
+    if (modelType === "RERANK") {
+      return {
+        success: true,
+        models: [
+          {
+            id: "rerank-v3.5",
+            name: "Rerank v3.5",
+            description: "Latest rerank model, best quality",
+          },
+          {
+            id: "rerank-english-v3.0",
+            name: "Rerank English v3.0",
+            description: "English-optimized rerank model",
+          },
+          {
+            id: "rerank-multilingual-v3.0",
+            name: "Rerank Multilingual v3.0",
+            description: "Multilingual rerank model",
+          },
+        ],
+      };
+    } else if (modelType === "EMBEDDING") {
+      return {
+        success: true,
+        models: [
+          {
+            id: "embed-english-v3.0",
+            name: "Embed English v3.0",
+            description: "Latest English embedding model",
+          },
+          {
+            id: "embed-multilingual-v3.0",
+            name: "Embed Multilingual v3.0",
+            description: "Multilingual embedding model",
+          },
+          {
+            id: "embed-english-light-v3.0",
+            name: "Embed English Light v3.0",
+            description: "Lightweight English embedding model",
+          },
+        ],
+      };
+    } else {
+      // Chat models
+      return {
+        success: true,
+        models: [
+          {
+            id: "command-r-plus",
+            name: "Command R+",
+            description: "Most capable chat model",
+          },
+          {
+            id: "command-r",
+            name: "Command R",
+            description: "Balanced chat model",
+          },
+          {
+            id: "command-light",
+            name: "Command Light",
+            description: "Fast, lightweight chat model",
+          },
+        ],
+      };
+    }
   }
 
   /**

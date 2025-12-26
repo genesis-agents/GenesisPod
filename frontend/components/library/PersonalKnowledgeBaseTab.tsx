@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import {
   Database,
   Plus,
@@ -11,27 +10,48 @@ import {
   Loader2,
   User,
   Search,
+  ChevronRight,
+  Trash2,
+  Pencil,
+  FolderSync,
+  FileSearch,
 } from 'lucide-react';
 import {
   useKnowledgeBase,
+  useKnowledgeBaseDetail,
   type KnowledgeBase,
 } from '@/hooks/domain/useKnowledgeBase';
 import CreateKnowledgeBaseDialog from './CreateKnowledgeBaseDialog';
 
 /**
  * 个人知识库 TAB
- * 显示用户的个人知识库列表
+ * 显示用户的个人知识库列表，支持内联显示知识库详情
  */
 export default function PersonalKnowledgeBaseTab() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [selectedKbId, setSelectedKbId] = useState<string | null>(null);
+
   const {
     knowledgeBases,
     loading,
     error,
     creating,
     createKnowledgeBase,
+    deleteKnowledgeBase,
     refreshList,
   } = useKnowledgeBase();
+
+  // 获取选中知识库的详情
+  const {
+    knowledgeBase: selectedKB,
+    stats: kbStats,
+    loading: detailLoading,
+    syncing,
+    processing,
+    syncGoogleDrive,
+    processDocuments,
+    refresh: refreshDetail,
+  } = useKnowledgeBaseDetail(selectedKbId);
 
   // Filter personal knowledge bases (type = PERSONAL or type is not set)
   const personalKBs = knowledgeBases.filter(
@@ -41,6 +61,22 @@ export default function PersonalKnowledgeBaseTab() {
   const handleCreate = async (dto: any) => {
     await createKnowledgeBase({ ...dto, type: 'PERSONAL' });
     setShowCreateDialog(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (
+      !window.confirm('确定要删除这个知识库吗？所有文档和向量数据都将被删除。')
+    ) {
+      return;
+    }
+    await deleteKnowledgeBase(id);
+    if (selectedKbId === id) {
+      setSelectedKbId(null);
+    }
+  };
+
+  const handleBackToList = () => {
+    setSelectedKbId(null);
   };
 
   const getStatusBadge = (status: KnowledgeBase['status']) => {
@@ -146,6 +182,150 @@ export default function PersonalKnowledgeBaseTab() {
     );
   }
 
+  // 如果选中了知识库，显示详情视图
+  if (selectedKbId && selectedKB) {
+    return (
+      <div className="space-y-6">
+        {/* 面包屑导航 */}
+        <nav className="flex items-center gap-2 text-sm">
+          <button
+            onClick={handleBackToList}
+            className="flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:underline"
+          >
+            <User className="h-4 w-4" />
+            个人知识库
+          </button>
+          <ChevronRight className="h-4 w-4 text-gray-400" />
+          <span className="font-medium text-gray-900">{selectedKB.name}</span>
+        </nav>
+
+        {/* 知识库详情头部 */}
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 text-2xl">
+                {getSourceTypeIcon(selectedKB.sourceType)}
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  {selectedKB.name}
+                </h2>
+                <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
+                  {getStatusBadge(selectedKB.status)}
+                  <span>来源: {getSourceTypeLabel(selectedKB.sourceType)}</span>
+                  {selectedKB.lastSyncedAt && (
+                    <span>
+                      上次同步:{' '}
+                      {new Date(selectedKB.lastSyncedAt).toLocaleString(
+                        'zh-CN'
+                      )}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {selectedKB.sourceType === 'GOOGLE_DRIVE' && (
+                <button
+                  onClick={() => syncGoogleDrive()}
+                  disabled={syncing}
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <FolderSync
+                    className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`}
+                  />
+                  {syncing ? '同步中...' : '同步 Drive'}
+                </button>
+              )}
+              <button
+                onClick={() => processDocuments()}
+                disabled={processing}
+                className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+              >
+                <FileSearch
+                  className={`h-4 w-4 ${processing ? 'animate-spin' : ''}`}
+                />
+                {processing ? '处理中...' : '处理文档'}
+              </button>
+              <button
+                onClick={() => handleDelete(selectedKB.id)}
+                className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+              >
+                <Trash2 className="h-4 w-4" />
+                删除
+              </button>
+            </div>
+          </div>
+
+          {selectedKB.description && (
+            <p className="mt-4 text-sm text-gray-600">
+              {selectedKB.description}
+            </p>
+          )}
+
+          {/* 处理错误提示 */}
+          {selectedKB.status === 'ERROR' && selectedKB.lastError && (
+            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {selectedKB.lastError}
+            </div>
+          )}
+        </div>
+
+        {/* 统计信息 */}
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-4">
+            <div className="text-2xl font-bold text-gray-900">
+              {kbStats?.documentCount ?? selectedKB._count?.documents ?? 0}
+            </div>
+            <div className="text-sm text-gray-500">文档数</div>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-white p-4">
+            <div className="text-2xl font-bold text-gray-900">
+              {kbStats?.parentChunkCount ?? 0}
+            </div>
+            <div className="text-sm text-gray-500">父分块</div>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-white p-4">
+            <div className="text-2xl font-bold text-gray-900">
+              {kbStats?.childChunkCount ?? 0}
+            </div>
+            <div className="text-sm text-gray-500">子分块（向量）</div>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-white p-4">
+            <div className="text-2xl font-bold text-gray-900">
+              {((kbStats?.totalTokens ?? 0) / 1000).toFixed(1)}k
+            </div>
+            <div className="text-sm text-gray-500">总 Token 数</div>
+          </div>
+        </div>
+
+        {/* RAG 工作台入口 */}
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Search className="h-5 w-5 text-gray-500" />
+              <div>
+                <p className="text-sm font-medium text-gray-900">
+                  使用 RAG 智能问答
+                </p>
+                <p className="text-xs text-gray-500">
+                  基于此知识库进行 AI 检索和问答
+                </p>
+              </div>
+            </div>
+            <a
+              href={`/rag?kb=${selectedKB.id}`}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            >
+              打开 RAG 工作台
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 默认显示知识库列表
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -177,10 +357,10 @@ export default function PersonalKnowledgeBaseTab() {
       {/* Knowledge Base Grid */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {personalKBs.map((kb) => (
-          <Link
+          <button
             key={kb.id}
-            href={`/rag?kb=${kb.id}`}
-            className="group rounded-xl border border-gray-200 bg-white p-5 transition-all hover:border-blue-300 hover:shadow-md"
+            onClick={() => setSelectedKbId(kb.id)}
+            className="group rounded-xl border border-gray-200 bg-white p-5 text-left transition-all hover:border-blue-300 hover:shadow-md"
           >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
@@ -214,7 +394,7 @@ export default function PersonalKnowledgeBaseTab() {
               </div>
               <ExternalLink className="h-4 w-4 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100" />
             </div>
-          </Link>
+          </button>
         ))}
       </div>
 
@@ -232,12 +412,12 @@ export default function PersonalKnowledgeBaseTab() {
               </p>
             </div>
           </div>
-          <Link
+          <a
             href="/rag"
             className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
           >
             打开 RAG 工作台
-          </Link>
+          </a>
         </div>
       </div>
 

@@ -195,13 +195,17 @@ export class AdminController {
       provider: string;
       apiKey: string;
       apiEndpoint?: string;
+      modelType?: string; // CHAT, CHAT_FAST, EMBEDDING, IMAGE_GENERATION, RERANK, etc.
     },
   ) {
-    this.logger.log(`Admin: Fetching available models for ${body.provider}`);
+    this.logger.log(
+      `Admin: Fetching available models for ${body.provider}, type: ${body.modelType || "ALL"}`,
+    );
     return this.aiChatService.fetchAvailableModels(
       body.provider,
       body.apiKey,
       body.apiEndpoint,
+      body.modelType,
     );
   }
 

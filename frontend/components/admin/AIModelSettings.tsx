@@ -207,6 +207,49 @@ function getModelIconUrl(modelName: string): string | null {
   return null;
 }
 
+// 根据提供商和模型类型获取对应的 API 端点
+function getEndpointForModelType(
+  provider: string,
+  modelType: AIModelType
+): string {
+  if (provider === 'OpenAI') {
+    switch (modelType) {
+      case 'EMBEDDING':
+        return 'https://api.openai.com/v1/embeddings';
+      case 'IMAGE_GENERATION':
+      case 'IMAGE_EDITING':
+        return 'https://api.openai.com/v1/images/generations';
+      default:
+        return 'https://api.openai.com/v1/chat/completions';
+    }
+  }
+  if (provider === 'xAI') {
+    switch (modelType) {
+      case 'EMBEDDING':
+        return 'https://api.x.ai/v1/embeddings';
+      default:
+        return 'https://api.x.ai/v1/chat/completions';
+    }
+  }
+  if (provider === 'Anthropic') {
+    return 'https://api.anthropic.com/v1/messages';
+  }
+  if (provider === 'Google') {
+    return 'https://generativelanguage.googleapis.com/v1beta/models';
+  }
+  if (provider === 'Cohere') {
+    switch (modelType) {
+      case 'RERANK':
+        return 'https://api.cohere.com/v2/rerank';
+      case 'EMBEDDING':
+        return 'https://api.cohere.com/v1/embed';
+      default:
+        return 'https://api.cohere.com/v1/chat';
+    }
+  }
+  return '';
+}
+
 // Model ID Selector with fetch capability
 // Shows all available models in a grid layout (no dropdown, no scrollbar)
 function ModelIdSelector({
@@ -214,11 +257,13 @@ function ModelIdSelector({
   onChange,
   provider,
   apiKey,
+  modelType,
 }: {
   value: string;
   onChange: (modelId: string) => void;
   provider: string;
   apiKey: string;
+  modelType: AIModelType;
 }) {
   const [availableModels, setAvailableModels] = useState<
     Array<{ id: string; name: string; description?: string }>
@@ -244,13 +289,16 @@ function ModelIdSelector({
             ...getAuthHeader(),
           },
           credentials: 'include',
-          body: JSON.stringify({ provider, apiKey }),
+          body: JSON.stringify({ provider, apiKey, modelType }),
         }
       );
       const data = await response.json();
       if (data.success && data.models) {
         setAvailableModels(data.models);
         setHasFetched(true);
+        if (data.models.length === 0) {
+          setError(data.error || `该提供商没有可用的 ${modelType} 类型模型`);
+        }
       } else {
         setError(data.error || '获取模型列表失败');
       }
@@ -260,6 +308,13 @@ function ModelIdSelector({
       setLoading(false);
     }
   };
+
+  // 当 modelType 变化时，清空已获取的模型列表
+  useEffect(() => {
+    setAvailableModels([]);
+    setHasFetched(false);
+    setError(null);
+  }, [modelType]);
 
   return (
     <div>
@@ -1296,19 +1351,25 @@ function EditModelModal({
             />
           </div>
 
-          {/* Model Type (功能类型) - Editable */}
+          {/* Model Type (模型类型) - Editable */}
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">
-              功能类型
+              模型类型
             </label>
             <select
               value={formData.modelType}
-              onChange={(e) =>
+              onChange={(e) => {
+                const newModelType = e.target.value as AIModelType;
+                // 根据新的模型类型自动更新 API 端点
+                const newEndpoint = formData.provider
+                  ? getEndpointForModelType(formData.provider, newModelType)
+                  : formData.apiEndpoint;
                 setFormData({
                   ...formData,
-                  modelType: e.target.value as AIModelType,
-                })
-              }
+                  modelType: newModelType,
+                  apiEndpoint: newEndpoint,
+                });
+              }}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               {MODEL_TYPE_OPTIONS.map((option) => (
@@ -1317,6 +1378,9 @@ function EditModelModal({
                 </option>
               ))}
             </select>
+            <p className="mt-1 text-xs text-gray-500">
+              切换类型会自动更新 API 端点
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -1412,6 +1476,7 @@ function EditModelModal({
                 onChange={(modelId) => setFormData({ ...formData, modelId })}
                 provider={formData.provider}
                 apiKey={apiKey || ''}
+                modelType={formData.modelType}
               />
             </div>
           </div>
@@ -1594,7 +1659,7 @@ function AddModelModal({
         <div className="space-y-4">
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">
-              Model Type <span className="text-red-500">*</span>
+              模型提供商 <span className="text-red-500">*</span>
             </label>
             <select
               value={formData.name}
@@ -1617,10 +1682,10 @@ function AddModelModal({
               }}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
-              <option value="">Select a model type...</option>
+              <option value="">选择模型提供商...</option>
               {STANDARD_MODEL_CONFIGS.map((model) => (
                 <option key={model.id} value={model.id}>
-                  {model.name} ({model.provider})
+                  {model.name}
                 </option>
               ))}
             </select>
@@ -1629,19 +1694,26 @@ function AddModelModal({
             </p>
           </div>
 
-          {/* Model Type (功能类型) */}
+          {/* Model Type (模型类型) */}
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">
-              功能类型 <span className="text-red-500">*</span>
+              模型类型 <span className="text-red-500">*</span>
             </label>
             <select
               value={formData.modelType}
-              onChange={(e) =>
+              onChange={(e) => {
+                const newModelType = e.target.value as AIModelType;
+                // 根据新的模型类型自动更新 API 端点
+                const newEndpoint = formData.provider
+                  ? getEndpointForModelType(formData.provider, newModelType)
+                  : formData.apiEndpoint;
                 setFormData({
                   ...formData,
-                  modelType: e.target.value as AIModelType,
-                })
-              }
+                  modelType: newModelType,
+                  apiEndpoint: newEndpoint,
+                  modelId: '', // 清空 model ID，需要重新获取
+                });
+              }}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               {MODEL_TYPE_OPTIONS.map((option) => (
@@ -1651,7 +1723,7 @@ function AddModelModal({
               ))}
             </select>
             <p className="mt-1 text-xs text-gray-500">
-              决定模型用于文本聊天、图片生成还是图片编辑
+              切换类型会自动更新 API 端点，请点击"获取"按钮获取对应类型的模型
             </p>
           </div>
 
@@ -1737,6 +1809,7 @@ function AddModelModal({
                 onChange={(modelId) => setFormData({ ...formData, modelId })}
                 provider={formData.provider}
                 apiKey={formData.apiKey || ''}
+                modelType={formData.modelType}
               />
             </div>
           </div>
