@@ -12,8 +12,74 @@ import { PrismaClient } from "@prisma/client";
 import { execSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
+import { Pool } from "pg";
 
 const prisma = new PrismaClient();
+
+/**
+ * 使用 pg 客户端直接添加枚举值（绕过 Prisma 事务限制）
+ * PostgreSQL 不允许在事务中执行 ALTER TYPE ADD VALUE
+ */
+async function fixEnumValuesDirectly(): Promise<void> {
+  console.log("📌 Step 0: Fixing enum values (outside Prisma transaction)...");
+
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    console.log("   ⚠️ DATABASE_URL not set, skipping enum fix");
+    return;
+  }
+
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    ssl: databaseUrl.includes("railway.app")
+      ? { rejectUnauthorized: false }
+      : false,
+  });
+
+  const enumValues = ["EMBEDDING", "RERANK", "MULTIMODAL", "IMAGE_EDITING"];
+
+  try {
+    const client = await pool.connect();
+
+    for (const value of enumValues) {
+      try {
+        // 检查枚举值是否已存在
+        const checkResult = await client.query(
+          `
+          SELECT 1 FROM pg_enum
+          WHERE enumlabel = $1
+          AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'AIModelType')
+        `,
+          [value],
+        );
+
+        if (checkResult.rows.length === 0) {
+          // 添加枚举值 - 必须在事务外执行
+          await client.query(
+            `ALTER TYPE "AIModelType" ADD VALUE IF NOT EXISTS '${value}'`,
+          );
+          console.log(`   ✅ Added enum value: ${value}`);
+        } else {
+          console.log(`   ⏭️  Enum value already exists: ${value}`);
+        }
+      } catch (err: any) {
+        // 忽略 "already exists" 错误
+        if (err.message?.includes("already exists")) {
+          console.log(`   ⏭️  Enum value already exists: ${value}`);
+        } else {
+          console.error(`   ⚠️  Error adding ${value}:`, err.message);
+        }
+      }
+    }
+
+    client.release();
+    console.log("   ✅ Enum fix completed\n");
+  } catch (err: any) {
+    console.error(`   ❌ Failed to fix enum values: ${err.message}\n`);
+  } finally {
+    await pool.end();
+  }
+}
 
 /**
  * 执行 SQL 迁移文件
@@ -272,6 +338,10 @@ async function fixFailedMigrations(): Promise<void> {
 async function deploy() {
   console.log("🚀 Starting Railway Database Migration Deployment");
   console.log("================================================\n");
+
+  // Step 0: 使用 pg 客户端直接修复枚举值（绕过事务限制）
+  // 这必须在 Prisma 连接之前执行！
+  await fixEnumValuesDirectly();
 
   // Step 1: 连接数据库
   console.log("📡 Step 1: Connecting to database...");
