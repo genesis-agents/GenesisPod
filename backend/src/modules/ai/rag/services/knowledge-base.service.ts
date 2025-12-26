@@ -46,6 +46,27 @@ export class KnowledgeBaseService {
       `Creating knowledge base: ${input.name} for user ${userId}`,
     );
 
+    // Auto-detect Google Drive connection if sourceType is GOOGLE_DRIVE and no connectionId provided
+    let googleDriveConnectionId = input.googleDriveConnectionId;
+    if (
+      input.sourceType === KnowledgeBaseSourceType.GOOGLE_DRIVE &&
+      !googleDriveConnectionId
+    ) {
+      const connection = await this.prisma.googleDriveConnection.findUnique({
+        where: { userId },
+      });
+      if (connection) {
+        googleDriveConnectionId = connection.id;
+        this.logger.log(
+          `Auto-detected Google Drive connection: ${connection.id} for user ${userId}`,
+        );
+      } else {
+        throw new Error(
+          "No Google Drive connection found. Please connect Google Drive first.",
+        );
+      }
+    }
+
     const kb = await this.prisma.knowledgeBase.create({
       data: {
         name: input.name,
@@ -53,7 +74,7 @@ export class KnowledgeBaseService {
         sourceType: input.sourceType,
         status: KnowledgeBaseStatus.PENDING,
         userId,
-        googleDriveConnectionId: input.googleDriveConnectionId,
+        googleDriveConnectionId,
         googleDriveFolderIds: input.googleDriveFolderIds || [],
       },
     });
