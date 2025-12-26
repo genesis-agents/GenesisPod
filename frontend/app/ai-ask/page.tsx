@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,6 +15,156 @@ import { CollapsibleBlockquote } from '@/components/ui/CollapsibleBlockquote';
 import { CollapsibleMessage } from '@/components/ui/CollapsibleMessage';
 import MermaidDiagram from '@/components/ui/MermaidDiagram';
 import { useThemeStore } from '@/stores/themeStore';
+
+// Inspirational quotes data
+interface Quote {
+  text: string;
+  author: string;
+  source?: string;
+}
+
+const INSPIRATIONAL_QUOTES: Quote[] = [
+  {
+    text: '未来属于那些相信自己梦想之美的人。',
+    author: '埃莉诺·罗斯福',
+    source: 'Eleanor Roosevelt',
+  },
+  {
+    text: '成功不是终点，失败也不是终结，重要的是继续前行的勇气。',
+    author: '温斯顿·丘吉尔',
+    source: 'Winston Churchill',
+  },
+  {
+    text: '千里之行，始于足下。',
+    author: '老子',
+    source: '《道德经》',
+  },
+  {
+    text: '学而不思则罔，思而不学则殆。',
+    author: '孔子',
+    source: '《论语》',
+  },
+  {
+    text: '人生最大的荣耀不在于从不跌倒，而在于每次跌倒后都能爬起来。',
+    author: '纳尔逊·曼德拉',
+    source: 'Nelson Mandela',
+  },
+  {
+    text: '创新区分领袖和追随者。',
+    author: '史蒂夫·乔布斯',
+    source: 'Steve Jobs',
+  },
+  {
+    text: '知之者不如好之者，好之者不如乐之者。',
+    author: '孔子',
+    source: '《论语》',
+  },
+  {
+    text: '生活中最重要的事情不是我们身处何处，而是我们朝着什么方向走。',
+    author: '奥利弗·温德尔·霍姆斯',
+    source: 'Oliver Wendell Holmes',
+  },
+  {
+    text: '天行健，君子以自强不息。',
+    author: '《周易》',
+    source: '乾卦·象传',
+  },
+  {
+    text: '机会总是留给有准备的人。',
+    author: '路易·巴斯德',
+    source: 'Louis Pasteur',
+  },
+  {
+    text: '不积跬步，无以至千里；不积小流，无以成江海。',
+    author: '荀子',
+    source: '《劝学》',
+  },
+  {
+    text: '想象力比知识更重要。',
+    author: '阿尔伯特·爱因斯坦',
+    source: 'Albert Einstein',
+  },
+  {
+    text: '路漫漫其修远兮，吾将上下而求索。',
+    author: '屈原',
+    source: '《离骚》',
+  },
+  {
+    text: '如果你想走得快，就一个人走；如果你想走得远，就一起走。',
+    author: '非洲谚语',
+    source: 'African Proverb',
+  },
+  {
+    text: '博观而约取，厚积而薄发。',
+    author: '苏轼',
+    source: '《稼说送张琥》',
+  },
+  {
+    text: '最好的预测未来的方法就是创造未来。',
+    author: '彼得·德鲁克',
+    source: 'Peter Drucker',
+  },
+  {
+    text: '三人行，必有我师焉。',
+    author: '孔子',
+    source: '《论语》',
+  },
+  {
+    text: '简单是终极的复杂。',
+    author: '列奥纳多·达·芬奇',
+    source: 'Leonardo da Vinci',
+  },
+];
+
+// Quote Card Component
+function QuoteCard({ quote }: { quote: Quote }) {
+  return (
+    <div className="group relative mx-auto mb-8 w-full max-w-xl">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 p-6 shadow-sm ring-1 ring-purple-100/50 transition-all duration-300 hover:shadow-md hover:ring-purple-200/50">
+        {/* Decorative quote mark */}
+        <div className="font-serif absolute -left-2 -top-2 select-none text-7xl text-purple-200/60">
+          "
+        </div>
+        <div className="font-serif absolute -bottom-4 -right-2 rotate-180 select-none text-7xl text-purple-200/60">
+          "
+        </div>
+
+        {/* Decorative gradient blob */}
+        <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-gradient-to-br from-violet-200/30 to-fuchsia-200/30 blur-2xl" />
+        <div className="absolute -bottom-8 -left-8 h-24 w-24 rounded-full bg-gradient-to-br from-purple-200/30 to-pink-200/30 blur-2xl" />
+
+        {/* Content */}
+        <div className="relative z-10">
+          {/* Quote text */}
+          <p className="mb-4 text-center text-lg font-medium leading-relaxed text-gray-700 md:text-xl">
+            {quote.text}
+          </p>
+
+          {/* Author info */}
+          <div className="flex items-center justify-center gap-2">
+            <div className="h-px max-w-[60px] flex-1 bg-gradient-to-r from-transparent via-purple-300 to-transparent" />
+            <div className="text-center">
+              <p className="text-sm font-semibold text-purple-700">
+                {quote.author}
+              </p>
+              {quote.source && (
+                <p className="text-xs text-purple-500/80">{quote.source}</p>
+              )}
+            </div>
+            <div className="h-px max-w-[60px] flex-1 bg-gradient-to-r from-transparent via-purple-300 to-transparent" />
+          </div>
+        </div>
+
+        {/* Subtle sparkle icon */}
+        <div className="absolute right-4 top-4 text-purple-300/60">
+          <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 2L13.09 8.26L19 7L14.14 11.14L18 17L12 14.82L6 17L9.86 11.14L5 7L10.91 8.26L12 2Z" />
+          </svg>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // Mermaid diagram keywords for detection
 const MERMAID_KEYWORDS = [
@@ -218,6 +368,12 @@ export default function AskPage() {
   const toolsRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Random quote selection - changes on page load
+  const randomQuote = useMemo(() => {
+    const randomIndex = Math.floor(Math.random() * INSPIRATIONAL_QUOTES.length);
+    return INSPIRATIONAL_QUOTES[randomIndex];
+  }, []);
 
   // Create preview URLs for image files
   const addFilesWithPreviews = useCallback((files: File[]) => {
@@ -816,6 +972,9 @@ export default function AskPage() {
           /* Welcome Screen */
           <div className="flex flex-1 flex-col items-center justify-center px-4">
             <div className="w-full max-w-2xl">
+              {/* Inspirational Quote */}
+              <QuoteCard quote={randomQuote} />
+
               <h1 className="mb-12 text-center text-4xl font-light text-gray-800 md:text-5xl">
                 <span className="bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 bg-clip-text text-transparent">
                   {getGreeting()}
