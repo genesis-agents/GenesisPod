@@ -897,7 +897,7 @@ ${userInput || ''}
                   if (currentDoc) {
                     // 判断是局部更新还是全文更新
                     // 如果是带分隔符的局部更新，使用 contentPart；否则使用 aiContent
-                    let contentForMerge = isPartialUpdateWithSeparator
+                    const contentForMerge = isPartialUpdateWithSeparator
                       ? contentPart
                       : aiContent;
                     let finalContent = contentForMerge;

@@ -165,6 +165,35 @@ export interface GeneratedSlideContent {
     role: string;
     avatar?: string;
   }>;
+  // 批量操作添加的属性
+  footer?: {
+    text: string;
+    position: "bottom-left" | "bottom-center" | "bottom-right";
+    style?: {
+      fontSize?: number;
+      fontFamily?: string;
+      color?: string;
+      fontWeight?: "normal" | "bold" | "lighter";
+      fontStyle?: "normal" | "italic";
+    };
+  };
+  header?: {
+    text: string;
+    position: "top-left" | "top-center" | "top-right";
+    style?: {
+      fontSize?: number;
+      fontFamily?: string;
+      color?: string;
+      fontWeight?: "normal" | "bold" | "lighter";
+      fontStyle?: "normal" | "italic";
+    };
+  };
+  safeArea?: {
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+  };
 }
 
 export interface GeneratedSlideImage {

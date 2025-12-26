@@ -21,7 +21,6 @@ import {
 } from 'lucide-react';
 import {
   getDashboardStats,
-  DashboardStats,
   CollectionTask,
   getRunningTasks,
   getSystemMetrics,
@@ -30,6 +29,14 @@ import {
   HistoryRecord,
   HistoryStats,
 } from '@/lib/api/data-collection';
+
+// Type for system metrics response
+interface SystemMetrics {
+  cpu?: { usage?: number; cores?: number };
+  memory?: { percentage?: number; used?: number; total?: number };
+  activeTasks?: number;
+  queuedTasks?: number;
+}
 
 type TabType = 'overview' | 'live' | 'history';
 
@@ -56,7 +63,7 @@ export default function DashboardPage() {
 
   // Live state
   const [runningTasks, setRunningTasks] = useState<CollectionTask[]>([]);
-  const [metrics, setMetrics] = useState<any>(null);
+  const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
 
   // History state
   const [history, setHistory] = useState<HistoryRecord[]>([]);
@@ -99,7 +106,7 @@ export default function DashboardPage() {
         getSystemMetrics(),
       ]);
       setRunningTasks(tasksResponse.data);
-      setMetrics(metricsResponse.data);
+      setMetrics(metricsResponse.data as SystemMetrics | null);
     } catch (err) {
       console.error('Failed to fetch live data:', err);
     }
@@ -136,16 +143,16 @@ export default function DashboardPage() {
         setLoading(false);
       }
     }
-    init();
+    void init();
   }, [fetchOverviewData, fetchLiveData, fetchHistoryData]);
 
   // Auto-refresh based on active tab
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (activeTab === 'overview') {
-      interval = setInterval(fetchOverviewData, 30000);
+      interval = setInterval(() => void fetchOverviewData(), 30000);
     } else if (activeTab === 'live') {
-      interval = setInterval(fetchLiveData, 5000);
+      interval = setInterval(() => void fetchLiveData(), 5000);
     }
     return () => clearInterval(interval);
   }, [activeTab, fetchOverviewData, fetchLiveData]);
@@ -153,7 +160,7 @@ export default function DashboardPage() {
   // Refresh history when period changes
   useEffect(() => {
     if (activeTab === 'history') {
-      fetchHistoryData();
+      void fetchHistoryData();
     }
   }, [period, activeTab, fetchHistoryData]);
 

@@ -1165,7 +1165,7 @@ export default function SlidesTab() {
       // 使用后端完整 PPT 生成 API（包含图片生成）
       const eventSource = new EventSource(sseUrl);
 
-      let generatedSlides: any[] = [];
+      const generatedSlides: any[] = [];
       let pptDocument: any = null;
 
       // 通用事件处理函数
@@ -2213,7 +2213,7 @@ export default function SlidesTab() {
                       <textarea
                         value={editingContent}
                         onChange={(e) => setEditingContent(e.target.value)}
-                        className="h-full w-full resize-none rounded-lg border border-gray-200 p-3 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="font-mono h-full w-full resize-none rounded-lg border border-gray-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="在此编辑幻灯片内容（Markdown格式）"
                       />
                     </div>

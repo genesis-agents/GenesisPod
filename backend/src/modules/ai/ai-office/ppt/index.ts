@@ -16,6 +16,10 @@ export { PPTOrchestratorService } from "./ppt-orchestrator.service";
 export { PPTExportService } from "./ppt-export.service";
 export { NaturalEditService } from "./natural-edit.service";
 export { PPTVersionService } from "./ppt-version.service";
+export { TemplateMatcher } from "./template-matcher.service";
+export { QualityCheckService } from "./quality-check.service";
+export { SourceAnalysisService } from "./source-analysis.service";
+export { BatchOperationService } from "./batch-operation.service";
 
 // Controller
 export { PPTGenerationController } from "./ppt-generation.controller";

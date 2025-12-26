@@ -24,6 +24,17 @@ interface AdminUser {
   };
 }
 
+interface SystemStats {
+  users?: {
+    total?: number;
+    active?: number;
+    newLast7Days?: number;
+  };
+  resources?: {
+    total?: number;
+  };
+}
+
 // 格式化相对时间
 function formatRelativeTime(dateString: string | null): string {
   if (!dateString) return 'Never';
@@ -47,11 +58,12 @@ export default function UsersPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [systemStats, setSystemStats] = useState<any>(null);
+  const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
 
   useEffect(() => {
-    fetchUsers();
-    fetchSystemStats();
+    void fetchUsers();
+    void fetchSystemStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, search]);
 
   const fetchUsers = async () => {
@@ -79,7 +91,7 @@ export default function UsersPage() {
         headers: getAuthHeader(),
       });
       if (response.ok) {
-        const data = await response.json();
+        const data = (await response.json()) as SystemStats;
         setSystemStats(data);
       }
     } catch (error) {
@@ -101,7 +113,7 @@ export default function UsersPage() {
         }
       );
       if (response.ok) {
-        fetchUsers();
+        void fetchUsers();
       }
     } catch (error) {
       console.error('Failed to toggle user status:', error);
@@ -366,7 +378,7 @@ export default function UsersPage() {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() =>
-                            handleToggleUserStatus(u.id, u.isActive)
+                            void handleToggleUserStatus(u.id, u.isActive)
                           }
                           className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                             u.isActive

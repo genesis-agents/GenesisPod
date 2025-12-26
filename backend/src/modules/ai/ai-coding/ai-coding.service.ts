@@ -711,7 +711,7 @@ ${tasks
       });
 
       // 发送 Engineer 输出消息到团队聊天
-      if (code && code.files && code.files.length > 0) {
+      if (code?.files && code.files.length > 0) {
         const codeContent = `## 代码生成完成
 
 ### 生成的文件 (共 ${code.files.length} 个)

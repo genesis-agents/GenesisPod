@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Database,
   Plus,
@@ -13,14 +12,10 @@ import {
   X,
   Save,
   Zap,
-  ChevronDown,
-  ChevronRight,
   FileText,
   Newspaper,
   BookOpen,
-  Github,
   Video,
-  Rss,
   Calendar,
   CheckCircle,
   ExternalLink,
@@ -245,7 +240,6 @@ const SOURCE_TEMPLATES: Record<
 };
 
 export default function ConfigPage() {
-  const router = useRouter();
   const [sources, setSources] = useState<DataSource[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -281,11 +275,6 @@ export default function ConfigPage() {
     (typeof CATEGORIES)[number] | null
   >(null);
   const [isFixingRss, setIsFixingRss] = useState(false);
-  const [fixRssResult, setFixRssResult] = useState<{
-    fixed: string[];
-    failed: string[];
-    skipped: string[];
-  } | null>(null);
   const [notification, setNotification] = useState<{
     type: 'success' | 'error' | 'info';
     message: string;
@@ -305,46 +294,48 @@ export default function ConfigPage() {
       }
     }
 
-    fetchSources();
+    void fetchSources();
   }, []);
 
   // Poll running tasks for status updates
   useEffect(() => {
     if (runningTasks.size === 0) return;
 
-    const interval = setInterval(async () => {
-      const updatedTasks = new Map(runningTasks);
-      let hasChanges = false;
+    const interval = setInterval(() => {
+      void (async () => {
+        const updatedTasks = new Map(runningTasks);
+        let hasChanges = false;
 
-      for (const [taskId, task] of runningTasks.entries()) {
-        if (task.status === 'RUNNING' || task.status === 'PENDING') {
-          try {
-            const response = await getCollectionTask(taskId);
-            updatedTasks.set(taskId, response.data);
-            hasChanges = true;
+        for (const [taskId, task] of runningTasks.entries()) {
+          if (task.status === 'RUNNING' || task.status === 'PENDING') {
+            try {
+              const response = await getCollectionTask(taskId);
+              updatedTasks.set(taskId, response.data);
+              hasChanges = true;
 
-            // Remove completed/failed tasks after 5 seconds
-            if (
-              response.data.status === 'COMPLETED' ||
-              response.data.status === 'FAILED'
-            ) {
-              setTimeout(() => {
-                setRunningTasks((prev) => {
-                  const next = new Map(prev);
-                  next.delete(taskId);
-                  return next;
-                });
-              }, 5000);
+              // Remove completed/failed tasks after 5 seconds
+              if (
+                response.data.status === 'COMPLETED' ||
+                response.data.status === 'FAILED'
+              ) {
+                setTimeout(() => {
+                  setRunningTasks((prev) => {
+                    const next = new Map(prev);
+                    next.delete(taskId);
+                    return next;
+                  });
+                }, 5000);
+              }
+            } catch (err) {
+              console.error(`Failed to fetch task ${taskId}:`, err);
             }
-          } catch (err) {
-            console.error(`Failed to fetch task ${taskId}:`, err);
           }
         }
-      }
 
-      if (hasChanges) {
-        setRunningTasks(updatedTasks);
-      }
+        if (hasChanges) {
+          setRunningTasks(updatedTasks);
+        }
+      })();
     }, 2000); // Poll every 2 seconds
 
     return () => clearInterval(interval);
@@ -379,7 +370,10 @@ export default function ConfigPage() {
       );
     } catch (err) {
       console.error('Failed to toggle source status:', err);
-      alert('Failed to update source status');
+      setNotification({
+        type: 'error',
+        message: 'Failed to update source status',
+      });
     }
   };
 
@@ -444,11 +438,15 @@ export default function ConfigPage() {
 
       // Extract non-DataSource fields from editForm
       const {
-        scheduleFrequency,
-        scheduleTime,
-        minDurationMinutes,
+        scheduleFrequency: _scheduleFrequency,
+        scheduleTime: _scheduleTime,
+        minDurationMinutes: _minDurationMinutes,
         ...dataSourceFields
       } = editForm;
+      // These variables are extracted to exclude them from dataSourceFields
+      void _scheduleFrequency;
+      void _scheduleTime;
+      void _minDurationMinutes;
 
       await updateDataSource(editingSource.id, {
         ...dataSourceFields,
@@ -460,7 +458,10 @@ export default function ConfigPage() {
       setEditForm({});
     } catch (err) {
       console.error('Failed to update source:', err);
-      alert('Failed to update source configuration');
+      setNotification({
+        type: 'error',
+        message: 'Failed to update source configuration',
+      });
     }
   };
 
@@ -558,9 +559,7 @@ export default function ConfigPage() {
     setRunNowConfig({ maxResults: 10 });
   };
 
-  const handleRunAllCategory = async (
-    category: (typeof CATEGORIES)[number]
-  ) => {
+  const handleRunAllCategory = (category: (typeof CATEGORIES)[number]) => {
     // Open drawer with category sources
     setBatchCategory(category);
     setShowBatchDrawer(true);
@@ -605,8 +604,8 @@ export default function ConfigPage() {
       await createDataSource({
         name: newSourceForm.name,
         description: newSourceForm.description,
-        type: newSourceForm.type as any,
-        category: showAddSourceModal as any,
+        type: newSourceForm.type,
+        category: showAddSourceModal,
         baseUrl: newSourceForm.baseUrl,
         apiEndpoint: newSourceForm.apiEndpoint,
         crawlerType,
@@ -631,10 +630,18 @@ export default function ConfigPage() {
         scheduleTime: '06:00',
         minDurationMinutes: 15,
       });
-      alert('Data source added successfully!');
+      setNotification({
+        type: 'success',
+        message: 'Data source added successfully!',
+      });
+      setTimeout(() => setNotification(null), 3000);
     } catch (err) {
       console.error('Failed to add source:', err);
-      alert(err instanceof Error ? err.message : 'Failed to add data source');
+      setNotification({
+        type: 'error',
+        message:
+          err instanceof Error ? err.message : 'Failed to add data source',
+      });
     }
   };
 
@@ -676,10 +683,8 @@ export default function ConfigPage() {
   async function handleFixRssUrls() {
     try {
       setIsFixingRss(true);
-      setFixRssResult(null);
       setNotification(null);
       const response = await fixRssUrls();
-      setFixRssResult(response.data);
 
       // Refresh sources after fix
       const sourcesResponse = await getDataSources();
@@ -742,7 +747,7 @@ export default function ConfigPage() {
           </p>
         </div>
         <button
-          onClick={handleFixRssUrls}
+          onClick={() => void handleFixRssUrls()}
           disabled={isFixingRss}
           className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -955,27 +960,32 @@ export default function ConfigPage() {
                       {source.status === 'FAILED' ||
                       source.status === 'MAINTENANCE' ? (
                         <button
-                          onClick={async () => {
-                            try {
-                              await updateDataSource(source.id, {
-                                status: 'ACTIVE',
-                              });
-                              setSources((prev) =>
-                                prev.map((s) =>
-                                  s.id === source.id
-                                    ? { ...s, status: 'ACTIVE' }
-                                    : s
-                                )
-                              );
-                              setNotification({
-                                type: 'success',
-                                message: `${source.name} has been reset to Active status`,
-                              });
-                              setTimeout(() => setNotification(null), 3000);
-                            } catch (err) {
-                              console.error('Failed to reset status:', err);
-                              alert('Failed to reset source status');
-                            }
+                          onClick={() => {
+                            void (async () => {
+                              try {
+                                await updateDataSource(source.id, {
+                                  status: 'ACTIVE',
+                                });
+                                setSources((prev) =>
+                                  prev.map((s) =>
+                                    s.id === source.id
+                                      ? { ...s, status: 'ACTIVE' }
+                                      : s
+                                  )
+                                );
+                                setNotification({
+                                  type: 'success',
+                                  message: `${source.name} has been reset to Active status`,
+                                });
+                                setTimeout(() => setNotification(null), 3000);
+                              } catch (err) {
+                                console.error('Failed to reset status:', err);
+                                setNotification({
+                                  type: 'error',
+                                  message: 'Failed to reset source status',
+                                });
+                              }
+                            })();
                           }}
                           className="rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
                         >
@@ -984,7 +994,7 @@ export default function ConfigPage() {
                         </button>
                       ) : (
                         <button
-                          onClick={() => handleToggleStatus(source)}
+                          onClick={() => void handleToggleStatus(source)}
                           className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
                         >
                           {source.status === 'ACTIVE' ? (
@@ -1051,7 +1061,7 @@ export default function ConfigPage() {
               Cancel
             </button>
             <button
-              onClick={handleAddSource}
+              onClick={() => void handleAddSource()}
               disabled={!newSourceForm.name || !newSourceForm.baseUrl}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -1302,7 +1312,7 @@ export default function ConfigPage() {
               Cancel
             </button>
             <button
-              onClick={handleSaveEdit}
+              onClick={() => void handleSaveEdit()}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
             >
               <Save className="-mt-0.5 mr-1.5 inline h-4 w-4" />
@@ -1422,7 +1432,7 @@ export default function ConfigPage() {
                   Frequency
                 </label>
                 <select
-                  value={(editForm as any).scheduleFrequency || 'manual'}
+                  value={editForm.scheduleFrequency || 'manual'}
                   onChange={(e) =>
                     setEditForm({
                       ...editForm,
@@ -1523,7 +1533,7 @@ export default function ConfigPage() {
               Cancel
             </button>
             <button
-              onClick={handleRunNowSubmit}
+              onClick={() => void handleRunNowSubmit()}
               disabled={isRunning}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
@@ -1737,7 +1747,7 @@ export default function ConfigPage() {
                   <div className="mb-2 text-sm font-medium text-gray-900">
                     Activity Log
                   </div>
-                  <div className="space-y-1 font-mono text-xs text-gray-600">
+                  <div className="font-mono space-y-1 text-xs text-gray-600">
                     {task.startedAt && (
                       <div>
                         [{new Date(task.startedAt).toLocaleTimeString()}] Task

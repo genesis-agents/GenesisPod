@@ -48,7 +48,7 @@ export class NotionSyncService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly authService: NotionAuthService
+    private readonly authService: NotionAuthService,
   ) {}
 
   /**
@@ -57,12 +57,16 @@ export class NotionSyncService {
   async triggerSync(
     userId: string,
     connectionId?: string,
-    fullSync = false
+    fullSync = false,
   ): Promise<{ syncId: string; connectionIds: string[] }> {
     // 获取要同步的连接
     const connections = connectionId
       ? await this.prisma.notionConnection.findMany({
-          where: { id: connectionId, userId, status: NotionConnectionStatus.ACTIVE },
+          where: {
+            id: connectionId,
+            userId,
+            status: NotionConnectionStatus.ACTIVE,
+          },
         })
       : await this.prisma.notionConnection.findMany({
           where: { userId, status: NotionConnectionStatus.ACTIVE },
@@ -77,7 +81,9 @@ export class NotionSyncService {
     // 为每个连接创建同步记录并开始同步
     for (const connection of connections) {
       if (this.syncingConnections.has(connection.id)) {
-        this.logger.warn(`Connection ${connection.id} is already syncing, skipping`);
+        this.logger.warn(
+          `Connection ${connection.id} is already syncing, skipping`,
+        );
         continue;
       }
 
@@ -108,7 +114,7 @@ export class NotionSyncService {
   private async executeSyncAsync(
     connectionId: string,
     syncHistoryId: string,
-    fullSync: boolean
+    fullSync: boolean,
   ): Promise<void> {
     this.syncingConnections.add(connectionId);
 
@@ -177,14 +183,20 @@ export class NotionSyncService {
    */
   private async syncConnection(
     connectionId: string,
-    fullSync: boolean
+    fullSync: boolean,
   ): Promise<SyncResult> {
     const connection = await this.prisma.notionConnection.findUnique({
       where: { id: connectionId },
     });
 
     if (!connection) {
-      return { success: false, pagesProcessed: 0, pagesCreated: 0, pagesUpdated: 0, errors: ["Connection not found"] };
+      return {
+        success: false,
+        pagesProcessed: 0,
+        pagesCreated: 0,
+        pagesUpdated: 0,
+        errors: ["Connection not found"],
+      };
     }
 
     const config = connection.syncConfig as SyncConfig;
@@ -205,7 +217,13 @@ export class NotionSyncService {
 
       // 同步页面
       if (config.syncPages !== false) {
-        await this.syncPages(client, connectionId, lastSyncAt, maxPages, result);
+        await this.syncPages(
+          client,
+          connectionId,
+          lastSyncAt,
+          maxPages,
+          result,
+        );
       }
 
       // 同步数据库
@@ -215,12 +233,14 @@ export class NotionSyncService {
     } catch (error) {
       this.logger.error(`Sync error for ${connectionId}: ${error}`);
       result.success = false;
-      result.errors.push(error instanceof Error ? error.message : String(error));
+      result.errors.push(
+        error instanceof Error ? error.message : String(error),
+      );
     }
 
     this.logger.log(
       `Sync completed for ${connectionId}: ${result.pagesProcessed} pages processed, ` +
-      `${result.pagesCreated} created, ${result.pagesUpdated} updated`
+        `${result.pagesCreated} created, ${result.pagesUpdated} updated`,
     );
 
     return result;
@@ -234,7 +254,7 @@ export class NotionSyncService {
     connectionId: string,
     lastSyncAt: Date | null,
     maxPages: number,
-    result: SyncResult
+    result: SyncResult,
   ): Promise<void> {
     let hasMore = true;
     let startCursor: string | undefined;
@@ -269,7 +289,9 @@ export class NotionSyncService {
           result.pagesProcessed++;
         } catch (error) {
           this.logger.warn(`Failed to sync page ${page.id}: ${error}`);
-          result.errors.push(`Page ${page.id}: ${error instanceof Error ? error.message : String(error)}`);
+          result.errors.push(
+            `Page ${page.id}: ${error instanceof Error ? error.message : String(error)}`,
+          );
         }
       }
 
@@ -285,7 +307,7 @@ export class NotionSyncService {
     client: Client,
     connectionId: string,
     page: PageObjectResponse,
-    result: SyncResult
+    result: SyncResult,
   ): Promise<void> {
     // 获取页面标题
     const title = this.extractPageTitle(page);
@@ -322,8 +344,12 @@ export class NotionSyncService {
     const pageData = {
       title,
       icon: this.extractIcon(page.icon),
-      coverUrl: page.cover?.type === "external" ? page.cover.external.url :
-                page.cover?.type === "file" ? page.cover.file.url : null,
+      coverUrl:
+        page.cover?.type === "external"
+          ? page.cover.external.url
+          : page.cover?.type === "file"
+            ? page.cover.file.url
+            : null,
       url: page.url,
       parentType,
       parentId,
@@ -361,7 +387,9 @@ export class NotionSyncService {
             },
           });
 
-          this.logger.warn(`Conflict detected for page ${page.id}, saved both versions`);
+          this.logger.warn(
+            `Conflict detected for page ${page.id}, saved both versions`,
+          );
         }
       }
 
@@ -404,7 +432,7 @@ export class NotionSyncService {
     client: Client,
     connectionId: string,
     _lastSyncAt: Date | null,
-    result: SyncResult
+    result: SyncResult,
   ): Promise<void> {
     let hasMore = true;
     let startCursor: string | undefined;
@@ -426,7 +454,9 @@ export class NotionSyncService {
           databasesProcessed++;
         } catch (error) {
           this.logger.warn(`Failed to sync database ${db.id}: ${error}`);
-          result.errors.push(`Database ${db.id}: ${error instanceof Error ? error.message : String(error)}`);
+          result.errors.push(
+            `Database ${db.id}: ${error instanceof Error ? error.message : String(error)}`,
+          );
         }
       }
 
@@ -443,10 +473,11 @@ export class NotionSyncService {
   private async syncDatabase(
     client: Client,
     connectionId: string,
-    db: DatabaseObjectResponse
+    db: DatabaseObjectResponse,
   ): Promise<void> {
     // 获取数据库标题
-    const title = db.title.map((t) => t.plain_text).join("") || "Untitled Database";
+    const title =
+      db.title.map((t) => t.plain_text).join("") || "Untitled Database";
 
     // 获取数据库条目（限制数量）
     const queryResponse = await (client.databases as any).query({
@@ -466,11 +497,12 @@ export class NotionSyncService {
 
     const dbData = {
       title,
-      description: db.description?.map((d: any) => d.plain_text).join("") || null,
+      description:
+        db.description?.map((d: any) => d.plain_text).join("") || null,
       icon: this.extractIcon(db.icon),
       url: db.url,
-      properties: (db as any).properties as any,
-      items: items as any,
+      properties: (db as any).properties,
+      items: items,
       itemCount: queryResponse.results.length,
       syncStatus: NotionSyncStatus.SUCCESS,
       lastSyncedAt: new Date(),
@@ -498,7 +530,7 @@ export class NotionSyncService {
   private async fetchAllBlocks(
     client: Client,
     blockId: string,
-    depth = 0
+    depth = 0,
   ): Promise<BlockObjectResponse[]> {
     if (depth > 3) return []; // 限制递归深度
 
@@ -515,12 +547,16 @@ export class NotionSyncService {
 
       for (const block of response.results) {
         if ("type" in block) {
-          const typedBlock = block as BlockObjectResponse;
+          const typedBlock = block;
           blocks.push(typedBlock);
 
           // 递归获取子块
           if (typedBlock.has_children) {
-            const children = await this.fetchAllBlocks(client, typedBlock.id, depth + 1);
+            const children = await this.fetchAllBlocks(
+              client,
+              typedBlock.id,
+              depth + 1,
+            );
             (typedBlock as any).children = children;
           }
         }
@@ -538,11 +574,13 @@ export class NotionSyncService {
    */
   private extractPageTitle(page: PageObjectResponse): string {
     const titleProperty = Object.values(page.properties).find(
-      (prop) => prop.type === "title"
+      (prop) => prop.type === "title",
     );
 
     if (titleProperty?.type === "title") {
-      return titleProperty.title.map((t) => t.plain_text).join("") || "Untitled";
+      return (
+        titleProperty.title.map((t) => t.plain_text).join("") || "Untitled"
+      );
     }
 
     return "Untitled";
@@ -581,7 +619,9 @@ export class NotionSyncService {
       if (richTextTypes.includes(block.type)) {
         const content = (block as any)[block.type];
         if (content?.rich_text) {
-          const text = content.rich_text.map((rt: any) => rt.plain_text).join("");
+          const text = content.rich_text
+            .map((rt: any) => rt.plain_text)
+            .join("");
           if (text) texts.push(text);
         }
       }
@@ -605,9 +645,7 @@ export class NotionSyncService {
    * 获取同步状态
    */
   async getSyncStatus(userId: string, connectionId?: string) {
-    const where = connectionId
-      ? { id: connectionId, userId }
-      : { userId };
+    const where = connectionId ? { id: connectionId, userId } : { userId };
 
     const connections = await this.prisma.notionConnection.findMany({
       where,
@@ -650,11 +688,7 @@ export class NotionSyncService {
   /**
    * 获取同步历史
    */
-  async getSyncHistory(
-    userId: string,
-    connectionId: string,
-    limit = 10
-  ) {
+  async getSyncHistory(userId: string, connectionId: string, limit = 10) {
     // 验证用户有权访问此连接
     const connection = await this.prisma.notionConnection.findFirst({
       where: { id: connectionId, userId },

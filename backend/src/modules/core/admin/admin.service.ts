@@ -2212,7 +2212,7 @@ export class AdminService {
       });
     }
     // Only update password if it's not masked
-    if (settings.pass && settings.pass.trim() && !settings.pass.includes("•")) {
+    if (settings.pass?.trim() && !settings.pass.includes("•")) {
       updates.push({
         key: "smtp_pass",
         value: settings.pass,
@@ -2222,11 +2222,7 @@ export class AdminService {
     }
 
     // Resend-specific settings
-    if (
-      settings.resendApiKey &&
-      settings.resendApiKey.trim() &&
-      !settings.resendApiKey.includes("•")
-    ) {
+    if (settings.resendApiKey?.trim() && !settings.resendApiKey.includes("•")) {
       updates.push({
         key: "resend_api_key",
         value: settings.resendApiKey,

@@ -353,7 +353,7 @@ export class CodingTeamService {
       where: { id: memberId },
     });
 
-    if (!member || !member.aiModelId) {
+    if (!member?.aiModelId) {
       return this.getDefaultChatModel();
     }
 

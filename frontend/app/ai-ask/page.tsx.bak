@@ -13,58 +13,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CollapsibleBlockquote } from '@/components/ui/CollapsibleBlockquote';
 import { CollapsibleMessage } from '@/components/ui/CollapsibleMessage';
-import MermaidDiagram from '@/components/ui/MermaidDiagram';
 import { useThemeStore } from '@/stores/themeStore';
-
-// Mermaid diagram keywords for detection
-const MERMAID_KEYWORDS = [
-  'graph',
-  'flowchart',
-  'sequenceDiagram',
-  'classDiagram',
-  'stateDiagram',
-  'erDiagram',
-  'gantt',
-  'pie',
-  'mindmap',
-  'gitGraph',
-  'journey',
-];
-
-// Helper function to detect if code is a Mermaid diagram
-function isMermaidDiagram(code: string, language?: string): boolean {
-  // Check if language is explicitly set to 'mermaid'
-  if (language === 'mermaid') return true;
-
-  // Check if code starts with any Mermaid keyword
-  const trimmedCode = code.trim();
-  return MERMAID_KEYWORDS.some((keyword) => trimmedCode.startsWith(keyword));
-}
-
-// Custom code renderer for ReactMarkdown that supports Mermaid
-function CodeBlock({ inline, className, children, ...props }: any) {
-  const match = /language-(\w+)/.exec(className || '');
-  const language = match ? match[1] : '';
-  const codeString = String(children).replace(/\n$/, '');
-
-  // Check if this is a Mermaid diagram
-  if (!inline && isMermaidDiagram(codeString, language)) {
-    return <MermaidDiagram chart={codeString} className="my-4" />;
-  }
-
-  // Default code block rendering
-  return inline ? (
-    <code className={className} {...props}>
-      {children}
-    </code>
-  ) : (
-    <pre className="overflow-x-auto rounded-lg bg-gray-900 p-4">
-      <code className={className} {...props}>
-        {children}
-      </code>
-    </pre>
-  );
-}
 
 // Toast notification component
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
@@ -1211,18 +1160,6 @@ export default function AskPage() {
                         }`}
                         onContextMenu={(e) => {
                           if (message.role === 'assistant') {
-                            // 检查是否有选中文本
-                            const selection = window.getSelection();
-                            const hasSelection =
-                              selection &&
-                              selection.toString().trim().length > 0;
-
-                            // 如果有选中文本，使用浏览器原生菜单（可以复制选中内容）
-                            if (hasSelection) {
-                              return;
-                            }
-
-                            // 没有选中文本时，显示自定义菜单
                             e.preventDefault();
                             setContextMenu({
                               message,
@@ -1253,7 +1190,6 @@ export default function AskPage() {
                                 remarkPlugins={[remarkGfm]}
                                 components={{
                                   blockquote: CollapsibleBlockquote,
-                                  code: CodeBlock,
                                 }}
                               >
                                 {message.content}
@@ -1266,7 +1202,6 @@ export default function AskPage() {
                               remarkPlugins={[remarkGfm]}
                               components={{
                                 blockquote: CollapsibleBlockquote,
-                                code: CodeBlock,
                               }}
                             >
                               {message.content}
@@ -1393,7 +1328,6 @@ export default function AskPage() {
                                     remarkPlugins={[remarkGfm]}
                                     components={{
                                       blockquote: CollapsibleBlockquote,
-                                      code: CodeBlock,
                                     }}
                                   >
                                     {response.content}

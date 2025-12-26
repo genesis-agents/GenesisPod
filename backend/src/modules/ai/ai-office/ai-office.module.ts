@@ -34,6 +34,10 @@ import {
   PPTExportService,
   NaturalEditService,
   PPTVersionService,
+  TemplateMatcher,
+  QualityCheckService,
+  SourceAnalysisService,
+  BatchOperationService,
 } from "./ppt";
 
 // Integration
@@ -88,6 +92,10 @@ import { AgentsController } from "./agents";
     PPTExportService,
     NaturalEditService,
     PPTVersionService,
+    TemplateMatcher,
+    QualityCheckService,
+    SourceAnalysisService,
+    BatchOperationService,
     DocsOrchestratorService,
     DesignerOrchestratorService,
     AiOfficeIntegrationService,
@@ -108,6 +116,10 @@ import { AgentsController } from "./agents";
     PPTExportService,
     NaturalEditService,
     PPTVersionService,
+    TemplateMatcher,
+    QualityCheckService,
+    SourceAnalysisService,
+    BatchOperationService,
     DocsOrchestratorService,
     DesignerOrchestratorService,
     AiOfficeIntegrationService,

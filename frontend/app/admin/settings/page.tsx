@@ -9,9 +9,6 @@ import {
   Shield,
   HardDrive,
   Save,
-  RefreshCw,
-  CheckCircle,
-  XCircle,
   Loader2,
   TestTube,
 } from 'lucide-react';
@@ -31,16 +28,6 @@ interface EmailSettings {
   pass: string | null;
   // Resend settings
   resendApiKey: string | null;
-}
-
-interface SmtpSettings {
-  host: string | null;
-  port: number;
-  user: string | null;
-  pass: string | null;
-  from: string;
-  enabled: boolean;
-  adminEmail: string | null;
 }
 
 interface SiteSettings {
@@ -83,7 +70,6 @@ const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabId>('email');
-  const [isTesting, setIsTesting] = useState(false);
 
   return (
     <div className="min-h-screen bg-gray-50/30 p-6">
@@ -172,7 +158,7 @@ function EmailSettingsTab() {
     try {
       await updateSettings(form);
       toast.success('Email settings saved');
-      refetch();
+      void refetch();
     } catch {
       toast.error('Failed to save settings');
     }
@@ -426,7 +412,7 @@ function EmailSettingsTab() {
 
       <div className="flex justify-end gap-3 border-t pt-4">
         <button
-          onClick={handleTest}
+          onClick={() => void handleTest()}
           disabled={testing}
           className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
         >
@@ -438,7 +424,7 @@ function EmailSettingsTab() {
           Test Connection
         </button>
         <button
-          onClick={handleSave}
+          onClick={() => void handleSave()}
           disabled={saving}
           className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
@@ -478,7 +464,7 @@ function SiteSettingsTab() {
     try {
       await updateSettings(form);
       toast.success('Site settings saved');
-      refetch();
+      void refetch();
     } catch {
       toast.error('Failed to save settings');
     }
@@ -582,7 +568,7 @@ function SiteSettingsTab() {
 
       <div className="flex justify-end border-t pt-4">
         <button
-          onClick={handleSave}
+          onClick={() => void handleSave()}
           disabled={saving}
           className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
@@ -620,7 +606,7 @@ function AiSettingsTab() {
     try {
       await updateSettings(form);
       toast.success('AI settings saved');
-      refetch();
+      void refetch();
     } catch {
       toast.error('Failed to save settings');
     }
@@ -716,7 +702,7 @@ function AiSettingsTab() {
 
       <div className="flex justify-end border-t pt-4">
         <button
-          onClick={handleSave}
+          onClick={() => void handleSave()}
           disabled={saving}
           className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
@@ -756,7 +742,7 @@ function SecuritySettingsTab() {
     try {
       await updateSettings(form);
       toast.success('Security settings saved');
-      refetch();
+      void refetch();
     } catch {
       toast.error('Failed to save settings');
     }
@@ -825,7 +811,7 @@ function SecuritySettingsTab() {
 
       <div className="flex justify-end border-t pt-4">
         <button
-          onClick={handleSave}
+          onClick={() => void handleSave()}
           disabled={saving}
           className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
@@ -865,7 +851,7 @@ function StorageSettingsTab() {
     try {
       await updateSettings(form);
       toast.success('Storage settings saved');
-      refetch();
+      void refetch();
     } catch {
       toast.error('Failed to save settings');
     }
@@ -917,7 +903,7 @@ function StorageSettingsTab() {
 
       <div className="flex justify-end border-t pt-4">
         <button
-          onClick={handleSave}
+          onClick={() => void handleSave()}
           disabled={saving}
           className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >

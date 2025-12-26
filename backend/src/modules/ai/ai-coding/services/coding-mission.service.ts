@@ -262,7 +262,7 @@ export class CodingMissionService {
         return false;
       }
 
-      const dependencies = task.dependsOn as string[];
+      const dependencies = task.dependsOn;
       return dependencies.every((depId) => completedTaskIds.has(depId));
     });
 

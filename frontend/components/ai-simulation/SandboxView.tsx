@@ -1350,7 +1350,7 @@ export default function SandboxView({
               if (!text) return null;
 
               // 首先处理转义的换行符 \n -> 真正的换行
-              let processedText = text
+              const processedText = text
                 .replace(/\\n/g, '\n')
                 .replace(/\\t/g, '  ')
                 .replace(/\n{3,}/g, '\n\n'); // 减少过多的空行

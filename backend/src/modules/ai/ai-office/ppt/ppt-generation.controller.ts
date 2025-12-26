@@ -42,6 +42,10 @@ import {
   RollbackResult,
 } from "./ppt-version.service";
 import { ContentExtractorService } from "../../../../common/content-processing";
+import { TemplateMatcher } from "./template-matcher.service";
+import { QualityCheckService } from "./quality-check.service";
+import { SourceAnalysisService } from "./source-analysis.service";
+import { BatchOperationService } from "./batch-operation.service";
 import {
   PPTGenerationInput,
   PPTDocument,
@@ -49,6 +53,7 @@ import {
   PPT_THEMES,
   PPTOutline,
   SlideSpec,
+  SlidePurpose,
 } from "./ppt.types";
 import {
   IsString,
@@ -132,6 +137,67 @@ class NaturalEditDto {
   instruction!: string; // 用户的自然语言编辑指令
 }
 
+// ============================================
+// 新增 DTOs - AI Office Slides 升级
+// ============================================
+
+class BatchUpdateDto {
+  @IsString()
+  operation!:
+    | "update_footer"
+    | "update_header"
+    | "update_background"
+    | "update_safe_area";
+
+  @IsOptional()
+  config?: any; // FooterConfig | HeaderConfig | BackgroundDecision | SafeAreaConfig
+
+  @IsOptional()
+  @IsArray()
+  @IsNumber({}, { each: true })
+  targetSlides?: number[]; // 目标页面索引，空则全部
+}
+
+class GlobalStyleDto {
+  @IsOptional()
+  footer?: any;
+
+  @IsOptional()
+  header?: any;
+
+  @IsOptional()
+  background?: any;
+
+  @IsOptional()
+  safeArea?: any;
+
+  @IsOptional()
+  @IsString()
+  fontFamily?: string;
+
+  @IsOptional()
+  @IsNumber()
+  baseFontSize?: number;
+
+  @IsOptional()
+  colorScheme?: {
+    primary: string;
+    secondary: string;
+    accent: string;
+    text: string;
+    background: string;
+  };
+}
+
+class SourceAnalysisDto {
+  @IsString()
+  content!: string; // 原始素材内容
+
+  @IsOptional()
+  @IsString()
+  url?: string; // 素材来源 URL
+}
+
 @Controller("ai-office/ppt")
 export class PPTGenerationController {
   private readonly logger = new Logger(PPTGenerationController.name);
@@ -143,6 +209,10 @@ export class PPTGenerationController {
     private readonly naturalEdit: NaturalEditService,
     private readonly versionService: PPTVersionService,
     private readonly contentExtractor: ContentExtractorService,
+    private readonly templateMatcher: TemplateMatcher,
+    private readonly qualityCheck: QualityCheckService,
+    private readonly sourceAnalysis: SourceAnalysisService,
+    private readonly batchOperation: BatchOperationService,
   ) {}
 
   /**
@@ -718,6 +788,227 @@ export class PPTGenerationController {
       this.logger.error(`[compareVersions] Error: ${error.message}`);
       throw new HttpException(
         error.message || "版本比较失败",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  // ============================================
+  // AI Office Slides 升级 API
+  // ============================================
+
+  /**
+   * 获取可用模板列表
+   */
+  @Get("templates/all")
+  async getTemplates(): Promise<any[]> {
+    this.logger.log("[getTemplates] Fetching all templates");
+    return this.templateMatcher.getAllTemplates();
+  }
+
+  /**
+   * 为内容匹配最佳模板
+   */
+  @Post("templates/match")
+  async matchTemplate(
+    @Body() dto: { content: string; purpose?: string; title?: string },
+  ): Promise<any> {
+    this.logger.log("[matchTemplate] Matching template for content");
+
+    try {
+      // Convert DTO to SlideSpec format required by the service
+      const slideSpec: SlideSpec = {
+        id: `temp-${Date.now()}`,
+        index: 0,
+        purpose: (dto.purpose || "content") as SlidePurpose,
+        title: dto.title || "Untitled",
+        contentOutline: dto.content.split("\n").filter(Boolean),
+        layoutType: "bullet_points",
+        layoutReasoning: "根据内容类型自动匹配",
+        backgroundDecision: {
+          type: "solid",
+          reasoning: "默认纯色背景",
+          colors: { primary: "#ffffff" },
+        },
+      };
+      return this.templateMatcher.matchTemplate(slideSpec);
+    } catch (error: any) {
+      this.logger.error(`[matchTemplate] Error: ${error.message}`);
+      throw new HttpException(
+        error.message || "模板匹配失败",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * 执行质量检查
+   */
+  @Get(":id/quality-check")
+  async checkQuality(@Param("id") id: string): Promise<any> {
+    this.logger.log(`[checkQuality] Checking quality for PPT: ${id}`);
+
+    try {
+      // Quality check service expects documentId, not document object
+      const report = await this.qualityCheck.checkQuality(id);
+
+      return {
+        success: true,
+        report,
+      };
+    } catch (error: any) {
+      this.logger.error(`[checkQuality] Error: ${error.message}`);
+      throw new HttpException(
+        error.message || "质量检查失败",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * 分析素材内容
+   */
+  @Post("source/analyze")
+  async analyzeSource(@Body() dto: SourceAnalysisDto): Promise<any> {
+    this.logger.log("[analyzeSource] Analyzing source content");
+
+    try {
+      // Pass analysis options
+      const analysis = await this.sourceAnalysis.analyzeSource(dto.content, {
+        language: "auto",
+        extractChapters: true,
+        extractDataPoints: true,
+        generateInsights: true,
+        extractQuotes: true,
+      });
+
+      return {
+        success: true,
+        analysis,
+      };
+    } catch (error: any) {
+      this.logger.error(`[analyzeSource] Error: ${error.message}`);
+      throw new HttpException(
+        error.message || "素材分析失败",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * 批量更新样式
+   */
+  @Post(":id/batch-update")
+  async batchUpdate(
+    @Param("id") id: string,
+    @Body() dto: BatchUpdateDto,
+  ): Promise<any> {
+    this.logger.log(`[batchUpdate] PPT: ${id}, Operation: ${dto.operation}`);
+
+    try {
+      const result = await this.batchOperation.batchUpdate(id, {
+        operation: dto.operation,
+        config: dto.config,
+        pageRange: dto.targetSlides || "all",
+      });
+
+      return result;
+    } catch (error: any) {
+      this.logger.error(`[batchUpdate] Error: ${error.message}`);
+      throw new HttpException(
+        error.message || "批量更新失败",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * 保存全局样式
+   */
+  @Post(":id/global-style")
+  async saveGlobalStyle(
+    @Param("id") id: string,
+    @Body() dto: GlobalStyleDto,
+  ): Promise<any> {
+    this.logger.log(`[saveGlobalStyle] Saving global style for PPT: ${id}`);
+
+    try {
+      await this.batchOperation.saveGlobalStyle(id, dto);
+
+      return {
+        success: true,
+        message: "全局样式已保存",
+      };
+    } catch (error: any) {
+      this.logger.error(`[saveGlobalStyle] Error: ${error.message}`);
+      throw new HttpException(
+        error.message || "保存全局样式失败",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * 获取全局样式
+   */
+  @Get(":id/global-style")
+  async getGlobalStyle(@Param("id") id: string): Promise<any> {
+    this.logger.log(`[getGlobalStyle] Getting global style for PPT: ${id}`);
+
+    try {
+      const globalStyle = await this.batchOperation.getGlobalStyle(id);
+
+      return {
+        success: true,
+        globalStyle,
+      };
+    } catch (error: any) {
+      this.logger.error(`[getGlobalStyle] Error: ${error.message}`);
+      throw new HttpException(
+        error.message || "获取全局样式失败",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * 为单页推荐模板
+   */
+  @Post(":id/slides/:slideIndex/suggest-templates")
+  async suggestTemplatesForSlide(
+    @Param("id") id: string,
+    @Param("slideIndex") slideIndex: string,
+  ): Promise<any> {
+    this.logger.log(
+      `[suggestTemplatesForSlide] PPT: ${id}, Slide: ${slideIndex}`,
+    );
+
+    try {
+      const document = await this.orchestrator.getPPTDocument(id);
+      const index = parseInt(slideIndex, 10);
+
+      if (index < 0 || index >= document.slides.length) {
+        throw new HttpException("页面索引无效", HttpStatus.BAD_REQUEST);
+      }
+
+      const slide = document.slides[index];
+
+      // GeneratedSlide 已包含 SlideSpec
+      const suggestions = this.templateMatcher.suggestTemplatesForSlide(
+        slide.spec,
+      );
+
+      return {
+        success: true,
+        suggestions,
+      };
+    } catch (error: any) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      this.logger.error(`[suggestTemplatesForSlide] Error: ${error.message}`);
+      throw new HttpException(
+        error.message || "获取模板建议失败",
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

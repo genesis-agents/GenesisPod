@@ -151,7 +151,7 @@ export class ProxyController {
    */
   private markdownToHtml(markdown: string, title: string): string {
     // 基本的 Markdown 到 HTML 转换
-    let html = markdown
+    const html = markdown
       // 代码块
       .replace(/```(\w*)\n([\s\S]*?)```/g, "<pre><code>$2</code></pre>")
       // 行内代码

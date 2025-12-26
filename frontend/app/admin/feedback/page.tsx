@@ -126,8 +126,8 @@ export default function FeedbackPage() {
   };
 
   useEffect(() => {
-    fetchFeedbacks();
-    fetchStats();
+    void fetchFeedbacks();
+    void fetchStats();
   }, [fetchFeedbacks]);
 
   const handleUpdateStatus = async () => {
@@ -462,7 +462,7 @@ export default function FeedbackPage() {
                   />
 
                   <button
-                    onClick={handleUpdateStatus}
+                    onClick={() => void handleUpdateStatus()}
                     disabled={updating}
                     className="w-full rounded-lg bg-blue-600 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                   >

@@ -129,7 +129,7 @@ export class FileResourceProvider extends BaseResourceProvider {
    * 发现资源
    */
   async *discover(filter?: ResourceFilter): AsyncGenerator<MCPResource> {
-    let count = 0;
+    const count = 0;
     const limit = filter?.limit || Infinity;
 
     yield* this.scanDirectory(this.options.basePath, filter, count, limit);

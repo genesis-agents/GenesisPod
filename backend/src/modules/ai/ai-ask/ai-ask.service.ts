@@ -119,6 +119,7 @@ export class AiAskService {
         title: s.title,
         summary: s.summary,
         modelId: s.modelId,
+        isBookmarked: s.isBookmarked,
         messageCount: s._count.messages,
         createdAt: s.createdAt,
         updatedAt: s.updatedAt,
@@ -161,7 +162,7 @@ export class AiAskService {
   async updateSession(
     sessionId: string,
     userId: string,
-    data: { title?: string; modelId?: string },
+    data: { title?: string; modelId?: string; isBookmarked?: boolean },
   ) {
     const session = await this.prisma.askSession.findFirst({
       where: { id: sessionId, userId },
@@ -238,7 +239,7 @@ export class AiAskService {
     try {
       let aiResponseContent: string;
       let tokensUsed = 0;
-      let toolsUsed: string[] = [];
+      const toolsUsed: string[] = [];
 
       // 判断是否使用工具调用模式
       const useTools = dto.enableTools && this.isToolCapabilityAvailable();
@@ -699,7 +700,7 @@ export class AiAskService {
     }
 
     // 清理消息内容
-    let cleaned = message
+    const cleaned = message
       .replace(/\n+/g, " ") // 换行替换为空格
       .replace(/\s+/g, " ") // 合并多个空格
       .replace(/^[>\s#*\-•]+/g, "") // 移除 markdown 前缀

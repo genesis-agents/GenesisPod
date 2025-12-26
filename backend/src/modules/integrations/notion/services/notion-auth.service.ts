@@ -1,4 +1,9 @@
-import { Injectable, Logger, UnauthorizedException, BadRequestException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  UnauthorizedException,
+  BadRequestException,
+} from "@nestjs/common";
 import { Client } from "@notionhq/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 
@@ -39,12 +44,13 @@ export class NotionAuthService {
   constructor(private readonly prisma: PrismaService) {
     this.clientId = process.env.NOTION_CLIENT_ID || "";
     this.clientSecret = process.env.NOTION_CLIENT_SECRET || "";
-    this.callbackUrl = process.env.NOTION_CALLBACK_URL ||
+    this.callbackUrl =
+      process.env.NOTION_CALLBACK_URL ||
       "http://localhost:8080/api/v1/notion/callback";
 
     if (!this.clientId || !this.clientSecret) {
       this.logger.warn(
-        "Notion OAuth not configured. Set NOTION_CLIENT_ID and NOTION_CLIENT_SECRET environment variables."
+        "Notion OAuth not configured. Set NOTION_CLIENT_ID and NOTION_CLIENT_SECRET environment variables.",
       );
     } else {
       this.logger.log("Notion OAuth Service initialized");
@@ -86,7 +92,7 @@ export class NotionAuthService {
   async exchangeCodeForToken(
     userId: string,
     code: string,
-    redirectUri?: string
+    redirectUri?: string,
   ): Promise<{ connectionId: string; workspaceName: string }> {
     if (!this.isConfigured()) {
       throw new BadRequestException("Notion OAuth not configured");
@@ -94,12 +100,14 @@ export class NotionAuthService {
 
     try {
       // 请求 Notion OAuth token
-      const credentials = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString("base64");
+      const credentials = Buffer.from(
+        `${this.clientId}:${this.clientSecret}`,
+      ).toString("base64");
 
       const response = await fetch("https://api.notion.com/v1/oauth/token", {
         method: "POST",
         headers: {
-          "Authorization": `Basic ${credentials}`,
+          Authorization: `Basic ${credentials}`,
           "Content-Type": "application/json",
           "Notion-Version": "2022-06-28",
         },
@@ -113,12 +121,16 @@ export class NotionAuthService {
       if (!response.ok) {
         const error = await response.json();
         this.logger.error(`Notion OAuth error: ${JSON.stringify(error)}`);
-        throw new UnauthorizedException(`Failed to exchange code: ${error.error || "Unknown error"}`);
+        throw new UnauthorizedException(
+          `Failed to exchange code: ${error.error || "Unknown error"}`,
+        );
       }
 
       const tokenData: NotionOAuthResponse = await response.json();
 
-      this.logger.log(`Notion OAuth success for workspace: ${tokenData.workspace_name || tokenData.workspace_id}`);
+      this.logger.log(
+        `Notion OAuth success for workspace: ${tokenData.workspace_name || tokenData.workspace_id}`,
+      );
 
       // 检查是否已存在相同工作区的连接
       const existingConnection = await this.prisma.notionConnection.findUnique({
@@ -178,7 +190,10 @@ export class NotionAuthService {
         workspaceName: connection.workspaceName || connection.workspaceId,
       };
     } catch (error) {
-      if (error instanceof UnauthorizedException || error instanceof BadRequestException) {
+      if (
+        error instanceof UnauthorizedException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       this.logger.error(`Notion OAuth exchange failed: ${error}`);
@@ -291,7 +306,7 @@ export class NotionAuthService {
     }
 
     // 不返回敏感的 accessToken
-    const { accessToken, ...safeConnection } = connection;
+    const { accessToken: _accessToken, ...safeConnection } = connection;
     return {
       ...safeConnection,
       pagesCount: connection._count.pages,
@@ -305,7 +320,7 @@ export class NotionAuthService {
   async updateConnection(
     userId: string,
     connectionId: string,
-    data: { syncConfig?: Record<string, any> }
+    data: { syncConfig?: Record<string, any> },
   ) {
     const connection = await this.prisma.notionConnection.findFirst({
       where: {
@@ -322,12 +337,15 @@ export class NotionAuthService {
       where: { id: connectionId },
       data: {
         syncConfig: data.syncConfig
-          ? { ...(connection.syncConfig as Record<string, any>), ...data.syncConfig }
+          ? {
+              ...(connection.syncConfig as Record<string, any>),
+              ...data.syncConfig,
+            }
           : undefined,
       },
     });
 
-    const { accessToken, ...safeConnection } = updated;
+    const { accessToken: _accessToken, ...safeConnection } = updated;
     return safeConnection;
   }
 
@@ -362,7 +380,9 @@ export class NotionAuthService {
       const response = await client.users.me({});
       return !!response.id;
     } catch (error) {
-      this.logger.warn(`Connection validation failed for ${connectionId}: ${error}`);
+      this.logger.warn(
+        `Connection validation failed for ${connectionId}: ${error}`,
+      );
 
       // 更新连接状态
       await this.prisma.notionConnection.update({

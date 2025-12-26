@@ -2529,6 +2529,15 @@ model OfficeDocument {
   aiConfig       Json? @map("ai_config") // { textModelId, imageModelId, temperature, style }
   generationLogs Json? @map("generation_logs") // 生成过程日志
 
+  // === 素材绑定与质量控制 (v2.0 新增) ===
+  // 素材分析结果：{ chapters, keyInsights, dataPoints, quotes, recommendations }
+  sourceAnalysis   Json? @map("source_analysis")
+  // 全局样式配置：{ header, footer, pageNumber, safeArea, brand, typography }
+  globalStyle      Json? @map("global_style")
+  // 质量检查报告：{ duplicates, layoutIssues, contentIssues, consistencyIssues }
+  qualityReport    Json? @map("quality_report")
+  qualityCheckedAt DateTime? @map("quality_checked_at")
+
   // 时间戳
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -2655,11 +2664,12 @@ model OfficeDocumentTemplate {
 // ============ ASK AI 会话管理 ============
 
 model AskSession {
-  id      String  @id @default(uuid())
-  userId  String  @map("user_id")
-  title   String  @db.VarChar(200)
-  summary String? @db.Text // AI 生成的会话摘要
-  modelId String? @map("model_id") // 默认使用的模型
+  id           String  @id @default(uuid())
+  userId       String  @map("user_id")
+  title        String  @db.VarChar(200)
+  summary      String? @db.Text // AI 生成的会话摘要
+  modelId      String? @map("model_id") // 默认使用的模型
+  isBookmarked Boolean @default(false) @map("is_bookmarked") // 书签标记
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -2668,6 +2678,7 @@ model AskSession {
   messages AskMessage[]
 
   @@index([userId, updatedAt])
+  @@index([userId, isBookmarked])
   @@map("ask_sessions")
 }
 

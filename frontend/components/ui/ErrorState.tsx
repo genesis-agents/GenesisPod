@@ -7,7 +7,7 @@ import { Button } from './button';
 
 interface ErrorStateProps {
   /** 错误对象或消息 */
-  error: Error | string | null;
+  error: Error | string | { message?: string; status?: number } | null;
   /** 重试回调 */
   onRetry?: () => void;
   /** 标题 */
@@ -30,7 +30,12 @@ export function ErrorState({
 }: ErrorStateProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
 
-  const errorMessage = error instanceof Error ? error.message : error;
+  const errorMessage =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : error?.message || null;
   const errorStack = error instanceof Error ? error.stack : undefined;
 
   const content = (

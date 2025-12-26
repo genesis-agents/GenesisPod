@@ -307,7 +307,7 @@ Provide detailed analysis and actionable cleanup plan.`,
       });
       if (result.success) {
         // Reload analysis to show updated sizes
-        loadDbAnalysis();
+        void loadDbAnalysis();
       }
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to run VACUUM' });
@@ -338,7 +338,7 @@ Provide detailed analysis and actionable cleanup plan.`,
         text: result.message,
       });
       if (result.success) {
-        loadDbAnalysis();
+        void loadDbAnalysis();
       }
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to run Deep Clean' });
@@ -348,7 +348,7 @@ Provide detailed analysis and actionable cleanup plan.`,
   };
 
   useEffect(() => {
-    loadStats();
+    void loadStats();
   }, [loadStats]);
 
   // Generic cleanup handler
@@ -376,7 +376,7 @@ Provide detailed analysis and actionable cleanup plan.`,
           type: 'success',
           text: result.message,
         });
-        loadStats();
+        void loadStats();
       } else {
         setMessage({
           type: 'error',
@@ -415,7 +415,7 @@ Provide detailed analysis and actionable cleanup plan.`,
           type: 'success',
           text: `Full cleanup completed: ${result.totalDeleted} records deleted, ~${result.totalFreedMB}MB freed`,
         });
-        loadStats();
+        void loadStats();
       } else {
         setMessage({
           type: 'error',
@@ -456,7 +456,7 @@ Provide detailed analysis and actionable cleanup plan.`,
           </div>
           <div className="flex gap-3">
             <button
-              onClick={loadStats}
+              onClick={() => void loadStats()}
               disabled={loading}
               className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-gray-200 transition-all hover:bg-gray-50 disabled:opacity-50"
             >
@@ -466,7 +466,7 @@ Provide detailed analysis and actionable cleanup plan.`,
               Refresh
             </button>
             <button
-              onClick={loadDbAnalysis}
+              onClick={() => void loadDbAnalysis()}
               disabled={analyzingDb}
               className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:from-blue-600 hover:to-indigo-600 disabled:opacity-50"
             >
@@ -478,7 +478,7 @@ Provide detailed analysis and actionable cleanup plan.`,
               Analyze DB
             </button>
             <button
-              onClick={runAIDiagnosis}
+              onClick={() => void runAIDiagnosis()}
               disabled={diagnosing}
               className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:from-purple-600 hover:to-pink-600 disabled:opacity-50"
             >
@@ -490,7 +490,7 @@ Provide detailed analysis and actionable cleanup plan.`,
               AI Diagnosis
             </button>
             <button
-              onClick={handleFullCleanup}
+              onClick={() => void handleFullCleanup()}
               disabled={cleaning !== null}
               className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-red-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:from-orange-600 hover:to-red-600 disabled:opacity-50"
             >
@@ -702,7 +702,7 @@ Provide detailed analysis and actionable cleanup plan.`,
                   ))}
                 </div>
                 <button
-                  onClick={handleFullCleanup}
+                  onClick={() => void handleFullCleanup()}
                   disabled={cleaning !== null}
                   className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2.5 text-sm font-medium text-white transition-all hover:from-purple-600 hover:to-pink-600 disabled:opacity-50"
                 >
@@ -728,7 +728,7 @@ Provide detailed analysis and actionable cleanup plan.`,
               </h2>
               <div className="flex gap-2">
                 <button
-                  onClick={handleVacuum}
+                  onClick={() => void handleVacuum()}
                   disabled={vacuuming || deepCleaning}
                   className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-all hover:from-purple-600 hover:to-indigo-600 disabled:opacity-50"
                 >
@@ -740,7 +740,7 @@ Provide detailed analysis and actionable cleanup plan.`,
                   VACUUM
                 </button>
                 <button
-                  onClick={handleDeepClean}
+                  onClick={() => void handleDeepClean()}
                   disabled={vacuuming || deepCleaning}
                   className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-red-500 to-orange-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-all hover:from-red-600 hover:to-orange-600 disabled:opacity-50"
                 >
@@ -958,7 +958,7 @@ Provide detailed analysis and actionable cleanup plan.`,
                 {category.canCleanup && (
                   <button
                     onClick={() =>
-                      handleCleanup(
+                      void handleCleanup(
                         `cleanup/${category.name === 'generatedImages' ? 'images' : category.name.replace(/([A-Z])/g, '-$1').toLowerCase()}`,
                         category.name,
                         `Clean up ${category.displayName}? This action cannot be undone.`
@@ -993,7 +993,7 @@ Provide detailed analysis and actionable cleanup plan.`,
           <div className="mt-4 flex flex-wrap gap-3">
             <button
               onClick={() =>
-                handleCleanup(
+                void handleCleanup(
                   'images/all',
                   'deleteAllImages',
                   'WARNING: This will permanently delete ALL generated images from ALL users. This action cannot be undone! Are you sure?'
@@ -1011,7 +1011,7 @@ Provide detailed analysis and actionable cleanup plan.`,
             </button>
             <button
               onClick={() =>
-                handleCleanup(
+                void handleCleanup(
                   'raw-data/all',
                   'deleteAllRawData',
                   'WARNING: This will permanently delete ALL raw collection data (both pending and processed). This action cannot be undone! Are you sure?'
@@ -1029,7 +1029,7 @@ Provide detailed analysis and actionable cleanup plan.`,
             </button>
             <button
               onClick={() =>
-                handleCleanup(
+                void handleCleanup(
                   'office-documents/all',
                   'deleteAllPPT',
                   'WARNING: This will permanently delete ALL PPT documents from ALL users. This action cannot be undone! Are you sure?'
