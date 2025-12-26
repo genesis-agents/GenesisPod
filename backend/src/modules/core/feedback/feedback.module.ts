@@ -7,12 +7,19 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { StorageModule } from "../storage/storage.module";
 import { EmailModule } from "../email/email.module";
 
+// AI Services
+import { AiCoreModule } from "../../ai/ai-core/ai-core.module";
+import { AiOfficeModule } from "../../ai/ai-office/ai-office.module";
+
 // Triage
 import { TriageAgentService } from "./triage/triage-agent.service";
 import { SimilarityMatcherService } from "./triage/similarity-matcher.service";
 
 // Analyzer
 import { ScreenshotAnalyzerService } from "./analyzer/screenshot-analyzer.service";
+
+// GitHub Integration
+import { GitHubIssueService } from "./github/github-issue.service";
 
 // Events
 import { FeedbackEventListener } from "./events/feedback-event.listener";
@@ -24,6 +31,9 @@ import { FeedbackEventListener } from "./events/feedback-event.listener";
     ConfigModule,
     EmailModule,
     EventEmitterModule.forRoot(),
+    // AI Services for Triage and Screenshot Analysis
+    AiCoreModule,
+    AiOfficeModule,
   ],
   controllers: [FeedbackController],
   providers: [
@@ -33,6 +43,8 @@ import { FeedbackEventListener } from "./events/feedback-event.listener";
     SimilarityMatcherService,
     // Analyzer
     ScreenshotAnalyzerService,
+    // GitHub Integration
+    GitHubIssueService,
     // Events
     FeedbackEventListener,
   ],

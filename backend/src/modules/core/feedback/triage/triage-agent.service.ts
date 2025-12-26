@@ -14,6 +14,8 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { SimilarityMatcherService } from "./similarity-matcher.service";
 import { ScreenshotAnalyzerService } from "../analyzer/screenshot-analyzer.service";
+import { AiChatService } from "../../../ai/ai-core/ai-chat.service";
+import { AIModelService } from "../../../ai/ai-office/core/ai-model.service";
 import {
   TriageInput,
   TriageDecision,
@@ -102,23 +104,18 @@ const TRIAGE_SYSTEM_PROMPT = `你是 DeepDive Engine 的反馈分诊专家（Tri
 export class TriageAgentService {
   private readonly logger = new Logger(TriageAgentService.name);
   private readonly config: TriageConfig;
-  private readonly openaiApiKey: string;
-  private readonly openaiBaseUrl: string;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly similarityMatcher: SimilarityMatcherService,
     private readonly screenshotAnalyzer: ScreenshotAnalyzerService,
+    private readonly aiChatService: AiChatService,
+    private readonly aiModelService: AIModelService,
   ) {
-    this.openaiApiKey = this.configService.get<string>("OPENAI_API_KEY") || "";
-    this.openaiBaseUrl =
-      this.configService.get<string>("OPENAI_BASE_URL") ||
-      "https://api.openai.com/v1";
-
-    // 加载配置
+    // 加载配置（模型将在运行时从数据库获取）
     this.config = {
       ...DEFAULT_TRIAGE_CONFIG,
-      aiModel: this.configService.get<string>("TRIAGE_AI_MODEL") || "gpt-4o",
+      aiModel: "", // 将在 performAiAnalysis 中动态获取
       autoFixEnabled:
         this.configService.get<string>("AUTO_FIX_ENABLED") !== "false",
     };
@@ -258,37 +255,28 @@ ${input.attachments.map((a) => `- ${a.filename} (${a.mimeType})`).join("\n")}
   }
 
   /**
-   * 调用 AI API
+   * 调用 AI API（使用项目标准的 AI 服务）
    */
   private async callAiApi(userPrompt: string): Promise<string> {
-    if (!this.openaiApiKey) {
-      throw new Error("OpenAI API key not configured");
-    }
+    // 从数据库获取默认的聊天模型
+    const defaultModel = await this.aiModelService.getDefaultTextModel();
+    const modelName = defaultModel.name;
 
-    const response = await fetch(`${this.openaiBaseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.openaiApiKey}`,
-      },
-      body: JSON.stringify({
-        model: this.config.aiModel,
-        messages: [
-          { role: "system", content: TRIAGE_SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-        max_tokens: this.config.maxTokens,
-        temperature: this.config.temperature,
-      }),
+    this.logger.debug(`[callAiApi] Using model: ${modelName}`);
+
+    const result = await this.aiChatService.generateChatCompletion({
+      model: modelName,
+      systemPrompt: TRIAGE_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: userPrompt }],
+      maxTokens: this.config.maxTokens,
+      temperature: this.config.temperature,
     });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`AI API error: ${response.status} - ${error}`);
-    }
+    this.logger.debug(
+      `[callAiApi] Completed, tokens used: ${result.tokensUsed}`,
+    );
 
-    const data = await response.json();
-    return data.choices[0]?.message?.content || "";
+    return result.content;
   }
 
   /**

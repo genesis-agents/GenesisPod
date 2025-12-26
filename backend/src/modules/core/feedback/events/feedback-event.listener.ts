@@ -14,6 +14,7 @@ import { OnEvent } from "@nestjs/event-emitter";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { TriageAgentService } from "../triage/triage-agent.service";
+import { GitHubIssueService } from "../github/github-issue.service";
 // import { EmailService } from "../../email/email.service"; // TODO: Re-enable for user notifications
 import {
   FeedbackEvent,
@@ -34,6 +35,7 @@ export class FeedbackEventListener {
     private readonly eventEmitter: EventEmitter2,
     private readonly triageAgent: TriageAgentService,
     private readonly prisma: PrismaService,
+    private readonly githubIssueService: GitHubIssueService,
     // TODO: Add EmailService back when implementing user notifications
   ) {}
 
@@ -195,11 +197,109 @@ export class FeedbackEventListener {
       startedAt: new Date(),
     });
 
-    // TODO: 实际的自动修复逻辑（调用 AI Coding 服务）
-    // 目前只是更新状态
+    // 获取反馈详情用于创建 Issue
+    const feedback = await this.getFeedbackDetails(feedbackId);
+
+    // 创建 GitHub Issue 触发 Claude Code 自动修复
+    if (this.githubIssueService.isEnabled()) {
+      const result = await this.githubIssueService.createAutoFixIssue(
+        feedbackId,
+        decision,
+        {
+          userDescription: feedback?.description,
+          screenshotUrls: feedback?.screenshotUrls,
+          pageUrl: feedback?.pageUrl,
+          errorStack: feedback?.errorStack,
+        },
+      );
+
+      if (result.success) {
+        this.logger.log(
+          `[handleAutoFix] Created GitHub Issue #${result.issueNumber}: ${result.issueUrl}`,
+        );
+
+        // 更新反馈记录，保存 Issue URL
+        await this.updateFeedbackWithIssue(feedbackId, result.issueUrl!);
+      } else {
+        this.logger.error(
+          `[handleAutoFix] Failed to create GitHub Issue: ${result.error}`,
+        );
+        // 降级为人工处理
+        await this.handleManualFix(feedbackId, decision);
+      }
+    } else {
+      this.logger.warn(
+        `[handleAutoFix] GitHub Issue Service not enabled, falling back to manual fix`,
+      );
+      // 如果 GitHub 服务未启用，降级为人工处理
+      await this.handleManualFix(feedbackId, decision);
+    }
+
     this.logger.log(
       `[handleAutoFix] Auto-fix plan: ${decision.routing.autoFixPlan?.approach}`,
     );
+  }
+
+  /**
+   * 获取反馈详情
+   */
+  private async getFeedbackDetails(feedbackId: string): Promise<{
+    description: string;
+    screenshotUrls: string[];
+    pageUrl?: string;
+    errorStack?: string;
+  } | null> {
+    try {
+      const result = await this.prisma.$queryRaw<
+        {
+          description: string;
+          page_url: string | null;
+          attachments: string | null;
+        }[]
+      >`
+        SELECT description, page_url, attachments::text
+        FROM feedbacks
+        WHERE id = ${feedbackId}::uuid
+      `;
+
+      if (!result[0]) return null;
+
+      const attachments = result[0].attachments
+        ? JSON.parse(result[0].attachments)
+        : [];
+      const screenshotUrls = attachments
+        .filter((a: { mimeType: string }) => a.mimeType?.startsWith("image/"))
+        .map((a: { url: string }) => a.url);
+
+      return {
+        description: result[0].description,
+        screenshotUrls,
+        pageUrl: result[0].page_url || undefined,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to get feedback details: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * 更新反馈记录，保存 GitHub Issue URL
+   */
+  private async updateFeedbackWithIssue(
+    feedbackId: string,
+    issueUrl: string,
+  ): Promise<void> {
+    try {
+      await this.prisma.$executeRaw`
+        UPDATE feedbacks
+        SET
+          admin_notes = COALESCE(admin_notes, '') || E'\nGitHub Issue: ' || ${issueUrl},
+          updated_at = NOW()
+        WHERE id = ${feedbackId}::uuid
+      `;
+    } catch (error) {
+      this.logger.error(`Failed to update feedback with issue URL: ${error}`);
+    }
   }
 
   /**

@@ -1,45 +1,54 @@
 /**
  * Screenshot Analyzer Service
  *
- * 截图分析服务 - 使用 Vision 模型分析用户上传的截图
+ * 截图分析服务 - 使用配置的默认聊天模型分析用户上传的截图
  *
  * 职责：
  * 1. OCR 识别截图中的文本
  * 2. 识别错误信息和异常
  * 3. 识别页面和 UI 元素
  * 4. 生成问题描述
+ *
+ * 使用配置的默认聊天模型（需支持 Vision 能力）
  */
 
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { AIModelService } from "../../../ai/ai-office/core/ai-model.service";
 import type {
   ScreenshotAnalysis,
   FeedbackAttachment,
 } from "../triage/triage-decision.types";
 
-interface VisionMessage {
-  role: "user" | "assistant" | "system";
-  content:
-    | string
-    | Array<{
-        type: "text" | "image_url";
-        text?: string;
-        image_url?: { url: string };
-      }>;
+const VISION_PROMPT = `你是一个专业的软件测试工程师，正在分析用户提交的 bug 截图。
+
+请仔细分析这张截图，提取以下信息：
+
+1. **检测到的文本** (detectedText): 识别截图中的所有关键文本，特别是错误消息、警告信息
+2. **检测到的错误** (detectedErrors): 提取任何错误信息、异常堆栈、警告弹窗
+3. **UI 元素** (uiElements): 识别截图中的主要 UI 组件（按钮、表单、弹窗等）
+4. **页面识别** (pageIdentified): 判断这是哪个功能页面（如：PPT编辑器、研究报告、设置页面等）
+5. **问题描述** (issueDescription): 用一句话描述你从截图中观察到的问题
+
+请以 JSON 格式返回结果：
+{
+  "detectedText": ["文本1", "文本2"],
+  "detectedErrors": ["错误信息1"],
+  "uiElements": ["按钮", "表单"],
+  "pageIdentified": "页面名称",
+  "issueDescription": "问题描述"
 }
+
+只返回 JSON，不要其他解释。`;
 
 @Injectable()
 export class ScreenshotAnalyzerService {
   private readonly logger = new Logger(ScreenshotAnalyzerService.name);
-  private readonly openaiApiKey: string;
-  private readonly openaiBaseUrl: string;
 
-  constructor(private readonly configService: ConfigService) {
-    this.openaiApiKey = this.configService.get<string>("OPENAI_API_KEY") || "";
-    this.openaiBaseUrl =
-      this.configService.get<string>("OPENAI_BASE_URL") ||
-      "https://api.openai.com/v1";
-  }
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly aiModelService: AIModelService,
+  ) {}
 
   /**
    * 分析截图
@@ -81,42 +90,8 @@ export class ScreenshotAnalyzerService {
   private async analyzeSingleScreenshot(
     attachment: FeedbackAttachment,
   ): Promise<ScreenshotAnalysis> {
-    const prompt = `你是一个专业的软件测试工程师，正在分析用户提交的 bug 截图。
-
-请仔细分析这张截图，提取以下信息：
-
-1. **检测到的文本** (detectedText): 识别截图中的所有关键文本，特别是错误消息、警告信息
-2. **检测到的错误** (detectedErrors): 提取任何错误信息、异常堆栈、警告弹窗
-3. **UI 元素** (uiElements): 识别截图中的主要 UI 组件（按钮、表单、弹窗等）
-4. **页面识别** (pageIdentified): 判断这是哪个功能页面（如：PPT编辑器、研究报告、设置页面等）
-5. **问题描述** (issueDescription): 用一句话描述你从截图中观察到的问题
-
-请以 JSON 格式返回结果：
-{
-  "detectedText": ["文本1", "文本2"],
-  "detectedErrors": ["错误信息1"],
-  "uiElements": ["按钮", "表单"],
-  "pageIdentified": "页面名称",
-  "issueDescription": "问题描述"
-}
-
-只返回 JSON，不要其他解释。`;
-
-    const messages: VisionMessage[] = [
-      {
-        role: "user",
-        content: [
-          { type: "text", text: prompt },
-          {
-            type: "image_url",
-            image_url: { url: attachment.url },
-          },
-        ],
-      },
-    ];
-
     try {
-      const response = await this.callVisionApi(messages);
+      const response = await this.callVisionApi(attachment.url);
       return this.parseVisionResponse(response);
     } catch (error) {
       this.logger.error(
@@ -131,22 +106,120 @@ export class ScreenshotAnalyzerService {
   }
 
   /**
-   * 调用 Vision API
+   * 调用 Vision API（使用配置的默认聊天模型）
    */
-  private async callVisionApi(messages: VisionMessage[]): Promise<string> {
-    if (!this.openaiApiKey) {
-      throw new Error("OpenAI API key not configured");
+  private async callVisionApi(imageUrl: string): Promise<string> {
+    // 从数据库获取默认聊天模型
+    const defaultModel = await this.aiModelService.getDefaultTextModel();
+    const provider = defaultModel.provider.toLowerCase();
+    const modelName = defaultModel.name;
+
+    this.logger.debug(
+      `[callVisionApi] Using model: ${modelName} (provider: ${provider})`,
+    );
+
+    // 根据 provider 调用对应的 Vision API
+    switch (provider) {
+      case "google":
+      case "gemini":
+        return this.callGeminiVisionApi(modelName, imageUrl);
+      case "openai":
+        return this.callOpenAIVisionApi(modelName, imageUrl);
+      case "anthropic":
+      case "claude":
+        return this.callClaudeVisionApi(modelName, imageUrl);
+      default:
+        // 尝试使用 OpenAI 兼容格式
+        this.logger.warn(
+          `Unknown provider ${provider}, trying OpenAI-compatible format`,
+        );
+        return this.callOpenAIVisionApi(modelName, imageUrl);
+    }
+  }
+
+  /**
+   * 调用 Gemini Vision API
+   */
+  private async callGeminiVisionApi(
+    modelName: string,
+    imageUrl: string,
+  ): Promise<string> {
+    const apiKey = this.configService.get<string>("GOOGLE_AI_API_KEY");
+    if (!apiKey) {
+      throw new Error("GOOGLE_AI_API_KEY not configured");
     }
 
-    const response = await fetch(`${this.openaiBaseUrl}/chat/completions`, {
+    // Gemini 需要 base64 图片，先下载图片
+    const imageData = await this.fetchImageAsBase64(imageUrl);
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: VISION_PROMPT },
+              {
+                inlineData: {
+                  mimeType: imageData.mimeType,
+                  data: imageData.base64,
+                },
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          maxOutputTokens: 1000,
+          temperature: 0.3,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Gemini Vision API error: ${response.status} - ${error}`);
+    }
+
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  }
+
+  /**
+   * 调用 OpenAI Vision API
+   */
+  private async callOpenAIVisionApi(
+    modelName: string,
+    imageUrl: string,
+  ): Promise<string> {
+    const apiKey = this.configService.get<string>("OPENAI_API_KEY");
+    const baseUrl =
+      this.configService.get<string>("OPENAI_BASE_URL") ||
+      "https://api.openai.com/v1";
+
+    if (!apiKey) {
+      throw new Error("OPENAI_API_KEY not configured");
+    }
+
+    const response = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${this.openaiApiKey}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o",
-        messages,
+        model: modelName,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: VISION_PROMPT },
+              { type: "image_url", image_url: { url: imageUrl } },
+            ],
+          },
+        ],
         max_tokens: 1000,
         temperature: 0.3,
       }),
@@ -154,11 +227,82 @@ export class ScreenshotAnalyzerService {
 
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`Vision API error: ${response.status} - ${error}`);
+      throw new Error(`OpenAI Vision API error: ${response.status} - ${error}`);
     }
 
     const data = await response.json();
-    return data.choices[0]?.message?.content || "";
+    return data.choices?.[0]?.message?.content || "";
+  }
+
+  /**
+   * 调用 Claude Vision API
+   */
+  private async callClaudeVisionApi(
+    modelName: string,
+    imageUrl: string,
+  ): Promise<string> {
+    const apiKey = this.configService.get<string>("ANTHROPIC_API_KEY");
+    if (!apiKey) {
+      throw new Error("ANTHROPIC_API_KEY not configured");
+    }
+
+    // Claude 需要 base64 图片
+    const imageData = await this.fetchImageAsBase64(imageUrl);
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: modelName,
+        max_tokens: 1000,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: imageData.mimeType,
+                  data: imageData.base64,
+                },
+              },
+              { type: "text", text: VISION_PROMPT },
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Claude Vision API error: ${response.status} - ${error}`);
+    }
+
+    const data = await response.json();
+    return data.content?.[0]?.text || "";
+  }
+
+  /**
+   * 下载图片并转换为 base64
+   */
+  private async fetchImageAsBase64(
+    imageUrl: string,
+  ): Promise<{ base64: string; mimeType: string }> {
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status}`);
+    }
+
+    const contentType = response.headers.get("content-type") || "image/jpeg";
+    const buffer = await response.arrayBuffer();
+    const base64 = Buffer.from(buffer).toString("base64");
+
+    return { base64, mimeType: contentType };
   }
 
   /**
