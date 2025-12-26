@@ -14,6 +14,7 @@ export interface CreateKnowledgeBaseInput {
   name: string;
   description?: string;
   sourceType: KnowledgeBaseSourceType;
+  sourceTypes?: string[]; // 多数据源类型
   googleDriveConnectionId?: string;
   googleDriveFolderIds?: string[];
 }
@@ -46,12 +47,13 @@ export class KnowledgeBaseService {
       `Creating knowledge base: ${input.name} for user ${userId}`,
     );
 
-    // Auto-detect Google Drive connection if sourceType is GOOGLE_DRIVE and no connectionId provided
+    // Auto-detect Google Drive connection if GOOGLE_DRIVE is in sourceTypes
     let googleDriveConnectionId = input.googleDriveConnectionId;
-    if (
-      input.sourceType === KnowledgeBaseSourceType.GOOGLE_DRIVE &&
-      !googleDriveConnectionId
-    ) {
+    const hasGoogleDrive =
+      input.sourceType === KnowledgeBaseSourceType.GOOGLE_DRIVE ||
+      input.sourceTypes?.includes("GOOGLE_DRIVE");
+
+    if (hasGoogleDrive && !googleDriveConnectionId) {
       const connection = await this.prisma.googleDriveConnection.findUnique({
         where: { userId },
       });
@@ -67,11 +69,17 @@ export class KnowledgeBaseService {
       }
     }
 
+    // 如果没有提供 sourceTypes，则使用 sourceType 作为默认值
+    const sourceTypes = input.sourceTypes?.length
+      ? input.sourceTypes
+      : [input.sourceType];
+
     const kb = await this.prisma.knowledgeBase.create({
       data: {
         name: input.name,
         description: input.description,
         sourceType: input.sourceType,
+        sourceTypes, // 多数据源类型数组
         status: KnowledgeBaseStatus.PENDING,
         userId,
         googleDriveConnectionId,

@@ -4209,7 +4209,8 @@ model KnowledgeBase {
   id          String                  @id @default(uuid())
   name        String
   description String?                 @db.Text
-  sourceType  KnowledgeBaseSourceType @default(MANUAL) @map("source_type")
+  sourceType  KnowledgeBaseSourceType @default(MANUAL) @map("source_type") // 保留向后兼容
+  sourceTypes Json                    @default("[\"MANUAL\"]") @map("source_types") // 多数据源类型数组
   status      KnowledgeBaseStatus     @default(PENDING)
 
   // 知识库类型 (个人/团队)

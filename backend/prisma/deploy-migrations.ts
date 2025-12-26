@@ -236,6 +236,7 @@ async function getCustomMigrations(): Promise<string[]> {
     "20251226_force_fix_knowledge_bases", // Force fix - ensure type column exists
     "20251227_emergency_fix_columns", // Emergency fix - add missing columns to Railway
     "20251227_fix_aimodel_enum", // Fix AIModelType enum - add EMBEDDING, RERANK, etc.
+    "20251227_add_kb_source_types", // Add sourceTypes JSON array for multi-source knowledge bases
   ];
 
   const migrations: string[] = [];

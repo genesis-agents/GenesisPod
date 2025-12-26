@@ -31,10 +31,21 @@ export class CreateKnowledgeBaseDto {
 
   @ApiProperty({
     enum: KnowledgeBaseSourceType,
-    description: "Source type for the knowledge base",
+    description: "Primary source type (for backward compatibility)",
   })
   @IsEnum(KnowledgeBaseSourceType)
   sourceType!: KnowledgeBaseSourceType;
+
+  @ApiPropertyOptional({
+    description: "Multiple source types supported by this knowledge base",
+    type: [String],
+    enum: KnowledgeBaseSourceType,
+    isArray: true,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  sourceTypes?: string[];
 
   @ApiPropertyOptional({
     description: "Google Drive connection ID (for GOOGLE_DRIVE source)",
@@ -63,6 +74,17 @@ export class UpdateKnowledgeBaseDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({
+    description: "Multiple source types supported by this knowledge base",
+    type: [String],
+    enum: KnowledgeBaseSourceType,
+    isArray: true,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  sourceTypes?: string[];
 
   @ApiPropertyOptional({
     description: "Google Drive folder IDs to sync",

@@ -7,19 +7,22 @@ import { apiClient } from '@/lib/api/client';
 /**
  * Knowledge Base 类型定义
  */
+export type KnowledgeBaseSourceType =
+  | 'GOOGLE_DRIVE'
+  | 'MANUAL'
+  | 'URL'
+  | 'NOTION'
+  | 'BOOKMARK'
+  | 'NOTE'
+  | 'IMAGE';
+
 export interface KnowledgeBase {
   id: string;
   name: string;
   description?: string;
   type?: 'PERSONAL' | 'TEAM';
-  sourceType:
-    | 'GOOGLE_DRIVE'
-    | 'MANUAL'
-    | 'URL'
-    | 'NOTION'
-    | 'BOOKMARK'
-    | 'NOTE'
-    | 'IMAGE';
+  sourceType: KnowledgeBaseSourceType; // 保持向后兼容
+  sourceTypes?: KnowledgeBaseSourceType[]; // 新增：多数据源类型
   status: 'PENDING' | 'PROCESSING' | 'READY' | 'UPDATING' | 'ERROR';
   teamId?: string;
   googleDriveConnectionId?: string;
@@ -59,14 +62,8 @@ export interface CreateKnowledgeBaseDto {
   name: string;
   description?: string;
   type?: 'PERSONAL' | 'TEAM';
-  sourceType:
-    | 'GOOGLE_DRIVE'
-    | 'MANUAL'
-    | 'URL'
-    | 'NOTION'
-    | 'BOOKMARK'
-    | 'NOTE'
-    | 'IMAGE';
+  sourceType: KnowledgeBaseSourceType; // 保持向后兼容
+  sourceTypes?: KnowledgeBaseSourceType[]; // 新增：多数据源类型
   teamId?: string;
   googleDriveConnectionId?: string;
   googleDriveFolderIds?: string[];

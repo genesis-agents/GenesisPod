@@ -79,7 +79,7 @@ export default function CreateKnowledgeBaseDialog({
 }: CreateKnowledgeBaseDialogProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [sourceType, setSourceType] = useState<string>('MANUAL');
+  const [sourceTypes, setSourceTypes] = useState<string[]>(['MANUAL']); // 支持多选
   const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>([]);
   const [selectedFolderNames, setSelectedFolderNames] = useState<string[]>([]);
 
@@ -91,14 +91,42 @@ export default function CreateKnowledgeBaseDialog({
     setSelectedFolderNames(folderNames);
   };
 
+  // 切换数据源类型（多选）
+  const toggleSourceType = (type: string) => {
+    setSourceTypes((prev) => {
+      if (prev.includes(type)) {
+        // 至少保留一个
+        if (prev.length === 1) return prev;
+        const newTypes = prev.filter((t) => t !== type);
+        // 如果移除了 GOOGLE_DRIVE，清空文件夹选择
+        if (type === 'GOOGLE_DRIVE') {
+          setSelectedFolderIds([]);
+          setSelectedFolderNames([]);
+        }
+        return newTypes;
+      } else {
+        return [...prev, type];
+      }
+    });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onCreate({
       name,
       description: description || undefined,
-      sourceType: sourceType as 'GOOGLE_DRIVE' | 'MANUAL' | 'URL',
+      sourceType: sourceTypes[0] as 'GOOGLE_DRIVE' | 'MANUAL' | 'URL', // 保持向后兼容
+      sourceTypes: sourceTypes as (
+        | 'GOOGLE_DRIVE'
+        | 'MANUAL'
+        | 'URL'
+        | 'NOTION'
+        | 'BOOKMARK'
+        | 'NOTE'
+        | 'IMAGE'
+      )[], // 新增：多数据源类型
       googleDriveFolderIds:
-        sourceType === 'GOOGLE_DRIVE' && selectedFolderIds.length > 0
+        sourceTypes.includes('GOOGLE_DRIVE') && selectedFolderIds.length > 0
           ? selectedFolderIds
           : undefined,
     });
@@ -108,7 +136,8 @@ export default function CreateKnowledgeBaseDialog({
   const canSubmit =
     name.trim() &&
     !creating &&
-    (sourceType !== 'GOOGLE_DRIVE' || selectedFolderIds.length > 0);
+    sourceTypes.length > 0 &&
+    (!sourceTypes.includes('GOOGLE_DRIVE') || selectedFolderIds.length > 0);
 
   const isTeam = kbType === 'TEAM';
 
@@ -181,33 +210,51 @@ export default function CreateKnowledgeBaseDialog({
             />
           </div>
 
-          {/* Data Source Selection */}
+          {/* Data Source Selection - Multi-select */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
               数据来源 <span className="text-red-500">*</span>
+              <span className="ml-2 text-xs font-normal text-gray-400">
+                (可多选)
+              </span>
             </label>
             <div className="mt-2 grid grid-cols-2 gap-2">
               {DATA_SOURCE_OPTIONS.map((option) => {
                 const Icon = option.icon;
-                const isSelected = sourceType === option.value;
+                const isSelected = sourceTypes.includes(option.value);
                 return (
                   <button
                     key={option.value}
                     type="button"
-                    onClick={() => {
-                      setSourceType(option.value);
-                      // 切换来源类型时清空文件夹选择
-                      if (option.value !== 'GOOGLE_DRIVE') {
-                        setSelectedFolderIds([]);
-                        setSelectedFolderNames([]);
-                      }
-                    }}
+                    onClick={() => toggleSourceType(option.value)}
                     className={`flex items-start gap-3 rounded-lg border-2 p-3 text-left transition-all ${
                       isSelected
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                     }`}
                   >
+                    {/* Checkbox indicator */}
+                    <div
+                      className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border-2 ${
+                        isSelected
+                          ? 'border-blue-500 bg-blue-500'
+                          : 'border-gray-300 bg-white'
+                      }`}
+                    >
+                      {isSelected && (
+                        <svg
+                          className="h-3 w-3 text-white"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      )}
+                    </div>
                     <div
                       className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${option.color}`}
                     >
@@ -232,7 +279,7 @@ export default function CreateKnowledgeBaseDialog({
           </div>
 
           {/* Google Drive Folder Picker */}
-          {sourceType === 'GOOGLE_DRIVE' && (
+          {sourceTypes.includes('GOOGLE_DRIVE') && (
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 选择要同步的文件夹
@@ -254,13 +301,16 @@ export default function CreateKnowledgeBaseDialog({
           )}
 
           {/* Coming Soon for other sources */}
-          {['BOOKMARK', 'NOTE', 'IMAGE'].includes(sourceType) && (
+          {sourceTypes.some((t) =>
+            ['BOOKMARK', 'NOTE', 'IMAGE'].includes(t)
+          ) && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
               <p className="text-sm text-amber-800">
                 <span className="font-medium">即将推出：</span>
-                {sourceType === 'BOOKMARK' && '书签导入功能正在开发中'}
-                {sourceType === 'NOTE' && '笔记导入功能正在开发中'}
-                {sourceType === 'IMAGE' && '图片 OCR 功能正在开发中'}
+                {sourceTypes.includes('BOOKMARK') && ' 书签导入'}
+                {sourceTypes.includes('NOTE') && ' 笔记导入'}
+                {sourceTypes.includes('IMAGE') && ' 图片 OCR'}
+                <span className="text-gray-600"> 功能正在开发中</span>
               </p>
             </div>
           )}
