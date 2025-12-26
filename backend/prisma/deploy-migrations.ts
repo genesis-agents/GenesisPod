@@ -164,6 +164,7 @@ async function getCustomMigrations(): Promise<string[]> {
     "20251223_force_add_deep_research_sessions", // Force - ensure table exists
     "20251225_add_session_bookmark", // Add isBookmarked to ask_sessions
     "20251226_force_add_google_drive", // Add Google Drive tables
+    "20251226_fix_google_drive_schema", // Fix Google Drive table structure
   ];
 
   const migrations: string[] = [];
