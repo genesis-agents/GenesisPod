@@ -169,6 +169,7 @@ async function getCustomMigrations(): Promise<string[]> {
     "20251226_extend_knowledge_base_system", // Extend KB with types, data sources, AI module associations
     "20251226_force_fix_knowledge_bases", // Force fix - ensure type column exists
     "20251227_emergency_fix_columns", // Emergency fix - add missing columns to Railway
+    "20251227_fix_aimodel_enum", // Fix AIModelType enum - add EMBEDDING, RERANK, etc.
   ];
 
   const migrations: string[] = [];
