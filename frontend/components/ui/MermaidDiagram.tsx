@@ -1,36 +1,14 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import mermaid from 'mermaid';
 
 interface MermaidDiagramProps {
   chart: string;
   className?: string;
 }
 
-// 初始化 mermaid 配置
-mermaid.initialize({
-  startOnLoad: false,
-  theme: 'default',
-  securityLevel: 'loose',
-  fontFamily: 'ui-sans-serif, system-ui, sans-serif, "Noto Sans SC"',
-  flowchart: {
-    htmlLabels: true,
-    curve: 'basis',
-  },
-  sequence: {
-    diagramMarginX: 50,
-    diagramMarginY: 10,
-    actorMargin: 50,
-    width: 150,
-    height: 65,
-    boxMargin: 10,
-    boxTextMargin: 5,
-    noteMargin: 10,
-    messageMargin: 35,
-  },
-});
-
+// Track initialization and ID counter
+let mermaidInitialized = false;
 let mermaidId = 0;
 
 /**
@@ -63,6 +41,35 @@ export default function MermaidDiagram({
       setError(null);
 
       try {
+        // Dynamically import mermaid only on client
+        const mermaid = (await import('mermaid')).default;
+
+        // Initialize mermaid only once
+        if (!mermaidInitialized) {
+          mermaid.initialize({
+            startOnLoad: false,
+            theme: 'default',
+            securityLevel: 'loose',
+            fontFamily: 'ui-sans-serif, system-ui, sans-serif, "Noto Sans SC"',
+            flowchart: {
+              htmlLabels: true,
+              curve: 'basis',
+            },
+            sequence: {
+              diagramMarginX: 50,
+              diagramMarginY: 10,
+              actorMargin: 50,
+              width: 150,
+              height: 65,
+              boxMargin: 10,
+              boxTextMargin: 5,
+              noteMargin: 10,
+              messageMargin: 35,
+            },
+          });
+          mermaidInitialized = true;
+        }
+
         // 生成唯一 ID
         const id = `mermaid-${++mermaidId}-${Date.now()}`;
 
