@@ -19,6 +19,8 @@
     "build:frontend": "cd frontend && npm run build",
     "build:backend": "cd backend && npm run build",
     "test": "npm run test:frontend && npm run test:backend",
+    "test:quick": "npm run test:ci:frontend && npm run test:quick:backend",
+    "test:quick:backend": "cd backend && npm run test:quick",
     "test:ci": "npm run test:ci:frontend && npm run test:ci:backend",
     "test:ci:full": "npm run test:ci:frontend && npm run test:ci:backend",
     "test:frontend": "cd frontend && npm test",

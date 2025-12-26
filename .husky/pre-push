@@ -5,13 +5,17 @@
 export CI=true
 export NODE_ENV=test
 
-# 运行测试，使用专门的CI配置
-echo "🧪 Running tests before push..."
-npm run test:ci || {
+# 运行快速测试（跳过慢测试，完整测试由 CI/CD 执行）
+# 跳过的测试: python-executor, jwt-auth.guard, jwt.strategy, team-collaboration,
+#            team-member.agent, ai-image.service, proxy.controller
+echo "🧪 Running quick tests before push..."
+echo "   (Slow integration tests will run in CI/CD)"
+npm run test:quick || {
   echo "❌ Tests failed! Push aborted."
-  echo "💡 Tip: Run 'npm run test:ci' locally to debug"
+  echo "💡 Tip: Run 'npm run test:quick' locally to debug"
+  echo "💡 For full tests: 'npm run test:ci'"
   echo "💡 Fix the tests before pushing - do NOT use --no-verify"
   exit 1
 }
 
-echo "✅ All tests passed!"
+echo "✅ Quick tests passed! Full tests will run in CI/CD."

@@ -14,6 +14,7 @@
     "lint:fix": "eslint \"{src,test}/**/*.ts\" --fix",
     "type-check": "tsc --noEmit",
     "test": "jest",
+    "test:quick": "jest --testPathIgnorePatterns=\"python-executor|jwt-auth.guard|jwt.strategy|team-collaboration|team-member.agent|ai-image.service|proxy.controller\"",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:cov": "jest --coverage",
