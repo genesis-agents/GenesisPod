@@ -32,6 +32,7 @@ import {
   AddDocumentDto,
   RAGQueryDto,
   SimpleQueryDto,
+  AddResourcesDto,
 } from "./dto";
 
 @ApiTags("RAG")
@@ -145,6 +146,46 @@ export class RAGController {
     // Verify ownership
     await this.knowledgeBaseService.findById(id, req.user.id);
     return this.knowledgeBaseService.processAllDocuments(id);
+  }
+
+  @Post("knowledge-bases/:id/add-resources")
+  @ApiOperation({
+    summary:
+      "Add external resources to knowledge base (Google Drive, Notion, etc.)",
+  })
+  @ApiResponse({ status: 201, description: "Resources added successfully" })
+  async addResources(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() dto: AddResourcesDto,
+  ) {
+    // Verify ownership
+    await this.knowledgeBaseService.findById(id, req.user.id);
+
+    const results = [];
+    for (const resource of dto.resources) {
+      // For external resources, we need to fetch content based on source type
+      // For now, create placeholder documents that will be processed later
+      const doc = await this.knowledgeBaseService.addDocument(id, {
+        title: resource.title,
+        content: `[Pending content fetch from ${resource.sourceType}]`,
+        sourceType: resource.sourceType,
+        sourceId: resource.sourceId,
+        sourceUrl: resource.sourceUrl,
+        mimeType: resource.mimeType,
+        metadata: {
+          pendingFetch: true,
+          externalSource: resource.sourceType,
+        },
+      });
+      results.push(doc);
+    }
+
+    return {
+      success: true,
+      count: results.length,
+      documents: results,
+    };
   }
 
   // ==================== Google Drive Integration ====================

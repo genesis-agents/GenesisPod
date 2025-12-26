@@ -186,3 +186,44 @@ export class SimpleQueryDto {
   @Max(50)
   topK?: number;
 }
+
+// ==================== Batch Add Resources DTOs ====================
+
+export class ExternalResourceDto {
+  @ApiProperty({
+    description:
+      "External source ID (Google Drive file ID, Notion page ID, etc.)",
+  })
+  @IsString()
+  sourceId!: string;
+
+  @ApiProperty({ description: "Title/name of the resource" })
+  @IsString()
+  title!: string;
+
+  @ApiProperty({
+    description:
+      "Type of external source (google_drive, notion, url, bookmark, note)",
+  })
+  @IsString()
+  sourceType!: string;
+
+  @ApiPropertyOptional({ description: "MIME type of the resource" })
+  @IsOptional()
+  @IsString()
+  mimeType?: string;
+
+  @ApiPropertyOptional({ description: "Source URL of the resource" })
+  @IsOptional()
+  @IsString()
+  sourceUrl?: string;
+}
+
+export class AddResourcesDto {
+  @ApiProperty({
+    description: "List of external resources to add",
+    type: [ExternalResourceDto],
+  })
+  @IsArray()
+  resources!: ExternalResourceDto[];
+}

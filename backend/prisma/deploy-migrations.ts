@@ -167,6 +167,7 @@ async function getCustomMigrations(): Promise<string[]> {
     "20251226_fix_google_drive_schema", // Fix Google Drive table structure
     "20251226_add_rag_knowledge_base", // RAG Knowledge Base with pgvector
     "20251226_extend_knowledge_base_system", // Extend KB with types, data sources, AI module associations
+    "20251226_force_fix_knowledge_bases", // Force fix - ensure type column exists
   ];
 
   const migrations: string[] = [];

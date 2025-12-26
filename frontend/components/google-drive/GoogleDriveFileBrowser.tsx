@@ -8,14 +8,20 @@ import {
   RefreshCw,
   ArrowUpDown,
   Folder,
+  Database,
 } from 'lucide-react';
 import { useGoogleDriveFiles } from '@/hooks/domain';
 import { GoogleDriveFileCard } from './GoogleDriveFileCard';
 import { useMultiSelect } from '@/hooks';
+import AddToKnowledgeBaseDialog, {
+  type ResourceToAdd,
+} from '@/components/shared/AddToKnowledgeBaseDialog';
 
 interface GoogleDriveFileBrowserProps {
   connectionId: string;
   onImport?: (fileIds: string[]) => void;
+  /** Show add to knowledge base option */
+  showAddToKB?: boolean;
 }
 
 /**
@@ -25,8 +31,10 @@ interface GoogleDriveFileBrowserProps {
 export function GoogleDriveFileBrowser({
   connectionId,
   onImport,
+  showAddToKB = true,
 }: GoogleDriveFileBrowserProps) {
   const [localSearch, setLocalSearch] = useState('');
+  const [showKBDialog, setShowKBDialog] = useState(false);
 
   const {
     files,
@@ -98,6 +106,24 @@ export function GoogleDriveFileBrowser({
   const handleImportSelected = () => {
     if (selectedCount === 0 || !onImport) return;
     onImport(Array.from(selectedIds));
+    clearAll();
+  };
+
+  // Get selected files as resources for KB dialog
+  const getSelectedResources = (): ResourceToAdd[] => {
+    return files
+      .filter((f) => !f.isFolder && isSelected(f.id))
+      .map((f) => ({
+        id: f.id,
+        name: f.name,
+        type: 'google_drive' as const,
+        mimeType: f.mimeType,
+        url: f.webViewLink,
+      }));
+  };
+
+  // Handle add to KB success
+  const handleKBAddSuccess = (kbId: string, count: number) => {
     clearAll();
   };
 
@@ -386,31 +412,56 @@ export function GoogleDriveFileBrowser({
       )}
 
       {/* 底部操作栏 */}
-      {selectedCount > 0 && onImport && (
+      {selectedCount > 0 && (
         <div className="sticky bottom-4 z-10 flex items-center justify-between rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 shadow-lg">
           <span className="text-sm font-medium text-blue-900">
             {selectedCount} file{selectedCount !== 1 ? 's' : ''} selected
           </span>
-          <button
-            onClick={handleImportSelected}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-              />
-            </svg>
-            Import Selected
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Add to Knowledge Base button */}
+            {showAddToKB && (
+              <button
+                onClick={() => setShowKBDialog(true)}
+                className="flex items-center gap-2 rounded-lg border border-blue-300 bg-white px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100"
+              >
+                <Database className="h-4 w-4" />
+                Add to KB
+              </button>
+            )}
+            {/* Import button */}
+            {onImport && (
+              <button
+                onClick={handleImportSelected}
+                className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                  />
+                </svg>
+                Import Selected
+              </button>
+            )}
+          </div>
         </div>
+      )}
+
+      {/* Add to Knowledge Base Dialog */}
+      {showKBDialog && (
+        <AddToKnowledgeBaseDialog
+          resources={getSelectedResources()}
+          sourceType="GOOGLE_DRIVE"
+          onClose={() => setShowKBDialog(false)}
+          onSuccess={handleKBAddSuccess}
+        />
       )}
     </div>
   );
