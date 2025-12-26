@@ -17,6 +17,7 @@ export interface DriveFile {
   parents?: string[];
   starred?: boolean;
   trashed?: boolean;
+  isFolder: boolean;
 }
 
 export interface ListFilesResult {
@@ -100,6 +101,7 @@ export class GoogleDriveFileService {
         parents: file.parents || undefined,
         starred: file.starred || false,
         trashed: file.trashed || false,
+        isFolder: file.mimeType === "application/vnd.google-apps.folder",
       }));
 
       return {
@@ -146,6 +148,7 @@ export class GoogleDriveFileService {
         parents: file.parents || undefined,
         starred: file.starred || false,
         trashed: file.trashed || false,
+        isFolder: file.mimeType === "application/vnd.google-apps.folder",
       };
     } catch (error) {
       this.logger.error(`Failed to get file ${fileId}: ${error}`);
@@ -271,6 +274,7 @@ export class GoogleDriveFileService {
         createdTime: file.createdTime!,
         modifiedTime: file.modifiedTime!,
         webViewLink: file.webViewLink || undefined,
+        isFolder: file.mimeType === "application/vnd.google-apps.folder",
       };
     } catch (error) {
       this.logger.error(`Failed to upload file: ${error}`);
@@ -309,6 +313,7 @@ export class GoogleDriveFileService {
         createdTime: file.createdTime!,
         modifiedTime: file.modifiedTime!,
         webViewLink: file.webViewLink || undefined,
+        isFolder: true, // createFolder always creates a folder
       };
     } catch (error) {
       this.logger.error(`Failed to create folder: ${error}`);
