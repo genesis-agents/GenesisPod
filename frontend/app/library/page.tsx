@@ -193,50 +193,60 @@ function LibraryPageContent() {
   const searchParams = useSearchParams();
   const tabParam = searchParams?.get('tab');
 
+  // 简化后的4个主TAB：个人知识库、团队知识库、数据源、知识图谱
   const [activeTab, setActiveTab] = useState<
-    | 'bookmarks'
-    | 'notes'
-    | 'images'
-    | 'graph'
-    | 'notion'
-    | 'google-drive'
-    | 'knowledge-base'
-    | 'personal-kb'
-    | 'team-kb'
-    | 'data-sources'
+    'personal-kb' | 'team-kb' | 'data-sources' | 'graph'
   >(() => {
     // Initialize from URL parameter if present
     if (
-      tabParam === 'images' ||
-      tabParam === 'notes' ||
-      tabParam === 'graph' ||
-      tabParam === 'notion' ||
-      tabParam === 'google-drive' ||
-      tabParam === 'knowledge-base' ||
       tabParam === 'personal-kb' ||
       tabParam === 'team-kb' ||
-      tabParam === 'data-sources'
+      tabParam === 'data-sources' ||
+      tabParam === 'graph'
     ) {
       return tabParam;
     }
+    // 兼容旧的URL参数，重定向到数据源
+    if (
+      tabParam === 'bookmarks' ||
+      tabParam === 'notes' ||
+      tabParam === 'images' ||
+      tabParam === 'notion' ||
+      tabParam === 'google-drive'
+    ) {
+      return 'data-sources';
+    }
     return 'personal-kb'; // Default to personal KB
+  });
+
+  // 数据源的初始子TAB（根据URL参数）
+  const [initialDataSourceSubTab] = useState<string | undefined>(() => {
+    if (tabParam === 'bookmarks') return 'bookmarks';
+    if (tabParam === 'notes') return 'notes';
+    if (tabParam === 'images') return 'images';
+    if (tabParam === 'notion') return 'notion';
+    if (tabParam === 'google-drive') return 'google-drive';
+    return undefined;
   });
 
   // Update activeTab when URL parameter changes
   useEffect(() => {
     if (
-      tabParam === 'images' ||
-      tabParam === 'notes' ||
-      tabParam === 'bookmarks' ||
-      tabParam === 'graph' ||
-      tabParam === 'notion' ||
-      tabParam === 'google-drive' ||
-      tabParam === 'knowledge-base' ||
       tabParam === 'personal-kb' ||
       tabParam === 'team-kb' ||
-      tabParam === 'data-sources'
+      tabParam === 'data-sources' ||
+      tabParam === 'graph'
     ) {
       setActiveTab(tabParam);
+    } else if (
+      tabParam === 'bookmarks' ||
+      tabParam === 'notes' ||
+      tabParam === 'images' ||
+      tabParam === 'notion' ||
+      tabParam === 'google-drive'
+    ) {
+      // 旧的TAB参数重定向到数据源
+      setActiveTab('data-sources');
     }
   }, [tabParam]);
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -575,25 +585,12 @@ function LibraryPageContent() {
     loadTagsAndStats();
   }, []);
 
-  // Load items when filters change
+  // Load graph data when tab changes
   useEffect(() => {
-    if (activeTab === 'bookmarks') {
-      loadItems(1, false);
-      loadBookmarkedImages();
-    } else if (activeTab === 'images') {
-      loadBookmarkedImages();
-    } else if (activeTab === 'graph') {
+    if (activeTab === 'graph') {
       loadGraphData();
     }
-  }, [
-    activeCollectionId,
-    searchQuery,
-    sortBy,
-    sortOrder,
-    activeTab,
-    loadBookmarkedImages,
-    loadGraphData,
-  ]);
+  }, [activeTab, loadGraphData]);
 
   // Infinite scroll observer
   useEffect(() => {
@@ -832,10 +829,10 @@ function LibraryPageContent() {
     return `${config.apiBaseUrl}${thumbnailUrl}`;
   };
 
-  // Handle clicking on bookmarked AI image - navigate to Images tab and select the image
+  // Handle clicking on bookmarked AI image - navigate to Data Sources tab (images sub-tab)
   const handleBookmarkedImageClick = (imageId: string) => {
     setSelectedImageId(imageId);
-    setActiveTab('images');
+    setActiveTab('data-sources');
   };
 
   // Handle clicking an image in Images tab to view full size
@@ -1410,11 +1407,7 @@ function LibraryPageContent() {
                   </div>
                   <input
                     type="text"
-                    placeholder={
-                      activeTab === 'notes'
-                        ? t('library.search.notes')
-                        : t('library.search.resources')
-                    }
+                    placeholder={t('library.search.resources')}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="flex-1 border-none px-4 py-3 text-sm focus:outline-none focus:ring-0"
@@ -1441,62 +1434,6 @@ function LibraryPageContent() {
                         </svg>
                       </button>
                     )}
-                    {/* Sort dropdown */}
-                    {activeTab === 'bookmarks' && (
-                      <select
-                        value={`${sortBy}-${sortOrder}`}
-                        onChange={(e) => {
-                          const [newSortBy, newSortOrder] =
-                            e.target.value.split('-');
-                          setSortBy(newSortBy as typeof sortBy);
-                          setSortOrder(newSortOrder as typeof sortOrder);
-                        }}
-                        className="cursor-pointer rounded border border-gray-300 bg-white px-3 py-2 text-xs font-medium transition-all focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="addedAt-desc">
-                          {t('library.sort.recentlyAdded')}
-                        </option>
-                        <option value="addedAt-asc">
-                          {t('library.sort.oldestFirst')}
-                        </option>
-                        <option value="title-asc">
-                          {t('library.sort.titleAZ')}
-                        </option>
-                        <option value="title-desc">
-                          {t('library.sort.titleZA')}
-                        </option>
-                        <option value="publishedAt-desc">
-                          {t('library.sort.latestPublished')}
-                        </option>
-                        <option value="publishedAt-asc">
-                          {t('library.sort.earliestPublished')}
-                        </option>
-                      </select>
-                    )}
-                    {/* Selection mode toggle */}
-                    {activeTab === 'bookmarks' &&
-                      paginatedItems &&
-                      paginatedItems.items.length > 0 && (
-                        <button
-                          onClick={() => {
-                            if (selectionMode) {
-                              clearAll();
-                              setSelectionMode(false);
-                            } else {
-                              setSelectionMode(true);
-                            }
-                          }}
-                          className={`rounded px-3 py-2 text-xs font-medium transition-all ${
-                            selectionMode
-                              ? 'bg-blue-600 text-white'
-                              : 'border border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
-                          }`}
-                        >
-                          {selectionMode
-                            ? t('library.actions.cancel')
-                            : t('library.actions.select')}
-                        </button>
-                      )}
                     {/* View Graph button - 切换到 Graph Tab */}
                     <button
                       onClick={() => setActiveTab('graph')}
@@ -1563,99 +1500,16 @@ function LibraryPageContent() {
                 <HardDrive className="h-4 w-4" />
                 数据源
               </button>
-
-              {/* Divider */}
-              <div className="mx-1 h-6 w-px bg-gray-200" />
-
-              {/* Legacy Tabs */}
-              <button
-                onClick={() => setActiveTab('bookmarks')}
-                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
-                  activeTab === 'bookmarks'
-                    ? 'border-sky-300 bg-sky-50 text-sky-600 shadow-sm'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-sky-200 hover:bg-sky-50/50 hover:text-sky-600'
-                }`}
-              >
-                <Bookmark className="h-4 w-4" />
-                {t('library.tabs.bookmarks')}
-              </button>
-              <button
-                onClick={() => setActiveTab('notes')}
-                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
-                  activeTab === 'notes'
-                    ? 'border-amber-300 bg-amber-50 text-amber-600 shadow-sm'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-amber-200 hover:bg-amber-50/50 hover:text-amber-600'
-                }`}
-              >
-                <FileText className="h-4 w-4" />
-                {t('library.tabs.notes')}
-              </button>
-              <button
-                onClick={() => setActiveTab('images')}
-                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
-                  activeTab === 'images'
-                    ? 'border-violet-300 bg-violet-50 text-violet-600 shadow-sm'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-violet-200 hover:bg-violet-50/50 hover:text-violet-600'
-                }`}
-              >
-                <Image className="h-4 w-4" />
-                {t('library.tabs.images')}
-              </button>
-              <button
-                onClick={() => setActiveTab('notion')}
-                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
-                  activeTab === 'notion'
-                    ? 'border-gray-400 bg-gray-100 text-gray-800 shadow-sm'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800'
-                }`}
-              >
-                <svg
-                  className="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.981-.7-2.055-.607L3.01 2.295c-.466.046-.56.28-.374.466l1.823 1.447zm.793 3.08v13.904c0 .747.373 1.027 1.214.98l14.523-.84c.841-.046.935-.56.935-1.167V6.354c0-.606-.233-.933-.748-.887l-15.177.887c-.56.047-.747.327-.747.933zm14.337.745c.093.42 0 .84-.42.888l-.7.14v10.264c-.608.327-1.168.514-1.635.514-.748 0-.935-.234-1.495-.933l-4.577-7.186v6.952l1.448.327s0 .84-1.168.84l-3.22.186c-.094-.186 0-.653.327-.746l.84-.233V9.854L7.822 9.62c-.094-.42.14-1.026.793-1.073l3.456-.233 4.763 7.279V9.014l-1.215-.14c-.093-.513.28-.886.747-.933l3.223-.186z" />
-                </svg>
-                {t('library.tabs.notion')}
-              </button>
-              <button
-                onClick={() => setActiveTab('google-drive')}
-                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
-                  activeTab === 'google-drive'
-                    ? 'border-blue-400 bg-blue-50 text-blue-700 shadow-sm'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700'
-                }`}
-              >
-                <svg
-                  className="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path d="M12.01 1.485c-.267 0-.534.07-.772.208L3.675 6.72c-.48.28-.773.796-.773 1.353v8.854c0 .558.293 1.074.773 1.353l7.563 5.027c.238.139.505.208.772.208s.534-.07.772-.208l7.563-5.027c.48-.28.773-.796.773-1.353V8.073c0-.558-.293-1.074-.773-1.353L12.782 1.693c-.238-.139-.505-.208-.772-.208zm0 1.74L19 7.788 12.01 12.35 5.02 7.788l6.99-4.563zm-7.237 7.07l6.465 4.21v8.405l-6.465-4.297V10.295zm8.237 4.21l6.465-4.21v8.218l-6.465 4.297v-8.405z" />
-                </svg>
-                Google Drive
-              </button>
-              <button
-                onClick={() => setActiveTab('knowledge-base')}
-                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
-                  activeTab === 'knowledge-base'
-                    ? 'border-indigo-400 bg-indigo-50 text-indigo-700 shadow-sm'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700'
-                }`}
-              >
-                <Database className="h-4 w-4" />
-                {t('library.tabs.knowledgeBase')}
-              </button>
               <button
                 onClick={() => setActiveTab('graph')}
                 className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
                   activeTab === 'graph'
-                    ? 'border-emerald-300 bg-emerald-50 text-emerald-600 shadow-sm'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-emerald-200 hover:bg-emerald-50/50 hover:text-emerald-600'
+                    ? 'border-emerald-400 bg-emerald-50 text-emerald-700 shadow-sm'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-emerald-300 hover:bg-emerald-50/50 hover:text-emerald-700'
                 }`}
               >
                 <Share2 className="h-4 w-4" />
-                {t('library.tabs.graph')}
+                知识图谱
               </button>
             </div>
           </div>
@@ -1663,392 +1517,21 @@ function LibraryPageContent() {
 
         {/* Main content area */}
         <div className="px-8 py-6">
-          {/* AI Organize Panel - Show on all tabs except Notion (Notion has integrated header) */}
-          {activeTab !== 'notion' && (
-            <AIOrganizePanel
-              collections={collections.map((c) => ({
-                id: c.id,
-                name: c.name,
-                itemCount: c.items?.length || 0,
-              }))}
-              onRefresh={() => {
-                // Refresh based on active tab
-                if (activeTab === 'bookmarks') {
-                  loadItems(1, false);
-                  loadTagsAndStats();
-                } else if (activeTab === 'images') {
-                  loadBookmarkedImages();
-                } else if (activeTab === 'graph') {
-                  loadGraphData();
-                }
-                // Notes tab refreshes via its own component
-              }}
-              activeTab={activeTab}
-            />
-          )}
-
-          {/* Bookmarks and All Content View */}
-          {activeTab === 'bookmarks' &&
-            (loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
-              </div>
-            ) : !paginatedItems || paginatedItems.items.length === 0 ? (
-              <div>
-                {/* Empty state for regular bookmarks */}
-                {bookmarkedImages.length === 0 && (
-                  <div className="py-12 text-center">
-                    <svg
-                      className="mx-auto h-12 w-12 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                      />
-                    </svg>
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">
-                      {t('library.empty.noBookmarks')}
-                    </h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                      {t('library.empty.noBookmarksDesc')}
-                    </p>
-                    <Link
-                      href="/"
-                      className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                    >
-                      <span>{t('library.empty.browseResources')}</span>
-                    </Link>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div>
-                {/* Selection info bar */}
-                {selectionMode && (
-                  <div className="mb-4 flex items-center justify-between rounded-lg bg-blue-50 px-4 py-2">
-                    <span className="text-sm text-blue-700">
-                      {selectedCount} of {paginatedItems.items.length} selected
-                    </span>
-                    <button
-                      onClick={() =>
-                        selectAll(paginatedItems.items.map((i) => i.id))
-                      }
-                      className="text-sm font-medium text-blue-600 hover:text-blue-700"
-                    >
-                      {t('library.actions.selectAll')}
-                    </button>
-                  </div>
-                )}
-
-                {/* Categorized Bookmarks */}
-                {(() => {
-                  // Categorize items by type
-                  const videoTypes = ['YOUTUBE', 'YOUTUBE_VIDEO'];
-                  const documentTypes = ['PAPER', 'BLOG', 'NEWS', 'REPORT'];
-
-                  const videoItems = paginatedItems.items.filter((item) =>
-                    videoTypes.includes(item.resource.type)
-                  );
-                  const documentItems = paginatedItems.items.filter((item) =>
-                    documentTypes.includes(item.resource.type)
-                  );
-                  const otherItems = paginatedItems.items.filter(
-                    (item) =>
-                      !videoTypes.includes(item.resource.type) &&
-                      !documentTypes.includes(item.resource.type)
-                  );
-
-                  return (
-                    <div className="space-y-8">
-                      {/* Videos Section */}
-                      {videoItems.length > 0 && (
-                        <div>
-                          <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
-                            <svg
-                              className="h-5 w-5 text-red-600"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                              />
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                              />
-                            </svg>
-                            Videos ({videoItems.length})
-                          </h3>
-                          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                            {videoItems.map((item) => (
-                              <ResourceCard key={item.id} item={item} />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Documents Section */}
-                      {documentItems.length > 0 && (
-                        <div>
-                          <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
-                            <svg
-                              className="h-5 w-5 text-blue-600"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                              />
-                            </svg>
-                            Documents ({documentItems.length})
-                          </h3>
-                          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                            {documentItems.map((item) => (
-                              <ResourceCard key={item.id} item={item} />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Other Items Section */}
-                      {otherItems.length > 0 && (
-                        <div>
-                          <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
-                            <svg
-                              className="h-5 w-5 text-gray-600"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                              />
-                            </svg>
-                            Other ({otherItems.length})
-                          </h3>
-                          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                            {otherItems.map((item) => (
-                              <ResourceCard key={item.id} item={item} />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {/* Load more indicator */}
-                <div ref={loadMoreRef} className="py-8 text-center">
-                  {loadingMore && (
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-blue-600"></div>
-                      <span className="text-sm text-gray-500">
-                        Loading more...
-                      </span>
-                    </div>
-                  )}
-                  {!loadingMore && !paginatedItems.pagination.hasMore && (
-                    <span className="text-sm text-gray-400">
-                      {paginatedItems.pagination.total} items total
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-
-          {/* Notes Tab */}
-          {activeTab === 'notes' && (
-            <NotesList
-              searchQuery={searchQuery}
-              showActions
-              onAddToOffice={handleAddNoteToOffice}
-            />
-          )}
-
-          {/* Images Tab - Bookmarked AI Images Gallery */}
-          {activeTab === 'images' && (
-            <div>
-              {bookmarkedImages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-20">
-                  <svg
-                    className="h-16 w-16 text-gray-300"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
-                  <h3 className="mt-4 text-lg font-medium text-gray-900">
-                    No saved images
-                  </h3>
-                  <p className="mt-1 text-gray-500">
-                    AI-generated images you save will appear here
-                  </p>
-                </div>
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                  {bookmarkedImages.map((image) => (
-                    <div
-                      key={image.id}
-                      className="group relative aspect-square cursor-pointer overflow-hidden rounded-xl bg-gray-100"
-                      onClick={() => handleImageClick(image)}
-                    >
-                      <img
-                        src={image.imageUrl}
-                        alt={image.prompt}
-                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-
-                      {/* Action buttons - visible on hover */}
-                      <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                        {/* Add to Image Source Pool */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (
-                              !imageSourceStore.sources.some(
-                                (s) => s.id === image.id
-                              )
-                            ) {
-                              imageSourceStore.addSource({
-                                id: image.id,
-                                type: 'blog', // AI generated images
-                                title: image.prompt.slice(0, 50),
-                                url: image.imageUrl,
-                                thumbnailUrl: image.imageUrl,
-                                addedAt: new Date(),
-                              });
-                              setToast({
-                                message: 'Added to Image Source Pool',
-                                type: 'success',
-                              });
-                            }
-                          }}
-                          disabled={imageSourceStore.sources.some(
-                            (s) => s.id === image.id
-                          )}
-                          className={`rounded-lg p-2 shadow-md backdrop-blur-sm transition-all ${
-                            imageSourceStore.sources.some(
-                              (s) => s.id === image.id
-                            )
-                              ? 'bg-purple-100 text-purple-600'
-                              : 'bg-white/90 hover:bg-purple-50 hover:text-purple-600'
-                          }`}
-                          title={
-                            imageSourceStore.sources.some(
-                              (s) => s.id === image.id
-                            )
-                              ? 'Added to Image Pool'
-                              : 'Add to Image Source Pool'
-                          }
-                        >
-                          <svg
-                            className="h-4 w-4"
-                            fill={
-                              imageSourceStore.sources.some(
-                                (s) => s.id === image.id
-                              )
-                                ? 'currentColor'
-                                : 'none'
-                            }
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                            />
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-                            />
-                          </svg>
-                        </button>
-                        {/* Download */}
-                        <a
-                          href={image.imageUrl}
-                          download
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="rounded-lg bg-white/90 p-2 shadow-md backdrop-blur-sm transition-all hover:bg-white hover:text-blue-600"
-                          title="Download"
-                        >
-                          <svg
-                            className="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                            />
-                          </svg>
-                        </a>
-                        {/* Remove */}
-                        <button
-                          onClick={(e) =>
-                            handleRemoveImageBookmark(image.id, e)
-                          }
-                          className="rounded-lg bg-white/90 p-2 shadow-md backdrop-blur-sm transition-all hover:bg-red-50 hover:text-red-600"
-                          title="Remove from Library"
-                        >
-                          <svg
-                            className="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-
-                      <div className="absolute bottom-0 left-0 right-0 p-3 text-white opacity-0 transition-opacity group-hover:opacity-100">
-                        <p className="line-clamp-2 text-sm">{image.prompt}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          {/* AI Organize Panel - Show on all main tabs */}
+          <AIOrganizePanel
+            collections={collections.map((c) => ({
+              id: c.id,
+              name: c.name,
+              itemCount: c.items?.length || 0,
+            }))}
+            onRefresh={() => {
+              // Refresh based on active tab
+              if (activeTab === 'graph') {
+                loadGraphData();
+              }
+            }}
+            activeTab={activeTab}
+          />
 
           {/* Personal Knowledge Base Tab */}
           {activeTab === 'personal-kb' && <PersonalKnowledgeBaseTab />}
@@ -2056,17 +1539,14 @@ function LibraryPageContent() {
           {/* Team Knowledge Base Tab */}
           {activeTab === 'team-kb' && <TeamKnowledgeBaseTab />}
 
-          {/* Data Sources Tab */}
-          {activeTab === 'data-sources' && <DataSourcesTab />}
-
-          {/* Notion Tab */}
-          {activeTab === 'notion' && <NotionTabContent />}
-
-          {/* Google Drive Tab */}
-          {activeTab === 'google-drive' && <GoogleDriveTabContent />}
-
-          {/* Knowledge Base Tab (Legacy) */}
-          {activeTab === 'knowledge-base' && <KnowledgeBaseTabContent />}
+          {/* Data Sources Tab - 包含子TAB：书签、笔记、图片、Notion、Google Drive */}
+          {activeTab === 'data-sources' && (
+            <DataSourcesTab
+              initialSubTab={initialDataSourceSubTab as any}
+              renderNotion={() => <NotionTabContent />}
+              renderGoogleDrive={() => <GoogleDriveTabContent />}
+            />
+          )}
 
           {/* Knowledge Graph View */}
           {activeTab === 'graph' && (
