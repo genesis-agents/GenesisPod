@@ -91,7 +91,10 @@ export default function GoogleDriveTabContent() {
         message: 'Sync started successfully',
         type: 'success',
       });
-      setTimeout(() => setImportStatus({ show: false, message: '', type: 'info' }), 3000);
+      setTimeout(
+        () => setImportStatus({ show: false, message: '', type: 'info' }),
+        3000
+      );
     } catch (err) {
       setImportStatus({
         show: true,
@@ -119,7 +122,8 @@ export default function GoogleDriveTabContent() {
       } catch (err) {
         setImportStatus({
           show: true,
-          message: err instanceof Error ? err.message : 'Failed to import files',
+          message:
+            err instanceof Error ? err.message : 'Failed to import files',
           type: 'error',
         });
       }
@@ -165,8 +169,8 @@ export default function GoogleDriveTabContent() {
           Connect your Google Drive
         </h3>
         <p className="mt-1 max-w-md text-center text-gray-500">
-          Access and import your Google Drive files to DeepDive. Your files will appear here
-          after connecting.
+          Access and import your Google Drive files to DeepDive. Your files will
+          appear here after connecting.
         </p>
         <button
           onClick={handleConnect}
@@ -176,7 +180,9 @@ export default function GoogleDriveTabContent() {
           Connect Google Drive
         </button>
         {error && (
-          <p className="mt-3 text-sm text-red-600">{error.message || 'Connection failed'}</p>
+          <p className="mt-3 text-sm text-red-600">
+            {error.message || 'Connection failed'}
+          </p>
         )}
       </div>
     );
@@ -198,7 +204,9 @@ export default function GoogleDriveTabContent() {
           <div className="flex items-center justify-between">
             <span className="text-sm">{importStatus.message}</span>
             <button
-              onClick={() => setImportStatus({ show: false, message: '', type: 'info' })}
+              onClick={() =>
+                setImportStatus({ show: false, message: '', type: 'info' })
+              }
               className="text-current hover:opacity-70"
             >
               ×
@@ -372,7 +380,8 @@ export default function GoogleDriveTabContent() {
               </span>
               {importHook.progress && (
                 <span className="text-xs text-blue-700">
-                  {importHook.progressPercent}% ({importHook.progress.processedFiles}/
+                  {importHook.progressPercent}% (
+                  {importHook.progress.processedFiles}/
                   {importHook.progress.totalFiles})
                 </span>
               )}

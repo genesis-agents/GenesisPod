@@ -404,7 +404,9 @@ export class SlideContentService {
     if (content.bulletPoints) parts.push(content.bulletPoints.join(" "));
     if (content.highlightText) parts.push(content.highlightText);
     if (content.statistics) {
-      parts.push(content.statistics.map((s) => `${s.label} ${s.value}`).join(" "));
+      parts.push(
+        content.statistics.map((s) => `${s.label} ${s.value}`).join(" "),
+      );
     }
 
     return parts.join(" ");

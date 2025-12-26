@@ -52,9 +52,14 @@ export function GoogleDriveFolderPicker({
   });
 
   // 过滤出文件夹
-  const folders = files.filter((f) => f.isFolder || f.mimeType === 'application/vnd.google-apps.folder');
+  const folders = files.filter(
+    (f) => f.isFolder || f.mimeType === 'application/vnd.google-apps.folder'
+  );
 
-  const handleSelectFolder = (folderId: string | undefined, folderName: string) => {
+  const handleSelectFolder = (
+    folderId: string | undefined,
+    folderName: string
+  ) => {
     onSelectFolder(folderId, folderName);
   };
 
@@ -118,7 +123,8 @@ export function GoogleDriveFolderPicker({
         {/* 当前文件夹选项（根目录或当前目录） */}
         <button
           onClick={() => {
-            const currentName = breadcrumbs[breadcrumbs.length - 1]?.name || 'My Drive';
+            const currentName =
+              breadcrumbs[breadcrumbs.length - 1]?.name || 'My Drive';
             handleSelectFolder(currentFolderId, currentName);
           }}
           className={cn(
@@ -150,7 +156,9 @@ export function GoogleDriveFolderPicker({
           <div className="flex items-center gap-2 rounded-lg bg-red-50 p-3 text-red-700">
             <AlertCircle size={16} />
             <span className="text-sm">
-              {error instanceof Error ? error.message : 'Failed to load folders'}
+              {error instanceof Error
+                ? error.message
+                : 'Failed to load folders'}
             </span>
           </div>
         )}

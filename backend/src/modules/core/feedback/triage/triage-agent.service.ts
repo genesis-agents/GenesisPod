@@ -110,8 +110,7 @@ export class TriageAgentService {
     private readonly similarityMatcher: SimilarityMatcherService,
     private readonly screenshotAnalyzer: ScreenshotAnalyzerService,
   ) {
-    this.openaiApiKey =
-      this.configService.get<string>("OPENAI_API_KEY") || "";
+    this.openaiApiKey = this.configService.get<string>("OPENAI_API_KEY") || "";
     this.openaiBaseUrl =
       this.configService.get<string>("OPENAI_BASE_URL") ||
       "https://api.openai.com/v1";
@@ -130,7 +129,9 @@ export class TriageAgentService {
    */
   async triage(input: TriageInput): Promise<TriageDecision> {
     const startTime = Date.now();
-    this.logger.log(`[triage] Starting triage for feedback: ${input.feedbackId}`);
+    this.logger.log(
+      `[triage] Starting triage for feedback: ${input.feedbackId}`,
+    );
 
     try {
       // 1. 并行执行：截图分析 + 相似问题查找 + AI 分诊
@@ -236,7 +237,10 @@ ${input.metadata.errorStack}
 `;
     }
 
-    if (input.metadata.consoleErrors && input.metadata.consoleErrors.length > 0) {
+    if (
+      input.metadata.consoleErrors &&
+      input.metadata.consoleErrors.length > 0
+    ) {
       prompt += `
 ## 控制台错误
 ${input.metadata.consoleErrors.map((e) => `- ${e}`).join("\n")}
@@ -398,7 +402,8 @@ ${input.attachments.map((a) => `- ${a.filename} (${a.mimeType})`).join("\n")}
    * 猜测受影响模块
    */
   private guessModule(input: TriageInput): string {
-    const text = `${input.title} ${input.description} ${input.metadata.pageUrl || ""}`.toLowerCase();
+    const text =
+      `${input.title} ${input.description} ${input.metadata.pageUrl || ""}`.toLowerCase();
 
     const modulePatterns: Record<string, string[]> = {
       "ai-office/ppt": ["ppt", "幻灯片", "slide", "演示"],

@@ -1403,7 +1403,10 @@ DO NOT include any text or words in the image.`;
     } else {
       // 保留原有的内容页
       const contentSlides = outline.slides.filter(
-        (s) => s.purpose !== "title" && s.purpose !== "closing" && s.purpose !== "qna",
+        (s) =>
+          s.purpose !== "title" &&
+          s.purpose !== "closing" &&
+          s.purpose !== "qna",
       );
       for (const slide of contentSlides) {
         slide.index = enhancedSlides.length;
@@ -1516,7 +1519,8 @@ DO NOT include any text or words in the image.`;
 
       // 查找相关的数据点
       const relevantDataPoints = sourceAnalysis.dataPoints.filter((dp) => {
-        const slideText = `${slide.title} ${slide.keyPoints.join(" ")}`.toLowerCase();
+        const slideText =
+          `${slide.title} ${slide.keyPoints.join(" ")}`.toLowerCase();
         return (
           slideText.includes(dp.value.toLowerCase()) ||
           slideText.includes(dp.context.toLowerCase().slice(0, 20))
@@ -1545,17 +1549,23 @@ DO NOT include any text or words in the image.`;
   ): SourceAnalysis["chapters"][0] | null {
     if (chapters.length === 0) return null;
 
-    const slideText = `${slide.title} ${slide.keyPoints.join(" ")}`.toLowerCase();
+    const slideText =
+      `${slide.title} ${slide.keyPoints.join(" ")}`.toLowerCase();
 
     let bestMatch: SourceAnalysis["chapters"][0] | null = null;
     let bestScore = 0;
 
     for (const chapter of chapters) {
-      const chapterText = `${chapter.title} ${chapter.keyPoints.join(" ")}`.toLowerCase();
+      const chapterText =
+        `${chapter.title} ${chapter.keyPoints.join(" ")}`.toLowerCase();
 
       // 计算词汇重叠
-      const slideWords = new Set(slideText.split(/\s+/).filter((w) => w.length > 2));
-      const chapterWords = new Set(chapterText.split(/\s+/).filter((w) => w.length > 2));
+      const slideWords = new Set(
+        slideText.split(/\s+/).filter((w) => w.length > 2),
+      );
+      const chapterWords = new Set(
+        chapterText.split(/\s+/).filter((w) => w.length > 2),
+      );
 
       let overlap = 0;
       for (const word of slideWords) {

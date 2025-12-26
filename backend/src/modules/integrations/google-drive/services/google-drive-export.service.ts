@@ -109,7 +109,9 @@ export class GoogleDriveExportService {
             },
           });
         } catch (error) {
-          this.logger.error(`Failed to export resource ${resourceId}: ${error}`);
+          this.logger.error(
+            `Failed to export resource ${resourceId}: ${error}`,
+          );
           result.failed++;
           result.errors.push({
             resourceId,
@@ -164,13 +166,18 @@ export class GoogleDriveExportService {
     });
 
     if (!resource) {
-      throw new BadRequestException(`Resource ${resourceId} not found or access denied`);
+      throw new BadRequestException(
+        `Resource ${resourceId} not found or access denied`,
+      );
     }
 
     this.logger.log(`Exporting resource: ${resource.title}`);
 
     // 生成文件内容和元数据
-    const { content, mimeType, fileName } = await this.generateExportFile(resource, dto);
+    const { content, mimeType, fileName } = await this.generateExportFile(
+      resource,
+      dto,
+    );
 
     // 上传到 Google Drive
     const file = await this.fileService.uploadFile(
@@ -181,7 +188,9 @@ export class GoogleDriveExportService {
       mimeType,
     );
 
-    this.logger.log(`Successfully exported resource ${resource.title} as ${file.name} (${file.id})`);
+    this.logger.log(
+      `Successfully exported resource ${resource.title} as ${file.name} (${file.id})`,
+    );
 
     return { fileId: file.id, fileName: file.name };
   }

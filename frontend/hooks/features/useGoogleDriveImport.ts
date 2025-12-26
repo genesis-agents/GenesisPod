@@ -78,7 +78,9 @@ export function useGoogleDriveImport() {
         const progressInterval = setInterval(() => {
           setProgress((prev) =>
             prev.map((p) =>
-              p.status === 'pending' ? { ...p, status: 'importing' as const } : p
+              p.status === 'pending'
+                ? { ...p, status: 'importing' as const }
+                : p
             )
           );
           setTotalProgress((prev) => Math.min(prev + 10, 90));

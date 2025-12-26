@@ -4,7 +4,10 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
 import { CreateFeedbackDto, FeedbackTypeDto } from "./dto/create-feedback.dto";
 import { EmailService } from "../email/email.service";
 import { R2StorageService } from "../storage/r2-storage.service";
-import { FeedbackEvent, FeedbackCreatedPayload } from "./events/feedback-events";
+import {
+  FeedbackEvent,
+  FeedbackCreatedPayload,
+} from "./events/feedback-events";
 
 // Type mapping for feedback types
 type FeedbackTypeEnum = "BUG" | "FEATURE" | "IMPROVEMENT" | "OTHER";
@@ -30,6 +33,7 @@ export class FeedbackService {
     private prisma: PrismaService,
     private emailService: EmailService,
     private r2Storage: R2StorageService,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   /**
@@ -156,6 +160,35 @@ export class FeedbackService {
     } catch (error) {
       // Log error but don't fail the request
       this.logger.error("Failed to send email notification", error);
+    }
+
+    // Emit feedback created event for auto-triage
+    try {
+      const eventPayload: FeedbackCreatedPayload = {
+        feedbackId: createdId,
+        type: feedbackType,
+        title: dto.title,
+        description: dto.description,
+        attachments: attachments.map((a) => ({
+          filename: a.filename,
+          url: a.url,
+          mimeType: a.mimeType,
+          size: a.size,
+        })),
+        userId,
+        userEmail: dto.userEmail,
+        pageUrl: dto.url,
+        userAgent: dto.userAgent,
+        createdAt: new Date(),
+      };
+
+      this.eventEmitter.emit(FeedbackEvent.CREATED, eventPayload);
+      this.logger.log(
+        `Emitted ${FeedbackEvent.CREATED} event for ${createdId}`,
+      );
+    } catch (error) {
+      // Log error but don't fail the request
+      this.logger.error("Failed to emit feedback created event", error);
     }
 
     return {

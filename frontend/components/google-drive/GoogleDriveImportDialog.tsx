@@ -291,7 +291,10 @@ export function GoogleDriveImportDialog({
                       key={file.id}
                       className="flex items-center gap-3 rounded-lg bg-white p-3"
                     >
-                      <FileText size={20} className="flex-shrink-0 text-blue-600" />
+                      <FileText
+                        size={20}
+                        className="flex-shrink-0 text-blue-600"
+                      />
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium text-gray-900">
                           {file.name}

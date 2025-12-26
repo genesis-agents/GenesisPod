@@ -9,12 +9,12 @@
 
 ## Document Information
 
-| Field          | Value                     |
-| -------------- | ------------------------- |
-| Module         | google-drive-integration  |
-| Type           | prd                       |
-| Priority       | P1 (High)                 |
-| Target Release | v1.2.0                    |
+| Field          | Value                    |
+| -------------- | ------------------------ |
+| Module         | google-drive-integration |
+| Type           | prd                      |
+| Priority       | P1 (High)                |
+| Target Release | v1.2.0                   |
 
 ---
 
@@ -32,13 +32,13 @@ DeepDive Engine 是一个企业级 AI 驱动的深度研究和内容管理平台
 
 ### 1.2 Goals
 
-| Goal                  | Description                                              | Success Metric          |
-| --------------------- | -------------------------------------------------------- | ----------------------- |
-| **无缝连接**          | 用户可以一键完成 Google Drive OAuth 授权                 | OAuth 成功率 > 95%      |
-| **资源浏览**          | 用户可以在 Library 中浏览 Google Drive 文件              | 加载时间 < 2s           |
-| **导入资源**          | 用户可以将 Google Drive 文件导入到 Library               | 导入成功率 > 98%        |
-| **导出资源**          | 用户可以将 Library 资源导出到 Google Drive               | 导出成功率 > 98%        |
-| **统一体验**          | 与现有 Notion 集成保持一致的 UI/UX                       | 用户满意度 > 4.0/5      |
+| Goal         | Description                                 | Success Metric     |
+| ------------ | ------------------------------------------- | ------------------ |
+| **无缝连接** | 用户可以一键完成 Google Drive OAuth 授权    | OAuth 成功率 > 95% |
+| **资源浏览** | 用户可以在 Library 中浏览 Google Drive 文件 | 加载时间 < 2s      |
+| **导入资源** | 用户可以将 Google Drive 文件导入到 Library  | 导入成功率 > 98%   |
+| **导出资源** | 用户可以将 Library 资源导出到 Google Drive  | 导出成功率 > 98%   |
+| **统一体验** | 与现有 Notion 集成保持一致的 UI/UX          | 用户满意度 > 4.0/5 |
 
 ### 1.3 Non-Goals
 
@@ -54,25 +54,25 @@ DeepDive Engine 是一个企业级 AI 驱动的深度研究和内容管理平台
 
 ### 2.1 Role Definition
 
-| Role          | Description                                      |
-| ------------- | ------------------------------------------------ |
-| **普通用户**  | 使用平台进行研究和内容管理的终端用户             |
-| **高级用户**  | 有大量云端文档需要管理，频繁使用导入导出功能     |
+| Role         | Description                                  |
+| ------------ | -------------------------------------------- |
+| **普通用户** | 使用平台进行研究和内容管理的终端用户         |
+| **高级用户** | 有大量云端文档需要管理，频繁使用导入导出功能 |
 
 ### 2.2 User Story List
 
-| ID     | Role     | Story                                                        | Priority | Acceptance Criteria                                     |
-| ------ | -------- | ------------------------------------------------------------ | -------- | ------------------------------------------------------- |
-| US-001 | 普通用户 | 作为用户，我想在 Profile 页面连接我的 Google Drive 账号       | P0       | 点击连接按钮后跳转 Google 授权页面，完成后返回平台       |
-| US-002 | 普通用户 | 作为用户，我想查看已连接的 Google Drive 账号信息             | P0       | 显示账号邮箱、存储空间、连接时间                         |
-| US-003 | 普通用户 | 作为用户，我想断开 Google Drive 连接                         | P0       | 点击断开后确认，成功断开并清理本地数据                   |
-| US-004 | 普通用户 | 作为用户，我想在 Library 中浏览 Google Drive 文件            | P0       | 可以看到文件夹结构，支持分页加载                         |
-| US-005 | 普通用户 | 作为用户，我想搜索 Google Drive 中的文件                     | P1       | 支持按文件名、类型搜索                                   |
-| US-006 | 普通用户 | 作为用户，我想将 Google Drive 文件导入到 Library             | P0       | 选择文件后导入，显示导入进度                             |
-| US-007 | 普通用户 | 作为用户，我想将 Library 资源导出到 Google Drive             | P0       | 选择资源后导出，可选目标文件夹                           |
-| US-008 | 高级用户 | 作为高级用户，我想批量导入多个文件                           | P1       | 支持多选文件批量导入，显示整体进度                       |
-| US-009 | 高级用户 | 作为高级用户，我想批量导出多个资源                           | P1       | 支持多选资源批量导出                                     |
-| US-010 | 普通用户 | 作为用户，我想在导入时自动生成 AI 摘要                       | P2       | 导入后自动触发 AI 分析（可配置）                         |
+| ID     | Role     | Story                                                   | Priority | Acceptance Criteria                                |
+| ------ | -------- | ------------------------------------------------------- | -------- | -------------------------------------------------- |
+| US-001 | 普通用户 | 作为用户，我想在 Profile 页面连接我的 Google Drive 账号 | P0       | 点击连接按钮后跳转 Google 授权页面，完成后返回平台 |
+| US-002 | 普通用户 | 作为用户，我想查看已连接的 Google Drive 账号信息        | P0       | 显示账号邮箱、存储空间、连接时间                   |
+| US-003 | 普通用户 | 作为用户，我想断开 Google Drive 连接                    | P0       | 点击断开后确认，成功断开并清理本地数据             |
+| US-004 | 普通用户 | 作为用户，我想在 Library 中浏览 Google Drive 文件       | P0       | 可以看到文件夹结构，支持分页加载                   |
+| US-005 | 普通用户 | 作为用户，我想搜索 Google Drive 中的文件                | P1       | 支持按文件名、类型搜索                             |
+| US-006 | 普通用户 | 作为用户，我想将 Google Drive 文件导入到 Library        | P0       | 选择文件后导入，显示导入进度                       |
+| US-007 | 普通用户 | 作为用户，我想将 Library 资源导出到 Google Drive        | P0       | 选择资源后导出，可选目标文件夹                     |
+| US-008 | 高级用户 | 作为高级用户，我想批量导入多个文件                      | P1       | 支持多选文件批量导入，显示整体进度                 |
+| US-009 | 高级用户 | 作为高级用户，我想批量导出多个资源                      | P1       | 支持多选资源批量导出                               |
+| US-010 | 普通用户 | 作为用户，我想在导入时自动生成 AI 摘要                  | P2       | 导入后自动触发 AI 分析（可配置）                   |
 
 ---
 
@@ -132,12 +132,12 @@ DeepDive Engine 是一个企业级 AI 驱动的深度研究和内容管理平台
 
 #### 3.2.3 Required Scopes
 
-| Scope                                                  | Purpose                    |
-| ------------------------------------------------------ | -------------------------- |
-| `https://www.googleapis.com/auth/drive.readonly`       | 读取文件列表和内容         |
-| `https://www.googleapis.com/auth/drive.file`           | 创建和管理本应用创建的文件 |
-| `https://www.googleapis.com/auth/userinfo.email`       | 获取用户邮箱信息           |
-| `https://www.googleapis.com/auth/userinfo.profile`     | 获取用户基本信息           |
+| Scope                                              | Purpose                    |
+| -------------------------------------------------- | -------------------------- |
+| `https://www.googleapis.com/auth/drive.readonly`   | 读取文件列表和内容         |
+| `https://www.googleapis.com/auth/drive.file`       | 创建和管理本应用创建的文件 |
+| `https://www.googleapis.com/auth/userinfo.email`   | 获取用户邮箱信息           |
+| `https://www.googleapis.com/auth/userinfo.profile` | 获取用户基本信息           |
 
 #### 3.2.4 Acceptance Criteria
 
@@ -182,13 +182,13 @@ DeepDive Engine 是一个企业级 AI 驱动的深度研究和内容管理平台
 
 #### 3.3.3 Connection States
 
-| State           | UI Display                                       | Actions           |
-| --------------- | ------------------------------------------------ | ----------------- |
-| Not Connected   | 显示连接引导和 [Connect] 按钮                    | Connect           |
-| Connecting      | 显示加载状态                                     | -                 |
-| Connected       | 显示账号信息、存储空间、同步状态                 | Disconnect, Sync  |
-| Error           | 显示错误信息和 [Retry] 按钮                      | Retry, Disconnect |
-| Token Expired   | 显示"需要重新授权"提示                           | Reconnect         |
+| State         | UI Display                       | Actions           |
+| ------------- | -------------------------------- | ----------------- |
+| Not Connected | 显示连接引导和 [Connect] 按钮    | Connect           |
+| Connecting    | 显示加载状态                     | -                 |
+| Connected     | 显示账号信息、存储空间、同步状态 | Disconnect, Sync  |
+| Error         | 显示错误信息和 [Retry] 按钮      | Retry, Disconnect |
+| Token Expired | 显示"需要重新授权"提示           | Reconnect         |
 
 #### 3.3.4 Acceptance Criteria
 
@@ -242,26 +242,26 @@ DeepDive Engine 是一个企业级 AI 驱动的深度研究和内容管理平台
 
 #### 3.4.4 Supported File Types
 
-| Category         | Extensions                           | Preview | Import |
-| ---------------- | ------------------------------------ | ------- | ------ |
-| **Documents**    | .pdf, .docx, .doc, .txt, .md, .rtf   | Yes     | Yes    |
-| **Spreadsheets** | .xlsx, .xls, .csv                    | Link    | Yes    |
-| **Presentations**| .pptx, .ppt                          | Link    | Yes    |
-| **Images**       | .jpg, .jpeg, .png, .gif, .webp       | Yes     | Yes    |
-| **Google Docs**  | Google Doc, Sheet, Slides            | Link    | Yes*   |
+| Category          | Extensions                         | Preview | Import |
+| ----------------- | ---------------------------------- | ------- | ------ |
+| **Documents**     | .pdf, .docx, .doc, .txt, .md, .rtf | Yes     | Yes    |
+| **Spreadsheets**  | .xlsx, .xls, .csv                  | Link    | Yes    |
+| **Presentations** | .pptx, .ppt                        | Link    | Yes    |
+| **Images**        | .jpg, .jpeg, .png, .gif, .webp     | Yes     | Yes    |
+| **Google Docs**   | Google Doc, Sheet, Slides          | Link    | Yes\*  |
 
-*Google Docs 导入时会自动转换为 PDF 或纯文本格式
+\*Google Docs 导入时会自动转换为 PDF 或纯文本格式
 
 #### 3.4.5 File List Display
 
-| Column        | Description                     |
-| ------------- | ------------------------------- |
-| Icon          | 文件类型图标                    |
-| Name          | 文件名（支持重命名）            |
-| Type          | 文件类型                        |
-| Size          | 文件大小                        |
-| Modified      | 最后修改时间                    |
-| Actions       | 预览、导入、删除等操作          |
+| Column   | Description            |
+| -------- | ---------------------- |
+| Icon     | 文件类型图标           |
+| Name     | 文件名（支持重命名）   |
+| Type     | 文件类型               |
+| Size     | 文件大小               |
+| Modified | 最后修改时间           |
+| Actions  | 预览、导入、删除等操作 |
 
 #### 3.4.6 Acceptance Criteria
 
@@ -336,14 +336,14 @@ DeepDive Engine 是一个企业级 AI 驱动的深度研究和内容管理平台
 
 #### 3.5.4 Content Extraction
 
-| File Type        | Extraction Method                           |
-| ---------------- | ------------------------------------------- |
-| PDF              | PDF.js 或 Apache PDFBox 提取文本            |
-| DOCX/DOC         | Mammoth.js 或 Apache POI 提取文本           |
-| TXT/MD           | 直接读取                                     |
-| XLSX/CSV         | 提取为结构化数据（表格格式）                |
-| Images           | OCR（可选）或仅保存元数据                   |
-| Google Docs      | 使用 Google API 导出为 PDF/TXT              |
+| File Type   | Extraction Method                 |
+| ----------- | --------------------------------- |
+| PDF         | PDF.js 或 Apache PDFBox 提取文本  |
+| DOCX/DOC    | Mammoth.js 或 Apache POI 提取文本 |
+| TXT/MD      | 直接读取                          |
+| XLSX/CSV    | 提取为结构化数据（表格格式）      |
+| Images      | OCR（可选）或仅保存元数据         |
+| Google Docs | 使用 Google API 导出为 PDF/TXT    |
 
 #### 3.5.5 Acceptance Criteria
 
@@ -428,13 +428,13 @@ DeepDive Engine 是一个企业级 AI 驱动的深度研究和内容管理平台
 
 #### 3.6.4 Export Formats
 
-| Source Type      | Available Export Formats                    |
-| ---------------- | ------------------------------------------- |
-| Paper/Article    | PDF, Markdown, HTML, TXT                    |
-| YouTube Video    | Markdown (transcript + notes), PDF          |
-| Report           | PDF, Markdown, HTML, DOCX                   |
-| Note             | Markdown, TXT, PDF                          |
-| Image            | Original format                             |
+| Source Type   | Available Export Formats           |
+| ------------- | ---------------------------------- |
+| Paper/Article | PDF, Markdown, HTML, TXT           |
+| YouTube Video | Markdown (transcript + notes), PDF |
+| Report        | PDF, Markdown, HTML, DOCX          |
+| Note          | Markdown, TXT, PDF                 |
+| Image         | Original format                    |
 
 #### 3.6.5 Acceptance Criteria
 
@@ -456,13 +456,13 @@ DeepDive Engine 是一个企业级 AI 驱动的深度研究和内容管理平台
 
 #### 3.7.2 Sync Status Indicators
 
-| Status        | Icon            | Color  | Description                    |
-| ------------- | --------------- | ------ | ------------------------------ |
-| Synced        | Check Circle    | Green  | 所有文件已同步                 |
-| Syncing       | Refresh Spin    | Blue   | 正在同步中                     |
-| Pending       | Clock           | Yellow | 有待同步的更改                 |
-| Error         | Alert Triangle  | Red    | 同步失败                       |
-| Disconnected  | Cloud Off       | Gray   | 未连接 Google Drive            |
+| Status       | Icon           | Color  | Description         |
+| ------------ | -------------- | ------ | ------------------- |
+| Synced       | Check Circle   | Green  | 所有文件已同步      |
+| Syncing      | Refresh Spin   | Blue   | 正在同步中          |
+| Pending      | Clock          | Yellow | 有待同步的更改      |
+| Error        | Alert Triangle | Red    | 同步失败            |
+| Disconnected | Cloud Off      | Gray   | 未连接 Google Drive |
 
 #### 3.7.3 Acceptance Criteria
 
@@ -610,7 +610,10 @@ interface GoogleDriveStore {
   selectAll: () => void;
   clearSelection: () => void;
   importSelected: (options: ImportOptions) => Promise<void>;
-  exportResources: (resourceIds: string[], options: ExportOptions) => Promise<void>;
+  exportResources: (
+    resourceIds: string[],
+    options: ExportOptions,
+  ) => Promise<void>;
 }
 ```
 
@@ -638,21 +641,21 @@ backend/
 
 #### 4.3.2 API Endpoints
 
-| Endpoint                              | Method | Description                  | Auth Required |
-| ------------------------------------- | ------ | ---------------------------- | ------------- |
-| `/api/v1/google-drive/connect`        | GET    | 获取 OAuth 授权 URL          | Yes           |
-| `/api/v1/google-drive/callback`       | GET    | OAuth 回调处理               | No*           |
-| `/api/v1/google-drive/disconnect`     | DELETE | 断开连接                     | Yes           |
-| `/api/v1/google-drive/connection`     | GET    | 获取连接信息                 | Yes           |
-| `/api/v1/google-drive/files`          | GET    | 获取文件列表                 | Yes           |
-| `/api/v1/google-drive/files/:id`      | GET    | 获取单个文件信息             | Yes           |
-| `/api/v1/google-drive/files/:id/content` | GET | 获取文件内容                 | Yes           |
-| `/api/v1/google-drive/import`         | POST   | 导入文件到 Library           | Yes           |
-| `/api/v1/google-drive/export`         | POST   | 导出资源到 Google Drive      | Yes           |
-| `/api/v1/google-drive/sync/status`    | GET    | 获取同步状态                 | Yes           |
-| `/api/v1/google-drive/sync/history`   | GET    | 获取同步历史                 | Yes           |
+| Endpoint                                 | Method | Description             | Auth Required |
+| ---------------------------------------- | ------ | ----------------------- | ------------- |
+| `/api/v1/google-drive/connect`           | GET    | 获取 OAuth 授权 URL     | Yes           |
+| `/api/v1/google-drive/callback`          | GET    | OAuth 回调处理          | No\*          |
+| `/api/v1/google-drive/disconnect`        | DELETE | 断开连接                | Yes           |
+| `/api/v1/google-drive/connection`        | GET    | 获取连接信息            | Yes           |
+| `/api/v1/google-drive/files`             | GET    | 获取文件列表            | Yes           |
+| `/api/v1/google-drive/files/:id`         | GET    | 获取单个文件信息        | Yes           |
+| `/api/v1/google-drive/files/:id/content` | GET    | 获取文件内容            | Yes           |
+| `/api/v1/google-drive/import`            | POST   | 导入文件到 Library      | Yes           |
+| `/api/v1/google-drive/export`            | POST   | 导出资源到 Google Drive | Yes           |
+| `/api/v1/google-drive/sync/status`       | GET    | 获取同步状态            | Yes           |
+| `/api/v1/google-drive/sync/history`      | GET    | 获取同步历史            | Yes           |
 
-*OAuth 回调通过 state 参数验证用户
+\*OAuth 回调通过 state 参数验证用户
 
 #### 4.3.3 Request/Response DTOs
 
@@ -673,20 +676,20 @@ interface GoogleDriveConnectionResponse {
     usage: number;
     usageInDrive: number;
   };
-  status: 'ACTIVE' | 'ERROR' | 'EXPIRED';
+  status: "ACTIVE" | "ERROR" | "EXPIRED";
   lastSyncAt?: string;
   connectedAt: string;
 }
 
 // File List Request
 interface ListFilesDto {
-  folderId?: string;      // null = root
+  folderId?: string; // null = root
   pageToken?: string;
-  pageSize?: number;      // default: 50
-  query?: string;         // search query
-  mimeTypes?: string[];   // filter by type
-  orderBy?: 'name' | 'modifiedTime' | 'size';
-  orderDirection?: 'asc' | 'desc';
+  pageSize?: number; // default: 50
+  query?: string; // search query
+  mimeTypes?: string[]; // filter by type
+  orderBy?: "name" | "modifiedTime" | "size";
+  orderDirection?: "asc" | "desc";
 }
 
 // File List Response
@@ -727,7 +730,7 @@ interface ImportFilesResponse {
   imported: {
     fileId: string;
     resourceId: string;
-    status: 'success' | 'failed';
+    status: "success" | "failed";
     error?: string;
   }[];
   totalSuccess: number;
@@ -737,8 +740,8 @@ interface ImportFilesResponse {
 // Export Request
 interface ExportResourcesDto {
   resourceIds: string[];
-  folderId: string;       // target folder
-  format: 'pdf' | 'markdown' | 'html' | 'txt' | 'original';
+  folderId: string; // target folder
+  format: "pdf" | "markdown" | "html" | "txt" | "original";
   options: {
     includeAISummary: boolean;
     includeNotes: boolean;
@@ -753,7 +756,7 @@ interface ExportResourcesResponse {
     fileId: string;
     fileName: string;
     webViewLink: string;
-    status: 'success' | 'failed';
+    status: "success" | "failed";
     error?: string;
   }[];
   totalSuccess: number;
@@ -931,28 +934,28 @@ GOOGLE_DRIVE_API_KEY=your-api-key
 
 ### 5.1 OAuth Security
 
-| Concern                 | Mitigation                                          |
-| ----------------------- | --------------------------------------------------- |
-| Token Exposure          | Access Token 和 Refresh Token 加密存储              |
-| CSRF Attack             | 使用 state 参数验证 OAuth 回调                      |
-| Token Theft             | 仅请求必要的 scope                                  |
-| Session Hijacking       | Refresh Token 仅存储在后端                          |
+| Concern           | Mitigation                             |
+| ----------------- | -------------------------------------- |
+| Token Exposure    | Access Token 和 Refresh Token 加密存储 |
+| CSRF Attack       | 使用 state 参数验证 OAuth 回调         |
+| Token Theft       | 仅请求必要的 scope                     |
+| Session Hijacking | Refresh Token 仅存储在后端             |
 
 ### 5.2 Data Security
 
-| Concern                 | Mitigation                                          |
-| ----------------------- | --------------------------------------------------- |
-| Sensitive Files         | 用户明确选择导入的文件，不自动扫描                  |
-| Data Retention          | 断开连接时清理所有本地缓存的文件数据                |
-| Access Control          | 每个用户只能访问自己连接的 Google Drive             |
+| Concern         | Mitigation                              |
+| --------------- | --------------------------------------- |
+| Sensitive Files | 用户明确选择导入的文件，不自动扫描      |
+| Data Retention  | 断开连接时清理所有本地缓存的文件数据    |
+| Access Control  | 每个用户只能访问自己连接的 Google Drive |
 
 ### 5.3 API Security
 
-| Concern                 | Mitigation                                          |
-| ----------------------- | --------------------------------------------------- |
-| Rate Limiting           | 实现 API 调用限流，遵循 Google API 配额             |
-| Error Handling          | 不在错误信息中暴露敏感数据                          |
-| Input Validation        | 严格验证所有输入参数                                |
+| Concern          | Mitigation                              |
+| ---------------- | --------------------------------------- |
+| Rate Limiting    | 实现 API 调用限流，遵循 Google API 配额 |
+| Error Handling   | 不在错误信息中暴露敏感数据              |
+| Input Validation | 严格验证所有输入参数                    |
 
 ---
 
@@ -960,23 +963,23 @@ GOOGLE_DRIVE_API_KEY=your-api-key
 
 ### 6.1 Error Categories
 
-| Category              | Examples                               | User Message                           |
-| --------------------- | -------------------------------------- | -------------------------------------- |
-| **Auth Errors**       | Token expired, Access denied           | "Please reconnect your Google Drive"   |
-| **API Errors**        | Rate limit, Server error               | "Google Drive is temporarily unavailable"|
-| **File Errors**       | File not found, Permission denied      | "Cannot access this file"              |
-| **Import Errors**     | Unsupported format, Extraction failed  | "Failed to import: [filename]"         |
-| **Export Errors**     | Upload failed, Folder not found        | "Failed to export to Google Drive"     |
+| Category          | Examples                              | User Message                              |
+| ----------------- | ------------------------------------- | ----------------------------------------- |
+| **Auth Errors**   | Token expired, Access denied          | "Please reconnect your Google Drive"      |
+| **API Errors**    | Rate limit, Server error              | "Google Drive is temporarily unavailable" |
+| **File Errors**   | File not found, Permission denied     | "Cannot access this file"                 |
+| **Import Errors** | Unsupported format, Extraction failed | "Failed to import: [filename]"            |
+| **Export Errors** | Upload failed, Folder not found       | "Failed to export to Google Drive"        |
 
 ### 6.2 Error Recovery
 
-| Error Type            | Recovery Action                                     |
-| --------------------- | --------------------------------------------------- |
-| Token Expired         | 自动使用 Refresh Token 刷新                         |
-| Refresh Token Invalid | 提示用户重新连接                                    |
-| Rate Limited          | 指数退避重试（最多 3 次）                           |
-| Network Error         | 显示离线提示，允许重试                              |
-| Partial Failure       | 显示成功/失败列表，允许重试失败项                   |
+| Error Type            | Recovery Action                   |
+| --------------------- | --------------------------------- |
+| Token Expired         | 自动使用 Refresh Token 刷新       |
+| Refresh Token Invalid | 提示用户重新连接                  |
+| Rate Limited          | 指数退避重试（最多 3 次）         |
+| Network Error         | 显示离线提示，允许重试            |
+| Partial Failure       | 显示成功/失败列表，允许重试失败项 |
 
 ---
 
@@ -984,57 +987,57 @@ GOOGLE_DRIVE_API_KEY=your-api-key
 
 ### Phase 1: Foundation (3 days)
 
-| ID    | Task                                    | Type     | Est.  | Priority | Dependencies |
-| ----- | --------------------------------------- | -------- | ----- | -------- | ------------ |
-| T-001 | 设计和创建数据库 Schema                 | Backend  | 0.5d  | P0       | -            |
-| T-002 | 实现 Google OAuth 2.0 服务              | Backend  | 1d    | P0       | T-001        |
-| T-003 | 实现 OAuth 回调和 Token 管理            | Backend  | 0.5d  | P0       | T-002        |
-| T-004 | 创建 GoogleDriveConnectionCard 组件     | Frontend | 1d    | P0       | T-003        |
+| ID    | Task                                | Type     | Est. | Priority | Dependencies |
+| ----- | ----------------------------------- | -------- | ---- | -------- | ------------ |
+| T-001 | 设计和创建数据库 Schema             | Backend  | 0.5d | P0       | -            |
+| T-002 | 实现 Google OAuth 2.0 服务          | Backend  | 1d   | P0       | T-001        |
+| T-003 | 实现 OAuth 回调和 Token 管理        | Backend  | 0.5d | P0       | T-002        |
+| T-004 | 创建 GoogleDriveConnectionCard 组件 | Frontend | 1d   | P0       | T-003        |
 
 ### Phase 2: File Browser (3 days)
 
-| ID    | Task                                    | Type     | Est.  | Priority | Dependencies |
-| ----- | --------------------------------------- | -------- | ----- | -------- | ------------ |
-| T-005 | 实现 Google Drive File Service          | Backend  | 1d    | P0       | T-003        |
-| T-006 | 创建 GoogleDriveFileBrowser 组件        | Frontend | 1d    | P0       | T-005        |
-| T-007 | 实现文件夹导航和面包屑                  | Frontend | 0.5d  | P0       | T-006        |
-| T-008 | 实现文件搜索和过滤                      | Frontend | 0.5d  | P1       | T-006        |
+| ID    | Task                             | Type     | Est. | Priority | Dependencies |
+| ----- | -------------------------------- | -------- | ---- | -------- | ------------ |
+| T-005 | 实现 Google Drive File Service   | Backend  | 1d   | P0       | T-003        |
+| T-006 | 创建 GoogleDriveFileBrowser 组件 | Frontend | 1d   | P0       | T-005        |
+| T-007 | 实现文件夹导航和面包屑           | Frontend | 0.5d | P0       | T-006        |
+| T-008 | 实现文件搜索和过滤               | Frontend | 0.5d | P1       | T-006        |
 
 ### Phase 3: Import Feature (3 days)
 
-| ID    | Task                                    | Type     | Est.  | Priority | Dependencies |
-| ----- | --------------------------------------- | -------- | ----- | -------- | ------------ |
-| T-009 | 实现 Google Drive Import Service        | Backend  | 1.5d  | P0       | T-005        |
-| T-010 | 实现内容提取（PDF, DOCX）               | Backend  | 1d    | P0       | T-009        |
-| T-011 | 创建 ImportDialog 组件                  | Frontend | 0.5d  | P0       | T-009        |
+| ID    | Task                             | Type     | Est. | Priority | Dependencies |
+| ----- | -------------------------------- | -------- | ---- | -------- | ------------ |
+| T-009 | 实现 Google Drive Import Service | Backend  | 1.5d | P0       | T-005        |
+| T-010 | 实现内容提取（PDF, DOCX）        | Backend  | 1d   | P0       | T-009        |
+| T-011 | 创建 ImportDialog 组件           | Frontend | 0.5d | P0       | T-009        |
 
 ### Phase 4: Export Feature (2 days)
 
-| ID    | Task                                    | Type     | Est.  | Priority | Dependencies |
-| ----- | --------------------------------------- | -------- | ----- | -------- | ------------ |
-| T-012 | 实现 Google Drive Export Service        | Backend  | 1d    | P0       | T-005        |
-| T-013 | 创建 ExportDialog 和 FolderPicker       | Frontend | 1d    | P0       | T-012        |
+| ID    | Task                              | Type     | Est. | Priority | Dependencies |
+| ----- | --------------------------------- | -------- | ---- | -------- | ------------ |
+| T-012 | 实现 Google Drive Export Service  | Backend  | 1d   | P0       | T-005        |
+| T-013 | 创建 ExportDialog 和 FolderPicker | Frontend | 1d   | P0       | T-012        |
 
 ### Phase 5: Polish (2 days)
 
-| ID    | Task                                    | Type     | Est.  | Priority | Dependencies |
-| ----- | --------------------------------------- | -------- | ----- | -------- | ------------ |
-| T-014 | 实现同步状态和历史记录                  | Full     | 0.5d  | P1       | T-011, T-013 |
-| T-015 | 错误处理和重试逻辑                      | Full     | 0.5d  | P0       | T-014        |
-| T-016 | UI 优化和响应式设计                     | Frontend | 0.5d  | P1       | T-015        |
-| T-017 | 集成测试和文档                          | QA       | 0.5d  | P0       | T-016        |
+| ID    | Task                   | Type     | Est. | Priority | Dependencies |
+| ----- | ---------------------- | -------- | ---- | -------- | ------------ |
+| T-014 | 实现同步状态和历史记录 | Full     | 0.5d | P1       | T-011, T-013 |
+| T-015 | 错误处理和重试逻辑     | Full     | 0.5d | P0       | T-014        |
+| T-016 | UI 优化和响应式设计    | Frontend | 0.5d | P1       | T-015        |
+| T-017 | 集成测试和文档         | QA       | 0.5d | P0       | T-016        |
 
 ---
 
 ## 8. Milestones
 
-| Milestone                  | Target Date  | Deliverables                               |
-| -------------------------- | ------------ | ------------------------------------------ |
-| M1: OAuth Complete         | Day 3        | 用户可以连接/断开 Google Drive             |
-| M2: File Browser Complete  | Day 6        | 用户可以浏览 Google Drive 文件             |
-| M3: Import Complete        | Day 9        | 用户可以导入文件到 Library                 |
-| M4: Export Complete        | Day 11       | 用户可以导出资源到 Google Drive            |
-| M5: Production Ready       | Day 13       | 完成测试，准备发布                         |
+| Milestone                 | Target Date | Deliverables                    |
+| ------------------------- | ----------- | ------------------------------- |
+| M1: OAuth Complete        | Day 3       | 用户可以连接/断开 Google Drive  |
+| M2: File Browser Complete | Day 6       | 用户可以浏览 Google Drive 文件  |
+| M3: Import Complete       | Day 9       | 用户可以导入文件到 Library      |
+| M4: Export Complete       | Day 11      | 用户可以导出资源到 Google Drive |
+| M5: Production Ready      | Day 13      | 完成测试，准备发布              |
 
 ---
 
@@ -1042,56 +1045,56 @@ GOOGLE_DRIVE_API_KEY=your-api-key
 
 ### 9.1 Unit Tests
 
-| Test Area                  | Coverage Target |
-| -------------------------- | --------------- |
-| OAuth Service              | > 90%           |
-| File Service               | > 85%           |
-| Import Service             | > 85%           |
-| Export Service             | > 85%           |
+| Test Area      | Coverage Target |
+| -------------- | --------------- |
+| OAuth Service  | > 90%           |
+| File Service   | > 85%           |
+| Import Service | > 85%           |
+| Export Service | > 85%           |
 
 ### 9.2 Integration Tests
 
-| Test Case                  | Description                                |
-| -------------------------- | ------------------------------------------ |
-| IT-001                     | 完整 OAuth 流程                            |
-| IT-002                     | 文件列表分页加载                           |
-| IT-003                     | 导入 PDF 文件                              |
-| IT-004                     | 导入 DOCX 文件                             |
-| IT-005                     | 导出资源为 PDF                             |
-| IT-006                     | 批量导入多个文件                           |
-| IT-007                     | Token 自动刷新                             |
+| Test Case | Description      |
+| --------- | ---------------- |
+| IT-001    | 完整 OAuth 流程  |
+| IT-002    | 文件列表分页加载 |
+| IT-003    | 导入 PDF 文件    |
+| IT-004    | 导入 DOCX 文件   |
+| IT-005    | 导出资源为 PDF   |
+| IT-006    | 批量导入多个文件 |
+| IT-007    | Token 自动刷新   |
 
 ### 9.3 E2E Tests
 
-| Test Case                  | Description                                |
-| -------------------------- | ------------------------------------------ |
-| E2E-001                    | 从连接到导入完整流程                       |
-| E2E-002                    | 从选择资源到导出完整流程                   |
-| E2E-003                    | 断开连接后重新连接                         |
+| Test Case | Description              |
+| --------- | ------------------------ |
+| E2E-001   | 从连接到导入完整流程     |
+| E2E-002   | 从选择资源到导出完整流程 |
+| E2E-003   | 断开连接后重新连接       |
 
 ---
 
 ## 10. Risks and Mitigations
 
-| Risk                               | Impact | Probability | Mitigation                                |
-| ---------------------------------- | ------ | ----------- | ----------------------------------------- |
-| Google API 配额限制                | High   | Medium      | 实现缓存和限流                            |
-| 大文件处理超时                     | Medium | Medium      | 异步处理 + 进度回调                       |
-| Token 刷新失败                     | High   | Low         | 明确提示用户重新授权                      |
-| 内容提取失败                       | Medium | Medium      | 优雅降级，保存原始文件引用                |
-| Google API 变更                    | Medium | Low         | 使用官方 SDK，关注更新日志                |
+| Risk                | Impact | Probability | Mitigation                 |
+| ------------------- | ------ | ----------- | -------------------------- |
+| Google API 配额限制 | High   | Medium      | 实现缓存和限流             |
+| 大文件处理超时      | Medium | Medium      | 异步处理 + 进度回调        |
+| Token 刷新失败      | High   | Low         | 明确提示用户重新授权       |
+| 内容提取失败        | Medium | Medium      | 优雅降级，保存原始文件引用 |
+| Google API 变更     | Medium | Low         | 使用官方 SDK，关注更新日志 |
 
 ---
 
 ## 11. Future Enhancements (Phase 2)
 
-| Feature                            | Description                                |
-| ---------------------------------- | ------------------------------------------ |
-| Google Docs 在线编辑               | 在 DeepDive 内嵌入 Google Docs 编辑器      |
-| 自动同步                           | 定时自动同步选定文件夹                     |
-| 双向同步                           | 检测本地和云端变更，自动合并               |
-| Google Sheets 数据分析             | 直接分析 Google Sheets 数据                |
-| Google Slides 预览                 | 在 DeepDive 内预览 Google Slides           |
+| Feature                | Description                           |
+| ---------------------- | ------------------------------------- |
+| Google Docs 在线编辑   | 在 DeepDive 内嵌入 Google Docs 编辑器 |
+| 自动同步               | 定时自动同步选定文件夹                |
+| 双向同步               | 检测本地和云端变更，自动合并          |
+| Google Sheets 数据分析 | 直接分析 Google Sheets 数据           |
+| Google Slides 预览     | 在 DeepDive 内预览 Google Slides      |
 
 ---
 
@@ -1119,6 +1122,6 @@ GOOGLE_DRIVE_API_KEY=your-api-key
 
 ## Change Log
 
-| Version | Date       | Changes      | Author   |
-| ------- | ---------- | ------------ | -------- |
-| 1.0     | 2025-12-25 | Initial PRD  | PM Agent |
+| Version | Date       | Changes     | Author   |
+| ------- | ---------- | ----------- | -------- |
+| 1.0     | 2025-12-25 | Initial PRD | PM Agent |

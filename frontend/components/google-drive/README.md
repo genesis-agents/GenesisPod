@@ -9,18 +9,21 @@ Google Drive 集成相关的 UI 组件和 Hooks。
 从 Google Drive 导入文件到 Library。
 
 **Props:**
+
 - `open: boolean` - 是否打开对话框
 - `onClose: () => void` - 关闭回调
 - `files: GoogleDriveFile[]` - 选中的文件列表
 - `onImportSuccess?: () => void` - 导入成功回调
 
 **功能:**
+
 - 显示选中文件列表
 - 配置导入选项（提取内容、生成摘要、添加到集合、应用标签）
 - 实时显示导入进度
 - 每个文件的状态跟踪
 
 **使用示例:**
+
 ```tsx
 import { GoogleDriveImportDialog } from '@/components/google-drive';
 
@@ -49,18 +52,21 @@ function MyComponent() {
 导出 Library 资源到 Google Drive。
 
 **Props:**
+
 - `open: boolean` - 是否打开对话框
 - `onClose: () => void` - 关闭回调
 - `resources: Resource[]` - 选中的资源列表
 - `onExportSuccess?: () => void` - 导出成功回调
 
 **功能:**
+
 - 选择导出格式（PDF、Markdown、HTML、Original）
 - 选择目标文件夹（使用 GoogleDriveFolderPicker）
 - 配置导出选项（包含 AI 摘要、笔记、元数据）
 - 实时显示导出进度
 
 **使用示例:**
+
 ```tsx
 import { GoogleDriveExportDialog } from '@/components/google-drive';
 
@@ -88,17 +94,20 @@ function MyComponent() {
 Google Drive 文件夹选择器。
 
 **Props:**
+
 - `selectedFolderId?: string` - 当前选中的文件夹 ID
 - `onSelectFolder: (folderId: string | undefined, folderName: string) => void` - 选择回调
 - `className?: string` - 自定义类名
 
 **功能:**
+
 - 面包屑导航
 - 文件夹树结构浏览
 - 选择目标文件夹
 - 新建文件夹（TODO: 需要后端 API 支持）
 
 **使用示例:**
+
 ```tsx
 import { GoogleDriveFolderPicker } from '@/components/google-drive';
 
@@ -128,6 +137,7 @@ function MyComponent() {
 管理 Google Drive 文件导入。
 
 **返回值:**
+
 ```ts
 {
   importFromDrive: (files: GoogleDriveFile[], options: ImportOptions) => Promise<ImportResult>
@@ -139,11 +149,13 @@ function MyComponent() {
 ```
 
 **使用示例:**
+
 ```tsx
 import { useGoogleDriveImport } from '@/hooks/features/useGoogleDriveImport';
 
 function MyComponent() {
-  const { importFromDrive, isImporting, progress, totalProgress } = useGoogleDriveImport();
+  const { importFromDrive, isImporting, progress, totalProgress } =
+    useGoogleDriveImport();
 
   const handleImport = async () => {
     const result = await importFromDrive(selectedFiles, {
@@ -171,6 +183,7 @@ function MyComponent() {
 管理 Library 资源导出到 Google Drive。
 
 **返回值:**
+
 ```ts
 {
   exportToDrive: (resources: Resource[], options: ExportOptions) => Promise<ExportResult>
@@ -182,11 +195,13 @@ function MyComponent() {
 ```
 
 **使用示例:**
+
 ```tsx
 import { useGoogleDriveExport } from '@/hooks/features/useGoogleDriveExport';
 
 function MyComponent() {
-  const { exportToDrive, isExporting, progress, totalProgress } = useGoogleDriveExport();
+  const { exportToDrive, isExporting, progress, totalProgress } =
+    useGoogleDriveExport();
 
   const handleExport = async () => {
     const result = await exportToDrive(selectedResources, {
@@ -214,6 +229,7 @@ function MyComponent() {
 获取和管理 Google Drive 文件列表。
 
 **参数:**
+
 ```ts
 {
   folderId?: string
@@ -224,6 +240,7 @@ function MyComponent() {
 ```
 
 **返回值:**
+
 ```ts
 {
   files: GoogleDriveFile[]
@@ -242,6 +259,7 @@ function MyComponent() {
 ```
 
 **使用示例:**
+
 ```tsx
 import { useGoogleDriveFiles } from '@/hooks/features/useGoogleDriveFiles';
 
@@ -289,50 +307,54 @@ function MyComponent() {
 ## 类型定义
 
 ### GoogleDriveFile
+
 ```ts
 interface GoogleDriveFile {
-  id: string
-  name: string
-  mimeType: string
-  size?: number
-  createdTime?: string
-  modifiedTime?: string
-  webViewLink?: string
-  thumbnailLink?: string
-  isFolder?: boolean
-  parents?: string[]
+  id: string;
+  name: string;
+  mimeType: string;
+  size?: number;
+  createdTime?: string;
+  modifiedTime?: string;
+  webViewLink?: string;
+  thumbnailLink?: string;
+  isFolder?: boolean;
+  parents?: string[];
 }
 ```
 
 ### ImportOptions
+
 ```ts
 interface ImportOptions {
-  extractContent?: boolean
-  generateSummary?: boolean
-  collectionId?: string
-  tags?: string[]
+  extractContent?: boolean;
+  generateSummary?: boolean;
+  collectionId?: string;
+  tags?: string[];
 }
 ```
 
 ### ExportOptions
+
 ```ts
 interface ExportOptions {
-  format?: 'original' | 'pdf' | 'markdown' | 'html' | 'docx' | 'txt'
-  folderId?: string
-  createFolders?: boolean
-  fileNamePrefix?: string
-  includeAISummary?: boolean
-  includeNotes?: boolean
-  includeMetadata?: boolean
+  format?: 'original' | 'pdf' | 'markdown' | 'html' | 'docx' | 'txt';
+  folderId?: string;
+  createFolders?: boolean;
+  fileNamePrefix?: string;
+  includeAISummary?: boolean;
+  includeNotes?: boolean;
+  includeMetadata?: boolean;
 }
 ```
 
 ### Resource
+
 ```ts
 interface Resource {
-  id: string
-  title: string
-  type?: string
+  id: string;
+  title: string;
+  type?: string;
 }
 ```
 

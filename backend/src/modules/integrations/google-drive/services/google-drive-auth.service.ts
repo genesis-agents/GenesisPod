@@ -96,7 +96,9 @@ export class GoogleDriveAuthService {
       const { tokens } = await this.oauth2Client.getToken(code);
 
       if (!tokens.access_token || !tokens.refresh_token) {
-        throw new UnauthorizedException("Failed to obtain access token or refresh token");
+        throw new UnauthorizedException(
+          "Failed to obtain access token or refresh token",
+        );
       }
 
       // 使用 access_token 获取用户信息
@@ -112,9 +114,10 @@ export class GoogleDriveAuthService {
       this.logger.log(`Google OAuth success for user: ${email}`);
 
       // 检查是否已存在相同用户的连接
-      const existingConnection = await this.prisma.googleDriveConnection.findUnique({
-        where: { userId },
-      });
+      const existingConnection =
+        await this.prisma.googleDriveConnection.findUnique({
+          where: { userId },
+        });
 
       if (existingConnection) {
         // 更新现有连接
@@ -123,7 +126,9 @@ export class GoogleDriveAuthService {
           data: {
             accessToken: tokens.access_token,
             refreshToken: tokens.refresh_token,
-            tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : new Date(Date.now() + 3600000),
+            tokenExpiry: tokens.expiry_date
+              ? new Date(tokens.expiry_date)
+              : new Date(Date.now() + 3600000),
             googleId,
             email,
             displayName,
@@ -149,7 +154,9 @@ export class GoogleDriveAuthService {
           photoUrl,
           accessToken: tokens.access_token,
           refreshToken: tokens.refresh_token,
-          tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : new Date(Date.now() + 3600000),
+          tokenExpiry: tokens.expiry_date
+            ? new Date(tokens.expiry_date)
+            : new Date(Date.now() + 3600000),
           status: GoogleDriveConnectionStatus.ACTIVE,
         },
       });
@@ -203,7 +210,9 @@ export class GoogleDriveAuthService {
         where: { id: connectionId },
         data: {
           accessToken: credentials.access_token,
-          tokenExpiry: credentials.expiry_date ? new Date(credentials.expiry_date) : new Date(Date.now() + 3600000),
+          tokenExpiry: credentials.expiry_date
+            ? new Date(credentials.expiry_date)
+            : new Date(Date.now() + 3600000),
           status: GoogleDriveConnectionStatus.ACTIVE,
         },
       });
@@ -314,7 +323,11 @@ export class GoogleDriveAuthService {
       throw new BadRequestException("Connection not found");
     }
 
-    const { accessToken: _accessToken, refreshToken: _refreshToken, ...safeConnection } = updated;
+    const {
+      accessToken: _accessToken,
+      refreshToken: _refreshToken,
+      ...safeConnection
+    } = updated;
     return safeConnection;
   }
 
@@ -324,7 +337,13 @@ export class GoogleDriveAuthService {
   async getAuthenticatedClient(userId: string): Promise<Auth.OAuth2Client> {
     const connection = await this.prisma.googleDriveConnection.findFirst({
       where: { userId },
-      select: { id: true, accessToken: true, refreshToken: true, tokenExpiry: true, status: true },
+      select: {
+        id: true,
+        accessToken: true,
+        refreshToken: true,
+        tokenExpiry: true,
+        status: true,
+      },
     });
 
     if (!connection) {

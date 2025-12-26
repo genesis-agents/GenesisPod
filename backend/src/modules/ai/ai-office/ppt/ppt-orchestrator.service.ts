@@ -28,7 +28,10 @@ import { SlidePlanningService } from "./slide-planning.service";
 import { SlideContentService } from "./slide-content.service";
 import { SlideImageService } from "./slide-image.service";
 import { SlideRendererService } from "./slide-renderer.service";
-import { SourceAnalysisService, SourceAnalysis } from "./source-analysis.service";
+import {
+  SourceAnalysisService,
+  SourceAnalysis,
+} from "./source-analysis.service";
 import {
   PPTGenerationInput,
   PPTDocument,
@@ -1078,13 +1081,15 @@ export class PPTOrchestratorService {
         // 绑定该章节的数据点
         const chapterDataPoints = dataPoints
           .filter((dp) => dp.chapterId === matchedChapter.id)
-          .map((dp): SlideDataPoint => ({
-            id: dp.id,
-            value: dp.value,
-            type: dp.type,
-            context: dp.context,
-            required: true, // 章节数据点默认必须包含
-          }));
+          .map(
+            (dp): SlideDataPoint => ({
+              id: dp.id,
+              value: dp.value,
+              type: dp.type,
+              context: dp.context,
+              required: true, // 章节数据点默认必须包含
+            }),
+          );
 
         spec.requiredDataPoints = chapterDataPoints;
 
@@ -1101,13 +1106,15 @@ export class PPTOrchestratorService {
     const unboundSlides = contentSlides.filter((spec) => !spec.sourceRef);
     const globalDataPoints = dataPoints
       .filter((dp) => !dp.chapterId)
-      .map((dp): SlideDataPoint => ({
-        id: dp.id,
-        value: dp.value,
-        type: dp.type,
-        context: dp.context,
-        required: false, // 全局数据点可选
-      }));
+      .map(
+        (dp): SlideDataPoint => ({
+          id: dp.id,
+          value: dp.value,
+          type: dp.type,
+          context: dp.context,
+          required: false, // 全局数据点可选
+        }),
+      );
 
     if (globalDataPoints.length > 0 && unboundSlides.length > 0) {
       // 平均分配全局数据点

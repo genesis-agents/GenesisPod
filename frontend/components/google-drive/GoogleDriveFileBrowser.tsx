@@ -1,7 +1,14 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Search, ChevronRight, Home, RefreshCw, ArrowUpDown, Folder } from 'lucide-react';
+import {
+  Search,
+  ChevronRight,
+  Home,
+  RefreshCw,
+  ArrowUpDown,
+  Folder,
+} from 'lucide-react';
 import { useGoogleDriveFiles } from '@/hooks/domain';
 import { GoogleDriveFileCard } from './GoogleDriveFileCard';
 import { useMultiSelect } from '@/hooks';
@@ -99,7 +106,7 @@ export function GoogleDriveFileBrowser({
     if (selectedCount > 0) {
       clearAll();
     } else {
-      files.forEach(file => {
+      files.forEach((file) => {
         if (!file.isFolder) {
           toggleSelect(file.id);
         }
@@ -107,8 +114,14 @@ export function GoogleDriveFileBrowser({
     }
   };
 
-  const fileCount = useMemo(() => files.filter(f => !f.isFolder).length, [files]);
-  const folderCount = useMemo(() => files.filter(f => f.isFolder).length, [files]);
+  const fileCount = useMemo(
+    () => files.filter((f) => !f.isFolder).length,
+    [files]
+  );
+  const folderCount = useMemo(
+    () => files.filter((f) => f.isFolder).length,
+    [files]
+  );
 
   if (error) {
     return (
@@ -126,8 +139,12 @@ export function GoogleDriveFileBrowser({
             d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
           />
         </svg>
-        <p className="mt-4 text-sm font-medium text-red-800">Failed to load files</p>
-        <p className="mt-1 text-xs text-red-600">{error.message || 'Unknown error'}</p>
+        <p className="mt-4 text-sm font-medium text-red-800">
+          Failed to load files
+        </p>
+        <p className="mt-1 text-xs text-red-600">
+          {error.message || 'Unknown error'}
+        </p>
         <button
           onClick={refresh}
           className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
@@ -159,7 +176,12 @@ export function GoogleDriveFileBrowser({
               onClick={clearSearch}
               className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
             >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -188,7 +210,9 @@ export function GoogleDriveFileBrowser({
 
           {/* 排序方向 */}
           <button
-            onClick={() => setSorting(sortBy, sortOrder === 'asc' ? 'desc' : 'asc')}
+            onClick={() =>
+              setSorting(sortBy, sortOrder === 'asc' ? 'desc' : 'asc')
+            }
             className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50"
             title={`Sort ${sortOrder === 'asc' ? 'Descending' : 'Ascending'}`}
           >
@@ -244,13 +268,21 @@ export function GoogleDriveFileBrowser({
           <span>
             {folderCount > 0 && (
               <>
-                <strong className="font-semibold text-gray-900">{folderCount}</strong> folders
+                <strong className="font-semibold text-gray-900">
+                  {folderCount}
+                </strong>{' '}
+                folders
               </>
             )}
-            {folderCount > 0 && fileCount > 0 && <span className="mx-1">·</span>}
+            {folderCount > 0 && fileCount > 0 && (
+              <span className="mx-1">·</span>
+            )}
             {fileCount > 0 && (
               <>
-                <strong className="font-semibold text-gray-900">{fileCount}</strong> files
+                <strong className="font-semibold text-gray-900">
+                  {fileCount}
+                </strong>{' '}
+                files
               </>
             )}
             {total > files.length && (
@@ -298,7 +330,9 @@ export function GoogleDriveFileBrowser({
         <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-16">
           <Folder className="h-12 w-12 text-gray-300" />
           <p className="mt-4 text-sm text-gray-500">
-            {searchQuery ? 'No files found matching your search.' : 'This folder is empty.'}
+            {searchQuery
+              ? 'No files found matching your search.'
+              : 'This folder is empty.'}
           </p>
           {searchQuery && (
             <button
@@ -361,7 +395,12 @@ export function GoogleDriveFileBrowser({
             onClick={handleImportSelected}
             className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
           >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"

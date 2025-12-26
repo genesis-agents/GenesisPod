@@ -26,7 +26,13 @@ interface Collection {
 interface AIOrganizePanelProps {
   collections: Collection[];
   onRefresh: () => void;
-  activeTab?: 'bookmarks' | 'notes' | 'images' | 'graph' | 'notion' | 'google-drive';
+  activeTab?:
+    | 'bookmarks'
+    | 'notes'
+    | 'images'
+    | 'graph'
+    | 'notion'
+    | 'google-drive';
 }
 
 type TaskType =

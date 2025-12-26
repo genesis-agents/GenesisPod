@@ -1,7 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { FileText, Folder, Image, FileVideo, FileAudio, File } from 'lucide-react';
+import {
+  FileText,
+  Folder,
+  Image,
+  FileVideo,
+  FileAudio,
+  File,
+} from 'lucide-react';
 import type { GoogleDriveFile } from '@/lib/api/google-drive';
 
 interface GoogleDriveFileCardProps {
@@ -161,7 +168,11 @@ export function GoogleDriveFileCard({
           <div className="flex items-center gap-1">
             {file.syncStatus === 'SYNCING' && (
               <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-                <svg className="h-3 w-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                <svg
+                  className="h-3 w-3 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
                   <circle
                     className="opacity-25"
                     cx="12"

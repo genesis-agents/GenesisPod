@@ -33,7 +33,13 @@ export interface ConsistencyCheckResult {
 
 export interface ConsistencyIssue {
   slideIndex: number;
-  type: "header" | "footer" | "pageNumber" | "safeArea" | "typography" | "brand";
+  type:
+    | "header"
+    | "footer"
+    | "pageNumber"
+    | "safeArea"
+    | "typography"
+    | "brand";
   description: string;
   autoFixable: boolean;
 }
@@ -156,7 +162,9 @@ export class ConsistencyService {
     }
 
     const document = doc.content as unknown as PPTDocument;
-    const globalStyle = (doc.globalStyle as unknown as PPTGlobalStyleConfig) || DEFAULT_GLOBAL_STYLE;
+    const globalStyle =
+      (doc.globalStyle as unknown as PPTGlobalStyleConfig) ||
+      DEFAULT_GLOBAL_STYLE;
 
     const issues: ConsistencyIssue[] = [];
 
@@ -213,7 +221,9 @@ export class ConsistencyService {
   /**
    * 自动修复一致性问题
    */
-  async autoFixConsistency(documentId: string): Promise<ConsistencyCheckResult> {
+  async autoFixConsistency(
+    documentId: string,
+  ): Promise<ConsistencyCheckResult> {
     this.logger.log(
       `[autoFixConsistency] Auto-fixing consistency for document: ${documentId}`,
     );
@@ -234,7 +244,9 @@ export class ConsistencyService {
       throw new Error(`Document not found: ${documentId}`);
     }
 
-    const globalStyle = (doc.globalStyle as unknown as PPTGlobalStyleConfig) || DEFAULT_GLOBAL_STYLE;
+    const globalStyle =
+      (doc.globalStyle as unknown as PPTGlobalStyleConfig) ||
+      DEFAULT_GLOBAL_STYLE;
 
     // 应用全局样式来修复问题
     return this.applyGlobalStyle(documentId, globalStyle, {
@@ -348,7 +360,10 @@ export class ConsistencyService {
     footerText = footerText.replace("{icon}", config.footer.icon || "");
 
     // 替换品牌
-    footerText = footerText.replace("{brand}", config.footer.brand || config.brand?.name || "");
+    footerText = footerText.replace(
+      "{brand}",
+      config.footer.brand || config.brand?.name || "",
+    );
 
     const content = slide.content as GeneratedSlideContent & {
       footer?: {

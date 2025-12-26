@@ -14,14 +14,17 @@ import { OnEvent } from "@nestjs/event-emitter";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { TriageAgentService } from "../triage/triage-agent.service";
-import { EmailService } from "../../email/email.service";
+// import { EmailService } from "../../email/email.service"; // TODO: Re-enable for user notifications
 import {
   FeedbackEvent,
   FeedbackCreatedPayload,
   TriageCompletedPayload,
   TriageFailedPayload,
 } from "./feedback-events";
-import type { TriageInput, TriageDecision } from "../triage/triage-decision.types";
+import type {
+  TriageInput,
+  TriageDecision,
+} from "../triage/triage-decision.types";
 
 @Injectable()
 export class FeedbackEventListener {
@@ -31,7 +34,7 @@ export class FeedbackEventListener {
     private readonly eventEmitter: EventEmitter2,
     private readonly triageAgent: TriageAgentService,
     private readonly prisma: PrismaService,
-    private readonly emailService: EmailService,
+    // TODO: Add EmailService back when implementing user notifications
   ) {}
 
   /**
@@ -39,7 +42,9 @@ export class FeedbackEventListener {
    */
   @OnEvent(FeedbackEvent.CREATED)
   async handleFeedbackCreated(payload: FeedbackCreatedPayload): Promise<void> {
-    this.logger.log(`[handleFeedbackCreated] Feedback created: ${payload.feedbackId}`);
+    this.logger.log(
+      `[handleFeedbackCreated] Feedback created: ${payload.feedbackId}`,
+    );
 
     try {
       // 构建分诊输入
@@ -227,9 +232,13 @@ export class FeedbackEventListener {
     feedbackId: string,
     decision: TriageDecision,
   ): Promise<void> {
-    this.logger.log(`[handleRequestInfo] Requesting more info for ${feedbackId}`);
+    this.logger.log(
+      `[handleRequestInfo] Requesting more info for ${feedbackId}`,
+    );
 
-    const requestedInfo = decision.routing.requestedInfo || ["请提供更多详细信息"];
+    const requestedInfo = decision.routing.requestedInfo || [
+      "请提供更多详细信息",
+    ];
     const notes = `需要补充信息:\n${requestedInfo.map((i) => `- ${i}`).join("\n")}`;
 
     await this.updateFeedbackStatus(feedbackId, "PENDING", notes);
@@ -282,7 +291,9 @@ export class FeedbackEventListener {
     feedbackId: string,
     decision: TriageDecision,
   ): Promise<void> {
-    this.logger.warn(`[sendCriticalNotification] Critical issue detected: ${feedbackId}`);
+    this.logger.warn(
+      `[sendCriticalNotification] Critical issue detected: ${feedbackId}`,
+    );
 
     // TODO: 发送飞书/钉钉紧急通知
     // 目前只记录日志

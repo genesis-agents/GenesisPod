@@ -225,7 +225,9 @@ export async function disconnectGoogleDrive(
 /**
  * 获取用户的所有连接
  */
-export async function getConnections(): Promise<{ connections: GoogleDriveConnection[] }> {
+export async function getConnections(): Promise<{
+  connections: GoogleDriveConnection[];
+}> {
   return apiClient.get('/google-drive/connections', {
     headers: getAuthHeader(),
   });
@@ -261,9 +263,12 @@ export async function updateConnection(
 /**
  * 获取文件列表
  */
-export async function listFiles(params: ListFilesParams): Promise<ListFilesResponse> {
+export async function listFiles(
+  params: ListFilesParams
+): Promise<ListFilesResponse> {
   const searchParams = new URLSearchParams();
-  if (params.connectionId) searchParams.append('connectionId', params.connectionId);
+  if (params.connectionId)
+    searchParams.append('connectionId', params.connectionId);
   if (params.parentId) searchParams.append('parentId', params.parentId);
   if (params.search) searchParams.append('search', params.search);
   if (params.mimeType) searchParams.append('mimeType', params.mimeType);
@@ -280,7 +285,9 @@ export async function listFiles(params: ListFilesParams): Promise<ListFilesRespo
 /**
  * 获取文件详情
  */
-export async function getFile(fileId: string): Promise<{ file: GoogleDriveFile }> {
+export async function getFile(
+  fileId: string
+): Promise<{ file: GoogleDriveFile }> {
   return apiClient.get(`/google-drive/files/${fileId}`, {
     headers: getAuthHeader(),
   });
@@ -289,10 +296,16 @@ export async function getFile(fileId: string): Promise<{ file: GoogleDriveFile }
 /**
  * 刷新文件（从 Drive 重新同步）
  */
-export async function refreshFile(fileId: string): Promise<{ file: GoogleDriveFile }> {
-  return apiClient.post(`/google-drive/files/${fileId}/refresh`, {}, {
-    headers: getAuthHeader(),
-  });
+export async function refreshFile(
+  fileId: string
+): Promise<{ file: GoogleDriveFile }> {
+  return apiClient.post(
+    `/google-drive/files/${fileId}/refresh`,
+    {},
+    {
+      headers: getAuthHeader(),
+    }
+  );
 }
 
 /**
@@ -312,7 +325,9 @@ export async function linkToResource(
 /**
  * 取消链接
  */
-export async function unlinkFromResource(fileId: string): Promise<{ success: boolean }> {
+export async function unlinkFromResource(
+  fileId: string
+): Promise<{ success: boolean }> {
   return apiClient.delete(`/google-drive/files/${fileId}/link`, {
     headers: getAuthHeader(),
   });
@@ -323,7 +338,9 @@ export async function unlinkFromResource(fileId: string): Promise<{ success: boo
 /**
  * 导入文件到资源库
  */
-export async function importFiles(params: ImportFilesParams): Promise<ImportResult> {
+export async function importFiles(
+  params: ImportFilesParams
+): Promise<ImportResult> {
   return apiClient.post('/google-drive/import', params, {
     headers: getAuthHeader(),
   });
@@ -332,7 +349,9 @@ export async function importFiles(params: ImportFilesParams): Promise<ImportResu
 /**
  * 获取导入进度
  */
-export async function getImportProgress(importId: string): Promise<{ progress: ImportProgress }> {
+export async function getImportProgress(
+  importId: string
+): Promise<{ progress: ImportProgress }> {
   return apiClient.get(`/google-drive/import/${importId}`, {
     headers: getAuthHeader(),
   });
@@ -341,7 +360,9 @@ export async function getImportProgress(importId: string): Promise<{ progress: I
 /**
  * 导出资源到 Google Drive
  */
-export async function exportResources(params: ExportParams): Promise<ExportResult> {
+export async function exportResources(
+  params: ExportParams
+): Promise<ExportResult> {
   return apiClient.post('/google-drive/export', params, {
     headers: getAuthHeader(),
   });
@@ -350,7 +371,9 @@ export async function exportResources(params: ExportParams): Promise<ExportResul
 /**
  * 获取导出进度
  */
-export async function getExportProgress(exportId: string): Promise<{ progress: ExportProgress }> {
+export async function getExportProgress(
+  exportId: string
+): Promise<{ progress: ExportProgress }> {
   return apiClient.get(`/google-drive/export/${exportId}`, {
     headers: getAuthHeader(),
   });
@@ -391,15 +414,21 @@ export async function getSyncHistory(
   connectionId: string,
   limit = 10
 ): Promise<{ history: SyncHistory[] }> {
-  return apiClient.get(`/google-drive/sync/history/${connectionId}?limit=${limit}`, {
-    headers: getAuthHeader(),
-  });
+  return apiClient.get(
+    `/google-drive/sync/history/${connectionId}?limit=${limit}`,
+    {
+      headers: getAuthHeader(),
+    }
+  );
 }
 
 /**
  * 获取集成配置状态
  */
-export async function getConfig(): Promise<{ configured: boolean; callbackUrl: string }> {
+export async function getConfig(): Promise<{
+  configured: boolean;
+  callbackUrl: string;
+}> {
   return apiClient.get('/google-drive/config', {
     headers: getAuthHeader(),
   });

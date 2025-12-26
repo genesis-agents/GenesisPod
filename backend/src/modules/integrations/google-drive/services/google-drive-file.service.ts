@@ -33,7 +33,10 @@ export class GoogleDriveFileService {
   /**
    * 列出文件
    */
-  async listFiles(userId: string, options: ListFilesDto = {}): Promise<ListFilesResult> {
+  async listFiles(
+    userId: string,
+    options: ListFilesDto = {},
+  ): Promise<ListFilesResult> {
     const client = await this.authService.getAuthenticatedClient(userId);
     const drive = google.drive({ version: "v3", auth: client });
 
@@ -137,10 +140,16 @@ export class GoogleDriveFileService {
       const metadata = await this.getFile(userId, fileId);
 
       // Google Workspace 文件需要导出
-      const isGoogleWorkspaceFile = metadata.mimeType.startsWith("application/vnd.google-apps.");
+      const isGoogleWorkspaceFile = metadata.mimeType.startsWith(
+        "application/vnd.google-apps.",
+      );
 
       if (isGoogleWorkspaceFile) {
-        return await this.exportGoogleWorkspaceFile(drive, fileId, metadata.mimeType);
+        return await this.exportGoogleWorkspaceFile(
+          drive,
+          fileId,
+          metadata.mimeType,
+        );
       }
 
       // 普通文件直接下载
@@ -155,7 +164,9 @@ export class GoogleDriveFileService {
       return Buffer.from(response.data as ArrayBuffer);
     } catch (error) {
       this.logger.error(`Failed to download file ${fileId}: ${error}`);
-      throw new BadRequestException("Failed to download file from Google Drive");
+      throw new BadRequestException(
+        "Failed to download file from Google Drive",
+      );
     }
   }
 
@@ -171,11 +182,14 @@ export class GoogleDriveFileService {
     let exportMimeType: string;
 
     if (mimeType === "application/vnd.google-apps.document") {
-      exportMimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"; // DOCX
+      exportMimeType =
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"; // DOCX
     } else if (mimeType === "application/vnd.google-apps.spreadsheet") {
-      exportMimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"; // XLSX
+      exportMimeType =
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"; // XLSX
     } else if (mimeType === "application/vnd.google-apps.presentation") {
-      exportMimeType = "application/vnd.openxmlformats-officedocument.presentationml.presentation"; // PPTX
+      exportMimeType =
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation"; // PPTX
     } else if (mimeType === "application/vnd.google-apps.drawing") {
       exportMimeType = "application/pdf";
     } else {
@@ -219,7 +233,8 @@ export class GoogleDriveFileService {
           mimeType,
           body: content,
         },
-        fields: "id, name, mimeType, size, createdTime, modifiedTime, webViewLink",
+        fields:
+          "id, name, mimeType, size, createdTime, modifiedTime, webViewLink",
       });
 
       const file = response.data;
@@ -241,7 +256,11 @@ export class GoogleDriveFileService {
   /**
    * 创建文件夹
    */
-  async createFolder(userId: string, parentId: string | undefined, name: string): Promise<DriveFile> {
+  async createFolder(
+    userId: string,
+    parentId: string | undefined,
+    name: string,
+  ): Promise<DriveFile> {
     const client = await this.authService.getAuthenticatedClient(userId);
     const drive = google.drive({ version: "v3", auth: client });
 

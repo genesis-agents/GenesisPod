@@ -28,6 +28,7 @@ frontend/
 提供完整的 Google Drive API 封装，包括：
 
 #### 连接管理
+
 - `getConnectUrl()` - 获取 OAuth 授权 URL
 - `connectGoogleDrive(code, redirectUri)` - 完成 OAuth 连接
 - `disconnectGoogleDrive(connectionId)` - 断开连接
@@ -36,6 +37,7 @@ frontend/
 - `updateConnection(connectionId, syncConfig)` - 更新连接配置
 
 #### 文件操作
+
 - `listFiles(params)` - 获取文件列表（支持搜索、排序、分页）
 - `getFile(fileId)` - 获取文件详情
 - `refreshFile(fileId)` - 刷新文件（从 Drive 重新同步）
@@ -43,12 +45,14 @@ frontend/
 - `unlinkFromResource(fileId)` - 取消链接
 
 #### 导入导出
+
 - `importFiles(params)` - 导入文件到资源库
 - `getImportProgress(importId)` - 获取导入进度
 - `exportResources(params)` - 导出资源到 Google Drive
 - `getExportProgress(exportId)` - 获取导出进度
 
 #### 同步
+
 - `triggerSync(connectionId, fullSync)` - 触发同步
 - `getSyncStatus(connectionId)` - 获取同步状态
 - `getSyncHistory(connectionId, limit)` - 获取同步历史
@@ -56,6 +60,7 @@ frontend/
 #### TypeScript 类型定义
 
 完整的类型定义，包括：
+
 - `GoogleDriveConnection` - 连接信息
 - `GoogleDriveFile` - 文件信息
 - `ImportProgress` / `ExportProgress` - 进度信息
@@ -71,6 +76,7 @@ frontend/
 管理 Google Drive 连接和同步。
 
 **功能：**
+
 - OAuth 连接流程
 - 连接状态监控
 - 断开连接
@@ -78,6 +84,7 @@ frontend/
 - 自动刷新（可选）
 
 **返回值：**
+
 ```typescript
 {
   // 连接状态
@@ -106,6 +113,7 @@ frontend/
 ```
 
 **使用示例：**
+
 ```typescript
 const { isConnected, connect, connection } = useGoogleDrive();
 
@@ -123,12 +131,14 @@ return <div>Connected as {connection.email}</div>;
 浏览 Google Drive 文件和文件夹。
 
 **功能：**
+
 - 文件/文件夹列表
 - 导航和面包屑
 - 搜索和排序
 - 分页加载
 
 **返回值：**
+
 ```typescript
 {
   // 数据
@@ -174,6 +184,7 @@ return <div>Connected as {connection.email}</div>;
 ```
 
 **使用示例：**
+
 ```typescript
 const {
   files,
@@ -198,12 +209,14 @@ const {
 将 Google Drive 文件导入到资源库。
 
 **功能：**
+
 - 文件选择管理
 - 批量导入
 - 进度追踪
 - 错误处理
 
 **返回值：**
+
 ```typescript
 {
   // 选择状态
@@ -238,6 +251,7 @@ const {
 ```
 
 **使用示例：**
+
 ```typescript
 const {
   selectedFiles,
@@ -275,12 +289,14 @@ const {
 将资源库内容导出到 Google Drive。
 
 **功能：**
+
 - 资源导出
 - 格式转换（original/pdf/docx/markdown）
 - 进度追踪
 - 错误处理
 
 **返回值：**
+
 ```typescript
 {
   // 导出状态
@@ -310,6 +326,7 @@ const {
 ```
 
 **使用示例：**
+
 ```typescript
 const {
   exportResources,
@@ -344,6 +361,7 @@ const {
 ### 1. 统一的 API 模式
 
 所有 hooks 遵循项目现有模式：
+
 - 使用 `useApiGet` / `useApiPost` 等核心 hooks
 - 统一的错误处理（`ApiError`）
 - 统一的加载状态管理
@@ -359,6 +377,7 @@ const {
 ### 3. 轮询机制
 
 导入和导出 hooks 自动轮询进度：
+
 - 每 2 秒检查一次
 - 完成或失败时自动停止
 - 可手动取消
@@ -404,16 +423,19 @@ const {
 ## 🔍 缓存策略
 
 ### 连接信息
+
 - 缓存键：`google-drive-connections`
 - TTL：1 分钟
 - 手动刷新：`refresh()`
 
 ### 同步状态
+
 - 缓存键：`google-drive-sync-status` 或 `google-drive-sync-status-{connectionId}`
 - TTL：30 秒
 - 自动刷新：可配置
 
 ### 文件列表
+
 - 无缓存（参数变化频繁）
 - 依赖变化时自动重新获取
 
@@ -422,6 +444,7 @@ const {
 ## ⚡ 性能优化
 
 ### 1. 按需加载
+
 ```typescript
 // 只在需要时加载
 const { files } = useGoogleDriveFiles({
@@ -431,6 +454,7 @@ const { files } = useGoogleDriveFiles({
 ```
 
 ### 2. 分页加载
+
 ```typescript
 // 支持分页，避免一次加载太多数据
 const { files, loadMore } = useGoogleDriveFiles({
@@ -439,6 +463,7 @@ const { files, loadMore } = useGoogleDriveFiles({
 ```
 
 ### 3. 缓存利用
+
 ```typescript
 // 自动使用缓存，减少 API 请求
 const { connections } = useGoogleDrive({
@@ -448,6 +473,7 @@ const { connections } = useGoogleDrive({
 ```
 
 ### 4. 请求去重
+
 ```typescript
 // useApiGet 内部使用 AbortController
 // 自动取消重复请求
@@ -469,6 +495,7 @@ interface ApiError {
 ```
 
 **使用示例：**
+
 ```typescript
 const { error } = useGoogleDrive();
 
@@ -490,6 +517,7 @@ if (error) {
 ### 1. 连接检查
 
 始终先检查连接状态：
+
 ```typescript
 const { isConnected, connect } = useGoogleDrive();
 
@@ -501,6 +529,7 @@ if (!isConnected) {
 ### 2. 加载状态
 
 提供良好的加载反馈：
+
 ```typescript
 const { loading, files } = useGoogleDriveFiles({ connectionId });
 
@@ -510,6 +539,7 @@ if (loading) return <Spinner />;
 ### 3. 进度显示
 
 导入/导出时显示进度：
+
 ```typescript
 const { progress, progressPercent } = useGoogleDriveImport({ connectionId });
 
@@ -521,6 +551,7 @@ const { progress, progressPercent } = useGoogleDriveImport({ connectionId });
 ### 4. 错误恢复
 
 提供错误恢复机制：
+
 ```typescript
 const { error, refresh } = useGoogleDrive();
 
@@ -541,11 +572,12 @@ if (error) {
 ### 单元测试
 
 建议为每个 hook 编写测试：
-```typescript
-import { renderHook, waitFor } from '@testing-library/react';
-import { useGoogleDrive } from './useGoogleDrive';
 
-test('should connect to Google Drive', async () => {
+```typescript
+import { renderHook, waitFor } from "@testing-library/react";
+import { useGoogleDrive } from "./useGoogleDrive";
+
+test("should connect to Google Drive", async () => {
   const { result } = renderHook(() => useGoogleDrive());
 
   await waitFor(() => {
@@ -557,19 +589,24 @@ test('should connect to Google Drive', async () => {
 ### 集成测试
 
 测试完整的工作流：
+
 ```typescript
-test('should import files from Google Drive', async () => {
+test("should import files from Google Drive", async () => {
   const { result: drive } = renderHook(() => useGoogleDrive());
-  const { result: files } = renderHook(() => useGoogleDriveFiles({
-    connectionId: drive.current.connection?.id,
-  }));
-  const { result: importer } = renderHook(() => useGoogleDriveImport({
-    connectionId: drive.current.connection?.id,
-  }));
+  const { result: files } = renderHook(() =>
+    useGoogleDriveFiles({
+      connectionId: drive.current.connection?.id,
+    }),
+  );
+  const { result: importer } = renderHook(() =>
+    useGoogleDriveImport({
+      connectionId: drive.current.connection?.id,
+    }),
+  );
 
   // 选择文件
   act(() => {
-    importer.current.selectFile('file-1');
+    importer.current.selectFile("file-1");
   });
 
   // 导入
@@ -597,6 +634,7 @@ test('should import files from Google Drive', async () => {
 ## 📅 更新日志
 
 ### v1.0.0 (2024-12-25)
+
 - 初始版本
 - 实现 4 个核心 hooks
 - 完整的 TypeScript 类型定义

@@ -1034,7 +1034,11 @@ export class QualityCheckService {
       const bulletCount = issue.details.bulletCount;
 
       // 分析最佳拆分策略
-      const splitAnalysis = this.analyzeSmartSplit(slide, wordCount, bulletCount);
+      const splitAnalysis = this.analyzeSmartSplit(
+        slide,
+        wordCount,
+        bulletCount,
+      );
 
       if (splitAnalysis.shouldSplit) {
         suggestions.push({
@@ -1116,10 +1120,7 @@ export class QualityCheckService {
     }
 
     // 策略2: 按段落拆分（正文过长）
-    if (
-      slide.content.bodyText &&
-      slide.content.bodyText.length > 500
-    ) {
+    if (slide.content.bodyText && slide.content.bodyText.length > 500) {
       (result as any).strategy = "by_paragraph";
       const paragraphs = slide.content.bodyText.split(/\n\n+/);
       result.suggestedParts = Math.min(paragraphs.length, 3);
@@ -1374,7 +1375,10 @@ export class QualityCheckService {
     }
 
     // 基于现有标题和内容，生成建议的补充要点
-    const suggestedPoints = this.generateSuggestedBulletPoints(slide, targetWordCount - currentWordCount);
+    const suggestedPoints = this.generateSuggestedBulletPoints(
+      slide,
+      targetWordCount - currentWordCount,
+    );
 
     // 添加建议的要点
     if (!slide.content.bulletPoints) {
@@ -1447,10 +1451,7 @@ export class QualityCheckService {
         `[建议补充] 综合对比结论`,
       );
     } else {
-      points.push(
-        `[建议补充] 核心内容要点`,
-        `[建议补充] 支撑论据或数据`,
-      );
+      points.push(`[建议补充] 核心内容要点`, `[建议补充] 支撑论据或数据`);
     }
 
     // 限制返回的要点数量（基于目标字数）

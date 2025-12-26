@@ -21,7 +21,11 @@ interface VisionMessage {
   role: "user" | "assistant" | "system";
   content:
     | string
-    | Array<{ type: "text" | "image_url"; text?: string; image_url?: { url: string } }>;
+    | Array<{
+        type: "text" | "image_url";
+        text?: string;
+        image_url?: { url: string };
+      }>;
 }
 
 @Injectable()
@@ -31,8 +35,7 @@ export class ScreenshotAnalyzerService {
   private readonly openaiBaseUrl: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.openaiApiKey =
-      this.configService.get<string>("OPENAI_API_KEY") || "";
+    this.openaiApiKey = this.configService.get<string>("OPENAI_API_KEY") || "";
     this.openaiBaseUrl =
       this.configService.get<string>("OPENAI_BASE_URL") ||
       "https://api.openai.com/v1";
@@ -255,10 +258,7 @@ export class ScreenshotAnalyzerService {
   ): Promise<{ hasError: boolean; errorHint?: string }> {
     const analysis = await this.analyzeScreenshots(attachments);
 
-    if (
-      analysis.detectedErrors &&
-      analysis.detectedErrors.length > 0
-    ) {
+    if (analysis.detectedErrors && analysis.detectedErrors.length > 0) {
       return {
         hasError: true,
         errorHint: analysis.detectedErrors[0],

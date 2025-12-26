@@ -3,7 +3,13 @@
 import { useState, useCallback } from 'react';
 import { useApiPost } from '@/hooks/core';
 
-export type ExportFormat = 'original' | 'pdf' | 'markdown' | 'html' | 'docx' | 'txt';
+export type ExportFormat =
+  | 'original'
+  | 'pdf'
+  | 'markdown'
+  | 'html'
+  | 'docx'
+  | 'txt';
 
 export interface ExportOptions {
   format?: ExportFormat;
@@ -27,7 +33,11 @@ export interface ExportResult {
   exported: number;
   failed: number;
   errors: Array<{ resourceId: string; error: string }>;
-  exportedFiles: Array<{ resourceId: string; driveFileId: string; webViewLink: string }>;
+  exportedFiles: Array<{
+    resourceId: string;
+    driveFileId: string;
+    webViewLink: string;
+  }>;
 }
 
 export interface Resource {
@@ -79,7 +89,9 @@ export function useGoogleDriveExport() {
         const progressInterval = setInterval(() => {
           setProgress((prev) =>
             prev.map((p) =>
-              p.status === 'pending' ? { ...p, status: 'exporting' as const } : p
+              p.status === 'pending'
+                ? { ...p, status: 'exporting' as const }
+                : p
             )
           );
           setTotalProgress((prev) => Math.min(prev + 10, 90));
@@ -103,13 +115,18 @@ export function useGoogleDriveExport() {
         // 更新最终状态
         setProgress(
           resources.map((resource) => {
-            const hasError = result.errors.some((e: { resourceId: string }) => e.resourceId === resource.id);
+            const hasError = result.errors.some(
+              (e: { resourceId: string }) => e.resourceId === resource.id
+            );
             return {
               resourceId: resource.id,
               resourceTitle: resource.title,
               status: hasError ? 'failed' : 'success',
               error: hasError
-                ? result.errors.find((e: { resourceId: string; error: string }) => e.resourceId === resource.id)?.error
+                ? result.errors.find(
+                    (e: { resourceId: string; error: string }) =>
+                      e.resourceId === resource.id
+                  )?.error
                 : undefined,
             };
           })

@@ -65,11 +65,7 @@ export interface UseGoogleDriveResult {
 export function useGoogleDrive(
   options: UseGoogleDriveOptions = {}
 ): UseGoogleDriveResult {
-  const {
-    immediate = true,
-    refreshInterval,
-    connectionId,
-  } = options;
+  const { immediate = true, refreshInterval, connectionId } = options;
 
   // 获取连接列表
   const {
@@ -105,16 +101,13 @@ export function useGoogleDrive(
   );
 
   // 断开连接
-  const {
-    execute: disconnectExecute,
-    loading: disconnecting,
-  } = useApiDelete('/google-drive/disconnect');
+  const { execute: disconnectExecute, loading: disconnecting } = useApiDelete(
+    '/google-drive/disconnect'
+  );
 
   // 触发同步
-  const {
-    execute: syncExecute,
-    loading: syncing,
-  } = useApiPost('/google-drive/sync');
+  const { execute: syncExecute, loading: syncing } =
+    useApiPost('/google-drive/sync');
 
   // 计算派生状态
   const connections = useMemo(
@@ -122,26 +115,23 @@ export function useGoogleDrive(
     [connectionsData]
   );
 
-  const connection = useMemo(
-    () => {
-      if (!connectionId) return connections[0] || null;
-      return connections.find(c => c.id === connectionId) || null;
-    },
-    [connections, connectionId]
-  );
+  const connection = useMemo(() => {
+    if (!connectionId) return connections[0] || null;
+    return connections.find((c) => c.id === connectionId) || null;
+  }, [connections, connectionId]);
 
   const isConnected = connections.length > 0;
 
-  const syncStatus = useMemo(
-    () => {
-      if (!syncStatusData?.status) return null;
-      if (connectionId) {
-        return syncStatusData.status.find(s => s.connectionId === connectionId) || null;
-      }
-      return syncStatusData.status[0] || null;
-    },
-    [syncStatusData, connectionId]
-  );
+  const syncStatus = useMemo(() => {
+    if (!syncStatusData?.status) return null;
+    if (connectionId) {
+      return (
+        syncStatusData.status.find((s) => s.connectionId === connectionId) ||
+        null
+      );
+    }
+    return syncStatusData.status[0] || null;
+  }, [syncStatusData, connectionId]);
 
   const isSyncing = syncStatus?.isSyncing ?? syncing;
 
@@ -172,10 +162,7 @@ export function useGoogleDrive(
 
   // 刷新数据
   const refresh = useCallback(async () => {
-    await Promise.all([
-      fetchConnections(),
-      fetchSyncStatus(),
-    ]);
+    await Promise.all([fetchConnections(), fetchSyncStatus()]);
   }, [fetchConnections, fetchSyncStatus]);
 
   // 触发同步
@@ -184,7 +171,7 @@ export function useGoogleDrive(
       try {
         await triggerSyncApi(targetConnectionId, fullSync);
         // 等待一下让服务器更新状态
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 500));
         await fetchSyncStatus();
       } catch (error) {
         console.error('Failed to trigger sync:', error);
@@ -196,7 +183,7 @@ export function useGoogleDrive(
 
   // 获取指定连接
   const getConnectionById = useCallback(
-    (id: string) => connections.find(c => c.id === id),
+    (id: string) => connections.find((c) => c.id === id),
     [connections]
   );
 

@@ -1,4 +1,13 @@
-import { IsString, IsOptional, IsBoolean, IsArray, IsInt, Min, Max, IsEnum } from "class-validator";
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsArray,
+  IsInt,
+  Min,
+  Max,
+  IsEnum,
+} from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 
@@ -43,7 +52,10 @@ export class ListFilesDto {
   @IsString()
   query?: string;
 
-  @ApiPropertyOptional({ description: "排序字段", default: "modifiedTime desc" })
+  @ApiPropertyOptional({
+    description: "排序字段",
+    default: "modifiedTime desc",
+  })
   @IsOptional()
   @IsString()
   orderBy?: string;
@@ -106,7 +118,11 @@ export class ExportResourcesDto {
   @IsString()
   folderId?: string;
 
-  @ApiPropertyOptional({ description: "导出格式", enum: ExportFormat, default: ExportFormat.ORIGINAL })
+  @ApiPropertyOptional({
+    description: "导出格式",
+    enum: ExportFormat,
+    default: ExportFormat.ORIGINAL,
+  })
   @IsOptional()
   @IsEnum(ExportFormat)
   format?: ExportFormat;
@@ -158,7 +174,9 @@ export class UpdateConnectionDto {
  * 触发同步请求
  */
 export class TriggerSyncDto {
-  @ApiPropertyOptional({ description: "文件夹 ID（不提供则同步所有监听的文件夹）" })
+  @ApiPropertyOptional({
+    description: "文件夹 ID（不提供则同步所有监听的文件夹）",
+  })
   @IsOptional()
   @IsString()
   folderId?: string;

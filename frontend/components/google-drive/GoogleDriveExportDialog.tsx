@@ -167,7 +167,8 @@ export function GoogleDriveExportDialog({
               className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
             >
               <Download size={16} />
-              Export {resources.length} Resource{resources.length !== 1 ? 's' : ''}
+              Export {resources.length} Resource
+              {resources.length !== 1 ? 's' : ''}
             </button>
           )}
         </>
@@ -179,7 +180,9 @@ export function GoogleDriveExportDialog({
           <div className="space-y-6">
             {/* 格式选择 */}
             <div>
-              <h4 className="mb-3 font-semibold text-gray-900">Export Format</h4>
+              <h4 className="mb-3 font-semibold text-gray-900">
+                Export Format
+              </h4>
               <div className="grid grid-cols-2 gap-3">
                 {FORMAT_OPTIONS.map((option) => (
                   <label
@@ -197,7 +200,9 @@ export function GoogleDriveExportDialog({
                         name="format"
                         value={option.value}
                         checked={format === option.value}
-                        onChange={(e) => setFormat(e.target.value as ExportFormat)}
+                        onChange={(e) =>
+                          setFormat(e.target.value as ExportFormat)
+                        }
                         className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
                       />
                       <span className="font-semibold text-gray-900">
@@ -325,13 +330,18 @@ export function GoogleDriveExportDialog({
                       key={resource.id}
                       className="flex items-center gap-3 rounded-lg bg-white p-3"
                     >
-                      <FileText size={20} className="flex-shrink-0 text-blue-600" />
+                      <FileText
+                        size={20}
+                        className="flex-shrink-0 text-blue-600"
+                      />
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium text-gray-900">
                           {resource.title}
                         </p>
                         {resource.type && (
-                          <p className="text-xs text-gray-500">{resource.type}</p>
+                          <p className="text-xs text-gray-500">
+                            {resource.type}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -370,8 +380,7 @@ export function GoogleDriveExportDialog({
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
             <p className="text-sm text-blue-900">
               Resources will be exported to Google Drive in the selected format.
-              You can access them in your{' '}
-              <strong>{folderName}</strong> folder.
+              You can access them in your <strong>{folderName}</strong> folder.
             </p>
           </div>
         )}

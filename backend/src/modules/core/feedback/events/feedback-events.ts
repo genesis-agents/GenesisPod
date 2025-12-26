@@ -159,7 +159,10 @@ export interface NotificationSentPayload {
 
 export interface FeedbackEventPayloadMap {
   [FeedbackEvent.CREATED]: FeedbackCreatedPayload;
-  [FeedbackEvent.UPDATED]: { feedbackId: string; changes: Record<string, unknown> };
+  [FeedbackEvent.UPDATED]: {
+    feedbackId: string;
+    changes: Record<string, unknown>;
+  };
   [FeedbackEvent.CLOSED]: { feedbackId: string; reason: string };
   [FeedbackEvent.TRIAGE_STARTED]: TriageStartedPayload;
   [FeedbackEvent.TRIAGE_COMPLETED]: TriageCompletedPayload;

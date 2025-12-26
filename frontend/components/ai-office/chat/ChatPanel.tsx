@@ -588,7 +588,7 @@ export default function ChatPanel() {
         : null;
       const existingContent =
         currentDoc && shouldUpdateExisting
-          ? (currentDoc.content)?.markdown || ''
+          ? currentDoc.content?.markdown || ''
           : '';
 
       // 构建增强的prompt

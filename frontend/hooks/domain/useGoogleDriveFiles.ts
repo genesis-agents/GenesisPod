@@ -120,19 +120,32 @@ export function useGoogleDriveFiles(
     if (searchQuery) params.search = searchQuery;
     if (mimeType) params.mimeType = mimeType;
     return params;
-  }, [connectionId, currentFolderId, searchQuery, mimeType, page, pageSize, sortBy, sortOrder]);
+  }, [
+    connectionId,
+    currentFolderId,
+    searchQuery,
+    mimeType,
+    page,
+    pageSize,
+    sortBy,
+    sortOrder,
+  ]);
 
   // 构建 URL
   const apiUrl = useMemo(() => {
     const searchParams = new URLSearchParams();
-    if (queryParams.connectionId) searchParams.set('connectionId', queryParams.connectionId);
-    if (queryParams.parentId) searchParams.set('parentId', queryParams.parentId);
+    if (queryParams.connectionId)
+      searchParams.set('connectionId', queryParams.connectionId);
+    if (queryParams.parentId)
+      searchParams.set('parentId', queryParams.parentId);
     if (queryParams.search) searchParams.set('search', queryParams.search);
-    if (queryParams.mimeType) searchParams.set('mimeType', queryParams.mimeType);
+    if (queryParams.mimeType)
+      searchParams.set('mimeType', queryParams.mimeType);
     if (queryParams.page) searchParams.set('page', String(queryParams.page));
     if (queryParams.limit) searchParams.set('limit', String(queryParams.limit));
     if (queryParams.sortBy) searchParams.set('sortBy', queryParams.sortBy);
-    if (queryParams.sortOrder) searchParams.set('sortOrder', queryParams.sortOrder);
+    if (queryParams.sortOrder)
+      searchParams.set('sortOrder', queryParams.sortOrder);
     return `/google-drive/files?${searchParams.toString()}`;
   }, [queryParams]);
 
@@ -148,32 +161,24 @@ export function useGoogleDriveFiles(
   });
 
   // 计算派生状态
-  const files = useMemo(
-    () => filesData?.files ?? [],
-    [filesData]
-  );
+  const files = useMemo(() => filesData?.files ?? [], [filesData]);
 
-  const folders = useMemo(
-    () => files.filter(f => f.isFolder),
-    [files]
-  );
+  const folders = useMemo(() => files.filter((f) => f.isFolder), [files]);
 
   const allItems = files;
 
-  const folderPath = useMemo(
-    () => filesData?.folderPath ?? [],
-    [filesData]
-  );
+  const folderPath = useMemo(() => filesData?.folderPath ?? [], [filesData]);
 
   const canGoBack = folderPath.length > 0;
 
   const pagination = useMemo(
-    () => filesData?.pagination ?? {
-      page: 1,
-      limit: pageSize,
-      total: 0,
-      totalPages: 0,
-    },
+    () =>
+      filesData?.pagination ?? {
+        page: 1,
+        limit: pageSize,
+        total: 0,
+        totalPages: 0,
+      },
     [filesData, pageSize]
   );
 
@@ -229,7 +234,7 @@ export function useGoogleDriveFiles(
   // 加载更多
   const loadMore = useCallback(() => {
     if (!hasMore || loading) return;
-    setPage(prev => prev + 1);
+    setPage((prev) => prev + 1);
   }, [hasMore, loading]);
 
   // 刷新
@@ -239,15 +244,12 @@ export function useGoogleDriveFiles(
 
   // 获取指定文件
   const getFileById = useCallback(
-    (id: string) => files.find(f => f.id === id),
+    (id: string) => files.find((f) => f.id === id),
     [files]
   );
 
   // 判断是否为文件夹
-  const isFolder = useCallback(
-    (file: GoogleDriveFile) => file.isFolder,
-    []
-  );
+  const isFolder = useCallback((file: GoogleDriveFile) => file.isFolder, []);
 
   // 当连接 ID 变化时重置状态
   useEffect(() => {

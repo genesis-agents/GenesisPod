@@ -236,7 +236,7 @@ export function DataImportDialog({
                   {whitelist.description}
                 </p>
                 <div className="mb-3 flex flex-wrap gap-2">
-                  {(whitelist.allowedDomains).map((domain, idx) => (
+                  {whitelist.allowedDomains.map((domain, idx) => (
                     <div key={idx} className="group relative">
                       <button
                         onClick={() => copyToClipboard(domain)}
@@ -313,13 +313,13 @@ export function DataImportDialog({
               <div className="space-y-2 text-sm">
                 <div>
                   <span className="text-gray-600">来源域名: </span>
-                  <span className="rounded bg-white px-2 py-1 font-mono text-sm">
+                  <span className="font-mono rounded bg-white px-2 py-1 text-sm">
                     {validationResult.matchedDomain}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-600">完整URL: </span>
-                  <div className="mt-1 break-all rounded bg-gray-100 p-2 font-mono text-xs">
+                  <div className="font-mono mt-1 break-all rounded bg-gray-100 p-2 text-xs">
                     {url}
                   </div>
                 </div>

@@ -1267,7 +1267,6 @@ function ProfileContent() {
                     {t('profile.integrations.moreIntegrations')}
                   </h2>
                   <div className="grid gap-4 sm:grid-cols-2">
-
                     {/* Obsidian */}
                     <div className="flex items-center justify-between rounded-lg border border-gray-200 p-4 opacity-60">
                       <div className="flex items-center gap-3">

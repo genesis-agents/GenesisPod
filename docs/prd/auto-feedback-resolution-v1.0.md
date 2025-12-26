@@ -11,6 +11,7 @@
 ### 1.1 现状分析
 
 当前 Feedback 系统流程：
+
 ```
 用户反馈 → 邮件通知 → 人工查看 → 手动分析 → 手动修复 → 手动回复
     ↓
@@ -29,11 +30,11 @@
 
 ### 1.3 核心价值
 
-| 指标 | 当前 | 目标 | 提升 |
-|------|------|------|------|
-| 首次响应时间 | 24h | 5min | 99%↓ |
+| 指标             | 当前  | 目标  | 提升 |
+| ---------------- | ----- | ----- | ---- |
+| 首次响应时间     | 24h   | 5min  | 99%↓ |
 | 简单问题解决时间 | 2-3天 | 30min | 99%↓ |
-| 研发介入率 | 100% | 50% | 50%↓ |
+| 研发介入率       | 100%  | 50%   | 50%↓ |
 
 ---
 
@@ -94,14 +95,14 @@
 
 ### 2.2 核心模块
 
-| 模块 | 职责 | 技术方案 |
-|------|------|----------|
-| **FeedbackEventEmitter** | 反馈事件发布 | NestJS EventEmitter |
-| **FeedbackTriageAgent** | 🆕 问题分诊决策 | LLM Agent + 规则引擎 |
-| **FeedbackAnalyzer** | AI 问题分析 | GPT-4V / Claude Vision |
-| **FeedbackResolver** | 自动修复引擎 | Coding Agent + Git |
-| **FeedbackNotifier** | 多渠道通知 | 飞书/钉钉/Slack Bot |
-| **FeedbackTracker** | 进度追踪 | 状态机 + 时间线 |
+| 模块                     | 职责            | 技术方案               |
+| ------------------------ | --------------- | ---------------------- |
+| **FeedbackEventEmitter** | 反馈事件发布    | NestJS EventEmitter    |
+| **FeedbackTriageAgent**  | 🆕 问题分诊决策 | LLM Agent + 规则引擎   |
+| **FeedbackAnalyzer**     | AI 问题分析     | GPT-4V / Claude Vision |
+| **FeedbackResolver**     | 自动修复引擎    | Coding Agent + Git     |
+| **FeedbackNotifier**     | 多渠道通知      | 飞书/钉钉/Slack Bot    |
+| **FeedbackTracker**      | 进度追踪        | 状态机 + 时间线        |
 
 ---
 
@@ -164,48 +165,48 @@ interface TriageDecision {
   // 合理性判断
   validity: {
     isValid: boolean;
-    confidence: number;        // 0-100
+    confidence: number; // 0-100
     reason: string;
-    invalidReason?: 'spam' | 'duplicate' | 'unclear' | 'not_a_bug' | 'wont_fix';
+    invalidReason?: "spam" | "duplicate" | "unclear" | "not_a_bug" | "wont_fix";
   };
 
   // 分类结果
   classification: {
-    type: 'bug' | 'feature' | 'improvement' | 'question' | 'other';
-    subType?: string;          // e.g., 'ui_bug', 'logic_error', 'performance'
-    affectedModule: string;    // e.g., 'ai-office/ppt', 'ai-ask'
+    type: "bug" | "feature" | "improvement" | "question" | "other";
+    subType?: string; // e.g., 'ui_bug', 'logic_error', 'performance'
+    affectedModule: string; // e.g., 'ai-office/ppt', 'ai-ask'
   };
 
   // 优先级评估
   priority: {
-    level: 'critical' | 'high' | 'medium' | 'low';
-    score: number;             // 0-100
+    level: "critical" | "high" | "medium" | "low";
+    score: number; // 0-100
     factors: {
-      userImpact: number;      // 影响用户数
-      severity: number;        // 问题严重程度
-      frequency: number;       // 发生频率
-      businessImpact: number;  // 业务影响
+      userImpact: number; // 影响用户数
+      severity: number; // 问题严重程度
+      frequency: number; // 发生频率
+      businessImpact: number; // 业务影响
     };
   };
 
   // 处理路由
   routing: {
-    action: 'auto_fix' | 'manual_fix' | 'request_info' | 'reject' | 'defer';
+    action: "auto_fix" | "manual_fix" | "request_info" | "reject" | "defer";
     confidence: number;
     reasoning: string;
 
     // 如果是自动修复
     autoFixPlan?: {
       approach: string;
-      estimatedComplexity: 'trivial' | 'simple' | 'moderate' | 'complex';
-      riskLevel: 'low' | 'medium' | 'high';
+      estimatedComplexity: "trivial" | "simple" | "moderate" | "complex";
+      riskLevel: "low" | "medium" | "high";
       requiresReview: boolean;
     };
 
     // 如果需要人工
     manualAssignment?: {
       suggestedOwner?: string;
-      estimatedEffort: string;  // e.g., "2h", "1d"
+      estimatedEffort: string; // e.g., "2h", "1d"
       blockers?: string[];
     };
   };
@@ -270,14 +271,14 @@ const TRIAGE_AGENT_SYSTEM_PROMPT = `
 
 ### 2.5.5 拒绝策略
 
-| 拒绝原因 | 判断条件 | 处理方式 |
-|----------|----------|----------|
-| **垃圾信息** | 无意义内容、广告 | 直接关闭，不通知 |
-| **重复反馈** | 与已有反馈相似度>90% | 关闭并关联原反馈，通知用户 |
-| **信息不足** | 无法理解问题 | 保持开放，请求补充信息 |
-| **非Bug** | 用户误解产品功能 | 提供使用指导，关闭 |
-| **Won't Fix** | 设计如此/超出范围 | 解释原因，关闭 |
-| **延期处理** | 有效但优先级低 | 归档到 Backlog |
+| 拒绝原因      | 判断条件             | 处理方式                   |
+| ------------- | -------------------- | -------------------------- |
+| **垃圾信息**  | 无意义内容、广告     | 直接关闭，不通知           |
+| **重复反馈**  | 与已有反馈相似度>90% | 关闭并关联原反馈，通知用户 |
+| **信息不足**  | 无法理解问题         | 保持开放，请求补充信息     |
+| **非Bug**     | 用户误解产品功能     | 提供使用指导，关闭         |
+| **Won't Fix** | 设计如此/超出范围    | 解释原因，关闭             |
+| **延期处理**  | 有效但优先级低       | 归档到 Backlog             |
 
 ### 2.5.6 自动修复准入条件
 
@@ -289,21 +290,25 @@ function canAutoFix(decision: TriageDecision): boolean {
   if (!validity.isValid || validity.confidence < 80) return false;
 
   // 路由决策必须是 auto_fix
-  if (routing.action !== 'auto_fix') return false;
+  if (routing.action !== "auto_fix") return false;
 
   // 置信度检查
   if (routing.confidence < 85) return false;
 
   // 风险检查
-  if (routing.autoFixPlan?.riskLevel === 'high') return false;
+  if (routing.autoFixPlan?.riskLevel === "high") return false;
 
   // 复杂度检查
-  if (['moderate', 'complex'].includes(routing.autoFixPlan?.estimatedComplexity || '')) {
+  if (
+    ["moderate", "complex"].includes(
+      routing.autoFixPlan?.estimatedComplexity || "",
+    )
+  ) {
     return false;
   }
 
   // Critical 问题需要人工确认
-  if (priority.level === 'critical') return false;
+  if (priority.level === "critical") return false;
 
   return true;
 }
@@ -318,18 +323,18 @@ function canAutoFix(decision: TriageDecision): boolean {
 ```typescript
 // feedback-events.ts
 export enum FeedbackEvent {
-  CREATED = 'feedback.created',
-  ANALYZED = 'feedback.analyzed',
-  FIX_STARTED = 'feedback.fix.started',
-  FIX_COMPLETED = 'feedback.fix.completed',
-  FIX_FAILED = 'feedback.fix.failed',
-  RESOLVED = 'feedback.resolved',
-  CLOSED = 'feedback.closed',
+  CREATED = "feedback.created",
+  ANALYZED = "feedback.analyzed",
+  FIX_STARTED = "feedback.fix.started",
+  FIX_COMPLETED = "feedback.fix.completed",
+  FIX_FAILED = "feedback.fix.failed",
+  RESOLVED = "feedback.resolved",
+  CLOSED = "feedback.closed",
 }
 
 export interface FeedbackEventPayload {
   feedbackId: string;
-  type: 'BUG' | 'FEATURE' | 'IMPROVEMENT' | 'OTHER';
+  type: "BUG" | "FEATURE" | "IMPROVEMENT" | "OTHER";
   title: string;
   description: string;
   attachments: Attachment[];
@@ -347,24 +352,29 @@ export interface FeedbackEventPayload {
 
 #### 3.2.1 分析能力矩阵
 
-| 输入类型 | 分析能力 | 输出 |
-|----------|----------|------|
-| 文字描述 | NLP理解 + 意图识别 | 问题分类、关键词 |
-| 截图 | Vision OCR + UI识别 | 错误信息、页面定位 |
-| 错误堆栈 | 代码分析 | 出错文件、行号 |
-| 控制台日志 | 日志解析 | 错误模式识别 |
+| 输入类型   | 分析能力            | 输出               |
+| ---------- | ------------------- | ------------------ |
+| 文字描述   | NLP理解 + 意图识别  | 问题分类、关键词   |
+| 截图       | Vision OCR + UI识别 | 错误信息、页面定位 |
+| 错误堆栈   | 代码分析            | 出错文件、行号     |
+| 控制台日志 | 日志解析            | 错误模式识别       |
 
 #### 3.2.2 分析输出结构
 
 ```typescript
 interface FeedbackAnalysis {
   // 问题分类
-  category: 'ui_bug' | 'logic_error' | 'performance' | 'feature_request' | 'ux_improvement';
-  severity: 'critical' | 'high' | 'medium' | 'low';
+  category:
+    | "ui_bug"
+    | "logic_error"
+    | "performance"
+    | "feature_request"
+    | "ux_improvement";
+  severity: "critical" | "high" | "medium" | "low";
 
   // 问题定位
-  affectedModule: string;           // e.g., "ai-office/ppt"
-  affectedFiles: string[];          // e.g., ["frontend/components/..."]
+  affectedModule: string; // e.g., "ai-office/ppt"
+  affectedFiles: string[]; // e.g., ["frontend/components/..."]
   errorLocation?: {
     file: string;
     line: number;
@@ -372,16 +382,16 @@ interface FeedbackAnalysis {
   };
 
   // 问题理解
-  summary: string;                  // AI 生成的问题摘要
-  rootCause: string;                // 推测的根因
-  reproductionSteps: string[];      // 复现步骤
+  summary: string; // AI 生成的问题摘要
+  rootCause: string; // 推测的根因
+  reproductionSteps: string[]; // 复现步骤
 
   // 解决方案
   suggestedFix: {
-    type: 'auto_fix' | 'manual_fix' | 'needs_investigation';
-    confidence: number;             // 0-100
+    type: "auto_fix" | "manual_fix" | "needs_investigation";
+    confidence: number; // 0-100
     description: string;
-    codeChanges?: CodeChange[];     // 如果可自动修复
+    codeChanges?: CodeChange[]; // 如果可自动修复
   };
 
   // 相似问题
@@ -397,13 +407,13 @@ interface FeedbackAnalysis {
 
 #### 3.3.1 可自动修复的问题类型
 
-| 问题类型 | 自动修复策略 | 置信度阈值 |
-|----------|--------------|-----------|
-| 文案错误/Typo | 直接替换 | 95% |
-| 样式问题 | CSS调整 | 90% |
-| 缺失翻译 | i18n补充 | 85% |
-| 简单逻辑错误 | 代码修复 | 80% |
-| 配置问题 | 配置更新 | 90% |
+| 问题类型      | 自动修复策略 | 置信度阈值 |
+| ------------- | ------------ | ---------- |
+| 文案错误/Typo | 直接替换     | 95%        |
+| 样式问题      | CSS调整      | 90%        |
+| 缺失翻译      | i18n补充     | 85%        |
+| 简单逻辑错误  | 代码修复     | 80%        |
+| 配置问题      | 配置更新     | 90%        |
 
 #### 3.3.2 修复流程
 
@@ -446,8 +456,8 @@ interface NotificationConfig {
   // 飞书/Lark
   feishu?: {
     webhookUrl: string;
-    mentionUsers?: string[];  // @具体人
-    atAll?: boolean;          // @所有人（仅高优先级）
+    mentionUsers?: string[]; // @具体人
+    atAll?: boolean; // @所有人（仅高优先级）
   };
 
   // 钉钉
@@ -474,6 +484,7 @@ interface NotificationConfig {
 #### 3.4.2 通知模板
 
 **飞书卡片消息示例**:
+
 ```
 🐛 新用户反馈 #FB-20241225-001
 
@@ -658,24 +669,24 @@ AUTO_MERGE_LOW_RISK=false
 
 ## 六、风险与应对
 
-| 风险 | 影响 | 应对措施 |
-|------|------|----------|
-| AI 分析错误 | 误判问题 | 设置置信度阈值，低于阈值转人工 |
-| 自动修复引入新 bug | 系统不稳定 | 强制测试通过，高风险需人工审核 |
-| 通知过多干扰 | 研发效率下降 | 智能聚合，设置静默时间 |
-| 隐私泄露 | 合规风险 | 脱敏处理，审计日志 |
+| 风险               | 影响         | 应对措施                       |
+| ------------------ | ------------ | ------------------------------ |
+| AI 分析错误        | 误判问题     | 设置置信度阈值，低于阈值转人工 |
+| 自动修复引入新 bug | 系统不稳定   | 强制测试通过，高风险需人工审核 |
+| 通知过多干扰       | 研发效率下降 | 智能聚合，设置静默时间         |
+| 隐私泄露           | 合规风险     | 脱敏处理，审计日志             |
 
 ---
 
 ## 七、成功指标
 
-| 指标 | 目标 | 测量方式 |
-|------|------|----------|
-| 首次响应时间 | < 5分钟 | 从创建到首次分析完成 |
-| AI 分析准确率 | > 80% | 人工验证抽样 |
-| 自动修复成功率 | > 90% (尝试的问题) | 修复后测试通过率 |
-| 简单问题自动解决率 | > 30% | 无需人工介入的闭环 |
-| 用户满意度 | > 4.0/5.0 | 反馈后调查 |
+| 指标               | 目标               | 测量方式             |
+| ------------------ | ------------------ | -------------------- |
+| 首次响应时间       | < 5分钟            | 从创建到首次分析完成 |
+| AI 分析准确率      | > 80%              | 人工验证抽样         |
+| 自动修复成功率     | > 90% (尝试的问题) | 修复后测试通过率     |
+| 简单问题自动解决率 | > 30%              | 无需人工介入的闭环   |
+| 用户满意度         | > 4.0/5.0          | 反馈后调查           |
 
 ---
 

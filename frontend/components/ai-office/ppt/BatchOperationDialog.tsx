@@ -57,37 +57,37 @@ const OPERATIONS: OperationConfig[] = [
   {
     id: 'update_footer',
     label: '更新页脚',
-    icon: <FileText className="w-5 h-5" />,
+    icon: <FileText className="h-5 w-5" />,
     description: '统一设置所有页面的页脚格式和样式',
   },
   {
     id: 'update_header',
     label: '更新页眉',
-    icon: <FileText className="w-5 h-5" />,
+    icon: <FileText className="h-5 w-5" />,
     description: '统一设置所有页面的页眉内容和位置',
   },
   {
     id: 'update_background',
     label: '更新背景',
-    icon: <Palette className="w-5 h-5" />,
+    icon: <Palette className="h-5 w-5" />,
     description: '批量更改背景颜色或渐变效果',
   },
   {
     id: 'update_font',
     label: '更新字体',
-    icon: <Type className="w-5 h-5" />,
+    icon: <Type className="h-5 w-5" />,
     description: '统一设置标题和正文字体',
   },
   {
     id: 'update_safe_area',
     label: '更新安全区',
-    icon: <Layout className="w-5 h-5" />,
+    icon: <Layout className="h-5 w-5" />,
     description: '调整内容区域边距，避免与页眉页脚重叠',
   },
   {
     id: 'update_logo',
     label: '添加 Logo',
-    icon: <Image className="w-5 h-5" />,
+    icon: <Image className="h-5 w-5" />,
     description: '在所有页面添加品牌 Logo',
   },
 ];
@@ -103,12 +103,15 @@ export const BatchOperationDialog: React.FC<BatchOperationDialogProps> = ({
   onSuccess,
   totalSlides,
 }) => {
-  const [selectedOperation, setSelectedOperation] = useState<BatchOperation | null>(null);
+  const [selectedOperation, setSelectedOperation] =
+    useState<BatchOperation | null>(null);
   const [pageRange, setPageRange] = useState<'all' | 'selected'>('all');
   const [selectedPages, setSelectedPages] = useState<number[]>([]);
   const [config, setConfig] = useState<Record<string, any>>({});
 
-  const { execute, loading, error } = useApiPost(`/api/ai-office/ppt/${pptId}/batch-update`);
+  const { execute, loading, error } = useApiPost(
+    `/api/ai-office/ppt/${pptId}/batch-update`
+  );
 
   const handleExecute = async () => {
     if (!selectedOperation) return;
@@ -136,25 +139,25 @@ export const BatchOperationDialog: React.FC<BatchOperationDialogProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-lg bg-white shadow-xl dark:bg-gray-800">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
+        <div className="flex items-center justify-between border-b p-4 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             批量操作
           </h2>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+            className="rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-4 overflow-y-auto max-h-[60vh]">
+        <div className="max-h-[60vh] overflow-y-auto p-4">
           {/* 操作选择 */}
           <div className="mb-6">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
               选择操作类型
             </h3>
             <div className="grid grid-cols-2 gap-3">
@@ -162,10 +165,10 @@ export const BatchOperationDialog: React.FC<BatchOperationDialogProps> = ({
                 <button
                   key={op.id}
                   onClick={() => setSelectedOperation(op.id)}
-                  className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
+                  className={`flex items-start gap-3 rounded-lg border p-3 transition-colors ${
                     selectedOperation === op.id
                       ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
+                      : 'border-gray-200 hover:border-gray-300 dark:border-gray-600'
                   }`}
                 >
                   <div
@@ -178,7 +181,7 @@ export const BatchOperationDialog: React.FC<BatchOperationDialogProps> = ({
                     {op.icon}
                   </div>
                   <div className="text-left">
-                    <div className="font-medium text-sm text-gray-900 dark:text-white">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
                       {op.label}
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -192,10 +195,10 @@ export const BatchOperationDialog: React.FC<BatchOperationDialogProps> = ({
 
           {/* 页面范围选择 */}
           <div className="mb-6">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
               应用范围
             </h3>
-            <div className="flex gap-4 mb-3">
+            <div className="mb-3 flex gap-4">
               <label className="flex items-center gap-2">
                 <input
                   type="radio"
@@ -222,19 +225,21 @@ export const BatchOperationDialog: React.FC<BatchOperationDialogProps> = ({
 
             {pageRange === 'selected' && (
               <div className="flex flex-wrap gap-2">
-                {Array.from({ length: totalSlides }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => togglePage(page)}
-                    className={`w-8 h-8 text-sm rounded border ${
-                      selectedPages.includes(page)
-                        ? 'bg-blue-500 text-white border-blue-500'
-                        : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
+                {Array.from({ length: totalSlides }, (_, i) => i + 1).map(
+                  (page) => (
+                    <button
+                      key={page}
+                      onClick={() => togglePage(page)}
+                      className={`h-8 w-8 rounded border text-sm ${
+                        selectedPages.includes(page)
+                          ? 'border-blue-500 bg-blue-500 text-white'
+                          : 'border-gray-300 bg-white text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  )
+                )}
               </div>
             )}
           </div>
@@ -242,7 +247,7 @@ export const BatchOperationDialog: React.FC<BatchOperationDialogProps> = ({
           {/* 配置区域 - 根据选择的操作显示不同配置 */}
           {selectedOperation && (
             <div className="mb-6">
-              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
                 配置选项
               </h3>
               <OperationConfigForm
@@ -255,34 +260,34 @@ export const BatchOperationDialog: React.FC<BatchOperationDialogProps> = ({
 
           {/* 错误提示 */}
           {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg">
-              <AlertCircle className="w-4 h-4" />
-              <span className="text-sm">{error?.message || "操作失败"}</span>
+            <div className="flex items-center gap-2 rounded-lg bg-red-50 p-3 text-red-600 dark:bg-red-900/20 dark:text-red-400">
+              <AlertCircle className="h-4 w-4" />
+              <span className="text-sm">{error?.message || '操作失败'}</span>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-4 border-t dark:border-gray-700">
+        <div className="flex items-center justify-end gap-3 border-t p-4 dark:border-gray-700">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+            className="rounded px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
           >
             取消
           </button>
           <button
             onClick={handleExecute}
             disabled={!selectedOperation || loading}
-            className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 rounded bg-blue-500 px-4 py-2 text-sm text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 执行中...
               </>
             ) : (
               <>
-                <Check className="w-4 h-4" />
+                <Check className="h-4 w-4" />
                 执行操作
               </>
             )}
@@ -317,7 +322,7 @@ const OperationConfigForm: React.FC<OperationConfigFormProps> = ({
       return (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+            <label className="mb-1 block text-sm text-gray-600 dark:text-gray-400">
               页脚格式
             </label>
             <input
@@ -325,20 +330,21 @@ const OperationConfigForm: React.FC<OperationConfigFormProps> = ({
               value={config.format || '{page}/{total}'}
               onChange={(e) => updateConfig('format', e.target.value)}
               placeholder="第{page}页 | {brand}"
-              className="w-full px-3 py-2 border dark:border-gray-600 rounded dark:bg-gray-700"
+              className="w-full rounded border px-3 py-2 dark:border-gray-600 dark:bg-gray-700"
             />
-            <p className="text-xs text-gray-500 mt-1">
-              可用变量: {'{page}'} - 页码, {'{total}'} - 总页数, {'{brand}'} - 品牌名
+            <p className="mt-1 text-xs text-gray-500">
+              可用变量: {'{page}'} - 页码, {'{total}'} - 总页数, {'{brand}'} -
+              品牌名
             </p>
           </div>
           <div>
-            <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+            <label className="mb-1 block text-sm text-gray-600 dark:text-gray-400">
               位置
             </label>
             <select
               value={config.position || 'bottom-right'}
               onChange={(e) => updateConfig('position', e.target.value)}
-              className="w-full px-3 py-2 border dark:border-gray-600 rounded dark:bg-gray-700"
+              className="w-full rounded border px-3 py-2 dark:border-gray-600 dark:bg-gray-700"
             >
               <option value="bottom-left">左下角</option>
               <option value="bottom-center">底部居中</option>
@@ -346,7 +352,7 @@ const OperationConfigForm: React.FC<OperationConfigFormProps> = ({
             </select>
           </div>
           <div>
-            <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+            <label className="mb-1 block text-sm text-gray-600 dark:text-gray-400">
               品牌名称
             </label>
             <input
@@ -354,7 +360,7 @@ const OperationConfigForm: React.FC<OperationConfigFormProps> = ({
               value={config.brand || ''}
               onChange={(e) => updateConfig('brand', e.target.value)}
               placeholder="输入品牌名称"
-              className="w-full px-3 py-2 border dark:border-gray-600 rounded dark:bg-gray-700"
+              className="w-full rounded border px-3 py-2 dark:border-gray-600 dark:bg-gray-700"
             />
           </div>
         </div>
@@ -364,41 +370,44 @@ const OperationConfigForm: React.FC<OperationConfigFormProps> = ({
       return (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+            <label className="mb-1 block text-sm text-gray-600 dark:text-gray-400">
               背景类型
             </label>
             <select
               value={config.type || 'solid'}
               onChange={(e) => updateConfig('type', e.target.value)}
-              className="w-full px-3 py-2 border dark:border-gray-600 rounded dark:bg-gray-700"
+              className="w-full rounded border px-3 py-2 dark:border-gray-600 dark:bg-gray-700"
             >
               <option value="solid">纯色</option>
               <option value="gradient">渐变</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+            <label className="mb-1 block text-sm text-gray-600 dark:text-gray-400">
               主色调
             </label>
             <input
               type="color"
               value={config.color || '#ffffff'}
               onChange={(e) => updateConfig('color', e.target.value)}
-              className="w-full h-10 rounded cursor-pointer"
+              className="h-10 w-full cursor-pointer rounded"
             />
           </div>
           {config.type === 'gradient' && (
             <div>
-              <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+              <label className="mb-1 block text-sm text-gray-600 dark:text-gray-400">
                 渐变终点色
               </label>
               <input
                 type="color"
                 value={config.gradient?.to || '#f0f0f0'}
                 onChange={(e) =>
-                  updateConfig('gradient', { ...config.gradient, to: e.target.value })
+                  updateConfig('gradient', {
+                    ...config.gradient,
+                    to: e.target.value,
+                  })
                 }
-                className="w-full h-10 rounded cursor-pointer"
+                className="h-10 w-full cursor-pointer rounded"
               />
             </div>
           )}
@@ -409,35 +418,39 @@ const OperationConfigForm: React.FC<OperationConfigFormProps> = ({
       return (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+            <label className="mb-1 block text-sm text-gray-600 dark:text-gray-400">
               标题字体
             </label>
             <select
               value={config.headingFont || 'Inter'}
               onChange={(e) => updateConfig('headingFont', e.target.value)}
-              className="w-full px-3 py-2 border dark:border-gray-600 rounded dark:bg-gray-700"
+              className="w-full rounded border px-3 py-2 dark:border-gray-600 dark:bg-gray-700"
             >
               <option value="Inter">Inter</option>
               <option value="Roboto">Roboto</option>
               <option value="Noto Sans SC">Noto Sans SC (思源黑体)</option>
               <option value="PingFang SC">PingFang SC (苹方)</option>
-              <option value="Microsoft YaHei">Microsoft YaHei (微软雅黑)</option>
+              <option value="Microsoft YaHei">
+                Microsoft YaHei (微软雅黑)
+              </option>
             </select>
           </div>
           <div>
-            <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+            <label className="mb-1 block text-sm text-gray-600 dark:text-gray-400">
               正文字体
             </label>
             <select
               value={config.bodyFont || 'Inter'}
               onChange={(e) => updateConfig('bodyFont', e.target.value)}
-              className="w-full px-3 py-2 border dark:border-gray-600 rounded dark:bg-gray-700"
+              className="w-full rounded border px-3 py-2 dark:border-gray-600 dark:bg-gray-700"
             >
               <option value="Inter">Inter</option>
               <option value="Roboto">Roboto</option>
               <option value="Noto Sans SC">Noto Sans SC (思源黑体)</option>
               <option value="PingFang SC">PingFang SC (苹方)</option>
-              <option value="Microsoft YaHei">Microsoft YaHei (微软雅黑)</option>
+              <option value="Microsoft YaHei">
+                Microsoft YaHei (微软雅黑)
+              </option>
             </select>
           </div>
         </div>
@@ -448,8 +461,15 @@ const OperationConfigForm: React.FC<OperationConfigFormProps> = ({
         <div className="grid grid-cols-2 gap-4">
           {['top', 'bottom', 'left', 'right'].map((side) => (
             <div key={side}>
-              <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1 capitalize">
-                {side === 'top' ? '上' : side === 'bottom' ? '下' : side === 'left' ? '左' : '右'}边距 (px)
+              <label className="mb-1 block text-sm capitalize text-gray-600 dark:text-gray-400">
+                {side === 'top'
+                  ? '上'
+                  : side === 'bottom'
+                    ? '下'
+                    : side === 'left'
+                      ? '左'
+                      : '右'}
+                边距 (px)
               </label>
               <input
                 type="number"
@@ -457,7 +477,7 @@ const OperationConfigForm: React.FC<OperationConfigFormProps> = ({
                 onChange={(e) => updateConfig(side, parseInt(e.target.value))}
                 min={0}
                 max={200}
-                className="w-full px-3 py-2 border dark:border-gray-600 rounded dark:bg-gray-700"
+                className="w-full rounded border px-3 py-2 dark:border-gray-600 dark:bg-gray-700"
               />
             </div>
           ))}
@@ -468,7 +488,7 @@ const OperationConfigForm: React.FC<OperationConfigFormProps> = ({
       return (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+            <label className="mb-1 block text-sm text-gray-600 dark:text-gray-400">
               Logo URL
             </label>
             <input
@@ -476,17 +496,17 @@ const OperationConfigForm: React.FC<OperationConfigFormProps> = ({
               value={config.url || ''}
               onChange={(e) => updateConfig('url', e.target.value)}
               placeholder="https://example.com/logo.png"
-              className="w-full px-3 py-2 border dark:border-gray-600 rounded dark:bg-gray-700"
+              className="w-full rounded border px-3 py-2 dark:border-gray-600 dark:bg-gray-700"
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+            <label className="mb-1 block text-sm text-gray-600 dark:text-gray-400">
               位置
             </label>
             <select
               value={config.position || 'top-right'}
               onChange={(e) => updateConfig('position', e.target.value)}
-              className="w-full px-3 py-2 border dark:border-gray-600 rounded dark:bg-gray-700"
+              className="w-full rounded border px-3 py-2 dark:border-gray-600 dark:bg-gray-700"
             >
               <option value="top-left">左上角</option>
               <option value="top-right">右上角</option>
@@ -496,29 +516,33 @@ const OperationConfigForm: React.FC<OperationConfigFormProps> = ({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+              <label className="mb-1 block text-sm text-gray-600 dark:text-gray-400">
                 宽度 (px)
               </label>
               <input
                 type="number"
                 value={config.width || 120}
-                onChange={(e) => updateConfig('width', parseInt(e.target.value))}
+                onChange={(e) =>
+                  updateConfig('width', parseInt(e.target.value))
+                }
                 min={20}
                 max={300}
-                className="w-full px-3 py-2 border dark:border-gray-600 rounded dark:bg-gray-700"
+                className="w-full rounded border px-3 py-2 dark:border-gray-600 dark:bg-gray-700"
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+              <label className="mb-1 block text-sm text-gray-600 dark:text-gray-400">
                 高度 (px)
               </label>
               <input
                 type="number"
                 value={config.height || 40}
-                onChange={(e) => updateConfig('height', parseInt(e.target.value))}
+                onChange={(e) =>
+                  updateConfig('height', parseInt(e.target.value))
+                }
                 min={20}
                 max={200}
-                className="w-full px-3 py-2 border dark:border-gray-600 rounded dark:bg-gray-700"
+                className="w-full rounded border px-3 py-2 dark:border-gray-600 dark:bg-gray-700"
               />
             </div>
           </div>
@@ -526,9 +550,7 @@ const OperationConfigForm: React.FC<OperationConfigFormProps> = ({
       );
 
     default:
-      return (
-        <p className="text-sm text-gray-500">该操作暂无配置选项</p>
-      );
+      return <p className="text-sm text-gray-500">该操作暂无配置选项</p>;
   }
 };
 

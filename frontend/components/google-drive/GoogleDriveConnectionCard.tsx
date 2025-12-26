@@ -197,7 +197,9 @@ export function GoogleDriveConnectionCard() {
                       />
                     ) : (
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-lg font-semibold text-blue-600">
-                        {(conn.displayName || conn.email).charAt(0).toUpperCase()}
+                        {(conn.displayName || conn.email)
+                          .charAt(0)
+                          .toUpperCase()}
                       </div>
                     )}
 
@@ -207,23 +209,21 @@ export function GoogleDriveConnectionCard() {
                         <p className="font-medium text-gray-900">
                           {conn.displayName || conn.email}
                         </p>
-                        <span className={`text-xs font-medium ${getStatusColor(conn.status)}`}>
+                        <span
+                          className={`text-xs font-medium ${getStatusColor(conn.status)}`}
+                        >
                           {getStatusText(conn.status)}
                         </span>
                       </div>
                       <p className="text-xs text-gray-500">{conn.email}</p>
                       <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
-                        <span>
-                          {formatStorageSize(conn.totalSize)}
-                        </span>
+                        <span>{formatStorageSize(conn.totalSize)}</span>
                         <span>•</span>
                         <span>
                           {conn.filesCount} files, {conn.foldersCount} folders
                         </span>
                         <span>•</span>
-                        <span>
-                          Last synced: {formatDate(conn.lastSyncAt)}
-                        </span>
+                        <span>Last synced: {formatDate(conn.lastSyncAt)}</span>
                       </div>
                       {conn.lastError && (
                         <p className="mt-1 text-xs text-red-600">
@@ -364,9 +364,7 @@ export function GoogleDriveConnectionCard() {
                   3
                 </div>
                 <div>
-                  <p className="font-medium text-blue-900">
-                    Start Syncing
-                  </p>
+                  <p className="font-medium text-blue-900">Start Syncing</p>
                   <p className="text-sm text-blue-700">
                     Your files will be automatically synced to your library
                   </p>
@@ -406,7 +404,11 @@ export function GoogleDriveConnectionCard() {
               </>
             ) : (
               <>
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                <svg
+                  className="h-5 w-5"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                 </svg>
                 Connect Google Drive

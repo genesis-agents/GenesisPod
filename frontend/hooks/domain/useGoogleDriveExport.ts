@@ -124,7 +124,9 @@ export function useGoogleDriveExport(
   const progressPercent = useMemo(() => {
     if (!progress) return 0;
     if (progress.totalResources === 0) return 0;
-    return Math.round((progress.processedResources / progress.totalResources) * 100);
+    return Math.round(
+      (progress.processedResources / progress.totalResources) * 100
+    );
   }, [progress]);
 
   const isComplete = progress?.status === 'completed';

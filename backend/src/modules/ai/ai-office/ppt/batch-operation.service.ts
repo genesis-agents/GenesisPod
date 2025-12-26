@@ -202,19 +202,11 @@ export class BatchOperationService {
           break;
 
         case "update_font":
-          this.updateFont(
-            document,
-            request.config as FontConfig,
-            pageIndices,
-          );
+          this.updateFont(document, request.config as FontConfig, pageIndices);
           break;
 
         case "update_logo":
-          this.updateLogo(
-            document,
-            request.config as LogoConfig,
-            pageIndices,
-          );
+          this.updateLogo(document, request.config as LogoConfig, pageIndices);
           break;
 
         default:

@@ -59,7 +59,9 @@ export interface UseGoogleDriveImportResult {
   toggleFile: (fileId: string) => void;
   selectAll: (fileIds: string[]) => void;
   clearSelection: () => void;
-  importFiles: (options?: Partial<ImportFilesParams['options']>) => Promise<void>;
+  importFiles: (
+    options?: Partial<ImportFilesParams['options']>
+  ) => Promise<void>;
   cancelImport: () => void;
   reset: () => void;
 
@@ -139,20 +141,20 @@ export function useGoogleDriveImport(
 
   // 选择/取消选择文件
   const selectFile = useCallback((fileId: string) => {
-    setSelectedFiles(prev => {
+    setSelectedFiles((prev) => {
       if (prev.includes(fileId)) return prev;
       return [...prev, fileId];
     });
   }, []);
 
   const deselectFile = useCallback((fileId: string) => {
-    setSelectedFiles(prev => prev.filter(id => id !== fileId));
+    setSelectedFiles((prev) => prev.filter((id) => id !== fileId));
   }, []);
 
   const toggleFile = useCallback((fileId: string) => {
-    setSelectedFiles(prev => {
+    setSelectedFiles((prev) => {
       if (prev.includes(fileId)) {
-        return prev.filter(id => id !== fileId);
+        return prev.filter((id) => id !== fileId);
       }
       return [...prev, fileId];
     });

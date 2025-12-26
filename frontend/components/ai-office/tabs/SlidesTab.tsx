@@ -1437,7 +1437,7 @@ export default function SlidesTab() {
         eventSource.addEventListener(eventType, (event) => {
           console.log(
             `[PPT] Named event '${eventType}' received:`,
-            (event).data?.slice?.(0, 200)
+            event.data?.slice?.(0, 200)
           );
           handleSSEEvent(event);
         });

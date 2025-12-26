@@ -51,12 +51,18 @@ export function useGoogleDriveFiles(options: ListFilesOptions = {}) {
   // 构建查询参数
   const queryParams = new URLSearchParams();
   if (currentFolderId) queryParams.set('folderId', currentFolderId);
-  if (options.pageSize) queryParams.set('pageSize', options.pageSize.toString());
+  if (options.pageSize)
+    queryParams.set('pageSize', options.pageSize.toString());
   if (options.query) queryParams.set('query', options.query);
   if (options.orderBy) queryParams.set('orderBy', options.orderBy);
   if (nextPageToken) queryParams.set('pageToken', nextPageToken);
 
-  const { data, loading: isLoading, error, execute: refetch } = useApiGet<ListFilesResult>(
+  const {
+    data,
+    loading: isLoading,
+    error,
+    execute: refetch,
+  } = useApiGet<ListFilesResult>(
     `/api/v1/google-drive/files?${queryParams.toString()}`,
     { immediate: true }
   );
@@ -104,13 +110,16 @@ export function useGoogleDriveFiles(options: ListFilesOptions = {}) {
   /**
    * 导航到特定文件夹
    */
-  const navigateToFolder = useCallback((index: number) => {
-    const newStack = folderStack.slice(0, index + 1);
-    setFolderStack(newStack);
-    setCurrentFolderId(newStack[newStack.length - 1]?.id);
-    setNextPageToken(undefined);
-    setFiles([]);
-  }, [folderStack]);
+  const navigateToFolder = useCallback(
+    (index: number) => {
+      const newStack = folderStack.slice(0, index + 1);
+      setFolderStack(newStack);
+      setCurrentFolderId(newStack[newStack.length - 1]?.id);
+      setNextPageToken(undefined);
+      setFiles([]);
+    },
+    [folderStack]
+  );
 
   /**
    * 加载更多
@@ -133,10 +142,7 @@ export function useGoogleDriveFiles(options: ListFilesOptions = {}) {
   /**
    * 获取文件夹路径（面包屑）
    */
-  const breadcrumbs = [
-    { id: '', name: 'My Drive' },
-    ...folderStack,
-  ];
+  const breadcrumbs = [{ id: '', name: 'My Drive' }, ...folderStack];
 
   return {
     files,
@@ -158,7 +164,12 @@ export function useGoogleDriveFiles(options: ListFilesOptions = {}) {
  * 获取单个文件信息
  */
 export function useGoogleDriveFile(fileId?: string) {
-  const { data, loading: isLoading, error, execute: refetch } = useApiGet<{ file: GoogleDriveFile }>(
+  const {
+    data,
+    loading: isLoading,
+    error,
+    execute: refetch,
+  } = useApiGet<{ file: GoogleDriveFile }>(
     fileId ? `/api/v1/google-drive/files/${fileId}` : '',
     { immediate: !!fileId }
   );

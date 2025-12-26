@@ -163,7 +163,7 @@ export default function DocumentEditor() {
     console.log('[DocumentEditor] currentDocumentId:', currentDocumentId);
 
     if (currentDocument) {
-      const markdown = (currentDocument.content)?.markdown || '';
+      const markdown = currentDocument.content?.markdown || '';
       console.log(
         '[DocumentEditor] Setting content from document, length:',
         markdown.length
@@ -193,7 +193,7 @@ export default function DocumentEditor() {
     const timer = setTimeout(() => {
       if (
         currentDocument.type === 'article' &&
-        (content !== (currentDocument.content).markdown ||
+        (content !== currentDocument.content.markdown ||
           title !== currentDocument.title)
       ) {
         updateDocument(currentDocumentId, {
@@ -254,7 +254,7 @@ export default function DocumentEditor() {
         body: JSON.stringify({
           documentId: currentDocument._id,
           format,
-          content: (currentDocument.content).markdown,
+          content: currentDocument.content.markdown,
           title: currentDocument.title,
           templateId: currentDocument.template?.id,
         }),
@@ -684,7 +684,7 @@ export default function DocumentEditor() {
                           <textarea
                             value={editingContent}
                             onChange={(e) => setEditingContent(e.target.value)}
-                            className="h-full w-full resize-none rounded-lg border border-gray-200 p-4 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="font-mono h-full w-full resize-none rounded-lg border border-gray-200 p-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="在此编辑幻灯片内容（Markdown格式）&#x0A;&#x0A;示例：&#x0A;### Slide 1: 标题&#x0A;- 要点1&#x0A;- 要点2&#x0A;![图片](https://example.com/image.jpg)&#x0A;&#x0A;---&#x0A;&#x0A;### Slide 2: 下一页标题&#x0A;..."
                           />
                         </div>

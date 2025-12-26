@@ -73,7 +73,11 @@ export class GoogleDriveImportService {
         });
 
         try {
-          const { resourceId, fileName } = await this.importSingleFile(userId, fileId, dto);
+          const { resourceId, fileName } = await this.importSingleFile(
+            userId,
+            fileId,
+            dto,
+          );
           result.resourceIds.push(resourceId);
           result.imported++;
 
@@ -141,9 +145,15 @@ export class GoogleDriveImportService {
 
     if (dto.extractContent) {
       try {
-        extractedContent = await this.extractContent(file.name, file.mimeType, content);
+        extractedContent = await this.extractContent(
+          file.name,
+          file.mimeType,
+          content,
+        );
       } catch (error) {
-        this.logger.warn(`Failed to extract content from ${file.name}: ${error}`);
+        this.logger.warn(
+          `Failed to extract content from ${file.name}: ${error}`,
+        );
       }
     }
 
@@ -158,7 +168,10 @@ export class GoogleDriveImportService {
       data: {
         type: this.mapMimeTypeToResourceType(file.mimeType),
         title: file.name,
-        sourceUrl: file.webViewLink || file.webContentLink || `https://drive.google.com/file/d/${fileId}`,
+        sourceUrl:
+          file.webViewLink ||
+          file.webContentLink ||
+          `https://drive.google.com/file/d/${fileId}`,
         abstract: summary,
         content: extractedContent,
         metadata: {
@@ -184,7 +197,9 @@ export class GoogleDriveImportService {
       },
     });
 
-    this.logger.log(`Successfully imported file ${file.name} as resource ${resource.id}`);
+    this.logger.log(
+      `Successfully imported file ${file.name} as resource ${resource.id}`,
+    );
 
     return { resourceId: resource.id, fileName: file.name };
   }
@@ -199,7 +214,11 @@ export class GoogleDriveImportService {
   ): Promise<string> {
     // 使用 ContentExtractorService 统一处理文件提取
     try {
-      return await this.contentExtractor.extractFromFile(content, mimeType, fileName);
+      return await this.contentExtractor.extractFromFile(
+        content,
+        mimeType,
+        fileName,
+      );
     } catch (error) {
       this.logger.warn(`Failed to extract content from ${fileName}: ${error}`);
       return "";
@@ -210,14 +229,28 @@ export class GoogleDriveImportService {
    * 将 MIME 类型映射到资源类型
    * 根据 schema.prisma 中定义的 ResourceType 枚举
    */
-  private mapMimeTypeToResourceType(mimeType: string): "PAPER" | "BLOG" | "REPORT" | "YOUTUBE_VIDEO" | "NEWS" | "PROJECT" | "EVENT" | "RSS" | "POLICY" {
+  private mapMimeTypeToResourceType(
+    mimeType: string,
+  ):
+    | "PAPER"
+    | "BLOG"
+    | "REPORT"
+    | "YOUTUBE_VIDEO"
+    | "NEWS"
+    | "PROJECT"
+    | "EVENT"
+    | "RSS"
+    | "POLICY" {
     // 优先映射为论文类型（PDF 文件）
     if (mimeType === "application/pdf") return "PAPER";
 
     // 文档类型映射为报告
-    if (mimeType.includes("document") || mimeType.includes("word")) return "REPORT";
-    if (mimeType.includes("spreadsheet") || mimeType.includes("excel")) return "REPORT";
-    if (mimeType.includes("presentation") || mimeType.includes("powerpoint")) return "REPORT";
+    if (mimeType.includes("document") || mimeType.includes("word"))
+      return "REPORT";
+    if (mimeType.includes("spreadsheet") || mimeType.includes("excel"))
+      return "REPORT";
+    if (mimeType.includes("presentation") || mimeType.includes("powerpoint"))
+      return "REPORT";
 
     // 视频类型
     if (mimeType.startsWith("video/")) return "YOUTUBE_VIDEO";

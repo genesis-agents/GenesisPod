@@ -104,7 +104,9 @@ export const SourceBindingView: React.FC<SourceBindingViewProps> = ({
   onAnalyze,
   className = '',
 }) => {
-  const [activeTab, setActiveTab] = useState<'chapters' | 'datapoints' | 'insights' | 'bindings'>('chapters');
+  const [activeTab, setActiveTab] = useState<
+    'chapters' | 'datapoints' | 'insights' | 'bindings'
+  >('chapters');
   const [expandedChapter, setExpandedChapter] = useState<string | null>(null);
 
   const { execute: analyzeSource, loading: analyzing } = useApiPost(
@@ -123,27 +125,27 @@ export const SourceBindingView: React.FC<SourceBindingViewProps> = ({
   if (!sourceAnalysis) {
     return (
       <div className={`p-6 ${className}`}>
-        <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg">
-          <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+        <div className="rounded-lg bg-gray-50 py-12 text-center dark:bg-gray-800">
+          <FileText className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+          <h3 className="mb-2 text-lg font-medium text-gray-900 dark:text-white">
             暂无素材分析
           </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
             分析原始素材以建立内容绑定关系
           </p>
           <button
             onClick={handleAnalyze}
             disabled={analyzing}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:opacity-50"
           >
             {analyzing ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 分析中...
               </>
             ) : (
               <>
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCw className="h-4 w-4" />
                 开始分析
               </>
             )}
@@ -156,27 +158,27 @@ export const SourceBindingView: React.FC<SourceBindingViewProps> = ({
   return (
     <div className={`${className}`}>
       {/* 统计概览 */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="mb-6 grid grid-cols-4 gap-4">
         <StatCard
-          icon={<FileText className="w-5 h-5" />}
+          icon={<FileText className="h-5 w-5" />}
           label="章节"
           value={sourceAnalysis.chapterCount}
           color="blue"
         />
         <StatCard
-          icon={<Hash className="w-5 h-5" />}
+          icon={<Hash className="h-5 w-5" />}
           label="数据点"
           value={sourceAnalysis.dataPointCount}
           color="green"
         />
         <StatCard
-          icon={<Lightbulb className="w-5 h-5" />}
+          icon={<Lightbulb className="h-5 w-5" />}
           label="洞见"
           value={sourceAnalysis.insightCount}
           color="yellow"
         />
         <StatCard
-          icon={<Quote className="w-5 h-5" />}
+          icon={<Quote className="h-5 w-5" />}
           label="引用"
           value={sourceAnalysis.quoteCount}
           color="purple"
@@ -184,17 +186,33 @@ export const SourceBindingView: React.FC<SourceBindingViewProps> = ({
       </div>
 
       {/* Tab 切换 */}
-      <div className="flex border-b dark:border-gray-700 mb-4">
+      <div className="mb-4 flex border-b dark:border-gray-700">
         {[
-          { id: 'chapters', label: '章节结构', icon: <FileText className="w-4 h-4" /> },
-          { id: 'datapoints', label: '数据点', icon: <Hash className="w-4 h-4" /> },
-          { id: 'insights', label: '关键洞见', icon: <Lightbulb className="w-4 h-4" /> },
-          { id: 'bindings', label: '绑定关系', icon: <Link2 className="w-4 h-4" /> },
+          {
+            id: 'chapters',
+            label: '章节结构',
+            icon: <FileText className="h-4 w-4" />,
+          },
+          {
+            id: 'datapoints',
+            label: '数据点',
+            icon: <Hash className="h-4 w-4" />,
+          },
+          {
+            id: 'insights',
+            label: '关键洞见',
+            icon: <Lightbulb className="h-4 w-4" />,
+          },
+          {
+            id: 'bindings',
+            label: '绑定关系',
+            icon: <Link2 className="h-4 w-4" />,
+          },
         ].map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-2 px-4 py-2 border-b-2 -mb-px transition-colors ${
+            className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-2 transition-colors ${
               activeTab === tab.id
                 ? 'border-blue-500 text-blue-500'
                 : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
@@ -224,9 +242,7 @@ export const SourceBindingView: React.FC<SourceBindingViewProps> = ({
           <InsightList insights={sourceAnalysis.keyInsights} />
         )}
 
-        {activeTab === 'bindings' && (
-          <BindingList bindings={slideBindings} />
-        )}
+        {activeTab === 'bindings' && <BindingList bindings={slideBindings} />}
       </div>
     </div>
   );
@@ -252,8 +268,8 @@ const StatCard: React.FC<StatCardProps> = ({ icon, label, value, color }) => {
   };
 
   return (
-    <div className={`p-4 rounded-lg ${colorClasses[color]}`}>
-      <div className="flex items-center gap-2 mb-1">
+    <div className={`rounded-lg p-4 ${colorClasses[color]}`}>
+      <div className="mb-1 flex items-center gap-2">
         {icon}
         <span className="text-sm font-medium">{label}</span>
       </div>
@@ -268,11 +284,13 @@ interface ChapterListProps {
   onToggle: (id: string | null) => void;
 }
 
-const ChapterList: React.FC<ChapterListProps> = ({ chapters, expandedId, onToggle }) => {
+const ChapterList: React.FC<ChapterListProps> = ({
+  chapters,
+  expandedId,
+  onToggle,
+}) => {
   if (chapters.length === 0) {
-    return (
-      <p className="text-center text-gray-500 py-8">暂无章节数据</p>
-    );
+    return <p className="py-8 text-center text-gray-500">暂无章节数据</p>;
   }
 
   return (
@@ -280,31 +298,33 @@ const ChapterList: React.FC<ChapterListProps> = ({ chapters, expandedId, onToggl
       {chapters.map((chapter) => (
         <div
           key={chapter.id}
-          className="border dark:border-gray-700 rounded-lg overflow-hidden"
+          className="overflow-hidden rounded-lg border dark:border-gray-700"
         >
           <button
-            onClick={() => onToggle(expandedId === chapter.id ? null : chapter.id)}
-            className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-800"
+            onClick={() =>
+              onToggle(expandedId === chapter.id ? null : chapter.id)
+            }
+            className="flex w-full items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             <div className="flex items-center gap-3">
-              <FileText className="w-4 h-4 text-blue-500" />
+              <FileText className="h-4 w-4 text-blue-500" />
               <span className="font-medium text-gray-900 dark:text-white">
                 {chapter.title}
               </span>
-              <span className="text-xs text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">
+              <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-gray-700">
                 {chapter.dataPointCount} 个数据点
               </span>
             </div>
             {expandedId === chapter.id ? (
-              <ChevronUp className="w-4 h-4 text-gray-400" />
+              <ChevronUp className="h-4 w-4 text-gray-400" />
             ) : (
-              <ChevronDown className="w-4 h-4 text-gray-400" />
+              <ChevronDown className="h-4 w-4 text-gray-400" />
             )}
           </button>
 
           {expandedId === chapter.id && (
-            <div className="px-3 pb-3 border-t dark:border-gray-700">
-              <h4 className="text-xs font-medium text-gray-500 uppercase mt-3 mb-2">
+            <div className="border-t px-3 pb-3 dark:border-gray-700">
+              <h4 className="mb-2 mt-3 text-xs font-medium uppercase text-gray-500">
                 关键要点
               </h4>
               <ul className="space-y-1">
@@ -313,7 +333,7 @@ const ChapterList: React.FC<ChapterListProps> = ({ chapters, expandedId, onToggl
                     key={idx}
                     className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300"
                   >
-                    <span className="text-blue-500 mt-1">•</span>
+                    <span className="mt-1 text-blue-500">•</span>
                     {point}
                   </li>
                 ))}
@@ -340,35 +360,36 @@ const DataPointList: React.FC<DataPointListProps> = ({ dataPoints }) => {
   };
 
   const typeColors: Record<string, string> = {
-    percentage: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-    currency: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+    percentage:
+      'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    currency:
+      'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
     number: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
     date: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
     other: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
   };
 
   if (dataPoints.length === 0) {
-    return (
-      <p className="text-center text-gray-500 py-8">暂无数据点</p>
-    );
+    return <p className="py-8 text-center text-gray-500">暂无数据点</p>;
   }
 
   return (
     <div className="grid grid-cols-2 gap-3">
       {dataPoints.map((dp) => (
-        <div
-          key={dp.id}
-          className="p-3 border dark:border-gray-700 rounded-lg"
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <span className={`text-lg font-bold ${typeColors[dp.type]?.split(' ')[1] || 'text-gray-900'}`}>
+        <div key={dp.id} className="rounded-lg border p-3 dark:border-gray-700">
+          <div className="mb-2 flex items-center gap-2">
+            <span
+              className={`text-lg font-bold ${typeColors[dp.type]?.split(' ')[1] || 'text-gray-900'}`}
+            >
               {dp.value}
             </span>
-            <span className={`text-xs px-2 py-0.5 rounded ${typeColors[dp.type]}`}>
+            <span
+              className={`rounded px-2 py-0.5 text-xs ${typeColors[dp.type]}`}
+            >
               {typeLabels[dp.type]}
             </span>
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+          <p className="line-clamp-2 text-sm text-gray-600 dark:text-gray-400">
             {dp.context}
           </p>
         </div>
@@ -383,9 +404,7 @@ interface InsightListProps {
 
 const InsightList: React.FC<InsightListProps> = ({ insights }) => {
   if (insights.length === 0) {
-    return (
-      <p className="text-center text-gray-500 py-8">暂无洞见</p>
-    );
+    return <p className="py-8 text-center text-gray-500">暂无洞见</p>;
   }
 
   return (
@@ -393,10 +412,10 @@ const InsightList: React.FC<InsightListProps> = ({ insights }) => {
       {insights.map((insight) => (
         <div
           key={insight.id}
-          className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg"
+          className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-900/20"
         >
-          <div className="flex items-center gap-2 mb-2">
-            <Lightbulb className="w-4 h-4 text-yellow-500" />
+          <div className="mb-2 flex items-center gap-2">
+            <Lightbulb className="h-4 w-4 text-yellow-500" />
             <h4 className="font-medium text-gray-900 dark:text-white">
               {insight.title}
             </h4>
@@ -416,9 +435,7 @@ interface BindingListProps {
 
 const BindingList: React.FC<BindingListProps> = ({ bindings }) => {
   if (bindings.length === 0) {
-    return (
-      <p className="text-center text-gray-500 py-8">暂无绑定关系</p>
-    );
+    return <p className="py-8 text-center text-gray-500">暂无绑定关系</p>;
   }
 
   return (
@@ -426,23 +443,23 @@ const BindingList: React.FC<BindingListProps> = ({ bindings }) => {
       {bindings.map((binding) => (
         <div
           key={binding.slideIndex}
-          className={`p-3 border rounded-lg flex items-center justify-between ${
+          className={`flex items-center justify-between rounded-lg border p-3 ${
             binding.hasIssues
               ? 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20'
               : 'border-gray-200 dark:border-gray-700'
           }`}
         >
           <div className="flex items-center gap-3">
-            <span className="w-8 h-8 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded text-sm font-medium">
+            <span className="flex h-8 w-8 items-center justify-center rounded bg-gray-100 text-sm font-medium dark:bg-gray-700">
               {binding.slideIndex + 1}
             </span>
             <div>
-              <div className="font-medium text-gray-900 dark:text-white text-sm">
+              <div className="text-sm font-medium text-gray-900 dark:text-white">
                 {binding.slideTitle}
               </div>
               {binding.boundChapterTitle && (
                 <div className="flex items-center gap-1 text-xs text-gray-500">
-                  <Link2 className="w-3 h-3" />
+                  <Link2 className="h-3 w-3" />
                   绑定: {binding.boundChapterTitle}
                 </div>
               )}
@@ -460,14 +477,14 @@ const BindingList: React.FC<BindingListProps> = ({ bindings }) => {
 
             {/* 覆盖率进度条 */}
             <div className="w-24">
-              <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                 <div
                   className={`h-full rounded-full ${
                     binding.coverageRate >= 80
                       ? 'bg-green-500'
                       : binding.coverageRate >= 50
-                      ? 'bg-yellow-500'
-                      : 'bg-red-500'
+                        ? 'bg-yellow-500'
+                        : 'bg-red-500'
                   }`}
                   style={{ width: `${binding.coverageRate}%` }}
                 />
@@ -476,9 +493,9 @@ const BindingList: React.FC<BindingListProps> = ({ bindings }) => {
 
             {/* 状态图标 */}
             {binding.hasIssues ? (
-              <AlertTriangle className="w-5 h-5 text-red-500" />
+              <AlertTriangle className="h-5 w-5 text-red-500" />
             ) : (
-              <CheckCircle className="w-5 h-5 text-green-500" />
+              <CheckCircle className="h-5 w-5 text-green-500" />
             )}
           </div>
         </div>

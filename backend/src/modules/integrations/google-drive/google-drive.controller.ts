@@ -15,7 +15,12 @@ import {
   HttpStatus,
 } from "@nestjs/common";
 import { Request, Response } from "express";
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from "@nestjs/swagger";
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { GoogleDriveAuthService } from "./services/google-drive-auth.service";
 import { GoogleDriveFileService } from "./services/google-drive-file.service";
@@ -142,7 +147,10 @@ export class GoogleDriveController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: "列出文件" })
   @ApiResponse({ status: 200, description: "返回文件列表" })
-  async listFiles(@Req() req: AuthenticatedRequest, @Query() dto: ListFilesDto) {
+  async listFiles(
+    @Req() req: AuthenticatedRequest,
+    @Query() dto: ListFilesDto,
+  ) {
     const userId = this.getUserId(req);
     const result = await this.fileService.listFiles(userId, dto);
     return result;
@@ -164,7 +172,10 @@ export class GoogleDriveController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: "导入文件到 Library" })
   @ApiResponse({ status: 200, description: "导入成功" })
-  async importFiles(@Req() req: AuthenticatedRequest, @Body() dto: ImportFilesDto) {
+  async importFiles(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: ImportFilesDto,
+  ) {
     const userId = this.getUserId(req);
     const result = await this.importService.importFiles(userId, dto);
     return {
@@ -224,7 +235,10 @@ export class GoogleDriveController {
 
     const connection = await this.authService.getConnection(userId);
     if (!connection) {
-      throw new HttpException("Google Drive not connected", HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        "Google Drive not connected",
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     const history = await this.prisma.googleDriveSyncHistory.findMany({
