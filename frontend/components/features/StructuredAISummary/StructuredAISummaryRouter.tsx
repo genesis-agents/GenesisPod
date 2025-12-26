@@ -149,7 +149,7 @@ export const StructuredAISummaryRouter: React.FC<StructuredAISummaryProps> = ({
   // 通用摘要（默认）
   return (
     <StructuredAISummaryBase
-      summary={summary as StructuredAISummary}
+      summary={summary}
       compact={compact}
       expandable={expandable}
     />

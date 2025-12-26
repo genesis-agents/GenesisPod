@@ -236,7 +236,7 @@ export function DataImportDialog({
                   {whitelist.description}
                 </p>
                 <div className="mb-3 flex flex-wrap gap-2">
-                  {(whitelist.allowedDomains as string[]).map((domain, idx) => (
+                  {(whitelist.allowedDomains).map((domain, idx) => (
                     <div key={idx} className="group relative">
                       <button
                         onClick={() => copyToClipboard(domain)}

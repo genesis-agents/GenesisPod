@@ -97,6 +97,34 @@ export interface SlideSpec {
 
   // 预估生成时间（毫秒）
   estimatedGenerationTime?: number;
+
+  // ============================================
+  // 🆕 素材绑定字段（P0 - 内容质量保障）
+  // ============================================
+
+  /** 绑定的原始素材章节ID */
+  sourceRef?: string;
+
+  /** 原始素材片段（用于内容生成约束） */
+  sourceExcerpt?: string;
+
+  /** 必须包含的数据点（从素材中提取） */
+  requiredDataPoints?: SlideDataPoint[];
+
+  /** 禁止臆造标记 - 强制内容来源于素材 */
+  mustNotFabricate?: boolean;
+
+  /** 语义化模板 key（对应12种专业模板） */
+  templateKey?: string;
+}
+
+/** 幻灯片数据点（用于素材绑定验证） */
+export interface SlideDataPoint {
+  id: string;
+  value: string; // "85%", "$150亿", "2025年"
+  type: "percentage" | "currency" | "number" | "date" | "other";
+  context: string; // 上下文描述
+  required: boolean; // 是否必须包含
 }
 
 export interface SlideImageSpec {
@@ -207,6 +235,123 @@ export interface GeneratedSlideImage {
 }
 
 // ============================================
+// 🆕 内容验证结果（素材绑定验证）
+// ============================================
+
+export interface ContentValidation {
+  /** 数据点覆盖数量 */
+  dataPointsCovered: number;
+  /** 数据点总数 */
+  dataPointsTotal: number;
+  /** 覆盖率 (0-100) */
+  coverageRate: number;
+  /** 缺失的数据点 */
+  dataPointsMissing: SlideDataPoint[];
+  /** 可能臆造的内容 */
+  fabricatedContent: string[];
+  /** 与素材相关性评分 (0-100) */
+  sourceRelevance: number;
+  /** 验证是否通过 */
+  passed: boolean;
+  /** 验证消息 */
+  message: string;
+}
+
+// ============================================
+// 🆕 全局样式配置（一致性控制）
+// ============================================
+
+export interface PPTGlobalStyleConfig {
+  /** 页眉配置 */
+  header?: {
+    show: boolean;
+    content: string;
+    position: "top-left" | "top-center" | "top-right";
+    style: TextStyle;
+  };
+
+  /** 页脚配置 */
+  footer: {
+    show: boolean;
+    format: string; // "第{page}页 | {icon} {brand}"
+    position: "bottom-left" | "bottom-center" | "bottom-right";
+    style: TextStyle;
+    icon?: string;
+    brand?: string;
+  };
+
+  /** 页码配置 */
+  pageNumber: {
+    show: boolean;
+    format: "number" | "chinese" | "roman"; // 1, 第1页, I
+    position: "header" | "footer";
+  };
+
+  /** 安全区配置 */
+  safeArea: {
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+  };
+
+  /** 品牌配置 */
+  brand?: {
+    logo?: string; // Logo URL
+    name: string;
+    primaryColor: string;
+    secondaryColor?: string;
+  };
+
+  /** 字体配置 */
+  typography: {
+    headingFont: string;
+    bodyFont: string;
+    monoFont?: string;
+  };
+}
+
+export interface TextStyle {
+  fontSize: number;
+  fontFamily: string;
+  color: string;
+  fontWeight?: "normal" | "bold" | "lighter";
+  fontStyle?: "normal" | "italic";
+}
+
+/** 默认全局样式配置 */
+export const DEFAULT_GLOBAL_STYLE: PPTGlobalStyleConfig = {
+  footer: {
+    show: true,
+    format: "第{page}页 | {icon} {brand}",
+    position: "bottom-right",
+    style: {
+      fontSize: 14,
+      fontFamily: "'Noto Sans SC', sans-serif",
+      color: "#94A3B8",
+    },
+    icon: "🔷",
+    brand: "",
+  },
+  pageNumber: {
+    show: true,
+    format: "chinese",
+    position: "footer",
+  },
+  safeArea: {
+    top: 40,
+    bottom: 80,
+    left: 40,
+    right: 40,
+  },
+  typography: {
+    headingFont: "'Noto Sans SC', sans-serif",
+    bodyFont: "'Noto Sans SC', sans-serif",
+    monoFont: "'Fira Code', monospace",
+  },
+};
+
+// ============================================
 // 完整的生成幻灯片
 // ============================================
 
@@ -236,6 +381,9 @@ export interface GeneratedSlide {
     imagesGeneratedAt?: string;
     renderTime?: number;
   };
+
+  // 🆕 内容验证结果（素材绑定验证）
+  contentValidation?: ContentValidation;
 }
 
 export interface SlideEdit {

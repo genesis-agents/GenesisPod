@@ -8,6 +8,8 @@
  * 2. 管理内容提取、规划、生成、渲染各阶段
  * 3. 支持流式输出进度
  * 4. 处理错误和重试
+ * 5. 🆕 素材分析与绑定（内容质量保障）
+ * 6. 🆕 全局一致性控制
  *
  * 复用 AI-Image 模块：
  * - ContentExtractorService: 多源内容提取
@@ -26,6 +28,7 @@ import { SlidePlanningService } from "./slide-planning.service";
 import { SlideContentService } from "./slide-content.service";
 import { SlideImageService } from "./slide-image.service";
 import { SlideRendererService } from "./slide-renderer.service";
+import { SourceAnalysisService, SourceAnalysis } from "./source-analysis.service";
 import {
   PPTGenerationInput,
   PPTDocument,
@@ -36,6 +39,7 @@ import {
   PPT_THEMES,
   PPTStreamEvent,
   GeneratedSlideImage,
+  SlideDataPoint,
 } from "./ppt.types";
 import { randomUUID } from "crypto";
 
@@ -52,6 +56,7 @@ export class PPTOrchestratorService {
     private readonly slideContent: SlideContentService,
     private readonly slideImage: SlideImageService,
     private readonly slideRenderer: SlideRendererService,
+    private readonly sourceAnalysis: SourceAnalysisService,
   ) {}
 
   /**
@@ -153,6 +158,37 @@ export class PPTOrchestratorService {
     }
 
     // ============================================
+    // 🆕 Phase 1.7: 素材分析（P0 内容质量保障）
+    // ============================================
+    this.emitProgress(subject, "outline", 12, "Analyzing source material...");
+
+    let sourceAnalysisResult: SourceAnalysis | null = null;
+
+    // 仅当有足够内容时进行素材分析
+    if (enrichedContent.length > 500) {
+      try {
+        sourceAnalysisResult = await this.sourceAnalysis.analyzeSource(
+          enrichedContent,
+          {
+            language: input.language === "zh" ? "zh" : "en",
+            extractChapters: true,
+            extractDataPoints: true,
+            generateInsights: true,
+            extractQuotes: true,
+          },
+        );
+
+        this.logger.log(
+          `[executeGeneration] Source analysis complete: ${sourceAnalysisResult.chapters.length} chapters, ${sourceAnalysisResult.dataPoints.length} data points`,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `[executeGeneration] Source analysis failed, continuing without binding: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    // ============================================
     // Phase 2: 生成大纲
     // ============================================
     this.emitProgress(subject, "outline", 15, "Generating outline...");
@@ -186,6 +222,14 @@ export class PPTOrchestratorService {
     this.emitProgress(subject, "planning", 20, "Planning slides...");
 
     const slideSpecs = await this.slidePlanning.planAllSlides(outline, theme);
+
+    // 🆕 Phase 4.5: 素材绑定到 SlideSpec（P0 内容质量保障）
+    if (sourceAnalysisResult && sourceAnalysisResult.chapters.length > 0) {
+      this.bindSourceToSlideSpecs(slideSpecs, sourceAnalysisResult);
+      this.logger.log(
+        `[executeGeneration] Bound source material to ${slideSpecs.filter((s) => s.sourceRef).length} slides`,
+      );
+    }
 
     // 发送每页规划完成事件
     for (const spec of slideSpecs) {
@@ -263,6 +307,17 @@ export class PPTOrchestratorService {
         ),
       ]);
 
+      // 🆕 内容验证（如果启用了素材绑定）
+      let contentValidation = undefined;
+      if (spec.mustNotFabricate && spec.sourceExcerpt) {
+        contentValidation = this.slideContent.validateContent(content, spec);
+        if (!contentValidation.passed) {
+          this.logger.warn(
+            `[executeGeneration] Content validation warning for slide ${spec.index}: ${contentValidation.message}`,
+          );
+        }
+      }
+
       // 发送内容完成事件
       subject.next({
         type: "slide_content_complete",
@@ -312,6 +367,8 @@ export class PPTOrchestratorService {
           imagesGeneratedAt:
             images.length > 0 ? new Date().toISOString() : undefined,
         },
+        // 🆕 内容验证结果
+        contentValidation,
       };
 
       generatedSlides.push(generatedSlide);
@@ -332,6 +389,17 @@ export class PPTOrchestratorService {
         },
       });
     }
+
+    // ============================================
+    // 🆕 Phase 5.5: 应用全局样式一致性
+    // ============================================
+    this.emitProgress(subject, "rendering", 92, "Applying global style...");
+
+    await this.applyGlobalStyleToSlides(generatedSlides, input);
+
+    this.logger.log(
+      `[executeGeneration] Applied global style to ${generatedSlides.length} slides`,
+    );
 
     // ============================================
     // Phase 6: 组装并保存文档
@@ -711,6 +779,38 @@ export class PPTOrchestratorService {
   }
 
   /**
+   * 更新文档元数据
+   */
+  async updateDocumentMetadata(
+    pptId: string,
+    metadata: Record<string, any>,
+  ): Promise<void> {
+    const doc = await this.prisma.officeDocument.findUnique({
+      where: { id: pptId },
+      select: { metadata: true },
+    });
+
+    if (!doc) {
+      throw new Error(`PPT document not found: ${pptId}`);
+    }
+
+    const existingMetadata = (doc.metadata as Record<string, any>) || {};
+    const updatedMetadata = { ...existingMetadata, ...metadata };
+
+    await this.prisma.officeDocument.update({
+      where: { id: pptId },
+      data: {
+        metadata: updatedMetadata,
+        updatedAt: new Date(),
+      },
+    });
+
+    this.logger.log(
+      `[updateDocumentMetadata] Updated metadata for ${pptId}: ${Object.keys(metadata).join(", ")}`,
+    );
+  }
+
+  /**
    * 发送进度事件
    */
   private emitProgress(
@@ -849,5 +949,267 @@ export class PPTOrchestratorService {
       failed: "ARCHIVED", // Map failed to archived
     };
     return statusMap[status] || "DRAFT";
+  }
+
+  // ============================================
+  // 🆕 全局样式应用（生成后一致性控制）
+  // ============================================
+
+  /**
+   * 应用全局样式到所有幻灯片
+   */
+  private async applyGlobalStyleToSlides(
+    slides: GeneratedSlide[],
+    input: PPTGenerationInput,
+  ): Promise<void> {
+    // 构建默认全局样式配置
+    const globalStyle = {
+      footer: {
+        show: true,
+        format: "{page}/{total}",
+        position: "bottom-right",
+        style: {
+          fontSize: 12,
+          fontFamily: "Inter, system-ui, sans-serif",
+          color: "#666666",
+        },
+      },
+      pageNumber: {
+        show: true,
+        format: "number" as const,
+        position: "footer" as const,
+      },
+      safeArea: {
+        top: 80,
+        bottom: 80,
+        left: 100,
+        right: 100,
+      },
+      typography: {
+        headingFont: "Inter, system-ui, sans-serif",
+        bodyFont: "Inter, system-ui, sans-serif",
+        monoFont: "Fira Code, monospace",
+      },
+    };
+
+    // 为每个幻灯片应用样式
+    for (let i = 0; i < slides.length; i++) {
+      const slide = slides[i];
+
+      // 跳过封面页和结尾页的页脚
+      const skipFooter =
+        slide.spec.purpose === "title" ||
+        slide.spec.purpose === "closing" ||
+        slide.spec.purpose === "qna";
+
+      // 应用页脚
+      if (globalStyle.footer.show && !skipFooter) {
+        const footerText = globalStyle.footer.format
+          .replace("{page}", String(i + 1))
+          .replace("{total}", String(slides.length));
+
+        (slide.content as any).footer = {
+          text: footerText,
+          position: globalStyle.footer.position,
+          style: globalStyle.footer.style,
+        };
+      }
+
+      // 应用安全区
+      (slide.content as any).safeArea = globalStyle.safeArea;
+
+      // 应用字体配置
+      (slide.content as any).typography = globalStyle.typography;
+
+      // 重新渲染 HTML 以应用新样式
+      slide.renderedHtml = await this.slideRenderer.renderSlide(
+        {
+          spec: slide.spec,
+          content: slide.content,
+          images: slide.images,
+        },
+        slides[0]?.spec
+          ? this.getTheme(input.themeId)
+          : this.getTheme(undefined),
+      );
+    }
+
+    this.logger.debug(
+      `[applyGlobalStyleToSlides] Applied footer and safe area to ${slides.filter((s) => s.content.footer).length} slides`,
+    );
+  }
+
+  // ============================================
+  // 🆕 素材绑定方法（P0 内容质量保障）
+  // ============================================
+
+  /**
+   * 将素材分析结果绑定到幻灯片规格
+   *
+   * 绑定策略：
+   * 1. 根据幻灯片标题与章节标题的相似度匹配
+   * 2. 将章节内容和数据点绑定到对应的幻灯片
+   * 3. 启用 mustNotFabricate 标记，强制内容生成约束
+   */
+  private bindSourceToSlideSpecs(
+    slideSpecs: SlideSpec[],
+    sourceAnalysis: SourceAnalysis,
+  ): void {
+    const { chapters, dataPoints } = sourceAnalysis;
+
+    // 跳过标题页、结尾页、问答页
+    const contentSlides = slideSpecs.filter(
+      (spec) =>
+        spec.purpose !== "title" &&
+        spec.purpose !== "closing" &&
+        spec.purpose !== "qna",
+    );
+
+    // 为每个内容页分配章节
+    for (const spec of contentSlides) {
+      // 查找最匹配的章节
+      const matchedChapter = this.findMatchingChapter(spec, chapters);
+
+      if (matchedChapter) {
+        // 绑定章节信息
+        spec.sourceRef = matchedChapter.id;
+        spec.sourceExcerpt = matchedChapter.content.slice(0, 2000); // 限制长度
+
+        // 绑定该章节的数据点
+        const chapterDataPoints = dataPoints
+          .filter((dp) => dp.chapterId === matchedChapter.id)
+          .map((dp): SlideDataPoint => ({
+            id: dp.id,
+            value: dp.value,
+            type: dp.type,
+            context: dp.context,
+            required: true, // 章节数据点默认必须包含
+          }));
+
+        spec.requiredDataPoints = chapterDataPoints;
+
+        // 启用素材约束
+        spec.mustNotFabricate = true;
+
+        this.logger.debug(
+          `[bindSourceToSlideSpecs] Slide ${spec.index} bound to chapter "${matchedChapter.title}" with ${chapterDataPoints.length} data points`,
+        );
+      }
+    }
+
+    // 处理未匹配章节的幻灯片 - 分配全局数据点
+    const unboundSlides = contentSlides.filter((spec) => !spec.sourceRef);
+    const globalDataPoints = dataPoints
+      .filter((dp) => !dp.chapterId)
+      .map((dp): SlideDataPoint => ({
+        id: dp.id,
+        value: dp.value,
+        type: dp.type,
+        context: dp.context,
+        required: false, // 全局数据点可选
+      }));
+
+    if (globalDataPoints.length > 0 && unboundSlides.length > 0) {
+      // 平均分配全局数据点
+      const pointsPerSlide = Math.ceil(
+        globalDataPoints.length / unboundSlides.length,
+      );
+
+      for (let i = 0; i < unboundSlides.length; i++) {
+        const spec = unboundSlides[i];
+        const start = i * pointsPerSlide;
+        const end = Math.min(start + pointsPerSlide, globalDataPoints.length);
+        spec.requiredDataPoints = globalDataPoints.slice(start, end);
+      }
+    }
+  }
+
+  /**
+   * 查找与幻灯片最匹配的章节
+   */
+  private findMatchingChapter(
+    spec: SlideSpec,
+    chapters: SourceAnalysis["chapters"],
+  ): SourceAnalysis["chapters"][0] | null {
+    if (chapters.length === 0) return null;
+
+    let bestMatch: SourceAnalysis["chapters"][0] | null = null;
+    let bestScore = 0;
+
+    for (const chapter of chapters) {
+      // 计算标题相似度
+      const titleScore = this.calculateTextSimilarity(
+        spec.title,
+        chapter.title,
+      );
+
+      // 计算大纲与章节要点的相似度
+      const outlineScore = this.calculateOutlineChapterScore(
+        spec.contentOutline,
+        chapter.keyPoints,
+      );
+
+      const totalScore = titleScore * 0.6 + outlineScore * 0.4;
+
+      if (totalScore > bestScore && totalScore > 30) {
+        // 阈值 30%
+        bestScore = totalScore;
+        bestMatch = chapter;
+      }
+    }
+
+    return bestMatch;
+  }
+
+  /**
+   * 计算文本相似度（简单的词汇重叠）
+   */
+  private calculateTextSimilarity(text1: string, text2: string): number {
+    const tokens1 = new Set(
+      text1
+        .toLowerCase()
+        .split(/[\s,.\-!?;:，。！？；：]+/)
+        .filter((t) => t.length > 1),
+    );
+    const tokens2 = new Set(
+      text2
+        .toLowerCase()
+        .split(/[\s,.\-!?;:，。！？；：]+/)
+        .filter((t) => t.length > 1),
+    );
+
+    if (tokens1.size === 0 || tokens2.size === 0) return 0;
+
+    let matchCount = 0;
+    for (const token of tokens1) {
+      if (tokens2.has(token)) matchCount++;
+    }
+
+    return (matchCount / Math.max(tokens1.size, tokens2.size)) * 100;
+  }
+
+  /**
+   * 计算大纲与章节要点的匹配分数
+   */
+  private calculateOutlineChapterScore(
+    outline: string[],
+    keyPoints: string[],
+  ): number {
+    if (outline.length === 0 || keyPoints.length === 0) return 0;
+
+    let totalScore = 0;
+
+    for (const outlineItem of outline) {
+      let bestItemScore = 0;
+      for (const keyPoint of keyPoints) {
+        const score = this.calculateTextSimilarity(outlineItem, keyPoint);
+        if (score > bestItemScore) {
+          bestItemScore = score;
+        }
+      }
+      totalScore += bestItemScore;
+    }
+
+    return totalScore / outline.length;
   }
 }

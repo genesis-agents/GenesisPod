@@ -39,7 +39,7 @@ function getNestedValue(obj: Translations, path: string): string | undefined {
     if (current === null || current === undefined) {
       return undefined;
     }
-    if (typeof current === 'object' && key in (current as object)) {
+    if (typeof current === 'object' && key in (current)) {
       current = (current as Record<string, unknown>)[key];
     } else {
       return undefined;

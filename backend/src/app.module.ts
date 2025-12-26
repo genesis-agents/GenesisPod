@@ -50,6 +50,7 @@ import { RecommendationsModule } from "./modules/data-services/recommendations/r
 import { ProxyModule } from "./modules/integrations/proxy/proxy.module";
 import { WechatWorkModule } from "./modules/integrations/wechat-work/wechat-work.module";
 import { NotionModule } from "./modules/integrations/notion/notion.module";
+import { GoogleDriveModule } from "./modules/integrations/google-drive/google-drive.module";
 // Export module
 import { ExportModule } from "./modules/export";
 
@@ -131,6 +132,7 @@ import { ExportModule } from "./modules/export";
     ProxyModule,
     WechatWorkModule,
     NotionModule,
+    GoogleDriveModule,
 
     // Export module
     ExportModule,

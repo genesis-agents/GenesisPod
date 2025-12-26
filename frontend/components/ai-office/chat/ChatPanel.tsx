@@ -588,7 +588,7 @@ export default function ChatPanel() {
         : null;
       const existingContent =
         currentDoc && shouldUpdateExisting
-          ? (currentDoc.content as any)?.markdown || ''
+          ? (currentDoc.content)?.markdown || ''
           : '';
 
       // 构建增强的prompt
@@ -1460,7 +1460,7 @@ ${userInput || ''}
     } catch (error) {
       console.error('Document generation error:', error);
       const errorMessage = {
-        id: Date.now().toString() as string,
+        id: Date.now().toString(),
         documentId: currentDocumentId,
         role: 'assistant' as const,
         content: '抱歉，文档生成失败，请稍后再试。',
@@ -1470,7 +1470,7 @@ ${userInput || ''}
       setStreaming(false);
       setGenerating(false);
       // 标记任务为失败
-      useTaskStore.getState().updateTask(taskId as string, {
+      useTaskStore.getState().updateTask(taskId, {
         metadata: {
           error: error instanceof Error ? error.message : '文档生成失败',
         } as any,

@@ -113,6 +113,9 @@ model User {
   exportJobs      ExportJob[]
   exportTemplates ExportTemplate[]
 
+  // Google Drive 集成
+  googleDriveConnection GoogleDriveConnection?
+
   @@map("users")
 }
 
@@ -1979,11 +1982,11 @@ model ResearchProject {
   lastAccessAt DateTime? @map("last_access_at")
 
   // 关系
-  user    User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sources ResearchProjectSource[]
-  notes   ResearchProjectNote[]
-  chats   ResearchProjectChat[]
-  outputs ResearchProjectOutput[]
+  user                 User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sources              ResearchProjectSource[]
+  notes                ResearchProjectNote[]
+  chats                ResearchProjectChat[]
+  outputs              ResearchProjectOutput[]
   deepResearchSessions DeepResearchSession[]
 
   @@index([userId])
@@ -2145,8 +2148,8 @@ model ResearchProjectOutput {
 // ============ 系统设置 ============
 
 model SystemSetting {
-  id    String @id @default(uuid())
-  key   String @unique @db.VarChar(100) // setting key, e.g., "search.provider"
+  id        String  @id @default(uuid())
+  key       String  @unique @db.VarChar(100) // setting key, e.g., "search.provider"
   value     String? @db.Text // setting value (nullable)
   encrypted Boolean @default(false) // whether value is encrypted
 
@@ -2531,11 +2534,11 @@ model OfficeDocument {
 
   // === 素材绑定与质量控制 (v2.0 新增) ===
   // 素材分析结果：{ chapters, keyInsights, dataPoints, quotes, recommendations }
-  sourceAnalysis   Json? @map("source_analysis")
+  sourceAnalysis   Json?     @map("source_analysis")
   // 全局样式配置：{ header, footer, pageNumber, safeArea, brand, typography }
-  globalStyle      Json? @map("global_style")
+  globalStyle      Json?     @map("global_style")
   // 质量检查报告：{ duplicates, layoutIssues, contentIssues, consistencyIssues }
-  qualityReport    Json? @map("quality_report")
+  qualityReport    Json?     @map("quality_report")
   qualityCheckedAt DateTime? @map("quality_checked_at")
 
   // 时间戳
@@ -3220,7 +3223,7 @@ model AiCodingProject {
   complianceScore Int?  @map("compliance_score") // 0-100
 
   // 关系
-  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   files      AiCodingFile[]
   agentLogs  AiCodingAgentLog[]
   iterations AiCodingIteration[]
@@ -3231,11 +3234,11 @@ model AiCodingProject {
   complianceReports AiCodingComplianceReport[]
 
   // 团队协同关系 (新增)
-  teamMembers       CodingTeamMember[]
-  missions          CodingMission[]
-  teamMessages      CodingTeamMessage[]
-  teamInitialized   Boolean @default(false) @map("team_initialized")
-  currentMissionId  String? @map("current_mission_id")
+  teamMembers      CodingTeamMember[]
+  missions         CodingMission[]
+  teamMessages     CodingTeamMessage[]
+  teamInitialized  Boolean             @default(false) @map("team_initialized")
+  currentMissionId String?             @map("current_mission_id")
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([status])
@@ -3253,8 +3256,8 @@ model AiCodingFile {
   version  Int    @default(1)
 
   // 元数据
-  size      Int  @default(0) // 字节数
-  lineCount Int  @default(0) @map("line_count")
+  size      Int     @default(0) // 字节数
+  lineCount Int     @default(0) @map("line_count")
   isEntry   Boolean @default(false) @map("is_entry") // 是否为入口文件
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -3281,9 +3284,9 @@ model AiCodingAgentLog {
   output Json?
 
   // AI 调用信息
-  modelUsed   String? @map("model_used") @db.VarChar(100)
-  tokensUsed  Int     @default(0) @map("tokens_used")
-  durationMs  Int?    @map("duration_ms")
+  modelUsed  String? @map("model_used") @db.VarChar(100)
+  tokensUsed Int     @default(0) @map("tokens_used")
+  durationMs Int?    @map("duration_ms")
 
   // 错误信息
   error String? @db.Text
@@ -3304,9 +3307,9 @@ model AiCodingIteration {
   projectId String @map("project_id")
 
   // 迭代信息
-  version    Int    @default(1)
-  feedback   String @db.Text // 用户反馈
-  changes    Json?  // 变更记录
+  version  Int    @default(1)
+  feedback String @db.Text // 用户反馈
+  changes  Json? // 变更记录
 
   // 状态
   status AiCodingProjectStatus @default(PROCESSING)
@@ -3325,21 +3328,21 @@ model AiCodingIteration {
 // 规范类型
 enum AiCodingStandardType {
   DIRECTORY_STRUCTURE // 目录结构
-  NAMING_CONVENTIONS  // 命名规范
-  CODE_STYLE          // 代码风格
-  API_DESIGN          // API 设计
-  DATABASE_DESIGN     // 数据库设计
-  TESTING_STANDARDS   // 测试标准
-  GIT_WORKFLOW        // Git 工作流
-  DOCUMENTATION       // 文档规范
-  SECURITY            // 安全规范
-  GENERAL             // 通用规范
+  NAMING_CONVENTIONS // 命名规范
+  CODE_STYLE // 代码风格
+  API_DESIGN // API 设计
+  DATABASE_DESIGN // 数据库设计
+  TESTING_STANDARDS // 测试标准
+  GIT_WORKFLOW // Git 工作流
+  DOCUMENTATION // 文档规范
+  SECURITY // 安全规范
+  GENERAL // 通用规范
 }
 
 // 规范来源
 enum AiCodingStandardSource {
   UPLOADED // 用户上传
-  GITHUB   // 从 GitHub 同步
+  GITHUB // 从 GitHub 同步
   TEMPLATE // 内置模板
 }
 
@@ -3349,7 +3352,7 @@ model AiCodingStandard {
   userId String @map("user_id")
 
   // 文档元数据
-  name   String                  @db.VarChar(200)
+  name   String                 @db.VarChar(200)
   type   AiCodingStandardType
   source AiCodingStandardSource
 
@@ -3499,12 +3502,12 @@ model AiCodingPullRequest {
   iterationId  String? @map("iteration_id")
 
   // PR 信息
-  prNumber   Int    @map("pr_number")
-  title      String @db.VarChar(500)
+  prNumber   Int     @map("pr_number")
+  title      String  @db.VarChar(500)
   body       String? @db.Text
-  headBranch String @map("head_branch") @db.VarChar(200)
-  baseBranch String @map("base_branch") @db.VarChar(200)
-  htmlUrl    String @map("html_url") @db.Text
+  headBranch String  @map("head_branch") @db.VarChar(200)
+  baseBranch String  @map("base_branch") @db.VarChar(200)
+  htmlUrl    String  @map("html_url") @db.Text
 
   // 状态
   state    AiCodingPRState @default(OPEN)
@@ -3527,10 +3530,10 @@ model AiCodingPullRequest {
 
 // 文档类型
 enum AiCodingDocumentType {
-  PRD       // 产品需求文档
-  DESIGN    // 技术设计文档
-  API       // API 文档
-  README    // 项目 README
+  PRD // 产品需求文档
+  DESIGN // 技术设计文档
+  API // API 文档
+  README // 项目 README
   CHANGELOG // 版本变更日志
 }
 
@@ -3563,105 +3566,105 @@ model AiCodingDocument {
 
 // 团队成员角色类型
 enum CodingAgentRole {
-  PM           // 产品经理 - Leader角色
-  ARCHITECT    // 架构师
-  PM_LEAD      // 项目经理
-  ENGINEER     // 工程师
-  QA           // QA测试
+  PM // 产品经理 - Leader角色
+  ARCHITECT // 架构师
+  PM_LEAD // 项目经理
+  ENGINEER // 工程师
+  QA // QA测试
 }
 
 // 团队成员状态
 enum CodingAgentMemberStatus {
-  IDLE       // 空闲
-  WORKING    // 工作中
-  WAITING    // 等待审查
-  COMPLETED  // 已完成
-  FAILED     // 失败
-  ERROR      // 错误状态
+  IDLE // 空闲
+  WORKING // 工作中
+  WAITING // 等待审查
+  COMPLETED // 已完成
+  FAILED // 失败
+  ERROR // 错误状态
 }
 
 // 任务状态
 enum CodingMissionStatus {
-  PENDING      // 待开始
-  PLANNING     // 规划中
-  IN_PROGRESS  // 进行中
-  EXECUTING    // 执行中
-  REVIEWING    // 审查中
-  COMPLETED    // 已完成
-  FAILED       // 失败
-  CANCELLED    // 已取消
+  PENDING // 待开始
+  PLANNING // 规划中
+  IN_PROGRESS // 进行中
+  EXECUTING // 执行中
+  REVIEWING // 审查中
+  COMPLETED // 已完成
+  FAILED // 失败
+  CANCELLED // 已取消
 }
 
 // 子任务状态
 enum CodingTaskStatus {
-  PENDING     // 待开始
-  ASSIGNED    // 已分配
+  PENDING // 待开始
+  ASSIGNED // 已分配
   IN_PROGRESS // 执行中
-  REVIEW      // 待审查
-  APPROVED    // 已通过
-  REJECTED    // 已拒绝
-  COMPLETED   // 已完成
-  FAILED      // 失败
+  REVIEW // 待审查
+  APPROVED // 已通过
+  REJECTED // 已拒绝
+  COMPLETED // 已完成
+  FAILED // 失败
 }
 
 // 子任务类型
 enum CodingTaskType {
-  PRD             // PRD编写
-  ARCHITECTURE    // 架构设计
-  TASK_BREAKDOWN  // 任务拆分
-  CODE            // 代码编写
-  TEST            // 测试用例
-  REVIEW          // 代码审查
+  PRD // PRD编写
+  ARCHITECTURE // 架构设计
+  TASK_BREAKDOWN // 任务拆分
+  CODE // 代码编写
+  TEST // 测试用例
+  REVIEW // 代码审查
 }
 
 // 消息类型
 enum CodingMessageType {
-  CHAT            // 普通对话
-  TASK_UPDATE     // 任务更新
-  SYSTEM          // 系统消息
-  REVIEW_REQUEST  // 审查请求
-  REVIEW_RESULT   // 审查结果
-  ERROR           // 错误消息
-  THINKING        // 思考过程
-  OUTPUT          // 输出结果
-  FEEDBACK        // 反馈消息
-  APPROVAL        // 审批通过
-  REQUEST         // 请求消息
+  CHAT // 普通对话
+  TASK_UPDATE // 任务更新
+  SYSTEM // 系统消息
+  REVIEW_REQUEST // 审查请求
+  REVIEW_RESULT // 审查结果
+  ERROR // 错误消息
+  THINKING // 思考过程
+  OUTPUT // 输出结果
+  FEEDBACK // 反馈消息
+  APPROVAL // 审批通过
+  REQUEST // 请求消息
 }
 
 // 团队成员
 model CodingTeamMember {
-  id            String                   @id @default(uuid())
-  projectId     String                   @map("project_id")
-  project       AiCodingProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id        String          @id @default(uuid())
+  projectId String          @map("project_id")
+  project   AiCodingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  agentRole     CodingAgentRole          @map("agent_role")
-  displayName   String                   @map("display_name") @db.VarChar(100)
-  avatar        String?                  @db.VarChar(10) // Emoji
-  aiModel       String                   @default("gemini") @map("ai_model") @db.VarChar(50) // 使用配置的模型名称
-  aiModelId     String?                  @map("ai_model_id") // AI模型ID关联
-  systemPrompt  String                   @map("system_prompt") @db.Text
+  agentRole    CodingAgentRole @map("agent_role")
+  displayName  String          @map("display_name") @db.VarChar(100)
+  avatar       String?         @db.VarChar(10) // Emoji
+  aiModel      String          @default("gemini") @map("ai_model") @db.VarChar(50) // 使用配置的模型名称
+  aiModelId    String?         @map("ai_model_id") // AI模型ID关联
+  systemPrompt String          @map("system_prompt") @db.Text
 
-  isLeader      Boolean                  @default(false) @map("is_leader")
-  status        CodingAgentMemberStatus  @default(IDLE)
+  isLeader Boolean                 @default(false) @map("is_leader")
+  status   CodingAgentMemberStatus @default(IDLE)
 
   // 当前任务状态
-  currentTask   String?                  @map("current_task") @db.VarChar(500)
-  lastError     String?                  @map("last_error") @db.Text
-  lastActiveAt  DateTime?                @map("last_active_at")
+  currentTask  String?   @map("current_task") @db.VarChar(500)
+  lastError    String?   @map("last_error") @db.Text
+  lastActiveAt DateTime? @map("last_active_at")
 
   // 统计信息
-  tasksCompleted Int                     @default(0) @map("tasks_completed")
-  tokensUsed     Int                     @default(0) @map("tokens_used")
+  tasksCompleted Int @default(0) @map("tasks_completed")
+  tokensUsed     Int @default(0) @map("tokens_used")
 
-  createdAt     DateTime                 @default(now()) @map("created_at")
-  updatedAt     DateTime                 @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  sentMessages    CodingTeamMessage[]    @relation("CodingMessageSender")
-  assignedTasks   CodingAgentTask[]      @relation("CodingTaskAssignee")
-  reviewedTasks   CodingAgentTask[]      @relation("CodingTaskReviewer")
-  ledMissions     CodingMission[]        @relation("CodingMissionLeader")
+  sentMessages  CodingTeamMessage[] @relation("CodingMessageSender")
+  assignedTasks CodingAgentTask[]   @relation("CodingTaskAssignee")
+  reviewedTasks CodingAgentTask[]   @relation("CodingTaskReviewer")
+  ledMissions   CodingMission[]     @relation("CodingMissionLeader")
 
   @@unique([projectId, agentRole])
   @@index([projectId])
@@ -3671,43 +3674,43 @@ model CodingTeamMember {
 
 // 开发任务 (Mission)
 model CodingMission {
-  id            String              @id @default(uuid())
-  projectId     String              @map("project_id")
-  project       AiCodingProject     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id        String          @id @default(uuid())
+  projectId String          @map("project_id")
+  project   AiCodingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  leaderId      String              @map("leader_id")
-  leader        CodingTeamMember    @relation("CodingMissionLeader", fields: [leaderId], references: [id])
+  leaderId String           @map("leader_id")
+  leader   CodingTeamMember @relation("CodingMissionLeader", fields: [leaderId], references: [id])
 
-  title         String              @db.VarChar(500)
-  description   String              @db.Text
-  requirement   String?             @db.Text // 原始需求
-  objectives    Json                @default("[]") // 目标列表
+  title       String  @db.VarChar(500)
+  description String  @db.Text
+  requirement String? @db.Text // 原始需求
+  objectives  Json    @default("[]") // 目标列表
 
-  status        CodingMissionStatus @default(PENDING)
+  status CodingMissionStatus @default(PENDING)
 
   // AI生成的任务分解
-  taskBreakdown Json?               @map("task_breakdown")
+  taskBreakdown Json? @map("task_breakdown")
 
   // 最终产出
-  finalResult   Json?               @map("final_result")
+  finalResult Json? @map("final_result")
 
   // 错误信息
-  errorMessage  String?             @map("error_message") @db.Text
-  errorDetails  Json?               @map("error_details")
+  errorMessage String? @map("error_message") @db.Text
+  errorDetails Json?   @map("error_details")
 
   // 修改轮次控制
-  currentRound  Int                 @default(1) @map("current_round")
-  maxRounds     Int                 @default(3) @map("max_rounds")
+  currentRound Int @default(1) @map("current_round")
+  maxRounds    Int @default(3) @map("max_rounds")
 
   // 时间戳
-  startedAt     DateTime?           @map("started_at")
-  completedAt   DateTime?           @map("completed_at")
-  createdAt     DateTime            @default(now()) @map("created_at")
-  updatedAt     DateTime            @updatedAt @map("updated_at")
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  tasks         CodingAgentTask[]
-  logs          CodingMissionLog[]
+  tasks CodingAgentTask[]
+  logs  CodingMissionLog[]
 
   @@index([projectId])
   @@index([status])
@@ -3716,57 +3719,57 @@ model CodingMission {
 
 // Agent 子任务
 model CodingAgentTask {
-  id            String              @id @default(uuid())
-  missionId     String              @map("mission_id")
-  mission       CodingMission       @relation(fields: [missionId], references: [id], onDelete: Cascade)
-  projectId     String?             @map("project_id") // 冗余，便于直接查询
+  id        String        @id @default(uuid())
+  missionId String        @map("mission_id")
+  mission   CodingMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  projectId String?       @map("project_id") // 冗余，便于直接查询
 
-  title         String              @db.VarChar(500)
-  description   String              @db.Text
-  taskType      CodingTaskType      @map("task_type")
-  priority      Int                 @default(0) // 0=normal, 1=high, 2=urgent
+  title       String         @db.VarChar(500)
+  description String         @db.Text
+  taskType    CodingTaskType @map("task_type")
+  priority    Int            @default(0) // 0=normal, 1=high, 2=urgent
 
   // 分配
-  assignedToId  String              @map("assigned_to_id")
-  assignedTo    CodingTeamMember    @relation("CodingTaskAssignee", fields: [assignedToId], references: [id])
-  assigneeRole  CodingAgentRole?    @map("assignee_role") // 被分配者角色（冗余，便于查询）
+  assignedToId String           @map("assigned_to_id")
+  assignedTo   CodingTeamMember @relation("CodingTaskAssignee", fields: [assignedToId], references: [id])
+  assigneeRole CodingAgentRole? @map("assignee_role") // 被分配者角色（冗余，便于查询）
 
   // 审查
-  reviewerId    String?             @map("reviewer_id")
-  reviewer      CodingTeamMember?   @relation("CodingTaskReviewer", fields: [reviewerId], references: [id])
+  reviewerId String?           @map("reviewer_id")
+  reviewer   CodingTeamMember? @relation("CodingTaskReviewer", fields: [reviewerId], references: [id])
 
-  status        CodingTaskStatus    @default(PENDING)
+  status CodingTaskStatus @default(PENDING)
 
   // 依赖关系
-  dependencies  Json                @default("[]") // 依赖的任务ID列表
-  dependsOn     String[]            @default([]) @map("depends_on") // 依赖的任务ID数组
+  dependencies Json     @default("[]") // 依赖的任务ID列表
+  dependsOn    String[] @default([]) @map("depends_on") // 依赖的任务ID数组
 
   // 输入上下文
-  input         Json?               // 任务输入上下文
+  input Json? // 任务输入上下文
 
   // 输出
-  output        Json?               // AI生成的输出
-  outputHash    String?             @map("output_hash") @db.VarChar(64) // 输出内容的hash
+  output     Json? // AI生成的输出
+  outputHash String? @map("output_hash") @db.VarChar(64) // 输出内容的hash
 
   // 审查反馈
-  feedback      String?             @db.Text
-  feedbackHistory Json?             @map("feedback_history") // 历史反馈记录
+  feedback        String? @db.Text
+  feedbackHistory Json?   @map("feedback_history") // 历史反馈记录
 
   // 重试控制
-  retryCount    Int                 @default(0) @map("retry_count")
-  maxRetries    Int                 @default(3) @map("max_retries")
-  lastError     String?             @map("last_error") @db.Text
-  errorMessage  String?             @map("error_message") @db.Text
+  retryCount   Int     @default(0) @map("retry_count")
+  maxRetries   Int     @default(3) @map("max_retries")
+  lastError    String? @map("last_error") @db.Text
+  errorMessage String? @map("error_message") @db.Text
 
   // Token统计
-  tokensUsed    Int                 @default(0) @map("tokens_used")
+  tokensUsed Int @default(0) @map("tokens_used")
 
   // 时间戳
-  assignedAt    DateTime?           @map("assigned_at")
-  startedAt     DateTime?           @map("started_at")
-  completedAt   DateTime?           @map("completed_at")
-  createdAt     DateTime            @default(now()) @map("created_at")
-  updatedAt     DateTime            @updatedAt @map("updated_at")
+  assignedAt  DateTime? @map("assigned_at")
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   @@index([missionId])
   @@index([projectId])
@@ -3777,34 +3780,34 @@ model CodingAgentTask {
 
 // 团队消息
 model CodingTeamMessage {
-  id            String              @id @default(uuid())
-  projectId     String              @map("project_id")
-  project       AiCodingProject     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id        String          @id @default(uuid())
+  projectId String          @map("project_id")
+  project   AiCodingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   // 发送者（AI Agent）
-  senderId      String?             @map("sender_id")
-  sender        CodingTeamMember?   @relation("CodingMessageSender", fields: [senderId], references: [id])
-  senderRole    CodingAgentRole?    @map("sender_role") // 发送者角色（冗余，便于查询）
+  senderId   String?           @map("sender_id")
+  sender     CodingTeamMember? @relation("CodingMessageSender", fields: [senderId], references: [id])
+  senderRole CodingAgentRole?  @map("sender_role") // 发送者角色（冗余，便于查询）
 
-  content       String              @db.Text
-  messageType   CodingMessageType   @default(CHAT) @map("message_type")
+  content     String            @db.Text
+  messageType CodingMessageType @default(CHAT) @map("message_type")
 
   // AI调用信息
-  aiModel       String?             @map("ai_model") @db.VarChar(50)
-  tokensUsed    Int?                @map("tokens_used")
-  latencyMs     Int?                @map("latency_ms") // 响应延迟（毫秒）
+  aiModel    String? @map("ai_model") @db.VarChar(50)
+  tokensUsed Int?    @map("tokens_used")
+  latencyMs  Int?    @map("latency_ms") // 响应延迟（毫秒）
 
   // 提及和回复
-  mentions      Json                @default("[]") // 提及的Agent ID列表
-  replyToId     String?             @map("reply_to_id") // 回复的消息ID
+  mentions  Json    @default("[]") // 提及的Agent ID列表
+  replyToId String? @map("reply_to_id") // 回复的消息ID
 
   // 关联任务
-  taskId        String?             @map("task_id")
+  taskId String? @map("task_id")
 
   // 元数据
-  metadata      Json?
+  metadata Json?
 
-  createdAt     DateTime            @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([projectId])
   @@index([senderId])
@@ -3815,25 +3818,25 @@ model CodingTeamMessage {
 
 // Mission 执行日志
 model CodingMissionLog {
-  id            String              @id @default(uuid())
-  missionId     String              @map("mission_id")
-  mission       CodingMission       @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  id        String        @id @default(uuid())
+  missionId String        @map("mission_id")
+  mission   CodingMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
 
-  phase         String              @db.VarChar(50) // planning, executing, reviewing, completed, failed
-  eventType     String?             @map("event_type") @db.VarChar(100) // 事件类型
-  action        String              @db.Text // 具体动作描述
-  agentId       String?             @map("agent_id") // 相关Agent
-  taskId        String?             @map("task_id") // 相关任务
+  phase     String  @db.VarChar(50) // planning, executing, reviewing, completed, failed
+  eventType String? @map("event_type") @db.VarChar(100) // 事件类型
+  action    String  @db.Text // 具体动作描述
+  agentId   String? @map("agent_id") // 相关Agent
+  taskId    String? @map("task_id") // 相关任务
 
-  details       Json?               // 详细信息
-  data          Json?               // 事件数据
+  details Json? // 详细信息
+  data    Json? // 事件数据
 
   // 错误信息（如果是错误日志）
-  errorType     String?             @map("error_type") @db.VarChar(50)
-  errorMessage  String?             @map("error_message") @db.Text
-  errorStack    String?             @map("error_stack") @db.Text
+  errorType    String? @map("error_type") @db.VarChar(50)
+  errorMessage String? @map("error_message") @db.Text
+  errorStack   String? @map("error_stack") @db.Text
 
-  createdAt     DateTime            @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([missionId])
   @@index([phase])
@@ -3845,53 +3848,53 @@ model CodingMissionLog {
 // ============ AI Studio Deep Research ============
 
 enum DeepResearchStatus {
-  PLANNING    // AI 正在规划研究步骤
-  SEARCHING   // 正在执行搜索
-  REFLECTING  // 正在自我反思评估
+  PLANNING // AI 正在规划研究步骤
+  SEARCHING // 正在执行搜索
+  REFLECTING // 正在自我反思评估
   SYNTHESIZING // 正在合成报告
-  COMPLETED   // 研究完成
-  FAILED      // 研究失败
+  COMPLETED // 研究完成
+  FAILED // 研究失败
 }
 
 model DeepResearchSession {
-  id        String             @id @default(uuid())
-  projectId String             @map("project_id")
+  id        String @id @default(uuid())
+  projectId String @map("project_id")
 
   // 研究查询
-  query     String             @db.Text
+  query String @db.Text
 
   // 状态
-  status    DeepResearchStatus @default(PLANNING)
+  status DeepResearchStatus @default(PLANNING)
 
   // AI 生成的研究计划
-  plan      Json?              // { objective, steps: [{ id, type, query, rationale }] }
+  plan Json? // { objective, steps: [{ id, type, query, rationale }] }
 
   // 搜索轮次记录
-  searchRounds Json[]          @default([]) @map("search_rounds") // [{ round, query, resultsCount, sources }]
+  searchRounds Json[] @default([]) @map("search_rounds") // [{ round, query, resultsCount, sources }]
 
   // 自我反思记录
-  reflections Json[]           @default([]) // [{ assessment, decision, reasoning }]
+  reflections Json[] @default([]) // [{ assessment, decision, reasoning }]
 
   // 思考链
-  thinkingChain Json[]         @default([]) @map("thinking_chain") // [{ step, content, timestamp }]
+  thinkingChain Json[] @default([]) @map("thinking_chain") // [{ step, content, timestamp }]
 
   // 最终报告
-  report    Json?              // { executiveSummary, sections, conclusion, references }
+  report Json? // { executiveSummary, sections, conclusion, references }
 
   // 统计信息
-  sourcesUsed Int              @default(0) @map("sources_used")
-  tokensUsed  Int              @default(0) @map("tokens_used")
+  sourcesUsed Int @default(0) @map("sources_used")
+  tokensUsed  Int @default(0) @map("tokens_used")
 
   // 错误信息
-  error     String?            @db.Text
+  error String? @db.Text
 
   // 时间戳
-  createdAt   DateTime         @default(now()) @map("created_at")
-  updatedAt   DateTime         @updatedAt @map("updated_at")
-  completedAt DateTime?        @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  completedAt DateTime? @map("completed_at")
 
   // 关系
-  project   ResearchProject    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project ResearchProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([status])
@@ -3902,10 +3905,10 @@ model DeepResearchSession {
 // ============ 统一导出系统 ============
 
 enum ExportSourceType {
-  DOCUMENT    // AI Office 文档
-  RESEARCH    // Deep Research 会话
-  REPORT      // Content Report
-  RAW         // 原始内容 (Markdown/JSON)
+  DOCUMENT // AI Office 文档
+  RESEARCH // Deep Research 会话
+  REPORT // Content Report
+  RAW // 原始内容 (Markdown/JSON)
 }
 
 enum ExportFormat {
@@ -3918,57 +3921,57 @@ enum ExportFormat {
 }
 
 enum ExportJobStatus {
-  QUEUED      // 排队中
-  PROCESSING  // 处理中
-  COMPLETED   // 已完成
-  FAILED      // 失败
+  QUEUED // 排队中
+  PROCESSING // 处理中
+  COMPLETED // 已完成
+  FAILED // 失败
 }
 
 enum ExportTemplateCategory {
-  REPORT      // 报告类
-  PPT         // 演示文稿
-  DOCUMENT    // 通用文档
-  ACADEMIC    // 学术论文
-  BUSINESS    // 商务文档
+  REPORT // 报告类
+  PPT // 演示文稿
+  DOCUMENT // 通用文档
+  ACADEMIC // 学术论文
+  BUSINESS // 商务文档
 }
 
 // 导出任务
 model ExportJob {
-  id          String           @id @default(cuid())
+  id String @id @default(cuid())
 
   // 来源信息
-  sourceType  ExportSourceType
-  sourceId    String?          @map("source_id")    // 来源ID (如果有)
-  sourceData  Json?            @map("source_data")  // 原始内容 (如果是RAW类型)
+  sourceType ExportSourceType
+  sourceId   String?          @map("source_id") // 来源ID (如果有)
+  sourceData Json?            @map("source_data") // 原始内容 (如果是RAW类型)
 
   // 导出配置
-  format      ExportFormat
-  templateId  String?          @map("template_id")
-  options     Json             @default("{}")       // 导出选项
+  format     ExportFormat
+  templateId String?      @map("template_id")
+  options    Json         @default("{}") // 导出选项
 
   // 状态
-  status      ExportJobStatus  @default(QUEUED)
-  progress    Int              @default(0)          // 0-100
-  error       String?          @db.Text
+  status   ExportJobStatus @default(QUEUED)
+  progress Int             @default(0) // 0-100
+  error    String?         @db.Text
 
   // 结果
-  fileName    String?          @map("file_name")
-  fileSize    Int?             @map("file_size")
-  filePath    String?          @map("file_path")    // 内部存储路径
-  downloadUrl String?          @map("download_url") // 临时下载URL
-  expiresAt   DateTime?        @map("expires_at")   // URL过期时间
+  fileName    String?   @map("file_name")
+  fileSize    Int?      @map("file_size")
+  filePath    String?   @map("file_path") // 内部存储路径
+  downloadUrl String?   @map("download_url") // 临时下载URL
+  expiresAt   DateTime? @map("expires_at") // URL过期时间
 
   // 元数据
-  userId      String           @map("user_id")
+  userId String @map("user_id")
 
   // 时间戳
-  createdAt   DateTime         @default(now()) @map("created_at")
-  updatedAt   DateTime         @updatedAt @map("updated_at")
-  completedAt DateTime?        @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  completedAt DateTime? @map("completed_at")
 
   // 关联
-  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  template    ExportTemplate?  @relation(fields: [templateId], references: [id])
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template ExportTemplate? @relation(fields: [templateId], references: [id])
 
   @@index([userId, status])
   @@index([status, createdAt])
@@ -3977,46 +3980,168 @@ model ExportJob {
 
 // 导出模板
 model ExportTemplate {
-  id          String                  @id @default(cuid())
+  id String @id @default(cuid())
 
   // 基本信息
   name        String
-  description String?                 @db.Text
+  description String?                @db.Text
   category    ExportTemplateCategory
 
   // 配置 (JSON)
-  themeConfig   Json                  @map("theme_config")   // 主题配置
-  layoutConfig  Json                  @map("layout_config")  // 布局配置
-  styleConfig   Json?                 @map("style_config")   // 额外样式
+  themeConfig  Json  @map("theme_config") // 主题配置
+  layoutConfig Json  @map("layout_config") // 布局配置
+  styleConfig  Json? @map("style_config") // 额外样式
 
   // 适用性
-  supportedFormats  ExportFormat[]    @map("supported_formats")
-  supportedSources  ExportSourceType[] @map("supported_sources")
+  supportedFormats ExportFormat[]     @map("supported_formats")
+  supportedSources ExportSourceType[] @map("supported_sources")
 
   // 状态
-  isBuiltIn   Boolean                 @default(false) @map("is_built_in")   // 系统内置
-  isDefault   Boolean                 @default(false) @map("is_default")    // 默认模板
-  isPublic    Boolean                 @default(false) @map("is_public")     // 公开模板
+  isBuiltIn Boolean @default(false) @map("is_built_in") // 系统内置
+  isDefault Boolean @default(false) @map("is_default") // 默认模板
+  isPublic  Boolean @default(false) @map("is_public") // 公开模板
 
   // 预览
-  previewImage  String?               @map("preview_image")
+  previewImage String? @map("preview_image")
 
   // 版本
-  version     Int                     @default(1)
+  version Int @default(1)
 
   // 归属
-  userId      String?                 @map("user_id")
-  workspaceId String?                 @map("workspace_id")
+  userId      String? @map("user_id")
+  workspaceId String? @map("workspace_id")
 
   // 时间戳
-  createdAt   DateTime                @default(now()) @map("created_at")
-  updatedAt   DateTime                @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // 关联
-  user        User?                   @relation(fields: [userId], references: [id])
-  exportJobs  ExportJob[]
+  user       User?       @relation(fields: [userId], references: [id])
+  exportJobs ExportJob[]
 
   @@index([category, isBuiltIn])
   @@index([userId])
   @@map("export_templates")
+}
+
+// ============ Google Drive 集成 ============
+
+enum GoogleDriveConnectionStatus {
+  ACTIVE
+  ERROR
+  EXPIRED
+  REVOKED
+}
+
+enum GoogleDriveSyncAction {
+  IMPORT
+  EXPORT
+}
+
+enum GoogleDriveSyncStatus {
+  PENDING
+  IN_PROGRESS
+  SUCCESS
+  FAILED
+}
+
+// Google Drive 连接
+model GoogleDriveConnection {
+  id     String @id @default(uuid())
+  userId String @unique @map("user_id")
+
+  // OAuth 凭证
+  accessToken  String   @map("access_token") @db.Text
+  refreshToken String   @map("refresh_token") @db.Text
+  tokenExpiry  DateTime @map("token_expiry")
+
+  // Google 账号信息
+  googleId    String  @unique @map("google_id")
+  email       String
+  displayName String? @map("display_name")
+  photoUrl    String? @map("photo_url")
+
+  // 存储空间
+  storageLimit BigInt? @map("storage_limit")
+  storageUsage BigInt? @map("storage_usage")
+
+  // 连接状态
+  status     GoogleDriveConnectionStatus @default(ACTIVE)
+  lastError  String?                     @map("last_error") @db.Text
+  lastSyncAt DateTime?                   @map("last_sync_at")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  user          User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  syncHistory   GoogleDriveSyncHistory[]
+  importedFiles GoogleDriveImportedFile[]
+
+  @@index([userId, status])
+  @@index([googleId])
+  @@map("google_drive_connections")
+}
+
+// Google Drive 同步历史
+model GoogleDriveSyncHistory {
+  id           String @id @default(uuid())
+  connectionId String @map("connection_id")
+
+  // 同步操作
+  action GoogleDriveSyncAction
+  status GoogleDriveSyncStatus
+
+  // 文件信息
+  googleFileId   String? @map("google_file_id")
+  googleFileName String? @map("google_file_name")
+  resourceId     String? @map("resource_id")
+
+  // 导出配置 (仅 EXPORT 时使用)
+  exportFormat   String? @map("export_format")
+  targetFolderId String? @map("target_folder_id")
+
+  // 错误信息
+  error String? @db.Text
+
+  // 元数据
+  metadata Json? // 额外的同步元数据
+
+  // 时间戳
+  startedAt   DateTime  @map("started_at")
+  completedAt DateTime? @map("completed_at")
+
+  // 关系
+  connection GoogleDriveConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([connectionId, startedAt])
+  @@index([status, startedAt])
+  @@map("google_drive_sync_history")
+}
+
+// Google Drive 导入文件映射
+model GoogleDriveImportedFile {
+  id           String @id @default(uuid())
+  connectionId String @map("connection_id")
+
+  // Google Drive 文件信息
+  googleFileId       String   @map("google_file_id")
+  googleFileName     String   @map("google_file_name")
+  mimeType           String   @map("mime_type")
+  googleModifiedTime DateTime @map("google_modified_time")
+
+  // 本地资源映射
+  resourceId String @unique @map("resource_id")
+
+  // 同步状态
+  lastSyncedAt DateTime @default(now()) @map("last_synced_at")
+
+  // 关系
+  connection GoogleDriveConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, googleFileId])
+  @@index([connectionId, googleFileId])
+  @@index([resourceId])
+  @@map("google_drive_imported_files")
 }

@@ -163,7 +163,7 @@ export default function DocumentEditor() {
     console.log('[DocumentEditor] currentDocumentId:', currentDocumentId);
 
     if (currentDocument) {
-      const markdown = (currentDocument.content as any)?.markdown || '';
+      const markdown = (currentDocument.content)?.markdown || '';
       console.log(
         '[DocumentEditor] Setting content from document, length:',
         markdown.length
@@ -193,7 +193,7 @@ export default function DocumentEditor() {
     const timer = setTimeout(() => {
       if (
         currentDocument.type === 'article' &&
-        (content !== (currentDocument.content as any).markdown ||
+        (content !== (currentDocument.content).markdown ||
           title !== currentDocument.title)
       ) {
         updateDocument(currentDocumentId, {
@@ -254,7 +254,7 @@ export default function DocumentEditor() {
         body: JSON.stringify({
           documentId: currentDocument._id,
           format,
-          content: (currentDocument.content as any).markdown,
+          content: (currentDocument.content).markdown,
           title: currentDocument.title,
           templateId: currentDocument.template?.id,
         }),

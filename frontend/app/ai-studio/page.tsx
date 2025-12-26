@@ -208,7 +208,7 @@ function getAuthHeaders(): HeadersInit {
     'Content-Type': 'application/json',
   };
   if (tokens?.accessToken) {
-    (headers as Record<string, string>)['Authorization'] =
+    (headers)['Authorization'] =
       `Bearer ${tokens.accessToken}`;
   }
   return headers;

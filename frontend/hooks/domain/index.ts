@@ -12,3 +12,9 @@ export { useResourceDetail } from './useResourceDetail';
 export { useAIOffice } from './useAIOffice';
 export { useAIImage } from './useAIImage';
 export { useAICoding } from './useAICoding';
+
+// Google Drive hooks
+export { useGoogleDrive } from './useGoogleDrive';
+export { useGoogleDriveFiles } from './useGoogleDriveFiles';
+export { useGoogleDriveImport } from './useGoogleDriveImport';
+export { useGoogleDriveExport } from './useGoogleDriveExport';

@@ -1,8 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { CreateFeedbackDto, FeedbackTypeDto } from "./dto/create-feedback.dto";
 import { EmailService } from "../email/email.service";
 import { R2StorageService } from "../storage/r2-storage.service";
+import { FeedbackEvent, FeedbackCreatedPayload } from "./events/feedback-events";
 
 // Type mapping for feedback types
 type FeedbackTypeEnum = "BUG" | "FEATURE" | "IMPROVEMENT" | "OTHER";

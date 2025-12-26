@@ -547,7 +547,7 @@ export default function SlidesPage() {
 
   // 获取当前文档内容
   const content = currentDocument
-    ? (currentDocument.content as any)?.markdown || ''
+    ? (currentDocument.content)?.markdown || ''
     : '';
   const slides = parseMarkdownToEnhancedSlides(content);
   const template: PPTTemplate = currentDocument?.template?.id

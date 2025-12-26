@@ -38,6 +38,7 @@ import {
   QualityCheckService,
   SourceAnalysisService,
   BatchOperationService,
+  ConsistencyService,
 } from "./ppt";
 
 // Integration
@@ -96,6 +97,7 @@ import { AgentsController } from "./agents";
     QualityCheckService,
     SourceAnalysisService,
     BatchOperationService,
+    ConsistencyService,
     DocsOrchestratorService,
     DesignerOrchestratorService,
     AiOfficeIntegrationService,
@@ -120,6 +122,7 @@ import { AgentsController } from "./agents";
     QualityCheckService,
     SourceAnalysisService,
     BatchOperationService,
+    ConsistencyService,
     DocsOrchestratorService,
     DesignerOrchestratorService,
     AiOfficeIntegrationService,

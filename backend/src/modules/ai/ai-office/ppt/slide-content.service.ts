@@ -7,13 +7,19 @@
  * 1. 根据规格生成幻灯片详细内容
  * 2. 生成演讲者备注
  * 3. 提取和格式化数据
+ * 4. 🆕 素材绑定约束和验证
  */
 
 import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { AIModelService } from "../core";
-import { SlideSpec, GeneratedSlideContent } from "./ppt.types";
+import {
+  SlideSpec,
+  GeneratedSlideContent,
+  ContentValidation,
+  SlideDataPoint,
+} from "./ppt.types";
 
 // ============================================
 // 内容生成提示词
@@ -121,6 +127,72 @@ Key Points: {keyPoints}
 
 Output plain text only, no JSON.`;
 
+// ============================================
+// 🆕 素材绑定内容生成提示词（P0 关键改进）
+// ============================================
+
+const SOURCE_BOUND_CONTENT_PROMPT = `You are a WORLD-CLASS presentation content writer with strict source fidelity requirements.
+
+## 🚨 CRITICAL CONSTRAINT: SOURCE MATERIAL BINDING
+You MUST generate content ONLY from the provided source material. This is NON-NEGOTIABLE.
+
+### Rules:
+1. **ALL content must come from the source material** - NO fabrication allowed
+2. **Required data points MUST be included** - they are extracted from the source and must appear in your output
+3. **If source is insufficient, use "[需补充]" markers** instead of making up content
+4. **Every claim must be traceable to the source**
+
+## Source Material (AUTHORITATIVE - use this as your ONLY source)
+"""
+{sourceExcerpt}
+"""
+
+## Required Data Points (MUST include all of these)
+{requiredDataPoints}
+
+## Slide Specification
+- Title: {title}
+- Purpose: {purpose}
+- Layout: {layout}
+- Content Outline: {outline}
+
+## Output Requirements
+
+### For Each Bullet Point:
+1. Must be 15-25 words with REAL substance from the source
+2. Include specific numbers/data from the required data points
+3. If information is not in source, write: "[需补充: 具体信息缺失]"
+
+### Quality Standards:
+✓ Each bullet references specific source content
+✓ All required data points are incorporated naturally
+✓ NO generic filler content
+✓ NO fabricated statistics or examples
+✓ Content tells a coherent story from the source
+
+## Language: {language}
+
+## Output Format (JSON)
+{
+  "title": "Compelling headline derived from source (8-12 words)",
+  "subtitle": "Supporting context from source",
+  "bodyText": "2-3 sentences directly from/paraphrasing source",
+  "bulletPoints": [
+    "Point 1 with specific data from source (include required data point)",
+    "Point 2 citing source material directly",
+    "Point 3 with concrete example from source",
+    "Point 4 with actionable insight from source"
+  ],
+  "highlightText": "Key statistic or insight from required data points",
+  "speakerNotes": "Natural notes referencing source content",
+  "sourceReferences": ["Brief note on which part of source each bullet comes from"]
+}
+
+For statistics slides, include:
+- "statistics": [{label, value (from required data points), comparison, trend}]
+
+Output valid JSON only.`;
+
 @Injectable()
 export class SlideContentService {
   private readonly logger = new Logger(SlideContentService.name);
@@ -132,6 +204,10 @@ export class SlideContentService {
 
   /**
    * 生成幻灯片内容
+   *
+   * 🆕 支持素材绑定模式：
+   * - 如果 spec 包含 sourceExcerpt 和 requiredDataPoints，使用素材绑定 prompt
+   * - 生成后自动进行内容验证
    */
   async generateContent(
     spec: SlideSpec,
@@ -159,13 +235,49 @@ export class SlideContentService {
       return this.generateSimpleSlideContent(spec, options.language);
     }
 
-    // 构建提示词
-    const prompt = CONTENT_GENERATION_PROMPT.replace("{title}", spec.title)
-      .replace("{purpose}", spec.purpose)
-      .replace("{layout}", spec.layoutType)
-      .replace("{outline}", JSON.stringify(spec.contentOutline))
-      .replace("{sourceContent}", this.truncateContent(sourceContent, 3000))
-      .replace("{language}", options.language || "auto");
+    // 🆕 判断是否使用素材绑定模式
+    const useSourceBinding =
+      spec.mustNotFabricate &&
+      spec.sourceExcerpt &&
+      spec.sourceExcerpt.length > 0;
+
+    let prompt: string;
+
+    if (useSourceBinding) {
+      // 使用素材绑定 prompt（强约束模式）
+      this.logger.log(
+        `[generateContent] Using SOURCE_BOUND mode for slide ${spec.index}`,
+      );
+
+      const dataPointsStr =
+        spec.requiredDataPoints && spec.requiredDataPoints.length > 0
+          ? spec.requiredDataPoints
+              .map(
+                (dp, i) =>
+                  `${i + 1}. ${dp.value} - ${dp.context}${dp.required ? " [必须包含]" : ""}`,
+              )
+              .join("\n")
+          : "无特定数据点要求，但内容必须来源于上述素材";
+
+      prompt = SOURCE_BOUND_CONTENT_PROMPT.replace("{title}", spec.title)
+        .replace("{purpose}", spec.purpose)
+        .replace("{layout}", spec.layoutType)
+        .replace("{outline}", JSON.stringify(spec.contentOutline))
+        .replace(
+          "{sourceExcerpt}",
+          this.truncateContent(spec.sourceExcerpt!, 4000),
+        )
+        .replace("{requiredDataPoints}", dataPointsStr)
+        .replace("{language}", options.language || "auto");
+    } else {
+      // 使用标准 prompt（自由生成模式）
+      prompt = CONTENT_GENERATION_PROMPT.replace("{title}", spec.title)
+        .replace("{purpose}", spec.purpose)
+        .replace("{layout}", spec.layoutType)
+        .replace("{outline}", JSON.stringify(spec.contentOutline))
+        .replace("{sourceContent}", this.truncateContent(sourceContent, 3000))
+        .replace("{language}", options.language || "auto");
+    }
 
     // 调用文本模型
     const response = await this.callTextModel(
@@ -197,6 +309,134 @@ export class SlideContentService {
     }
 
     return content;
+  }
+
+  /**
+   * 🆕 验证生成的内容是否符合素材绑定要求
+   */
+  validateContent(
+    content: GeneratedSlideContent,
+    spec: SlideSpec,
+  ): ContentValidation {
+    const requiredDataPoints = spec.requiredDataPoints || [];
+    const contentText = this.extractContentText(content);
+
+    // 检查数据点覆盖
+    const coveredDataPoints: SlideDataPoint[] = [];
+    const missingDataPoints: SlideDataPoint[] = [];
+
+    for (const dp of requiredDataPoints) {
+      // 检查数据点值是否出现在内容中
+      const valuePattern = new RegExp(
+        dp.value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        "i",
+      );
+      if (valuePattern.test(contentText)) {
+        coveredDataPoints.push(dp);
+      } else if (dp.required) {
+        missingDataPoints.push(dp);
+      }
+    }
+
+    // 检查可能臆造的内容（检测常见的填充词）
+    const fabricatedContent: string[] = [];
+    const fabricationPatterns = [
+      /显著提升|大幅增长|明显改善/g,
+      /leading|significant|substantial/gi,
+      /approximately|around|about \d+/gi,
+    ];
+
+    // 如果有素材绑定且内容中有这些模糊词，可能是臆造
+    if (spec.mustNotFabricate && spec.sourceExcerpt) {
+      for (const pattern of fabricationPatterns) {
+        const matches = contentText.match(pattern);
+        if (matches) {
+          // 检查这些词是否在原始素材中
+          for (const match of matches) {
+            if (!spec.sourceExcerpt.includes(match)) {
+              fabricatedContent.push(match);
+            }
+          }
+        }
+      }
+    }
+
+    // 计算与素材的相关性
+    const sourceRelevance = spec.sourceExcerpt
+      ? this.calculateRelevance(contentText, spec.sourceExcerpt)
+      : 100;
+
+    // 计算覆盖率
+    const coverageRate =
+      requiredDataPoints.length > 0
+        ? (coveredDataPoints.length / requiredDataPoints.length) * 100
+        : 100;
+
+    // 判断是否通过
+    const passed =
+      coverageRate >= 80 &&
+      sourceRelevance >= 60 &&
+      fabricatedContent.length === 0;
+
+    return {
+      dataPointsCovered: coveredDataPoints.length,
+      dataPointsTotal: requiredDataPoints.length,
+      coverageRate,
+      dataPointsMissing: missingDataPoints,
+      fabricatedContent,
+      sourceRelevance,
+      passed,
+      message: passed
+        ? "内容验证通过"
+        : `验证未通过: 覆盖率 ${coverageRate.toFixed(1)}%, 相关性 ${sourceRelevance.toFixed(1)}%, 可疑内容 ${fabricatedContent.length} 处`,
+    };
+  }
+
+  /**
+   * 提取内容文本用于验证
+   */
+  private extractContentText(content: GeneratedSlideContent): string {
+    const parts: string[] = [];
+
+    if (content.title) parts.push(content.title);
+    if (content.subtitle) parts.push(content.subtitle);
+    if (content.bodyText) parts.push(content.bodyText);
+    if (content.bulletPoints) parts.push(content.bulletPoints.join(" "));
+    if (content.highlightText) parts.push(content.highlightText);
+    if (content.statistics) {
+      parts.push(content.statistics.map((s) => `${s.label} ${s.value}`).join(" "));
+    }
+
+    return parts.join(" ");
+  }
+
+  /**
+   * 计算内容与素材的相关性（简单的词汇重叠）
+   */
+  private calculateRelevance(content: string, source: string): number {
+    const contentTokens = new Set(
+      content
+        .toLowerCase()
+        .split(/[\s,.\-!?;:，。！？；：]+/)
+        .filter((t) => t.length > 1),
+    );
+    const sourceTokens = new Set(
+      source
+        .toLowerCase()
+        .split(/[\s,.\-!?;:，。！？；：]+/)
+        .filter((t) => t.length > 1),
+    );
+
+    if (contentTokens.size === 0) return 0;
+
+    let matchCount = 0;
+    for (const token of contentTokens) {
+      if (sourceTokens.has(token)) {
+        matchCount++;
+      }
+    }
+
+    return (matchCount / contentTokens.size) * 100;
   }
 
   /**

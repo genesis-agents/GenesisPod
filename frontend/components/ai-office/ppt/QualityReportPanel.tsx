@@ -49,7 +49,11 @@ interface QualityIssue {
     | 'layout_overflow'
     | 'content_sparse'
     | 'content_dense'
-    | 'inconsistency';
+    | 'inconsistency'
+    | 'missing_data'
+    | 'source_unverified'
+    | 'fabrication_suspected'
+    | 'data_point_missing';
   severity: 'error' | 'warning' | 'info';
   pages: number[];
   description: string;
@@ -111,6 +115,10 @@ const ISSUE_TYPE_LABELS = {
   content_sparse: '内容稀疏',
   content_dense: '内容密集',
   inconsistency: '样式不一致',
+  missing_data: '数据缺失',
+  source_unverified: '来源未验证',
+  fabrication_suspected: '疑似捏造',
+  data_point_missing: '数据点缺失',
 } as const;
 
 const ACTION_LABELS = {
@@ -320,7 +328,7 @@ export const QualityReportPanel: React.FC<QualityReportPanelProps> = ({
 
   // 应用单个修复
   const { execute: applySingleFix } = useApiPost(
-    `/api/ai-office/ppt/${documentId}/quality-fix`,
+    `/api/ai-office/ppt/${documentId}/apply-suggestion`,
     {
       onSuccess: () => {
         void refetchReport();
@@ -330,7 +338,7 @@ export const QualityReportPanel: React.FC<QualityReportPanelProps> = ({
 
   // 应用所有自动修复
   const { execute: applyAllFixes, loading: applyingAll } = useApiPost(
-    `/api/ai-office/ppt/${documentId}/quality-fix-all`,
+    `/api/ai-office/ppt/${documentId}/apply-all-suggestions`,
     {
       onSuccess: () => {
         void refetchReport();
@@ -344,7 +352,7 @@ export const QualityReportPanel: React.FC<QualityReportPanelProps> = ({
       setApplyingFixes((prev) => new Set(prev).add(suggestionId));
 
       try {
-        await applySingleFix({ suggestionId });
+        await applySingleFix({ suggestionId, action: 'apply' });
       } finally {
         setApplyingFixes((prev) => {
           const next = new Set(prev);

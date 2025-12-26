@@ -197,7 +197,7 @@ export function SourceWhitelistManager() {
               <div>
                 <h4 className="mb-2 text-sm font-medium">允许的域名</h4>
                 <div className="flex flex-wrap gap-2">
-                  {(whitelist.allowedDomains as string[]).map((domain) => (
+                  {(whitelist.allowedDomains).map((domain) => (
                     <div
                       key={domain}
                       className="flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-1"

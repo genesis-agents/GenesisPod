@@ -104,6 +104,25 @@ export interface GlobalStyleConfig {
   };
 }
 
+/** 🆕 字体配置 */
+export interface FontConfig {
+  headingFont: string; // 标题字体
+  bodyFont: string; // 正文字体
+  headingSize?: number; // 标题字号
+  bodySize?: number; // 正文字号
+  lineHeight?: number; // 行高
+  letterSpacing?: number; // 字间距
+}
+
+/** 🆕 Logo 配置 */
+export interface LogoConfig {
+  url: string; // Logo URL
+  position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+  width?: number; // Logo 宽度
+  height?: number; // Logo 高度
+  opacity?: number; // 透明度 0-1
+}
+
 export interface BatchUpdateResult {
   success: boolean;
   updatedPages: number;
@@ -178,6 +197,22 @@ export class BatchOperationService {
           await this.updateSafeArea(
             document,
             request.config as SafeAreaConfig,
+            pageIndices,
+          );
+          break;
+
+        case "update_font":
+          this.updateFont(
+            document,
+            request.config as FontConfig,
+            pageIndices,
+          );
+          break;
+
+        case "update_logo":
+          this.updateLogo(
+            document,
+            request.config as LogoConfig,
             pageIndices,
           );
           break;
@@ -390,6 +425,91 @@ export class BatchOperationService {
       ...globalStyle,
       safeArea: config,
     });
+  }
+
+  /**
+   * 批量更新字体配置
+   */
+  private updateFont(
+    document: PPTDocument,
+    config: FontConfig,
+    pageIndices: number[],
+  ): void {
+    this.logger.log(
+      `[updateFont] Applying font config to ${pageIndices.length} pages`,
+    );
+
+    for (const pageIndex of pageIndices) {
+      const slide = document.slides[pageIndex];
+      if (!slide) {
+        this.logger.warn(`[updateFont] Slide ${pageIndex} not found`);
+        continue;
+      }
+
+      // 在 slide 内容中记录字体配置
+      (slide.content as any).typography = {
+        headingFont: config.headingFont,
+        bodyFont: config.bodyFont,
+        headingSize: config.headingSize,
+        bodySize: config.bodySize,
+        lineHeight: config.lineHeight,
+        letterSpacing: config.letterSpacing,
+      };
+
+      this.logger.debug(
+        `[updateFont] Slide ${pageIndex}: headingFont=${config.headingFont}, bodyFont=${config.bodyFont}`,
+      );
+    }
+
+    // 同时更新文档级别的主题
+    document.theme = {
+      ...document.theme,
+      fonts: {
+        ...document.theme.fonts,
+        heading: config.headingFont,
+        body: config.bodyFont,
+      },
+    };
+  }
+
+  /**
+   * 批量更新 Logo 配置
+   */
+  private updateLogo(
+    document: PPTDocument,
+    config: LogoConfig,
+    pageIndices: number[],
+  ): void {
+    this.logger.log(
+      `[updateLogo] Applying logo to ${pageIndices.length} pages at position ${config.position}`,
+    );
+
+    for (const pageIndex of pageIndices) {
+      const slide = document.slides[pageIndex];
+      if (!slide) {
+        this.logger.warn(`[updateLogo] Slide ${pageIndex} not found`);
+        continue;
+      }
+
+      // 在 slide 内容中记录 logo 配置
+      (slide.content as any).logo = {
+        url: config.url,
+        position: config.position,
+        width: config.width ?? 120,
+        height: config.height ?? 40,
+        opacity: config.opacity ?? 1,
+      };
+
+      this.logger.debug(
+        `[updateLogo] Slide ${pageIndex}: logo at ${config.position}`,
+      );
+    }
+
+    // 同时更新文档级别的品牌配置
+    (document.theme as any).brand = {
+      ...((document.theme as any).brand || {}),
+      logo: config.url,
+    };
   }
 
   /**

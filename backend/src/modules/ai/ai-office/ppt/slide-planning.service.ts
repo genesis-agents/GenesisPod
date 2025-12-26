@@ -25,6 +25,7 @@ import {
   BackgroundDecision,
   BackgroundType,
 } from "./ppt.types";
+import { SourceAnalysis } from "./source-analysis.service";
 import { randomUUID } from "crypto";
 
 // ============================================
@@ -1336,5 +1337,239 @@ DO NOT include any text or words in the image.`;
     }
 
     return "medium";
+  }
+
+  // ============================================
+  // 🆕 素材分析集成方法
+  // ============================================
+
+  /**
+   * 🆕 使用素材分析结果增强大纲
+   * 将章节、数据点、洞见融入大纲规划
+   */
+  enhanceOutlineWithSourceAnalysis(
+    outline: PPTOutline,
+    sourceAnalysis: SourceAnalysis,
+  ): PPTOutline {
+    this.logger.log(
+      `[enhanceOutlineWithSourceAnalysis] Enhancing outline with ${sourceAnalysis.chapters.length} chapters, ${sourceAnalysis.dataPoints.length} data points`,
+    );
+
+    const enhancedSlides: SlideOutlineItem[] = [];
+    const { chapters, dataPoints, keyInsights, quotes } = sourceAnalysis;
+
+    // 保留标题页
+    const titleSlide = outline.slides.find((s) => s.purpose === "title");
+    if (titleSlide) {
+      enhancedSlides.push(titleSlide);
+    }
+
+    // 如果有足够的章节，基于章节重新组织内容页
+    if (chapters.length >= 2) {
+      for (let i = 0; i < chapters.length; i++) {
+        const chapter = chapters[i];
+
+        // 添加章节标题页（如果不是第一章）
+        if (i > 0) {
+          enhancedSlides.push({
+            index: enhancedSlides.length,
+            purpose: "section_header",
+            title: chapter.title,
+            keyPoints: [chapter.summary],
+            needsImage: true,
+            needsChart: false,
+            emphasis: "medium",
+          });
+        }
+
+        // 添加章节内容页
+        const chapterDataPoints = dataPoints.filter(
+          (dp) => dp.chapterId === chapter.id,
+        );
+
+        enhancedSlides.push({
+          index: enhancedSlides.length,
+          purpose: chapterDataPoints.length > 2 ? "statistics" : "content",
+          title: chapter.title,
+          keyPoints: chapter.keyPoints.slice(0, 5),
+          needsImage: true,
+          needsChart: chapterDataPoints.length > 2,
+          emphasis: "medium",
+          // 🆕 附加素材信息
+          visualIntent: chapter.summary,
+          imageHint: this.generateImageHintFromChapter(chapter),
+        });
+      }
+    } else {
+      // 保留原有的内容页
+      const contentSlides = outline.slides.filter(
+        (s) => s.purpose !== "title" && s.purpose !== "closing" && s.purpose !== "qna",
+      );
+      for (const slide of contentSlides) {
+        slide.index = enhancedSlides.length;
+        enhancedSlides.push(slide);
+      }
+    }
+
+    // 如果有洞见，添加洞见页
+    if (keyInsights.length > 0) {
+      const topInsights = keyInsights.slice(0, 3);
+      enhancedSlides.push({
+        index: enhancedSlides.length,
+        purpose: "content",
+        title: "关键洞见",
+        keyPoints: topInsights.map((insight) => insight.description),
+        needsImage: true,
+        needsChart: false,
+        emphasis: "high",
+      });
+    }
+
+    // 如果有引用，添加引用页
+    if (quotes.length > 0) {
+      const topQuote = quotes[0];
+      enhancedSlides.push({
+        index: enhancedSlides.length,
+        purpose: "quote",
+        title: topQuote.text.slice(0, 100),
+        keyPoints: [topQuote.author ? `— ${topQuote.author}` : ""],
+        needsImage: true,
+        needsChart: false,
+        emphasis: "high",
+      });
+    }
+
+    // 添加结尾页
+    const closingSlide = outline.slides.find(
+      (s) => s.purpose === "closing" || s.purpose === "qna",
+    );
+    if (closingSlide) {
+      closingSlide.index = enhancedSlides.length;
+      enhancedSlides.push(closingSlide);
+    } else {
+      enhancedSlides.push({
+        index: enhancedSlides.length,
+        purpose: "closing",
+        title: "谢谢",
+        keyPoints: ["联系我们了解更多"],
+        needsImage: true,
+        needsChart: false,
+      });
+    }
+
+    this.logger.log(
+      `[enhanceOutlineWithSourceAnalysis] Enhanced outline: ${outline.slides.length} -> ${enhancedSlides.length} slides`,
+    );
+
+    return {
+      ...outline,
+      slides: enhancedSlides,
+    };
+  }
+
+  /**
+   * 🆕 从章节生成图像提示
+   */
+  private generateImageHintFromChapter(
+    chapter: SourceAnalysis["chapters"][0],
+  ): string {
+    const keywords = chapter.keyPoints.slice(0, 3).join(", ");
+    return `Professional illustration related to: ${chapter.title}. Key concepts: ${keywords}. Modern, clean business style.`;
+  }
+
+  /**
+   * 🆕 生成带有素材绑定信息的大纲
+   * 在大纲阶段就建立素材关联
+   */
+  async generateOutlineWithSourceBinding(
+    content: string,
+    sourceAnalysis: SourceAnalysis,
+    options: {
+      slideCount?: number;
+      language?: string;
+      targetAudience?: string;
+      presentationStyle?: string;
+    } = {},
+  ): Promise<PPTOutline> {
+    // 先生成基础大纲
+    const baseOutline = await this.generateOutline(content, options);
+
+    // 使用素材分析增强大纲
+    const enhancedOutline = this.enhanceOutlineWithSourceAnalysis(
+      baseOutline,
+      sourceAnalysis,
+    );
+
+    // 在大纲项中标记素材绑定
+    for (const slide of enhancedOutline.slides) {
+      // 查找匹配的章节
+      const matchingChapter = this.findMatchingChapterForSlide(
+        slide,
+        sourceAnalysis.chapters,
+      );
+
+      if (matchingChapter) {
+        // 将章节ID存储在扩展字段中（用于后续绑定）
+        (slide as any).sourceChapterId = matchingChapter.id;
+        (slide as any).sourceExcerpt = matchingChapter.content.slice(0, 500);
+      }
+
+      // 查找相关的数据点
+      const relevantDataPoints = sourceAnalysis.dataPoints.filter((dp) => {
+        const slideText = `${slide.title} ${slide.keyPoints.join(" ")}`.toLowerCase();
+        return (
+          slideText.includes(dp.value.toLowerCase()) ||
+          slideText.includes(dp.context.toLowerCase().slice(0, 20))
+        );
+      });
+
+      if (relevantDataPoints.length > 0) {
+        (slide as any).dataPoints = relevantDataPoints.map((dp) => ({
+          id: dp.id,
+          value: dp.value,
+          type: dp.type,
+          context: dp.context,
+        }));
+      }
+    }
+
+    return enhancedOutline;
+  }
+
+  /**
+   * 🆕 查找与幻灯片匹配的章节
+   */
+  private findMatchingChapterForSlide(
+    slide: SlideOutlineItem,
+    chapters: SourceAnalysis["chapters"],
+  ): SourceAnalysis["chapters"][0] | null {
+    if (chapters.length === 0) return null;
+
+    const slideText = `${slide.title} ${slide.keyPoints.join(" ")}`.toLowerCase();
+
+    let bestMatch: SourceAnalysis["chapters"][0] | null = null;
+    let bestScore = 0;
+
+    for (const chapter of chapters) {
+      const chapterText = `${chapter.title} ${chapter.keyPoints.join(" ")}`.toLowerCase();
+
+      // 计算词汇重叠
+      const slideWords = new Set(slideText.split(/\s+/).filter((w) => w.length > 2));
+      const chapterWords = new Set(chapterText.split(/\s+/).filter((w) => w.length > 2));
+
+      let overlap = 0;
+      for (const word of slideWords) {
+        if (chapterWords.has(word)) overlap++;
+      }
+
+      const score = overlap / Math.max(slideWords.size, 1);
+
+      if (score > bestScore && score > 0.2) {
+        bestScore = score;
+        bestMatch = chapter;
+      }
+    }
+
+    return bestMatch;
   }
 }

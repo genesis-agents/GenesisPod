@@ -120,7 +120,7 @@ export function CitationLink({
   return (
     <span className="relative inline">
       <sup
-        ref={triggerRef as React.RefObject<HTMLElement>}
+        ref={triggerRef}
         onClick={handleClick}
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}

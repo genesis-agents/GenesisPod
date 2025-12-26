@@ -183,12 +183,12 @@ export default function KnowledgeGraphView({
     const nodeConnectionCount = new Map<string, number>();
     edges.forEach((e) => {
       nodeConnectionCount.set(
-        e.source as string,
-        (nodeConnectionCount.get(e.source as string) || 0) + 1
+        e.source,
+        (nodeConnectionCount.get(e.source) || 0) + 1
       );
       nodeConnectionCount.set(
-        e.target as string,
-        (nodeConnectionCount.get(e.target as string) || 0) + 1
+        e.target,
+        (nodeConnectionCount.get(e.target) || 0) + 1
       );
     });
 
@@ -213,8 +213,8 @@ export default function KnowledgeGraphView({
       .attr('stroke-opacity', 0.5)
       .attr('stroke-width', (d) => {
         // 根据连接强度调整粗细（源和目标节点的平均连接数）
-        const sourceCount = nodeConnectionCount.get(d.source as string) || 1;
-        const targetCount = nodeConnectionCount.get(d.target as string) || 1;
+        const sourceCount = nodeConnectionCount.get(d.source) || 1;
+        const targetCount = nodeConnectionCount.get(d.target) || 1;
         const avgConnections = (sourceCount + targetCount) / 2;
         // 映射到1-4的粗细范围
         return Math.min(Math.max(avgConnections / 3, 1), 4);

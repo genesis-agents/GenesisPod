@@ -71,6 +71,7 @@
     "docx": "^9.5.1",
     "exceljs": "^4.4.0",
     "fontkit": "^2.0.4",
+    "googleapis": "^169.0.0",
     "graphql": "^16.8.0",
     "helmet": "^8.1.0",
     "jsdom": "^24.1.0",

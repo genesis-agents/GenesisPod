@@ -7,6 +7,7 @@
  * 1. 将幻灯片规格和内容渲染为 HTML
  * 2. 支持多种布局类型
  * 3. 应用主题样式
+ * 4. 🆕 支持全局样式（页眉、页脚、安全区）
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -16,6 +17,7 @@ import {
   GeneratedSlideImage,
   SlideLayoutType,
   PPTTheme,
+  DEFAULT_GLOBAL_STYLE,
 } from "./ppt.types";
 
 interface RenderInput {
@@ -24,15 +26,43 @@ interface RenderInput {
   images: GeneratedSlideImage[];
 }
 
+/** 🆕 扩展内容接口以支持全局样式 */
+interface ExtendedContent {
+  header?: {
+    text: string;
+    position: string;
+    style?: Record<string, unknown>;
+  };
+  footer?: {
+    text: string;
+    position: string;
+    style?: Record<string, unknown>;
+  };
+  safeArea?: {
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+  };
+  typography?: {
+    headingFont: string;
+    bodyFont: string;
+    monoFont?: string;
+  };
+}
+
 @Injectable()
 export class SlideRendererService {
   private readonly logger = new Logger(SlideRendererService.name);
 
   /**
    * 渲染单个幻灯片为 HTML
+   *
+   * 🆕 支持全局样式：页眉、页脚、安全区
    */
   async renderSlide(input: RenderInput, theme: PPTTheme): Promise<string> {
     const { spec, content, images } = input;
+    const extContent = content as ExtendedContent;
 
     this.logger.log(
       `[renderSlide] Rendering slide ${spec.index}: ${spec.title} (${spec.layoutType})`,
@@ -40,6 +70,9 @@ export class SlideRendererService {
 
     // 获取背景样式
     const backgroundStyle = this.getBackgroundStyle(spec, images, theme);
+
+    // 🆕 获取安全区样式
+    const safeAreaStyle = this.getSafeAreaStyle(extContent);
 
     // 获取内容 HTML
     const contentHtml = this.renderContent(
@@ -49,15 +82,107 @@ export class SlideRendererService {
       theme,
     );
 
+    // 🆕 渲染页眉
+    const headerHtml = this.renderHeader(extContent, theme);
+
+    // 🆕 渲染页脚
+    const footerHtml = this.renderFooter(extContent, theme);
+
     // 组装完整的幻灯片 HTML
     return `
       <div class="slide" data-index="${spec.index}" data-layout="${spec.layoutType}" style="${backgroundStyle}">
-        <div class="slide-content">
+        ${headerHtml}
+        <div class="slide-content" style="${safeAreaStyle}">
           ${contentHtml}
         </div>
+        ${footerHtml}
         ${this.renderSpeakerNotes(content.speakerNotes)}
       </div>
     `;
+  }
+
+  /**
+   * 🆕 获取安全区样式
+   */
+  private getSafeAreaStyle(content: ExtendedContent): string {
+    const safeArea = content.safeArea || DEFAULT_GLOBAL_STYLE.safeArea;
+
+    return `
+      padding-top: ${safeArea.top}px;
+      padding-bottom: ${safeArea.bottom}px;
+      padding-left: ${safeArea.left}px;
+      padding-right: ${safeArea.right}px;
+      box-sizing: border-box;
+    `;
+  }
+
+  /**
+   * 🆕 渲染页眉
+   */
+  private renderHeader(content: ExtendedContent, theme: PPTTheme): string {
+    if (!content.header || !content.header.text) {
+      return "";
+    }
+
+    const { text, position, style } = content.header;
+    const positionStyle = this.getPositionStyle(position, "header");
+    const textStyle = style
+      ? `font-size: ${style.fontSize || 14}px; font-family: ${style.fontFamily || theme.fonts.body}; color: ${style.color || theme.colors.textMuted};`
+      : `font-size: 14px; font-family: ${theme.fonts.body}; color: ${theme.colors.textMuted};`;
+
+    return `
+      <div class="slide-header" style="${positionStyle}${textStyle}">
+        ${text}
+      </div>
+    `;
+  }
+
+  /**
+   * 🆕 渲染页脚
+   */
+  private renderFooter(content: ExtendedContent, theme: PPTTheme): string {
+    if (!content.footer || !content.footer.text) {
+      return "";
+    }
+
+    const { text, position, style } = content.footer;
+    const positionStyle = this.getPositionStyle(position, "footer");
+    const textStyle = style
+      ? `font-size: ${style.fontSize || 14}px; font-family: ${style.fontFamily || theme.fonts.body}; color: ${style.color || theme.colors.textMuted};`
+      : `font-size: 14px; font-family: ${theme.fonts.body}; color: ${theme.colors.textMuted};`;
+
+    return `
+      <div class="slide-footer" style="${positionStyle}${textStyle}">
+        ${text}
+      </div>
+    `;
+  }
+
+  /**
+   * 🆕 获取位置样式
+   */
+  private getPositionStyle(
+    position: string,
+    type: "header" | "footer",
+  ): string {
+    const base =
+      type === "header"
+        ? "position: absolute; top: 20px; width: 100%;"
+        : "position: absolute; bottom: 20px; width: 100%;";
+
+    switch (position) {
+      case "top-left":
+      case "bottom-left":
+        return `${base} text-align: left; padding-left: 40px;`;
+      case "top-center":
+      case "bottom-center":
+        return `${base} text-align: center;`;
+      case "top-right":
+      case "bottom-right":
+        return `${base} text-align: right; padding-right: 40px;`;
+      default:
+        return `${base} text-align: right; padding-right: 40px;`;
+    }
   }
 
   /**

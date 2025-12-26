@@ -63,7 +63,7 @@ function extractQuestion(parameters: WorkspaceTaskSummary['parameters']) {
     typeof parameters === 'object' &&
     'question' in parameters
   ) {
-    const value = (parameters as Record<string, unknown>).question;
+    const value = (parameters).question;
     if (typeof value === 'string') {
       return value;
     }

@@ -20,6 +20,7 @@ export { TemplateMatcher } from "./template-matcher.service";
 export { QualityCheckService } from "./quality-check.service";
 export { SourceAnalysisService } from "./source-analysis.service";
 export { BatchOperationService } from "./batch-operation.service";
+export { ConsistencyService } from "./consistency.service";
 
 // Controller
 export { PPTGenerationController } from "./ppt-generation.controller";

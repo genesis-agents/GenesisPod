@@ -106,7 +106,7 @@ export default function Feedback() {
       const newFiles = [...prev];
       // Revoke preview URL to prevent memory leaks
       if (newFiles[index].preview) {
-        URL.revokeObjectURL(newFiles[index].preview!);
+        URL.revokeObjectURL(newFiles[index].preview);
       }
       newFiles.splice(index, 1);
       return newFiles;

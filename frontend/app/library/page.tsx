@@ -83,6 +83,18 @@ const NotionTabContent = dynamicImport(
   }
 );
 
+const GoogleDriveTabContent = dynamicImport(
+  () => import('@/components/google-drive/GoogleDriveTabContent'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-gray-600"></div>
+      </div>
+    ),
+  }
+);
+
 export const dynamic = 'force-dynamic';
 
 interface YouTubeVideo {
@@ -124,14 +136,15 @@ function LibraryPageContent() {
   const tabParam = searchParams?.get('tab');
 
   const [activeTab, setActiveTab] = useState<
-    'bookmarks' | 'notes' | 'images' | 'graph' | 'notion'
+    'bookmarks' | 'notes' | 'images' | 'graph' | 'notion' | 'google-drive'
   >(() => {
     // Initialize from URL parameter if present
     if (
       tabParam === 'images' ||
       tabParam === 'notes' ||
       tabParam === 'graph' ||
-      tabParam === 'notion'
+      tabParam === 'notion' ||
+      tabParam === 'google-drive'
     ) {
       return tabParam;
     }
@@ -145,7 +158,8 @@ function LibraryPageContent() {
       tabParam === 'notes' ||
       tabParam === 'bookmarks' ||
       tabParam === 'graph' ||
-      tabParam === 'notion'
+      tabParam === 'notion' ||
+      tabParam === 'google-drive'
     ) {
       setActiveTab(tabParam);
     }
@@ -1491,6 +1505,23 @@ function LibraryPageContent() {
                 {t('library.tabs.notion')}
               </button>
               <button
+                onClick={() => setActiveTab('google-drive')}
+                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
+                  activeTab === 'google-drive'
+                    ? 'border-blue-400 bg-blue-50 text-blue-700 shadow-sm'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700'
+                }`}
+              >
+                <svg
+                  className="h-4 w-4"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M12.01 1.485c-.267 0-.534.07-.772.208L3.675 6.72c-.48.28-.773.796-.773 1.353v8.854c0 .558.293 1.074.773 1.353l7.563 5.027c.238.139.505.208.772.208s.534-.07.772-.208l7.563-5.027c.48-.28.773-.796.773-1.353V8.073c0-.558-.293-1.074-.773-1.353L12.782 1.693c-.238-.139-.505-.208-.772-.208zm0 1.74L19 7.788 12.01 12.35 5.02 7.788l6.99-4.563zm-7.237 7.07l6.465 4.21v8.405l-6.465-4.297V10.295zm8.237 4.21l6.465-4.21v8.218l-6.465 4.297v-8.405z"/>
+                </svg>
+                Google Drive
+              </button>
+              <button
                 onClick={() => setActiveTab('graph')}
                 className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
                   activeTab === 'graph'
@@ -1896,6 +1927,9 @@ function LibraryPageContent() {
 
           {/* Notion Tab */}
           {activeTab === 'notion' && <NotionTabContent />}
+
+          {/* Google Drive Tab */}
+          {activeTab === 'google-drive' && <GoogleDriveTabContent />}
 
           {/* Knowledge Graph View */}
           {activeTab === 'graph' && (

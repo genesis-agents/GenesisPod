@@ -319,7 +319,7 @@ export default function ResourceHeader({
                   e.stopPropagation();
                   const aiResource =
                     convertToAIOfficeResource(selectedResource);
-                  aiOfficeStore.addResource(aiResource as any);
+                  aiOfficeStore.addResource(aiResource);
                 }}
                 disabled={aiOfficeStore.resources.some(
                   (r: any) => r._id === selectedResource.id

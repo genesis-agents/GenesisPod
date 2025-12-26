@@ -247,7 +247,7 @@ export default function RunConsolePage() {
 
   // 视角管理 - 使用 hook 自动保存到 localStorage
   const { perspective, setPerspective } = useSimulationPerspective({
-    runId: runId as string,
+    runId: runId,
     initialPerspective: urlRole === 'observer' ? 'GOD' : 'BLUE',
   });
 
