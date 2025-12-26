@@ -16,150 +16,637 @@ import { CollapsibleMessage } from '@/components/ui/CollapsibleMessage';
 import MermaidDiagram from '@/components/ui/MermaidDiagram';
 import { useThemeStore } from '@/stores/themeStore';
 
-// Inspirational quotes data
+// Inspirational quotes data with bilingual support
 interface Quote {
-  text: string;
-  author: string;
+  textZh: string;
+  textEn: string;
+  authorZh: string;
+  authorEn: string;
   source?: string;
+  bgImage: string; // Unsplash image keyword for background
 }
 
+// Curated background images by theme (Unsplash)
+const BG = {
+  // 山峰/攀登 - 挑战、目标、坚持
+  mountain:
+    'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80',
+  mountainSunrise:
+    'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&q=80',
+  mountainPeak:
+    'https://images.unsplash.com/photo-1486870591958-9b9d0d1dda99?w=800&q=80',
+  // 道路/旅程 - 人生道路、旅程、方向
+  road: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800&q=80',
+  path: 'https://images.unsplash.com/photo-1510797215324-95aa89f43c33?w=800&q=80',
+  journey:
+    'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&q=80',
+  // 海洋/水 - 宽广、深度、平静
+  ocean:
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&q=80',
+  wave: 'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=800&q=80',
+  calm: 'https://images.unsplash.com/photo-1475924156734-496f6cac6ec1?w=800&q=80',
+  // 日出/光明 - 希望、新开始、未来
+  sunrise:
+    'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800&q=80',
+  light:
+    'https://images.unsplash.com/photo-1504608524841-42fe6f032b4b?w=800&q=80',
+  dawn: 'https://images.unsplash.com/photo-1470252649378-9c29740c9fa8?w=800&q=80',
+  // 星空/宇宙 - 梦想、无限可能、想象
+  stars:
+    'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&q=80',
+  galaxy:
+    'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=800&q=80',
+  universe:
+    'https://images.unsplash.com/photo-1444703686981-a3abbc4d4fe3?w=800&q=80',
+  // 森林/自然 - 成长、生命、自然
+  forest:
+    'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&q=80',
+  tree: 'https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=800&q=80',
+  bamboo:
+    'https://images.unsplash.com/photo-1545468800-85cc9bc6ecf7?w=800&q=80',
+  // 天空/云 - 自由、广阔、超越
+  sky: 'https://images.unsplash.com/photo-1517483000871-1dbf64a6e1c6?w=800&q=80',
+  clouds:
+    'https://images.unsplash.com/photo-1534088568595-a066f410bcda?w=800&q=80',
+  eagle:
+    'https://images.unsplash.com/photo-1611689342806-0863700ce1e4?w=800&q=80',
+  // 书籍/智慧 - 学习、知识、智慧
+  books:
+    'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=800&q=80',
+  library:
+    'https://images.unsplash.com/photo-1521587760476-6c12a4b040da?w=800&q=80',
+  // 灯塔/指引 - 方向、引导、领导
+  lighthouse:
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&q=80',
+  compass:
+    'https://images.unsplash.com/photo-1490730141103-6cac27abb37f?w=800&q=80',
+  // 火/激情 - 热情、能量、动力
+  fire: 'https://images.unsplash.com/photo-1475070929565-c985b496cb9f?w=800&q=80',
+  spark:
+    'https://images.unsplash.com/photo-1492552181161-62217fc3076d?w=800&q=80',
+  // 城市/现代 - 创新、商业、成功
+  city: 'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=800&q=80',
+  skyline:
+    'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=800&q=80',
+  // 花/绽放 - 美、成长、绽放
+  flower:
+    'https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=800&q=80',
+  lotus:
+    'https://images.unsplash.com/photo-1474557157379-8aa74a6ef541?w=800&q=80',
+  // 桥/连接 - 沟通、合作、连接
+  bridge:
+    'https://images.unsplash.com/photo-1513415756790-2ac1db1297d0?w=800&q=80',
+  // 瀑布/力量 - 力量、势能、突破
+  waterfall:
+    'https://images.unsplash.com/photo-1494472155656-f34e81b17ddc?w=800&q=80',
+};
+
 const INSPIRATIONAL_QUOTES: Quote[] = [
+  // ===== 梦想与未来 (星空/日出) =====
   {
-    text: '未来属于那些相信自己梦想之美的人。',
-    author: '埃莉诺·罗斯福',
-    source: 'Eleanor Roosevelt',
+    textZh: '未来属于那些相信自己梦想之美的人。',
+    textEn:
+      'The future belongs to those who believe in the beauty of their dreams.',
+    authorZh: '埃莉诺·罗斯福',
+    authorEn: 'Eleanor Roosevelt',
+    bgImage: BG.sunrise,
   },
   {
-    text: '成功不是终点，失败也不是终结，重要的是继续前行的勇气。',
-    author: '温斯顿·丘吉尔',
-    source: 'Winston Churchill',
+    textZh: '去追逐你的梦想吧，即使它看起来遥不可及。',
+    textEn:
+      'Go confidently in the direction of your dreams. Live the life you have imagined.',
+    authorZh: '亨利·大卫·梭罗',
+    authorEn: 'Henry David Thoreau',
+    bgImage: BG.stars,
   },
   {
-    text: '千里之行，始于足下。',
-    author: '老子',
-    source: '《道德经》',
+    textZh: '梦想不会逃跑，逃跑的永远是自己。',
+    textEn: 'Dreams do not run away. It is always yourself that runs away.',
+    authorZh: '星野道夫',
+    authorEn: 'Michio Hoshino',
+    bgImage: BG.galaxy,
   },
   {
-    text: '学而不思则罔，思而不学则殆。',
-    author: '孔子',
-    source: '《论语》',
+    textZh: '最好的预测未来的方法就是创造未来。',
+    textEn: 'The best way to predict the future is to create it.',
+    authorZh: '彼得·德鲁克',
+    authorEn: 'Peter Drucker',
+    bgImage: BG.dawn,
   },
   {
-    text: '人生最大的荣耀不在于从不跌倒，而在于每次跌倒后都能爬起来。',
-    author: '纳尔逊·曼德拉',
-    source: 'Nelson Mandela',
+    textZh: '心之所向，素履以往。',
+    textEn: 'Where your heart leads, follow with simple steps.',
+    authorZh: '七堇年',
+    authorEn: 'Qi Jinnian',
+    bgImage: BG.universe,
+  },
+
+  // ===== 坚持与毅力 (山峰) =====
+  {
+    textZh: '成功不是终点，失败也不是终结，重要的是继续前行的勇气。',
+    textEn:
+      'Success is not final, failure is not fatal: it is the courage to continue that counts.',
+    authorZh: '温斯顿·丘吉尔',
+    authorEn: 'Winston Churchill',
+    bgImage: BG.mountain,
   },
   {
-    text: '创新区分领袖和追随者。',
-    author: '史蒂夫·乔布斯',
-    source: 'Steve Jobs',
+    textZh: '人生最大的荣耀不在于从不跌倒，而在于每次跌倒后都能爬起来。',
+    textEn:
+      'The greatest glory in living lies not in never falling, but in rising every time we fall.',
+    authorZh: '纳尔逊·曼德拉',
+    authorEn: 'Nelson Mandela',
+    bgImage: BG.mountainPeak,
   },
   {
-    text: '知之者不如好之者，好之者不如乐之者。',
-    author: '孔子',
-    source: '《论语》',
+    textZh: '天行健，君子以自强不息。',
+    textEn:
+      'As heaven maintains vigor through movements, a gentleman should constantly strive for self-improvement.',
+    authorZh: '《周易》',
+    authorEn: 'I Ching',
+    source: '乾卦',
+    bgImage: BG.mountainSunrise,
   },
   {
-    text: '生活中最重要的事情不是我们身处何处，而是我们朝着什么方向走。',
-    author: '奥利弗·温德尔·霍姆斯',
-    source: 'Oliver Wendell Holmes',
+    textZh: '宝剑锋从磨砺出，梅花香自苦寒来。',
+    textEn:
+      'The sharpness of a sword comes from grinding; the fragrance of plum blossoms comes from bitter cold.',
+    authorZh: '《警世贤文》',
+    authorEn: 'Chinese Proverb',
+    bgImage: BG.mountain,
   },
   {
-    text: '天行健，君子以自强不息。',
-    author: '《周易》',
-    source: '乾卦·象传',
+    textZh: '只有那些疯狂到以为自己能够改变世界的人，才能真正改变世界。',
+    textEn:
+      'The people who are crazy enough to think they can change the world are the ones who do.',
+    authorZh: '史蒂夫·乔布斯',
+    authorEn: 'Steve Jobs',
+    bgImage: BG.mountainPeak,
   },
   {
-    text: '机会总是留给有准备的人。',
-    author: '路易·巴斯德',
-    source: 'Louis Pasteur',
-  },
-  {
-    text: '不积跬步，无以至千里；不积小流，无以成江海。',
-    author: '荀子',
+    textZh: '锲而不舍，金石可镂。',
+    textEn: 'With perseverance, even metal and stone can be carved.',
+    authorZh: '荀子',
+    authorEn: 'Xunzi',
     source: '《劝学》',
+    bgImage: BG.mountainSunrise,
+  },
+
+  // ===== 旅程与道路 (道路/路径) =====
+  {
+    textZh: '千里之行，始于足下。',
+    textEn: 'A journey of a thousand miles begins with a single step.',
+    authorZh: '老子',
+    authorEn: 'Lao Tzu',
+    source: '《道德经》',
+    bgImage: BG.road,
   },
   {
-    text: '想象力比知识更重要。',
-    author: '阿尔伯特·爱因斯坦',
-    source: 'Albert Einstein',
+    textZh: '不积跬步，无以至千里；不积小流，无以成江海。',
+    textEn:
+      'Without accumulating small steps, one cannot travel a thousand miles; without gathering small streams, one cannot form rivers and seas.',
+    authorZh: '荀子',
+    authorEn: 'Xunzi',
+    source: '《劝学》',
+    bgImage: BG.path,
   },
   {
-    text: '路漫漫其修远兮，吾将上下而求索。',
-    author: '屈原',
+    textZh: '路漫漫其修远兮，吾将上下而求索。',
+    textEn: 'The road ahead is long and winding; I shall search high and low.',
+    authorZh: '屈原',
+    authorEn: 'Qu Yuan',
     source: '《离骚》',
+    bgImage: BG.journey,
   },
   {
-    text: '如果你想走得快，就一个人走；如果你想走得远，就一起走。',
-    author: '非洲谚语',
-    source: 'African Proverb',
+    textZh: '世上本没有路，走的人多了，也便成了路。',
+    textEn:
+      'There was no road in the world at first, but when many people walk on it, it becomes a road.',
+    authorZh: '鲁迅',
+    authorEn: 'Lu Xun',
+    bgImage: BG.road,
   },
   {
-    text: '博观而约取，厚积而薄发。',
-    author: '苏轼',
-    source: '《稼说送张琥》',
+    textZh: '人生就像骑自行车，要保持平衡就得不断前行。',
+    textEn:
+      'Life is like riding a bicycle. To keep your balance, you must keep moving.',
+    authorZh: '阿尔伯特·爱因斯坦',
+    authorEn: 'Albert Einstein',
+    bgImage: BG.path,
   },
   {
-    text: '最好的预测未来的方法就是创造未来。',
-    author: '彼得·德鲁克',
-    source: 'Peter Drucker',
+    textZh: '两条路在树林里分岔，我选择了人迹罕至的那条。',
+    textEn:
+      'Two roads diverged in a wood, and I took the one less traveled by.',
+    authorZh: '罗伯特·弗罗斯特',
+    authorEn: 'Robert Frost',
+    bgImage: BG.forest,
   },
+
+  // ===== 学习与智慧 (书籍/图书馆) =====
   {
-    text: '三人行，必有我师焉。',
-    author: '孔子',
+    textZh: '学而不思则罔，思而不学则殆。',
+    textEn:
+      'Learning without thinking leads to confusion; thinking without learning leads to danger.',
+    authorZh: '孔子',
+    authorEn: 'Confucius',
     source: '《论语》',
+    bgImage: BG.books,
   },
   {
-    text: '简单是终极的复杂。',
-    author: '列奥纳多·达·芬奇',
-    source: 'Leonardo da Vinci',
+    textZh: '知之者不如好之者，好之者不如乐之者。',
+    textEn:
+      'Those who know it are not as good as those who love it; those who love it are not as good as those who enjoy it.',
+    authorZh: '孔子',
+    authorEn: 'Confucius',
+    source: '《论语》',
+    bgImage: BG.library,
+  },
+  {
+    textZh: '博观而约取，厚积而薄发。',
+    textEn:
+      'Read extensively but absorb selectively; accumulate deeply but express sparingly.',
+    authorZh: '苏轼',
+    authorEn: 'Su Shi',
+    bgImage: BG.books,
+  },
+  {
+    textZh: '吾生也有涯，而知也无涯。',
+    textEn: 'Life is finite, but knowledge is infinite.',
+    authorZh: '庄子',
+    authorEn: 'Zhuangzi',
+    bgImage: BG.library,
+  },
+  {
+    textZh: '读万卷书，行万里路。',
+    textEn: 'Read ten thousand books, travel ten thousand miles.',
+    authorZh: '董其昌',
+    authorEn: 'Dong Qichang',
+    bgImage: BG.books,
+  },
+  {
+    textZh: '三人行，必有我师焉。',
+    textEn:
+      'When three people walk together, one of them must be able to teach me.',
+    authorZh: '孔子',
+    authorEn: 'Confucius',
+    source: '《论语》',
+    bgImage: BG.library,
+  },
+
+  // ===== 创新与想象 (天空/宇宙) =====
+  {
+    textZh: '想象力比知识更重要。',
+    textEn: 'Imagination is more important than knowledge.',
+    authorZh: '阿尔伯特·爱因斯坦',
+    authorEn: 'Albert Einstein',
+    bgImage: BG.universe,
+  },
+  {
+    textZh: '创新区分领袖和追随者。',
+    textEn: 'Innovation distinguishes between a leader and a follower.',
+    authorZh: '史蒂夫·乔布斯',
+    authorEn: 'Steve Jobs',
+    bgImage: BG.sky,
+  },
+  {
+    textZh: '简单是终极的复杂。',
+    textEn: 'Simplicity is the ultimate sophistication.',
+    authorZh: '列奥纳多·达·芬奇',
+    authorEn: 'Leonardo da Vinci',
+    bgImage: BG.clouds,
+  },
+  {
+    textZh: '逻辑会把你从A带到B，想象力能带你去任何地方。',
+    textEn:
+      'Logic will get you from A to B. Imagination will take you everywhere.',
+    authorZh: '阿尔伯特·爱因斯坦',
+    authorEn: 'Albert Einstein',
+    bgImage: BG.galaxy,
+  },
+  {
+    textZh: '要想飞得更高，就要忘记地平线。',
+    textEn: 'To fly higher, forget the horizon.',
+    authorZh: '沃尔特·迪士尼',
+    authorEn: 'Walt Disney',
+    bgImage: BG.eagle,
+  },
+
+  // ===== 行动与实践 (瀑布/火) =====
+  {
+    textZh: '机会总是留给有准备的人。',
+    textEn: 'Fortune favors the prepared mind.',
+    authorZh: '路易·巴斯德',
+    authorEn: 'Louis Pasteur',
+    bgImage: BG.spark,
+  },
+  {
+    textZh: '知行合一。',
+    textEn: 'Unity of knowledge and action.',
+    authorZh: '王阳明',
+    authorEn: 'Wang Yangming',
+    bgImage: BG.fire,
+  },
+  {
+    textZh: '纸上得来终觉浅，绝知此事要躬行。',
+    textEn:
+      'What you learn from paper is shallow; true understanding comes from practice.',
+    authorZh: '陆游',
+    authorEn: 'Lu You',
+    bgImage: BG.waterfall,
+  },
+  {
+    textZh: '种一棵树最好的时间是十年前，其次是现在。',
+    textEn:
+      'The best time to plant a tree was 20 years ago. The second best time is now.',
+    authorZh: '中国谚语',
+    authorEn: 'Chinese Proverb',
+    bgImage: BG.tree,
+  },
+  {
+    textZh: '与其临渊羡鱼，不如退而结网。',
+    textEn:
+      'Rather than standing by the water longing for fish, go home and weave a net.',
+    authorZh: '《汉书》',
+    authorEn: 'Book of Han',
+    bgImage: BG.ocean,
+  },
+
+  // ===== 合作与团队 (桥/连接) =====
+  {
+    textZh: '如果你想走得快，就一个人走；如果你想走得远，就一起走。',
+    textEn:
+      'If you want to go fast, go alone. If you want to go far, go together.',
+    authorZh: '非洲谚语',
+    authorEn: 'African Proverb',
+    bgImage: BG.bridge,
+  },
+  {
+    textZh: '独行快，众行远。',
+    textEn: 'Walk alone to go fast, walk together to go far.',
+    authorZh: '中国谚语',
+    authorEn: 'Chinese Proverb',
+    bgImage: BG.journey,
+  },
+  {
+    textZh: '众人拾柴火焰高。',
+    textEn: 'When everyone gathers firewood, the flame rises high.',
+    authorZh: '中国谚语',
+    authorEn: 'Chinese Proverb',
+    bgImage: BG.fire,
+  },
+  {
+    textZh: '一个人可以走得很快，一群人可以走得很远。',
+    textEn: 'One person can walk fast, but a group can walk far.',
+    authorZh: '非洲谚语',
+    authorEn: 'African Proverb',
+    bgImage: BG.bridge,
+  },
+
+  // ===== 自然与生命 (森林/花) =====
+  {
+    textZh: '岁寒，然后知松柏之后凋也。',
+    textEn:
+      'Only when winter comes do we know that the pine and cypress are the last to fade.',
+    authorZh: '孔子',
+    authorEn: 'Confucius',
+    source: '《论语》',
+    bgImage: BG.forest,
+  },
+  {
+    textZh: '出淤泥而不染，濯清涟而不妖。',
+    textEn:
+      'Growing from mud but not stained, washed by clear water yet not seductive.',
+    authorZh: '周敦颐',
+    authorEn: 'Zhou Dunyi',
+    source: '《爱莲说》',
+    bgImage: BG.lotus,
+  },
+  {
+    textZh: '问渠那得清如许？为有源头活水来。',
+    textEn:
+      'How can the water be so clear? Because fresh water flows from the source.',
+    authorZh: '朱熹',
+    authorEn: 'Zhu Xi',
+    bgImage: BG.calm,
+  },
+  {
+    textZh: '宁静致远，淡泊明志。',
+    textEn:
+      'Tranquility leads to far-reaching goals; simplicity reveals true aspirations.',
+    authorZh: '诸葛亮',
+    authorEn: 'Zhuge Liang',
+    bgImage: BG.bamboo,
+  },
+  {
+    textZh: '野火烧不尽，春风吹又生。',
+    textEn:
+      'Wildfire cannot burn them out; spring breeze will bring them back.',
+    authorZh: '白居易',
+    authorEn: 'Bai Juyi',
+    bgImage: BG.flower,
+  },
+
+  // ===== 方向与选择 (灯塔/指南针) =====
+  {
+    textZh: '生活中最重要的事情不是我们身处何处，而是我们朝着什么方向走。',
+    textEn:
+      'The most important thing in life is not where we stand but in what direction we are moving.',
+    authorZh: '奥利弗·温德尔·霍姆斯',
+    authorEn: 'Oliver Wendell Holmes',
+    bgImage: BG.compass,
+  },
+  {
+    textZh: '选择比努力更重要。',
+    textEn: 'Choice is more important than effort.',
+    authorZh: '比尔·盖茨',
+    authorEn: 'Bill Gates',
+    bgImage: BG.lighthouse,
+  },
+  {
+    textZh: '你无法在回顾时串连人生，只能在展望时连点成线。',
+    textEn:
+      'You cannot connect the dots looking forward; you can only connect them looking backwards.',
+    authorZh: '史蒂夫·乔布斯',
+    authorEn: 'Steve Jobs',
+    bgImage: BG.road,
+  },
+
+  // ===== 时间与当下 (日出/光) =====
+  {
+    textZh: '昨日种种，皆成今我；今日种种，皆成新我。',
+    textEn:
+      'All of yesterday has made me who I am today; all of today will make me who I become.',
+    authorZh: '曾国藩',
+    authorEn: 'Zeng Guofan',
+    bgImage: BG.sunrise,
+  },
+  {
+    textZh: '逝者如斯夫，不舍昼夜。',
+    textEn: 'Time flows on like this, never ceasing day or night.',
+    authorZh: '孔子',
+    authorEn: 'Confucius',
+    source: '《论语》',
+    bgImage: BG.wave,
+  },
+  {
+    textZh: '莫等闲，白了少年头，空悲切。',
+    textEn:
+      'Do not idle away your time; when your hair turns gray, you will only feel empty regret.',
+    authorZh: '岳飞',
+    authorEn: 'Yue Fei',
+    source: '《满江红》',
+    bgImage: BG.light,
+  },
+  {
+    textZh: '及时当勉励，岁月不待人。',
+    textEn: 'Strive while you can; time waits for no one.',
+    authorZh: '陶渊明',
+    authorEn: 'Tao Yuanming',
+    bgImage: BG.dawn,
+  },
+
+  // ===== 心态与境界 (平静水面/天空) =====
+  {
+    textZh: '海纳百川，有容乃大；壁立千仞，无欲则刚。',
+    textEn:
+      'The sea embraces all rivers and is vast; the cliff stands firm because it seeks nothing.',
+    authorZh: '林则徐',
+    authorEn: 'Lin Zexu',
+    bgImage: BG.ocean,
+  },
+  {
+    textZh: '不以物喜，不以己悲。',
+    textEn: 'Do not rejoice over possessions, nor grieve over personal losses.',
+    authorZh: '范仲淹',
+    authorEn: 'Fan Zhongyan',
+    source: '《岳阳楼记》',
+    bgImage: BG.calm,
+  },
+  {
+    textZh: '静水流深。',
+    textEn: 'Still waters run deep.',
+    authorZh: '英国谚语',
+    authorEn: 'English Proverb',
+    bgImage: BG.calm,
+  },
+  {
+    textZh: '心若冰清，天塌不惊。',
+    textEn:
+      'With a clear mind like ice, even if the sky falls, one remains calm.',
+    authorZh: '中国古语',
+    authorEn: 'Chinese Saying',
+    bgImage: BG.sky,
+  },
+
+  // ===== 成功与商业 (城市) =====
+  {
+    textZh: '成功的秘诀在于坚持自己的目标和信念。',
+    textEn: 'The secret of success is constancy to purpose.',
+    authorZh: '本杰明·迪斯雷利',
+    authorEn: 'Benjamin Disraeli',
+    bgImage: BG.city,
+  },
+  {
+    textZh: '你的时间有限，不要浪费在过别人的生活上。',
+    textEn:
+      "Your time is limited, so do not waste it living someone else's life.",
+    authorZh: '史蒂夫·乔布斯',
+    authorEn: 'Steve Jobs',
+    bgImage: BG.skyline,
+  },
+  {
+    textZh: '在正确的时间做正确的事。',
+    textEn: 'Do the right thing at the right time.',
+    authorZh: '彼得·德鲁克',
+    authorEn: 'Peter Drucker',
+    bgImage: BG.city,
+  },
+  {
+    textZh: '如果你不能简单地解释它，你就没有真正理解它。',
+    textEn:
+      'If you cannot explain it simply, you do not understand it well enough.',
+    authorZh: '阿尔伯特·爱因斯坦',
+    authorEn: 'Albert Einstein',
+    bgImage: BG.light,
+  },
+
+  // ===== 勇气与突破 (瀑布/浪) =====
+  {
+    textZh: '长风破浪会有时，直挂云帆济沧海。',
+    textEn:
+      'There will come a time when the wind breaks the waves; then I shall set my cloud-like sails to cross the boundless sea.',
+    authorZh: '李白',
+    authorEn: 'Li Bai',
+    bgImage: BG.wave,
+  },
+  {
+    textZh: '勇气不是没有恐惧，而是战胜恐惧。',
+    textEn: 'Courage is not the absence of fear, but the triumph over it.',
+    authorZh: '纳尔逊·曼德拉',
+    authorEn: 'Nelson Mandela',
+    bgImage: BG.waterfall,
+  },
+  {
+    textZh: '大鹏一日同风起，扶摇直上九万里。',
+    textEn:
+      'One day, the great roc rises with the wind, soaring ninety thousand miles into the sky.',
+    authorZh: '李白',
+    authorEn: 'Li Bai',
+    bgImage: BG.eagle,
+  },
+  {
+    textZh: '破釜沉舟，百二秦关终属楚。',
+    textEn:
+      'Break the cauldrons and sink the boats; all the Qin passes will belong to Chu.',
+    authorZh: '项羽',
+    authorEn: 'Xiang Yu',
+    bgImage: BG.fire,
   },
 ];
 
-// Quote Card Component
+// Quote Card Component - Redesigned with background image and bilingual support
 function QuoteCard({ quote }: { quote: Quote }) {
   return (
-    <div className="group relative mx-auto mb-8 w-full max-w-xl">
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 p-6 shadow-sm ring-1 ring-purple-100/50 transition-all duration-300 hover:shadow-md hover:ring-purple-200/50">
-        {/* Decorative quote mark */}
-        <div className="font-serif absolute -left-2 -top-2 select-none text-7xl text-purple-200/60">
-          "
-        </div>
-        <div className="font-serif absolute -bottom-4 -right-2 rotate-180 select-none text-7xl text-purple-200/60">
-          "
-        </div>
-
-        {/* Decorative gradient blob */}
-        <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-gradient-to-br from-violet-200/30 to-fuchsia-200/30 blur-2xl" />
-        <div className="absolute -bottom-8 -left-8 h-24 w-24 rounded-full bg-gradient-to-br from-purple-200/30 to-pink-200/30 blur-2xl" />
+    <div className="mx-auto mb-6 w-full max-w-2xl">
+      <div
+        className="relative overflow-hidden rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl"
+        style={{ minHeight: '160px' }}
+      >
+        {/* Background image with overlay */}
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${quote.bgImage})` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/40" />
 
         {/* Content */}
-        <div className="relative z-10">
-          {/* Quote text */}
-          <p className="mb-4 text-center text-lg font-medium leading-relaxed text-gray-700 md:text-xl">
-            {quote.text}
-          </p>
-
-          {/* Author info */}
-          <div className="flex items-center justify-center gap-2">
-            <div className="h-px max-w-[60px] flex-1 bg-gradient-to-r from-transparent via-purple-300 to-transparent" />
-            <div className="text-center">
-              <p className="text-sm font-semibold text-purple-700">
-                {quote.author}
-              </p>
-              {quote.source && (
-                <p className="text-xs text-purple-500/80">{quote.source}</p>
-              )}
-            </div>
-            <div className="h-px max-w-[60px] flex-1 bg-gradient-to-r from-transparent via-purple-300 to-transparent" />
+        <div className="relative z-10 flex h-full flex-col justify-between p-6">
+          {/* Quote mark */}
+          <div className="font-serif absolute left-4 top-3 select-none text-4xl text-white/20">
+            "
           </div>
-        </div>
 
-        {/* Subtle sparkle icon */}
-        <div className="absolute right-4 top-4 text-purple-300/60">
-          <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 2L13.09 8.26L19 7L14.14 11.14L18 17L12 14.82L6 17L9.86 11.14L5 7L10.91 8.26L12 2Z" />
-          </svg>
+          {/* Quote text - bilingual */}
+          <div className="space-y-2 pl-6 pr-4">
+            <p className="text-lg font-medium leading-relaxed text-white md:text-xl">
+              {quote.textZh}
+            </p>
+            <p className="text-sm italic leading-relaxed text-white/70">
+              {quote.textEn}
+            </p>
+          </div>
+
+          {/* Author info - right aligned */}
+          <div className="mt-4 text-right">
+            <p className="text-sm font-medium text-white/90">
+              —— {quote.authorZh}
+              <span className="ml-2 text-white/60">{quote.authorEn}</span>
+            </p>
+            {quote.source && (
+              <p className="mt-0.5 text-xs text-white/50">{quote.source}</p>
+            )}
+          </div>
         </div>
       </div>
     </div>
