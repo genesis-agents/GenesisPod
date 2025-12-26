@@ -1372,6 +1372,48 @@ async function deploy() {
     console.error(`   ❌ Emergency fix failed: ${error.message}`);
   }
 
+  // Step 11: 紧急修复 - 确保 knowledge_bases.source_types 列存在
+  console.log(
+    "🔧 Step 11: Emergency fix for knowledge_bases.source_types column...",
+  );
+  try {
+    // 添加 knowledge_bases.source_types 列（如果不存在）
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'knowledge_bases' AND column_name = 'source_types'
+        ) THEN
+          ALTER TABLE "knowledge_bases" ADD COLUMN "source_types" JSONB NOT NULL DEFAULT '["MANUAL"]';
+          RAISE NOTICE 'Added source_types column to knowledge_bases';
+        END IF;
+      END $$;
+    `);
+    console.log("   ✅ knowledge_bases.source_types column ensured");
+
+    // 迁移已有数据：将 source_type 值复制到 source_types 数组
+    await prisma.$executeRawUnsafe(`
+      UPDATE "knowledge_bases"
+      SET "source_types" = jsonb_build_array("source_type"::text)
+      WHERE "source_types" = '["MANUAL"]'
+        AND "source_type" IS NOT NULL
+        AND "source_type"::text != 'MANUAL';
+    `);
+    console.log("   ✅ Existing data migrated to source_types");
+
+    // 创建 GIN 索引（如果不存在）
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'knowledge_bases_source_types_idx') THEN
+          CREATE INDEX "knowledge_bases_source_types_idx" ON "knowledge_bases" USING GIN ("source_types");
+        END IF;
+      END $$;
+    `);
+    console.log("   ✅ knowledge_bases_source_types_idx index ensured");
+  } catch (error: any) {
+    console.error(`   ❌ source_types fix failed: ${error.message}`);
+  }
+
   // 完成
   console.log("================================================");
   console.log("🎉 Migration deployment completed!");
