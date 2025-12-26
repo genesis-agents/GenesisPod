@@ -1209,6 +1209,97 @@ async function deploy() {
     console.log(`   ⚠️ FK creation skipped: ${error.message}`);
   }
 
+  // Step 10: 紧急修复 - 确保 knowledge_bases.type 和 ai_models 必要列存在
+  console.log(
+    "🔧 Step 10: Emergency fix for knowledge_bases.type and ai_models columns...",
+  );
+  try {
+    // 创建 KnowledgeBaseType 枚举（如果不存在）
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        CREATE TYPE "KnowledgeBaseType" AS ENUM ('PERSONAL', 'TEAM');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `);
+    console.log("   ✅ KnowledgeBaseType enum ensured");
+
+    // 添加 knowledge_bases.type 列（如果不存在）
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'knowledge_bases' AND column_name = 'type'
+        ) THEN
+          ALTER TABLE "knowledge_bases" ADD COLUMN "type" "KnowledgeBaseType" NOT NULL DEFAULT 'PERSONAL';
+          RAISE NOTICE 'Added type column to knowledge_bases';
+        END IF;
+      END $$;
+    `);
+    console.log("   ✅ knowledge_bases.type column ensured");
+
+    // 添加 knowledge_bases.team_id 列（如果不存在）
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'knowledge_bases' AND column_name = 'team_id'
+        ) THEN
+          ALTER TABLE "knowledge_bases" ADD COLUMN "team_id" TEXT;
+          RAISE NOTICE 'Added team_id column to knowledge_bases';
+        END IF;
+      END $$;
+    `);
+    console.log("   ✅ knowledge_bases.team_id column ensured");
+
+    // 添加 ai_models.embedding_dimensions 列（如果不存在）
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'ai_models' AND column_name = 'embedding_dimensions'
+        ) THEN
+          ALTER TABLE "ai_models" ADD COLUMN "embedding_dimensions" INTEGER;
+          RAISE NOTICE 'Added embedding_dimensions column to ai_models';
+        END IF;
+      END $$;
+    `);
+    console.log("   ✅ ai_models.embedding_dimensions column ensured");
+
+    // 添加 ai_models.max_input_tokens 列（如果不存在）
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'ai_models' AND column_name = 'max_input_tokens'
+        ) THEN
+          ALTER TABLE "ai_models" ADD COLUMN "max_input_tokens" INTEGER;
+          RAISE NOTICE 'Added max_input_tokens column to ai_models';
+        END IF;
+      END $$;
+    `);
+    console.log("   ✅ ai_models.max_input_tokens column ensured");
+
+    // 创建索引（如果不存在）
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'knowledge_bases_type_idx') THEN
+          CREATE INDEX "knowledge_bases_type_idx" ON "knowledge_bases"("type");
+        END IF;
+      END $$;
+    `);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'knowledge_bases_team_id_idx') THEN
+          CREATE INDEX "knowledge_bases_team_id_idx" ON "knowledge_bases"("team_id");
+        END IF;
+      END $$;
+    `);
+    console.log("   ✅ Indexes ensured");
+  } catch (error: any) {
+    console.error(`   ❌ Emergency fix failed: ${error.message}`);
+  }
+
   // 完成
   console.log("================================================");
   console.log("🎉 Migration deployment completed!");
