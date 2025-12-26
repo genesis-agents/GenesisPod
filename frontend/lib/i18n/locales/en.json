@@ -95,7 +95,8 @@
       "notes": "Notes",
       "images": "Images",
       "graph": "Graph",
-      "notion": "Notion"
+      "notion": "Notion",
+      "knowledgeBase": "Knowledge Base"
     },
     "search": {
       "resources": "Search all resources...",

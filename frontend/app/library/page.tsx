@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import dynamicImport from 'next/dynamic';
 import { config } from '@/lib/utils/config';
-import { Bookmark, FileText, Image, Share2 } from 'lucide-react';
+import { Bookmark, FileText, Image, Share2, Database } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import AppShell from '@/components/layout/AppShell';
 import { Tag, UserStats } from '@/components/library/CollectionNav';
@@ -95,6 +95,18 @@ const GoogleDriveTabContent = dynamicImport(
   }
 );
 
+const KnowledgeBaseTabContent = dynamicImport(
+  () => import('@/components/library/KnowledgeBaseTabContent'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-gray-600"></div>
+      </div>
+    ),
+  }
+);
+
 export const dynamic = 'force-dynamic';
 
 interface YouTubeVideo {
@@ -136,7 +148,13 @@ function LibraryPageContent() {
   const tabParam = searchParams?.get('tab');
 
   const [activeTab, setActiveTab] = useState<
-    'bookmarks' | 'notes' | 'images' | 'graph' | 'notion' | 'google-drive'
+    | 'bookmarks'
+    | 'notes'
+    | 'images'
+    | 'graph'
+    | 'notion'
+    | 'google-drive'
+    | 'knowledge-base'
   >(() => {
     // Initialize from URL parameter if present
     if (
@@ -144,7 +162,8 @@ function LibraryPageContent() {
       tabParam === 'notes' ||
       tabParam === 'graph' ||
       tabParam === 'notion' ||
-      tabParam === 'google-drive'
+      tabParam === 'google-drive' ||
+      tabParam === 'knowledge-base'
     ) {
       return tabParam;
     }
@@ -159,7 +178,8 @@ function LibraryPageContent() {
       tabParam === 'bookmarks' ||
       tabParam === 'graph' ||
       tabParam === 'notion' ||
-      tabParam === 'google-drive'
+      tabParam === 'google-drive' ||
+      tabParam === 'knowledge-base'
     ) {
       setActiveTab(tabParam);
     }
@@ -1522,6 +1542,17 @@ function LibraryPageContent() {
                 Google Drive
               </button>
               <button
+                onClick={() => setActiveTab('knowledge-base')}
+                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
+                  activeTab === 'knowledge-base'
+                    ? 'border-indigo-400 bg-indigo-50 text-indigo-700 shadow-sm'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700'
+                }`}
+              >
+                <Database className="h-4 w-4" />
+                {t('library.tabs.knowledgeBase')}
+              </button>
+              <button
                 onClick={() => setActiveTab('graph')}
                 className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
                   activeTab === 'graph'
@@ -1930,6 +1961,9 @@ function LibraryPageContent() {
 
           {/* Google Drive Tab */}
           {activeTab === 'google-drive' && <GoogleDriveTabContent />}
+
+          {/* Knowledge Base Tab */}
+          {activeTab === 'knowledge-base' && <KnowledgeBaseTabContent />}
 
           {/* Knowledge Graph View */}
           {activeTab === 'graph' && (
