@@ -817,16 +817,16 @@ async function deploy() {
       `);
       console.log("   ✅ KnowledgeBaseSourceType enum created");
 
-      // 创建 knowledge_bases 表
+      // 创建 knowledge_bases 表 (使用 TEXT 类型匹配 Prisma schema)
       await prisma.$executeRawUnsafe(`
         CREATE TABLE IF NOT EXISTS "knowledge_bases" (
-          "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+          "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
           "name" VARCHAR(255) NOT NULL,
           "description" TEXT,
           "source_type" "KnowledgeBaseSourceType" NOT NULL DEFAULT 'MANUAL',
           "status" "KnowledgeBaseStatus" NOT NULL DEFAULT 'PENDING',
-          "user_id" UUID NOT NULL,
-          "google_drive_connection_id" UUID,
+          "user_id" TEXT NOT NULL,
+          "google_drive_connection_id" TEXT,
           "google_drive_folder_ids" JSONB NOT NULL DEFAULT '[]',
           "last_synced_at" TIMESTAMP(3),
           "last_error" TEXT,
@@ -840,8 +840,8 @@ async function deploy() {
       // 创建 knowledge_base_documents 表
       await prisma.$executeRawUnsafe(`
         CREATE TABLE IF NOT EXISTS "knowledge_base_documents" (
-          "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-          "knowledge_base_id" UUID NOT NULL,
+          "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+          "knowledge_base_id" TEXT NOT NULL,
           "title" VARCHAR(500) NOT NULL,
           "source_type" VARCHAR(100) NOT NULL,
           "source_id" VARCHAR(255),
@@ -863,8 +863,8 @@ async function deploy() {
       // 创建 parent_chunks 表
       await prisma.$executeRawUnsafe(`
         CREATE TABLE IF NOT EXISTS "parent_chunks" (
-          "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-          "document_id" UUID NOT NULL,
+          "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+          "document_id" TEXT NOT NULL,
           "content" TEXT NOT NULL,
           "token_count" INTEGER NOT NULL,
           "position" INTEGER NOT NULL,
@@ -882,9 +882,9 @@ async function deploy() {
       // 创建 child_chunks 表
       await prisma.$executeRawUnsafe(`
         CREATE TABLE IF NOT EXISTS "child_chunks" (
-          "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-          "parent_chunk_id" UUID NOT NULL,
-          "document_id" UUID,
+          "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+          "parent_chunk_id" TEXT NOT NULL,
+          "document_id" TEXT,
           "content" TEXT NOT NULL,
           "token_count" INTEGER NOT NULL,
           "position" INTEGER NOT NULL,
@@ -905,8 +905,8 @@ async function deploy() {
       // 创建 child_embeddings 表 (pgvector)
       await prisma.$executeRawUnsafe(`
         CREATE TABLE IF NOT EXISTS "child_embeddings" (
-          "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-          "child_chunk_id" UUID NOT NULL,
+          "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+          "child_chunk_id" TEXT NOT NULL,
           "embedding" vector(1536) NOT NULL,
           "model" VARCHAR(100) NOT NULL DEFAULT 'text-embedding-3-small',
           "dimensions" INTEGER NOT NULL DEFAULT 1536,
@@ -996,6 +996,41 @@ async function deploy() {
     }
   } catch (error: any) {
     console.error(`   ❌ RAG tables fallback failed: ${error.message}`);
+  }
+
+  // Step 9.5: 链接 knowledge_bases 到 google_drive_connections
+  console.log(
+    "🔧 Step 9.5: Linking RAG to Google Drive (add FK if both tables exist)...",
+  );
+  try {
+    // 检查两个表是否都存在
+    const bothTablesExist = await prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*) as count FROM pg_tables
+      WHERE schemaname = 'public'
+      AND tablename IN ('knowledge_bases', 'google_drive_connections')
+    `;
+
+    if (Number(bothTablesExist[0]?.count) === 2) {
+      // 添加 FK 约束 (如果不存在)
+      await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+          ALTER TABLE "knowledge_bases" ADD CONSTRAINT "knowledge_bases_google_drive_connection_id_fkey"
+            FOREIGN KEY ("google_drive_connection_id") REFERENCES "google_drive_connections"("id")
+            ON DELETE SET NULL ON UPDATE CASCADE;
+        EXCEPTION
+          WHEN duplicate_object THEN null;
+        END $$;
+      `);
+      console.log(
+        "   ✅ knowledge_bases -> google_drive_connections FK created",
+      );
+    } else {
+      console.log(
+        "   ⚠️ Skipping FK: not all required tables exist yet (knowledge_bases or google_drive_connections missing)",
+      );
+    }
+  } catch (error: any) {
+    console.log(`   ⚠️ FK creation skipped: ${error.message}`);
   }
 
   // 完成

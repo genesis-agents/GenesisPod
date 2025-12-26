@@ -1,5 +1,6 @@
 -- RAG Knowledge Base Migration
 -- Enables pgvector for vector similarity search and creates RAG tables
+-- Uses TEXT for IDs to match Prisma schema (String type)
 
 -- Enable pgvector extension (required for vector embeddings)
 CREATE EXTENSION IF NOT EXISTS vector;
@@ -21,13 +22,13 @@ END $$;
 
 -- Create knowledge_bases table
 CREATE TABLE IF NOT EXISTS "knowledge_bases" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
     "name" VARCHAR(255) NOT NULL,
     "description" TEXT,
     "source_type" "KnowledgeBaseSourceType" NOT NULL DEFAULT 'MANUAL',
     "status" "KnowledgeBaseStatus" NOT NULL DEFAULT 'PENDING',
-    "user_id" UUID NOT NULL,
-    "google_drive_connection_id" UUID,
+    "user_id" TEXT NOT NULL,
+    "google_drive_connection_id" TEXT,
     "google_drive_folder_ids" JSONB NOT NULL DEFAULT '[]',
     "last_synced_at" TIMESTAMP(3),
     "last_error" TEXT,
@@ -39,8 +40,8 @@ CREATE TABLE IF NOT EXISTS "knowledge_bases" (
 
 -- Create knowledge_base_documents table
 CREATE TABLE IF NOT EXISTS "knowledge_base_documents" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "knowledge_base_id" UUID NOT NULL,
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "knowledge_base_id" TEXT NOT NULL,
     "title" VARCHAR(500) NOT NULL,
     "source_type" VARCHAR(100) NOT NULL,
     "source_id" VARCHAR(255),
@@ -60,8 +61,8 @@ CREATE TABLE IF NOT EXISTS "knowledge_base_documents" (
 
 -- Create parent_chunks table
 CREATE TABLE IF NOT EXISTS "parent_chunks" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "document_id" UUID NOT NULL,
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "document_id" TEXT NOT NULL,
     "content" TEXT NOT NULL,
     "token_count" INTEGER NOT NULL,
     "position" INTEGER NOT NULL,
@@ -77,9 +78,9 @@ CREATE TABLE IF NOT EXISTS "parent_chunks" (
 
 -- Create child_chunks table
 CREATE TABLE IF NOT EXISTS "child_chunks" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "parent_chunk_id" UUID NOT NULL,
-    "document_id" UUID,
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "parent_chunk_id" TEXT NOT NULL,
+    "document_id" TEXT,
     "content" TEXT NOT NULL,
     "token_count" INTEGER NOT NULL,
     "position" INTEGER NOT NULL,
@@ -91,8 +92,8 @@ CREATE TABLE IF NOT EXISTS "child_chunks" (
 
 -- Create child_embeddings table with pgvector column
 CREATE TABLE IF NOT EXISTS "child_embeddings" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "child_chunk_id" UUID NOT NULL,
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "child_chunk_id" TEXT NOT NULL,
     "embedding" vector(1536) NOT NULL,
     "model" VARCHAR(100) NOT NULL DEFAULT 'text-embedding-3-small',
     "dimensions" INTEGER NOT NULL DEFAULT 1536,
@@ -102,24 +103,34 @@ CREATE TABLE IF NOT EXISTS "child_embeddings" (
     CONSTRAINT "child_embeddings_pkey" PRIMARY KEY ("id")
 );
 
--- Add foreign key constraints
-ALTER TABLE "knowledge_bases" ADD CONSTRAINT "knowledge_bases_user_id_fkey"
-    FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- Add foreign key constraints (except google_drive which may not exist yet)
+DO $$ BEGIN
+    ALTER TABLE "knowledge_bases" ADD CONSTRAINT "knowledge_bases_user_id_fkey"
+        FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
-ALTER TABLE "knowledge_bases" ADD CONSTRAINT "knowledge_bases_google_drive_connection_id_fkey"
-    FOREIGN KEY ("google_drive_connection_id") REFERENCES "google_drive_connections"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+-- Note: google_drive_connection_id_fkey will be added in deploy-migrations.ts Step 9.5
+-- after google_drive_connections table is confirmed to exist
 
-ALTER TABLE "knowledge_base_documents" ADD CONSTRAINT "knowledge_base_documents_knowledge_base_id_fkey"
-    FOREIGN KEY ("knowledge_base_id") REFERENCES "knowledge_bases"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "knowledge_base_documents" ADD CONSTRAINT "knowledge_base_documents_knowledge_base_id_fkey"
+        FOREIGN KEY ("knowledge_base_id") REFERENCES "knowledge_bases"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
-ALTER TABLE "parent_chunks" ADD CONSTRAINT "parent_chunks_document_id_fkey"
-    FOREIGN KEY ("document_id") REFERENCES "knowledge_base_documents"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "parent_chunks" ADD CONSTRAINT "parent_chunks_document_id_fkey"
+        FOREIGN KEY ("document_id") REFERENCES "knowledge_base_documents"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
-ALTER TABLE "child_chunks" ADD CONSTRAINT "child_chunks_parent_chunk_id_fkey"
-    FOREIGN KEY ("parent_chunk_id") REFERENCES "parent_chunks"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "child_chunks" ADD CONSTRAINT "child_chunks_parent_chunk_id_fkey"
+        FOREIGN KEY ("parent_chunk_id") REFERENCES "parent_chunks"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
-ALTER TABLE "child_embeddings" ADD CONSTRAINT "child_embeddings_child_chunk_id_fkey"
-    FOREIGN KEY ("child_chunk_id") REFERENCES "child_chunks"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "child_embeddings" ADD CONSTRAINT "child_embeddings_child_chunk_id_fkey"
+        FOREIGN KEY ("child_chunk_id") REFERENCES "child_chunks"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- Create indexes for knowledge_bases
 CREATE INDEX IF NOT EXISTS "knowledge_bases_user_id_idx" ON "knowledge_bases"("user_id");
@@ -143,8 +154,10 @@ CREATE INDEX IF NOT EXISTS "child_embeddings_child_chunk_id_idx" ON "child_embed
 
 -- Create vector similarity index using IVFFlat for approximate nearest neighbor search
 -- Note: This index works best after data is loaded. For empty table, use HNSW instead.
-CREATE INDEX IF NOT EXISTS "child_embeddings_embedding_idx" ON "child_embeddings"
-    USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+DO $$ BEGIN
+    CREATE INDEX "child_embeddings_embedding_idx" ON "child_embeddings"
+        USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+EXCEPTION WHEN duplicate_table THEN null; END $$;
 
 -- Add tsvector column for full-text search on child_chunks
 ALTER TABLE "child_chunks" ADD COLUMN IF NOT EXISTS "content_tsv" tsvector
@@ -157,14 +170,14 @@ CREATE INDEX IF NOT EXISTS "child_chunks_content_tsv_idx" ON "child_chunks" USIN
 CREATE OR REPLACE FUNCTION hybrid_search(
     query_embedding vector(1536),
     query_text text,
-    kb_ids uuid[],
+    kb_ids text[],
     match_count int DEFAULT 10,
     alpha float DEFAULT 0.5  -- 0 = keyword only, 1 = vector only
 )
 RETURNS TABLE (
-    child_chunk_id uuid,
-    parent_chunk_id uuid,
-    document_id uuid,
+    child_chunk_id text,
+    parent_chunk_id text,
+    document_id text,
     child_content text,
     parent_content text,
     rrf_score float,
@@ -234,13 +247,13 @@ $$ LANGUAGE SQL STABLE;
 -- Create a simpler function for pure vector search
 CREATE OR REPLACE FUNCTION vector_search(
     query_embedding vector(1536),
-    kb_ids uuid[],
+    kb_ids text[],
     match_count int DEFAULT 10
 )
 RETURNS TABLE (
-    child_chunk_id uuid,
-    parent_chunk_id uuid,
-    document_id uuid,
+    child_chunk_id text,
+    parent_chunk_id text,
+    document_id text,
     child_content text,
     parent_content text,
     distance float
