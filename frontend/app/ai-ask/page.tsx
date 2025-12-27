@@ -1793,6 +1793,7 @@ export default function AskPage() {
                         multiple={true}
                         maxSelections={3}
                         compact={true}
+                        onlyReady={false}
                         disabled={isLoading}
                       />
                     </div>
@@ -2629,6 +2630,7 @@ export default function AskPage() {
                           multiple={true}
                           maxSelections={3}
                           compact={true}
+                          onlyReady={false}
                           disabled={isLoading}
                         />
                       </div>
