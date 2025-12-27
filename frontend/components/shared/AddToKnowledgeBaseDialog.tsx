@@ -15,6 +15,7 @@ import {
   type KnowledgeBase,
 } from '@/hooks/domain/useKnowledgeBase';
 import Link from 'next/link';
+import { apiClient } from '@/lib/api/client';
 
 export interface ResourceToAdd {
   id: string;
@@ -51,8 +52,12 @@ export default function AddToKnowledgeBaseDialog({
   const [success, setSuccess] = useState(false);
 
   // Filter knowledge bases that match the source type or are MANUAL type (can accept any source)
+  // Also check sourceTypes array for multi-source knowledge bases
   const compatibleKBs = knowledgeBases.filter(
-    (kb) => kb.sourceType === sourceType || kb.sourceType === 'MANUAL'
+    (kb) =>
+      kb.sourceType === sourceType ||
+      kb.sourceType === 'MANUAL' ||
+      kb.sourceTypes?.includes(sourceType)
   );
 
   const handleAdd = async () => {
@@ -63,27 +68,18 @@ export default function AddToKnowledgeBaseDialog({
 
     try {
       // Call API to add resources to knowledge base
-      const response = await fetch(
-        `/api/rag/knowledge-bases/${selectedKbId}/add-resources`,
+      await apiClient.post(
+        `/rag/knowledge-bases/${selectedKbId}/add-resources`,
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            resources: resources.map((r) => ({
-              sourceId: r.id,
-              title: r.name,
-              sourceType: r.type,
-              mimeType: r.mimeType,
-              sourceUrl: r.url,
-            })),
-          }),
+          resources: resources.map((r) => ({
+            sourceId: r.id,
+            title: r.name,
+            sourceType: r.type,
+            mimeType: r.mimeType,
+            sourceUrl: r.url,
+          })),
         }
       );
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || 'Failed to add resources');
-      }
 
       setSuccess(true);
       onSuccess?.(selectedKbId, resources.length);
@@ -93,7 +89,13 @@ export default function AddToKnowledgeBaseDialog({
         onClose();
       }, 1500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add resources');
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : typeof err === 'object' && err !== null && 'message' in err
+            ? String((err as { message: unknown }).message)
+            : 'Failed to add resources';
+      setError(errorMessage);
     } finally {
       setIsAdding(false);
     }
