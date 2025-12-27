@@ -92,6 +92,12 @@ export default function GoogleDriveFolderPicker({
     fetchFolders();
   }, [fetchFolders]);
 
+  // Debug: log files
+  useEffect(() => {
+    console.log('[GoogleDriveFolderPicker] files:', files);
+    console.log('[GoogleDriveFolderPicker] files.length:', files.length);
+  }, [files]);
+
   const toggleFolderSelection = (folder: GoogleDriveFolder) => {
     if (disabled) return;
 
