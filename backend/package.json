@@ -29,7 +29,6 @@
     "thumbnails:arxiv": "ts-node -r tsconfig-paths/register src/scripts/update-arxiv-thumbnails.ts",
     "seed": "tsx prisma/seed.ts",
     "diagnose": "tsx prisma/diagnose-db.ts",
-    "fix-railway": "tsx prisma/fix-railway-connection.ts",
     "deploy": "tsx prisma/deploy-migrations.ts && npm run prisma:seed",
     "deploy:migrate": "tsx prisma/deploy-migrations.ts"
   },
