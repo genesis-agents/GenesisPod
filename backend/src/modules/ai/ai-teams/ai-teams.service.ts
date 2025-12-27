@@ -192,7 +192,7 @@ export class AiTeamsService {
           tm.topic_id,
           COUNT(*) as unread_count
         FROM topic_messages tm
-        LEFT JOIN topic_members tmem ON tm.topic_id = tmem.topic_id AND tmem.user_id = ${userId}::uuid
+        LEFT JOIN topic_members tmem ON tm.topic_id = tmem.topic_id AND tmem.user_id = ${userId}
         WHERE tm.topic_id::text IN (${Prisma.join(topicIds)})
           AND tm.deleted_at IS NULL
           AND (

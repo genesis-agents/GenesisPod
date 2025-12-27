@@ -143,7 +143,7 @@ export class TopicCrudService {
         COUNT(*) as unread_count
       FROM topic_messages tm
       LEFT JOIN topic_members tmem ON tm.topic_id = tmem.topic_id AND tmem.user_id = ${userId}
-      WHERE tm.topic_id = ANY(${topicIds}::uuid[])
+      WHERE tm.topic_id = ANY(${topicIds}::text[])
         AND tm.deleted_at IS NULL
         AND (
           tmem.last_read_at IS NULL

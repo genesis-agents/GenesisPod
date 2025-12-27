@@ -190,7 +190,7 @@ Focus on being specific and informative.`;
                 SELECT c.id FROM child_chunks c
                 JOIN parent_chunks p ON c.parent_chunk_id = p.id
                 JOIN knowledge_base_documents d ON p.document_id = d.id
-                WHERE d.knowledge_base_id = ANY(${knowledgeBaseIds}::uuid[])
+                WHERE d.knowledge_base_id = ANY(${knowledgeBaseIds}::text[])
               )
               AND (ce2.embedding <=> ${embeddingStr}::vector) < (ce.embedding <=> ${embeddingStr}::vector)
             )), 0) +
@@ -199,7 +199,7 @@ Focus on being specific and informative.`;
               FROM child_chunks c2
               JOIN parent_chunks p2 ON c2.parent_chunk_id = p2.id
               JOIN knowledge_base_documents d2 ON p2.document_id = d2.id
-              WHERE d2.knowledge_base_id = ANY(${knowledgeBaseIds}::uuid[])
+              WHERE d2.knowledge_base_id = ANY(${knowledgeBaseIds}::text[])
               AND to_tsvector('english', c2.content) @@ plainto_tsquery('english', ${queryText})
               AND ts_rank(to_tsvector('english', c2.content), plainto_tsquery('english', ${queryText})) >
                   ts_rank(to_tsvector('english', cc.content), plainto_tsquery('english', ${queryText}))
@@ -210,7 +210,7 @@ Focus on being specific and informative.`;
         JOIN child_chunks cc ON ce.child_chunk_id = cc.id
         JOIN parent_chunks pc ON cc.parent_chunk_id = pc.id
         JOIN knowledge_base_documents d ON pc.document_id = d.id
-        WHERE d.knowledge_base_id = ANY(${knowledgeBaseIds}::uuid[])
+        WHERE d.knowledge_base_id = ANY(${knowledgeBaseIds}::text[])
         ORDER BY ce.embedding <=> ${embeddingStr}::vector
         LIMIT ${topK}
       `;
@@ -263,7 +263,7 @@ Focus on being specific and informative.`;
       JOIN child_chunks cc ON ce.child_chunk_id = cc.id
       JOIN parent_chunks pc ON cc.parent_chunk_id = pc.id
       JOIN knowledge_base_documents d ON pc.document_id = d.id
-      WHERE d.knowledge_base_id = ANY(${knowledgeBaseIds}::uuid[])
+      WHERE d.knowledge_base_id = ANY(${knowledgeBaseIds}::text[])
       ORDER BY ce.embedding <=> ${embeddingStr}::vector
       LIMIT ${topK}
     `;
