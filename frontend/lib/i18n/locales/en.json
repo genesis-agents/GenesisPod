@@ -136,7 +136,7 @@
   },
   "knowledgeBase": {
     "title": "Knowledge Base",
-    "select": "Select Knowledge Base",
+    "select": "Knowledge",
     "search": "Search knowledge bases...",
     "loading": "Loading...",
     "loadFailed": "Load failed",

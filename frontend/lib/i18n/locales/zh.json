@@ -136,7 +136,7 @@
   },
   "knowledgeBase": {
     "title": "知识库",
-    "select": "选择知识库",
+    "select": "知识库",
     "search": "搜索知识库...",
     "loading": "加载中...",
     "loadFailed": "加载失败",
