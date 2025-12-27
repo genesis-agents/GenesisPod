@@ -129,12 +129,17 @@ export default function KnowledgeBaseSelector({
     [onSelectionChange]
   );
 
-  // Refresh list when dropdown opens
+  // Refresh list when dropdown opens, clear search when closes
   useEffect(() => {
     if (isOpen) {
-      refreshList();
+      // Always fetch fresh data when dropdown opens
+      refreshList().catch(console.error);
+    } else {
+      // Clear search query when dropdown closes
+      setSearchQuery('');
     }
-  }, [isOpen, refreshList]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]); // Only depend on isOpen to avoid infinite loops
 
   // Close dropdown on outside click
   useEffect(() => {
