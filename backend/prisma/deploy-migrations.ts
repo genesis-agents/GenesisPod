@@ -238,6 +238,7 @@ async function getCustomMigrations(): Promise<string[]> {
     "20251227_fix_aimodel_enum", // Fix AIModelType enum - add EMBEDDING, RERANK, etc.
     "20251227_add_kb_source_types", // Add sourceTypes JSON array for multi-source knowledge bases
     "20251226_add_kb_members", // Add knowledge base members table for team collaboration
+    "20251227_fix_uuid_text_mismatch", // CRITICAL: Fix UUID vs TEXT type mismatch causing query errors
   ];
 
   const migrations: string[] = [];
@@ -1580,6 +1581,113 @@ async function deploy() {
     }
   } catch (error: any) {
     console.error(`   ❌ knowledge_base_members fix failed: ${error.message}`);
+  }
+
+  // Step 14: CRITICAL FIX - Resolve UUID vs TEXT type mismatch
+  console.log(
+    "🔧 Step 14: CRITICAL FIX - Resolving UUID vs TEXT type mismatch...",
+  );
+  try {
+    // Check users.id column type
+    const usersIdType = await prisma.$queryRaw<Array<{ data_type: string }>>`
+      SELECT data_type FROM information_schema.columns
+      WHERE table_name = 'users' AND column_name = 'id'
+    `;
+    console.log(
+      `   📋 users.id type: ${usersIdType[0]?.data_type || "unknown"}`,
+    );
+
+    // Check knowledge_bases.user_id column type
+    const kbUserIdType = await prisma.$queryRaw<Array<{ data_type: string }>>`
+      SELECT data_type FROM information_schema.columns
+      WHERE table_name = 'knowledge_bases' AND column_name = 'user_id'
+    `;
+    console.log(
+      `   📋 knowledge_bases.user_id type: ${kbUserIdType[0]?.data_type || "unknown"}`,
+    );
+
+    // Check knowledge_base_members.user_id column type
+    const kbmUserIdType = await prisma.$queryRaw<Array<{ data_type: string }>>`
+      SELECT data_type FROM information_schema.columns
+      WHERE table_name = 'knowledge_base_members' AND column_name = 'user_id'
+    `;
+    console.log(
+      `   📋 knowledge_base_members.user_id type: ${kbmUserIdType[0]?.data_type || "unknown"}`,
+    );
+
+    const usersType = usersIdType[0]?.data_type;
+    const kbType = kbUserIdType[0]?.data_type;
+    const kbmType = kbmUserIdType[0]?.data_type;
+
+    // Fix knowledge_bases.user_id if types don't match
+    if (usersType && kbType && usersType !== kbType) {
+      console.log(
+        `   ⚠️ Type mismatch detected: users.id (${usersType}) vs knowledge_bases.user_id (${kbType})`,
+      );
+
+      // Drop FK constraint
+      await prisma.$executeRawUnsafe(`
+        ALTER TABLE "knowledge_bases" DROP CONSTRAINT IF EXISTS "knowledge_bases_user_id_fkey";
+      `);
+
+      // Convert column type to match users.id
+      if (usersType === "uuid") {
+        await prisma.$executeRawUnsafe(`
+          ALTER TABLE "knowledge_bases" ALTER COLUMN "user_id" TYPE uuid USING "user_id"::uuid;
+        `);
+      } else {
+        await prisma.$executeRawUnsafe(`
+          ALTER TABLE "knowledge_bases" ALTER COLUMN "user_id" TYPE text USING "user_id"::text;
+        `);
+      }
+
+      // Re-add FK constraint
+      await prisma.$executeRawUnsafe(`
+        ALTER TABLE "knowledge_bases" ADD CONSTRAINT "knowledge_bases_user_id_fkey"
+          FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+      `);
+
+      console.log(`   ✅ knowledge_bases.user_id converted to ${usersType}`);
+    }
+
+    // Fix knowledge_base_members.user_id if types don't match
+    if (usersType && kbmType && usersType !== kbmType) {
+      console.log(
+        `   ⚠️ Type mismatch detected: users.id (${usersType}) vs knowledge_base_members.user_id (${kbmType})`,
+      );
+
+      await prisma.$executeRawUnsafe(`
+        ALTER TABLE "knowledge_base_members" DROP CONSTRAINT IF EXISTS "knowledge_base_members_user_id_fkey";
+      `);
+
+      if (usersType === "uuid") {
+        await prisma.$executeRawUnsafe(`
+          ALTER TABLE "knowledge_base_members" ALTER COLUMN "user_id" TYPE uuid USING "user_id"::uuid;
+        `);
+      } else {
+        await prisma.$executeRawUnsafe(`
+          ALTER TABLE "knowledge_base_members" ALTER COLUMN "user_id" TYPE text USING "user_id"::text;
+        `);
+      }
+
+      await prisma.$executeRawUnsafe(`
+        ALTER TABLE "knowledge_base_members" ADD CONSTRAINT "knowledge_base_members_user_id_fkey"
+          FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+      `);
+
+      console.log(
+        `   ✅ knowledge_base_members.user_id converted to ${usersType}`,
+      );
+    }
+
+    if (
+      (!usersType || !kbType || usersType === kbType) &&
+      (!usersType || !kbmType || usersType === kbmType)
+    ) {
+      console.log("   ✅ All column types are consistent");
+    }
+  } catch (error: any) {
+    console.error(`   ❌ UUID/TEXT fix failed: ${error.message}`);
   }
 
   // 完成
