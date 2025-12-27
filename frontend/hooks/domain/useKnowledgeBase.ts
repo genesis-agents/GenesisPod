@@ -138,19 +138,16 @@ export interface RAGQueryResult {
 export function useKnowledgeBase() {
   const [deleting, setDeleting] = useState(false);
 
-  // 获取知识库列表
-  // 使用 initialData: [] 避免在请求期间返回 undefined
+  // 获取知识库列表 - 不使用缓存，每次都从API获取
   const {
     data: knowledgeBases,
     loading: listLoading,
     error: listError,
     execute: fetchList,
-    refresh: refreshListFromApi,
   } = useApiGet<KnowledgeBase[]>('/rag/knowledge-bases', {
     immediate: true,
-    initialData: [], // 防止请求被取消时返回 undefined
-    cacheKey: 'knowledge-bases-list',
-    cacheTTL: 30 * 1000, // 30 seconds cache
+    initialData: [],
+    // 不使用缓存 - 每次都从API获取最新数据
   });
 
   // 创建知识库
@@ -180,10 +177,10 @@ export function useKnowledgeBase() {
     creating,
     deleting,
     fetchList,
-    refreshList: refreshListFromApi, // Use cache-bypassing refresh
+    refreshList: fetchList, // 直接调用 API，无缓存
     createKnowledgeBase: async (dto: CreateKnowledgeBaseDto) => {
       const result = await createKnowledgeBase(dto);
-      await refreshListFromApi(); // Force refresh after create
+      await fetchList(); // 创建后刷新列表
       return result;
     },
     deleteKnowledgeBase,

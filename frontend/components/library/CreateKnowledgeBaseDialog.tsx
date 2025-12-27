@@ -300,7 +300,7 @@ export default function CreateKnowledgeBaseDialog({
           {sourceTypes.includes('GOOGLE_DRIVE') && (
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
               <label className="mb-2 block text-sm font-medium text-gray-700">
-                选择要同步的文件夹
+                选择要同步的文件夹或文件
                 <span className="ml-1 text-xs text-gray-500">
                   (单击选择，双击进入)
                 </span>
