@@ -618,12 +618,19 @@ export default function PersonalKnowledgeBaseTab() {
           onUpdate={async (data) => {
             console.log('[PersonalKB] Updating KB with data:', data);
             await editingKbDetail.updateKnowledgeBase(data);
-            // Auto-sync if Google Drive folders/files were updated
+
+            // For Google Drive files, use sync to actually import the files
             if (data.googleDriveFolderIds || data.googleDriveFileIds) {
               console.log('[PersonalKB] Starting Google Drive sync...');
-              await editingKbDetail.syncGoogleDrive();
-              console.log('[PersonalKB] Sync completed');
+              try {
+                const syncResult = await editingKbDetail.syncGoogleDrive();
+                console.log('[PersonalKB] Sync completed:', syncResult);
+              } catch (err) {
+                console.error('[PersonalKB] Sync failed:', err);
+                // Still continue to refresh UI even if sync fails
+              }
             }
+
             // Refresh expanded KB if it's the same one being edited
             if (expandedKbId === editingKbId) {
               console.log(
