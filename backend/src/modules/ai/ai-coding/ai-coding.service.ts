@@ -8,7 +8,7 @@ import {
   Prisma,
 } from "@prisma/client";
 import {
-  CreateProjectDto,
+  CreateCodingProjectDto,
   UpdateProjectDto,
   StartProjectDto,
   IterateProjectDto,
@@ -133,7 +133,7 @@ export class AiCodingService {
    */
   async createProject(
     userId: string,
-    dto: CreateProjectDto,
+    dto: CreateCodingProjectDto,
   ): Promise<AiCodingProject> {
     const project = await this.prisma.aiCodingProject.create({
       data: {

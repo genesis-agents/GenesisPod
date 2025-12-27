@@ -125,7 +125,7 @@ export class KnowledgeBaseService {
         }>
       >`
         SELECT * FROM knowledge_bases
-        WHERE id = ${id} AND user_id = ${userId}
+        WHERE id = ${id}::text AND user_id = ${userId}::text
         LIMIT 1
       `;
 
@@ -250,11 +250,11 @@ export class KnowledgeBaseService {
       FROM knowledge_bases kb
       LEFT JOIN knowledge_base_documents doc ON doc.knowledge_base_id = kb.id
       LEFT JOIN knowledge_base_members mem ON mem.knowledge_base_id = kb.id
-      WHERE kb.user_id = ${userId}
+      WHERE kb.user_id = ${userId}::text
          OR (kb.type = 'TEAM' AND EXISTS (
            SELECT 1 FROM knowledge_base_members m
            WHERE m.knowledge_base_id = kb.id
-           AND m.user_id = ${userId}
+           AND m.user_id = ${userId}::text
          ))
       GROUP BY kb.id
       ORDER BY kb.created_at DESC
@@ -339,7 +339,7 @@ export class KnowledgeBaseService {
           SELECT cc.id FROM child_chunks cc
           JOIN parent_chunks pc ON cc.parent_chunk_id = pc.id
           JOIN knowledge_base_documents d ON pc.document_id = d.id
-          WHERE d.knowledge_base_id = ${id}
+          WHERE d.knowledge_base_id = ${id}::text
         )
       `,
       this.prisma.childChunk.deleteMany({
@@ -468,7 +468,7 @@ export class KnowledgeBaseService {
         LEFT JOIN child_chunks cc ON cc.parent_chunk_id = pc.id
         LEFT JOIN child_embeddings ce ON ce.child_chunk_id = cc.id
         JOIN knowledge_base_documents d ON pc.document_id = d.id
-        WHERE d.knowledge_base_id = ${id}
+        WHERE d.knowledge_base_id = ${id}::text
       `,
       this.prisma.knowledgeBase.findUnique({
         where: { id },
@@ -526,7 +526,7 @@ export class KnowledgeBaseService {
       LEFT JOIN parent_chunks pc ON pc.document_id = d.id
       LEFT JOIN child_chunks cc ON cc.parent_chunk_id = pc.id
       LEFT JOIN child_embeddings ce ON ce.child_chunk_id = cc.id
-      WHERE d.knowledge_base_id = ${knowledgeBaseId}
+      WHERE d.knowledge_base_id = ${knowledgeBaseId}::text
       GROUP BY d.id
     `;
 
@@ -566,7 +566,7 @@ export class KnowledgeBaseService {
         WHERE child_chunk_id IN (
           SELECT cc.id FROM child_chunks cc
           JOIN parent_chunks pc ON cc.parent_chunk_id = pc.id
-          WHERE pc.document_id = ${documentId}
+          WHERE pc.document_id = ${documentId}::text
         )
       `,
       this.prisma.childChunk.deleteMany({

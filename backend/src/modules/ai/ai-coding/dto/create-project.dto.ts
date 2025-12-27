@@ -26,7 +26,7 @@ export class TechStackDto {
   [key: string]: string | undefined;
 }
 
-export class CreateProjectDto {
+export class CreateCodingProjectDto {
   @IsString()
   @MinLength(1)
   @MaxLength(200)

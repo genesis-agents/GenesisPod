@@ -24,7 +24,7 @@ import {
   CodingTaskService,
 } from "./services";
 import {
-  CreateProjectDto,
+  CreateCodingProjectDto,
   UpdateProjectDto,
   StartProjectDto,
   IterateProjectDto,
@@ -62,7 +62,10 @@ export class AiCodingController {
    * POST /api/v1/ai-coding/projects
    */
   @Post("projects")
-  async createProject(@Request() req: any, @Body() dto: CreateProjectDto) {
+  async createProject(
+    @Request() req: any,
+    @Body() dto: CreateCodingProjectDto,
+  ) {
     this.logger.log(`Creating project for user ${req.user.id}`);
     return this.aiCodingService.createProject(req.user.id, dto);
   }
