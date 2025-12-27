@@ -73,8 +73,11 @@ export class GoogleDriveRAGService {
     }
 
     const folderIds = (kb.googleDriveFolderIds as string[]) || [];
-    if (folderIds.length === 0) {
-      throw new Error("No Google Drive folders selected");
+    const fileIds = (kb.googleDriveFileIds as string[]) || [];
+
+    // 需要至少选择一个文件夹或文件
+    if (folderIds.length === 0 && fileIds.length === 0) {
+      throw new Error("No Google Drive folders or files selected");
     }
 
     try {
@@ -95,8 +98,20 @@ export class GoogleDriveRAGService {
         allFiles.push(...files);
       }
 
+      // Get individual files by ID
+      for (const fileId of fileIds) {
+        try {
+          const fileMetadata = await this.getFileById(drive, fileId);
+          if (fileMetadata && this.isSupportedMimeType(fileMetadata.mimeType)) {
+            allFiles.push(fileMetadata);
+          }
+        } catch (error) {
+          this.logger.warn(`Failed to get file ${fileId}: ${error}`);
+        }
+      }
+
       this.logger.log(
-        `Found ${allFiles.length} files in Google Drive for KB ${knowledgeBaseId}`,
+        `Found ${allFiles.length} files in Google Drive for KB ${knowledgeBaseId} (${folderIds.length} folders, ${fileIds.length} individual files)`,
       );
 
       // Track existing document IDs
@@ -442,6 +457,38 @@ export class GoogleDriveRAGService {
    */
   private isSupportedMimeType(mimeType: string): boolean {
     return mimeType in SUPPORTED_MIME_TYPES;
+  }
+
+  /**
+   * Get a single file by ID from Google Drive
+   */
+  private async getFileById(
+    drive: drive_v3.Drive,
+    fileId: string,
+  ): Promise<GoogleDriveFile | null> {
+    try {
+      const response = await drive.files.get({
+        fileId,
+        fields: "id, name, mimeType, size, modifiedTime, webViewLink",
+      });
+
+      const file = response.data;
+      if (!file || !file.id || !file.name || !file.mimeType) {
+        return null;
+      }
+
+      return {
+        id: file.id,
+        name: file.name,
+        mimeType: file.mimeType,
+        size: file.size ? parseInt(file.size) : undefined,
+        modifiedTime: file.modifiedTime || undefined,
+        webViewLink: file.webViewLink || undefined,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to get file by ID ${fileId}:`, error);
+      return null;
+    }
   }
 
   /**

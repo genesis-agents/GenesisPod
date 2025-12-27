@@ -17,6 +17,7 @@ export interface CreateKnowledgeBaseInput {
   sourceTypes?: string[]; // 多数据源类型
   googleDriveConnectionId?: string;
   googleDriveFolderIds?: string[];
+  googleDriveFileIds?: string[]; // 单独选择的文件 IDs
   type?: "PERSONAL" | "TEAM"; // 知识库类型
   teamId?: string; // 团队ID（团队知识库时必需）
 }
@@ -88,6 +89,7 @@ export class KnowledgeBaseService {
         teamId: input.teamId,
         googleDriveConnectionId,
         googleDriveFolderIds: input.googleDriveFolderIds || [],
+        googleDriveFileIds: input.googleDriveFileIds || [], // 单独选择的文件
       },
     });
 
@@ -195,6 +197,7 @@ export class KnowledgeBaseService {
       description?: string;
       sourceTypes?: string[];
       googleDriveFolderIds?: string[];
+      googleDriveFileIds?: string[];
     },
   ) {
     // Verify ownership (throws if not found)
@@ -206,6 +209,7 @@ export class KnowledgeBaseService {
       description?: string;
       sourceTypes?: string[];
       googleDriveFolderIds?: string[];
+      googleDriveFileIds?: string[];
     } = {};
 
     if (data.name !== undefined) updateData.name = data.name;
@@ -215,6 +219,8 @@ export class KnowledgeBaseService {
       updateData.sourceTypes = data.sourceTypes;
     if (data.googleDriveFolderIds !== undefined)
       updateData.googleDriveFolderIds = data.googleDriveFolderIds;
+    if (data.googleDriveFileIds !== undefined)
+      updateData.googleDriveFileIds = data.googleDriveFileIds;
 
     return this.prisma.knowledgeBase.update({
       where: { id },

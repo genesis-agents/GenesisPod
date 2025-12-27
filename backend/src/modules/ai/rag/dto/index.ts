@@ -68,6 +68,15 @@ export class CreateKnowledgeBaseDto {
   googleDriveFolderIds?: string[];
 
   @ApiPropertyOptional({
+    description: "Google Drive file IDs to sync (individual files)",
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  googleDriveFileIds?: string[];
+
+  @ApiPropertyOptional({
     description: "Knowledge base type (PERSONAL or TEAM)",
     enum: ["PERSONAL", "TEAM"],
     default: "PERSONAL",
@@ -114,6 +123,15 @@ export class UpdateKnowledgeBaseDto {
   @IsArray()
   @IsString({ each: true })
   googleDriveFolderIds?: string[];
+
+  @ApiPropertyOptional({
+    description: "Google Drive file IDs to sync (individual files)",
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  googleDriveFileIds?: string[];
 }
 
 // ==================== Document DTOs ====================

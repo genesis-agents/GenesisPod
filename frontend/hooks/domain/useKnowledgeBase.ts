@@ -73,6 +73,7 @@ export interface CreateKnowledgeBaseDto {
   teamId?: string;
   googleDriveConnectionId?: string;
   googleDriveFolderIds?: string[];
+  googleDriveFileIds?: string[]; // 单独选择的文件 IDs
 }
 
 export interface AddDocumentDto {
@@ -137,6 +138,7 @@ export function useKnowledgeBase() {
   const [deleting, setDeleting] = useState(false);
 
   // 获取知识库列表
+  // 使用 initialData: [] 避免在请求期间返回 undefined
   const {
     data: knowledgeBases,
     loading: listLoading,
@@ -144,6 +146,9 @@ export function useKnowledgeBase() {
     execute: fetchList,
   } = useApiGet<KnowledgeBase[]>('/rag/knowledge-bases', {
     immediate: true,
+    initialData: [], // 防止请求被取消时返回 undefined
+    cacheKey: 'knowledge-bases-list', // 添加缓存
+    cacheTTL: 30 * 1000, // 30秒缓存
   });
 
   // 创建知识库

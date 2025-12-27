@@ -82,13 +82,23 @@ export default function CreateKnowledgeBaseDialog({
   const [sourceTypes, setSourceTypes] = useState<string[]>(['MANUAL']); // 支持多选
   const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>([]);
   const [selectedFolderNames, setSelectedFolderNames] = useState<string[]>([]);
+  const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
+  const [selectedFileNames, setSelectedFileNames] = useState<string[]>([]);
 
   const handleFolderSelectionChange = (
     folderIds: string[],
-    folderNames: string[]
+    folderNames: string[],
+    fileIds?: string[],
+    fileNames?: string[]
   ) => {
     setSelectedFolderIds(folderIds);
     setSelectedFolderNames(folderNames);
+    if (fileIds !== undefined) {
+      setSelectedFileIds(fileIds);
+    }
+    if (fileNames !== undefined) {
+      setSelectedFileNames(fileNames);
+    }
   };
 
   // 切换数据源类型（多选）
@@ -98,10 +108,12 @@ export default function CreateKnowledgeBaseDialog({
         // 至少保留一个
         if (prev.length === 1) return prev;
         const newTypes = prev.filter((t) => t !== type);
-        // 如果移除了 GOOGLE_DRIVE，清空文件夹选择
+        // 如果移除了 GOOGLE_DRIVE，清空文件夹和文件选择
         if (type === 'GOOGLE_DRIVE') {
           setSelectedFolderIds([]);
           setSelectedFolderNames([]);
+          setSelectedFileIds([]);
+          setSelectedFileNames([]);
         }
         return newTypes;
       } else {
@@ -129,15 +141,21 @@ export default function CreateKnowledgeBaseDialog({
         sourceTypes.includes('GOOGLE_DRIVE') && selectedFolderIds.length > 0
           ? selectedFolderIds
           : undefined,
+      googleDriveFileIds:
+        sourceTypes.includes('GOOGLE_DRIVE') && selectedFileIds.length > 0
+          ? selectedFileIds
+          : undefined,
     });
   };
 
-  // 检查表单是否可以提交
+  // 检查表单是否可以提交 - 需要选择至少一个文件夹或文件
+  const hasGoogleDriveSelection =
+    selectedFolderIds.length > 0 || selectedFileIds.length > 0;
   const canSubmit =
     name.trim() &&
     !creating &&
     sourceTypes.length > 0 &&
-    (!sourceTypes.includes('GOOGLE_DRIVE') || selectedFolderIds.length > 0);
+    (!sourceTypes.includes('GOOGLE_DRIVE') || hasGoogleDriveSelection);
 
   const isTeam = kbType === 'TEAM';
 
@@ -289,12 +307,13 @@ export default function CreateKnowledgeBaseDialog({
               </label>
               <GoogleDriveFolderPicker
                 selectedFolderIds={selectedFolderIds}
+                selectedFileIds={selectedFileIds}
                 onSelectionChange={handleFolderSelectionChange}
                 disabled={creating}
               />
-              {selectedFolderIds.length === 0 && (
+              {!hasGoogleDriveSelection && (
                 <p className="mt-2 text-xs text-amber-600">
-                  请至少选择一个文件夹
+                  请至少选择一个文件夹或文件
                 </p>
               )}
             </div>

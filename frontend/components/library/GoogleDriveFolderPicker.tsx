@@ -45,16 +45,23 @@ function formatFileSize(bytes?: number): string {
 
 interface GoogleDriveFolderPickerProps {
   selectedFolderIds: string[];
-  onSelectionChange: (folderIds: string[], folderNames: string[]) => void;
+  selectedFileIds?: string[];
+  onSelectionChange: (
+    folderIds: string[],
+    folderNames: string[],
+    fileIds?: string[],
+    fileNames?: string[]
+  ) => void;
   disabled?: boolean;
 }
 
 /**
- * Google Drive 文件夹选择器
- * 支持多选文件夹，用于知识库同步
+ * Google Drive 文件夹和文件选择器
+ * 支持多选文件夹和文件，用于知识库同步
  */
 export default function GoogleDriveFolderPicker({
   selectedFolderIds,
+  selectedFileIds = [],
   onSelectionChange,
   disabled = false,
 }: GoogleDriveFolderPickerProps) {
@@ -72,6 +79,11 @@ export default function GoogleDriveFolderPicker({
 
   // 保存选中文件夹的名称映射
   const [selectedFolderNames, setSelectedFolderNames] = useState<
+    Map<string, string>
+  >(new Map());
+
+  // 保存选中文件的名称映射
+  const [selectedFileNames, setSelectedFileNames] = useState<
     Map<string, string>
   >(new Map());
 
@@ -98,7 +110,38 @@ export default function GoogleDriveFolderPicker({
     }
 
     setSelectedFolderNames(newNamesMap);
-    onSelectionChange(newSelectedIds, Array.from(newNamesMap.values()));
+    onSelectionChange(
+      newSelectedIds,
+      Array.from(newNamesMap.values()),
+      selectedFileIds,
+      Array.from(selectedFileNames.values())
+    );
+  };
+
+  const toggleFileSelection = (file: GoogleDriveFile) => {
+    if (disabled) return;
+
+    const newSelectedIds = [...selectedFileIds];
+    const newNamesMap = new Map(selectedFileNames);
+
+    const index = newSelectedIds.indexOf(file.id);
+    if (index > -1) {
+      // 取消选择
+      newSelectedIds.splice(index, 1);
+      newNamesMap.delete(file.id);
+    } else {
+      // 添加选择
+      newSelectedIds.push(file.id);
+      newNamesMap.set(file.id, file.name);
+    }
+
+    setSelectedFileNames(newNamesMap);
+    onSelectionChange(
+      selectedFolderIds,
+      Array.from(selectedFolderNames.values()),
+      newSelectedIds,
+      Array.from(newNamesMap.values())
+    );
   };
 
   const handleFolderDoubleClick = (folder: GoogleDriveFolder) => {
@@ -236,7 +279,7 @@ export default function GoogleDriveFolderPicker({
               );
             })}
 
-            {/* 文件列表 (仅展示，不可选择) */}
+            {/* 文件列表 (可选择) */}
             {files.length > 0 && (
               <>
                 {folders.length > 0 && (
@@ -247,16 +290,32 @@ export default function GoogleDriveFolderPicker({
                 </p>
                 {files.map((file) => {
                   const FileIcon = getFileIcon(file.mimeType);
+                  const isSelected = selectedFileIds.includes(file.id);
                   return (
                     <div
                       key={file.id}
-                      className="flex items-center gap-3 rounded-lg border border-transparent px-3 py-2 opacity-70"
+                      className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition-all ${
+                        isSelected
+                          ? 'border-green-500 bg-green-50'
+                          : 'border-transparent hover:bg-gray-50'
+                      } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
+                      onClick={() => toggleFileSelection(file)}
                     >
-                      {/* 占位符 (与选择框对齐) */}
-                      <div className="h-5 w-5 flex-shrink-0" />
+                      {/* 选择框 */}
+                      <div
+                        className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border ${
+                          isSelected
+                            ? 'border-green-600 bg-green-600 text-white'
+                            : 'border-gray-300 bg-white'
+                        }`}
+                      >
+                        {isSelected && <Check className="h-3.5 w-3.5" />}
+                      </div>
 
                       {/* 文件图标 */}
-                      <FileIcon className="h-5 w-5 flex-shrink-0 text-gray-400" />
+                      <FileIcon
+                        className={`h-5 w-5 flex-shrink-0 ${isSelected ? 'text-green-600' : 'text-gray-400'}`}
+                      />
 
                       {/* 文件信息 */}
                       <div className="min-w-0 flex-1">
@@ -279,13 +338,29 @@ export default function GoogleDriveFolderPicker({
       </div>
 
       {/* 选中提示 */}
-      {selectedFolderIds.length > 0 && (
+      {(selectedFolderIds.length > 0 || selectedFileIds.length > 0) && (
         <div className="border-t border-gray-200 bg-gray-50 px-3 py-2">
           <p className="text-xs text-gray-600">
-            已选择 {selectedFolderIds.length} 个文件夹
-            {selectedFolderNames.size > 0 && (
-              <span className="ml-1 text-gray-500">
-                ({Array.from(selectedFolderNames.values()).join(', ')})
+            已选择{' '}
+            {selectedFolderIds.length > 0 && (
+              <span className="text-blue-600">
+                {selectedFolderIds.length} 个文件夹
+                {selectedFolderNames.size > 0 && (
+                  <span className="ml-1 text-gray-500">
+                    ({Array.from(selectedFolderNames.values()).join(', ')})
+                  </span>
+                )}
+              </span>
+            )}
+            {selectedFolderIds.length > 0 && selectedFileIds.length > 0 && '，'}
+            {selectedFileIds.length > 0 && (
+              <span className="text-green-600">
+                {selectedFileIds.length} 个文件
+                {selectedFileNames.size > 0 && (
+                  <span className="ml-1 text-gray-500">
+                    ({Array.from(selectedFileNames.values()).join(', ')})
+                  </span>
+                )}
               </span>
             )}
           </p>

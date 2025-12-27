@@ -4226,6 +4226,7 @@ model KnowledgeBase {
   googleDriveConnectionId String?                @map("google_drive_connection_id")
   googleDriveConnection   GoogleDriveConnection? @relation(fields: [googleDriveConnectionId], references: [id], onDelete: SetNull)
   googleDriveFolderIds    Json                   @default("[]") @map("google_drive_folder_ids")
+  googleDriveFileIds      Json                   @default("[]") @map("google_drive_file_ids") // 单独选择的文件 IDs
 
   // Sync metadata
   lastSyncedAt DateTime? @map("last_synced_at")
