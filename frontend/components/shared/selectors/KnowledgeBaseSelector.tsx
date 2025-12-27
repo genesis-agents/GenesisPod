@@ -65,6 +65,20 @@ export default function KnowledgeBaseSelector({
   const [searchQuery, setSearchQuery] = useState('');
   const { knowledgeBases, loading, error, refreshList } = useKnowledgeBase();
 
+  // Debug logging
+  console.log(
+    '[KBSelector] knowledgeBases:',
+    knowledgeBases?.length,
+    'loading:',
+    loading,
+    'error:',
+    error?.message,
+    'isOpen:',
+    isOpen,
+    'searchQuery:',
+    searchQuery
+  );
+
   const displayPlaceholder = placeholder || t('knowledgeBase.select');
 
   // Filter knowledge bases based on props
@@ -89,6 +103,20 @@ export default function KnowledgeBaseSelector({
 
     return true;
   });
+
+  // Debug: log filtered results
+  if (isOpen) {
+    console.log(
+      '[KBSelector] filterType:',
+      filterType,
+      'onlyReady:',
+      onlyReady,
+      'filteredKBs:',
+      filteredKBs.length,
+      'statuses:',
+      knowledgeBases.map((kb) => kb.status)
+    );
+  }
 
   // Get selected knowledge bases details
   const selectedKBs = knowledgeBases.filter((kb) =>
@@ -131,11 +159,23 @@ export default function KnowledgeBaseSelector({
 
   // Refresh list when dropdown opens, clear search when closes
   useEffect(() => {
+    console.log('[KBSelector] useEffect triggered, isOpen:', isOpen);
     if (isOpen) {
       // Always fetch fresh data when dropdown opens
-      refreshList().catch(console.error);
+      console.log('[KBSelector] Calling refreshList...');
+      refreshList()
+        .then((data) => {
+          console.log(
+            '[KBSelector] refreshList completed, data:',
+            data?.length
+          );
+        })
+        .catch((err) => {
+          console.error('[KBSelector] refreshList error:', err);
+        });
     } else {
       // Clear search query when dropdown closes
+      console.log('[KBSelector] Clearing search query');
       setSearchQuery('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

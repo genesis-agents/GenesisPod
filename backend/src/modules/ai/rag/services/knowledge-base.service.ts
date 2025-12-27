@@ -142,6 +142,10 @@ export class KnowledgeBaseService {
    * Uses Prisma ORM to automatically handle type conversions
    */
   async findByUser(userId: string) {
+    this.logger.debug(
+      `[findByUser] Fetching knowledge bases for user: ${userId}`,
+    );
+
     // Use Prisma ORM instead of raw SQL to handle types automatically
     // This avoids the "operator does not exist: text = uuid" error
     const knowledgeBases = await this.prisma.knowledgeBase.findMany({
@@ -172,6 +176,10 @@ export class KnowledgeBaseService {
         createdAt: "desc",
       },
     });
+
+    this.logger.debug(
+      `[findByUser] Found ${knowledgeBases.length} knowledge bases: ${knowledgeBases.map((kb) => `${kb.name}(${kb.status})`).join(", ")}`,
+    );
 
     return knowledgeBases;
   }

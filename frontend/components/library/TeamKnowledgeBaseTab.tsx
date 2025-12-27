@@ -478,7 +478,9 @@ export default function TeamKnowledgeBaseTab() {
                         </div>
                         <div className="rounded-lg bg-fuchsia-50 p-3 text-center">
                           <p className="text-lg font-bold text-fuchsia-700">
-                            {(expandedStats.totalTokens / 1000).toFixed(1)}k
+                            {expandedStats.totalTokens >= 1000
+                              ? `${(expandedStats.totalTokens / 1000).toFixed(1)}k`
+                              : expandedStats.totalTokens}
                           </p>
                           <p className="text-xs text-fuchsia-600">Tokens</p>
                         </div>

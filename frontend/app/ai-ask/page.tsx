@@ -860,6 +860,14 @@ export default function AskPage() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Debug: Log knowledge base selection changes
+  useEffect(() => {
+    console.log(
+      '[AiAsk] selectedKnowledgeBases changed:',
+      selectedKnowledgeBases
+    );
+  }, [selectedKnowledgeBases]);
+
   // Random quote selection - changes on page load
   const randomQuote = useMemo(() => {
     const randomIndex = Math.floor(Math.random() * INSPIRATIONAL_QUOTES.length);
@@ -1149,6 +1157,12 @@ export default function AskPage() {
             ? selectedKnowledgeBases
             : undefined,
       }),
+      // Debug: Log what we're sending
+      ...(console.log(
+        '[AiAsk] Sending request with knowledgeBaseIds:',
+        selectedKnowledgeBases
+      ),
+      {}),
       signal,
     });
 

@@ -455,7 +455,9 @@ export default function PersonalKnowledgeBaseTab() {
                         </div>
                         <div className="rounded-lg bg-orange-50 p-3 text-center">
                           <p className="text-lg font-bold text-orange-700">
-                            {(expandedStats.totalTokens / 1000).toFixed(1)}k
+                            {expandedStats.totalTokens >= 1000
+                              ? `${(expandedStats.totalTokens / 1000).toFixed(1)}k`
+                              : expandedStats.totalTokens}
                           </p>
                           <p className="text-xs text-orange-600">Tokens</p>
                         </div>

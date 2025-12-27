@@ -249,6 +249,9 @@ export class AiAskService {
 
       // RAG 查询：如果指定了知识库，先进行 RAG 检索
       let ragContext = "";
+      this.logger.debug(
+        `[sendMessage] Received knowledgeBaseIds: ${dto.knowledgeBaseIds?.join(", ") || "none"}, ragPipelineService available: ${!!this.ragPipelineService}`,
+      );
       if (
         dto.knowledgeBaseIds &&
         dto.knowledgeBaseIds.length > 0 &&
