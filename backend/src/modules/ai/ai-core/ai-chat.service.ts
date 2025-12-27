@@ -900,12 +900,18 @@ Format the summary in a clear, structured manner using markdown.`;
   /**
    * Test connection to an AI model with custom API key and endpoint
    * Used for testing models configured in the database
+   * @param provider - The AI provider (openai, anthropic, google, cohere, etc.)
+   * @param modelId - The model identifier
+   * @param apiKey - The API key for authentication
+   * @param apiEndpoint - Optional custom API endpoint
+   * @param modelType - The type of model (CHAT, EMBEDDING, RERANK, etc.)
    */
   async testModelConnectionWithKey(
     provider: string,
     modelId: string,
     apiKey: string,
     apiEndpoint: string,
+    modelType?: string,
   ): Promise<{ success: boolean; message: string; latency?: number }> {
     const startTime = Date.now();
 
@@ -918,6 +924,28 @@ Format the summary in a clear, structured manner using markdown.`;
     }
 
     try {
+      // Handle EMBEDDING models specially
+      if (modelType === "EMBEDDING") {
+        return await this.testEmbeddingModel(
+          provider,
+          modelId,
+          apiKey,
+          apiEndpoint,
+          startTime,
+        );
+      }
+
+      // Handle RERANK models specially
+      if (modelType === "RERANK") {
+        return await this.testRerankModel(
+          provider,
+          modelId,
+          apiKey,
+          apiEndpoint,
+          startTime,
+        );
+      }
+
       const testMessages = [
         {
           role: "user" as const,
@@ -1190,6 +1218,245 @@ Format the summary in a clear, structured manner using markdown.`;
       }
 
       this.logger.error(`Model connection test failed: ${errorMessage}`);
+
+      return {
+        success: false,
+        message: `Connection failed: ${errorMessage}`,
+        latency,
+      };
+    }
+  }
+
+  /**
+   * Test connection to an embedding model
+   * Uses the embeddings API endpoint with 'input' parameter
+   */
+  private async testEmbeddingModel(
+    provider: string,
+    modelId: string,
+    apiKey: string,
+    apiEndpoint: string,
+    startTime: number,
+  ): Promise<{ success: boolean; message: string; latency?: number }> {
+    try {
+      const testInput = "Hello, this is a test.";
+      let response;
+
+      switch (provider.toLowerCase()) {
+        case "openai":
+        case "gpt":
+          response = await firstValueFrom(
+            this.httpService.post(
+              apiEndpoint || "https://api.openai.com/v1/embeddings",
+              {
+                model: modelId || "text-embedding-3-small",
+                input: testInput,
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${apiKey}`,
+                  "Content-Type": "application/json",
+                },
+                timeout: 30000,
+              },
+            ),
+          );
+
+          if (response.data?.data?.[0]?.embedding) {
+            const latency = Date.now() - startTime;
+            const dimensions = response.data.data[0].embedding.length;
+            return {
+              success: true,
+              message: `Embedding model connected! Dimensions: ${dimensions}`,
+              latency,
+            };
+          }
+          break;
+
+        case "cohere":
+          response = await firstValueFrom(
+            this.httpService.post(
+              apiEndpoint || "https://api.cohere.ai/v1/embed",
+              {
+                model: modelId || "embed-english-v3.0",
+                texts: [testInput],
+                input_type: "search_document",
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${apiKey}`,
+                  "Content-Type": "application/json",
+                },
+                timeout: 30000,
+              },
+            ),
+          );
+
+          if (response.data?.embeddings?.[0]) {
+            const latency = Date.now() - startTime;
+            const dimensions = response.data.embeddings[0].length;
+            return {
+              success: true,
+              message: `Embedding model connected! Dimensions: ${dimensions}`,
+              latency,
+            };
+          }
+          break;
+
+        case "google":
+        case "gemini":
+          const geminiEndpoint =
+            apiEndpoint ||
+            `https://generativelanguage.googleapis.com/v1beta/models/${modelId || "text-embedding-004"}:embedContent`;
+
+          response = await firstValueFrom(
+            this.httpService.post(
+              geminiEndpoint,
+              {
+                content: {
+                  parts: [{ text: testInput }],
+                },
+              },
+              {
+                headers: {
+                  "x-goog-api-key": apiKey,
+                  "Content-Type": "application/json",
+                },
+                timeout: 30000,
+              },
+            ),
+          );
+
+          if (response.data?.embedding?.values) {
+            const latency = Date.now() - startTime;
+            const dimensions = response.data.embedding.values.length;
+            return {
+              success: true,
+              message: `Embedding model connected! Dimensions: ${dimensions}`,
+              latency,
+            };
+          }
+          break;
+
+        default:
+          return {
+            success: false,
+            message: `Embedding not supported for provider: ${provider}`,
+            latency: Date.now() - startTime,
+          };
+      }
+
+      const latency = Date.now() - startTime;
+      return {
+        success: true,
+        message: `Embedding API responded successfully`,
+        latency,
+      };
+    } catch (error: any) {
+      const latency = Date.now() - startTime;
+      let errorMessage = "Unknown error";
+
+      if (error.response) {
+        const status = error.response.status;
+        const data = error.response.data;
+        errorMessage = `API Error (${status}): ${data?.error?.message || data?.message || JSON.stringify(data)}`;
+      } else if (error.code === "ECONNABORTED") {
+        errorMessage = "Connection timeout";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      this.logger.error(`Embedding model test failed: ${errorMessage}`);
+
+      return {
+        success: false,
+        message: `Connection failed: ${errorMessage}`,
+        latency,
+      };
+    }
+  }
+
+  /**
+   * Test connection to a rerank model
+   * Uses the rerank API endpoint
+   */
+  private async testRerankModel(
+    provider: string,
+    modelId: string,
+    apiKey: string,
+    apiEndpoint: string,
+    startTime: number,
+  ): Promise<{ success: boolean; message: string; latency?: number }> {
+    try {
+      const testQuery = "What is the capital of France?";
+      const testDocuments = [
+        "Paris is the capital of France.",
+        "London is the capital of UK.",
+      ];
+      let response;
+
+      switch (provider.toLowerCase()) {
+        case "cohere":
+          response = await firstValueFrom(
+            this.httpService.post(
+              apiEndpoint || "https://api.cohere.ai/v1/rerank",
+              {
+                model: modelId || "rerank-v3.5",
+                query: testQuery,
+                documents: testDocuments,
+                top_n: 2,
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${apiKey}`,
+                  "Content-Type": "application/json",
+                },
+                timeout: 30000,
+              },
+            ),
+          );
+
+          if (response.data?.results) {
+            const latency = Date.now() - startTime;
+            const topScore =
+              response.data.results[0]?.relevance_score?.toFixed(4) || "N/A";
+            return {
+              success: true,
+              message: `Rerank model connected! Top relevance score: ${topScore}`,
+              latency,
+            };
+          }
+          break;
+
+        default:
+          return {
+            success: false,
+            message: `Rerank not supported for provider: ${provider}. Supported: cohere`,
+            latency: Date.now() - startTime,
+          };
+      }
+
+      const latency = Date.now() - startTime;
+      return {
+        success: true,
+        message: `Rerank API responded successfully`,
+        latency,
+      };
+    } catch (error: any) {
+      const latency = Date.now() - startTime;
+      let errorMessage = "Unknown error";
+
+      if (error.response) {
+        const status = error.response.status;
+        const data = error.response.data;
+        errorMessage = `API Error (${status}): ${data?.error?.message || data?.message || JSON.stringify(data)}`;
+      } else if (error.code === "ECONNABORTED") {
+        errorMessage = "Connection timeout";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      this.logger.error(`Rerank model test failed: ${errorMessage}`);
 
       return {
         success: false,

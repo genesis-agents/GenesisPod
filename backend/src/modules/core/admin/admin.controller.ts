@@ -288,6 +288,7 @@ export class AdminController {
       model.modelId,
       apiKey,
       model.apiEndpoint,
+      model.modelType, // Pass modelType for special handling of EMBEDDING/RERANK
     );
 
     return {
