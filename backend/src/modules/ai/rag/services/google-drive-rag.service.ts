@@ -101,12 +101,28 @@ export class GoogleDriveRAGService {
       // Get individual files by ID
       for (const fileId of fileIds) {
         try {
+          this.logger.debug(`[getFileById] Fetching file: ${fileId}`);
           const fileMetadata = await this.getFileById(drive, fileId);
-          if (fileMetadata && this.isSupportedMimeType(fileMetadata.mimeType)) {
-            allFiles.push(fileMetadata);
+          if (!fileMetadata) {
+            this.logger.warn(
+              `[getFileById] File ${fileId} not found or inaccessible`,
+            );
+            continue;
           }
+          if (!this.isSupportedMimeType(fileMetadata.mimeType)) {
+            this.logger.warn(
+              `[getFileById] File ${fileId} (${fileMetadata.name}) has unsupported MIME type: ${fileMetadata.mimeType}`,
+            );
+            continue;
+          }
+          this.logger.debug(
+            `[getFileById] Successfully retrieved: ${fileMetadata.name} (${fileMetadata.mimeType})`,
+          );
+          allFiles.push(fileMetadata);
         } catch (error) {
-          this.logger.warn(`Failed to get file ${fileId}: ${error}`);
+          this.logger.error(
+            `[getFileById] Error fetching file ${fileId}: ${error instanceof Error ? error.message : String(error)}`,
+          );
         }
       }
 
@@ -162,13 +178,26 @@ export class GoogleDriveRAGService {
         }
       }
 
-      // Remove documents for deleted files
-      for (const [sourceId, docId] of existingDocIds) {
-        if (!processedSourceIds.has(sourceId!)) {
-          await this.prisma.knowledgeBaseDocument.delete({
-            where: { id: docId },
-          });
-          result.deleted++;
+      // SAFETY CHECK: Only remove documents if we successfully retrieved files from Google Drive
+      // If we got 0 files but have configured fileIds/folderIds, it's likely an API error
+      // Do NOT delete existing documents in this case to prevent data loss
+      const hasConfiguredSources = folderIds.length > 0 || fileIds.length > 0;
+      const retrievedNoFiles = allFiles.length === 0;
+
+      if (hasConfiguredSources && retrievedNoFiles) {
+        this.logger.warn(
+          `[SAFETY] Skipping document deletion: configured ${folderIds.length} folders and ${fileIds.length} files but retrieved 0 files from Google Drive. This may indicate an API error.`,
+        );
+      } else if (allFiles.length > 0) {
+        // Only delete documents for files that were explicitly removed from Google Drive
+        // (i.e., we successfully retrieved files but some existing docs are no longer present)
+        for (const [sourceId, docId] of existingDocIds) {
+          if (!processedSourceIds.has(sourceId!)) {
+            await this.prisma.knowledgeBaseDocument.delete({
+              where: { id: docId },
+            });
+            result.deleted++;
+          }
         }
       }
 
