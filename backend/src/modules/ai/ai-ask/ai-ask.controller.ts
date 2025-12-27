@@ -29,6 +29,8 @@ interface SendMessageDto {
   content: string;
   modelId?: string;
   webSearch?: boolean;
+  /** Knowledge base IDs for RAG query */
+  knowledgeBaseIds?: string[];
 }
 
 @Controller("ask/sessions")

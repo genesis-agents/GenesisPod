@@ -5,9 +5,10 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiCoreModule } from "../ai-core/ai-core.module";
 import { AiAgentsModule } from "../ai-agents/ai-agents.module";
 import { AskLLMAdapter } from "./adapters";
+import { RAGModule } from "../rag/rag.module";
 
 @Module({
-  imports: [PrismaModule, AiCoreModule, AiAgentsModule],
+  imports: [PrismaModule, AiCoreModule, AiAgentsModule, RAGModule],
   controllers: [AiAskController],
   providers: [AiAskService, AskLLMAdapter],
   exports: [AiAskService],

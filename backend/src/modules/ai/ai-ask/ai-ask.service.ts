@@ -9,6 +9,7 @@ import { AiChatService } from "../ai-core/ai-chat.service";
 import { AIModelType } from "@prisma/client";
 import { AgentOrchestrator, ToolType, ToolRegistry } from "../ai-agents/core";
 import { AskLLMAdapter } from "./adapters";
+import { RAGPipelineService } from "../rag/services/rag-pipeline.service";
 
 interface CreateSessionDto {
   title?: string;
@@ -24,6 +25,10 @@ interface SendMessageDto {
    * @default false
    */
   enableTools?: boolean;
+  /**
+   * 知识库 ID 列表，用于 RAG 查询
+   */
+  knowledgeBaseIds?: string[];
 }
 
 interface MessageWithContext {
@@ -51,6 +56,7 @@ export class AiAskService {
     @Optional() private readonly agentOrchestrator: AgentOrchestrator,
     @Optional() private readonly askLLMAdapter: AskLLMAdapter,
     @Optional() private readonly toolRegistry: ToolRegistry,
+    @Optional() private readonly ragPipelineService: RAGPipelineService,
   ) {}
 
   /**
@@ -241,6 +247,40 @@ export class AiAskService {
       let tokensUsed = 0;
       const toolsUsed: string[] = [];
 
+      // RAG 查询：如果指定了知识库，先进行 RAG 检索
+      let ragContext = "";
+      if (
+        dto.knowledgeBaseIds &&
+        dto.knowledgeBaseIds.length > 0 &&
+        this.ragPipelineService
+      ) {
+        try {
+          this.logger.log(
+            `[sendMessage] Performing RAG query for KBs: ${dto.knowledgeBaseIds.join(", ")}`,
+          );
+          const ragResponse = await this.ragPipelineService.query({
+            query: dto.content,
+            knowledgeBaseIds: dto.knowledgeBaseIds,
+            options: {
+              topK: 5,
+              useHyde: false, // 简化查询，加快速度
+              useRerank: false,
+              minScore: 0.3,
+            },
+          });
+
+          if (ragResponse.context && ragResponse.context.sources.length > 0) {
+            ragContext = ragResponse.context.text;
+            this.logger.log(
+              `[sendMessage] RAG context added (${ragResponse.context.sources.length} sources)`,
+            );
+          }
+        } catch (ragError) {
+          this.logger.warn(`[sendMessage] RAG query failed: ${ragError}`);
+          // RAG 失败不应阻止正常回复
+        }
+      }
+
       // 判断是否使用工具调用模式
       const useTools = dto.enableTools && this.isToolCapabilityAvailable();
 
@@ -258,8 +298,11 @@ export class AiAskService {
           apiEndpoint: modelConfig.apiEndpoint ?? undefined,
         });
 
-        // 构建系统提示词
-        const systemPrompt = this.buildSystemPromptWithContext(contextMessages);
+        // 构建系统提示词（包含 RAG 上下文）
+        const systemPrompt = this.buildSystemPromptWithContext(
+          contextMessages,
+          ragContext,
+        );
 
         // 执行自主模式
         const events = this.agentOrchestrator.executeAutonomous(
@@ -300,13 +343,24 @@ export class AiAskService {
         aiResponseContent = finalContent || "抱歉，我无法完成这个请求。";
       } else {
         // 使用传统模式（直接调用 AiChatService）
+        // 如果有 RAG 上下文，添加系统消息
+        const messagesWithRAG = ragContext
+          ? [
+              {
+                role: "system" as const,
+                content: this.buildSystemPromptForRAG(ragContext),
+              },
+              ...contextMessages,
+            ]
+          : contextMessages;
+
         const aiResponse =
           await this.aiChatService.generateChatCompletionWithKey({
             provider: modelConfig.provider,
             modelId: modelConfig.modelId,
             apiKey: modelConfig.apiKey ?? "",
             apiEndpoint: modelConfig.apiEndpoint ?? undefined,
-            messages: contextMessages,
+            messages: messagesWithRAG,
             maxTokens: 4000,
             temperature: 0.7,
           });
@@ -318,6 +372,11 @@ export class AiAskService {
       let responseContent = aiResponseContent;
       if (toolsUsed.length > 0) {
         responseContent += `\n\n---\n*使用了工具: ${toolsUsed.join(", ")}*`;
+      }
+
+      // 如果使用了 RAG，添加来源引用
+      if (ragContext) {
+        responseContent += `\n\n---\n📚 *回答基于知识库内容*`;
       }
 
       const assistantMessage = await this.prisma.askMessage.create({
@@ -381,12 +440,24 @@ export class AiAskService {
    */
   private buildSystemPromptWithContext(
     contextMessages: MessageWithContext[],
+    ragContext?: string,
   ): string {
     const systemParts = [
       "你是一个智能助手，可以帮助用户回答问题、搜索信息和完成各种任务。",
       "请用中文回答，除非用户明确要求使用其他语言。",
       "回答要准确、简洁、有帮助。",
     ];
+
+    // 如果有 RAG 上下文，添加知识库内容
+    if (ragContext) {
+      systemParts.push(
+        "\n## 参考知识库内容\n以下是从知识库检索到的相关内容，请基于这些内容回答用户问题：",
+      );
+      systemParts.push(ragContext);
+      systemParts.push(
+        "\n请基于上述知识库内容回答问题。如果内容不相关，可以结合自身知识回答。",
+      );
+    }
 
     // 如果有对话历史，添加上下文
     if (contextMessages.length > 1) {
@@ -404,6 +475,23 @@ export class AiAskService {
     }
 
     return systemParts.join("\n");
+  }
+
+  /**
+   * 构建 RAG 系统提示词
+   */
+  private buildSystemPromptForRAG(ragContext: string): string {
+    return `你是一个智能助手。以下是从用户知识库中检索到的相关内容，请基于这些内容回答用户的问题。
+
+## 参考知识库内容
+${ragContext}
+
+## 回答要求
+1. 优先使用知识库中的内容来回答问题
+2. 如果知识库内容与问题相关，请基于这些内容给出准确答案
+3. 如果知识库内容不足以回答问题，可以结合你自身的知识进行补充
+4. 请用中文回答，除非用户明确要求使用其他语言
+5. 回答要准确、简洁、有帮助`;
   }
 
   /**

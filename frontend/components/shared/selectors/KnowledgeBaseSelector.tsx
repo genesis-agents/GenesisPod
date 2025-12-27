@@ -129,6 +129,13 @@ export default function KnowledgeBaseSelector({
     [onSelectionChange]
   );
 
+  // Refresh list when dropdown opens
+  useEffect(() => {
+    if (isOpen) {
+      refreshList();
+    }
+  }, [isOpen, refreshList]);
+
   // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
