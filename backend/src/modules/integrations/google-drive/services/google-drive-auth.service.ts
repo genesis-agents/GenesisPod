@@ -265,7 +265,7 @@ export class GoogleDriveAuthService {
   }
 
   /**
-   * 获取连接信息
+   * 获取连接信息（自动验证并刷新 token）
    */
   async getConnection(userId: string) {
     const connection = await this.prisma.googleDriveConnection.findFirst({
@@ -281,6 +281,8 @@ export class GoogleDriveAuthService {
         storageLimit: true,
         storageUsage: true,
         createdAt: true,
+        tokenExpiry: true,
+        refreshToken: true,
         _count: {
           select: {
             syncHistory: true,
@@ -293,11 +295,63 @@ export class GoogleDriveAuthService {
       return null;
     }
 
+    // 如果连接状态是 ACTIVE，检查 token 是否过期并尝试刷新
+    if (connection.status === GoogleDriveConnectionStatus.ACTIVE) {
+      const now = new Date();
+      const isExpired = connection.tokenExpiry && connection.tokenExpiry <= now;
+
+      if (isExpired && connection.refreshToken) {
+        this.logger.log(
+          `Token expired for user ${userId}, attempting refresh...`,
+        );
+        try {
+          await this.refreshAccessToken(connection.id);
+          this.logger.log(`Token refreshed successfully for user ${userId}`);
+        } catch (error) {
+          this.logger.warn(`Token refresh failed for user ${userId}: ${error}`);
+          // refreshAccessToken 已经更新了状态为 ERROR，重新获取最新状态
+          const updatedConnection =
+            await this.prisma.googleDriveConnection.findFirst({
+              where: { userId },
+              select: {
+                id: true,
+                email: true,
+                displayName: true,
+                photoUrl: true,
+                status: true,
+                lastSyncAt: true,
+                lastError: true,
+                storageLimit: true,
+                storageUsage: true,
+                createdAt: true,
+                _count: {
+                  select: {
+                    syncHistory: true,
+                  },
+                },
+              },
+            });
+
+          if (updatedConnection) {
+            return {
+              ...updatedConnection,
+              name: updatedConnection.displayName,
+              picture: updatedConnection.photoUrl,
+              syncHistoryCount: updatedConnection._count.syncHistory,
+              _count: undefined,
+            };
+          }
+        }
+      }
+    }
+
     return {
       ...connection,
       name: connection.displayName,
       picture: connection.photoUrl,
       syncHistoryCount: connection._count.syncHistory,
+      tokenExpiry: undefined,
+      refreshToken: undefined,
       _count: undefined,
     };
   }

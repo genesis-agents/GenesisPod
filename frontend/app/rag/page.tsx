@@ -10,7 +10,15 @@ import {
   Search,
   Settings,
   Pencil,
+  ArrowLeft,
+  Calendar,
+  User,
+  Users,
+  Layers,
+  Hash,
+  Mail,
 } from 'lucide-react';
+import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import {
   useKnowledgeBase,
@@ -120,6 +128,14 @@ export default function RAGPage() {
         {/* 左侧：知识库列表 */}
         <div className="w-80 flex-shrink-0 border-r border-gray-200 bg-gray-50">
           <div className="p-4">
+            {/* 返回按钮 */}
+            <Link
+              href="/library"
+              className="mb-3 flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              返回资源库
+            </Link>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">知识库</h2>
               <button

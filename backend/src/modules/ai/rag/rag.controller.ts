@@ -209,6 +209,60 @@ export class RAGController {
     return this.googleDriveRAGService.listFolders(req.user.id, parentId);
   }
 
+  // ==================== Member Management (Team Knowledge Base) ====================
+
+  @Get("knowledge-bases/:id/members")
+  @ApiOperation({ summary: "Get knowledge base members" })
+  @ApiResponse({ status: 200, description: "List of members" })
+  async getMembers(@Req() req: any, @Param("id") id: string) {
+    return this.knowledgeBaseService.getMembers(id, req.user.id);
+  }
+
+  @Post("knowledge-bases/:id/members")
+  @ApiOperation({ summary: "Add a member to knowledge base" })
+  @ApiResponse({ status: 201, description: "Member added" })
+  async addMember(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() dto: { email: string; role?: "ADMIN" | "EDITOR" | "VIEWER" },
+  ) {
+    return this.knowledgeBaseService.addMember(
+      id,
+      req.user.id,
+      dto.email,
+      dto.role,
+    );
+  }
+
+  @Patch("knowledge-bases/:id/members/:memberId")
+  @ApiOperation({ summary: "Update member role" })
+  @ApiResponse({ status: 200, description: "Member role updated" })
+  async updateMemberRole(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Param("memberId") memberId: string,
+    @Body() dto: { role: "ADMIN" | "EDITOR" | "VIEWER" },
+  ) {
+    return this.knowledgeBaseService.updateMemberRole(
+      id,
+      req.user.id,
+      memberId,
+      dto.role,
+    );
+  }
+
+  @Delete("knowledge-bases/:id/members/:memberId")
+  @ApiOperation({ summary: "Remove a member from knowledge base" })
+  @ApiResponse({ status: 200, description: "Member removed" })
+  async removeMember(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Param("memberId") memberId: string,
+  ) {
+    await this.knowledgeBaseService.removeMember(id, req.user.id, memberId);
+    return { success: true };
+  }
+
   // ==================== Query Endpoints ====================
 
   @Post("query")

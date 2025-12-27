@@ -117,7 +117,8 @@ model User {
   googleDriveConnection GoogleDriveConnection?
 
   // RAG 知识库
-  knowledgeBases KnowledgeBase[]
+  knowledgeBases       KnowledgeBase[]
+  knowledgeBaseMemberships KnowledgeBaseMember[]
 
   // 用户数据源连接 (用于知识库)
   userDataSources UserDataSource[]
@@ -4240,6 +4241,9 @@ model KnowledgeBase {
   // Relations - 数据源 (多对多)
   sources KnowledgeBaseSource[]
 
+  // Relations - 成员 (团队知识库)
+  members KnowledgeBaseMember[]
+
   // Relations - 被其他模块引用
   askSessions      AskSessionKnowledgeBase[]
   researchProjects ResearchProjectKnowledgeBase[]
@@ -4252,6 +4256,36 @@ model KnowledgeBase {
   @@index([teamId])
   @@index([googleDriveConnectionId])
   @@map("knowledge_bases")
+}
+
+// 知识库成员角色
+enum KnowledgeBaseMemberRole {
+  OWNER  // 所有者，完全控制权
+  ADMIN  // 管理员，可管理成员和内容
+  EDITOR // 编辑者，可编辑内容
+  VIEWER // 查看者，只读权限
+}
+
+// 团队知识库成员
+model KnowledgeBaseMember {
+  id String @id @default(uuid())
+
+  knowledgeBaseId String        @map("knowledge_base_id")
+  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role KnowledgeBaseMemberRole @default(VIEWER)
+
+  // 时间戳
+  joinedAt  DateTime @default(now()) @map("joined_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([knowledgeBaseId, userId])
+  @@index([knowledgeBaseId])
+  @@index([userId])
+  @@map("knowledge_base_members")
 }
 
 model KnowledgeBaseDocument {

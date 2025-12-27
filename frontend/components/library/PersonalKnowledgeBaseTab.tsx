@@ -1,17 +1,21 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import {
   Plus,
   FileText,
   RefreshCw,
-  ExternalLink,
   Loader2,
   User,
   Pencil,
   Trash2,
   MoreVertical,
+  X,
+  Calendar,
+  Search,
+  Layers,
+  Hash,
+  ChevronRight,
 } from 'lucide-react';
 import {
   useKnowledgeBase,
@@ -31,6 +35,7 @@ export default function PersonalKnowledgeBaseTab() {
   const [deletingKbId, setDeletingKbId] = useState<string | null>(null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [expandedKbId, setExpandedKbId] = useState<string | null>(null); // 展开的知识库ID
 
   const {
     knowledgeBases,
@@ -41,6 +46,18 @@ export default function PersonalKnowledgeBaseTab() {
     deleteKnowledgeBase,
     refreshList,
   } = useKnowledgeBase();
+
+  // 获取展开的知识库详情
+  const {
+    knowledgeBase: expandedKb,
+    stats: expandedStats,
+    loading: expandedLoading,
+    syncing,
+    processing,
+    syncGoogleDrive,
+    processDocuments,
+    refresh: refreshExpanded,
+  } = useKnowledgeBaseDetail(expandedKbId);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -344,7 +361,12 @@ export default function PersonalKnowledgeBaseTab() {
               </div>
             </div>
 
-            <Link href={`/rag?kb=${kb.id}`} className="block">
+            <button
+              onClick={() =>
+                setExpandedKbId(expandedKbId === kb.id ? null : kb.id)
+              }
+              className="block w-full text-left"
+            >
               <div className="flex items-start justify-between pr-8">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 text-lg">
@@ -380,9 +402,136 @@ export default function PersonalKnowledgeBaseTab() {
                     {kb._count?.documents ?? 0} 文档
                   </span>
                 </div>
-                <ExternalLink className="h-4 w-4 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100" />
+                <ChevronRight
+                  className={`h-4 w-4 text-gray-400 transition-transform ${expandedKbId === kb.id ? 'rotate-90' : ''}`}
+                />
               </div>
-            </Link>
+            </button>
+
+            {/* 展开的详情面板 */}
+            {expandedKbId === kb.id && (
+              <div className="mt-4 border-t border-gray-200 pt-4">
+                {expandedLoading ? (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                  </div>
+                ) : expandedKb ? (
+                  <div className="space-y-4">
+                    {/* 统计信息 */}
+                    {expandedStats && (
+                      <div className="grid grid-cols-4 gap-2">
+                        <div className="rounded-lg bg-blue-50 p-3 text-center">
+                          <p className="text-lg font-bold text-blue-700">
+                            {expandedStats.documentCount}
+                          </p>
+                          <p className="text-xs text-blue-600">文档</p>
+                        </div>
+                        <div className="rounded-lg bg-green-50 p-3 text-center">
+                          <p className="text-lg font-bold text-green-700">
+                            {expandedStats.parentChunkCount +
+                              expandedStats.childChunkCount}
+                          </p>
+                          <p className="text-xs text-green-600">分块</p>
+                        </div>
+                        <div className="rounded-lg bg-purple-50 p-3 text-center">
+                          <p className="text-lg font-bold text-purple-700">
+                            {expandedStats.childChunkCount}
+                          </p>
+                          <p className="text-xs text-purple-600">向量</p>
+                        </div>
+                        <div className="rounded-lg bg-orange-50 p-3 text-center">
+                          <p className="text-lg font-bold text-orange-700">
+                            {(expandedStats.totalTokens / 1000).toFixed(1)}k
+                          </p>
+                          <p className="text-xs text-orange-600">Tokens</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 详细信息 */}
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Calendar className="h-4 w-4 text-gray-400" />
+                        <span>
+                          创建:{' '}
+                          {new Date(expandedKb.createdAt).toLocaleDateString(
+                            'zh-CN'
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Calendar className="h-4 w-4 text-gray-400" />
+                        <span>
+                          更新:{' '}
+                          {new Date(expandedKb.updatedAt).toLocaleDateString(
+                            'zh-CN'
+                          )}
+                        </span>
+                      </div>
+                      {expandedKb.lastSyncedAt && (
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <RefreshCw className="h-4 w-4 text-gray-400" />
+                          <span>
+                            同步:{' '}
+                            {new Date(
+                              expandedKb.lastSyncedAt
+                            ).toLocaleDateString('zh-CN')}
+                          </span>
+                        </div>
+                      )}
+                      {expandedKb.googleDriveConnectionId && (
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <User className="h-4 w-4 text-gray-400" />
+                          <span>Google Drive 已连接</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 操作按钮 */}
+                    <div className="flex items-center gap-2 pt-2">
+                      {expandedKb.sourceType === 'GOOGLE_DRIVE' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            syncGoogleDrive();
+                          }}
+                          disabled={syncing}
+                          className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          <RefreshCw
+                            className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`}
+                          />
+                          {syncing ? '同步中...' : '同步'}
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          processDocuments();
+                        }}
+                        disabled={processing}
+                        className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        <Layers
+                          className={`h-4 w-4 ${processing ? 'animate-spin' : ''}`}
+                        />
+                        {processing ? '处理中...' : '向量化'}
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingKbId(kb.id);
+                        }}
+                        className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                      >
+                        <Pencil className="h-4 w-4" />
+                        编辑
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            )}
           </div>
         ))}
       </div>

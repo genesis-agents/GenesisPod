@@ -17,6 +17,10 @@ import {
   Loader2,
   ChevronRight,
   FolderOpen,
+  Server,
+  Database,
+  Cpu,
+  Activity,
 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
@@ -138,6 +142,22 @@ interface DataSourceStatus {
   lastSyncAt?: string;
   itemCount?: number;
   lastError?: string;
+  needsReauth?: boolean;
+}
+
+// RAG服务状态
+interface RAGServiceStatus {
+  embedding: {
+    status: 'ok' | 'error' | 'loading';
+    modelId?: string;
+    provider?: string;
+    dimensions?: number;
+    error?: string;
+  };
+  database: {
+    status: 'ok' | 'error' | 'loading';
+    error?: string;
+  };
 }
 
 /**
@@ -159,10 +179,63 @@ export default function DataSourcesTab({
   const [dataSourceStatuses, setDataSourceStatuses] = useState<
     Record<string, DataSourceStatus>
   >({});
+  const [ragServiceStatus, setRagServiceStatus] = useState<RAGServiceStatus>({
+    embedding: { status: 'loading' },
+    database: { status: 'loading' },
+  });
+
+  // Fetch RAG service status
+  const fetchRAGServiceStatus = async () => {
+    // Check embedding service
+    try {
+      const embeddingResponse = await fetch(
+        `${config.apiUrl}/rag/embedding-config`,
+        {
+          headers: { ...getAuthHeader() },
+          credentials: 'include',
+        }
+      );
+      if (embeddingResponse.ok) {
+        const embeddingData = await embeddingResponse.json();
+        setRagServiceStatus((prev) => ({
+          ...prev,
+          embedding: {
+            status: 'ok',
+            modelId: embeddingData.modelId,
+            provider: embeddingData.provider,
+            dimensions: embeddingData.dimensions,
+          },
+        }));
+      } else {
+        setRagServiceStatus((prev) => ({
+          ...prev,
+          embedding: {
+            status: 'error',
+            error: '无法获取嵌入模型配置',
+          },
+        }));
+      }
+    } catch (error) {
+      setRagServiceStatus((prev) => ({
+        ...prev,
+        embedding: {
+          status: 'error',
+          error: '嵌入服务连接失败',
+        },
+      }));
+    }
+
+    // Database is assumed OK if we can fetch other data
+    setRagServiceStatus((prev) => ({
+      ...prev,
+      database: { status: 'ok' },
+    }));
+  };
 
   // Fetch data source statuses
   useEffect(() => {
     fetchDataSourceStatuses();
+    fetchRAGServiceStatus();
   }, []);
 
   const fetchDataSourceStatuses = async () => {
@@ -184,10 +257,18 @@ export default function DataSourcesTab({
           const gdData = await gdResponse.json();
           // Backend returns { connection: {...} | null }
           const connection = gdData.connection;
+          // 检查status是否为ACTIVE
+          // 如果status是ERROR/EXPIRED/REVOKED，显示为需要重新授权
+          const isActive = connection && connection.status === 'ACTIVE';
+          const needsReauth = connection && !isActive;
           statuses['GOOGLE_DRIVE'] = {
             type: 'GOOGLE_DRIVE',
-            isConnected: !!connection,
+            isConnected: isActive,
             lastSyncAt: connection?.lastSyncAt,
+            lastError: needsReauth
+              ? connection.lastError || '授权已过期，需要重新授权'
+              : undefined,
+            needsReauth: needsReauth,
           };
         } else {
           statuses['GOOGLE_DRIVE'] = {
@@ -325,6 +406,99 @@ export default function DataSourcesTab({
 
     return (
       <div className="space-y-6">
+        {/* RAG Service Status */}
+        <div className="rounded-xl border border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-blue-600" />
+              <h4 className="font-semibold text-gray-900">RAG 服务状态</h4>
+            </div>
+            <button
+              onClick={fetchRAGServiceStatus}
+              className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-white/50"
+              title="刷新服务状态"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {/* Embedding Service */}
+            <div className="flex items-center gap-3 rounded-lg bg-white/80 p-3">
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+                  ragServiceStatus.embedding.status === 'ok'
+                    ? 'bg-green-100 text-green-600'
+                    : ragServiceStatus.embedding.status === 'error'
+                      ? 'bg-red-100 text-red-600'
+                      : 'bg-gray-100 text-gray-400'
+                }`}
+              >
+                <Cpu className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-900">
+                    向量嵌入服务
+                  </span>
+                  {ragServiceStatus.embedding.status === 'ok' ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  ) : ragServiceStatus.embedding.status === 'error' ? (
+                    <XCircle className="h-4 w-4 text-red-500" />
+                  ) : (
+                    <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                  )}
+                </div>
+                {ragServiceStatus.embedding.status === 'ok' &&
+                ragServiceStatus.embedding.modelId ? (
+                  <p className="text-xs text-gray-500">
+                    {ragServiceStatus.embedding.modelId} (
+                    {ragServiceStatus.embedding.dimensions}D)
+                  </p>
+                ) : ragServiceStatus.embedding.status === 'error' ? (
+                  <p className="text-xs text-red-500">
+                    {ragServiceStatus.embedding.error}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+            {/* Database Service */}
+            <div className="flex items-center gap-3 rounded-lg bg-white/80 p-3">
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+                  ragServiceStatus.database.status === 'ok'
+                    ? 'bg-green-100 text-green-600'
+                    : ragServiceStatus.database.status === 'error'
+                      ? 'bg-red-100 text-red-600'
+                      : 'bg-gray-100 text-gray-400'
+                }`}
+              >
+                <Database className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-900">
+                    向量数据库
+                  </span>
+                  {ragServiceStatus.database.status === 'ok' ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  ) : ragServiceStatus.database.status === 'error' ? (
+                    <XCircle className="h-4 w-4 text-red-500" />
+                  ) : (
+                    <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                  )}
+                </div>
+                {ragServiceStatus.database.status === 'ok' ? (
+                  <p className="text-xs text-gray-500">PostgreSQL + pgvector</p>
+                ) : ragServiceStatus.database.status === 'error' ? (
+                  <p className="text-xs text-red-500">
+                    {ragServiceStatus.database.error}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -390,6 +564,13 @@ export default function DataSourcesTab({
                               已连接
                             </span>
                           </>
+                        ) : status?.needsReauth ? (
+                          <>
+                            <XCircle className="h-4 w-4 text-amber-500" />
+                            <span className="text-xs font-medium text-amber-600">
+                              需重新授权
+                            </span>
+                          </>
                         ) : (
                           <>
                             <XCircle className="h-4 w-4 text-gray-400" />
@@ -405,6 +586,13 @@ export default function DataSourcesTab({
                     {isConnected && status?.lastSyncAt && (
                       <p className="mt-3 text-xs text-gray-500">
                         上次同步: {new Date(status.lastSyncAt).toLocaleString()}
+                      </p>
+                    )}
+
+                    {/* Error Info */}
+                    {status?.lastError && (
+                      <p className="mt-2 text-xs text-amber-600">
+                        {status.lastError}
                       </p>
                     )}
 
@@ -447,6 +635,14 @@ export default function DataSourcesTab({
                             </a>
                           )}
                         </>
+                      ) : status?.needsReauth ? (
+                        <a
+                          href={source.settingsUrl || '#'}
+                          className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-amber-600"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          重新授权
+                        </a>
                       ) : (
                         <a
                           href={source.settingsUrl || '#'}

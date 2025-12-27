@@ -1596,7 +1596,7 @@ function LibraryPageContent() {
                         </svg>
                       </button>
                     )}
-                    {/* View Graph button - 切换到 Graph Tab */}
+                    {/* 知识图谱按钮暂时屏蔽
                     <button
                       onClick={() => setActiveTab('graph')}
                       className={`flex items-center gap-1.5 rounded border px-3 py-2 text-xs font-medium transition-all ${
@@ -1621,6 +1621,7 @@ function LibraryPageContent() {
                       </svg>
                       {t('library.tabs.graph')}
                     </button>
+                    */}
                   </div>
                 </div>
               </div>
@@ -1662,6 +1663,7 @@ function LibraryPageContent() {
                 <HardDrive className="h-4 w-4" />
                 数据源
               </button>
+              {/* 知识图谱功能暂时屏蔽，待完善后开放
               <button
                 onClick={() => setActiveTab('graph')}
                 className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
@@ -1673,6 +1675,7 @@ function LibraryPageContent() {
                 <Share2 className="h-4 w-4" />
                 知识图谱
               </button>
+              */}
             </div>
           </div>
         </div>

@@ -1,12 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import {
   Plus,
   FileText,
   RefreshCw,
-  ExternalLink,
   Loader2,
   Users,
   Lock,
@@ -14,6 +12,10 @@ import {
   Trash2,
   MoreVertical,
   UserPlus,
+  Calendar,
+  Layers,
+  ChevronRight,
+  User,
 } from 'lucide-react';
 import {
   useKnowledgeBase,
@@ -22,6 +24,7 @@ import {
 } from '@/hooks/domain/useKnowledgeBase';
 import CreateKnowledgeBaseDialog from './CreateKnowledgeBaseDialog';
 import EditKnowledgeBaseDialog from './EditKnowledgeBaseDialog';
+import MemberManagementDialog from './MemberManagementDialog';
 
 /**
  * 团队知识库 TAB
@@ -36,6 +39,7 @@ export default function TeamKnowledgeBaseTab() {
     null
   );
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [expandedKbId, setExpandedKbId] = useState<string | null>(null); // 展开的知识库ID
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -74,6 +78,18 @@ export default function TeamKnowledgeBaseTab() {
 
   // Get detail hook for editing
   const editingKbDetail = useKnowledgeBaseDetail(editingKbId || '');
+
+  // 获取展开的知识库详情
+  const {
+    knowledgeBase: expandedKb,
+    stats: expandedStats,
+    loading: expandedLoading,
+    syncing,
+    processing,
+    syncGoogleDrive,
+    processDocuments,
+    refresh: refreshExpanded,
+  } = useKnowledgeBaseDetail(expandedKbId);
 
   const handleDelete = async (kbId: string) => {
     try {
@@ -364,7 +380,12 @@ export default function TeamKnowledgeBaseTab() {
               </div>
             </div>
 
-            <Link href={`/rag?kb=${kb.id}`} className="block">
+            <button
+              onClick={() =>
+                setExpandedKbId(expandedKbId === kb.id ? null : kb.id)
+              }
+              className="block w-full text-left"
+            >
               <div className="flex items-start justify-between pr-8">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-purple-50 to-pink-50 text-lg">
@@ -404,9 +425,146 @@ export default function TeamKnowledgeBaseTab() {
                     团队
                   </span>
                 </div>
-                <ExternalLink className="h-4 w-4 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100" />
+                <ChevronRight
+                  className={`h-4 w-4 text-gray-400 transition-transform ${expandedKbId === kb.id ? 'rotate-90' : ''}`}
+                />
               </div>
-            </Link>
+            </button>
+
+            {/* 展开的详情面板 */}
+            {expandedKbId === kb.id && (
+              <div className="mt-4 border-t border-gray-200 pt-4">
+                {expandedLoading ? (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
+                  </div>
+                ) : expandedKb ? (
+                  <div className="space-y-4">
+                    {/* 统计信息 */}
+                    {expandedStats && (
+                      <div className="grid grid-cols-4 gap-2">
+                        <div className="rounded-lg bg-purple-50 p-3 text-center">
+                          <p className="text-lg font-bold text-purple-700">
+                            {expandedStats.documentCount}
+                          </p>
+                          <p className="text-xs text-purple-600">文档</p>
+                        </div>
+                        <div className="rounded-lg bg-pink-50 p-3 text-center">
+                          <p className="text-lg font-bold text-pink-700">
+                            {expandedStats.parentChunkCount +
+                              expandedStats.childChunkCount}
+                          </p>
+                          <p className="text-xs text-pink-600">分块</p>
+                        </div>
+                        <div className="rounded-lg bg-indigo-50 p-3 text-center">
+                          <p className="text-lg font-bold text-indigo-700">
+                            {expandedStats.childChunkCount}
+                          </p>
+                          <p className="text-xs text-indigo-600">向量</p>
+                        </div>
+                        <div className="rounded-lg bg-fuchsia-50 p-3 text-center">
+                          <p className="text-lg font-bold text-fuchsia-700">
+                            {(expandedStats.totalTokens / 1000).toFixed(1)}k
+                          </p>
+                          <p className="text-xs text-fuchsia-600">Tokens</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 详细信息 */}
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Calendar className="h-4 w-4 text-gray-400" />
+                        <span>
+                          创建:{' '}
+                          {new Date(expandedKb.createdAt).toLocaleDateString(
+                            'zh-CN'
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Calendar className="h-4 w-4 text-gray-400" />
+                        <span>
+                          更新:{' '}
+                          {new Date(expandedKb.updatedAt).toLocaleDateString(
+                            'zh-CN'
+                          )}
+                        </span>
+                      </div>
+                      {expandedKb.lastSyncedAt && (
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <RefreshCw className="h-4 w-4 text-gray-400" />
+                          <span>
+                            同步:{' '}
+                            {new Date(
+                              expandedKb.lastSyncedAt
+                            ).toLocaleDateString('zh-CN')}
+                          </span>
+                        </div>
+                      )}
+                      {expandedKb.googleDriveConnectionId && (
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <User className="h-4 w-4 text-gray-400" />
+                          <span>Google Drive 已连接</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 操作按钮 */}
+                    <div className="flex items-center gap-2 pt-2">
+                      {expandedKb.sourceType === 'GOOGLE_DRIVE' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            syncGoogleDrive();
+                          }}
+                          disabled={syncing}
+                          className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          <RefreshCw
+                            className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`}
+                          />
+                          {syncing ? '同步中...' : '同步'}
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          processDocuments();
+                        }}
+                        disabled={processing}
+                        className="flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-700 disabled:opacity-50"
+                      >
+                        <Layers
+                          className={`h-4 w-4 ${processing ? 'animate-spin' : ''}`}
+                        />
+                        {processing ? '处理中...' : '向量化'}
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setManagingMembersKbId(kb.id);
+                        }}
+                        className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                      >
+                        <UserPlus className="h-4 w-4" />
+                        成员管理
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingKbId(kb.id);
+                        }}
+                        className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                      >
+                        <Pencil className="h-4 w-4" />
+                        编辑
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -467,24 +625,16 @@ export default function TeamKnowledgeBaseTab() {
         </div>
       )}
 
-      {/* Member Management Dialog - Placeholder */}
+      {/* Member Management Dialog */}
       {managingMembersKbId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900">成员管理</h3>
-            <p className="mt-2 text-gray-600">
-              团队成员管理功能正在开发中，敬请期待。
-            </p>
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={() => setManagingMembersKbId(null)}
-                className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700"
-              >
-                关闭
-              </button>
-            </div>
-          </div>
-        </div>
+        <MemberManagementDialog
+          knowledgeBaseId={managingMembersKbId}
+          knowledgeBaseName={
+            teamKBs.find((kb: KnowledgeBase) => kb.id === managingMembersKbId)
+              ?.name || ''
+          }
+          onClose={() => setManagingMembersKbId(null)}
+        />
       )}
 
       {/* Click outside to close menu */}

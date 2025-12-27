@@ -13,9 +13,13 @@ import {
   Max,
   IsUrl,
   IsUUID,
+  IsIn,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { KnowledgeBaseSourceType } from "@prisma/client";
+
+// Knowledge base type enum
+export type KnowledgeBaseType = "PERSONAL" | "TEAM";
 
 // ==================== Knowledge Base DTOs ====================
 
@@ -62,6 +66,22 @@ export class CreateKnowledgeBaseDto {
   @IsArray()
   @IsString({ each: true })
   googleDriveFolderIds?: string[];
+
+  @ApiPropertyOptional({
+    description: "Knowledge base type (PERSONAL or TEAM)",
+    enum: ["PERSONAL", "TEAM"],
+    default: "PERSONAL",
+  })
+  @IsOptional()
+  @IsIn(["PERSONAL", "TEAM"])
+  type?: KnowledgeBaseType;
+
+  @ApiPropertyOptional({
+    description: "Team ID (required for TEAM type)",
+  })
+  @IsOptional()
+  @IsUUID()
+  teamId?: string;
 }
 
 export class UpdateKnowledgeBaseDto {

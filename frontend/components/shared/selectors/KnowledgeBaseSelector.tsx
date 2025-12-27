@@ -163,22 +163,20 @@ export default function KnowledgeBaseSelector({
           type="button"
           onClick={() => !disabled && setIsOpen(!isOpen)}
           disabled={disabled}
-          className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+          className={`flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm transition-colors ${
             selectedIds.length > 0
-              ? 'border-blue-300 bg-blue-50 text-blue-700'
-              : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+              ? 'text-blue-600 hover:bg-blue-50'
+              : 'text-gray-500 hover:bg-gray-100'
           } ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
         >
           <Database className="h-4 w-4" />
           {selectedIds.length > 0 ? (
-            <span>
-              {t('knowledgeBase.kbCount', { count: selectedIds.length })}
-            </span>
+            <span className="whitespace-nowrap">{selectedIds.length}</span>
           ) : (
-            <span>{displayPlaceholder}</span>
+            <span className="whitespace-nowrap">{displayPlaceholder}</span>
           )}
           <ChevronDown
-            className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+            className={`h-3.5 w-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`}
           />
         </button>
 

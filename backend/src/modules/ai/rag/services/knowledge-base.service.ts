@@ -17,6 +17,8 @@ export interface CreateKnowledgeBaseInput {
   sourceTypes?: string[]; // 多数据源类型
   googleDriveConnectionId?: string;
   googleDriveFolderIds?: string[];
+  type?: "PERSONAL" | "TEAM"; // 知识库类型
+  teamId?: string; // 团队ID（团队知识库时必需）
 }
 
 export interface AddDocumentInput {
@@ -82,10 +84,16 @@ export class KnowledgeBaseService {
         sourceTypes, // 多数据源类型数组
         status: KnowledgeBaseStatus.PENDING,
         userId,
+        type: input.type || "PERSONAL", // 默认为个人知识库
+        teamId: input.teamId,
         googleDriveConnectionId,
         googleDriveFolderIds: input.googleDriveFolderIds || [],
       },
     });
+
+    this.logger.log(
+      `Knowledge base created: ${kb.id}, type: ${kb.type}, teamId: ${kb.teamId}`,
+    );
 
     return kb;
   }
@@ -387,5 +395,265 @@ export class KnowledgeBaseService {
     ]);
 
     this.logger.log(`Deleted document ${documentId}`);
+  }
+
+  // ============ 成员管理 (团队知识库) ============
+
+  /**
+   * 获取知识库成员列表
+   */
+  async getMembers(knowledgeBaseId: string, requesterId: string) {
+    // 验证请求者有权限查看
+    const kb = await this.prisma.knowledgeBase.findFirst({
+      where: { id: knowledgeBaseId },
+      select: { userId: true, type: true },
+    });
+
+    if (!kb) {
+      throw new NotFoundException("Knowledge base not found");
+    }
+
+    // 只有所有者或成员可以查看成员列表
+    const isOwner = kb.userId === requesterId;
+    const isMember = await this.prisma.knowledgeBaseMember.findFirst({
+      where: { knowledgeBaseId, userId: requesterId },
+    });
+
+    if (!isOwner && !isMember) {
+      throw new NotFoundException("Knowledge base not found");
+    }
+
+    return this.prisma.knowledgeBaseMember.findMany({
+      where: { knowledgeBaseId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+            avatarUrl: true,
+          },
+        },
+      },
+      orderBy: [{ role: "asc" }, { joinedAt: "asc" }],
+    });
+  }
+
+  /**
+   * 添加成员到知识库
+   */
+  async addMember(
+    knowledgeBaseId: string,
+    requesterId: string,
+    memberEmail: string,
+    role: "ADMIN" | "EDITOR" | "VIEWER" = "VIEWER",
+  ) {
+    // 验证请求者是所有者或管理员
+    const kb = await this.prisma.knowledgeBase.findFirst({
+      where: { id: knowledgeBaseId },
+      select: { userId: true, type: true },
+    });
+
+    if (!kb) {
+      throw new NotFoundException("Knowledge base not found");
+    }
+
+    const isOwner = kb.userId === requesterId;
+    const requesterMembership = await this.prisma.knowledgeBaseMember.findFirst(
+      {
+        where: { knowledgeBaseId, userId: requesterId, role: "ADMIN" },
+      },
+    );
+
+    if (!isOwner && !requesterMembership) {
+      throw new Error("You do not have permission to add members");
+    }
+
+    // 查找用户
+    const user = await this.prisma.user.findFirst({
+      where: { email: memberEmail },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with email ${memberEmail} not found`);
+    }
+
+    // 检查是否已是成员
+    const existingMember = await this.prisma.knowledgeBaseMember.findFirst({
+      where: { knowledgeBaseId, userId: user.id },
+    });
+
+    if (existingMember) {
+      throw new Error("User is already a member");
+    }
+
+    // 如果是所有者，不需要添加为成员
+    if (kb.userId === user.id) {
+      throw new Error("Owner cannot be added as a member");
+    }
+
+    const member = await this.prisma.knowledgeBaseMember.create({
+      data: {
+        knowledgeBaseId,
+        userId: user.id,
+        role,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+
+    this.logger.log(
+      `Added member ${user.email} to KB ${knowledgeBaseId} with role ${role}`,
+    );
+
+    return member;
+  }
+
+  /**
+   * 更新成员角色
+   */
+  async updateMemberRole(
+    knowledgeBaseId: string,
+    requesterId: string,
+    memberId: string,
+    role: "ADMIN" | "EDITOR" | "VIEWER",
+  ) {
+    // 验证请求者是所有者或管理员
+    const kb = await this.prisma.knowledgeBase.findFirst({
+      where: { id: knowledgeBaseId },
+      select: { userId: true },
+    });
+
+    if (!kb) {
+      throw new NotFoundException("Knowledge base not found");
+    }
+
+    const isOwner = kb.userId === requesterId;
+    const requesterMembership = await this.prisma.knowledgeBaseMember.findFirst(
+      {
+        where: { knowledgeBaseId, userId: requesterId, role: "ADMIN" },
+      },
+    );
+
+    if (!isOwner && !requesterMembership) {
+      throw new Error("You do not have permission to update member roles");
+    }
+
+    // 查找成员
+    const member = await this.prisma.knowledgeBaseMember.findFirst({
+      where: { id: memberId, knowledgeBaseId },
+    });
+
+    if (!member) {
+      throw new NotFoundException("Member not found");
+    }
+
+    const updated = await this.prisma.knowledgeBaseMember.update({
+      where: { id: memberId },
+      data: { role },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+
+    this.logger.log(
+      `Updated member ${memberId} role to ${role} in KB ${knowledgeBaseId}`,
+    );
+
+    return updated;
+  }
+
+  /**
+   * 移除成员
+   */
+  async removeMember(
+    knowledgeBaseId: string,
+    requesterId: string,
+    memberId: string,
+  ) {
+    // 验证请求者是所有者或管理员
+    const kb = await this.prisma.knowledgeBase.findFirst({
+      where: { id: knowledgeBaseId },
+      select: { userId: true },
+    });
+
+    if (!kb) {
+      throw new NotFoundException("Knowledge base not found");
+    }
+
+    const isOwner = kb.userId === requesterId;
+    const requesterMembership = await this.prisma.knowledgeBaseMember.findFirst(
+      {
+        where: { knowledgeBaseId, userId: requesterId, role: "ADMIN" },
+      },
+    );
+
+    if (!isOwner && !requesterMembership) {
+      throw new Error("You do not have permission to remove members");
+    }
+
+    // 查找成员
+    const member = await this.prisma.knowledgeBaseMember.findFirst({
+      where: { id: memberId, knowledgeBaseId },
+    });
+
+    if (!member) {
+      throw new NotFoundException("Member not found");
+    }
+
+    await this.prisma.knowledgeBaseMember.delete({
+      where: { id: memberId },
+    });
+
+    this.logger.log(`Removed member ${memberId} from KB ${knowledgeBaseId}`);
+  }
+
+  /**
+   * 检查用户是否有知识库访问权限
+   */
+  async hasAccess(
+    knowledgeBaseId: string,
+    userId: string,
+    minRole?: "OWNER" | "ADMIN" | "EDITOR" | "VIEWER",
+  ): Promise<boolean> {
+    const kb = await this.prisma.knowledgeBase.findFirst({
+      where: { id: knowledgeBaseId },
+      select: { userId: true, type: true },
+    });
+
+    if (!kb) return false;
+
+    // 所有者总是有访问权限
+    if (kb.userId === userId) return true;
+
+    // 个人知识库只有所有者可以访问
+    if (kb.type === "PERSONAL") return false;
+
+    // 团队知识库检查成员资格
+    const member = await this.prisma.knowledgeBaseMember.findFirst({
+      where: { knowledgeBaseId, userId },
+    });
+
+    if (!member) return false;
+
+    if (!minRole || minRole === "VIEWER") return true;
+
+    const roleHierarchy = { OWNER: 0, ADMIN: 1, EDITOR: 2, VIEWER: 3 };
+    return roleHierarchy[member.role] <= roleHierarchy[minRole];
   }
 }
