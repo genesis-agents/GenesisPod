@@ -72,8 +72,13 @@ export default function KnowledgeBaseSelector({
     setError(null);
     try {
       const data = await apiClient.get<KnowledgeBase[]>('/rag/knowledge-bases');
-      console.log('[KBSelector] Fetched knowledge bases:', data?.length || 0);
-      setKnowledgeBases(data || []);
+      console.log('[KBSelector] Raw API response:', data);
+      console.log('[KBSelector] Is array:', Array.isArray(data));
+      console.log('[KBSelector] Length:', data?.length);
+      if (Array.isArray(data) && data.length > 0) {
+        console.log('[KBSelector] First item:', data[0]);
+      }
+      setKnowledgeBases(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('[KBSelector] Failed to fetch:', err);
       setError(err as ApiError);
