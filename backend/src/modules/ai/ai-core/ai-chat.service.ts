@@ -1245,9 +1245,20 @@ Format the summary in a clear, structured manner using markdown.`;
       switch (provider.toLowerCase()) {
         case "openai":
         case "gpt":
+          // Construct full embeddings URL from base endpoint
+          let openaiEmbeddingsUrl = "https://api.openai.com/v1/embeddings";
+          if (apiEndpoint) {
+            // Remove trailing slash and /embeddings if present
+            let baseUrl = apiEndpoint.replace(/\/+$/, "");
+            if (baseUrl.endsWith("/embeddings")) {
+              openaiEmbeddingsUrl = baseUrl;
+            } else {
+              openaiEmbeddingsUrl = `${baseUrl}/embeddings`;
+            }
+          }
           response = await firstValueFrom(
             this.httpService.post(
-              apiEndpoint || "https://api.openai.com/v1/embeddings",
+              openaiEmbeddingsUrl,
               {
                 model: modelId || "text-embedding-3-small",
                 input: testInput,
@@ -1274,9 +1285,19 @@ Format the summary in a clear, structured manner using markdown.`;
           break;
 
         case "cohere":
+          // Construct full embed URL from base endpoint
+          let cohereEmbedUrl = "https://api.cohere.ai/v1/embed";
+          if (apiEndpoint) {
+            let baseUrl = apiEndpoint.replace(/\/+$/, "");
+            if (baseUrl.endsWith("/embed")) {
+              cohereEmbedUrl = baseUrl;
+            } else {
+              cohereEmbedUrl = `${baseUrl}/embed`;
+            }
+          }
           response = await firstValueFrom(
             this.httpService.post(
-              apiEndpoint || "https://api.cohere.ai/v1/embed",
+              cohereEmbedUrl,
               {
                 model: modelId || "embed-english-v3.0",
                 texts: [testInput],
