@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
@@ -43,9 +43,18 @@ function ProfileContent() {
   const { t } = useTranslation();
   const { user, isLoading, accessToken } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Read initial tab from URL query parameter
+  const initialTab =
+    (searchParams.get('tab') as
+      | 'profile'
+      | 'settings'
+      | 'stats'
+      | 'integrations') || 'profile';
   const [activeTab, setActiveTab] = useState<
     'profile' | 'settings' | 'stats' | 'integrations'
-  >('profile');
+  >(initialTab);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{
     type: 'success' | 'error';

@@ -69,8 +69,14 @@ export class GoogleDriveController {
   @ApiResponse({ status: 200, description: "返回授权 URL" })
   async getConnectUrl(@Req() req: AuthenticatedRequest) {
     const userId = this.getUserId(req);
+
+    // 检查用户是否已有连接
+    const existingConnection = await this.authService.getConnection(userId);
+    // 只有首次连接才需要 consent prompt 以获取 refresh_token
+    const forceConsent = !existingConnection;
+
     const state = Buffer.from(JSON.stringify({ userId })).toString("base64");
-    const url = this.authService.getAuthorizationUrl(state);
+    const url = this.authService.getAuthorizationUrl(state, forceConsent);
     return { url };
   }
 

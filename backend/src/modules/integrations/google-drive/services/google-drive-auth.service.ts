@@ -64,8 +64,10 @@ export class GoogleDriveAuthService {
 
   /**
    * 获取 OAuth 授权 URL
+   * @param state 状态参数
+   * @param forceConsent 是否强制显示授权页面（首次连接需要，以获取 refresh_token）
    */
-  getAuthorizationUrl(state?: string): string {
+  getAuthorizationUrl(state?: string, forceConsent = false): string {
     if (!this.isConfigured()) {
       throw new BadRequestException("Google Drive OAuth not configured");
     }
@@ -74,7 +76,9 @@ export class GoogleDriveAuthService {
       access_type: "offline",
       scope: SCOPES,
       state: state,
-      prompt: "consent", // 强制显示授权页面以获取 refresh_token
+      // 只在首次连接时强制 consent 以获取 refresh_token
+      // 后续重新授权时只需选择账号即可
+      prompt: forceConsent ? "consent" : "select_account",
     });
 
     return authUrl;
