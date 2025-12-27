@@ -12,23 +12,46 @@ import { SyncResult, GoogleDriveFile } from "../interfaces/rag.interfaces";
 
 // Supported MIME types for document processing
 const SUPPORTED_MIME_TYPES: Record<string, string> = {
-  "application/pdf": "pdf",
+  // Google Workspace 原生格式
   "application/vnd.google-apps.document": "google_doc",
+  "application/vnd.google-apps.spreadsheet": "google_sheet",
+  "application/vnd.google-apps.presentation": "google_slides",
+  "application/vnd.google-apps.drawing": "google_drawing",
+
+  // PDF
+  "application/pdf": "pdf",
+
+  // Microsoft Office 格式
+  "application/msword": "doc",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
     "docx",
-  "application/msword": "doc",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/vnd.ms-powerpoint": "ppt",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+    "pptx",
+
+  // 文本格式
   "text/plain": "txt",
   "text/markdown": "md",
   "text/html": "html",
-  "application/vnd.google-apps.spreadsheet": "google_sheet",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "text/csv": "csv",
+  "text/xml": "xml",
+  "application/xml": "xml",
+  "application/json": "json",
+  "application/rtf": "rtf",
+  "text/rtf": "rtf",
+
+  // 电子书格式
+  "application/epub+zip": "epub",
 };
 
-// Export MIME type mappings for Google Docs
+// Export MIME type mappings for Google Workspace files
 const GOOGLE_EXPORT_MIME_TYPES: Record<string, string> = {
   "application/vnd.google-apps.document": "text/plain",
   "application/vnd.google-apps.spreadsheet": "text/csv",
   "application/vnd.google-apps.presentation": "text/plain",
+  "application/vnd.google-apps.drawing": "image/png", // 导出为 PNG 图片
 };
 
 @Injectable()
