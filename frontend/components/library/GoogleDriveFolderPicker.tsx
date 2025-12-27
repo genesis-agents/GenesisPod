@@ -119,6 +119,8 @@ export default function GoogleDriveFolderPicker({
   };
 
   const toggleFileSelection = (file: GoogleDriveFile) => {
+    console.log('[GoogleDriveFolderPicker] toggleFileSelection called:', file);
+    console.log('[GoogleDriveFolderPicker] disabled:', disabled);
     if (disabled) return;
 
     const newSelectedIds = [...selectedFileIds];
@@ -299,7 +301,14 @@ export default function GoogleDriveFolderPicker({
                           ? 'border-green-500 bg-green-50'
                           : 'border-transparent hover:bg-gray-50'
                       } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
-                      onClick={() => toggleFileSelection(file)}
+                      onClick={() => {
+                        console.log(
+                          '[GoogleDriveFolderPicker] File clicked:',
+                          file.id,
+                          file.name
+                        );
+                        toggleFileSelection(file);
+                      }}
                     >
                       {/* 选择框 */}
                       <div
