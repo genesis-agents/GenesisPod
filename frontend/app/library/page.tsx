@@ -193,7 +193,7 @@ function LibraryPageContent() {
   const searchParams = useSearchParams();
   const tabParam = searchParams?.get('tab');
 
-  // 简化后的4个主TAB：个人知识库、团队知识库、数据源、知识图谱
+  // 简化后的4个主TAB：数据源、个人知识库、团队知识库、知识图谱
   const [activeTab, setActiveTab] = useState<
     'personal-kb' | 'team-kb' | 'data-sources' | 'graph'
   >(() => {
@@ -216,7 +216,7 @@ function LibraryPageContent() {
     ) {
       return 'data-sources';
     }
-    return 'personal-kb'; // Default to personal KB
+    return 'data-sources'; // Default to data sources
   });
 
   // 数据源的初始子TAB（根据URL参数）
@@ -1629,7 +1629,18 @@ function LibraryPageContent() {
 
             {/* Navigation Tabs - Knowledge Base focused with new tabs */}
             <div className="flex flex-wrap items-center gap-2 pb-1">
-              {/* Primary Knowledge Base Tabs */}
+              {/* Primary Tabs - 数据源管理、个人知识库、团队知识库 */}
+              <button
+                onClick={() => setActiveTab('data-sources')}
+                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
+                  activeTab === 'data-sources'
+                    ? 'border-green-400 bg-green-50 text-green-700 shadow-sm'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-green-300 hover:bg-green-50/50 hover:text-green-700'
+                }`}
+              >
+                <HardDrive className="h-4 w-4" />
+                {t('dataSources.title')}
+              </button>
               <button
                 onClick={() => setActiveTab('personal-kb')}
                 className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
@@ -1651,17 +1662,6 @@ function LibraryPageContent() {
               >
                 <Users className="h-4 w-4" />
                 {t('knowledgeBase.teamKb')}
-              </button>
-              <button
-                onClick={() => setActiveTab('data-sources')}
-                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
-                  activeTab === 'data-sources'
-                    ? 'border-green-400 bg-green-50 text-green-700 shadow-sm'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-green-300 hover:bg-green-50/50 hover:text-green-700'
-                }`}
-              >
-                <HardDrive className="h-4 w-4" />
-                {t('dataSources.title')}
               </button>
               {/* 知识图谱功能暂时屏蔽，待完善后开放
               <button
