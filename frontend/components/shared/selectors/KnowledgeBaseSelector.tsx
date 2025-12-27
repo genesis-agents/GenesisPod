@@ -84,16 +84,41 @@ export default function KnowledgeBaseSelector({
 
   const displayPlaceholder = placeholder || t('knowledgeBase.select');
 
+  // Debug: log knowledgeBases state
+  console.log(
+    '[KBSelector] Current knowledgeBases state:',
+    knowledgeBases.length,
+    knowledgeBases
+  );
+
   // Filter knowledge bases based on props
   const filteredKBs = knowledgeBases.filter((kb) => {
+    console.log(
+      '[KBSelector] Filtering KB:',
+      kb.name,
+      'type:',
+      kb.type,
+      'status:',
+      kb.status,
+      'filterType:',
+      filterType,
+      'onlyReady:',
+      onlyReady
+    );
     // Filter by type
     if (filterType !== 'ALL') {
       const kbType = kb.type || 'PERSONAL';
-      if (kbType !== filterType) return false;
+      if (kbType !== filterType) {
+        console.log('[KBSelector] Filtered out by type:', kb.name);
+        return false;
+      }
     }
 
     // Filter by status
-    if (onlyReady && kb.status !== 'READY') return false;
+    if (onlyReady && kb.status !== 'READY') {
+      console.log('[KBSelector] Filtered out by status:', kb.name);
+      return false;
+    }
 
     // Filter by search query
     if (searchQuery) {
@@ -106,6 +131,15 @@ export default function KnowledgeBaseSelector({
 
     return true;
   });
+
+  console.log(
+    '[KBSelector] filteredKBs result:',
+    filteredKBs.length,
+    'loading:',
+    loading,
+    'error:',
+    error
+  );
 
   // Get selected knowledge bases details
   const selectedKBs = knowledgeBases.filter((kb) =>
