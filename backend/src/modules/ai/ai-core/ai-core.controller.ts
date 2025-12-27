@@ -8,12 +8,14 @@ import {
   BadRequestException,
   HttpException,
   Logger,
+  Optional,
 } from "@nestjs/common";
 import { Response } from "express";
 import { AiCoreService } from "./ai-core.service";
 import { AiChatService } from "./ai-chat.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { AIModelType } from "@prisma/client";
+import { RAGPipelineService } from "../rag/services/rag-pipeline.service";
 
 interface TranslateSingleRequest {
   text: string;
@@ -27,6 +29,7 @@ interface SimpleChatRequest {
   context?: string;
   model?: string;
   stream?: boolean;
+  knowledgeBaseIds?: string[]; // RAG knowledge base IDs
 }
 
 interface QuickActionRequest {
@@ -54,6 +57,7 @@ export class AiCoreController {
     private readonly aiCoreService: AiCoreService,
     private readonly aiChatService: AiChatService,
     private readonly prisma: PrismaService,
+    @Optional() private readonly ragPipelineService: RAGPipelineService,
   ) {}
 
   /**
@@ -429,10 +433,11 @@ export class AiCoreController {
       context,
       model = "gemini",
       stream = true,
+      knowledgeBaseIds,
     } = body;
 
     this.logger.log(
-      `Simple chat request: model=${model}, stream=${stream}, message_len=${message?.length || 0}, context_messages=${contextMessages?.length || 0}`,
+      `Simple chat request: model=${model}, stream=${stream}, message_len=${message?.length || 0}, context_messages=${contextMessages?.length || 0}, kbIds=${knowledgeBaseIds?.join(",") || "none"}`,
     );
 
     if (!message || message.trim().length === 0) {
@@ -440,6 +445,40 @@ export class AiCoreController {
     }
 
     try {
+      // RAG: Query knowledge bases if IDs are provided
+      let ragContext = "";
+      if (
+        knowledgeBaseIds &&
+        knowledgeBaseIds.length > 0 &&
+        this.ragPipelineService
+      ) {
+        try {
+          this.logger.log(
+            `[simple-chat] Performing RAG query for KBs: ${knowledgeBaseIds.join(", ")}`,
+          );
+          const ragResponse = await this.ragPipelineService.query({
+            query: message,
+            knowledgeBaseIds,
+            options: {
+              topK: 5,
+              useHyde: false,
+              useRerank: false,
+              minScore: 0.3,
+            },
+          });
+
+          if (ragResponse.context && ragResponse.context.sources.length > 0) {
+            ragContext = ragResponse.context.text;
+            this.logger.log(
+              `[simple-chat] RAG context added (${ragResponse.context.sources.length} sources)`,
+            );
+          }
+        } catch (ragError) {
+          this.logger.warn(`[simple-chat] RAG query failed: ${ragError}`);
+          // RAG failure should not block the normal response
+        }
+      }
+
       // Get model config from database
       const modelConfig = await this.prisma.aIModel.findFirst({
         where: {
@@ -476,6 +515,17 @@ export class AiCoreController {
       } else {
         // Single message
         chatMessages = [{ role: "user", content: message }];
+      }
+
+      // Add RAG context as system message if available
+      if (ragContext) {
+        chatMessages = [
+          {
+            role: "system",
+            content: `You have access to the following knowledge base context. Use this information to answer the user's question accurately. If the context doesn't contain relevant information, you can still answer based on your general knowledge but indicate that.\n\n<knowledge_context>\n${ragContext}\n</knowledge_context>`,
+          },
+          ...chatMessages,
+        ];
       }
 
       if (stream) {
