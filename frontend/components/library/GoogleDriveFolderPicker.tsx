@@ -89,8 +89,29 @@ export default function GoogleDriveFolderPicker({
 
   // 初始加载
   useEffect(() => {
-    fetchFolders();
+    console.log('[GDrivePicker] Initial load, fetching folders...');
+    fetchFolders().then((data) => {
+      console.log(
+        '[GDrivePicker] Fetched:',
+        data?.folders?.length,
+        'folders,',
+        data?.files?.length,
+        'files'
+      );
+    });
   }, [fetchFolders]);
+
+  // Debug: log current state
+  console.log(
+    '[GDrivePicker] Current state - folders:',
+    folders.length,
+    'files:',
+    files.length,
+    'selectedFolderIds:',
+    selectedFolderIds,
+    'selectedFileIds:',
+    selectedFileIds
+  );
 
   const toggleFolderSelection = (folder: GoogleDriveFolder) => {
     if (disabled) return;
