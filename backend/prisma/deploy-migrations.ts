@@ -239,6 +239,7 @@ async function getCustomMigrations(): Promise<string[]> {
     "20251227_add_kb_source_types", // Add sourceTypes JSON array for multi-source knowledge bases
     "20251226_add_kb_members", // Add knowledge base members table for team collaboration
     "20251227_fix_uuid_text_mismatch", // CRITICAL: Fix UUID vs TEXT type mismatch causing query errors
+    "20251227_force_convert_all_uuid_to_text", // FORCE: Comprehensive UUID to TEXT conversion for all RAG tables
   ];
 
   const migrations: string[] = [];
