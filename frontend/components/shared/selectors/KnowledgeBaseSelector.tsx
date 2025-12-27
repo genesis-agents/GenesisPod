@@ -13,11 +13,8 @@ import {
   Plus,
   ExternalLink,
 } from 'lucide-react';
-import {
-  useKnowledgeBase,
-  type KnowledgeBase,
-} from '@/hooks/domain/useKnowledgeBase';
-import { type ApiError } from '@/lib/api/client';
+import { type KnowledgeBase } from '@/hooks/domain/useKnowledgeBase';
+import { apiClient, type ApiError } from '@/lib/api/client';
 import Link from 'next/link';
 import { useI18n } from '@/lib/i18n/i18n-context';
 
@@ -63,7 +60,27 @@ export default function KnowledgeBaseSelector({
   const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const { knowledgeBases, loading, error, refreshList } = useKnowledgeBase();
+
+  // 直接管理 state，不依赖外部 hook
+  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<ApiError | null>(null);
+
+  // 直接调用 API 获取数据
+  const fetchKnowledgeBases = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await apiClient.get<KnowledgeBase[]>('/rag/knowledge-bases');
+      console.log('[KBSelector] Fetched knowledge bases:', data?.length || 0);
+      setKnowledgeBases(data || []);
+    } catch (err) {
+      console.error('[KBSelector] Failed to fetch:', err);
+      setError(err as ApiError);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const displayPlaceholder = placeholder || t('knowledgeBase.select');
 
@@ -129,17 +146,15 @@ export default function KnowledgeBaseSelector({
     [onSelectionChange]
   );
 
-  // Refresh list when dropdown opens, clear search when closes
+  // 每次下拉框打开时直接从 API 获取数据
   useEffect(() => {
     if (isOpen) {
-      // Always fetch fresh data when dropdown opens
-      refreshList();
+      console.log('[KBSelector] Dropdown opened, fetching data...');
+      fetchKnowledgeBases();
     } else {
-      // Clear search query when dropdown closes
       setSearchQuery('');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]); // Only depend on isOpen to avoid infinite loops
+  }, [isOpen, fetchKnowledgeBases]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -207,7 +222,7 @@ export default function KnowledgeBaseSelector({
               handleToggle={handleToggle}
               getTypeIcon={getTypeIcon}
               getSourceTypeLabel={getSourceTypeLabel}
-              refreshList={refreshList}
+              refreshList={fetchKnowledgeBases}
               t={t}
             />
           </div>
@@ -308,7 +323,7 @@ export default function KnowledgeBaseSelector({
               handleToggle={handleToggle}
               getTypeIcon={getTypeIcon}
               getSourceTypeLabel={getSourceTypeLabel}
-              refreshList={refreshList}
+              refreshList={fetchKnowledgeBases}
               t={t}
             />
           </div>

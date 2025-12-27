@@ -614,10 +614,18 @@ export default function PersonalKnowledgeBaseTab() {
           knowledgeBase={editingKbDetail.knowledgeBase}
           onClose={() => setEditingKbId(null)}
           onUpdate={async (data) => {
+            console.log('[PersonalKB] Updating KB with data:', data);
             await editingKbDetail.updateKnowledgeBase(data);
             // Auto-sync if Google Drive folders/files were updated
             if (data.googleDriveFolderIds || data.googleDriveFileIds) {
+              console.log('[PersonalKB] Starting Google Drive sync...');
               await editingKbDetail.syncGoogleDrive();
+              console.log('[PersonalKB] Sync completed');
+            }
+            // Refresh expanded KB if it's the same one being edited
+            if (expandedKbId === editingKbId) {
+              console.log('[PersonalKB] Refreshing expanded KB...');
+              await refreshExpanded();
             }
             setEditingKbId(null);
             refreshList();

@@ -647,10 +647,18 @@ export default function TeamKnowledgeBaseTab() {
           knowledgeBase={editingKbDetail.knowledgeBase}
           onClose={() => setEditingKbId(null)}
           onUpdate={async (data) => {
+            console.log('[TeamKB] Updating KB with data:', data);
             await editingKbDetail.updateKnowledgeBase(data);
             // Auto-sync if Google Drive folders/files were updated
             if (data.googleDriveFolderIds || data.googleDriveFileIds) {
+              console.log('[TeamKB] Starting Google Drive sync...');
               await editingKbDetail.syncGoogleDrive();
+              console.log('[TeamKB] Sync completed');
+            }
+            // Refresh expanded KB if it's the same one being edited
+            if (expandedKbId === editingKbId) {
+              console.log('[TeamKB] Refreshing expanded KB...');
+              await refreshExpanded();
             }
             setEditingKbId(null);
             refreshList();
