@@ -407,7 +407,8 @@ function DropdownContent({
 
       {/* List */}
       <div className="max-h-64 overflow-y-auto p-2">
-        {loading && (
+        {/* Show loading indicator only when no data yet */}
+        {loading && filteredKBs.length === 0 && (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
           </div>
@@ -425,7 +426,7 @@ function DropdownContent({
           </div>
         )}
 
-        {!loading && !error && filteredKBs.length === 0 && (
+        {!error && filteredKBs.length === 0 && !loading && (
           <div className="py-4 text-center text-sm text-gray-500">
             {searchQuery
               ? t('knowledgeBase.noMatch')
@@ -433,8 +434,8 @@ function DropdownContent({
           </div>
         )}
 
-        {!loading &&
-          !error &&
+        {/* Show items even while refreshing (keep UI responsive) */}
+        {!error &&
           filteredKBs.map((kb) => {
             const isSelected = selectedIds.includes(kb.id);
             const isDisabled =
