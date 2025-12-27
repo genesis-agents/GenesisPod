@@ -200,8 +200,8 @@ export class KnowledgeBaseService {
       googleDriveFileIds?: string[];
     },
   ) {
-    // Verify ownership (throws if not found)
-    await this.findById(id, userId);
+    // Get existing KB and verify ownership
+    const existingKb = await this.findById(id, userId);
 
     // Build update data
     const updateData: {
@@ -210,6 +210,7 @@ export class KnowledgeBaseService {
       sourceTypes?: string[];
       googleDriveFolderIds?: string[];
       googleDriveFileIds?: string[];
+      googleDriveConnectionId?: string;
     } = {};
 
     if (data.name !== undefined) updateData.name = data.name;
@@ -221,6 +222,27 @@ export class KnowledgeBaseService {
       updateData.googleDriveFolderIds = data.googleDriveFolderIds;
     if (data.googleDriveFileIds !== undefined)
       updateData.googleDriveFileIds = data.googleDriveFileIds;
+
+    // Auto-connect Google Drive if it's being added as a source type
+    const hasGoogleDrive = data.sourceTypes?.includes("GOOGLE_DRIVE");
+    const needsConnection =
+      hasGoogleDrive && !existingKb.googleDriveConnectionId;
+
+    if (needsConnection) {
+      const connection = await this.prisma.googleDriveConnection.findUnique({
+        where: { userId },
+      });
+      if (connection) {
+        updateData.googleDriveConnectionId = connection.id;
+        this.logger.log(
+          `Auto-connected Google Drive: ${connection.id} for KB ${id}`,
+        );
+      } else {
+        throw new Error(
+          "No Google Drive connection found. Please connect Google Drive first.",
+        );
+      }
+    }
 
     return this.prisma.knowledgeBase.update({
       where: { id },

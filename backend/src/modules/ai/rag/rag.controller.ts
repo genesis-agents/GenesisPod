@@ -172,12 +172,52 @@ export class RAGController {
     @Body() dto: AddResourcesDto,
   ) {
     // Verify ownership
-    await this.knowledgeBaseService.findById(id, req.user.id);
+    const kb = await this.knowledgeBaseService.findById(id, req.user.id);
 
+    // Check if resources are from Google Drive
+    const hasGoogleDrive = dto.resources.some(
+      (r) => r.sourceType === "google_drive",
+    );
+
+    if (hasGoogleDrive) {
+      // For Google Drive files, update the KB's fileIds and trigger sync
+      const googleDriveFileIds = dto.resources
+        .filter((r) => r.sourceType === "google_drive")
+        .map((r) => r.sourceId);
+
+      // Merge with existing file IDs
+      const existingFileIds = (kb.googleDriveFileIds as string[]) || [];
+      const allFileIds = [
+        ...new Set([...existingFileIds, ...googleDriveFileIds]),
+      ];
+
+      // Type-safe handling of sourceTypes (JSON field)
+      const currentSourceTypes = Array.isArray(kb.sourceTypes)
+        ? (kb.sourceTypes as string[])
+        : [];
+      const hasGoogleDriveSource = currentSourceTypes.includes("GOOGLE_DRIVE");
+
+      // Update KB with new file IDs (this also auto-connects Google Drive if needed)
+      await this.knowledgeBaseService.update(id, req.user.id, {
+        sourceTypes: hasGoogleDriveSource
+          ? currentSourceTypes
+          : [...currentSourceTypes, "GOOGLE_DRIVE"],
+        googleDriveFileIds: allFileIds,
+      });
+
+      // Trigger sync to actually fetch the file content
+      const syncResult = await this.googleDriveRAGService.syncKnowledgeBase(id);
+
+      return {
+        success: true,
+        count: googleDriveFileIds.length,
+        syncResult,
+      };
+    }
+
+    // For other source types, create placeholder documents (legacy behavior)
     const results = [];
     for (const resource of dto.resources) {
-      // For external resources, we need to fetch content based on source type
-      // For now, create placeholder documents that will be processed later
       const doc = await this.knowledgeBaseService.addDocument(id, {
         title: resource.title,
         content: `[Pending content fetch from ${resource.sourceType}]`,
