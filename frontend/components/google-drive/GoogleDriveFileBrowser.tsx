@@ -119,11 +119,12 @@ export function GoogleDriveFileBrowser({
   };
 
   // Get selected files as resources for KB dialog
+  // IMPORTANT: Use driveFileId (Google Drive native ID) not id (database ID)
   const getSelectedResources = (): ResourceToAdd[] => {
     return files
       .filter((f) => !f.isFolder && isSelected(f.id))
       .map((f) => ({
-        id: f.id,
+        id: f.driveFileId, // Use Google Drive native file ID for API calls
         name: f.name,
         type: 'google_drive' as const,
         mimeType: f.mimeType,
