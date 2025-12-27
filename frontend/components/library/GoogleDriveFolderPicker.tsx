@@ -10,11 +10,38 @@ import {
   Check,
   Loader2,
   AlertCircle,
+  FileText,
+  FileSpreadsheet,
+  FileImage,
+  File,
 } from 'lucide-react';
 import {
   useGoogleDriveFolders,
   type GoogleDriveFolder,
+  type GoogleDriveFile,
 } from '@/hooks/domain/useKnowledgeBase';
+
+// Helper function to get file icon based on mime type
+function getFileIcon(mimeType: string) {
+  if (mimeType.includes('document') || mimeType.includes('text')) {
+    return FileText;
+  }
+  if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) {
+    return FileSpreadsheet;
+  }
+  if (mimeType.includes('image')) {
+    return FileImage;
+  }
+  return File;
+}
+
+// Helper function to format file size
+function formatFileSize(bytes?: number): string {
+  if (!bytes) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 interface GoogleDriveFolderPickerProps {
   selectedFolderIds: string[];
@@ -33,6 +60,7 @@ export default function GoogleDriveFolderPicker({
 }: GoogleDriveFolderPickerProps) {
   const {
     folders,
+    files,
     loading,
     error,
     parentStack,
@@ -135,18 +163,19 @@ export default function GoogleDriveFolderPicker({
         {loading && <Loader2 className="h-4 w-4 animate-spin text-blue-600" />}
       </div>
 
-      {/* 文件夹列表 */}
-      <div className="max-h-64 min-h-[160px] overflow-y-auto p-2">
-        {loading && folders.length === 0 ? (
+      {/* 文件夹和文件列表 */}
+      <div className="max-h-80 min-h-[160px] overflow-y-auto p-2">
+        {loading && folders.length === 0 && files.length === 0 ? (
           <div className="flex h-32 items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
           </div>
-        ) : folders.length === 0 ? (
+        ) : folders.length === 0 && files.length === 0 ? (
           <div className="flex h-32 items-center justify-center text-sm text-gray-500">
-            此目录下没有文件夹
+            此目录为空
           </div>
         ) : (
           <div className="grid gap-1">
+            {/* 文件夹列表 */}
             {folders.map((folder) => {
               const isSelected = selectedFolderIds.includes(folder.id);
               return (
@@ -175,7 +204,7 @@ export default function GoogleDriveFolderPicker({
                   {isSelected ? (
                     <FolderOpen className="h-5 w-5 flex-shrink-0 text-blue-600" />
                   ) : (
-                    <Folder className="h-5 w-5 flex-shrink-0 text-gray-400" />
+                    <Folder className="h-5 w-5 flex-shrink-0 text-yellow-500" />
                   )}
 
                   {/* 文件夹信息 */}
@@ -206,6 +235,45 @@ export default function GoogleDriveFolderPicker({
                 </div>
               );
             })}
+
+            {/* 文件列表 (仅展示，不可选择) */}
+            {files.length > 0 && (
+              <>
+                {folders.length > 0 && (
+                  <div className="my-2 border-t border-gray-200" />
+                )}
+                <p className="px-2 text-xs font-medium text-gray-500">
+                  文件 ({files.length})
+                </p>
+                {files.map((file) => {
+                  const FileIcon = getFileIcon(file.mimeType);
+                  return (
+                    <div
+                      key={file.id}
+                      className="flex items-center gap-3 rounded-lg border border-transparent px-3 py-2 opacity-70"
+                    >
+                      {/* 占位符 (与选择框对齐) */}
+                      <div className="h-5 w-5 flex-shrink-0" />
+
+                      {/* 文件图标 */}
+                      <FileIcon className="h-5 w-5 flex-shrink-0 text-gray-400" />
+
+                      {/* 文件信息 */}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm text-gray-700">
+                          {file.name}
+                        </p>
+                        {file.size && (
+                          <p className="text-xs text-gray-400">
+                            {formatFileSize(file.size)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
           </div>
         )}
       </div>

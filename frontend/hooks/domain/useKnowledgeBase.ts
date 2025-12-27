@@ -297,6 +297,7 @@ export function useKnowledgeBaseDetail(id: string | null) {
  */
 export function useGoogleDriveFolders() {
   const [folders, setFolders] = useState<GoogleDriveFolder[]>([]);
+  const [files, setFiles] = useState<GoogleDriveFile[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [parentStack, setParentStack] = useState<
@@ -310,8 +311,12 @@ export function useGoogleDriveFolders() {
       const url = parentId
         ? `/rag/google-drive/folders?parentId=${parentId}`
         : '/rag/google-drive/folders';
-      const data = await apiClient.get<GoogleDriveFolder[]>(url);
-      setFolders(data);
+      const data = await apiClient.get<{
+        folders: GoogleDriveFolder[];
+        files: GoogleDriveFile[];
+      }>(url);
+      setFolders(data.folders);
+      setFiles(data.files);
       return data;
     } catch (err) {
       setError(err as Error);
@@ -348,6 +353,7 @@ export function useGoogleDriveFolders() {
 
   return {
     folders,
+    files,
     loading,
     error,
     parentStack,
