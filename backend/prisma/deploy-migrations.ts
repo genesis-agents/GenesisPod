@@ -237,6 +237,7 @@ async function getCustomMigrations(): Promise<string[]> {
     "20251227_emergency_fix_columns", // Emergency fix - add missing columns to Railway
     "20251227_fix_aimodel_enum", // Fix AIModelType enum - add EMBEDDING, RERANK, etc.
     "20251227_add_kb_source_types", // Add sourceTypes JSON array for multi-source knowledge bases
+    "20251226_add_kb_members", // Add knowledge base members table for team collaboration
   ];
 
   const migrations: string[] = [];
@@ -443,7 +444,8 @@ async function deploy() {
         'child_chunks',
         'child_embeddings',
         'user_data_sources',
-        'knowledge_base_sources'
+        'knowledge_base_sources',
+        'knowledge_base_members'
       )
     `;
 
@@ -464,6 +466,7 @@ async function deploy() {
       "child_embeddings",
       "user_data_sources",
       "knowledge_base_sources",
+      "knowledge_base_members",
     ];
 
     for (const table of requiredTables) {
@@ -498,7 +501,8 @@ async function deploy() {
         'KnowledgeBaseSourceType',
         'KnowledgeBaseType',
         'UserDataSourceType',
-        'SearchPriority'
+        'SearchPriority',
+        'KnowledgeBaseMemberRole'
       )
     `;
 
@@ -517,6 +521,7 @@ async function deploy() {
       "KnowledgeBaseType",
       "UserDataSourceType",
       "SearchPriority",
+      "KnowledgeBaseMemberRole",
     ];
 
     for (const enumName of requiredEnums) {
@@ -1503,6 +1508,78 @@ async function deploy() {
     }
   } catch (error: any) {
     console.error(`   ❌ child_embeddings fix failed: ${error.message}`);
+  }
+
+  // Step 13: 紧急修复 - 确保 knowledge_base_members 表存在
+  console.log("🔧 Step 13: Emergency fix for knowledge_base_members table...");
+  try {
+    // 创建 KnowledgeBaseMemberRole 枚举（如果不存在）
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        CREATE TYPE "KnowledgeBaseMemberRole" AS ENUM ('OWNER', 'ADMIN', 'EDITOR', 'VIEWER');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `);
+    console.log("   ✅ KnowledgeBaseMemberRole enum ensured");
+
+    // 检查 knowledge_base_members 表是否存在
+    const kbMembersExists = await prisma.$queryRaw<Array<{ exists: boolean }>>`
+      SELECT EXISTS (
+        SELECT FROM pg_tables
+        WHERE schemaname = 'public'
+        AND tablename = 'knowledge_base_members'
+      )
+    `;
+
+    if (!kbMembersExists[0]?.exists) {
+      console.log("   ⚠️ knowledge_base_members table missing, creating...");
+
+      // 创建 knowledge_base_members 表
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "knowledge_base_members" (
+          "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+          "knowledge_base_id" TEXT NOT NULL,
+          "user_id" TEXT NOT NULL,
+          "role" "KnowledgeBaseMemberRole" NOT NULL DEFAULT 'VIEWER',
+          "joined_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "knowledge_base_members_pkey" PRIMARY KEY ("id")
+        );
+      `);
+      console.log("   ✅ knowledge_base_members table created");
+
+      // 创建索引
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "knowledge_base_members_knowledge_base_id_idx" ON "knowledge_base_members"("knowledge_base_id");`,
+      );
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "knowledge_base_members_user_id_idx" ON "knowledge_base_members"("user_id");`,
+      );
+      await prisma.$executeRawUnsafe(
+        `CREATE UNIQUE INDEX IF NOT EXISTS "knowledge_base_members_knowledge_base_id_user_id_key" ON "knowledge_base_members"("knowledge_base_id", "user_id");`,
+      );
+      console.log("   ✅ knowledge_base_members indexes created");
+
+      // 添加外键约束
+      await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+          ALTER TABLE "knowledge_base_members" ADD CONSTRAINT "knowledge_base_members_knowledge_base_id_fkey"
+            FOREIGN KEY ("knowledge_base_id") REFERENCES "knowledge_bases"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        EXCEPTION WHEN duplicate_object THEN null; END $$;
+      `);
+      await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+          ALTER TABLE "knowledge_base_members" ADD CONSTRAINT "knowledge_base_members_user_id_fkey"
+            FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        EXCEPTION WHEN duplicate_object THEN null; END $$;
+      `);
+      console.log("   ✅ knowledge_base_members FK constraints added");
+    } else {
+      console.log("   ✅ knowledge_base_members table already exists");
+    }
+  } catch (error: any) {
+    console.error(`   ❌ knowledge_base_members fix failed: ${error.message}`);
   }
 
   // 完成

@@ -91,6 +91,18 @@ export class RAGController {
     return this.knowledgeBaseService.getStats(id);
   }
 
+  @Get("knowledge-bases/:id/documents")
+  @ApiOperation({ summary: "List documents in a knowledge base" })
+  @ApiResponse({
+    status: 200,
+    description: "List of documents with vectorization status",
+  })
+  async listDocuments(@Req() req: any, @Param("id") id: string) {
+    // Verify ownership
+    await this.knowledgeBaseService.findById(id, req.user.id);
+    return this.knowledgeBaseService.listDocuments(id);
+  }
+
   @Patch("knowledge-bases/:id")
   @ApiOperation({ summary: "Update a knowledge base" })
   @ApiResponse({ status: 200, description: "Knowledge base updated" })

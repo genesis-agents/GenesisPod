@@ -34,12 +34,15 @@ export interface KnowledgeBase {
   _count?: {
     documents: number;
   };
+  // 团队成员 (仅团队知识库)
+  members?: { id: string }[];
 }
 
 export interface KnowledgeBaseStats {
   documentCount: number;
   parentChunkCount: number;
   childChunkCount: number;
+  embeddingCount: number; // 向量化数量
   totalTokens: number;
   lastSyncedAt?: string;
 }
@@ -54,8 +57,11 @@ export interface KnowledgeBaseDocument {
   status: 'PENDING' | 'PROCESSING' | 'READY' | 'ERROR';
   processedAt?: string;
   chunkCount: number;
+  embeddingCount?: number;
+  isVectorized?: boolean;
   lastError?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface CreateKnowledgeBaseDto {
@@ -194,6 +200,16 @@ export function useKnowledgeBaseDetail(id: string | null) {
     { immediate: !!id }
   );
 
+  // 获取文档列表 (带向量化状态)
+  const {
+    data: documents,
+    loading: docsLoading,
+    execute: fetchDocuments,
+  } = useApiGet<KnowledgeBaseDocument[]>(
+    `/rag/knowledge-bases/${id || 'placeholder'}/documents`,
+    { immediate: !!id }
+  );
+
   // 更新知识库
   const { execute: updateKnowledgeBase, loading: updating } = useApiMutation<
     KnowledgeBase,
@@ -226,7 +242,8 @@ export function useKnowledgeBaseDetail(id: string | null) {
   return {
     knowledgeBase: id ? knowledgeBase : undefined,
     stats: id ? stats : undefined,
-    loading: id ? loading || statsLoading : false,
+    documents: id ? documents : undefined,
+    loading: id ? loading || statsLoading || docsLoading : false,
     updating,
     processing,
     syncing,
@@ -234,6 +251,7 @@ export function useKnowledgeBaseDetail(id: string | null) {
     error: id ? error : null,
     refresh,
     fetchStats,
+    fetchDocuments,
     updateKnowledgeBase: async (data: Partial<CreateKnowledgeBaseDto>) => {
       if (!id) return undefined;
       const result = await updateKnowledgeBase(data);
@@ -245,6 +263,7 @@ export function useKnowledgeBaseDetail(id: string | null) {
       const result = await processDocuments({} as Record<string, never>);
       await refresh();
       await fetchStats();
+      await fetchDocuments();
       return result;
     },
     syncGoogleDrive: async () => {
@@ -252,6 +271,7 @@ export function useKnowledgeBaseDetail(id: string | null) {
       const result = await syncGoogleDrive({} as Record<string, never>);
       await refresh();
       await fetchStats();
+      await fetchDocuments();
       return result;
     },
     addDocument: async (doc: AddDocumentDto) => {
@@ -259,6 +279,7 @@ export function useKnowledgeBaseDetail(id: string | null) {
       const result = await addDocument(doc);
       await refresh();
       await fetchStats();
+      await fetchDocuments();
       return result;
     },
   };

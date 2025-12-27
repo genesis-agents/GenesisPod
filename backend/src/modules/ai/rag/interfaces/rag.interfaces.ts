@@ -148,6 +148,7 @@ export interface KnowledgeBaseStats {
   documentCount: number;
   parentChunkCount: number;
   childChunkCount: number;
+  embeddingCount: number;
   totalTokens: number;
   lastSyncedAt?: Date;
 }

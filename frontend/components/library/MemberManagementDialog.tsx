@@ -298,7 +298,15 @@ export default function MemberManagementDialog({
 
                     <div className="flex items-center gap-2">
                       {/* Role Badge / Dropdown */}
-                      {editingMemberId === member.id ? (
+                      {member.role === 'OWNER' ? (
+                        // OWNER 角色不可编辑
+                        <span
+                          className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${roleConfig.color}`}
+                        >
+                          <RoleIcon className="h-3 w-3" />
+                          {roleConfig.label}
+                        </span>
+                      ) : editingMemberId === member.id ? (
                         <div className="relative">
                           <select
                             value={member.role}
@@ -328,14 +336,16 @@ export default function MemberManagementDialog({
                         </button>
                       )}
 
-                      {/* Remove Button */}
-                      <button
-                        onClick={() => handleRemoveMember(member.id)}
-                        className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                        title="移除成员"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {/* Remove Button - 不显示给 OWNER */}
+                      {member.role !== 'OWNER' && (
+                        <button
+                          onClick={() => handleRemoveMember(member.id)}
+                          className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                          title="移除成员"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -344,26 +354,23 @@ export default function MemberManagementDialog({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="border-t border-gray-200 px-6 py-4">
-          <div className="flex items-start gap-2 text-xs text-gray-500">
-            <div className="flex items-center gap-1">
-              <Crown className="h-3 w-3 text-amber-600" />
+        {/* Footer - Role Legend */}
+        <div className="border-t border-gray-200 px-6 py-3">
+          <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
+            <div className="flex items-center gap-1.5">
+              <Crown className="h-3.5 w-3.5 flex-shrink-0 text-amber-600" />
               <span>所有者：完全控制</span>
             </div>
-            <span>|</span>
-            <div className="flex items-center gap-1">
-              <Shield className="h-3 w-3 text-purple-600" />
+            <div className="flex items-center gap-1.5">
+              <Shield className="h-3.5 w-3.5 flex-shrink-0 text-purple-600" />
               <span>管理员：管理成员</span>
             </div>
-            <span>|</span>
-            <div className="flex items-center gap-1">
-              <Pencil className="h-3 w-3 text-blue-600" />
+            <div className="flex items-center gap-1.5">
+              <Pencil className="h-3.5 w-3.5 flex-shrink-0 text-blue-600" />
               <span>编辑者：编辑内容</span>
             </div>
-            <span>|</span>
-            <div className="flex items-center gap-1">
-              <Eye className="h-3 w-3 text-gray-600" />
+            <div className="flex items-center gap-1.5">
+              <Eye className="h-3.5 w-3.5 flex-shrink-0 text-gray-600" />
               <span>查看者：只读</span>
             </div>
           </div>

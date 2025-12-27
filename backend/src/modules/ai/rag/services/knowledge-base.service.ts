@@ -137,14 +137,30 @@ export class KnowledgeBaseService {
   }
 
   /**
-   * List knowledge bases for user
+   * List knowledge bases for user (includes both owned and member-of)
    */
   async findByUser(userId: string) {
     return this.prisma.knowledgeBase.findMany({
-      where: { userId },
+      where: {
+        OR: [
+          // 用户拥有的知识库
+          { userId },
+          // 用户是成员的团队知识库
+          {
+            type: "TEAM",
+            members: {
+              some: { userId },
+            },
+          },
+        ],
+      },
       include: {
         _count: {
           select: { documents: true },
+        },
+        // 包含成员数量 (仅用于团队知识库)
+        members: {
+          select: { id: true },
         },
       },
       orderBy: { createdAt: "desc" },
@@ -321,15 +337,18 @@ export class KnowledgeBaseService {
         Array<{
           parent_count: bigint;
           child_count: bigint;
+          embedding_count: bigint;
           total_tokens: bigint;
         }>
       >`
         SELECT
           COUNT(DISTINCT pc.id) as parent_count,
           COUNT(DISTINCT cc.id) as child_count,
+          COUNT(DISTINCT ce.id) as embedding_count,
           COALESCE(SUM(pc.token_count), 0) as total_tokens
         FROM parent_chunks pc
         LEFT JOIN child_chunks cc ON cc.parent_chunk_id = pc.id
+        LEFT JOIN child_embeddings ce ON ce.child_chunk_id = cc.id
         JOIN knowledge_base_documents d ON pc.document_id = d.id
         WHERE d.knowledge_base_id = ${id}::uuid
       `,
@@ -342,6 +361,7 @@ export class KnowledgeBaseService {
     const counts = chunkCounts[0] || {
       parent_count: BigInt(0),
       child_count: BigInt(0),
+      embedding_count: BigInt(0),
       total_tokens: BigInt(0),
     };
 
@@ -349,9 +369,59 @@ export class KnowledgeBaseService {
       documentCount: docCount,
       parentChunkCount: Number(counts.parent_count),
       childChunkCount: Number(counts.child_count),
+      embeddingCount: Number(counts.embedding_count),
       totalTokens: Number(counts.total_tokens),
       lastSyncedAt: kb?.lastSyncedAt || undefined,
     };
+  }
+
+  /**
+   * List documents in a knowledge base with vectorization status
+   */
+  async listDocuments(knowledgeBaseId: string) {
+    const documents = await this.prisma.knowledgeBaseDocument.findMany({
+      where: { knowledgeBaseId },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        title: true,
+        sourceType: true,
+        sourceUrl: true,
+        mimeType: true,
+        status: true,
+        processedAt: true,
+        chunkCount: true,
+        lastError: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    // Get embedding counts for each document
+    const embeddingCounts = await this.prisma.$queryRaw<
+      Array<{ document_id: string; embedding_count: bigint }>
+    >`
+      SELECT
+        d.id as document_id,
+        COUNT(DISTINCT ce.id) as embedding_count
+      FROM knowledge_base_documents d
+      LEFT JOIN parent_chunks pc ON pc.document_id = d.id
+      LEFT JOIN child_chunks cc ON cc.parent_chunk_id = pc.id
+      LEFT JOIN child_embeddings ce ON ce.child_chunk_id = cc.id
+      WHERE d.knowledge_base_id = ${knowledgeBaseId}::uuid
+      GROUP BY d.id
+    `;
+
+    const embeddingMap = new Map(
+      embeddingCounts.map((e) => [e.document_id, Number(e.embedding_count)]),
+    );
+
+    return documents.map((doc) => ({
+      ...doc,
+      embeddingCount: embeddingMap.get(doc.id) || 0,
+      isVectorized:
+        doc.status === "READY" && (embeddingMap.get(doc.id) || 0) > 0,
+    }));
   }
 
   /**

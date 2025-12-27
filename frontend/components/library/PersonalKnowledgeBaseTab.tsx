@@ -16,6 +16,9 @@ import {
   Layers,
   Hash,
   ChevronRight,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
 } from 'lucide-react';
 import {
   useKnowledgeBase,
@@ -51,6 +54,7 @@ export default function PersonalKnowledgeBaseTab() {
   const {
     knowledgeBase: expandedKb,
     stats: expandedStats,
+    documents: expandedDocs,
     loading: expandedLoading,
     syncing,
     processing,
@@ -428,14 +432,13 @@ export default function PersonalKnowledgeBaseTab() {
                         </div>
                         <div className="rounded-lg bg-green-50 p-3 text-center">
                           <p className="text-lg font-bold text-green-700">
-                            {expandedStats.parentChunkCount +
-                              expandedStats.childChunkCount}
+                            {expandedStats.childChunkCount}
                           </p>
                           <p className="text-xs text-green-600">分块</p>
                         </div>
                         <div className="rounded-lg bg-purple-50 p-3 text-center">
                           <p className="text-lg font-bold text-purple-700">
-                            {expandedStats.childChunkCount}
+                            {expandedStats.embeddingCount ?? 0}
                           </p>
                           <p className="text-xs text-purple-600">向量</p>
                         </div>
@@ -528,6 +531,52 @@ export default function PersonalKnowledgeBaseTab() {
                         编辑
                       </button>
                     </div>
+
+                    {/* 文档列表 - 向量化状态 */}
+                    {expandedDocs && expandedDocs.length > 0 && (
+                      <div className="mt-4 border-t border-gray-100 pt-4">
+                        <h4 className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
+                          <FileText className="h-4 w-4" />
+                          文档列表 ({expandedDocs.length})
+                        </h4>
+                        <div className="max-h-48 space-y-2 overflow-y-auto">
+                          {expandedDocs.map((doc) => (
+                            <div
+                              key={doc.id}
+                              className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm"
+                            >
+                              <div className="flex items-center gap-2 truncate">
+                                {doc.isVectorized ? (
+                                  <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-500" />
+                                ) : doc.status === 'ERROR' ? (
+                                  <XCircle className="h-4 w-4 flex-shrink-0 text-red-500" />
+                                ) : doc.status === 'PROCESSING' ? (
+                                  <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-blue-500" />
+                                ) : (
+                                  <AlertCircle className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                                )}
+                                <span className="truncate" title={doc.title}>
+                                  {doc.title}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                                {doc.embeddingCount !== undefined &&
+                                  doc.embeddingCount > 0 && (
+                                    <span className="rounded bg-purple-100 px-1.5 py-0.5 text-purple-700">
+                                      {doc.embeddingCount} 向量
+                                    </span>
+                                  )}
+                                {doc.chunkCount > 0 && (
+                                  <span className="rounded bg-blue-100 px-1.5 py-0.5 text-blue-700">
+                                    {doc.chunkCount} 分块
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : null}
               </div>
