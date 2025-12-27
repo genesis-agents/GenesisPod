@@ -61,6 +61,15 @@ export default function KnowledgeBaseSelector({
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // DEBUG: 标识这个组件实例
+  console.log('[KBSelector] Instance props:', {
+    compact,
+    multiple,
+    onlyReady,
+    filterType,
+    disabled,
+  });
+
   // 直接管理 state，不依赖外部 hook
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
   const [loading, setLoading] = useState(false);
@@ -250,6 +259,7 @@ export default function KnowledgeBaseSelector({
         {isOpen && (
           <div className="absolute left-0 top-full z-50 mt-1 w-72 rounded-lg border border-gray-200 bg-white shadow-lg">
             <DropdownContent
+              key={`dropdown-${knowledgeBases.length}-${loading}`}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
               loading={loading}
@@ -351,6 +361,7 @@ export default function KnowledgeBaseSelector({
         <div className="relative">
           <div className="absolute left-0 top-0 z-50 w-full rounded-lg border border-gray-200 bg-white shadow-lg">
             <DropdownContent
+              key={`dropdown-full-${knowledgeBases.length}-${loading}`}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
               loading={loading}
@@ -402,6 +413,15 @@ function DropdownContent({
   refreshList: () => void;
   t: (key: string, params?: Record<string, string | number>) => string;
 }) {
+  // DEBUG: 查看 DropdownContent 实际收到的 props
+  console.log('[DropdownContent] Received props:', {
+    filteredKBsLength: filteredKBs?.length,
+    filteredKBs: filteredKBs,
+    loading,
+    error,
+    selectedIds,
+  });
+
   return (
     <>
       {/* Search */}
@@ -421,6 +441,36 @@ function DropdownContent({
 
       {/* List */}
       <div className="max-h-64 overflow-y-auto p-2">
+        {/* DEBUG: 显示当前数量 */}
+        <div className="mb-2 rounded bg-red-50 p-1 text-xs text-red-500">
+          DEBUG: filteredKBs.length = {filteredKBs?.length ?? 'undefined'},
+          loading = {String(loading)}, error = {error ? 'yes' : 'no'}
+        </div>
+
+        {/* DEBUG: 简单测试渲染 */}
+        {filteredKBs.length > 0 && (
+          <div className="mb-2 rounded bg-green-100 p-2 text-xs text-green-800">
+            ✓ filteredKBs has {filteredKBs.length} item(s). First:{' '}
+            {filteredKBs[0]?.name ?? 'N/A'}
+          </div>
+        )}
+
+        {/* DEBUG: 无条件渲染所有项目 - 直接显示数据 */}
+        <div className="mb-2 rounded border border-yellow-400 bg-yellow-50 p-2 text-xs">
+          <div className="mb-1 font-bold text-yellow-800">
+            DEBUG Items (无条件渲染):
+          </div>
+          {filteredKBs.map((kb) => (
+            <div key={kb.id} className="py-0.5 text-yellow-700">
+              • {kb.name} (id: {kb.id.slice(0, 8)}..., type: {kb.type}, status:{' '}
+              {kb.status})
+            </div>
+          ))}
+          {filteredKBs.length === 0 && (
+            <div className="italic text-yellow-600">没有数据</div>
+          )}
+        </div>
+
         {/* Show loading indicator only when no data yet */}
         {loading && filteredKBs.length === 0 && (
           <div className="flex items-center justify-center py-4">
@@ -449,60 +499,90 @@ function DropdownContent({
         )}
 
         {/* Show items even while refreshing (keep UI responsive) */}
-        {!error &&
-          filteredKBs.map((kb) => {
-            const isSelected = selectedIds.includes(kb.id);
-            const isDisabled =
-              !isSelected && multiple && selectedIds.length >= maxSelections;
+        {!error && (
+          <>
+            {console.log(
+              '[DropdownContent] About to map',
+              filteredKBs.length,
+              'items, error:',
+              error
+            )}
+            {filteredKBs.map((kb) => {
+              try {
+                console.log(
+                  '[DropdownContent] Rendering KB item:',
+                  kb.id,
+                  kb.name,
+                  kb
+                );
+                const isSelected = selectedIds.includes(kb.id);
+                const isDisabled =
+                  !isSelected &&
+                  multiple &&
+                  selectedIds.length >= maxSelections;
 
-            return (
-              <button
-                key={kb.id}
-                type="button"
-                onClick={() => !isDisabled && handleToggle(kb)}
-                disabled={isDisabled}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
-                  isSelected
-                    ? 'bg-blue-50 text-blue-700'
-                    : isDisabled
-                      ? 'cursor-not-allowed opacity-50'
-                      : 'hover:bg-gray-50'
-                }`}
-              >
-                {/* Checkbox/Radio indicator */}
-                <div
-                  className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded ${
-                    multiple ? 'rounded' : 'rounded-full'
-                  } border ${
-                    isSelected
-                      ? 'border-blue-500 bg-blue-500'
-                      : 'border-gray-300'
-                  }`}
-                >
-                  {isSelected && <Check className="h-3 w-3 text-white" />}
-                </div>
+                return (
+                  <button
+                    key={kb.id}
+                    type="button"
+                    onClick={() => !isDisabled && handleToggle(kb)}
+                    disabled={isDisabled}
+                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
+                      isSelected
+                        ? 'bg-blue-50 text-blue-700'
+                        : isDisabled
+                          ? 'cursor-not-allowed opacity-50'
+                          : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    {/* Checkbox/Radio indicator */}
+                    <div
+                      className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded ${
+                        multiple ? 'rounded' : 'rounded-full'
+                      } border ${
+                        isSelected
+                          ? 'border-blue-500 bg-blue-500'
+                          : 'border-gray-300'
+                      }`}
+                    >
+                      {isSelected && <Check className="h-3 w-3 text-white" />}
+                    </div>
 
-                {/* KB Info */}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    {getTypeIcon(kb.type)}
-                    <span className="truncate font-medium text-gray-900">
-                      {kb.name}
-                    </span>
+                    {/* KB Info */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        {getTypeIcon(kb.type)}
+                        <span className="truncate font-medium text-gray-900">
+                          {kb.name}
+                        </span>
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
+                        <span>{getSourceTypeLabel(kb.sourceType)}</span>
+                        <span>•</span>
+                        <span>
+                          {t('knowledgeBase.docCount', {
+                            count: String(kb._count?.documents ?? 0),
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              } catch (renderError) {
+                console.error(
+                  '[DropdownContent] Error rendering KB item:',
+                  renderError,
+                  kb
+                );
+                return (
+                  <div key={kb.id} className="p-2 text-xs text-red-500">
+                    Error rendering: {kb.name}
                   </div>
-                  <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
-                    <span>{getSourceTypeLabel(kb.sourceType)}</span>
-                    <span>•</span>
-                    <span>
-                      {t('knowledgeBase.docCount', {
-                        count: String(kb._count?.documents ?? 0),
-                      })}
-                    </span>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
+                );
+              }
+            })}
+          </>
+        )}
       </div>
 
       {/* Footer */}
