@@ -9,7 +9,7 @@
     "start": "nest start",
     "dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "echo '🔄 Running database migrations...' && tsx prisma/deploy-migrations.ts && echo '✅ Migrations complete' && echo '🚀 Starting production server...' && node dist/main",
+    "start:prod": "node dist/main",
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "lint:fix": "eslint \"{src,test}/**/*.ts\" --fix",
     "type-check": "tsc --noEmit",

@@ -47,8 +47,7 @@ async function deploy(): Promise<void> {
       Array<{ migration_name: string }>
     >`
       SELECT migration_name FROM "_prisma_migrations"
-      WHERE finished_at IS NULL
-      OR (logs IS NOT NULL AND logs != '')
+      WHERE finished_at IS NULL AND rolled_back_at IS NULL
     `;
 
     if (failedMigrations.length > 0) {
