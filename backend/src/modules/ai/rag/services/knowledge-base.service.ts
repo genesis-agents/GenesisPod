@@ -374,6 +374,10 @@ export class KnowledgeBaseService {
       total_tokens: BigInt(0),
     };
 
+    this.logger.debug(
+      `Stats for KB ${id}: docs=${docCount}, parents=${counts.parent_count}, children=${counts.child_count}, embeddings=${counts.embedding_count}, tokens=${counts.total_tokens}`,
+    );
+
     return {
       documentCount: docCount,
       parentChunkCount: Number(counts.parent_count),

@@ -484,12 +484,21 @@ export class GoogleDriveRAGService {
   }
 
   /**
-   * List folders from Google Drive for folder selection UI
+   * List folders and files from Google Drive for folder selection UI
+   * Returns both folders (for navigation) and files (for display)
    */
   async listFolders(
     userId: string,
     parentFolderId?: string,
-  ): Promise<Array<{ id: string; name: string; fileCount: number }>> {
+  ): Promise<{
+    folders: Array<{ id: string; name: string; fileCount: number }>;
+    files: Array<{
+      id: string;
+      name: string;
+      mimeType: string;
+      size?: number;
+    }>;
+  }> {
     const connection = await this.prisma.googleDriveConnection.findUnique({
       where: { userId },
     });
@@ -501,23 +510,24 @@ export class GoogleDriveRAGService {
     const oauth2Client = await this.getOAuthClient(connection);
     const drive = google.drive({ version: "v3", auth: oauth2Client });
 
-    const query = parentFolderId
-      ? `'${parentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
-      : `'root' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+    const parentCondition = parentFolderId
+      ? `'${parentFolderId}' in parents`
+      : `'root' in parents`;
 
-    const response = await drive.files.list({
-      q: query,
+    // Get folders
+    const folderQuery = `${parentCondition} and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+    const folderResponse = await drive.files.list({
+      q: folderQuery,
       fields: "files(id, name)",
       pageSize: 100,
       orderBy: "name",
     });
 
-    const folders = response.data.files || [];
+    const folders = folderResponse.data.files || [];
 
-    // Count files (non-folders) in each folder
+    // Count files in each folder
     const foldersWithMeta = await Promise.all(
       folders.map(async (folder) => {
-        // Count files only (not folders) inside this folder
         const childResponse = await drive.files.list({
           q: `'${folder.id}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
           fields: "files(id)",
@@ -532,6 +542,25 @@ export class GoogleDriveRAGService {
       }),
     );
 
-    return foldersWithMeta;
+    // Get files (non-folders) in current directory
+    const fileQuery = `${parentCondition} and mimeType != 'application/vnd.google-apps.folder' and trashed = false`;
+    const fileResponse = await drive.files.list({
+      q: fileQuery,
+      fields: "files(id, name, mimeType, size)",
+      pageSize: 100,
+      orderBy: "name",
+    });
+
+    const files = (fileResponse.data.files || []).map((file) => ({
+      id: file.id!,
+      name: file.name!,
+      mimeType: file.mimeType || "application/octet-stream",
+      size: file.size ? parseInt(file.size, 10) : undefined,
+    }));
+
+    return {
+      folders: foldersWithMeta,
+      files,
+    };
   }
 }

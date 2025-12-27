@@ -182,7 +182,13 @@ export class DocumentProcessorService {
       },
     });
 
-    this.logger.log(`Saved ${processed.parentChunks.length} parent chunks`);
+    const totalTokens = processed.parentChunks.reduce(
+      (sum, p) => sum + p.tokenCount,
+      0,
+    );
+    this.logger.log(
+      `Saved ${processed.parentChunks.length} parent chunks with ${totalTokens} total tokens`,
+    );
   }
 
   /**

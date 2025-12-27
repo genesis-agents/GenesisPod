@@ -91,6 +91,13 @@ export interface GoogleDriveFolder {
   modifiedTime?: string;
 }
 
+export interface GoogleDriveFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  size?: number;
+}
+
 export interface RAGQueryResult {
   context: {
     text: string;
