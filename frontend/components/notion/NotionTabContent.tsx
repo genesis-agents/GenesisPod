@@ -67,7 +67,7 @@ export default function NotionTabContent() {
   );
   const [showKBDialog, setShowKBDialog] = useState(false);
   const [showAiOrganize, setShowAiOrganize] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [conflicts, setConflicts] = useState<SyncConflict[]>([]);
   const [syncMessage, setSyncMessage] = useState<{
     show: boolean;

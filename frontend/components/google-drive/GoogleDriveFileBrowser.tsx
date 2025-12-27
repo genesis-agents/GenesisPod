@@ -43,7 +43,7 @@ export function GoogleDriveFileBrowser({
   const [localSearch, setLocalSearch] = useState('');
   const [showKBDialog, setShowKBDialog] = useState(false);
   const [showAiOrganize, setShowAiOrganize] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   const {
     files,
