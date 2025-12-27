@@ -100,92 +100,14 @@ export class KnowledgeBaseService {
 
   /**
    * Get knowledge base by ID
+   * Uses Prisma ORM to automatically handle type conversions
    */
   async findById(id: string, userId?: string) {
-    // Use raw SQL with UUID casting when userId is provided to fix type mismatch
-    if (userId) {
-      const result = await this.prisma.$queryRaw<
-        Array<{
-          id: string;
-          name: string;
-          description: string | null;
-          source_type: string;
-          source_types: string[];
-          status: string;
-          type: string;
-          user_id: string;
-          team_id: string | null;
-          embedding_model: string | null;
-          google_drive_connection_id: string | null;
-          google_drive_folder_ids: string[];
-          created_at: Date;
-          updated_at: Date;
-          last_synced_at: Date | null;
-          last_error: string | null;
-        }>
-      >`
-        SELECT * FROM knowledge_bases
-        WHERE id = ${id}::text AND user_id = ${userId}::text
-        LIMIT 1
-      `;
+    // Build where clause based on whether userId is provided
+    const whereClause = userId ? { id, userId } : { id };
 
-      if (!result.length) {
-        throw new NotFoundException("Knowledge base not found");
-      }
-
-      const kbRow = result[0];
-
-      // Fetch related data separately
-      const [documents, googleDriveConnection] = await Promise.all([
-        this.prisma.knowledgeBaseDocument.findMany({
-          where: { knowledgeBaseId: id },
-          select: {
-            id: true,
-            title: true,
-            sourceType: true,
-            status: true,
-            chunkCount: true,
-            createdAt: true,
-          },
-          orderBy: { createdAt: "desc" },
-        }),
-        kbRow.google_drive_connection_id
-          ? this.prisma.googleDriveConnection.findUnique({
-              where: { id: kbRow.google_drive_connection_id },
-              select: {
-                id: true,
-                email: true,
-                displayName: true,
-              },
-            })
-          : null,
-      ]);
-
-      return {
-        id: kbRow.id,
-        name: kbRow.name,
-        description: kbRow.description,
-        sourceType: kbRow.source_type,
-        sourceTypes: kbRow.source_types,
-        status: kbRow.status,
-        type: kbRow.type,
-        userId: kbRow.user_id,
-        teamId: kbRow.team_id,
-        embeddingModel: kbRow.embedding_model,
-        googleDriveConnectionId: kbRow.google_drive_connection_id,
-        googleDriveFolderIds: kbRow.google_drive_folder_ids,
-        createdAt: kbRow.created_at,
-        updatedAt: kbRow.updated_at,
-        lastSyncedAt: kbRow.last_synced_at,
-        lastError: kbRow.last_error,
-        documents,
-        googleDriveConnection,
-      };
-    }
-
-    // When no userId, use standard Prisma query (no UUID comparison issue)
     const kb = await this.prisma.knowledgeBase.findFirst({
-      where: { id },
+      where: whereClause,
       include: {
         documents: {
           select: {
@@ -217,72 +139,41 @@ export class KnowledgeBaseService {
 
   /**
    * List knowledge bases for user (includes both owned and member-of)
+   * Uses Prisma ORM to automatically handle type conversions
    */
   async findByUser(userId: string) {
-    // Use raw SQL to handle UUID type mismatch between Prisma String and PostgreSQL UUID
-    // This fixes the "operator does not exist: uuid = text" error
-    const knowledgeBases = await this.prisma.$queryRaw<
-      Array<{
-        id: string;
-        name: string;
-        description: string | null;
-        source_type: string;
-        source_types: string[];
-        status: string;
-        type: string;
-        user_id: string;
-        team_id: string | null;
-        embedding_model: string | null;
-        google_drive_connection_id: string | null;
-        google_drive_folder_ids: string[];
-        created_at: Date;
-        updated_at: Date;
-        last_synced_at: Date | null;
-        last_error: string | null;
-        document_count: bigint;
-        member_count: bigint;
-      }>
-    >`
-      SELECT
-        kb.*,
-        COUNT(DISTINCT doc.id) as document_count,
-        COUNT(DISTINCT mem.id) as member_count
-      FROM knowledge_bases kb
-      LEFT JOIN knowledge_base_documents doc ON doc.knowledge_base_id = kb.id
-      LEFT JOIN knowledge_base_members mem ON mem.knowledge_base_id = kb.id
-      WHERE kb.user_id = ${userId}::text
-         OR (kb.type = 'TEAM' AND EXISTS (
-           SELECT 1 FROM knowledge_base_members m
-           WHERE m.knowledge_base_id = kb.id
-           AND m.user_id = ${userId}::text
-         ))
-      GROUP BY kb.id
-      ORDER BY kb.created_at DESC
-    `;
-
-    // Transform to match the expected format
-    return knowledgeBases.map((kb) => ({
-      id: kb.id,
-      name: kb.name,
-      description: kb.description,
-      sourceType: kb.source_type,
-      sourceTypes: kb.source_types,
-      status: kb.status,
-      type: kb.type,
-      userId: kb.user_id,
-      teamId: kb.team_id,
-      embeddingModel: kb.embedding_model,
-      googleDriveConnectionId: kb.google_drive_connection_id,
-      googleDriveFolderIds: kb.google_drive_folder_ids,
-      createdAt: kb.created_at,
-      updatedAt: kb.updated_at,
-      lastSyncedAt: kb.last_synced_at,
-      lastError: kb.last_error,
-      _count: {
-        documents: Number(kb.document_count),
+    // Use Prisma ORM instead of raw SQL to handle types automatically
+    // This avoids the "operator does not exist: text = uuid" error
+    const knowledgeBases = await this.prisma.knowledgeBase.findMany({
+      where: {
+        OR: [
+          { userId },
+          {
+            type: "TEAM",
+            members: {
+              some: { userId },
+            },
+          },
+        ],
       },
-      members: Array(Number(kb.member_count)).fill({ id: "" }),
-    }));
+      include: {
+        _count: {
+          select: {
+            documents: true,
+          },
+        },
+        members: {
+          select: {
+            id: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return knowledgeBases;
   }
 
   /**
