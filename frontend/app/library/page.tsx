@@ -1679,10 +1679,11 @@ function LibraryPageContent() {
 
         {/* Main content area */}
         <div className="px-8 py-6">
-          {/* AI Organize Panel - Hide for knowledge base tabs */}
+          {/* AI Organize Panel - Hide for knowledge base and data source tabs */}
           {activeTab !== 'personal-kb' &&
             activeTab !== 'team-kb' &&
-            activeTab !== 'data-sources' && (
+            activeTab !== 'data-sources' &&
+            activeTab !== 'graph' && (
               <AIOrganizePanel
                 collections={collections.map((c) => ({
                   id: c.id,

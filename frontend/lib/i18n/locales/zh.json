@@ -171,6 +171,7 @@
     "createKnowledgeBase": "创建知识库",
     "newKnowledgeBase": "新建知识库",
     "kbCount": "{{count}} 个知识库",
+    "docCount": "{{count}} 文档",
     "refresh": "刷新",
     "name": "名称",
     "description": "描述",

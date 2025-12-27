@@ -171,6 +171,7 @@
     "createKnowledgeBase": "Create Knowledge Base",
     "newKnowledgeBase": "New Knowledge Base",
     "kbCount": "{{count}} knowledge bases",
+    "docCount": "{{count}} docs",
     "refresh": "Refresh",
     "name": "Name",
     "description": "Description",

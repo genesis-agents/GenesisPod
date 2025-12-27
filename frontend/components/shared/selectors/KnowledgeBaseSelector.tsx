@@ -428,7 +428,11 @@ function DropdownContent({
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
                     <span>{getSourceTypeLabel(kb.sourceType)}</span>
                     <span>•</span>
-                    <span>{kb._count?.documents ?? 0} 文档</span>
+                    <span>
+                      {t('knowledgeBase.docCount', {
+                        count: String(kb._count?.documents ?? 0),
+                      })}
+                    </span>
                   </div>
                 </div>
               </button>
