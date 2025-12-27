@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
+import { useTranslation } from '@/lib/i18n';
 
 // Sub-tabs for data sources
 type DataSourceSubTab =
@@ -172,6 +173,7 @@ export default function DataSourcesTab({
   renderNotion,
   renderGoogleDrive,
 }: DataSourcesTabProps) {
+  const { t } = useTranslation();
   const [activeSubTab, setActiveSubTab] =
     useState<DataSourceSubTab>(initialSubTab);
   const [loading, setLoading] = useState(true);
@@ -502,9 +504,11 @@ export default function DataSourcesTab({
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">数据源概览</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              {t('dataSources.overviewTitle')}
+            </h3>
             <p className="text-sm text-gray-500">
-              管理你的数据源连接，这些数据可以导入到知识库
+              {t('dataSources.overviewDesc')}
             </p>
           </div>
           <button
@@ -512,7 +516,7 @@ export default function DataSourcesTab({
             className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
           >
             <RefreshCw className="h-4 w-4" />
-            刷新状态
+            {t('dataSources.refreshStatus')}
           </button>
         </div>
 
@@ -520,7 +524,7 @@ export default function DataSourcesTab({
         <div>
           <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-gray-700">
             <ExternalLink className="h-4 w-4" />
-            外部数据源
+            {t('dataSources.external')}
           </h4>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {DATA_SOURCE_CONFIGS.filter((ds) => !ds.isInternal).map(
@@ -703,12 +707,12 @@ export default function DataSourcesTab({
         {/* Help Section */}
         <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
           <h4 className="text-sm font-medium text-blue-900">
-            如何使用数据源？
+            {t('dataSources.howToUse')}
           </h4>
           <ul className="mt-2 space-y-1 text-sm text-blue-700">
-            <li>连接外部数据源后，可以在创建知识库时选择作为数据来源</li>
-            <li>平台内数据（书签、笔记等）可以直接导入到知识库</li>
-            <li>同步功能会自动更新知识库中的内容</li>
+            <li>{t('dataSources.howToUseHints.1')}</li>
+            <li>{t('dataSources.howToUseHints.2')}</li>
+            <li>{t('dataSources.howToUseHints.3')}</li>
           </ul>
         </div>
       </div>

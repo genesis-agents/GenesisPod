@@ -165,7 +165,9 @@
       "ERROR": "Error"
     },
     "personal": "Personal",
+    "personalKb": "Personal KB",
     "team": "Team",
+    "teamKb": "Team KB",
     "createFirst": "Create your first knowledge base",
     "createFirstDesc": "Knowledge bases store your documents, notes and materials, supporting AI intelligent retrieval and Q&A.",
     "createKnowledgeBase": "Create Knowledge Base",

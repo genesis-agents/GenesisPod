@@ -1639,7 +1639,7 @@ function LibraryPageContent() {
                 }`}
               >
                 <User className="h-4 w-4" />
-                个人知识库
+                {t('knowledgeBase.personalKb')}
               </button>
               <button
                 onClick={() => setActiveTab('team-kb')}
@@ -1650,7 +1650,7 @@ function LibraryPageContent() {
                 }`}
               >
                 <Users className="h-4 w-4" />
-                团队知识库
+                {t('knowledgeBase.teamKb')}
               </button>
               <button
                 onClick={() => setActiveTab('data-sources')}
@@ -1661,7 +1661,7 @@ function LibraryPageContent() {
                 }`}
               >
                 <HardDrive className="h-4 w-4" />
-                数据源
+                {t('dataSources.title')}
               </button>
               {/* 知识图谱功能暂时屏蔽，待完善后开放
               <button

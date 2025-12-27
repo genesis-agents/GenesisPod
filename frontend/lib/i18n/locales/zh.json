@@ -165,7 +165,9 @@
       "ERROR": "错误"
     },
     "personal": "个人",
+    "personalKb": "个人知识库",
     "team": "团队",
+    "teamKb": "团队知识库",
     "createFirst": "创建你的第一个知识库",
     "createFirstDesc": "知识库可以存储你的文档、笔记和资料，支持 AI 智能检索和问答。",
     "createKnowledgeBase": "创建知识库",
@@ -188,12 +190,12 @@
     "create": "创建"
   },
   "dataSources": {
-    "title": "数据源",
+    "title": "数据来源",
     "overview": "概览",
-    "overviewTitle": "数据源概览",
-    "overviewDesc": "管理你的数据源连接，这些数据可以导入到知识库",
+    "overviewTitle": "数据来源概览",
+    "overviewDesc": "管理你的数据来源连接，这些数据可以导入到知识库",
     "refreshStatus": "刷新状态",
-    "external": "外部数据源",
+    "external": "外部数据",
     "internal": "平台内数据",
     "connected": "已连接",
     "notConnected": "未连接",
@@ -204,9 +206,9 @@
     "connect": "连接",
     "clickToBrowse": "点击浏览",
     "available": "可用",
-    "howToUse": "如何使用数据源？",
+    "howToUse": "如何使用数据来源？",
     "howToUseHints": {
-      "1": "连接外部数据源后，可以在创建知识库时选择作为数据来源",
+      "1": "连接外部数据后，可以在创建知识库时选择作为数据来源",
       "2": "平台内数据（书签、笔记等）可以直接导入到知识库",
       "3": "同步功能会自动更新知识库中的内容"
     },
