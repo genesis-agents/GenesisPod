@@ -37,8 +37,24 @@ interface SyncResult {
   pagesProcessed: number;
   pagesCreated: number;
   pagesUpdated: number;
+  pagesPushed?: number;
   databasesProcessed?: number;
+  conflicts: SyncConflict[];
   errors: string[];
+}
+
+export interface SyncConflict {
+  pageId: string;
+  notionPageId: string;
+  title: string;
+  localModifiedAt: Date;
+  remoteModifiedAt: Date;
+}
+
+export interface PendingChanges {
+  localChanges: number;
+  remoteChanges: number;
+  conflicts: number;
 }
 
 @Injectable()
@@ -195,6 +211,8 @@ export class NotionSyncService {
         pagesProcessed: 0,
         pagesCreated: 0,
         pagesUpdated: 0,
+        pagesPushed: 0,
+        conflicts: [],
         errors: ["Connection not found"],
       };
     }
@@ -208,6 +226,8 @@ export class NotionSyncService {
       pagesProcessed: 0,
       pagesCreated: 0,
       pagesUpdated: 0,
+      pagesPushed: 0,
+      conflicts: [],
       errors: [],
     };
 
@@ -703,5 +723,396 @@ export class NotionSyncService {
       orderBy: { startedAt: "desc" },
       take: limit,
     });
+  }
+
+  // ============ Bidirectional Sync Methods ============
+
+  /**
+   * 检测待同步的变更
+   */
+  async detectPendingChanges(
+    userId: string,
+    connectionId?: string,
+  ): Promise<PendingChanges> {
+    const connections = connectionId
+      ? await this.prisma.notionConnection.findMany({
+          where: {
+            id: connectionId,
+            userId,
+            status: NotionConnectionStatus.ACTIVE,
+          },
+        })
+      : await this.prisma.notionConnection.findMany({
+          where: { userId, status: NotionConnectionStatus.ACTIVE },
+        });
+
+    if (connections.length === 0) {
+      return { localChanges: 0, remoteChanges: 0, conflicts: 0 };
+    }
+
+    const connectionIds = connections.map((c) => c.id);
+
+    // 统计本地修改的页面
+    const locallyModifiedPages = await this.prisma.notionPage.count({
+      where: {
+        connectionId: { in: connectionIds },
+        isLocallyModified: true,
+      },
+    });
+
+    // 检测冲突：本地修改且远程也有更新的页面
+    const conflictPages = await this.prisma.notionPage.findMany({
+      where: {
+        connectionId: { in: connectionIds },
+        isLocallyModified: true,
+      },
+      select: {
+        id: true,
+        notionPageId: true,
+        notionUpdatedAt: true,
+        localModifiedAt: true,
+      },
+    });
+
+    let conflicts = 0;
+    for (const page of conflictPages) {
+      // 如果远程更新时间晚于我们记录的远程时间，可能有冲突
+      // 这里简化处理，实际需要调用 API 检查
+      if (page.localModifiedAt && page.notionUpdatedAt) {
+        const timeDiff = Math.abs(
+          page.localModifiedAt.getTime() - page.notionUpdatedAt.getTime(),
+        );
+        if (timeDiff < 60000) {
+          // 1分钟内的修改可能有冲突
+          conflicts++;
+        }
+      }
+    }
+
+    return {
+      localChanges: locallyModifiedPages,
+      remoteChanges: 0, // 需要调用 Notion API 检查，这里简化
+      conflicts,
+    };
+  }
+
+  /**
+   * 执行双向同步
+   */
+  async syncBidirectional(
+    userId: string,
+    connectionId?: string,
+    options: { direction?: "push" | "pull" | "both" } = {},
+  ): Promise<SyncResult> {
+    const direction = options.direction || "both";
+
+    const connections = connectionId
+      ? await this.prisma.notionConnection.findMany({
+          where: {
+            id: connectionId,
+            userId,
+            status: NotionConnectionStatus.ACTIVE,
+          },
+        })
+      : await this.prisma.notionConnection.findMany({
+          where: { userId, status: NotionConnectionStatus.ACTIVE },
+        });
+
+    if (connections.length === 0) {
+      throw new Error("No active Notion connections found");
+    }
+
+    const result: SyncResult = {
+      success: true,
+      pagesProcessed: 0,
+      pagesCreated: 0,
+      pagesUpdated: 0,
+      pagesPushed: 0,
+      conflicts: [],
+      errors: [],
+    };
+
+    for (const connection of connections) {
+      try {
+        // Step 1: 推送本地变更 (如果需要)
+        if (direction === "push" || direction === "both") {
+          const pushResult = await this.pushLocalChanges(userId, connection.id);
+          result.pagesPushed! += pushResult.pushed;
+          result.conflicts.push(...pushResult.conflicts);
+          result.errors.push(...pushResult.errors);
+        }
+
+        // Step 2: 拉取远程变更 (如果需要)
+        if (direction === "pull" || direction === "both") {
+          const pullResult = await this.syncConnection(connection.id, false);
+          result.pagesProcessed += pullResult.pagesProcessed;
+          result.pagesCreated += pullResult.pagesCreated;
+          result.pagesUpdated += pullResult.pagesUpdated;
+          result.errors.push(...pullResult.errors);
+        }
+      } catch (error) {
+        this.logger.error(
+          `Bidirectional sync failed for ${connection.id}: ${error}`,
+        );
+        result.errors.push(
+          `Connection ${connection.workspaceName}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    result.success = result.errors.length === 0;
+    return result;
+  }
+
+  /**
+   * 推送所有本地修改到 Notion
+   */
+  private async pushLocalChanges(
+    _userId: string,
+    connectionId: string,
+  ): Promise<{ pushed: number; conflicts: SyncConflict[]; errors: string[] }> {
+    const modifiedPages = await this.prisma.notionPage.findMany({
+      where: {
+        connectionId,
+        isLocallyModified: true,
+      },
+      include: {
+        connection: true,
+      },
+    });
+
+    const pushed: string[] = [];
+    const conflicts: SyncConflict[] = [];
+    const errors: string[] = [];
+
+    for (const page of modifiedPages) {
+      try {
+        const client = await this.authService.getNotionClient(connectionId);
+
+        // 检查远程是否有更新
+        const remotePage = await client.pages.retrieve({
+          page_id: page.notionPageId,
+        });
+        const remoteUpdatedAt = new Date((remotePage as any).last_edited_time);
+
+        // 如果远程有更新，记录冲突
+        if (remoteUpdatedAt > page.notionUpdatedAt) {
+          conflicts.push({
+            pageId: page.id,
+            notionPageId: page.notionPageId,
+            title: page.title,
+            localModifiedAt: page.localModifiedAt!,
+            remoteModifiedAt: remoteUpdatedAt,
+          });
+          continue;
+        }
+
+        // 推送变更
+        await this.pushPageToNotion(client, page);
+        pushed.push(page.id);
+
+        // 更新本地状态
+        await this.prisma.notionPage.update({
+          where: { id: page.id },
+          data: {
+            isLocallyModified: false,
+            localModifiedAt: null,
+            lastSyncedAt: new Date(),
+          },
+        });
+      } catch (error) {
+        errors.push(
+          `Page ${page.title}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    this.logger.log(
+      `Pushed ${pushed.length} pages, ${conflicts.length} conflicts, ${errors.length} errors`,
+    );
+
+    return { pushed: pushed.length, conflicts, errors };
+  }
+
+  /**
+   * 推送单个页面到 Notion
+   */
+  private async pushPageToNotion(client: any, page: any): Promise<void> {
+    // 删除现有的所有块
+    const existingBlocks = await client.blocks.children.list({
+      block_id: page.notionPageId,
+    });
+
+    for (const block of existingBlocks.results) {
+      await client.blocks.delete({ block_id: block.id });
+    }
+
+    // 添加新的块
+    const blocks = page.blocks as any[];
+    const notionBlocks = this.convertToNotionBlocks(blocks);
+
+    if (notionBlocks.length > 0) {
+      await client.blocks.children.append({
+        block_id: page.notionPageId,
+        children: notionBlocks,
+      });
+    }
+  }
+
+  /**
+   * 解决同步冲突
+   */
+  async resolveConflict(
+    userId: string,
+    pageId: string,
+    resolution: "keep_local" | "keep_remote",
+  ): Promise<void> {
+    const page = await this.prisma.notionPage.findFirst({
+      where: {
+        id: pageId,
+        connection: { userId },
+      },
+      include: {
+        connection: true,
+      },
+    });
+
+    if (!page) {
+      throw new Error("Page not found");
+    }
+
+    if (resolution === "keep_local") {
+      // 强制推送本地版本
+      const client = await this.authService.getNotionClient(page.connectionId);
+      await this.pushPageToNotion(client, page);
+
+      await this.prisma.notionPage.update({
+        where: { id: pageId },
+        data: {
+          isLocallyModified: false,
+          localModifiedAt: null,
+          lastSyncedAt: new Date(),
+        },
+      });
+    } else {
+      // 从 Notion 重新拉取
+      const client = await this.authService.getNotionClient(page.connectionId);
+      const remotePage = await client.pages.retrieve({
+        page_id: page.notionPageId,
+      });
+      const blocks = await this.fetchAllBlocks(client, page.notionPageId);
+
+      await this.prisma.notionPage.update({
+        where: { id: pageId },
+        data: {
+          blocks: blocks as any,
+          plainTextContent: this.extractPlainText(blocks),
+          notionUpdatedAt: new Date((remotePage as any).last_edited_time),
+          isLocallyModified: false,
+          localModifiedAt: null,
+          lastSyncedAt: new Date(),
+        },
+      });
+    }
+
+    this.logger.log(`Resolved conflict for page ${pageId} with ${resolution}`);
+  }
+
+  /**
+   * 将 BlockNote 格式转换为 Notion API 格式
+   */
+  private convertToNotionBlocks(blocks: any[]): any[] {
+    const result: any[] = [];
+
+    for (const block of blocks) {
+      const notionBlock = this.convertBlock(block);
+      if (notionBlock) {
+        result.push(notionBlock);
+      }
+    }
+
+    return result;
+  }
+
+  private convertBlock(block: any): any {
+    const richText = this.convertContent(block.content || []);
+
+    switch (block.type) {
+      case "paragraph":
+        return {
+          object: "block",
+          type: "paragraph",
+          paragraph: { rich_text: richText },
+        };
+
+      case "heading":
+        const level = block.props?.level || 1;
+        const headingType = `heading_${Math.min(level, 3)}`;
+        return {
+          object: "block",
+          type: headingType,
+          [headingType]: { rich_text: richText },
+        };
+
+      case "bulletListItem":
+        return {
+          object: "block",
+          type: "bulleted_list_item",
+          bulleted_list_item: { rich_text: richText },
+        };
+
+      case "numberedListItem":
+        return {
+          object: "block",
+          type: "numbered_list_item",
+          numbered_list_item: { rich_text: richText },
+        };
+
+      case "checkListItem":
+        return {
+          object: "block",
+          type: "to_do",
+          to_do: {
+            rich_text: richText,
+            checked: block.props?.checked || false,
+          },
+        };
+
+      case "codeBlock":
+        return {
+          object: "block",
+          type: "code",
+          code: {
+            rich_text: richText,
+            language: block.props?.language || "plain text",
+          },
+        };
+
+      default:
+        if (richText.length > 0) {
+          return {
+            object: "block",
+            type: "paragraph",
+            paragraph: { rich_text: richText },
+          };
+        }
+        return null;
+    }
+  }
+
+  private convertContent(content: any[]): any[] {
+    return content
+      .filter((item) => item.type === "text" && item.text)
+      .map((item) => ({
+        type: "text",
+        text: { content: item.text },
+        annotations: {
+          bold: item.styles?.bold || false,
+          italic: item.styles?.italic || false,
+          strikethrough: item.styles?.strike || false,
+          underline: item.styles?.underline || false,
+          code: item.styles?.code || false,
+        },
+      }));
   }
 }

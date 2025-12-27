@@ -5,6 +5,15 @@ import { Cloud, Loader2, AlertCircle } from 'lucide-react';
 import { useGoogleDrive } from '@/hooks/domain';
 import { useGoogleDriveImport } from '@/hooks/domain/useGoogleDriveImport';
 import { GoogleDriveFileBrowser } from './GoogleDriveFileBrowser';
+import {
+  SyncControls,
+  type SyncDirection,
+} from '@/components/shared/SyncControls';
+import {
+  ConflictResolver,
+  type SyncConflict,
+} from '@/components/shared/ConflictResolver';
+import { syncBidirectional, resolveConflict } from '@/lib/api/google-drive';
 
 /**
  * Google Drive TAB 主内容组件
@@ -17,6 +26,7 @@ export default function GoogleDriveTabContent() {
     message: string;
     type: 'success' | 'error' | 'info';
   }>({ show: false, message: '', type: 'info' });
+  const [conflicts, setConflicts] = useState<SyncConflict[]>([]);
 
   const {
     connections,
@@ -29,6 +39,7 @@ export default function GoogleDriveTabContent() {
     refresh,
     triggerSync,
     isSyncing,
+    syncStatus,
   } = useGoogleDrive({
     immediate: true,
     refreshInterval: 30000, // 30秒自动刷新
@@ -82,13 +93,64 @@ export default function GoogleDriveTabContent() {
     }
   };
 
-  // 处理同步
-  const handleSync = async (connectionId: string) => {
+  // 处理同步（使用双向同步 API）
+  const handleSync = async (direction: SyncDirection) => {
     try {
-      await triggerSync(connectionId);
+      const apiDirection =
+        direction === 'push'
+          ? 'export'
+          : direction === 'pull'
+            ? 'import'
+            : undefined;
+      const result = await syncBidirectional(apiDirection);
+
+      // 检查是否有冲突
+      if (result.conflicts && result.conflicts.length > 0) {
+        setConflicts(
+          result.conflicts.map((c) => ({
+            id: c.fileId,
+            fileName: c.fileName,
+            localModifiedAt: c.localModified,
+            remoteModifiedAt: c.remoteModified,
+          }))
+        );
+      }
+
       setImportStatus({
         show: true,
-        message: 'Sync started successfully',
+        message:
+          result.message ||
+          `Synced: ${result.imported} imported, ${result.exported} exported`,
+        type: result.success ? 'success' : 'error',
+      });
+
+      // 刷新连接状态
+      await refresh();
+
+      setTimeout(
+        () => setImportStatus({ show: false, message: '', type: 'info' }),
+        3000
+      );
+    } catch (err) {
+      setImportStatus({
+        show: true,
+        message: err instanceof Error ? err.message : 'Failed to sync',
+        type: 'error',
+      });
+    }
+  };
+
+  // 处理冲突解决
+  const handleResolveConflict = async (
+    conflictId: string,
+    resolution: 'keep_local' | 'keep_remote'
+  ) => {
+    try {
+      await resolveConflict(conflictId, resolution);
+      setConflicts((prev) => prev.filter((c) => c.id !== conflictId));
+      setImportStatus({
+        show: true,
+        message: 'Conflict resolved successfully',
         type: 'success',
       });
       setTimeout(
@@ -98,7 +160,8 @@ export default function GoogleDriveTabContent() {
     } catch (err) {
       setImportStatus({
         show: true,
-        message: err instanceof Error ? err.message : 'Failed to start sync',
+        message:
+          err instanceof Error ? err.message : 'Failed to resolve conflict',
         type: 'error',
       });
     }
@@ -276,28 +339,22 @@ export default function GoogleDriveTabContent() {
             ))}
           </div>
 
-          {/* 右侧：操作按钮 */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => connection && handleSync(connection.id)}
-              disabled={isSyncing}
-              className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <svg
-                className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-              Sync
-            </button>
+          {/* 右侧：同步控件和设置 */}
+          <div className="flex items-center gap-3">
+            <SyncControls
+              status={
+                isSyncing
+                  ? 'syncing'
+                  : connection?.status === 'ACTIVE'
+                    ? 'synced'
+                    : 'error'
+              }
+              lastSyncAt={connection?.lastSyncAt}
+              pendingChanges={syncStatus?.pendingChanges}
+              onSync={handleSync}
+              disabled={!connection}
+              showDirectionButtons={true}
+            />
             <button
               onClick={() => setShowSettings(!showSettings)}
               className={`rounded-lg p-2 transition-colors ${
@@ -364,6 +421,15 @@ export default function GoogleDriveTabContent() {
           </div>
         )}
       </div>
+
+      {/* 冲突解决面板 */}
+      {conflicts.length > 0 && (
+        <ConflictResolver
+          conflicts={conflicts}
+          onResolve={handleResolveConflict}
+          onDismiss={() => setConflicts([])}
+        />
+      )}
 
       {/* 文件浏览器 */}
       {connection && (

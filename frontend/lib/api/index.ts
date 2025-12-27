@@ -8,6 +8,9 @@ export * from './client';
 // AI Teams API
 export * from './ai-teams';
 
+// AI Organizer API
+export * from './ai-organizer';
+
 // Data Collection API
 export * from './data-collection';
 

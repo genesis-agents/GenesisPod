@@ -26,6 +26,7 @@ import { GoogleDriveAuthService } from "./services/google-drive-auth.service";
 import { GoogleDriveFileService } from "./services/google-drive-file.service";
 import { GoogleDriveImportService } from "./services/google-drive-import.service";
 import { GoogleDriveExportService } from "./services/google-drive-export.service";
+import { GoogleDriveSyncService } from "./services/google-drive-sync.service";
 import {
   ListFilesDto,
   ImportFilesDto,
@@ -50,6 +51,7 @@ export class GoogleDriveController {
     private readonly fileService: GoogleDriveFileService,
     private readonly importService: GoogleDriveImportService,
     private readonly exportService: GoogleDriveExportService,
+    private readonly syncService: GoogleDriveSyncService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -281,17 +283,79 @@ export class GoogleDriveController {
   @ApiResponse({ status: 200, description: "返回同步状态" })
   async getSyncStatus(@Req() req: AuthenticatedRequest) {
     const userId = this.getUserId(req);
-    const connection = await this.authService.getConnection(userId);
 
-    if (!connection) {
+    try {
+      const status = await this.syncService.getSyncStatus(userId);
+      return status;
+    } catch {
       return { status: "not_connected" };
     }
+  }
 
+  @Post("sync")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "触发双向同步" })
+  @ApiResponse({ status: 200, description: "同步结果" })
+  async triggerSync(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: { direction?: "import" | "export" },
+  ) {
+    const userId = this.getUserId(req);
+    const result = await this.syncService.sync(userId, {
+      forceDirection: body.direction,
+    });
     return {
-      status: connection.status,
-      lastSyncAt: connection.lastSyncAt,
-      lastError: connection.lastError,
+      ...result,
+      message: `Synced: ${result.imported} imported, ${result.exported} exported`,
     };
+  }
+
+  @Post("sync/resolve")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "解决同步冲突" })
+  @ApiResponse({ status: 200, description: "冲突已解决" })
+  async resolveConflict(
+    @Req() req: AuthenticatedRequest,
+    @Body()
+    body: { conflictId: string; resolution: "keep_local" | "keep_remote" },
+  ) {
+    const userId = this.getUserId(req);
+    await this.syncService.resolveConflict(
+      userId,
+      body.conflictId,
+      body.resolution,
+    );
+    return { success: true, message: "Conflict resolved" };
+  }
+
+  @Post("sync/link")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "链接本地资源到 Google Drive 文件" })
+  @ApiResponse({ status: 200, description: "链接成功" })
+  async linkResource(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: { resourceId: string; googleFileId: string },
+  ) {
+    const userId = this.getUserId(req);
+    await this.syncService.linkResource(
+      userId,
+      body.resourceId,
+      body.googleFileId,
+    );
+    return { success: true, message: "Resource linked" };
+  }
+
+  @Delete("sync/link/:resourceId")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "取消资源与 Google Drive 的链接" })
+  @ApiResponse({ status: 200, description: "取消链接成功" })
+  async unlinkResource(
+    @Req() req: AuthenticatedRequest,
+    @Param("resourceId") resourceId: string,
+  ) {
+    const userId = this.getUserId(req);
+    await this.syncService.unlinkResource(userId, resourceId);
+    return { success: true, message: "Resource unlinked" };
   }
 
   @Get("sync/history")

@@ -9,6 +9,8 @@ import {
   ArrowUpDown,
   Folder,
   Database,
+  Sparkles,
+  X,
 } from 'lucide-react';
 import { useGoogleDriveFiles } from '@/hooks/domain';
 import { GoogleDriveFileCard } from './GoogleDriveFileCard';
@@ -18,6 +20,9 @@ import AddToKnowledgeBaseDialog, {
   type ResourceToAdd,
 } from '@/components/shared/AddToKnowledgeBaseDialog';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
+import { AiOrganizeButton } from '@/components/shared/AiOrganizeButton';
+import { AiOrganizePanel } from '@/components/shared/AiOrganizePanel';
+import type { FileInfo } from '@/lib/api/ai-organizer';
 
 interface GoogleDriveFileBrowserProps {
   connectionId: string;
@@ -37,6 +42,7 @@ export function GoogleDriveFileBrowser({
 }: GoogleDriveFileBrowserProps) {
   const [localSearch, setLocalSearch] = useState('');
   const [showKBDialog, setShowKBDialog] = useState(false);
+  const [showAiOrganize, setShowAiOrganize] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   const {
@@ -128,6 +134,28 @@ export function GoogleDriveFileBrowser({
   // Handle add to KB success
   const handleKBAddSuccess = (kbId: string, count: number) => {
     clearAll();
+  };
+
+  // Get selected files for AI organization
+  const getSelectedFilesForAi = (): FileInfo[] => {
+    return files
+      .filter((f) => !f.isFolder && isSelected(f.id))
+      .map((f) => ({
+        id: f.id,
+        name: f.name,
+        mimeType: f.mimeType,
+        description: f.description || undefined,
+        size: f.size,
+        createdAt: f.driveCreatedAt,
+        modifiedAt: f.driveModifiedAt,
+        source: 'google_drive' as const,
+      }));
+  };
+
+  // Handle AI organize applied
+  const handleAiOrganizeApplied = (fileId: string) => {
+    // Optionally deselect the file after applying
+    // toggleSelect(fileId);
   };
 
   // 全选当前页面
@@ -224,6 +252,13 @@ export function GoogleDriveFileBrowser({
 
         {/* 操作按钮 */}
         <div className="flex items-center gap-2">
+          {/* AI Organize button */}
+          <AiOrganizeButton
+            selectedCount={selectedCount}
+            onClick={() => setShowAiOrganize(true)}
+            variant="compact"
+          />
+
           {/* 视图切换 */}
           <ViewToggle viewMode={viewMode} onChange={setViewMode} />
 
@@ -449,6 +484,14 @@ export function GoogleDriveFileBrowser({
             {selectedCount} file{selectedCount !== 1 ? 's' : ''} selected
           </span>
           <div className="flex items-center gap-2">
+            {/* AI Organize button */}
+            <button
+              onClick={() => setShowAiOrganize(true)}
+              className="flex items-center gap-2 rounded-lg border border-purple-300 bg-white px-4 py-2 text-sm font-medium text-purple-700 transition-colors hover:bg-purple-50"
+            >
+              <Sparkles className="h-4 w-4" />
+              AI Organize
+            </button>
             {/* Add to Knowledge Base button */}
             {showAddToKB && (
               <button
@@ -493,6 +536,26 @@ export function GoogleDriveFileBrowser({
           onClose={() => setShowKBDialog(false)}
           onSuccess={handleKBAddSuccess}
         />
+      )}
+
+      {/* AI Organize Panel (Slide-in) */}
+      {showAiOrganize && (
+        <div className="fixed inset-0 z-50 flex">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/30"
+            onClick={() => setShowAiOrganize(false)}
+          />
+          {/* Panel */}
+          <div className="animate-slide-in-right relative ml-auto h-full w-full max-w-md">
+            <AiOrganizePanel
+              files={getSelectedFilesForAi()}
+              onClose={() => setShowAiOrganize(false)}
+              onApplied={handleAiOrganizeApplied}
+              title="AI File Organization"
+            />
+          </div>
+        </div>
       )}
     </div>
   );

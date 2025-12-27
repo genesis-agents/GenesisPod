@@ -166,6 +166,29 @@ export interface SyncStatus {
   lastError: string | null;
   isSyncing: boolean;
   lastSync: SyncHistory | null;
+  pendingChanges?: {
+    local: number;
+    remote: number;
+    conflicts: number;
+  };
+}
+
+export interface SyncConflict {
+  fileId: string;
+  fileName: string;
+  localModified: string;
+  remoteModified: string;
+  resourceId: string;
+  googleFileId: string;
+}
+
+export interface SyncResult {
+  success: boolean;
+  imported: number;
+  exported: number;
+  conflicts: SyncConflict[];
+  errors: Array<{ fileId: string; error: string }>;
+  syncedAt: string;
 }
 
 export interface SyncHistory {
@@ -396,6 +419,58 @@ export async function triggerSync(
 }
 
 /**
+ * 触发双向同步
+ */
+export async function syncBidirectional(
+  direction: 'import' | 'export' | undefined = undefined
+): Promise<SyncResult & { message: string }> {
+  return apiClient.post(
+    '/google-drive/sync',
+    { direction },
+    { headers: getAuthHeader() }
+  );
+}
+
+/**
+ * 解决同步冲突
+ */
+export async function resolveConflict(
+  conflictId: string,
+  resolution: 'keep_local' | 'keep_remote'
+): Promise<{ success: boolean; message: string }> {
+  return apiClient.post(
+    '/google-drive/sync/resolve',
+    { conflictId, resolution },
+    { headers: getAuthHeader() }
+  );
+}
+
+/**
+ * 链接本地资源到 Google Drive 文件
+ */
+export async function linkResourceToFile(
+  resourceId: string,
+  googleFileId: string
+): Promise<{ success: boolean; message: string }> {
+  return apiClient.post(
+    '/google-drive/sync/link',
+    { resourceId, googleFileId },
+    { headers: getAuthHeader() }
+  );
+}
+
+/**
+ * 取消资源与 Google Drive 的链接
+ */
+export async function unlinkResourceFromSync(
+  resourceId: string
+): Promise<{ success: boolean; message: string }> {
+  return apiClient.delete(`/google-drive/sync/link/${resourceId}`, {
+    headers: getAuthHeader(),
+  });
+}
+
+/**
  * 获取同步状态
  */
 export async function getSyncStatus(
@@ -457,6 +532,10 @@ export default {
   getExportProgress,
   // 同步
   triggerSync,
+  syncBidirectional,
+  resolveConflict,
+  linkResourceToFile,
+  unlinkResourceFromSync,
   getSyncStatus,
   getSyncHistory,
   getConfig,

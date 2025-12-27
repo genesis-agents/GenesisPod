@@ -15,7 +15,12 @@ import {
   HttpStatus,
 } from "@nestjs/common";
 import { Request, Response } from "express";
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from "@nestjs/swagger";
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { NotionAuthService } from "./services/notion-auth.service";
 import { NotionSyncService } from "./services/notion-sync.service";
@@ -42,7 +47,7 @@ export class NotionController {
   constructor(
     private readonly authService: NotionAuthService,
     private readonly syncService: NotionSyncService,
-    private readonly pageService: NotionPageService
+    private readonly pageService: NotionPageService,
   ) {}
 
   private getUserId(req: AuthenticatedRequest): string {
@@ -72,13 +77,13 @@ export class NotionController {
   @ApiResponse({ status: 201, description: "连接成功" })
   async connect(
     @Req() req: AuthenticatedRequest,
-    @Body() dto: ConnectNotionDto
+    @Body() dto: ConnectNotionDto,
   ) {
     const userId = this.getUserId(req);
     const result = await this.authService.exchangeCodeForToken(
       userId,
       dto.code,
-      dto.redirectUri
+      dto.redirectUri,
     );
 
     // 自动触发首次同步
@@ -102,12 +107,14 @@ export class NotionController {
     @Query("code") code: string,
     @Query("state") state: string,
     @Query("error") error: string,
-    @Res() res: Response
+    @Res() res: Response,
   ) {
     const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
 
     if (error) {
-      return res.redirect(`${frontendUrl}/library?tab=notion&error=${encodeURIComponent(error)}`);
+      return res.redirect(
+        `${frontendUrl}/library?tab=notion&error=${encodeURIComponent(error)}`,
+      );
     }
 
     try {
@@ -118,17 +125,19 @@ export class NotionController {
       const result = await this.authService.exchangeCodeForToken(userId, code);
 
       // 触发首次同步
-      this.syncService.triggerSync(userId, result.connectionId, true).catch((err) => {
-        this.logger.warn(`Initial sync failed: ${err}`);
-      });
+      this.syncService
+        .triggerSync(userId, result.connectionId, true)
+        .catch((err) => {
+          this.logger.warn(`Initial sync failed: ${err}`);
+        });
 
       return res.redirect(
-        `${frontendUrl}/library?tab=notion&success=true&workspace=${encodeURIComponent(result.workspaceName)}`
+        `${frontendUrl}/library?tab=notion&success=true&workspace=${encodeURIComponent(result.workspaceName)}`,
       );
     } catch (err) {
       this.logger.error(`OAuth callback error: ${err}`);
       return res.redirect(
-        `${frontendUrl}/library?tab=notion&error=${encodeURIComponent("Failed to connect Notion")}`
+        `${frontendUrl}/library?tab=notion&error=${encodeURIComponent("Failed to connect Notion")}`,
       );
     }
   }
@@ -139,7 +148,7 @@ export class NotionController {
   @ApiResponse({ status: 200, description: "断开成功" })
   async disconnect(
     @Req() req: AuthenticatedRequest,
-    @Param("connectionId") connectionId: string
+    @Param("connectionId") connectionId: string,
   ) {
     const userId = this.getUserId(req);
     await this.authService.disconnect(userId, connectionId);
@@ -164,10 +173,13 @@ export class NotionController {
   @ApiResponse({ status: 200, description: "返回连接详情" })
   async getConnection(
     @Req() req: AuthenticatedRequest,
-    @Param("connectionId") connectionId: string
+    @Param("connectionId") connectionId: string,
   ) {
     const userId = this.getUserId(req);
-    const connection = await this.authService.getConnection(userId, connectionId);
+    const connection = await this.authService.getConnection(
+      userId,
+      connectionId,
+    );
     return { connection };
   }
 
@@ -178,13 +190,13 @@ export class NotionController {
   async updateConnection(
     @Req() req: AuthenticatedRequest,
     @Param("connectionId") connectionId: string,
-    @Body() dto: UpdateConnectionDto
+    @Body() dto: UpdateConnectionDto,
   ) {
     const userId = this.getUserId(req);
     const connection = await this.authService.updateConnection(
       userId,
       connectionId,
-      dto
+      dto,
     );
     return { connection };
   }
@@ -197,13 +209,13 @@ export class NotionController {
   @ApiResponse({ status: 200, description: "同步已触发" })
   async triggerSync(
     @Req() req: AuthenticatedRequest,
-    @Body() dto: TriggerSyncDto
+    @Body() dto: TriggerSyncDto,
   ) {
     const userId = this.getUserId(req);
     const result = await this.syncService.triggerSync(
       userId,
       dto.connectionId,
-      dto.fullSync
+      dto.fullSync,
     );
     return {
       success: true,
@@ -218,7 +230,7 @@ export class NotionController {
   @ApiResponse({ status: 200, description: "返回同步状态" })
   async getSyncStatus(
     @Req() req: AuthenticatedRequest,
-    @Query("connectionId") connectionId?: string
+    @Query("connectionId") connectionId?: string,
   ) {
     const userId = this.getUserId(req);
     const status = await this.syncService.getSyncStatus(userId, connectionId);
@@ -232,15 +244,69 @@ export class NotionController {
   async getSyncHistory(
     @Req() req: AuthenticatedRequest,
     @Param("connectionId") connectionId: string,
-    @Query("limit") limit?: number
+    @Query("limit") limit?: number,
   ) {
     const userId = this.getUserId(req);
     const history = await this.syncService.getSyncHistory(
       userId,
       connectionId,
-      limit || 10
+      limit || 10,
     );
     return { history };
+  }
+
+  @Get("sync/pending")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "获取待同步的变更" })
+  @ApiResponse({ status: 200, description: "返回待同步变更" })
+  async getPendingChanges(
+    @Req() req: AuthenticatedRequest,
+    @Query("connectionId") connectionId?: string,
+  ) {
+    const userId = this.getUserId(req);
+    const pendingChanges = await this.syncService.detectPendingChanges(
+      userId,
+      connectionId,
+    );
+    return { pendingChanges };
+  }
+
+  @Post("sync/bidirectional")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "执行双向同步" })
+  @ApiResponse({ status: 200, description: "同步结果" })
+  async syncBidirectional(
+    @Req() req: AuthenticatedRequest,
+    @Body()
+    body: { connectionId?: string; direction?: "push" | "pull" | "both" },
+  ) {
+    const userId = this.getUserId(req);
+    const result = await this.syncService.syncBidirectional(
+      userId,
+      body.connectionId,
+      { direction: body.direction },
+    );
+    return {
+      ...result,
+      message: `Sync complete: ${result.pagesPushed} pushed, ${result.pagesCreated + result.pagesUpdated} pulled`,
+    };
+  }
+
+  @Post("sync/resolve")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "解决同步冲突" })
+  @ApiResponse({ status: 200, description: "冲突已解决" })
+  async resolveConflict(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: { pageId: string; resolution: "keep_local" | "keep_remote" },
+  ) {
+    const userId = this.getUserId(req);
+    await this.syncService.resolveConflict(
+      userId,
+      body.pageId,
+      body.resolution,
+    );
+    return { success: true, message: "Conflict resolved" };
   }
 
   // ============ Pages ============
@@ -251,7 +317,7 @@ export class NotionController {
   @ApiResponse({ status: 200, description: "返回页面列表" })
   async listPages(
     @Req() req: AuthenticatedRequest,
-    @Query() dto: ListPagesDto
+    @Query() dto: ListPagesDto,
   ) {
     const userId = this.getUserId(req);
     const result = await this.pageService.listPages(userId, dto);
@@ -264,7 +330,7 @@ export class NotionController {
   @ApiResponse({ status: 200, description: "返回页面详情" })
   async getPage(
     @Req() req: AuthenticatedRequest,
-    @Param("pageId") pageId: string
+    @Param("pageId") pageId: string,
   ) {
     const userId = this.getUserId(req);
     const page = await this.pageService.getPage(userId, pageId);
@@ -278,13 +344,13 @@ export class NotionController {
   async updatePage(
     @Req() req: AuthenticatedRequest,
     @Param("pageId") pageId: string,
-    @Body() body: { blocks: any[] }
+    @Body() body: { blocks: any[] },
   ) {
     const userId = this.getUserId(req);
     const page = await this.pageService.updatePageLocally(
       userId,
       pageId,
-      body.blocks
+      body.blocks,
     );
     return { page };
   }
@@ -295,7 +361,7 @@ export class NotionController {
   @ApiResponse({ status: 200, description: "推送成功" })
   async pushPage(
     @Req() req: AuthenticatedRequest,
-    @Param("pageId") pageId: string
+    @Param("pageId") pageId: string,
   ) {
     const userId = this.getUserId(req);
     await this.pageService.pushToNotion(userId, pageId);
@@ -309,7 +375,7 @@ export class NotionController {
   async linkResource(
     @Req() req: AuthenticatedRequest,
     @Param("pageId") pageId: string,
-    @Body() dto: LinkResourceDto
+    @Body() dto: LinkResourceDto,
   ) {
     const userId = this.getUserId(req);
     await this.pageService.linkToResource(userId, pageId, dto.resourceId);
@@ -322,7 +388,7 @@ export class NotionController {
   @ApiResponse({ status: 200, description: "取消成功" })
   async unlinkResource(
     @Req() req: AuthenticatedRequest,
-    @Param("pageId") pageId: string
+    @Param("pageId") pageId: string,
   ) {
     const userId = this.getUserId(req);
     await this.pageService.unlinkFromResource(userId, pageId);
@@ -337,10 +403,13 @@ export class NotionController {
   @ApiResponse({ status: 200, description: "返回数据库列表" })
   async listDatabases(
     @Req() req: AuthenticatedRequest,
-    @Query("connectionId") connectionId?: string
+    @Query("connectionId") connectionId?: string,
   ) {
     const userId = this.getUserId(req);
-    const databases = await this.pageService.listDatabases(userId, connectionId);
+    const databases = await this.pageService.listDatabases(
+      userId,
+      connectionId,
+    );
     return { databases };
   }
 
@@ -350,7 +419,7 @@ export class NotionController {
   @ApiResponse({ status: 200, description: "返回数据库详情" })
   async getDatabase(
     @Req() req: AuthenticatedRequest,
-    @Param("databaseId") databaseId: string
+    @Param("databaseId") databaseId: string,
   ) {
     const userId = this.getUserId(req);
     const database = await this.pageService.getDatabase(userId, databaseId);

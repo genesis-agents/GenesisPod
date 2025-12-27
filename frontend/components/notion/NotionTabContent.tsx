@@ -19,15 +19,29 @@ import {
   triggerSync,
   getSyncStatus,
   getPages,
+  syncBidirectional as syncBidirectionalApi,
+  resolveConflict as resolveConflictApi,
   NotionConnection,
   NotionPage,
   SyncStatus,
+  NotionSyncConflict,
 } from '@/lib/api/notion';
+import {
+  SyncControls,
+  type SyncDirection,
+} from '@/components/shared/SyncControls';
+import {
+  ConflictResolver,
+  type SyncConflict,
+} from '@/components/shared/ConflictResolver';
 import AddToKnowledgeBaseDialog, {
   type ResourceToAdd,
 } from '@/components/shared/AddToKnowledgeBaseDialog';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
 import { NotionPageRow } from './NotionPageRow';
+import { AiOrganizeButton } from '@/components/shared/AiOrganizeButton';
+import { AiOrganizePanel } from '@/components/shared/AiOrganizePanel';
+import type { FileInfo } from '@/lib/api/ai-organizer';
 
 export default function NotionTabContent() {
   const router = useRouter();
@@ -52,7 +66,14 @@ export default function NotionTabContent() {
     new Set()
   );
   const [showKBDialog, setShowKBDialog] = useState(false);
+  const [showAiOrganize, setShowAiOrganize] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [conflicts, setConflicts] = useState<SyncConflict[]>([]);
+  const [syncMessage, setSyncMessage] = useState<{
+    show: boolean;
+    message: string;
+    type: 'success' | 'error';
+  }>({ show: false, message: '', type: 'success' });
 
   const fetchData = useCallback(async () => {
     try {
@@ -137,6 +158,77 @@ export default function NotionTabContent() {
     }
   };
 
+  // 处理双向同步
+  const handleBidirectionalSync = async (direction: SyncDirection) => {
+    try {
+      const result = await syncBidirectionalApi(
+        connections[0]?.id,
+        direction === 'push' ? 'push' : direction === 'pull' ? 'pull' : 'both'
+      );
+
+      // 检查是否有冲突
+      if (result.conflicts && result.conflicts.length > 0) {
+        setConflicts(
+          result.conflicts.map((c) => ({
+            id: c.pageId,
+            fileName: c.title,
+            localModifiedAt: c.localModifiedAt,
+            remoteModifiedAt: c.remoteModifiedAt,
+          }))
+        );
+      }
+
+      setSyncMessage({
+        show: true,
+        message:
+          result.message ||
+          `Synced: ${result.pagesPushed} pushed, ${result.pagesCreated + result.pagesUpdated} pulled`,
+        type: result.success ? 'success' : 'error',
+      });
+
+      // 刷新数据
+      await fetchData();
+
+      setTimeout(
+        () => setSyncMessage({ show: false, message: '', type: 'success' }),
+        3000
+      );
+    } catch (err) {
+      setSyncMessage({
+        show: true,
+        message: err instanceof Error ? err.message : 'Failed to sync',
+        type: 'error',
+      });
+    }
+  };
+
+  // 处理冲突解决
+  const handleResolveConflict = async (
+    conflictId: string,
+    resolution: 'keep_local' | 'keep_remote'
+  ) => {
+    try {
+      await resolveConflictApi(conflictId, resolution);
+      setConflicts((prev) => prev.filter((c) => c.id !== conflictId));
+      setSyncMessage({
+        show: true,
+        message: 'Conflict resolved successfully',
+        type: 'success',
+      });
+      setTimeout(
+        () => setSyncMessage({ show: false, message: '', type: 'success' }),
+        3000
+      );
+    } catch (err) {
+      setSyncMessage({
+        show: true,
+        message:
+          err instanceof Error ? err.message : 'Failed to resolve conflict',
+        type: 'error',
+      });
+    }
+  };
+
   const handlePageClick = (page: NotionPage) => {
     router.push(`/notion/${page.id}`);
   };
@@ -195,6 +287,30 @@ export default function NotionTabContent() {
 
   const handleKBAddSuccess = () => {
     clearSelection();
+  };
+
+  // Get selected pages for AI organization
+  const getSelectedPagesForAi = (): FileInfo[] => {
+    return pages
+      .filter((p) => selectedPageIds.has(p.id))
+      .map((p) => ({
+        id: p.id,
+        name: p.title || 'Untitled',
+        description: p.plainTextContent?.slice(0, 500) || undefined,
+        createdAt: p.notionCreatedAt,
+        modifiedAt: p.notionUpdatedAt,
+        source: 'notion' as const,
+      }));
+  };
+
+  // Handle AI organize applied
+  const handleAiOrganizeApplied = (pageId: string) => {
+    // Optionally deselect the page after applying
+    // setSelectedPageIds(prev => {
+    //   const newSet = new Set(prev);
+    //   newSet.delete(pageId);
+    //   return newSet;
+    // });
   };
 
   // 判断是否为 URL（用于 workspace icon）
@@ -413,28 +529,21 @@ export default function NotionTabContent() {
             )}
           </button>
 
-          {/* 右侧：操作按钮 */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleSync(connections[0]?.id)}
-              disabled={syncStatuses.some((s) => s.isSyncing)}
-              className="flex items-center gap-1.5 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-              Sync
-            </button>
+          {/* 右侧：同步控件和设置 */}
+          <div className="flex items-center gap-3">
+            <SyncControls
+              status={
+                syncStatuses.some((s) => s.isSyncing)
+                  ? 'syncing'
+                  : connections[0]?.status === 'ACTIVE'
+                    ? 'synced'
+                    : 'error'
+              }
+              lastSyncAt={connections[0]?.lastSyncAt}
+              onSync={handleBidirectionalSync}
+              disabled={connections.length === 0}
+              showDirectionButtons={true}
+            />
             <button
               onClick={() => setShowSettings(!showSettings)}
               className={`rounded-lg p-2 transition-colors ${
@@ -585,6 +694,38 @@ export default function NotionTabContent() {
         </div>
       )}
 
+      {/* 同步状态消息 */}
+      {syncMessage.show && (
+        <div
+          className={`rounded-lg border px-4 py-3 ${
+            syncMessage.type === 'success'
+              ? 'border-green-200 bg-green-50 text-green-700'
+              : 'border-red-200 bg-red-50 text-red-700'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-sm">{syncMessage.message}</span>
+            <button
+              onClick={() =>
+                setSyncMessage({ show: false, message: '', type: 'success' })
+              }
+              className="text-current hover:opacity-70"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 冲突解决面板 */}
+      {conflicts.length > 0 && (
+        <ConflictResolver
+          conflicts={conflicts}
+          onResolve={handleResolveConflict}
+          onDismiss={() => setConflicts([])}
+        />
+      )}
+
       {/* 搜索栏 + 视图切换 */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
@@ -637,6 +778,12 @@ export default function NotionTabContent() {
             </button>
           )}
         </div>
+        {/* AI Organize button */}
+        <AiOrganizeButton
+          selectedCount={selectedPageIds.size}
+          onClick={() => setShowAiOrganize(true)}
+          variant="compact"
+        />
         {/* 视图切换 */}
         <ViewToggle viewMode={viewMode} onChange={setViewMode} />
       </div>
@@ -855,13 +1002,23 @@ export default function NotionTabContent() {
                 {selectedPageIds.size} page
                 {selectedPageIds.size !== 1 ? 's' : ''} selected
               </span>
-              <button
-                onClick={() => setShowKBDialog(true)}
-                className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-              >
-                <Database className="h-4 w-4" />
-                Add to Knowledge Base
-              </button>
+              <div className="flex items-center gap-2">
+                {/* AI Organize button */}
+                <button
+                  onClick={() => setShowAiOrganize(true)}
+                  className="flex items-center gap-2 rounded-lg border border-purple-300 bg-white px-4 py-2 text-sm font-medium text-purple-700 transition-colors hover:bg-purple-50"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  AI Organize
+                </button>
+                <button
+                  onClick={() => setShowKBDialog(true)}
+                  className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                >
+                  <Database className="h-4 w-4" />
+                  Add to Knowledge Base
+                </button>
+              </div>
             </div>
           )}
         </>
@@ -942,6 +1099,26 @@ export default function NotionTabContent() {
           onClose={() => setShowKBDialog(false)}
           onSuccess={handleKBAddSuccess}
         />
+      )}
+
+      {/* AI Organize Panel (Slide-in) */}
+      {showAiOrganize && (
+        <div className="fixed inset-0 z-50 flex">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/30"
+            onClick={() => setShowAiOrganize(false)}
+          />
+          {/* Panel */}
+          <div className="animate-slide-in-right relative ml-auto h-full w-full max-w-md">
+            <AiOrganizePanel
+              files={getSelectedPagesForAi()}
+              onClose={() => setShowAiOrganize(false)}
+              onApplied={handleAiOrganizeApplied}
+              title="AI Page Organization"
+            />
+          </div>
+        </div>
       )}
     </div>
   );
