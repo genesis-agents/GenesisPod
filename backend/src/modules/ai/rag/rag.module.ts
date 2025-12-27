@@ -3,7 +3,7 @@
  * Provides Retrieval-Augmented Generation capabilities
  */
 
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AdminModule } from "../../core/admin/admin.module";
 import { AiOrchestrationModule } from "../../../common/ai-orchestration";
@@ -20,7 +20,7 @@ import { VectorService } from "./services/vector.service";
 import { RAGController } from "./rag.controller";
 
 @Module({
-  imports: [PrismaModule, AdminModule, AiOrchestrationModule],
+  imports: [PrismaModule, forwardRef(() => AdminModule), AiOrchestrationModule],
   controllers: [RAGController],
   providers: [
     VectorService,
