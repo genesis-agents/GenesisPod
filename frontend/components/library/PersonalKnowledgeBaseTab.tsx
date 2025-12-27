@@ -103,39 +103,32 @@ export default function PersonalKnowledgeBaseTab() {
 
   const getStatusBadge = (kb: KnowledgeBase) => {
     const status = kb.status;
-    const colors = {
-      PENDING: 'bg-gray-100 text-gray-700',
-      PROCESSING: 'bg-blue-100 text-blue-700',
-      READY: 'bg-green-100 text-green-700',
-      UPDATING: 'bg-yellow-100 text-yellow-700',
-      ERROR: 'bg-red-100 text-red-700',
+    const statusConfig: Record<
+      string,
+      { color: string; label: string; dot: string }
+    > = {
+      PENDING: { color: 'text-gray-500', label: '待处理', dot: 'bg-gray-400' },
+      PROCESSING: {
+        color: 'text-blue-600',
+        label: '处理中',
+        dot: 'bg-blue-500 animate-pulse',
+      },
+      READY: { color: 'text-green-600', label: '就绪', dot: 'bg-green-500' },
+      UPDATING: {
+        color: 'text-yellow-600',
+        label: '更新中',
+        dot: 'bg-yellow-500 animate-pulse',
+      },
+      ERROR: { color: 'text-red-600', label: '错误', dot: 'bg-red-500' },
     };
-    const labels = {
-      PENDING: '待向量化',
-      PROCESSING: '向量化中',
-      READY: '已就绪',
-      UPDATING: '更新中',
-      ERROR: '处理失败',
-    };
-    const icons = {
-      PENDING: '⏳',
-      PROCESSING: '⚙️',
-      READY: '✅',
-      UPDATING: '🔄',
-      ERROR: '❌',
-    };
+    const config = statusConfig[status] || statusConfig.PENDING;
     return (
-      <div className="flex flex-col items-end gap-1">
-        <span
-          className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${colors[status]}`}
-        >
-          <span>{icons[status]}</span>
-          {labels[status]}
-        </span>
-        {status === 'PROCESSING' && (
-          <span className="text-[10px] text-blue-500">正在生成向量...</span>
-        )}
-      </div>
+      <span
+        className={`flex items-center gap-1.5 whitespace-nowrap text-xs ${config.color}`}
+      >
+        <span className={`h-2 w-2 rounded-full ${config.dot}`} />
+        {config.label}
+      </span>
     );
   };
 
