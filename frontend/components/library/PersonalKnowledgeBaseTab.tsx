@@ -62,6 +62,8 @@ export default function PersonalKnowledgeBaseTab() {
     syncGoogleDrive,
     processDocuments,
     refresh: refreshExpanded,
+    fetchStats: refreshExpandedStats,
+    fetchDocuments: refreshExpandedDocs,
   } = useKnowledgeBaseDetail(expandedKbId);
 
   const toggleSelect = (id: string) => {
@@ -624,8 +626,14 @@ export default function PersonalKnowledgeBaseTab() {
             }
             // Refresh expanded KB if it's the same one being edited
             if (expandedKbId === editingKbId) {
-              console.log('[PersonalKB] Refreshing expanded KB...');
-              await refreshExpanded();
+              console.log(
+                '[PersonalKB] Refreshing expanded KB (detail, stats, docs)...'
+              );
+              await Promise.all([
+                refreshExpanded(),
+                refreshExpandedStats(),
+                refreshExpandedDocs(),
+              ]);
             }
             setEditingKbId(null);
             refreshList();

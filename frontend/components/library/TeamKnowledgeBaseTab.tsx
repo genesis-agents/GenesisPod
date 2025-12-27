@@ -94,6 +94,8 @@ export default function TeamKnowledgeBaseTab() {
     syncGoogleDrive,
     processDocuments,
     refresh: refreshExpanded,
+    fetchStats: refreshExpandedStats,
+    fetchDocuments: refreshExpandedDocs,
   } = useKnowledgeBaseDetail(expandedKbId);
 
   const handleDelete = async (kbId: string) => {
@@ -657,8 +659,14 @@ export default function TeamKnowledgeBaseTab() {
             }
             // Refresh expanded KB if it's the same one being edited
             if (expandedKbId === editingKbId) {
-              console.log('[TeamKB] Refreshing expanded KB...');
-              await refreshExpanded();
+              console.log(
+                '[TeamKB] Refreshing expanded KB (detail, stats, docs)...'
+              );
+              await Promise.all([
+                refreshExpanded(),
+                refreshExpandedStats(),
+                refreshExpandedDocs(),
+              ]);
             }
             setEditingKbId(null);
             refreshList();
