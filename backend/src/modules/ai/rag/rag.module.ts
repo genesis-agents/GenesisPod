@@ -14,6 +14,7 @@ import { EmbeddingService } from "./services/embedding.service";
 import { RAGPipelineService } from "./services/rag-pipeline.service";
 import { KnowledgeBaseService } from "./services/knowledge-base.service";
 import { GoogleDriveRAGService } from "./services/google-drive-rag.service";
+import { VectorService } from "./services/vector.service";
 
 // Controller
 import { RAGController } from "./rag.controller";
@@ -22,6 +23,7 @@ import { RAGController } from "./rag.controller";
   imports: [PrismaModule, AdminModule, AiOrchestrationModule],
   controllers: [RAGController],
   providers: [
+    VectorService,
     DocumentProcessorService,
     EmbeddingService,
     RAGPipelineService,
@@ -29,6 +31,7 @@ import { RAGController } from "./rag.controller";
     GoogleDriveRAGService,
   ],
   exports: [
+    VectorService,
     DocumentProcessorService,
     EmbeddingService,
     RAGPipelineService,

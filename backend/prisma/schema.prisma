@@ -4379,14 +4379,15 @@ model ChildChunk {
   @@map("child_chunks")
 }
 
-// Note: ChildEmbedding uses pgvector which requires raw SQL for the embedding column
-// The 'embedding' field is managed via raw SQL, not Prisma
+// Note: 使用 JSONB 存储向量，避免 pgvector 扩展依赖
+// 相似度计算在应用层进行 (余弦相似度)
 model ChildEmbedding {
   id           String     @id @default(uuid())
-  childChunkId String     @map("child_chunk_id")
+  childChunkId String     @unique @map("child_chunk_id")
   childChunk   ChildChunk @relation(fields: [childChunkId], references: [id], onDelete: Cascade)
 
-  // Embedding metadata (actual vector stored via raw SQL)
+  // 向量数据 - 使用 JSONB 存储 Float[] 数组
+  embedding  Json   @default("[]")
   model      String @default("text-embedding-3-small")
   dimensions Int    @default(1536)
 

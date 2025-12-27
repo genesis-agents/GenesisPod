@@ -6,13 +6,14 @@
  * - Dynamic model configuration from database (Admin > AI Models > EMBEDDING type)
  * - Batch embedding generation for efficiency
  * - Automatic token counting
- * - Direct pgvector storage via raw SQL
+ * - JSONB vector storage via VectorService
  * - Support for multiple embedding providers (OpenAI, etc.)
  */
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AdminService } from "../../../core/admin/admin.service";
+import { VectorService } from "./vector.service";
 import { EmbeddingResult, EmbeddingBatch } from "../interfaces/rag.interfaces";
 import OpenAI from "openai";
 
@@ -41,6 +42,7 @@ export class EmbeddingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly adminService: AdminService,
+    private readonly vectorService: VectorService,
   ) {}
 
   /**
@@ -230,27 +232,13 @@ export class EmbeddingService {
     const texts = childChunks.map((chunk) => chunk.content);
     const batch = await this.generateEmbeddings(texts);
 
-    // Save embeddings using raw SQL for pgvector
-    for (let i = 0; i < childChunks.length; i++) {
-      const chunk = childChunks[i];
-      const embedding = batch.embeddings[i];
+    // Save embeddings using VectorService (JSONB storage)
+    const items = childChunks.map((chunk, i) => ({
+      childChunkId: chunk.id,
+      embedding: batch.embeddings[i],
+    }));
 
-      // Use raw SQL to insert embedding with pgvector
-      const embeddingStr = `[${embedding.join(",")}]`;
-
-      await this.prisma.$executeRaw`
-        INSERT INTO child_embeddings (id, child_chunk_id, embedding, model, dimensions, created_at, updated_at)
-        VALUES (
-          gen_random_uuid(),
-          ${chunk.id}::uuid,
-          ${embeddingStr}::vector,
-          ${config.modelId},
-          ${config.dimensions},
-          NOW(),
-          NOW()
-        )
-      `;
-    }
+    await this.vectorService.batchStoreEmbeddings(items, config.modelId);
 
     this.logger.log(
       `Saved ${childChunks.length} embeddings for document ${documentId} using ${config.modelId}`,

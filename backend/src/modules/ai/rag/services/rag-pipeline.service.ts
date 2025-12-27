@@ -8,6 +8,9 @@
  * 3. Rerank - Cohere cross-encoder reranking
  * 4. Parent Retrieval - Expand child results to parent chunks
  * 5. Context Building - Assemble final context for LLM
+ *
+ * Note: Vector search uses JSONB storage with application-layer similarity
+ * computation via VectorService (Railway PostgreSQL compatible).
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -18,6 +21,7 @@ import {
   AiTaskType,
 } from "../../../../common/ai-orchestration";
 import { EmbeddingService } from "./embedding.service";
+import { VectorService } from "./vector.service";
 import {
   RAGQuery,
   RAGResponse,
@@ -41,6 +45,7 @@ export class RAGPipelineService {
     private readonly adminService: AdminService,
     private readonly embeddingService: EmbeddingService,
     private readonly aiService: AiOrchestrationService,
+    private readonly vectorService: VectorService,
   ) {}
 
   /**
@@ -152,16 +157,56 @@ Focus on being specific and informative.`;
 
   /**
    * Stage 2: Hybrid search combining vector similarity and keyword matching
+   * Uses JSONB vector storage with application-layer similarity computation
    */
   private async hybridSearch(
     params: HybridSearchParams,
   ): Promise<SearchResult[]> {
     const { queryEmbedding, queryText, knowledgeBaseIds, topK, alpha } = params;
 
-    // Build the embedding string for pgvector
-    const embeddingStr = `[${queryEmbedding.join(",")}]`;
+    // Get vector search results using VectorService
+    const vectorResults = await this.vectorService.similaritySearch(
+      queryEmbedding,
+      {
+        knowledgeBaseIds,
+        limit: topK * 2, // Get more for fusion
+        threshold: 0.2,
+      },
+    );
 
-    // Use the hybrid_search function if available, otherwise use vector search
+    // Get keyword search results using PostgreSQL full-text search
+    const keywordResults = await this.keywordSearch(
+      queryText,
+      knowledgeBaseIds,
+      topK * 2,
+    );
+
+    // Perform RRF (Reciprocal Rank Fusion) to combine results
+    const rrfResults = this.reciprocalRankFusion(
+      vectorResults.map((r) => ({
+        childChunkId: r.childChunkId,
+        parentChunkId: r.parentChunkId,
+        documentId: r.documentId,
+        content: r.content,
+        parentContent: r.parentContent,
+        score: r.similarity,
+        vectorScore: r.similarity,
+      })),
+      keywordResults,
+      alpha,
+    );
+
+    return rrfResults.slice(0, topK);
+  }
+
+  /**
+   * Keyword search using PostgreSQL full-text search
+   */
+  private async keywordSearch(
+    queryText: string,
+    knowledgeBaseIds: string[],
+    limit: number,
+  ): Promise<SearchResult[]> {
     try {
       const results = await this.prisma.$queryRaw<
         Array<{
@@ -170,49 +215,23 @@ Focus on being specific and informative.`;
           document_id: string;
           child_content: string;
           parent_content: string;
-          rrf_score: number;
-          vector_score: number;
-          vector_rank: number | null;
-          keyword_rank: number | null;
+          rank: number;
         }>
       >`
         SELECT
-          ce.child_chunk_id,
+          cc.id as child_chunk_id,
           cc.parent_chunk_id,
           pc.document_id,
           cc.content as child_content,
           pc.content as parent_content,
-          (
-            COALESCE(${alpha}::float / (60 + (
-              SELECT COUNT(*) + 1
-              FROM child_embeddings ce2
-              WHERE ce2.child_chunk_id IN (
-                SELECT c.id FROM child_chunks c
-                JOIN parent_chunks p ON c.parent_chunk_id = p.id
-                JOIN knowledge_base_documents d ON p.document_id = d.id
-                WHERE d.knowledge_base_id = ANY(${knowledgeBaseIds}::text[])
-              )
-              AND (ce2.embedding <=> ${embeddingStr}::vector) < (ce.embedding <=> ${embeddingStr}::vector)
-            )), 0) +
-            COALESCE((1 - ${alpha}::float) / (60 + (
-              SELECT COUNT(*) + 1
-              FROM child_chunks c2
-              JOIN parent_chunks p2 ON c2.parent_chunk_id = p2.id
-              JOIN knowledge_base_documents d2 ON p2.document_id = d2.id
-              WHERE d2.knowledge_base_id = ANY(${knowledgeBaseIds}::text[])
-              AND to_tsvector('english', c2.content) @@ plainto_tsquery('english', ${queryText})
-              AND ts_rank(to_tsvector('english', c2.content), plainto_tsquery('english', ${queryText})) >
-                  ts_rank(to_tsvector('english', cc.content), plainto_tsquery('english', ${queryText}))
-            )), 0)
-          ) as rrf_score,
-          1 - (ce.embedding <=> ${embeddingStr}::vector) as vector_score
-        FROM child_embeddings ce
-        JOIN child_chunks cc ON ce.child_chunk_id = cc.id
+          ts_rank(to_tsvector('english', cc.content), plainto_tsquery('english', ${queryText})) as rank
+        FROM child_chunks cc
         JOIN parent_chunks pc ON cc.parent_chunk_id = pc.id
         JOIN knowledge_base_documents d ON pc.document_id = d.id
         WHERE d.knowledge_base_id = ANY(${knowledgeBaseIds}::text[])
-        ORDER BY ce.embedding <=> ${embeddingStr}::vector
-        LIMIT ${topK}
+          AND to_tsvector('english', cc.content) @@ plainto_tsquery('english', ${queryText})
+        ORDER BY rank DESC
+        LIMIT ${limit}
       `;
 
       return results.map((r) => ({
@@ -221,61 +240,102 @@ Focus on being specific and informative.`;
         documentId: r.document_id,
         content: r.child_content,
         parentContent: r.parent_content,
-        score: r.rrf_score || r.vector_score || 0,
-        vectorScore: r.vector_score || undefined,
+        score: r.rank,
+        keywordScore: r.rank,
       }));
     } catch (error) {
-      this.logger.warn(
-        `Hybrid search failed, falling back to vector search: ${error}`,
-      );
-      return this.vectorSearch(queryEmbedding, knowledgeBaseIds, topK);
+      this.logger.warn(`Keyword search failed: ${error}`);
+      return [];
     }
   }
 
   /**
-   * Fallback: Pure vector search
+   * Reciprocal Rank Fusion to combine vector and keyword results
+   */
+  private reciprocalRankFusion(
+    vectorResults: SearchResult[],
+    keywordResults: SearchResult[],
+    alpha: number,
+    k: number = 60, // RRF constant
+  ): SearchResult[] {
+    const scoreMap = new Map<
+      string,
+      SearchResult & {
+        rrfScore: number;
+        vectorRank?: number;
+        keywordRank?: number;
+      }
+    >();
+
+    // Process vector results
+    vectorResults.forEach((result, index) => {
+      const existing = scoreMap.get(result.childChunkId);
+      const vectorRank = index + 1;
+      const vectorRrfScore = alpha / (k + vectorRank);
+
+      if (existing) {
+        existing.rrfScore += vectorRrfScore;
+        existing.vectorRank = vectorRank;
+        existing.vectorScore = result.vectorScore;
+      } else {
+        scoreMap.set(result.childChunkId, {
+          ...result,
+          rrfScore: vectorRrfScore,
+          vectorRank,
+        });
+      }
+    });
+
+    // Process keyword results
+    keywordResults.forEach((result, index) => {
+      const existing = scoreMap.get(result.childChunkId);
+      const keywordRank = index + 1;
+      const keywordRrfScore = (1 - alpha) / (k + keywordRank);
+
+      if (existing) {
+        existing.rrfScore += keywordRrfScore;
+        existing.keywordRank = keywordRank;
+        existing.keywordScore = result.keywordScore;
+      } else {
+        scoreMap.set(result.childChunkId, {
+          ...result,
+          rrfScore: keywordRrfScore,
+          keywordRank,
+        });
+      }
+    });
+
+    // Sort by RRF score and return
+    return Array.from(scoreMap.values())
+      .sort((a, b) => b.rrfScore - a.rrfScore)
+      .map((r) => ({
+        ...r,
+        score: r.rrfScore,
+      }));
+  }
+
+  /**
+   * Fallback: Pure vector search using VectorService
    */
   private async vectorSearch(
     queryEmbedding: number[],
     knowledgeBaseIds: string[],
     topK: number,
   ): Promise<SearchResult[]> {
-    const embeddingStr = `[${queryEmbedding.join(",")}]`;
-
-    const results = await this.prisma.$queryRaw<
-      Array<{
-        child_chunk_id: string;
-        parent_chunk_id: string;
-        document_id: string;
-        child_content: string;
-        parent_content: string;
-        distance: number;
-      }>
-    >`
-      SELECT
-        ce.child_chunk_id,
-        cc.parent_chunk_id,
-        pc.document_id,
-        cc.content as child_content,
-        pc.content as parent_content,
-        ce.embedding <=> ${embeddingStr}::vector as distance
-      FROM child_embeddings ce
-      JOIN child_chunks cc ON ce.child_chunk_id = cc.id
-      JOIN parent_chunks pc ON cc.parent_chunk_id = pc.id
-      JOIN knowledge_base_documents d ON pc.document_id = d.id
-      WHERE d.knowledge_base_id = ANY(${knowledgeBaseIds}::text[])
-      ORDER BY ce.embedding <=> ${embeddingStr}::vector
-      LIMIT ${topK}
-    `;
+    const results = await this.vectorService.similaritySearch(queryEmbedding, {
+      knowledgeBaseIds,
+      limit: topK,
+      threshold: 0.2,
+    });
 
     return results.map((r) => ({
-      childChunkId: r.child_chunk_id,
-      parentChunkId: r.parent_chunk_id,
-      documentId: r.document_id,
-      content: r.child_content,
-      parentContent: r.parent_content,
-      score: 1 - r.distance, // Convert distance to similarity score
-      vectorScore: 1 - r.distance,
+      childChunkId: r.childChunkId,
+      parentChunkId: r.parentChunkId,
+      documentId: r.documentId,
+      content: r.content,
+      parentContent: r.parentContent,
+      score: r.similarity,
+      vectorScore: r.similarity,
     }));
   }
 
