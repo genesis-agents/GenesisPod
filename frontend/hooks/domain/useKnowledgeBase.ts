@@ -27,6 +27,7 @@ export interface KnowledgeBase {
   teamId?: string;
   googleDriveConnectionId?: string;
   googleDriveFolderIds?: string[];
+  googleDriveFileIds?: string[]; // 单独选择的文件 IDs
   lastSyncedAt?: string;
   lastError?: string;
   createdAt: string;
@@ -147,24 +148,9 @@ export function useKnowledgeBase() {
   } = useApiGet<KnowledgeBase[]>('/rag/knowledge-bases', {
     immediate: true,
     initialData: [], // 防止请求被取消时返回 undefined
-    // TEMPORARILY DISABLED CACHE for debugging - cache might be returning stale empty array
-    // cacheKey: 'knowledge-bases-list',
-    // cacheTTL: 30 * 1000,
-    onSuccess: (data) => {
-      console.log('[useKnowledgeBase] API SUCCESS - raw data:', data);
-      console.log('[useKnowledgeBase] data length:', data?.length);
-    },
+    cacheKey: 'knowledge-bases-list',
+    cacheTTL: 30 * 1000, // 30 seconds cache
   });
-
-  // Debug: log current state
-  console.log(
-    '[useKnowledgeBase] Current state - knowledgeBases:',
-    knowledgeBases,
-    'loading:',
-    listLoading,
-    'error:',
-    listError?.message
-  );
 
   // 创建知识库
   const { execute: createKnowledgeBase, loading: creating } = useApiPost<

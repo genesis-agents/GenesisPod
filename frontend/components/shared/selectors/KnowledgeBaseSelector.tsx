@@ -65,15 +65,6 @@ export default function KnowledgeBaseSelector({
   const [searchQuery, setSearchQuery] = useState('');
   const { knowledgeBases, loading, error, refreshList } = useKnowledgeBase();
 
-  // Debug logging - comprehensive trace
-  console.log('[KBSelector] === RENDER ===');
-  console.log('[KBSelector] knowledgeBases:', knowledgeBases);
-  console.log('[KBSelector] knowledgeBases?.length:', knowledgeBases?.length);
-  console.log('[KBSelector] loading:', loading);
-  console.log('[KBSelector] error:', error?.message);
-  console.log('[KBSelector] isOpen:', isOpen);
-  console.log('[KBSelector] filterType:', filterType, 'onlyReady:', onlyReady);
-
   const displayPlaceholder = placeholder || t('knowledgeBase.select');
 
   // Filter knowledge bases based on props
@@ -98,20 +89,6 @@ export default function KnowledgeBaseSelector({
 
     return true;
   });
-
-  // Debug: log filtered results - ALWAYS log, not just when open
-  console.log('[KBSelector] filteredKBs:', filteredKBs);
-  console.log('[KBSelector] filteredKBs.length:', filteredKBs.length);
-  if (knowledgeBases.length > 0) {
-    console.log(
-      '[KBSelector] KB statuses:',
-      knowledgeBases.map((kb) => ({
-        name: kb.name,
-        status: kb.status,
-        type: kb.type,
-      }))
-    );
-  }
 
   // Get selected knowledge bases details
   const selectedKBs = knowledgeBases.filter((kb) =>
@@ -154,23 +131,11 @@ export default function KnowledgeBaseSelector({
 
   // Refresh list when dropdown opens, clear search when closes
   useEffect(() => {
-    console.log('[KBSelector] useEffect triggered, isOpen:', isOpen);
     if (isOpen) {
       // Always fetch fresh data when dropdown opens
-      console.log('[KBSelector] Calling refreshList...');
-      refreshList()
-        .then((data) => {
-          console.log(
-            '[KBSelector] refreshList completed, data:',
-            data?.length
-          );
-        })
-        .catch((err) => {
-          console.error('[KBSelector] refreshList error:', err);
-        });
+      refreshList();
     } else {
       // Clear search query when dropdown closes
-      console.log('[KBSelector] Clearing search query');
       setSearchQuery('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

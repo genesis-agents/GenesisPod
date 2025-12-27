@@ -70,6 +70,7 @@ interface EditKnowledgeBaseDialogProps {
     description?: string;
     sourceTypes?: KnowledgeBaseSourceType[];
     googleDriveFolderIds?: string[];
+    googleDriveFileIds?: string[];
   }) => Promise<void>;
   updating: boolean;
 }
@@ -99,13 +100,25 @@ export default function EditKnowledgeBaseDialog({
     knowledgeBase.googleDriveFolderIds || []
   );
   const [selectedFolderNames, setSelectedFolderNames] = useState<string[]>([]);
+  const [selectedFileIds, setSelectedFileIds] = useState<string[]>(
+    knowledgeBase.googleDriveFileIds || []
+  );
+  const [selectedFileNames, setSelectedFileNames] = useState<string[]>([]);
 
   const handleFolderSelectionChange = (
     folderIds: string[],
-    folderNames: string[]
+    folderNames: string[],
+    fileIds?: string[],
+    fileNames?: string[]
   ) => {
     setSelectedFolderIds(folderIds);
     setSelectedFolderNames(folderNames);
+    if (fileIds !== undefined) {
+      setSelectedFileIds(fileIds);
+    }
+    if (fileNames !== undefined) {
+      setSelectedFileNames(fileNames);
+    }
   };
 
   // 切换数据源类型（多选）
@@ -115,10 +128,12 @@ export default function EditKnowledgeBaseDialog({
         // 至少保留一个
         if (prev.length === 1) return prev;
         const newTypes = prev.filter((t) => t !== type);
-        // 如果移除了 GOOGLE_DRIVE，清空文件夹选择
+        // 如果移除了 GOOGLE_DRIVE，清空文件夹和文件选择
         if (type === 'GOOGLE_DRIVE') {
           setSelectedFolderIds([]);
           setSelectedFolderNames([]);
+          setSelectedFileIds([]);
+          setSelectedFileNames([]);
         }
         return newTypes;
       } else {
@@ -140,16 +155,22 @@ export default function EditKnowledgeBaseDialog({
         sourceTypes.includes('GOOGLE_DRIVE') && selectedFolderIds.length > 0
           ? selectedFolderIds
           : undefined,
+      googleDriveFileIds:
+        sourceTypes.includes('GOOGLE_DRIVE') && selectedFileIds.length > 0
+          ? selectedFileIds
+          : undefined,
     });
     onClose();
   };
 
-  // 检查表单是否可以提交
+  // 检查表单是否可以提交 - 需要选择至少一个文件夹或文件
+  const hasGoogleDriveSelection =
+    selectedFolderIds.length > 0 || selectedFileIds.length > 0;
   const canSubmit =
     name.trim() &&
     !updating &&
     sourceTypes.length > 0 &&
-    (!sourceTypes.includes('GOOGLE_DRIVE') || selectedFolderIds.length > 0);
+    (!sourceTypes.includes('GOOGLE_DRIVE') || hasGoogleDriveSelection);
 
   const isTeam = knowledgeBase.type === 'TEAM';
 
@@ -292,19 +313,20 @@ export default function EditKnowledgeBaseDialog({
           {sourceTypes.includes('GOOGLE_DRIVE') && (
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
               <label className="mb-2 block text-sm font-medium text-gray-700">
-                选择要同步的文件夹
+                选择要同步的文件夹或文件
                 <span className="ml-1 text-xs text-gray-500">
                   (单击选择，双击进入)
                 </span>
               </label>
               <GoogleDriveFolderPicker
                 selectedFolderIds={selectedFolderIds}
+                selectedFileIds={selectedFileIds}
                 onSelectionChange={handleFolderSelectionChange}
                 disabled={updating}
               />
-              {selectedFolderIds.length === 0 && (
+              {!hasGoogleDriveSelection && (
                 <p className="mt-2 text-xs text-amber-600">
-                  请至少选择一个文件夹
+                  请至少选择一个文件夹或文件
                 </p>
               )}
             </div>
