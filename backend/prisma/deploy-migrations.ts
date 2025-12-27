@@ -1414,6 +1414,97 @@ async function deploy() {
     console.error(`   ❌ source_types fix failed: ${error.message}`);
   }
 
+  // Step 12: 紧急修复 - 确保 child_embeddings 表存在
+  console.log("🔧 Step 12: Emergency fix for child_embeddings table...");
+  try {
+    // 检查 child_embeddings 表是否存在
+    const childEmbeddingsExists = await prisma.$queryRaw<
+      Array<{ exists: boolean }>
+    >`
+      SELECT EXISTS (
+        SELECT FROM pg_tables
+        WHERE schemaname = 'public'
+        AND tablename = 'child_embeddings'
+      )
+    `;
+
+    if (!childEmbeddingsExists[0]?.exists) {
+      console.log("   ⚠️ child_embeddings table missing, creating...");
+
+      // 首先尝试启用 pgvector 扩展
+      try {
+        await prisma.$executeRawUnsafe(
+          `CREATE EXTENSION IF NOT EXISTS vector;`,
+        );
+        console.log("   ✅ pgvector extension enabled");
+      } catch (e: any) {
+        console.log(`   ⚠️ pgvector extension: ${e.message}`);
+      }
+
+      // 创建 child_embeddings 表 (pgvector)
+      try {
+        await prisma.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS "child_embeddings" (
+            "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+            "child_chunk_id" TEXT NOT NULL,
+            "embedding" vector(1536) NOT NULL,
+            "model" VARCHAR(100) NOT NULL DEFAULT 'text-embedding-3-small',
+            "dimensions" INTEGER NOT NULL DEFAULT 1536,
+            "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT "child_embeddings_pkey" PRIMARY KEY ("id")
+          );
+        `);
+        console.log("   ✅ child_embeddings table created with vector type");
+      } catch (vectorError: any) {
+        // 如果 vector 类型失败，尝试使用 JSONB 作为降级方案
+        console.log(
+          `   ⚠️ vector type failed: ${vectorError.message}, trying JSONB fallback...`,
+        );
+        await prisma.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS "child_embeddings" (
+            "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+            "child_chunk_id" TEXT NOT NULL,
+            "embedding" JSONB NOT NULL DEFAULT '[]',
+            "model" VARCHAR(100) NOT NULL DEFAULT 'text-embedding-3-small',
+            "dimensions" INTEGER NOT NULL DEFAULT 1536,
+            "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT "child_embeddings_pkey" PRIMARY KEY ("id")
+          );
+        `);
+        console.log("   ✅ child_embeddings table created with JSONB fallback");
+      }
+
+      // 添加外键约束
+      await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+          ALTER TABLE "child_embeddings" ADD CONSTRAINT "child_embeddings_child_chunk_id_fkey"
+            FOREIGN KEY ("child_chunk_id") REFERENCES "child_chunks"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        EXCEPTION WHEN duplicate_object THEN null; END $$;
+      `);
+      console.log("   ✅ child_embeddings FK constraint added");
+
+      // 创建索引
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "child_embeddings_child_chunk_id_idx" ON "child_embeddings"("child_chunk_id");`,
+      );
+      console.log("   ✅ child_embeddings index created");
+
+      // 创建唯一约束（一个 child_chunk 只能有一个 embedding）
+      await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+          ALTER TABLE "child_embeddings" ADD CONSTRAINT "child_embeddings_child_chunk_id_key" UNIQUE ("child_chunk_id");
+        EXCEPTION WHEN duplicate_object THEN null; END $$;
+      `);
+      console.log("   ✅ child_embeddings unique constraint added");
+    } else {
+      console.log("   ✅ child_embeddings table already exists");
+    }
+  } catch (error: any) {
+    console.error(`   ❌ child_embeddings fix failed: ${error.message}`);
+  }
+
   // 完成
   console.log("================================================");
   console.log("🎉 Migration deployment completed!");

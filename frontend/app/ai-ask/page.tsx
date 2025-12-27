@@ -1467,9 +1467,6 @@ export default function AskPage() {
           /* Welcome Screen */
           <div className="flex flex-1 flex-col items-center justify-center px-4">
             <div className="w-full max-w-2xl">
-              {/* Inspirational Quote */}
-              <QuoteCard quote={randomQuote} />
-
               <h1 className="mb-12 text-center text-4xl font-light text-gray-800 md:text-5xl">
                 <span className="bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 bg-clip-text text-transparent">
                   {getGreeting()}
@@ -1795,7 +1792,6 @@ export default function AskPage() {
                         onSelectionChange={setSelectedKnowledgeBases}
                         multiple={true}
                         maxSelections={3}
-                        placeholder="知识库"
                         compact={true}
                         disabled={isLoading}
                       />
@@ -1851,6 +1847,11 @@ export default function AskPage() {
                 <p className="mt-3 text-center text-xs text-gray-400">
                   Press Enter to send, Shift+Enter for new line
                 </p>
+              </div>
+
+              {/* Inspirational Quote - Below search box */}
+              <div className="mt-8">
+                <QuoteCard quote={randomQuote} />
               </div>
             </div>
           </div>
@@ -2627,7 +2628,6 @@ export default function AskPage() {
                           onSelectionChange={setSelectedKnowledgeBases}
                           multiple={true}
                           maxSelections={3}
-                          placeholder="知识库"
                           compact={true}
                           disabled={isLoading}
                         />

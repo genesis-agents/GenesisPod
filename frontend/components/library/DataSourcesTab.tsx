@@ -168,23 +168,69 @@ export default function DataSourcesTab({
   const fetchDataSourceStatuses = async () => {
     setLoading(true);
     try {
-      // Fetch Google Drive connection status
-      const gdResponse = await fetch(
-        `${config.apiUrl}/google-drive/connection`,
-        {
-          headers: { ...getAuthHeader() },
-          credentials: 'include',
-        }
-      );
-
       const statuses: Record<string, DataSourceStatus> = {};
 
-      if (gdResponse.ok) {
-        const gdData = await gdResponse.json();
+      // Fetch Google Drive connection status
+      try {
+        const gdResponse = await fetch(
+          `${config.apiUrl}/google-drive/connection`,
+          {
+            headers: { ...getAuthHeader() },
+            credentials: 'include',
+          }
+        );
+
+        if (gdResponse.ok) {
+          const gdData = await gdResponse.json();
+          // Backend returns { connection: {...} | null }
+          const connection = gdData.connection;
+          statuses['GOOGLE_DRIVE'] = {
+            type: 'GOOGLE_DRIVE',
+            isConnected: !!connection,
+            lastSyncAt: connection?.lastSyncAt,
+          };
+        } else {
+          statuses['GOOGLE_DRIVE'] = {
+            type: 'GOOGLE_DRIVE',
+            isConnected: false,
+          };
+        }
+      } catch {
         statuses['GOOGLE_DRIVE'] = {
           type: 'GOOGLE_DRIVE',
-          isConnected: gdData.isConnected,
-          lastSyncAt: gdData.lastSyncAt,
+          isConnected: false,
+        };
+      }
+
+      // Fetch Notion connection status
+      try {
+        const notionResponse = await fetch(
+          `${config.apiUrl}/notion/connections`,
+          {
+            headers: { ...getAuthHeader() },
+            credentials: 'include',
+          }
+        );
+
+        if (notionResponse.ok) {
+          const notionData = await notionResponse.json();
+          const hasConnections =
+            notionData.connections && notionData.connections.length > 0;
+          statuses['NOTION'] = {
+            type: 'NOTION',
+            isConnected: hasConnections,
+            itemCount: notionData.connections?.length || 0,
+          };
+        } else {
+          statuses['NOTION'] = {
+            type: 'NOTION',
+            isConnected: false,
+          };
+        }
+      } catch {
+        statuses['NOTION'] = {
+          type: 'NOTION',
+          isConnected: false,
         };
       }
 
@@ -195,12 +241,6 @@ export default function DataSourcesTab({
           isConnected: true,
         };
       });
-
-      // Notion connection status (if implemented)
-      statuses['NOTION'] = {
-        type: 'NOTION',
-        isConnected: false, // TODO: Implement Notion connection check
-      };
 
       setDataSourceStatuses(statuses);
     } catch (error) {

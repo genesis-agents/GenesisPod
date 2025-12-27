@@ -19,6 +19,7 @@ import {
 } from '@/hooks/domain/useKnowledgeBase';
 import { type ApiError } from '@/lib/api/client';
 import Link from 'next/link';
+import { useI18n } from '@/lib/i18n/i18n-context';
 
 export interface KnowledgeBaseSelectorProps {
   /** Selected knowledge base IDs */
@@ -52,16 +53,19 @@ export default function KnowledgeBaseSelector({
   onSelectionChange,
   multiple = false,
   maxSelections = 5,
-  placeholder = '选择知识库',
+  placeholder,
   disabled = false,
   filterType = 'ALL',
   compact = false,
   onlyReady = true,
   className = '',
 }: KnowledgeBaseSelectorProps) {
+  const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { knowledgeBases, loading, error, refreshList } = useKnowledgeBase();
+
+  const displayPlaceholder = placeholder || t('knowledgeBase.select');
 
   // Filter knowledge bases based on props
   const filteredKBs = knowledgeBases.filter((kb) => {
@@ -148,15 +152,7 @@ export default function KnowledgeBaseSelector({
   };
 
   const getSourceTypeLabel = (sourceType: string) => {
-    const labels: Record<string, string> = {
-      GOOGLE_DRIVE: 'Drive',
-      MANUAL: '上传',
-      URL: 'URL',
-      NOTION: 'Notion',
-      BOOKMARK: '书签',
-      NOTE: '笔记',
-    };
-    return labels[sourceType] || sourceType;
+    return t(`knowledgeBase.sourceTypes.${sourceType}`) || sourceType;
   };
 
   // Compact mode trigger
@@ -175,9 +171,11 @@ export default function KnowledgeBaseSelector({
         >
           <Database className="h-4 w-4" />
           {selectedIds.length > 0 ? (
-            <span>{selectedIds.length} 个知识库</span>
+            <span>
+              {t('knowledgeBase.kbCount', { count: selectedIds.length })}
+            </span>
           ) : (
-            <span>{placeholder}</span>
+            <span>{displayPlaceholder}</span>
           )}
           <ChevronDown
             className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
@@ -200,6 +198,7 @@ export default function KnowledgeBaseSelector({
               getTypeIcon={getTypeIcon}
               getSourceTypeLabel={getSourceTypeLabel}
               refreshList={refreshList}
+              t={t}
             />
           </div>
         )}
@@ -213,10 +212,10 @@ export default function KnowledgeBaseSelector({
       {/* Label and Actions */}
       <div className="flex items-center justify-between">
         <label className="text-sm font-medium text-gray-700">
-          知识库
+          {t('knowledgeBase.title')}
           {multiple && (
             <span className="ml-1 text-xs text-gray-400">
-              (最多 {maxSelections} 个)
+              ({t('knowledgeBase.maxCount', { count: maxSelections })})
             </span>
           )}
         </label>
@@ -226,7 +225,7 @@ export default function KnowledgeBaseSelector({
             onClick={handleClearAll}
             className="text-xs text-gray-500 hover:text-red-600"
           >
-            清除所有
+            {t('knowledgeBase.clearAll')}
           </button>
         )}
       </div>
@@ -270,10 +269,10 @@ export default function KnowledgeBaseSelector({
           <Database className="h-4 w-4" />
           <span>
             {selectedIds.length === 0
-              ? placeholder
+              ? displayPlaceholder
               : multiple && selectedIds.length < maxSelections
-                ? '添加更多知识库...'
-                : '已达到最大数量'}
+                ? t('knowledgeBase.addMore')
+                : t('knowledgeBase.maxReached')}
           </span>
         </div>
         <ChevronDown
@@ -300,6 +299,7 @@ export default function KnowledgeBaseSelector({
               getTypeIcon={getTypeIcon}
               getSourceTypeLabel={getSourceTypeLabel}
               refreshList={refreshList}
+              t={t}
             />
           </div>
         </div>
@@ -322,6 +322,7 @@ function DropdownContent({
   getTypeIcon,
   getSourceTypeLabel,
   refreshList,
+  t,
 }: {
   searchQuery: string;
   setSearchQuery: (q: string) => void;
@@ -335,6 +336,7 @@ function DropdownContent({
   getTypeIcon: (type?: string) => React.ReactNode;
   getSourceTypeLabel: (sourceType: string) => string;
   refreshList: () => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   return (
     <>
@@ -346,7 +348,7 @@ function DropdownContent({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="搜索知识库..."
+            placeholder={t('knowledgeBase.search')}
             className="w-full rounded-md border border-gray-200 py-2 pl-9 pr-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             autoFocus
           />
@@ -363,19 +365,21 @@ function DropdownContent({
 
         {error && (
           <div className="py-4 text-center text-sm text-red-500">
-            加载失败
+            {t('knowledgeBase.loadFailed')}
             <button
               onClick={refreshList}
               className="ml-2 text-blue-600 hover:underline"
             >
-              重试
+              {t('knowledgeBase.retry')}
             </button>
           </div>
         )}
 
         {!loading && !error && filteredKBs.length === 0 && (
           <div className="py-4 text-center text-sm text-gray-500">
-            {searchQuery ? '没有找到匹配的知识库' : '暂无可用的知识库'}
+            {searchQuery
+              ? t('knowledgeBase.noMatch')
+              : t('knowledgeBase.noAvailable')}
           </div>
         )}
 
@@ -439,7 +443,7 @@ function DropdownContent({
           className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 py-2 text-sm text-gray-600 transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
         >
           <Plus className="h-4 w-4" />
-          创建新知识库
+          {t('knowledgeBase.createNew')}
           <ExternalLink className="h-3 w-3" />
         </Link>
       </div>

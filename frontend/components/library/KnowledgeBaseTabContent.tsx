@@ -7,10 +7,8 @@ import {
   Plus,
   FileText,
   RefreshCw,
-  Search,
   ExternalLink,
   Loader2,
-  FolderOpen,
 } from 'lucide-react';
 import {
   useKnowledgeBase,
@@ -198,29 +196,6 @@ export default function KnowledgeBaseTabContent() {
             </div>
           </Link>
         ))}
-      </div>
-
-      {/* 快捷入口 */}
-      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Search className="h-5 w-5 text-gray-500" />
-            <div>
-              <p className="text-sm font-medium text-gray-900">
-                使用 RAG 智能问答
-              </p>
-              <p className="text-xs text-gray-500">
-                基于你的知识库进行 AI 检索和问答
-              </p>
-            </div>
-          </div>
-          <Link
-            href="/rag"
-            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-          >
-            打开 RAG 工作台
-          </Link>
-        </div>
       </div>
 
       {/* 创建对话框 */}

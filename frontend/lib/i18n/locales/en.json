@@ -134,6 +134,112 @@
     },
     "loadingGraph": "Loading knowledge graph..."
   },
+  "knowledgeBase": {
+    "title": "Knowledge Base",
+    "select": "Select Knowledge Base",
+    "search": "Search knowledge bases...",
+    "loading": "Loading...",
+    "loadFailed": "Load failed",
+    "retry": "Retry",
+    "noMatch": "No matching knowledge bases",
+    "noAvailable": "No available knowledge bases",
+    "maxCount": "Max {{count}}",
+    "clearAll": "Clear all",
+    "addMore": "Add more knowledge bases...",
+    "maxReached": "Max count reached",
+    "createNew": "Create new knowledge base",
+    "sourceTypes": {
+      "GOOGLE_DRIVE": "Drive",
+      "MANUAL": "Upload",
+      "URL": "URL",
+      "NOTION": "Notion",
+      "BOOKMARK": "Bookmark",
+      "NOTE": "Note"
+    },
+    "documents": "documents",
+    "status": {
+      "PENDING": "Pending",
+      "PROCESSING": "Processing",
+      "READY": "Ready",
+      "UPDATING": "Updating",
+      "ERROR": "Error"
+    },
+    "personal": "Personal",
+    "team": "Team",
+    "createFirst": "Create your first knowledge base",
+    "createFirstDesc": "Knowledge bases store your documents, notes and materials, supporting AI intelligent retrieval and Q&A.",
+    "createKnowledgeBase": "Create Knowledge Base",
+    "newKnowledgeBase": "New Knowledge Base",
+    "kbCount": "{{count}} knowledge bases",
+    "refresh": "Refresh",
+    "name": "Name",
+    "description": "Description",
+    "descriptionOptional": "Description (optional)",
+    "dataSource": "Data Source",
+    "manualUpload": "Manual Upload",
+    "syncGoogleDrive": "Sync Google Drive",
+    "urlCrawl": "URL Crawl",
+    "selectFolders": "Select folders to sync",
+    "selectFoldersHint": "(single click to select, double click to enter)",
+    "selectAtLeastOne": "Please select at least one folder",
+    "cancel": "Cancel",
+    "creating": "Creating...",
+    "create": "Create"
+  },
+  "dataSources": {
+    "title": "Data Sources",
+    "overview": "Overview",
+    "overviewTitle": "Data Sources Overview",
+    "overviewDesc": "Manage your data source connections, these can be imported into knowledge bases",
+    "refreshStatus": "Refresh Status",
+    "external": "External Data Sources",
+    "internal": "Platform Data",
+    "connected": "Connected",
+    "notConnected": "Not Connected",
+    "lastSync": "Last sync",
+    "browse": "Browse",
+    "sync": "Sync",
+    "settings": "Settings",
+    "connect": "Connect",
+    "clickToBrowse": "Click to browse",
+    "available": "Available",
+    "howToUse": "How to use data sources?",
+    "howToUseHints": {
+      "1": "After connecting external data sources, you can select them as data sources when creating knowledge bases",
+      "2": "Platform data (bookmarks, notes, etc.) can be directly imported into knowledge bases",
+      "3": "Sync function will automatically update the content in knowledge bases"
+    },
+    "types": {
+      "GOOGLE_DRIVE": {
+        "name": "Google Drive",
+        "description": "Sync Google Drive files to knowledge base"
+      },
+      "NOTION": {
+        "name": "Notion",
+        "description": "Sync Notion pages to knowledge base"
+      },
+      "BOOKMARK": {
+        "name": "Bookmarks",
+        "description": "Saved bookmark resources on platform"
+      },
+      "NOTE": {
+        "name": "Notes",
+        "description": "Notes created on platform"
+      },
+      "IMAGE": {
+        "name": "Images",
+        "description": "Image files (OCR text extraction supported)"
+      },
+      "UPLOAD": {
+        "name": "Uploaded Files",
+        "description": "Manually uploaded document files"
+      },
+      "URL": {
+        "name": "URL Crawl",
+        "description": "Content crawled from web URLs"
+      }
+    }
+  },
   "explore": {
     "title": "Explore",
     "trending": "Trending",

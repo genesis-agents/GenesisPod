@@ -134,6 +134,112 @@
     },
     "loadingGraph": "加载知识图谱中..."
   },
+  "knowledgeBase": {
+    "title": "知识库",
+    "select": "选择知识库",
+    "search": "搜索知识库...",
+    "loading": "加载中...",
+    "loadFailed": "加载失败",
+    "retry": "重试",
+    "noMatch": "没有找到匹配的知识库",
+    "noAvailable": "暂无可用的知识库",
+    "maxCount": "最多 {{count}} 个",
+    "clearAll": "清除所有",
+    "addMore": "添加更多知识库...",
+    "maxReached": "已达到最大数量",
+    "createNew": "创建新知识库",
+    "sourceTypes": {
+      "GOOGLE_DRIVE": "Drive",
+      "MANUAL": "上传",
+      "URL": "URL",
+      "NOTION": "Notion",
+      "BOOKMARK": "书签",
+      "NOTE": "笔记"
+    },
+    "documents": "文档",
+    "status": {
+      "PENDING": "待处理",
+      "PROCESSING": "处理中",
+      "READY": "就绪",
+      "UPDATING": "更新中",
+      "ERROR": "错误"
+    },
+    "personal": "个人",
+    "team": "团队",
+    "createFirst": "创建你的第一个知识库",
+    "createFirstDesc": "知识库可以存储你的文档、笔记和资料，支持 AI 智能检索和问答。",
+    "createKnowledgeBase": "创建知识库",
+    "newKnowledgeBase": "新建知识库",
+    "kbCount": "{{count}} 个知识库",
+    "refresh": "刷新",
+    "name": "名称",
+    "description": "描述",
+    "descriptionOptional": "描述 (可选)",
+    "dataSource": "数据来源",
+    "manualUpload": "手动上传文档",
+    "syncGoogleDrive": "同步 Google Drive",
+    "urlCrawl": "URL 抓取",
+    "selectFolders": "选择要同步的文件夹",
+    "selectFoldersHint": "(单击选择，双击进入)",
+    "selectAtLeastOne": "请至少选择一个文件夹",
+    "cancel": "取消",
+    "creating": "创建中...",
+    "create": "创建"
+  },
+  "dataSources": {
+    "title": "数据源",
+    "overview": "概览",
+    "overviewTitle": "数据源概览",
+    "overviewDesc": "管理你的数据源连接，这些数据可以导入到知识库",
+    "refreshStatus": "刷新状态",
+    "external": "外部数据源",
+    "internal": "平台内数据",
+    "connected": "已连接",
+    "notConnected": "未连接",
+    "lastSync": "上次同步",
+    "browse": "浏览",
+    "sync": "同步",
+    "settings": "设置",
+    "connect": "连接",
+    "clickToBrowse": "点击浏览",
+    "available": "可用",
+    "howToUse": "如何使用数据源？",
+    "howToUseHints": {
+      "1": "连接外部数据源后，可以在创建知识库时选择作为数据来源",
+      "2": "平台内数据（书签、笔记等）可以直接导入到知识库",
+      "3": "同步功能会自动更新知识库中的内容"
+    },
+    "types": {
+      "GOOGLE_DRIVE": {
+        "name": "Google Drive",
+        "description": "同步 Google Drive 文件到知识库"
+      },
+      "NOTION": {
+        "name": "Notion",
+        "description": "同步 Notion 页面到知识库"
+      },
+      "BOOKMARK": {
+        "name": "书签",
+        "description": "平台内保存的书签资源"
+      },
+      "NOTE": {
+        "name": "笔记",
+        "description": "平台内创建的笔记内容"
+      },
+      "IMAGE": {
+        "name": "图片",
+        "description": "图片文件（支持 OCR 提取文字）"
+      },
+      "UPLOAD": {
+        "name": "上传文件",
+        "description": "手动上传的文档文件"
+      },
+      "URL": {
+        "name": "URL 抓取",
+        "description": "从网页 URL 抓取的内容"
+      }
+    }
+  },
   "explore": {
     "title": "探索",
     "trending": "热门趋势",

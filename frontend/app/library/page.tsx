@@ -1679,21 +1679,25 @@ function LibraryPageContent() {
 
         {/* Main content area */}
         <div className="px-8 py-6">
-          {/* AI Organize Panel - Show on all main tabs */}
-          <AIOrganizePanel
-            collections={collections.map((c) => ({
-              id: c.id,
-              name: c.name,
-              itemCount: c.items?.length || 0,
-            }))}
-            onRefresh={() => {
-              // Refresh based on active tab
-              if (activeTab === 'graph') {
-                loadGraphData();
-              }
-            }}
-            activeTab={activeTab}
-          />
+          {/* AI Organize Panel - Hide for knowledge base tabs */}
+          {activeTab !== 'personal-kb' &&
+            activeTab !== 'team-kb' &&
+            activeTab !== 'data-sources' && (
+              <AIOrganizePanel
+                collections={collections.map((c) => ({
+                  id: c.id,
+                  name: c.name,
+                  itemCount: c.items?.length || 0,
+                }))}
+                onRefresh={() => {
+                  // Refresh based on active tab
+                  if (activeTab === 'graph') {
+                    loadGraphData();
+                  }
+                }}
+                activeTab={activeTab}
+              />
+            )}
 
           {/* Personal Knowledge Base Tab */}
           {activeTab === 'personal-kb' && <PersonalKnowledgeBaseTab />}

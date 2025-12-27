@@ -3,21 +3,25 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import {
-  Database,
   Plus,
   FileText,
   RefreshCw,
   ExternalLink,
   Loader2,
   Users,
-  Search,
   Lock,
+  Pencil,
+  Trash2,
+  MoreVertical,
+  UserPlus,
 } from 'lucide-react';
 import {
   useKnowledgeBase,
+  useKnowledgeBaseDetail,
   type KnowledgeBase,
 } from '@/hooks/domain/useKnowledgeBase';
 import CreateKnowledgeBaseDialog from './CreateKnowledgeBaseDialog';
+import EditKnowledgeBaseDialog from './EditKnowledgeBaseDialog';
 
 /**
  * 团队知识库 TAB
@@ -25,14 +29,61 @@ import CreateKnowledgeBaseDialog from './CreateKnowledgeBaseDialog';
  */
 export default function TeamKnowledgeBaseTab() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [editingKbId, setEditingKbId] = useState<string | null>(null);
+  const [deletingKbId, setDeletingKbId] = useState<string | null>(null);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [managingMembersKbId, setManagingMembersKbId] = useState<string | null>(
+    null
+  );
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleBatchDelete = async () => {
+    for (const id of selectedIds) {
+      try {
+        await deleteKnowledgeBase(id);
+      } catch (err) {
+        console.error('Failed to delete:', id, err);
+      }
+    }
+    setSelectedIds(new Set());
+    setDeletingKbId(null);
+    refreshList();
+  };
+
   const {
     knowledgeBases,
     loading,
     error,
     creating,
     createKnowledgeBase,
+    deleteKnowledgeBase,
     refreshList,
   } = useKnowledgeBase();
+
+  // Get detail hook for editing
+  const editingKbDetail = useKnowledgeBaseDetail(editingKbId || '');
+
+  const handleDelete = async (kbId: string) => {
+    try {
+      await deleteKnowledgeBase(kbId);
+      setDeletingKbId(null);
+      refreshList();
+    } catch (err) {
+      console.error('Failed to delete knowledge base:', err);
+    }
+  };
 
   // Filter team knowledge bases (type = TEAM)
   const teamKBs = knowledgeBases.filter((kb: any) => kb.type === 'TEAM');
@@ -42,27 +93,41 @@ export default function TeamKnowledgeBaseTab() {
     setShowCreateDialog(false);
   };
 
-  const getStatusBadge = (status: KnowledgeBase['status']) => {
+  const getStatusBadge = (kb: KnowledgeBase) => {
+    const status = kb.status;
     const colors = {
       PENDING: 'bg-gray-100 text-gray-700',
-      PROCESSING: 'bg-blue-100 text-blue-700',
+      PROCESSING: 'bg-purple-100 text-purple-700',
       READY: 'bg-green-100 text-green-700',
       UPDATING: 'bg-yellow-100 text-yellow-700',
       ERROR: 'bg-red-100 text-red-700',
     };
     const labels = {
-      PENDING: '待处理',
-      PROCESSING: '处理中',
-      READY: '就绪',
+      PENDING: '待向量化',
+      PROCESSING: '向量化中',
+      READY: '已就绪',
       UPDATING: '更新中',
-      ERROR: '错误',
+      ERROR: '处理失败',
+    };
+    const icons = {
+      PENDING: '⏳',
+      PROCESSING: '⚙️',
+      READY: '✅',
+      UPDATING: '🔄',
+      ERROR: '❌',
     };
     return (
-      <span
-        className={`rounded-full px-2 py-0.5 text-xs font-medium ${colors[status]}`}
-      >
-        {labels[status]}
-      </span>
+      <div className="flex flex-col items-end gap-1">
+        <span
+          className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${colors[status]}`}
+        >
+          <span>{icons[status]}</span>
+          {labels[status]}
+        </span>
+        {status === 'PROCESSING' && (
+          <span className="text-[10px] text-purple-500">正在生成向量...</span>
+        )}
+      </div>
     );
   };
 
@@ -190,75 +255,167 @@ export default function TeamKnowledgeBaseTab() {
         </div>
       </div>
 
+      {/* Batch Actions */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between rounded-lg bg-purple-50 px-4 py-3">
+          <span className="text-sm text-purple-700">
+            已选择 {selectedIds.size} 个知识库
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
+            >
+              取消选择
+            </button>
+            <button
+              onClick={() => setDeletingKbId('batch')}
+              className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
+            >
+              <Trash2 className="h-4 w-4" />
+              批量删除
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Knowledge Base Grid */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {teamKBs.map((kb) => (
-          <Link
+          <div
             key={kb.id}
-            href={`/rag?kb=${kb.id}`}
-            className="group rounded-xl border border-gray-200 bg-white p-5 transition-all hover:border-purple-300 hover:shadow-md"
+            className={`group relative rounded-xl bg-white p-5 transition-all hover:bg-gray-50 ${
+              selectedIds.has(kb.id) ? 'ring-2 ring-purple-500' : ''
+            }`}
           >
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-purple-50 to-pink-50 text-lg">
-                  {getSourceTypeIcon(kb.sourceType)}
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900 group-hover:text-purple-600">
-                    {kb.name}
-                  </h3>
-                  <p className="truncate text-xs text-gray-500">
-                    {(kb.sourceTypes?.length ? kb.sourceTypes : [kb.sourceType])
-                      .map((t) => getSourceTypeLabel(t))
-                      .join(', ')}
-                  </p>
-                </div>
+            {/* Selection Checkbox */}
+            <div className="absolute left-3 top-3 z-10">
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleSelect(kb.id);
+                }}
+                className={`flex h-5 w-5 items-center justify-center rounded border transition-all ${
+                  selectedIds.has(kb.id)
+                    ? 'border-purple-500 bg-purple-500 text-white'
+                    : 'border-gray-300 bg-white opacity-0 group-hover:opacity-100'
+                }`}
+              >
+                {selectedIds.has(kb.id) && (
+                  <svg
+                    className="h-3 w-3"
+                    fill="currentColor"
+                    viewBox="0 0 12 12"
+                  >
+                    <path d="M10.28 2.28L4.5 8.06 1.72 5.28a.75.75 0 00-1.06 1.06l3.5 3.5a.75.75 0 001.06 0l6.5-6.5a.75.75 0 00-1.06-1.06z" />
+                  </svg>
+                )}
+              </button>
+            </div>
+
+            {/* Action Menu */}
+            <div className="absolute right-3 top-3 z-10">
+              <div className="relative">
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setActiveMenuId(activeMenuId === kb.id ? null : kb.id);
+                  }}
+                  className="rounded-lg p-1.5 text-gray-400 opacity-0 transition-all hover:bg-gray-100 hover:text-gray-600 group-hover:opacity-100"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </button>
+
+                {activeMenuId === kb.id && (
+                  <div className="absolute right-0 top-full z-20 mt-1 w-36 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setEditingKbId(kb.id);
+                        setActiveMenuId(null);
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      <Pencil className="h-4 w-4" />
+                      编辑
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setManagingMembersKbId(kb.id);
+                        setActiveMenuId(null);
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                      成员管理
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDeletingKbId(kb.id);
+                        setActiveMenuId(null);
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      删除
+                    </button>
+                  </div>
+                )}
               </div>
-              {getStatusBadge(kb.status)}
             </div>
 
-            {kb.description && (
-              <p className="mt-3 line-clamp-2 text-sm text-gray-600">
-                {kb.description}
-              </p>
-            )}
-
-            <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
-              <div className="flex items-center gap-3 text-xs text-gray-500">
-                <span className="flex items-center gap-1">
-                  <FileText className="h-3.5 w-3.5" />
-                  {kb._count?.documents ?? 0} 文档
-                </span>
-                <span className="flex items-center gap-1">
-                  <Users className="h-3.5 w-3.5" />
-                  团队
-                </span>
+            <Link href={`/rag?kb=${kb.id}`} className="block">
+              <div className="flex items-start justify-between pr-8">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-purple-50 to-pink-50 text-lg">
+                    {getSourceTypeIcon(kb.sourceType)}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900 group-hover:text-purple-600">
+                      {kb.name}
+                    </h3>
+                    <p className="truncate text-xs text-gray-500">
+                      {(kb.sourceTypes?.length
+                        ? kb.sourceTypes
+                        : [kb.sourceType]
+                      )
+                        .map((t) => getSourceTypeLabel(t))
+                        .join(', ')}
+                    </p>
+                  </div>
+                </div>
+                {getStatusBadge(kb)}
               </div>
-              <ExternalLink className="h-4 w-4 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100" />
-            </div>
-          </Link>
-        ))}
-      </div>
 
-      {/* Quick Access */}
-      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Search className="h-5 w-5 text-gray-500" />
-            <div>
-              <p className="text-sm font-medium text-gray-900">团队知识问答</p>
-              <p className="text-xs text-gray-500">
-                基于团队知识库进行 AI 检索和问答
-              </p>
-            </div>
+              {kb.description && (
+                <p className="mt-3 line-clamp-2 text-sm text-gray-600">
+                  {kb.description}
+                </p>
+              )}
+
+              <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
+                <div className="flex items-center gap-3 text-xs text-gray-500">
+                  <span className="flex items-center gap-1">
+                    <FileText className="h-3.5 w-3.5" />
+                    {kb._count?.documents ?? 0} 文档
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Users className="h-3.5 w-3.5" />
+                    团队
+                  </span>
+                </div>
+                <ExternalLink className="h-4 w-4 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100" />
+              </div>
+            </Link>
           </div>
-          <Link
-            href="/rag"
-            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-          >
-            打开 RAG 工作台
-          </Link>
-        </div>
+        ))}
       </div>
 
       {/* Create Dialog */}
@@ -268,6 +425,80 @@ export default function TeamKnowledgeBaseTab() {
           onCreate={handleCreate}
           creating={creating}
           kbType="TEAM"
+        />
+      )}
+
+      {/* Edit Dialog */}
+      {editingKbId && editingKbDetail.knowledgeBase && (
+        <EditKnowledgeBaseDialog
+          knowledgeBase={editingKbDetail.knowledgeBase}
+          onClose={() => setEditingKbId(null)}
+          onUpdate={async (data) => {
+            await editingKbDetail.updateKnowledgeBase(data);
+            setEditingKbId(null);
+            refreshList();
+          }}
+          updating={editingKbDetail.updating}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deletingKbId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900">确认删除</h3>
+            <p className="mt-2 text-gray-600">
+              {deletingKbId === 'batch'
+                ? `确定要删除选中的 ${selectedIds.size} 个团队知识库吗？此操作不可撤销，所有相关的文档、向量数据和成员权限都将被删除。`
+                : '确定要删除这个团队知识库吗？此操作不可撤销，所有相关的文档、向量数据和成员权限都将被删除。'}
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setDeletingKbId(null)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={() =>
+                  deletingKbId === 'batch'
+                    ? handleBatchDelete()
+                    : handleDelete(deletingKbId)
+                }
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Member Management Dialog - Placeholder */}
+      {managingMembersKbId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900">成员管理</h3>
+            <p className="mt-2 text-gray-600">
+              团队成员管理功能正在开发中，敬请期待。
+            </p>
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setManagingMembersKbId(null)}
+                className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Click outside to close menu */}
+      {activeMenuId && (
+        <div
+          className="fixed inset-0 z-0"
+          onClick={() => setActiveMenuId(null)}
         />
       )}
     </div>
