@@ -125,7 +125,7 @@ export class KnowledgeBaseService {
         }>
       >`
         SELECT * FROM knowledge_bases
-        WHERE id = ${id}::uuid AND user_id = ${userId}::text
+        WHERE id = ${id}::uuid AND user_id = ${userId}::uuid
         LIMIT 1
       `;
 
@@ -250,11 +250,11 @@ export class KnowledgeBaseService {
       FROM knowledge_bases kb
       LEFT JOIN knowledge_base_documents doc ON doc.knowledge_base_id = kb.id
       LEFT JOIN knowledge_base_members mem ON mem.knowledge_base_id = kb.id
-      WHERE kb.user_id = ${userId}::text
+      WHERE kb.user_id = ${userId}::uuid
          OR (kb.type = 'TEAM' AND EXISTS (
            SELECT 1 FROM knowledge_base_members m
            WHERE m.knowledge_base_id = kb.id
-           AND m.user_id = ${userId}::text
+           AND m.user_id = ${userId}::uuid
          ))
       GROUP BY kb.id
       ORDER BY kb.created_at DESC

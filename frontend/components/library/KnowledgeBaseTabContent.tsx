@@ -16,6 +16,7 @@ import {
   type CreateKnowledgeBaseDto,
 } from '@/hooks/domain/useKnowledgeBase';
 import GoogleDriveFolderPicker from './GoogleDriveFolderPicker';
+import SignInPrompt, { isAuthError } from '@/components/shared/SignInPrompt';
 
 /**
  * Library 页面的知识库 TAB 内容
@@ -83,6 +84,16 @@ export default function KnowledgeBaseTabContent() {
   }
 
   if (error) {
+    // 如果是认证错误，显示登录引导
+    if (isAuthError(error)) {
+      return (
+        <SignInPrompt
+          title="请先登录"
+          description="登录后即可查看和管理知识库"
+        />
+      );
+    }
+
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
         <p className="text-red-600">加载知识库失败: {error.message}</p>

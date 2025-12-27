@@ -28,6 +28,7 @@ import {
 import CreateKnowledgeBaseDialog from './CreateKnowledgeBaseDialog';
 import EditKnowledgeBaseDialog from './EditKnowledgeBaseDialog';
 import MemberManagementDialog from './MemberManagementDialog';
+import SignInPrompt, { isAuthError } from '@/components/shared/SignInPrompt';
 
 /**
  * 团队知识库 TAB
@@ -178,6 +179,16 @@ export default function TeamKnowledgeBaseTab() {
   }
 
   if (error) {
+    // 如果是认证错误，显示登录引导
+    if (isAuthError(error)) {
+      return (
+        <SignInPrompt
+          title="请先登录"
+          description="登录后即可查看和管理团队知识库"
+        />
+      );
+    }
+
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
         <p className="text-red-600">加载知识库失败: {error.message}</p>

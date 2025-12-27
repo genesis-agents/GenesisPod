@@ -27,6 +27,7 @@ import {
 } from '@/hooks/domain/useKnowledgeBase';
 import CreateKnowledgeBaseDialog from './CreateKnowledgeBaseDialog';
 import EditKnowledgeBaseDialog from './EditKnowledgeBaseDialog';
+import SignInPrompt, { isAuthError } from '@/components/shared/SignInPrompt';
 
 /**
  * 个人知识库 TAB
@@ -187,6 +188,16 @@ export default function PersonalKnowledgeBaseTab() {
   }
 
   if (error) {
+    // 如果是认证错误，显示登录引导
+    if (isAuthError(error)) {
+      return (
+        <SignInPrompt
+          title="请先登录"
+          description="登录后即可查看和管理你的个人知识库"
+        />
+      );
+    }
+
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
         <p className="text-red-600">加载知识库失败: {error.message}</p>

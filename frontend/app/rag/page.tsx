@@ -29,6 +29,7 @@ import type {
   KnowledgeBase,
   CreateKnowledgeBaseDto,
 } from '@/hooks/domain/useKnowledgeBase';
+import SignInPrompt, { isAuthError } from '@/components/shared/SignInPrompt';
 
 /**
  * RAG 知识库管理页面
@@ -152,17 +153,25 @@ export default function RAGPage() {
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
               </div>
             ) : error ? (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-                <p className="text-sm text-red-600">
-                  加载失败: {error.message}
-                </p>
-                <button
-                  onClick={() => refreshList()}
-                  className="mt-2 text-sm text-red-700 underline"
-                >
-                  重试
-                </button>
-              </div>
+              isAuthError(error) ? (
+                <SignInPrompt
+                  title="请先登录"
+                  description="登录后即可管理知识库"
+                  className="py-8"
+                />
+              ) : (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                  <p className="text-sm text-red-600">
+                    加载失败: {error.message}
+                  </p>
+                  <button
+                    onClick={() => refreshList()}
+                    className="mt-2 text-sm text-red-700 underline"
+                  >
+                    重试
+                  </button>
+                </div>
+              )
             ) : knowledgeBases.length === 0 ? (
               <div className="rounded-lg border-2 border-dashed border-gray-300 p-6 text-center">
                 <Database className="mx-auto h-10 w-10 text-gray-400" />
