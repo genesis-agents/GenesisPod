@@ -67,10 +67,14 @@ export function useApiGet<T>(
   const abortRef = useRef<AbortController | null>(null);
 
   const execute = useCallback(async () => {
+    console.log(`[useApiGet:${path}] execute called, cacheKey:`, cacheKey);
+
     // 检查 LRU 缓存
     if (cacheKey) {
       const cached = apiCache.get(cacheKey) as T | undefined;
+      console.log(`[useApiGet:${path}] Cache check - cached:`, cached);
       if (cached !== undefined) {
+        console.log(`[useApiGet:${path}] RETURNING FROM CACHE, data:`, cached);
         setData(cached);
         setLoading(false);
         return cached;
@@ -78,6 +82,9 @@ export function useApiGet<T>(
     }
 
     // 取消之前的请求
+    if (abortRef.current) {
+      console.log(`[useApiGet:${path}] ABORTING previous request`);
+    }
     abortRef.current?.abort();
     abortRef.current = new AbortController();
 
@@ -85,20 +92,27 @@ export function useApiGet<T>(
     setError(null);
 
     try {
+      console.log(`[useApiGet:${path}] FETCHING from API...`);
       const result = await apiClient.get<T>(path, {
         signal: abortRef.current.signal,
       });
+      console.log(`[useApiGet:${path}] API RESPONSE:`, result);
       setData(result);
 
       // 更新 LRU 缓存
       if (cacheKey) {
+        console.log(`[useApiGet:${path}] Caching result with key:`, cacheKey);
         apiCache.set(cacheKey, result, cacheTTL);
       }
 
       onSuccess?.(result);
       return result;
     } catch (err) {
-      if ((err as Error).name === 'AbortError') return;
+      if ((err as Error).name === 'AbortError') {
+        console.log(`[useApiGet:${path}] Request ABORTED`);
+        return;
+      }
+      console.log(`[useApiGet:${path}] API ERROR:`, err);
       const apiError = err as ApiError;
       setError(apiError);
       onError?.(apiError);

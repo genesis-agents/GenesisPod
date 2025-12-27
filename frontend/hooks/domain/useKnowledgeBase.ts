@@ -149,7 +149,21 @@ export function useKnowledgeBase() {
     initialData: [], // 防止请求被取消时返回 undefined
     cacheKey: 'knowledge-bases-list', // 添加缓存
     cacheTTL: 30 * 1000, // 30秒缓存
+    onSuccess: (data) => {
+      console.log('[useKnowledgeBase] API SUCCESS - raw data:', data);
+      console.log('[useKnowledgeBase] data length:', data?.length);
+    },
   });
+
+  // Debug: log current state
+  console.log(
+    '[useKnowledgeBase] Current state - knowledgeBases:',
+    knowledgeBases,
+    'loading:',
+    listLoading,
+    'error:',
+    listError?.message
+  );
 
   // 创建知识库
   const { execute: createKnowledgeBase, loading: creating } = useApiPost<

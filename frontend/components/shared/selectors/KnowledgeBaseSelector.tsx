@@ -65,19 +65,14 @@ export default function KnowledgeBaseSelector({
   const [searchQuery, setSearchQuery] = useState('');
   const { knowledgeBases, loading, error, refreshList } = useKnowledgeBase();
 
-  // Debug logging
-  console.log(
-    '[KBSelector] knowledgeBases:',
-    knowledgeBases?.length,
-    'loading:',
-    loading,
-    'error:',
-    error?.message,
-    'isOpen:',
-    isOpen,
-    'searchQuery:',
-    searchQuery
-  );
+  // Debug logging - comprehensive trace
+  console.log('[KBSelector] === RENDER ===');
+  console.log('[KBSelector] knowledgeBases:', knowledgeBases);
+  console.log('[KBSelector] knowledgeBases?.length:', knowledgeBases?.length);
+  console.log('[KBSelector] loading:', loading);
+  console.log('[KBSelector] error:', error?.message);
+  console.log('[KBSelector] isOpen:', isOpen);
+  console.log('[KBSelector] filterType:', filterType, 'onlyReady:', onlyReady);
 
   const displayPlaceholder = placeholder || t('knowledgeBase.select');
 
@@ -104,17 +99,17 @@ export default function KnowledgeBaseSelector({
     return true;
   });
 
-  // Debug: log filtered results
-  if (isOpen) {
+  // Debug: log filtered results - ALWAYS log, not just when open
+  console.log('[KBSelector] filteredKBs:', filteredKBs);
+  console.log('[KBSelector] filteredKBs.length:', filteredKBs.length);
+  if (knowledgeBases.length > 0) {
     console.log(
-      '[KBSelector] filterType:',
-      filterType,
-      'onlyReady:',
-      onlyReady,
-      'filteredKBs:',
-      filteredKBs.length,
-      'statuses:',
-      knowledgeBases.map((kb) => kb.status)
+      '[KBSelector] KB statuses:',
+      knowledgeBases.map((kb) => ({
+        name: kb.name,
+        status: kb.status,
+        type: kb.type,
+      }))
     );
   }
 
