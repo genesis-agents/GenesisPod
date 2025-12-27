@@ -648,10 +648,14 @@ export default function TeamKnowledgeBaseTab() {
           onClose={() => setEditingKbId(null)}
           onUpdate={async (data) => {
             await editingKbDetail.updateKnowledgeBase(data);
+            // Auto-sync if Google Drive folders/files were updated
+            if (data.googleDriveFolderIds || data.googleDriveFileIds) {
+              await editingKbDetail.syncGoogleDrive();
+            }
             setEditingKbId(null);
             refreshList();
           }}
-          updating={editingKbDetail.updating}
+          updating={editingKbDetail.updating || editingKbDetail.syncing}
         />
       )}
 

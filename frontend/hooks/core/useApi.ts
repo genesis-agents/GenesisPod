@@ -33,11 +33,24 @@ export interface UseApiOptions<T> {
   onSuccess?: (data: T) => void;
 }
 
+export interface UseApiGetResult<T> {
+  data: T | undefined;
+  loading: boolean;
+  error: ApiError | null;
+  execute: () => Promise<T | undefined>;
+  /** Force refresh bypassing cache */
+  refresh: () => Promise<T | undefined>;
+  reset: () => void;
+  setData: (data: T | undefined) => void;
+}
+
 export interface UseApiResult<T, P = void> {
   data: T | undefined;
   loading: boolean;
   error: ApiError | null;
   execute: (params?: P) => Promise<T | undefined>;
+  /** Force refresh bypassing cache (no-op for mutations) */
+  refresh: () => Promise<T | undefined>;
   reset: () => void;
   setData: (data: T | undefined) => void;
 }
@@ -50,7 +63,7 @@ export interface UseApiResult<T, P = void> {
 export function useApiGet<T>(
   path: string,
   options: UseApiOptions<T> = {}
-): UseApiResult<T> {
+): UseApiGetResult<T> {
   const {
     initialData,
     immediate = true,
@@ -66,49 +79,59 @@ export function useApiGet<T>(
   const [error, setError] = useState<ApiError | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const execute = useCallback(async () => {
-    // 检查 LRU 缓存
-    if (cacheKey) {
-      const cached = apiCache.get(cacheKey) as T | undefined;
-      if (cached !== undefined) {
-        setData(cached);
+  // Internal fetch function that supports skipCache
+  const fetchData = useCallback(
+    async (skipCache = false) => {
+      // 检查 LRU 缓存 (除非强制刷新)
+      if (cacheKey && !skipCache) {
+        const cached = apiCache.get(cacheKey) as T | undefined;
+        if (cached !== undefined) {
+          setData(cached);
+          setLoading(false);
+          return cached;
+        }
+      }
+
+      // 取消之前的请求
+      abortRef.current?.abort();
+      abortRef.current = new AbortController();
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const result = await apiClient.get<T>(path, {
+          signal: abortRef.current.signal,
+        });
+        setData(result);
+
+        // 更新 LRU 缓存
+        if (cacheKey) {
+          apiCache.set(cacheKey, result, cacheTTL);
+        }
+
+        onSuccess?.(result);
+        return result;
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') {
+          return;
+        }
+        const apiError = err as ApiError;
+        setError(apiError);
+        onError?.(apiError);
+        return undefined;
+      } finally {
         setLoading(false);
-        return cached;
       }
-    }
+    },
+    [path, cacheKey, cacheTTL, onError, onSuccess]
+  );
 
-    // 取消之前的请求
-    abortRef.current?.abort();
-    abortRef.current = new AbortController();
+  // Public execute function (uses cache)
+  const execute = useCallback(() => fetchData(false), [fetchData]);
 
-    setLoading(true);
-    setError(null);
-
-    try {
-      const result = await apiClient.get<T>(path, {
-        signal: abortRef.current.signal,
-      });
-      setData(result);
-
-      // 更新 LRU 缓存
-      if (cacheKey) {
-        apiCache.set(cacheKey, result, cacheTTL);
-      }
-
-      onSuccess?.(result);
-      return result;
-    } catch (err) {
-      if ((err as Error).name === 'AbortError') {
-        return;
-      }
-      const apiError = err as ApiError;
-      setError(apiError);
-      onError?.(apiError);
-      return undefined;
-    } finally {
-      setLoading(false);
-    }
-  }, [path, cacheKey, cacheTTL, onError, onSuccess]);
+  // Force refresh that bypasses cache
+  const refresh = useCallback(() => fetchData(true), [fetchData]);
 
   const reset = useCallback(() => {
     setData(initialData);
@@ -119,7 +142,7 @@ export function useApiGet<T>(
   // 自动执行
   useEffect(() => {
     if (immediate) {
-      execute();
+      fetchData(false);
     }
     return () => {
       abortRef.current?.abort();
@@ -127,7 +150,7 @@ export function useApiGet<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [immediate, ...deps]);
 
-  return { data, loading, error, execute, reset, setData };
+  return { data, loading, error, execute, refresh, reset, setData };
 }
 
 // ==================== Mutation Hooks ====================
@@ -188,7 +211,10 @@ function useMutationBase<T, P = unknown>(
     setLoading(false);
   }, [initialData]);
 
-  return { data, loading, error, execute, reset, setData };
+  // Mutations don't have cache, refresh is same as execute without params
+  const refresh = useCallback(() => execute(), [execute]);
+
+  return { data, loading, error, execute, refresh, reset, setData };
 }
 
 /**

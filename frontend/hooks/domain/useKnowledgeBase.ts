@@ -145,6 +145,7 @@ export function useKnowledgeBase() {
     loading: listLoading,
     error: listError,
     execute: fetchList,
+    refresh: refreshListFromApi,
   } = useApiGet<KnowledgeBase[]>('/rag/knowledge-bases', {
     immediate: true,
     initialData: [], // 防止请求被取消时返回 undefined
@@ -179,10 +180,10 @@ export function useKnowledgeBase() {
     creating,
     deleting,
     fetchList,
-    refreshList: fetchList,
+    refreshList: refreshListFromApi, // Use cache-bypassing refresh
     createKnowledgeBase: async (dto: CreateKnowledgeBaseDto) => {
       const result = await createKnowledgeBase(dto);
-      await fetchList();
+      await refreshListFromApi(); // Force refresh after create
       return result;
     },
     deleteKnowledgeBase,
