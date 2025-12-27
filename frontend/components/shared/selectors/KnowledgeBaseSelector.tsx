@@ -19,32 +19,18 @@ import Link from 'next/link';
 import { useI18n } from '@/lib/i18n/i18n-context';
 
 export interface KnowledgeBaseSelectorProps {
-  /** Selected knowledge base IDs */
   selectedIds: string[];
-  /** Callback when selection changes */
   onSelectionChange: (ids: string[]) => void;
-  /** Allow multiple selection */
   multiple?: boolean;
-  /** Max number of selections (for multiple mode) */
   maxSelections?: number;
-  /** Placeholder text */
   placeholder?: string;
-  /** Disabled state */
   disabled?: boolean;
-  /** Filter by type (PERSONAL, TEAM, or both) */
   filterType?: 'PERSONAL' | 'TEAM' | 'ALL';
-  /** Compact mode for inline usage */
   compact?: boolean;
-  /** Show only READY knowledge bases */
   onlyReady?: boolean;
-  /** Custom class name */
   className?: string;
 }
 
-/**
- * Knowledge Base Selector Component
- * Reusable component for selecting knowledge bases in AI modules
- */
 export default function KnowledgeBaseSelector({
   selectedIds,
   onSelectionChange,
@@ -60,33 +46,18 @@ export default function KnowledgeBaseSelector({
   const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-
-  // DEBUG: 标识这个组件实例
-  console.log('[KBSelector] Instance props:', {
-    compact,
-    multiple,
-    onlyReady,
-    filterType,
-    disabled,
-  });
-
-  // 直接管理 state，不依赖外部 hook
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
-  // 直接调用 API 获取数据
+  const displayPlaceholder = placeholder || t('knowledgeBase.select');
+
+  // 获取知识库列表
   const fetchKnowledgeBases = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const data = await apiClient.get<KnowledgeBase[]>('/rag/knowledge-bases');
-      console.log('[KBSelector] Raw API response:', data);
-      console.log('[KBSelector] Is array:', Array.isArray(data));
-      console.log('[KBSelector] Length:', data?.length);
-      if (Array.isArray(data) && data.length > 0) {
-        console.log('[KBSelector] First item:', data[0]);
-      }
       setKnowledgeBases(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('[KBSelector] Failed to fetch:', err);
@@ -96,45 +67,13 @@ export default function KnowledgeBaseSelector({
     }
   }, []);
 
-  const displayPlaceholder = placeholder || t('knowledgeBase.select');
-
-  // Debug: log knowledgeBases state
-  console.log(
-    '[KBSelector] Current knowledgeBases state:',
-    knowledgeBases.length,
-    knowledgeBases
-  );
-
-  // Filter knowledge bases based on props
+  // 过滤知识库
   const filteredKBs = knowledgeBases.filter((kb) => {
-    console.log(
-      '[KBSelector] Filtering KB:',
-      kb.name,
-      'type:',
-      kb.type,
-      'status:',
-      kb.status,
-      'filterType:',
-      filterType,
-      'onlyReady:',
-      onlyReady
-    );
-    // Filter by type
     if (filterType !== 'ALL') {
       const kbType = kb.type || 'PERSONAL';
-      if (kbType !== filterType) {
-        console.log('[KBSelector] Filtered out by type:', kb.name);
-        return false;
-      }
+      if (kbType !== filterType) return false;
     }
-
-    // Filter by status
-    if (onlyReady && kb.status !== 'READY') {
-      console.log('[KBSelector] Filtered out by status:', kb.name);
-      return false;
-    }
-
-    // Filter by search query
+    if (onlyReady && kb.status !== 'READY') return false;
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       return (
@@ -142,20 +81,9 @@ export default function KnowledgeBaseSelector({
         kb.description?.toLowerCase().includes(query)
       );
     }
-
     return true;
   });
 
-  console.log(
-    '[KBSelector] filteredKBs result:',
-    filteredKBs.length,
-    'loading:',
-    loading,
-    'error:',
-    error
-  );
-
-  // Get selected knowledge bases details
   const selectedKBs = knowledgeBases.filter((kb) =>
     selectedIds.includes(kb.id)
   );
@@ -163,7 +91,6 @@ export default function KnowledgeBaseSelector({
   const handleToggle = useCallback(
     (kb: KnowledgeBase) => {
       if (disabled) return;
-
       if (multiple) {
         if (selectedIds.includes(kb.id)) {
           onSelectionChange(selectedIds.filter((id) => id !== kb.id));
@@ -194,17 +121,16 @@ export default function KnowledgeBaseSelector({
     [onSelectionChange]
   );
 
-  // 每次下拉框打开时直接从 API 获取数据
+  // 下拉框打开时获取数据
   useEffect(() => {
     if (isOpen) {
-      console.log('[KBSelector] Dropdown opened, fetching data...');
       fetchKnowledgeBases();
     } else {
       setSearchQuery('');
     }
   }, [isOpen, fetchKnowledgeBases]);
 
-  // Close dropdown on outside click
+  // 点击外部关闭
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
@@ -212,7 +138,6 @@ export default function KnowledgeBaseSelector({
         setIsOpen(false);
       }
     };
-
     if (isOpen) {
       document.addEventListener('click', handleClickOutside);
     }
@@ -230,7 +155,121 @@ export default function KnowledgeBaseSelector({
     return t(`knowledgeBase.sourceTypes.${sourceType}`) || sourceType;
   };
 
-  // Compact mode trigger
+  // 下拉内容
+  const renderDropdownContent = () => (
+    <div className="rounded-lg border border-gray-200 bg-white shadow-lg">
+      {/* 搜索框 */}
+      <div className="border-b border-gray-100 p-2">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t('knowledgeBase.search')}
+            className="w-full rounded-md border border-gray-200 py-2 pl-9 pr-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            autoFocus
+          />
+        </div>
+      </div>
+
+      {/* 列表 */}
+      <div className="max-h-64 overflow-y-auto p-2">
+        {loading && (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+          </div>
+        )}
+
+        {error && (
+          <div className="py-4 text-center text-sm text-red-500">
+            {t('knowledgeBase.loadFailed')}
+            <button
+              onClick={fetchKnowledgeBases}
+              className="ml-2 text-blue-600 hover:underline"
+            >
+              {t('knowledgeBase.retry')}
+            </button>
+          </div>
+        )}
+
+        {!loading && !error && filteredKBs.length === 0 && (
+          <div className="py-4 text-center text-sm text-gray-500">
+            {searchQuery
+              ? t('knowledgeBase.noMatch')
+              : t('knowledgeBase.noAvailable')}
+          </div>
+        )}
+
+        {!loading &&
+          !error &&
+          filteredKBs.map((kb) => {
+            const isSelected = selectedIds.includes(kb.id);
+            const isDisabled =
+              !isSelected && multiple && selectedIds.length >= maxSelections;
+
+            return (
+              <button
+                key={kb.id}
+                type="button"
+                onClick={() => !isDisabled && handleToggle(kb)}
+                disabled={isDisabled}
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
+                  isSelected
+                    ? 'bg-blue-50 text-blue-700'
+                    : isDisabled
+                      ? 'cursor-not-allowed opacity-50'
+                      : 'hover:bg-gray-50'
+                }`}
+              >
+                <div
+                  className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded ${
+                    multiple ? 'rounded' : 'rounded-full'
+                  } border ${
+                    isSelected
+                      ? 'border-blue-500 bg-blue-500'
+                      : 'border-gray-300'
+                  }`}
+                >
+                  {isSelected && <Check className="h-3 w-3 text-white" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    {getTypeIcon(kb.type)}
+                    <span className="truncate font-medium text-gray-900">
+                      {kb.name}
+                    </span>
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
+                    <span>{getSourceTypeLabel(kb.sourceType)}</span>
+                    <span>•</span>
+                    <span>
+                      {t('knowledgeBase.docCount', {
+                        count: String(kb._count?.documents ?? 0),
+                      })}
+                    </span>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+      </div>
+
+      {/* 底部 */}
+      <div className="border-t border-gray-100 p-2">
+        <Link
+          href="/library?tab=personal-kb"
+          className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 py-2 text-sm text-gray-600 transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
+        >
+          <Plus className="h-4 w-4" />
+          {t('knowledgeBase.createNew')}
+          <ExternalLink className="h-3 w-3" />
+        </Link>
+      </div>
+    </div>
+  );
+
+  // Compact 模式
   if (compact) {
     return (
       <div className={`kb-selector relative ${className}`}>
@@ -255,35 +294,18 @@ export default function KnowledgeBaseSelector({
           />
         </button>
 
-        {/* Dropdown */}
         {isOpen && (
-          <div className="absolute left-0 top-full z-50 mt-1 w-72 rounded-lg border border-gray-200 bg-white shadow-lg">
-            <DropdownContent
-              key={`dropdown-${knowledgeBases.length}-${loading}`}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              loading={loading}
-              error={error}
-              filteredKBs={filteredKBs}
-              selectedIds={selectedIds}
-              multiple={multiple}
-              maxSelections={maxSelections}
-              handleToggle={handleToggle}
-              getTypeIcon={getTypeIcon}
-              getSourceTypeLabel={getSourceTypeLabel}
-              refreshList={fetchKnowledgeBases}
-              t={t}
-            />
+          <div className="absolute left-0 top-full z-50 mt-1 w-72">
+            {renderDropdownContent()}
           </div>
         )}
       </div>
     );
   }
 
-  // Full mode with selected items display
+  // Full 模式
   return (
     <div className={`kb-selector space-y-2 ${className}`}>
-      {/* Label and Actions */}
       <div className="flex items-center justify-between">
         <label className="text-sm font-medium text-gray-700">
           {t('knowledgeBase.title')}
@@ -304,7 +326,6 @@ export default function KnowledgeBaseSelector({
         )}
       </div>
 
-      {/* Selected Items */}
       {selectedKBs.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {selectedKBs.map((kb) => (
@@ -328,7 +349,6 @@ export default function KnowledgeBaseSelector({
         </div>
       )}
 
-      {/* Selector Button */}
       <button
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
@@ -350,252 +370,17 @@ export default function KnowledgeBaseSelector({
           </span>
         </div>
         <ChevronDown
-          className={`h-4 w-4 text-gray-400 transition-transform ${
-            isOpen ? 'rotate-180' : ''
-          }`}
+          className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
 
-      {/* Dropdown */}
       {isOpen && (
         <div className="relative">
-          <div className="absolute left-0 top-0 z-50 w-full rounded-lg border border-gray-200 bg-white shadow-lg">
-            <DropdownContent
-              key={`dropdown-full-${knowledgeBases.length}-${loading}`}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              loading={loading}
-              error={error}
-              filteredKBs={filteredKBs}
-              selectedIds={selectedIds}
-              multiple={multiple}
-              maxSelections={maxSelections}
-              handleToggle={handleToggle}
-              getTypeIcon={getTypeIcon}
-              getSourceTypeLabel={getSourceTypeLabel}
-              refreshList={fetchKnowledgeBases}
-              t={t}
-            />
+          <div className="absolute left-0 top-0 z-50 w-full">
+            {renderDropdownContent()}
           </div>
         </div>
       )}
     </div>
-  );
-}
-
-// Dropdown Content Component
-function DropdownContent({
-  searchQuery,
-  setSearchQuery,
-  loading,
-  error,
-  filteredKBs,
-  selectedIds,
-  multiple,
-  maxSelections,
-  handleToggle,
-  getTypeIcon,
-  getSourceTypeLabel,
-  refreshList,
-  t,
-}: {
-  searchQuery: string;
-  setSearchQuery: (q: string) => void;
-  loading: boolean;
-  error: ApiError | null;
-  filteredKBs: KnowledgeBase[];
-  selectedIds: string[];
-  multiple: boolean;
-  maxSelections: number;
-  handleToggle: (kb: KnowledgeBase) => void;
-  getTypeIcon: (type?: string) => React.ReactNode;
-  getSourceTypeLabel: (sourceType: string) => string;
-  refreshList: () => void;
-  t: (key: string, params?: Record<string, string | number>) => string;
-}) {
-  // DEBUG: 查看 DropdownContent 实际收到的 props
-  console.log('[DropdownContent] Received props:', {
-    filteredKBsLength: filteredKBs?.length,
-    filteredKBs: filteredKBs,
-    loading,
-    error,
-    selectedIds,
-  });
-
-  return (
-    <>
-      {/* Search */}
-      <div className="border-b border-gray-100 p-2">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t('knowledgeBase.search')}
-            className="w-full rounded-md border border-gray-200 py-2 pl-9 pr-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            autoFocus
-          />
-        </div>
-      </div>
-
-      {/* List */}
-      <div className="max-h-64 overflow-y-auto p-2">
-        {/* DEBUG: 显示当前数量 */}
-        <div className="mb-2 rounded bg-red-50 p-1 text-xs text-red-500">
-          DEBUG: filteredKBs.length = {filteredKBs?.length ?? 'undefined'},
-          loading = {String(loading)}, error = {error ? 'yes' : 'no'}
-        </div>
-
-        {/* DEBUG: 简单测试渲染 */}
-        {filteredKBs.length > 0 && (
-          <div className="mb-2 rounded bg-green-100 p-2 text-xs text-green-800">
-            ✓ filteredKBs has {filteredKBs.length} item(s). First:{' '}
-            {filteredKBs[0]?.name ?? 'N/A'}
-          </div>
-        )}
-
-        {/* DEBUG: 无条件渲染所有项目 - 直接显示数据 */}
-        <div className="mb-2 rounded border border-yellow-400 bg-yellow-50 p-2 text-xs">
-          <div className="mb-1 font-bold text-yellow-800">
-            DEBUG Items (无条件渲染):
-          </div>
-          {filteredKBs.map((kb) => (
-            <div key={kb.id} className="py-0.5 text-yellow-700">
-              • {kb.name} (id: {kb.id.slice(0, 8)}..., type: {kb.type}, status:{' '}
-              {kb.status})
-            </div>
-          ))}
-          {filteredKBs.length === 0 && (
-            <div className="italic text-yellow-600">没有数据</div>
-          )}
-        </div>
-
-        {/* Show loading indicator only when no data yet */}
-        {loading && filteredKBs.length === 0 && (
-          <div className="flex items-center justify-center py-4">
-            <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-          </div>
-        )}
-
-        {error && (
-          <div className="py-4 text-center text-sm text-red-500">
-            {t('knowledgeBase.loadFailed')}
-            <button
-              onClick={refreshList}
-              className="ml-2 text-blue-600 hover:underline"
-            >
-              {t('knowledgeBase.retry')}
-            </button>
-          </div>
-        )}
-
-        {!error && filteredKBs.length === 0 && !loading && (
-          <div className="py-4 text-center text-sm text-gray-500">
-            {searchQuery
-              ? t('knowledgeBase.noMatch')
-              : t('knowledgeBase.noAvailable')}
-          </div>
-        )}
-
-        {/* Show items even while refreshing (keep UI responsive) */}
-        {!error && (
-          <>
-            {console.log(
-              '[DropdownContent] About to map',
-              filteredKBs.length,
-              'items, error:',
-              error
-            )}
-            {filteredKBs.map((kb) => {
-              try {
-                console.log(
-                  '[DropdownContent] Rendering KB item:',
-                  kb.id,
-                  kb.name,
-                  kb
-                );
-                const isSelected = selectedIds.includes(kb.id);
-                const isDisabled =
-                  !isSelected &&
-                  multiple &&
-                  selectedIds.length >= maxSelections;
-
-                return (
-                  <button
-                    key={kb.id}
-                    type="button"
-                    onClick={() => !isDisabled && handleToggle(kb)}
-                    disabled={isDisabled}
-                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
-                      isSelected
-                        ? 'bg-blue-50 text-blue-700'
-                        : isDisabled
-                          ? 'cursor-not-allowed opacity-50'
-                          : 'hover:bg-gray-50'
-                    }`}
-                  >
-                    {/* Checkbox/Radio indicator */}
-                    <div
-                      className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded ${
-                        multiple ? 'rounded' : 'rounded-full'
-                      } border ${
-                        isSelected
-                          ? 'border-blue-500 bg-blue-500'
-                          : 'border-gray-300'
-                      }`}
-                    >
-                      {isSelected && <Check className="h-3 w-3 text-white" />}
-                    </div>
-
-                    {/* KB Info */}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        {getTypeIcon(kb.type)}
-                        <span className="truncate font-medium text-gray-900">
-                          {kb.name}
-                        </span>
-                      </div>
-                      <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
-                        <span>{getSourceTypeLabel(kb.sourceType)}</span>
-                        <span>•</span>
-                        <span>
-                          {t('knowledgeBase.docCount', {
-                            count: String(kb._count?.documents ?? 0),
-                          })}
-                        </span>
-                      </div>
-                    </div>
-                  </button>
-                );
-              } catch (renderError) {
-                console.error(
-                  '[DropdownContent] Error rendering KB item:',
-                  renderError,
-                  kb
-                );
-                return (
-                  <div key={kb.id} className="p-2 text-xs text-red-500">
-                    Error rendering: {kb.name}
-                  </div>
-                );
-              }
-            })}
-          </>
-        )}
-      </div>
-
-      {/* Footer */}
-      <div className="border-t border-gray-100 p-2">
-        <Link
-          href="/library?tab=personal-kb"
-          className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 py-2 text-sm text-gray-600 transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
-        >
-          <Plus className="h-4 w-4" />
-          {t('knowledgeBase.createNew')}
-          <ExternalLink className="h-3 w-3" />
-        </Link>
-      </div>
-    </>
   );
 }
