@@ -12,10 +12,12 @@ import {
 } from 'lucide-react';
 import { useGoogleDriveFiles } from '@/hooks/domain';
 import { GoogleDriveFileCard } from './GoogleDriveFileCard';
+import { GoogleDriveFileRow } from './GoogleDriveFileRow';
 import { useMultiSelect } from '@/hooks';
 import AddToKnowledgeBaseDialog, {
   type ResourceToAdd,
 } from '@/components/shared/AddToKnowledgeBaseDialog';
+import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
 
 interface GoogleDriveFileBrowserProps {
   connectionId: string;
@@ -35,6 +37,7 @@ export function GoogleDriveFileBrowser({
 }: GoogleDriveFileBrowserProps) {
   const [localSearch, setLocalSearch] = useState('');
   const [showKBDialog, setShowKBDialog] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   const {
     files,
@@ -221,6 +224,9 @@ export function GoogleDriveFileBrowser({
 
         {/* 操作按钮 */}
         <div className="flex items-center gap-2">
+          {/* 视图切换 */}
+          <ViewToggle viewMode={viewMode} onChange={setViewMode} />
+
           {/* 排序选择 */}
           <select
             value={sortBy}
@@ -371,17 +377,42 @@ export function GoogleDriveFileBrowser({
         </div>
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {files.map((file) => (
-              <GoogleDriveFileCard
-                key={file.id}
-                file={file}
-                isSelected={isSelected(file.id)}
-                onSelect={toggleSelect}
-                onNavigate={file.isFolder ? navigateToFolder : undefined}
-              />
-            ))}
-          </div>
+          {viewMode === 'grid' ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {files.map((file) => (
+                <GoogleDriveFileCard
+                  key={file.id}
+                  file={file}
+                  isSelected={isSelected(file.id)}
+                  onSelect={toggleSelect}
+                  onNavigate={file.isFolder ? navigateToFolder : undefined}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {/* 列表表头 */}
+              <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-2 text-xs font-medium uppercase tracking-wider text-gray-500">
+                <div className="w-4" /> {/* checkbox 占位 */}
+                <div className="w-8" /> {/* icon 占位 */}
+                <div className="flex-1">Name</div>
+                <div className="hidden w-24 sm:block">Type</div>
+                <div className="hidden w-20 text-right md:block">Size</div>
+                <div className="hidden w-28 text-right lg:block">Modified</div>
+                <div className="w-8" /> {/* actions 占位 */}
+              </div>
+              {/* 列表内容 */}
+              {files.map((file) => (
+                <GoogleDriveFileRow
+                  key={file.id}
+                  file={file}
+                  isSelected={isSelected(file.id)}
+                  onSelect={toggleSelect}
+                  onNavigate={file.isFolder ? navigateToFolder : undefined}
+                />
+              ))}
+            </div>
+          )}
 
           {/* 分页 */}
           {totalPages > 1 && (

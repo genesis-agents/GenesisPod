@@ -26,6 +26,8 @@ import {
 import AddToKnowledgeBaseDialog, {
   type ResourceToAdd,
 } from '@/components/shared/AddToKnowledgeBaseDialog';
+import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
+import { NotionPageRow } from './NotionPageRow';
 
 export default function NotionTabContent() {
   const router = useRouter();
@@ -50,6 +52,7 @@ export default function NotionTabContent() {
     new Set()
   );
   const [showKBDialog, setShowKBDialog] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   const fetchData = useCallback(async () => {
     try {
@@ -582,56 +585,60 @@ export default function NotionTabContent() {
         </div>
       )}
 
-      {/* 搜索栏 - 优化设计 */}
-      <div className="relative">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            // 实时搜索（防抖）
-            setPagination((prev) => ({ ...prev, page: 1 }));
-          }}
-          placeholder="Search pages by title..."
-          className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 pl-11 text-sm transition-colors placeholder:text-gray-400 focus:border-gray-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/5"
-        />
-        <svg
-          className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-          />
-        </svg>
-        {search && (
-          <button
-            type="button"
-            onClick={() => {
-              setSearch('');
+      {/* 搜索栏 + 视图切换 */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              // 实时搜索（防抖）
               setPagination((prev) => ({ ...prev, page: 1 }));
             }}
-            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+            placeholder="Search pages by title..."
+            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 pl-11 text-sm transition-colors placeholder:text-gray-400 focus:border-gray-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/5"
+          />
+          <svg
+            className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+          {search && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch('');
+                setPagination((prev) => ({ ...prev, page: 1 }));
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        )}
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
+        {/* 视图切换 */}
+        <ViewToggle viewMode={viewMode} onChange={setViewMode} />
       </div>
 
       {/* 页面列表 - 优化设计 */}
@@ -703,120 +710,143 @@ export default function NotionTabContent() {
             </div>
           )}
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {pages.map((page) => {
-              const isSelected = selectedPageIds.has(page.id);
-              return (
-                <div
-                  key={page.id}
-                  onClick={() => handlePageClick(page)}
-                  className={`group relative cursor-pointer rounded-xl border bg-white p-4 transition-all hover:shadow-md ${
-                    isSelected
-                      ? 'border-blue-400 bg-blue-50/50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  {/* Selection checkbox */}
-                  <button
-                    onClick={(e) => togglePageSelect(page.id, e)}
-                    className={`absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded border transition-all ${
+          {viewMode === 'grid' ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {pages.map((page) => {
+                const isSelected = selectedPageIds.has(page.id);
+                return (
+                  <div
+                    key={page.id}
+                    onClick={() => handlePageClick(page)}
+                    className={`group relative cursor-pointer rounded-xl border bg-white p-4 transition-all hover:shadow-md ${
                       isSelected
-                        ? 'border-blue-500 bg-blue-500'
-                        : 'border-gray-300 bg-white opacity-0 group-hover:opacity-100'
+                        ? 'border-blue-400 bg-blue-50/50'
+                        : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    {isSelected && <Check className="h-3 w-3 text-white" />}
-                  </button>
-
-                  <div className="flex items-start gap-3">
-                    {/* 页面图标 */}
-                    <div className="flex-shrink-0">
-                      {page.icon ? (
-                        isUrl(page.icon) ? (
-                          <img
-                            src={page.icon}
-                            alt=""
-                            className="h-6 w-6 rounded object-cover"
-                          />
-                        ) : (
-                          <span className="text-xl">{page.icon}</span>
-                        )
-                      ) : (
-                        <div className="flex h-6 w-6 items-center justify-center rounded bg-gray-100">
-                          <svg
-                            className="h-4 w-4 text-gray-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                            />
-                          </svg>
-                        </div>
-                      )}
-                    </div>
-                    {/* 页面信息 */}
-                    <div className="min-w-0 flex-1">
-                      <h3 className="truncate text-sm font-medium text-gray-900 group-hover:text-blue-600">
-                        {page.title || 'Untitled'}
-                      </h3>
-                      <p className="mt-1 text-xs text-gray-500">
-                        Updated {formatDate(page.notionUpdatedAt)}
-                      </p>
-                    </div>
-                  </div>
-                  {/* 底部操作栏 */}
-                  <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
-                    <div className="flex items-center gap-1.5">
-                      {page.isLocallyModified && (
-                        <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
-                          <svg
-                            className="mr-1 h-3 w-3"
-                            fill="currentColor"
-                            viewBox="0 0 8 8"
-                          >
-                            <circle cx="4" cy="4" r="3" />
-                          </svg>
-                          Modified
-                        </span>
-                      )}
-                      {page.linkedResourceId && (
-                        <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-                          Linked
-                        </span>
-                      )}
-                    </div>
-                    <a
-                      href={page.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                      title="Open in Notion"
+                    {/* Selection checkbox */}
+                    <button
+                      onClick={(e) => togglePageSelect(page.id, e)}
+                      className={`absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded border transition-all ${
+                        isSelected
+                          ? 'border-blue-500 bg-blue-500'
+                          : 'border-gray-300 bg-white opacity-0 group-hover:opacity-100'
+                      }`}
                     >
-                      <svg
-                        className="h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
+                      {isSelected && <Check className="h-3 w-3 text-white" />}
+                    </button>
+
+                    <div className="flex items-start gap-3">
+                      {/* 页面图标 */}
+                      <div className="flex-shrink-0">
+                        {page.icon ? (
+                          isUrl(page.icon) ? (
+                            <img
+                              src={page.icon}
+                              alt=""
+                              className="h-6 w-6 rounded object-cover"
+                            />
+                          ) : (
+                            <span className="text-xl">{page.icon}</span>
+                          )
+                        ) : (
+                          <div className="flex h-6 w-6 items-center justify-center rounded bg-gray-100">
+                            <svg
+                              className="h-4 w-4 text-gray-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                              />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      {/* 页面信息 */}
+                      <div className="min-w-0 flex-1">
+                        <h3 className="truncate text-sm font-medium text-gray-900 group-hover:text-blue-600">
+                          {page.title || 'Untitled'}
+                        </h3>
+                        <p className="mt-1 text-xs text-gray-500">
+                          Updated {formatDate(page.notionUpdatedAt)}
+                        </p>
+                      </div>
+                    </div>
+                    {/* 底部操作栏 */}
+                    <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
+                      <div className="flex items-center gap-1.5">
+                        {page.isLocallyModified && (
+                          <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                            <svg
+                              className="mr-1 h-3 w-3"
+                              fill="currentColor"
+                              viewBox="0 0 8 8"
+                            >
+                              <circle cx="4" cy="4" r="3" />
+                            </svg>
+                            Modified
+                          </span>
+                        )}
+                        {page.linkedResourceId && (
+                          <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                            Linked
+                          </span>
+                        )}
+                      </div>
+                      <a
+                        href={page.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                        title="Open in Notion"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                        />
-                      </svg>
-                    </a>
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                          />
+                        </svg>
+                      </a>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {/* 列表表头 */}
+              <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-2 text-xs font-medium uppercase tracking-wider text-gray-500">
+                <div className="w-5" /> {/* checkbox 占位 */}
+                <div className="w-8" /> {/* icon 占位 */}
+                <div className="flex-1">Name</div>
+                <div className="hidden w-28 text-right sm:block">Modified</div>
+                <div className="w-8" /> {/* actions 占位 */}
+              </div>
+              {/* 列表内容 */}
+              {pages.map((page) => (
+                <NotionPageRow
+                  key={page.id}
+                  page={page}
+                  isSelected={selectedPageIds.has(page.id)}
+                  onSelect={togglePageSelect}
+                  onClick={handlePageClick}
+                />
+              ))}
+            </div>
+          )}
 
           {/* Bottom action bar for selected pages */}
           {selectedPageIds.size > 0 && (
