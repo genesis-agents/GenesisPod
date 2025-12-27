@@ -147,8 +147,9 @@ export function useKnowledgeBase() {
   } = useApiGet<KnowledgeBase[]>('/rag/knowledge-bases', {
     immediate: true,
     initialData: [], // 防止请求被取消时返回 undefined
-    cacheKey: 'knowledge-bases-list', // 添加缓存
-    cacheTTL: 30 * 1000, // 30秒缓存
+    // TEMPORARILY DISABLED CACHE for debugging - cache might be returning stale empty array
+    // cacheKey: 'knowledge-bases-list',
+    // cacheTTL: 30 * 1000,
     onSuccess: (data) => {
       console.log('[useKnowledgeBase] API SUCCESS - raw data:', data);
       console.log('[useKnowledgeBase] data length:', data?.length);
