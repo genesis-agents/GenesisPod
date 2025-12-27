@@ -489,7 +489,7 @@ export class GoogleDriveRAGService {
   async listFolders(
     userId: string,
     parentFolderId?: string,
-  ): Promise<Array<{ id: string; name: string; hasChildren: boolean }>> {
+  ): Promise<Array<{ id: string; name: string; fileCount: number }>> {
     const connection = await this.prisma.googleDriveConnection.findUnique({
       where: { userId },
     });
@@ -514,19 +514,20 @@ export class GoogleDriveRAGService {
 
     const folders = response.data.files || [];
 
-    // Check if each folder has children
+    // Count files (non-folders) in each folder
     const foldersWithMeta = await Promise.all(
       folders.map(async (folder) => {
+        // Count files only (not folders) inside this folder
         const childResponse = await drive.files.list({
-          q: `'${folder.id}' in parents and trashed = false`,
+          q: `'${folder.id}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
           fields: "files(id)",
-          pageSize: 1,
+          pageSize: 100,
         });
 
         return {
           id: folder.id!,
           name: folder.name!,
-          hasChildren: (childResponse.data.files?.length || 0) > 0,
+          fileCount: childResponse.data.files?.length || 0,
         };
       }),
     );

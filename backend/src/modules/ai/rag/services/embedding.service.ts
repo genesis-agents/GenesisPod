@@ -128,7 +128,18 @@ export class EmbeddingService {
     // Initialize OpenAI client with configuration
     const clientConfig: any = { apiKey: config.apiKey };
     if (config.apiEndpoint) {
-      clientConfig.baseURL = config.apiEndpoint;
+      // Sanitize the base URL - remove trailing /embeddings if present
+      // to avoid URL like /v1/embeddings/embeddings
+      let baseURL = config.apiEndpoint;
+      if (baseURL.endsWith("/embeddings")) {
+        baseURL = baseURL.slice(0, -"/embeddings".length);
+        this.logger.warn(
+          `Sanitized embedding endpoint: removed trailing /embeddings from ${config.apiEndpoint}`,
+        );
+      }
+      // Also remove any trailing slashes
+      baseURL = baseURL.replace(/\/+$/, "");
+      clientConfig.baseURL = baseURL;
     }
 
     this.openai = new OpenAI(clientConfig);
