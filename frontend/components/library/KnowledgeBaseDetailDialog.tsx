@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   X,
   FileText,
@@ -17,6 +17,9 @@ import {
   Pencil,
   FolderOpen,
   AlertCircle,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import {
   useKnowledgeBaseDetail,
@@ -57,6 +60,10 @@ export default function KnowledgeBaseDetailDialog({
     processDocuments,
     error,
   } = useKnowledgeBaseDetail(knowledgeBaseId);
+
+  // 文档列表分页状态
+  const [showAllDocs, setShowAllDocs] = useState(false);
+  const DOCS_PER_PAGE = 5;
 
   // 关闭时按 ESC
   useEffect(() => {
@@ -333,39 +340,74 @@ export default function KnowledgeBaseDetailDialog({
                         onClick={() => onViewDocuments(documents)}
                         className="text-sm text-blue-600 hover:text-blue-700 hover:underline"
                       >
-                        查看全部
+                        查看全部详情
                       </button>
                     )}
                   </div>
-                  <div className="max-h-48 space-y-2 overflow-y-auto">
-                    {documents.slice(0, 5).map((doc) => (
+                  <div
+                    className={`space-y-2 ${showAllDocs ? 'max-h-80' : 'max-h-48'} overflow-y-auto`}
+                  >
+                    {(showAllDocs
+                      ? documents
+                      : documents.slice(0, DOCS_PER_PAGE)
+                    ).map((doc) => (
                       <div
                         key={doc.id}
-                        className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2"
+                        className="group flex items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2.5 transition-colors hover:bg-gray-100"
                       >
-                        <div className="flex items-center gap-2 overflow-hidden">
+                        <div className="flex min-w-0 flex-1 items-center gap-2">
                           <FileText className="h-4 w-4 flex-shrink-0 text-gray-400" />
-                          <span className="truncate text-sm text-gray-700">
+                          <span
+                            className="truncate text-sm text-gray-700"
+                            title={doc.title}
+                          >
                             {doc.title}
                           </span>
                         </div>
-                        <span
-                          className={`flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-                            doc.isVectorized
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-gray-100 text-gray-600'
-                          }`}
-                        >
-                          {doc.isVectorized ? '已向量化' : '待处理'}
-                        </span>
+                        <div className="flex flex-shrink-0 items-center gap-2">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                              doc.isVectorized
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-gray-100 text-gray-600'
+                            }`}
+                          >
+                            {doc.isVectorized ? '已向量化' : '待处理'}
+                          </span>
+                          {doc.sourceUrl && (
+                            <a
+                              href={doc.sourceUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="rounded p-1 text-gray-400 opacity-0 transition-all hover:bg-blue-50 hover:text-blue-600 group-hover:opacity-100"
+                              title="打开源链接"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          )}
+                        </div>
                       </div>
                     ))}
-                    {documents.length > 5 && (
-                      <p className="text-center text-sm text-gray-500">
-                        还有 {documents.length - 5} 个文档...
-                      </p>
-                    )}
                   </div>
+                  {documents.length > DOCS_PER_PAGE && (
+                    <button
+                      onClick={() => setShowAllDocs(!showAllDocs)}
+                      className="flex w-full items-center justify-center gap-1 rounded-lg border border-gray-200 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50"
+                    >
+                      {showAllDocs ? (
+                        <>
+                          <ChevronUp className="h-4 w-4" />
+                          收起 (显示前 {DOCS_PER_PAGE} 个)
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="h-4 w-4" />
+                          显示全部 {documents.length} 个文档
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               )}
             </div>

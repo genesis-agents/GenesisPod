@@ -41,6 +41,7 @@ export default function PersonalKnowledgeBaseTab() {
   const [showDocList, setShowDocList] = useState<{
     kbId: string;
     kbName: string;
+    documents: any[];
   } | null>(null); // 文档列表弹窗
   const [showAddDocs, setShowAddDocs] = useState<{
     kbId: string;
@@ -56,9 +57,6 @@ export default function PersonalKnowledgeBaseTab() {
     deleteKnowledgeBase,
     refreshList,
   } = useKnowledgeBase();
-
-  // 获取正在查看详情的知识库ID (用于文档列表弹窗)
-  const { documents: detailDocs } = useKnowledgeBaseDetail(showDetailKbId);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -533,9 +531,9 @@ export default function PersonalKnowledgeBaseTab() {
       )}
 
       {/* 文档列表弹窗 */}
-      {showDocList && detailDocs && (
+      {showDocList && (
         <DocumentListDialog
-          documents={detailDocs}
+          documents={showDocList.documents}
           knowledgeBaseName={showDocList.kbName}
           onClose={() => setShowDocList(null)}
         />
@@ -547,22 +545,27 @@ export default function PersonalKnowledgeBaseTab() {
           knowledgeBaseId={showDetailKbId}
           onClose={() => setShowDetailKbId(null)}
           onEdit={() => {
-            setEditingKbId(showDetailKbId);
-            setShowDetailKbId(null);
+            const kbId = showDetailKbId;
+            setShowDetailKbId(null); // 先关闭详情弹窗
+            setEditingKbId(kbId);
           }}
           onAddDocuments={() => {
             const kb = personalKBs.find((k) => k.id === showDetailKbId);
             if (kb) {
+              setShowDetailKbId(null); // 先关闭详情弹窗
               setShowAddDocs({ kbId: kb.id, kbName: kb.name });
             }
           }}
           onSearchTest={() => {
-            setShowSearchTest(showDetailKbId);
+            const kbId = showDetailKbId;
+            setShowDetailKbId(null); // 先关闭详情弹窗
+            setShowSearchTest(kbId);
           }}
           onViewDocuments={(docs) => {
             const kb = personalKBs.find((k) => k.id === showDetailKbId);
             if (kb) {
-              setShowDocList({ kbId: kb.id, kbName: kb.name });
+              setShowDetailKbId(null); // 先关闭详情弹窗
+              setShowDocList({ kbId: kb.id, kbName: kb.name, documents: docs });
             }
           }}
         />
