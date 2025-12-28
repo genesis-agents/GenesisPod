@@ -65,7 +65,22 @@ export class RAGController {
     @Req() req: any,
     @Body() dto: CreateKnowledgeBaseDto,
   ) {
-    return this.knowledgeBaseService.create(req.user.id, dto);
+    const kb = await this.knowledgeBaseService.create(req.user.id, dto);
+
+    // Auto-sync if Google Drive files are selected
+    const hasGoogleDriveFiles =
+      dto.googleDriveFileIds && dto.googleDriveFileIds.length > 0;
+    const hasGoogleDriveFolders =
+      dto.googleDriveFolderIds && dto.googleDriveFolderIds.length > 0;
+
+    if (hasGoogleDriveFiles || hasGoogleDriveFolders) {
+      // Trigger sync in background (don't await to avoid blocking response)
+      this.googleDriveRAGService.syncKnowledgeBase(kb.id).catch((err) => {
+        console.error(`[KB Create] Auto-sync failed for KB ${kb.id}:`, err);
+      });
+    }
+
+    return kb;
   }
 
   @Get("knowledge-bases")

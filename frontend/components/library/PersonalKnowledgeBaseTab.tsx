@@ -33,6 +33,7 @@ import {
 import CreateKnowledgeBaseDialog from './CreateKnowledgeBaseDialog';
 import EditKnowledgeBaseDialog from './EditKnowledgeBaseDialog';
 import SearchTestDialog from './SearchTestDialog';
+import DocumentListDialog from './DocumentListDialog';
 import SignInPrompt, { isAuthError } from '@/components/shared/SignInPrompt';
 
 /**
@@ -47,6 +48,10 @@ export default function PersonalKnowledgeBaseTab() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedKbId, setExpandedKbId] = useState<string | null>(null); // 展开的知识库ID
   const [showSearchTest, setShowSearchTest] = useState<string | null>(null); // 搜索测试的知识库ID
+  const [showDocList, setShowDocList] = useState<{
+    kbId: string;
+    kbName: string;
+  } | null>(null); // 文档列表弹窗
 
   const {
     knowledgeBases,
@@ -635,150 +640,36 @@ export default function PersonalKnowledgeBaseTab() {
                       </button>
                     </div>
 
-                    {/* 文档列表 - 专业重设计 */}
+                    {/* 文档列表按钮 */}
                     {expandedDocs && expandedDocs.length > 0 && (
-                      <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50/50">
-                        {/* 列表头部 */}
-                        <div className="flex items-center justify-between border-b border-gray-200 bg-gray-100/80 px-4 py-2.5">
-                          <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                            <Database className="h-4 w-4 text-gray-500" />
-                            文档列表
-                            <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600">
-                              {expandedDocs.length}
+                      <button
+                        onClick={() =>
+                          setShowDocList({ kbId: kb.id, kbName: kb.name })
+                        }
+                        className="mt-4 flex w-full items-center justify-between rounded-lg border border-gray-200 bg-gray-50/50 px-4 py-3 text-left transition-all hover:border-indigo-300 hover:bg-indigo-50/50"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Database className="h-5 w-5 text-indigo-500" />
+                          <div>
+                            <span className="font-medium text-gray-900">
+                              查看文档列表
                             </span>
-                          </h4>
-                          <div className="flex items-center gap-3 text-xs text-gray-500">
-                            <span className="flex items-center gap-1">
-                              <CheckCircle className="h-3 w-3 text-green-500" />
-                              {
-                                expandedDocs.filter((d) => d.isVectorized)
-                                  .length
-                              }{' '}
-                              已向量化
+                            <span className="ml-2 text-sm text-gray-500">
+                              {expandedDocs.length} 个文档
                             </span>
                           </div>
                         </div>
-
-                        {/* 文档表格 */}
-                        <div className="max-h-64 overflow-y-auto">
-                          <table className="w-full">
-                            <thead className="sticky top-0 bg-gray-50">
-                              <tr className="text-left text-xs font-medium text-gray-500">
-                                <th className="px-4 py-2">状态</th>
-                                <th className="px-4 py-2">文档名称</th>
-                                <th className="px-4 py-2 text-center">分块</th>
-                                <th className="px-4 py-2 text-center">向量</th>
-                                <th className="px-4 py-2 text-right">来源</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                              {expandedDocs.map((doc, idx) => (
-                                <tr
-                                  key={doc.id}
-                                  className={`text-sm transition-colors hover:bg-white ${
-                                    idx % 2 === 0
-                                      ? 'bg-white/50'
-                                      : 'bg-gray-50/30'
-                                  }`}
-                                >
-                                  {/* 状态列 */}
-                                  <td className="px-4 py-3">
-                                    <div className="flex items-center">
-                                      {doc.isVectorized ? (
-                                        <span className="flex items-center gap-1.5 text-green-600">
-                                          <CheckCircle className="h-4 w-4" />
-                                          <span className="text-xs font-medium">
-                                            就绪
-                                          </span>
-                                        </span>
-                                      ) : doc.status === 'ERROR' ? (
-                                        <span className="flex items-center gap-1.5 text-red-600">
-                                          <XCircle className="h-4 w-4" />
-                                          <span className="text-xs font-medium">
-                                            错误
-                                          </span>
-                                        </span>
-                                      ) : doc.status === 'PROCESSING' ? (
-                                        <span className="flex items-center gap-1.5 text-blue-600">
-                                          <Loader2 className="h-4 w-4 animate-spin" />
-                                          <span className="text-xs font-medium">
-                                            处理中
-                                          </span>
-                                        </span>
-                                      ) : (
-                                        <span className="flex items-center gap-1.5 text-gray-400">
-                                          <Clock className="h-4 w-4" />
-                                          <span className="text-xs font-medium">
-                                            待处理
-                                          </span>
-                                        </span>
-                                      )}
-                                    </div>
-                                  </td>
-
-                                  {/* 文档名称列 */}
-                                  <td className="max-w-[200px] px-4 py-3">
-                                    <div className="flex items-center gap-2">
-                                      <FileType className="h-4 w-4 flex-shrink-0 text-gray-400" />
-                                      <span
-                                        className="truncate font-medium text-gray-900"
-                                        title={doc.title}
-                                      >
-                                        {doc.title}
-                                      </span>
-                                    </div>
-                                  </td>
-
-                                  {/* 分块数列 */}
-                                  <td className="px-4 py-3 text-center">
-                                    {doc.chunkCount > 0 ? (
-                                      <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
-                                        <Layers className="h-3 w-3" />
-                                        {doc.chunkCount}
-                                      </span>
-                                    ) : (
-                                      <span className="text-xs text-gray-400">
-                                        -
-                                      </span>
-                                    )}
-                                  </td>
-
-                                  {/* 向量数列 */}
-                                  <td className="px-4 py-3 text-center">
-                                    {doc.embeddingCount !== undefined &&
-                                    doc.embeddingCount > 0 ? (
-                                      <span className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700">
-                                        <Zap className="h-3 w-3" />
-                                        {doc.embeddingCount}
-                                      </span>
-                                    ) : (
-                                      <span className="text-xs text-gray-400">
-                                        -
-                                      </span>
-                                    )}
-                                  </td>
-
-                                  {/* 来源列 */}
-                                  <td className="px-4 py-3 text-right">
-                                    <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-xs text-gray-600">
-                                      {doc.sourceType === 'google_drive' ||
-                                      doc.sourceType === 'GOOGLE_DRIVE'
-                                        ? '📁 Drive'
-                                        : doc.sourceType === 'MANUAL' ||
-                                            doc.sourceType === 'manual'
-                                          ? '📄 手动'
-                                          : doc.sourceType === 'URL' ||
-                                              doc.sourceType === 'url'
-                                            ? '🔗 URL'
-                                            : doc.sourceType || '📄'}
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <span className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-green-700">
+                            <CheckCircle className="h-3 w-3" />
+                            {
+                              expandedDocs.filter((d) => d.isVectorized).length
+                            }{' '}
+                            已向量化
+                          </span>
+                          <ChevronRight className="h-4 w-4 text-gray-400" />
                         </div>
-                      </div>
+                      </button>
                     )}
                   </div>
                 ) : null}
@@ -874,6 +765,15 @@ export default function PersonalKnowledgeBaseTab() {
         <SearchTestDialog
           knowledgeBaseId={showSearchTest}
           onClose={() => setShowSearchTest(null)}
+        />
+      )}
+
+      {/* 文档列表弹窗 */}
+      {showDocList && expandedDocs && (
+        <DocumentListDialog
+          documents={expandedDocs}
+          knowledgeBaseName={showDocList.kbName}
+          onClose={() => setShowDocList(null)}
         />
       )}
 

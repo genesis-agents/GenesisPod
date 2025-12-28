@@ -12,6 +12,7 @@ import {
   CheckCircle,
   AlertCircle,
 } from 'lucide-react';
+import { config } from '@/lib/utils/config';
 
 interface SearchResult {
   id: string;
@@ -50,9 +51,10 @@ export default function SearchTestDialog({
     setResults([]);
 
     try {
-      const response = await fetch('/api/rag/simple-query', {
+      const response = await fetch(`${config.apiUrl}/rag/simple-query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           query: query.trim(),
           knowledgeBaseIds: [knowledgeBaseId],
