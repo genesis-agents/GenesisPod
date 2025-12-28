@@ -119,6 +119,14 @@ export class RAGPipelineService {
       rankedResults = searchResults.slice(0, options.topK);
     }
 
+    // Log ranked results before building context
+    this.logger.log(
+      `[RAG] Ranked results before buildContext: count=${rankedResults.length}, minScore=${options.minScore}, topScores=[${rankedResults
+        .slice(0, 3)
+        .map((r) => r.score?.toFixed(4))
+        .join(", ")}]`,
+    );
+
     // Stage 4 & 5: Parent Retrieval and Context Building
     const context = await this.buildContext(rankedResults, options.minScore);
 
@@ -215,6 +223,13 @@ Focus on being specific and informative.`;
       alpha,
     );
 
+    // Debug: Log RRF results with vectorScore preservation
+    if (rrfResults.length > 0) {
+      this.logger.log(
+        `[hybridSearch] RRF top result: rrfScore=${rrfResults[0]?.score?.toFixed(6)}, vectorScore=${rrfResults[0]?.vectorScore?.toFixed(6) || "N/A"}`,
+      );
+    }
+
     // Use the original vectorScore for filtering if available, otherwise use RRF score
     // This prevents good vector matches from being filtered out due to low RRF scores
     const resultsWithPreservedScores = rrfResults.map((r) => ({
@@ -224,7 +239,7 @@ Focus on being specific and informative.`;
     }));
 
     this.logger.log(
-      `[hybridSearch] After RRF fusion: ${rrfResults.length} results, top score: ${resultsWithPreservedScores[0]?.score?.toFixed(4) || "N/A"}`,
+      `[hybridSearch] After score preservation: ${resultsWithPreservedScores.length} results, top score: ${resultsWithPreservedScores[0]?.score?.toFixed(4) || "N/A"}, preservedVectorScore: ${resultsWithPreservedScores[0]?.vectorScore?.toFixed(4) || "N/A"}`,
     );
 
     return resultsWithPreservedScores.slice(0, topK);

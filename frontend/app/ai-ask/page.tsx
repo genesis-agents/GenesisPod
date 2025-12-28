@@ -1148,28 +1148,31 @@ export default function AskPage() {
         ]
       : undefined;
 
+    // Build request body
+    const requestBody = {
+      message,
+      messages: apiMessages,
+      model: modelName,
+      stream: false,
+      webSearch: enableWebSearch,
+      knowledgeBaseIds:
+        selectedKnowledgeBases.length > 0 ? selectedKnowledgeBases : undefined,
+    };
+
+    // Debug: Log request before sending
+    console.log('[AiAsk] Sending request:', {
+      url: `${config.apiUrl}/ai/simple-chat`,
+      knowledgeBaseIds: requestBody.knowledgeBaseIds,
+      model: requestBody.model,
+      messageLength: message.length,
+    });
+
     const response = await fetch(`${config.apiUrl}/ai/simple-chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        message,
-        messages: apiMessages,
-        model: modelName,
-        stream: false,
-        webSearch: enableWebSearch,
-        knowledgeBaseIds:
-          selectedKnowledgeBases.length > 0
-            ? selectedKnowledgeBases
-            : undefined,
-      }),
-      // Debug: Log what we're sending
-      ...(console.log(
-        '[AiAsk] Sending request with knowledgeBaseIds:',
-        selectedKnowledgeBases
-      ),
-      {}),
+      body: JSON.stringify(requestBody),
       signal,
     });
 

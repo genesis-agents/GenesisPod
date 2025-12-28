@@ -440,8 +440,8 @@ export class AiCoreController {
       `Simple chat request: model=${model}, stream=${stream}, message_len=${message?.length || 0}, context_messages=${contextMessages?.length || 0}, kbIds=${knowledgeBaseIds?.join(",") || "none"}`,
     );
 
-    // Debug: Log RAG service availability
-    this.logger.debug(
+    // Log RAG service availability (use log level to ensure visibility in production)
+    this.logger.log(
       `[simple-chat] RAG service available: ${!!this.ragPipelineService}, KB IDs provided: ${knowledgeBaseIds?.length || 0}`,
     );
 
