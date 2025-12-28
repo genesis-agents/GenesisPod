@@ -229,6 +229,10 @@ function LibraryPageContent() {
     return undefined;
   });
 
+  // 当前数据源子TAB（用于显示AI面板）
+  const [currentDataSourceSubTab, setCurrentDataSourceSubTab] =
+    useState<string>(initialDataSourceSubTab || 'overview');
+
   // Update activeTab when URL parameter changes
   useEffect(() => {
     if (
@@ -1682,11 +1686,11 @@ function LibraryPageContent() {
 
         {/* Main content area */}
         <div className="px-8 py-6">
-          {/* AI Organize Panel - Hide for knowledge base and data source tabs */}
-          {activeTab !== 'personal-kb' &&
-            activeTab !== 'team-kb' &&
-            activeTab !== 'data-sources' &&
-            activeTab !== 'graph' && (
+          {/* AI Organize Panel - Show for bookmarks, notes, images sub-tabs */}
+          {activeTab === 'data-sources' &&
+            (currentDataSourceSubTab === 'bookmarks' ||
+              currentDataSourceSubTab === 'notes' ||
+              currentDataSourceSubTab === 'images') && (
               <AIOrganizePanel
                 collections={collections.map((c) => ({
                   id: c.id,
@@ -1694,12 +1698,10 @@ function LibraryPageContent() {
                   itemCount: c.items?.length || 0,
                 }))}
                 onRefresh={() => {
-                  // Refresh based on active tab
-                  if (activeTab === 'graph') {
-                    loadGraphData();
-                  }
+                  // Refresh based on active sub-tab
+                  loadItems();
                 }}
-                activeTab={activeTab}
+                activeTab={currentDataSourceSubTab}
               />
             )}
 
@@ -1713,6 +1715,7 @@ function LibraryPageContent() {
           {activeTab === 'data-sources' && (
             <DataSourcesTab
               initialSubTab={initialDataSourceSubTab as any}
+              onSubTabChange={(subTab) => setCurrentDataSourceSubTab(subTab)}
               renderBookmarks={() => {
                 // 书签列表视图
                 if (loading && !paginatedItems) {

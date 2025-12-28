@@ -1,18 +1,22 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useMermaidWorker } from '@/hooks/useMermaidWorker';
 
 interface MermaidDiagramProps {
   chart: string;
   className?: string;
 }
 
-// Track initialization and ID counter
+// Track initialization for fallback rendering
 let mermaidInitialized = false;
 let mermaidId = 0;
 
 /**
  * Mermaid 图表渲染组件
+ *
+ * 优先使用 Web Worker 渲染（不阻塞主线程）
+ * 如果 Worker 不可用，回退到主线程渲染
  *
  * 支持渲染各种 Mermaid 图表类型：
  * - flowchart / graph (流程图)
@@ -28,40 +32,43 @@ export default function MermaidDiagram({
   chart,
   className = '',
 }: MermaidDiagramProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [svg, setSvg] = useState<string>('');
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // 使用 Web Worker 渲染
+  const {
+    svg: workerSvg,
+    error: workerError,
+    isLoading: workerLoading,
+  } = useMermaidWorker(chart);
 
+  // 回退渲染状态
+  const [fallbackSvg, setFallbackSvg] = useState<string>('');
+  const [fallbackError, setFallbackError] = useState<string | null>(null);
+  const [fallbackLoading, setFallbackLoading] = useState(false);
+
+  // 判断是否需要回退渲染
+  const needsFallback = workerError?.includes('Worker not available');
+
+  // 回退到主线程渲染
   useEffect(() => {
+    if (!needsFallback || !chart) return;
+
     let isMounted = true;
     let timeoutId: NodeJS.Timeout | null = null;
 
-    const renderChart = async () => {
-      if (!chart) {
-        setIsLoading(false);
-        return;
-      }
+    const renderFallback = async () => {
+      setFallbackLoading(true);
+      setFallbackError(null);
 
-      // Note: containerRef is only used for reference, actual rendering uses mermaid.render()
-      // which doesn't require a container element
-
-      setIsLoading(true);
-      setError(null);
-
-      // Set a timeout to prevent infinite loading
+      // 设置超时
       timeoutId = setTimeout(() => {
         if (isMounted) {
-          setError('图表渲染超时，请检查语法是否正确');
-          setIsLoading(false);
+          setFallbackError('图表渲染超时，请检查语法是否正确');
+          setFallbackLoading(false);
         }
-      }, 10000); // 10 second timeout
+      }, 10000);
 
       try {
-        // Dynamically import mermaid only on client
         const mermaid = (await import('mermaid')).default;
 
-        // Initialize mermaid only once
         if (!mermaidInitialized) {
           mermaid.initialize({
             startOnLoad: false,
@@ -87,38 +94,43 @@ export default function MermaidDiagram({
           mermaidInitialized = true;
         }
 
-        // 生成唯一 ID
-        const id = `mermaid-${++mermaidId}-${Date.now()}`;
-
-        // 清理图表代码（移除多余的空白）
+        const id = `mermaid-fallback-${++mermaidId}-${Date.now()}`;
         const cleanChart = chart.trim();
-
-        // 渲染图表
-        const { svg: renderedSvg } = await mermaid.render(id, cleanChart);
+        const { svg } = await mermaid.render(id, cleanChart);
 
         if (isMounted) {
           if (timeoutId) clearTimeout(timeoutId);
-          setSvg(renderedSvg);
-          setIsLoading(false);
+          setFallbackSvg(svg);
+          setFallbackLoading(false);
         }
       } catch (err) {
-        console.error('Mermaid rendering error:', err);
+        console.error('Mermaid fallback rendering error:', err);
         if (isMounted) {
           if (timeoutId) clearTimeout(timeoutId);
-          setError(err instanceof Error ? err.message : '图表渲染失败');
-          setIsLoading(false);
+          setFallbackError(err instanceof Error ? err.message : '图表渲染失败');
+          setFallbackLoading(false);
         }
       }
     };
 
-    renderChart();
+    renderFallback();
 
     return () => {
       isMounted = false;
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [chart]);
+  }, [chart, needsFallback]);
 
+  // 确定最终状态
+  const svg = needsFallback ? fallbackSvg : workerSvg;
+  const error = needsFallback
+    ? fallbackError
+    : workerError?.includes('Worker not available')
+      ? null
+      : workerError;
+  const isLoading = needsFallback ? fallbackLoading : workerLoading;
+
+  // 加载状态
   if (isLoading) {
     return (
       <div
@@ -147,6 +159,7 @@ export default function MermaidDiagram({
     );
   }
 
+  // 错误状态
   if (error) {
     return (
       <div
@@ -183,11 +196,11 @@ export default function MermaidDiagram({
     );
   }
 
+  // 成功渲染
   return (
     <div
-      ref={containerRef}
       className={`mermaid-diagram overflow-x-auto rounded-lg bg-white p-4 ${className}`}
-      dangerouslySetInnerHTML={{ __html: svg }}
+      dangerouslySetInnerHTML={{ __html: svg || '' }}
     />
   );
 }

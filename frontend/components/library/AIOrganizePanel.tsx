@@ -566,16 +566,6 @@ export default function AIOrganizePanel({
             </div>
           )}
 
-          {/* Notion Tab Info */}
-          {activeTab === 'notion' && (
-            <div className="mb-4 rounded-lg bg-gradient-to-r from-gray-50 to-slate-50 px-4 py-3 text-sm">
-              <p className="text-gray-800">
-                AI can help organize your Notion pages, extract key insights,
-                and find connections with your Library content.
-              </p>
-            </div>
-          )}
-
           {/* Data Sources Tab Info */}
           {activeTab === 'data-sources' && (
             <div className="mb-4 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 text-sm">

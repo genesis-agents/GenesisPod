@@ -42,6 +42,7 @@
   "nav": {
     "home": "Home",
     "library": "Library",
+    "knowledge": "Knowledge",
     "explore": "Explore",
     "aiStudio": "AI Studio",
     "aiTeams": "AI Teams",
@@ -1056,6 +1057,35 @@
       "privacyNote": "DeepDive only accesses pages you explicitly share. Your data is stored securely and never shared with third parties.",
       "moreIntegrations": "More Integrations",
       "comingSoon": "Coming soon"
+    }
+  },
+  "aiAsk": {
+    "ragSources": {
+      "title": "Knowledge Base Sources",
+      "topN": "TOP {{count}}",
+      "total": "{{count}} total",
+      "moreNotShown": "{{count}} more sources not shown",
+      "expand": "Expand details",
+      "collapse": "Collapse"
+    },
+    "messages": {
+      "copied": "Copied to clipboard",
+      "copy": "Copy",
+      "quote": "Quote",
+      "regenerate": "Regenerate",
+      "thinking": "Thinking...",
+      "webSearching": "Searching the web..."
+    },
+    "login": {
+      "title": "Sign in to start chatting",
+      "description": "Sign in to access AI chat with multi-model support, knowledge base search, and more powerful features",
+      "button": "Sign In / Sign Up",
+      "features": {
+        "multiModel": "Multi-model support",
+        "knowledgeBase": "Knowledge base search",
+        "webSearch": "Web search",
+        "sessionHistory": "Chat history"
+      }
     }
   },
   "errors": {

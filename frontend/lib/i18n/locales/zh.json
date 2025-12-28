@@ -42,6 +42,7 @@
   "nav": {
     "home": "首页",
     "library": "资源库",
+    "knowledge": "知识库",
     "explore": "探索",
     "aiStudio": "AI 工作室",
     "aiTeams": "AI 团队",
@@ -178,7 +179,7 @@
     "name": "名称",
     "description": "描述",
     "descriptionOptional": "描述 (可选)",
-    "dataSource": "数据来源",
+    "dataSource": "数据源",
     "manualUpload": "手动上传文档",
     "syncGoogleDrive": "同步 Google Drive",
     "urlCrawl": "URL 抓取",
@@ -190,10 +191,10 @@
     "create": "创建"
   },
   "dataSources": {
-    "title": "数据来源",
+    "title": "数据源管理",
     "overview": "概览",
-    "overviewTitle": "数据来源概览",
-    "overviewDesc": "管理你的数据来源连接，这些数据可以导入到知识库",
+    "overviewTitle": "数据源概览",
+    "overviewDesc": "管理你的数据源连接，这些数据可以导入到知识库",
     "refreshStatus": "刷新状态",
     "external": "外部数据",
     "internal": "平台内数据",
@@ -206,9 +207,9 @@
     "connect": "连接",
     "clickToBrowse": "点击浏览",
     "available": "可用",
-    "howToUse": "如何使用数据来源？",
+    "howToUse": "如何使用数据源？",
     "howToUseHints": {
-      "1": "连接外部数据后，可以在创建知识库时选择作为数据来源",
+      "1": "连接外部数据后，可以在创建知识库时选择作为数据源",
       "2": "平台内数据（书签、笔记等）可以直接导入到知识库",
       "3": "同步功能会自动更新知识库中的内容"
     },
@@ -1056,6 +1057,35 @@
       "privacyNote": "DeepDive 仅访问您明确共享的页面。您的数据将安全存储，绝不与第三方共享。",
       "moreIntegrations": "更多集成",
       "comingSoon": "即将推出"
+    }
+  },
+  "aiAsk": {
+    "ragSources": {
+      "title": "知识库来源",
+      "topN": "TOP {{count}}",
+      "total": "共 {{count}} 个",
+      "moreNotShown": "还有 {{count}} 个来源未显示",
+      "expand": "展开详情",
+      "collapse": "收起"
+    },
+    "messages": {
+      "copied": "已复制到剪贴板",
+      "copy": "复制",
+      "quote": "引用",
+      "regenerate": "重新生成",
+      "thinking": "思考中...",
+      "webSearching": "联网搜索中..."
+    },
+    "login": {
+      "title": "登录以开始对话",
+      "description": "登录后即可使用 AI 问答功能，支持多模型切换、知识库检索等强大功能",
+      "button": "登录 / 注册",
+      "features": {
+        "multiModel": "多模型支持",
+        "knowledgeBase": "知识库检索",
+        "webSearch": "联网搜索",
+        "sessionHistory": "对话历史"
+      }
     }
   },
   "errors": {

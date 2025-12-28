@@ -38,6 +38,8 @@ type DataSourceSubTab =
 interface DataSourcesTabProps {
   /** Initial sub-tab to show */
   initialSubTab?: DataSourceSubTab;
+  /** Callback when sub-tab changes */
+  onSubTabChange?: (subTab: DataSourceSubTab) => void;
   /** Render function for bookmarks content */
   renderBookmarks?: () => React.ReactNode;
   /** Render function for notes content */
@@ -167,6 +169,7 @@ interface RAGServiceStatus {
  */
 export default function DataSourcesTab({
   initialSubTab = 'overview',
+  onSubTabChange,
   renderBookmarks,
   renderNotes,
   renderImages,
@@ -176,6 +179,11 @@ export default function DataSourcesTab({
   const { t } = useTranslation();
   const [activeSubTab, setActiveSubTab] =
     useState<DataSourceSubTab>(initialSubTab);
+
+  // Notify parent when sub-tab changes
+  useEffect(() => {
+    onSubTabChange?.(activeSubTab);
+  }, [activeSubTab, onSubTabChange]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState<string | null>(null);
   const [dataSourceStatuses, setDataSourceStatuses] = useState<

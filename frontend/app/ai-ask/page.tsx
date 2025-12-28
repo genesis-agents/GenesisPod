@@ -14,8 +14,10 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CollapsibleBlockquote } from '@/components/ui/CollapsibleBlockquote';
 import { CollapsibleMessage } from '@/components/ui/CollapsibleMessage';
+import { CollapsibleRagSources } from '@/components/ui/CollapsibleRagSources';
 import MermaidDiagram from '@/components/ui/MermaidDiagram';
 import { useThemeStore } from '@/stores/themeStore';
+import { useI18n } from '@/lib/i18n/i18n-context';
 
 // Inspirational quotes data with bilingual support
 interface Quote {
@@ -830,6 +832,7 @@ function ModelIcon({
 export default function AskPage() {
   const router = useRouter();
   const { user, accessToken: token } = useAuth();
+  const { t } = useI18n();
   const { userMessageStyle, aiMessageStyle } = useThemeStore();
   const { models, loading: modelsLoading } = useAIModels();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -1525,211 +1528,108 @@ export default function AskPage() {
           /* Welcome Screen */
           <div className="flex flex-1 flex-col items-center justify-center px-4">
             <div className="w-full max-w-2xl">
-              <h1 className="mb-12 text-center text-4xl font-light text-gray-800 md:text-5xl">
-                <span className="bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 bg-clip-text text-transparent">
-                  {getGreeting()}
-                </span>
-                {user?.username && (
-                  <span className="text-gray-700">
-                    , {user.username.split(' ')[0]}
+              {/* Show login prompt for unauthenticated users */}
+              {!token ? (
+                <div className="mb-12 text-center">
+                  <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500">
+                    <svg
+                      className="h-10 w-10 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                      />
+                    </svg>
+                  </div>
+                  <h1 className="mb-4 text-3xl font-medium text-gray-800 md:text-4xl">
+                    {t('aiAsk.login.title')}
+                  </h1>
+                  <p className="mb-8 text-gray-500">
+                    {t('aiAsk.login.description')}
+                  </p>
+                  <div className="mb-8 flex flex-wrap justify-center gap-3">
+                    <span className="rounded-full bg-violet-100 px-3 py-1 text-sm text-violet-700">
+                      {t('aiAsk.login.features.multiModel')}
+                    </span>
+                    <span className="rounded-full bg-purple-100 px-3 py-1 text-sm text-purple-700">
+                      {t('aiAsk.login.features.knowledgeBase')}
+                    </span>
+                    <span className="rounded-full bg-fuchsia-100 px-3 py-1 text-sm text-fuchsia-700">
+                      {t('aiAsk.login.features.webSearch')}
+                    </span>
+                    <span className="rounded-full bg-pink-100 px-3 py-1 text-sm text-pink-700">
+                      {t('aiAsk.login.features.sessionHistory')}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => router.push('/login')}
+                    className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 px-8 py-3 text-lg font-medium text-white shadow-lg transition-all hover:scale-105 hover:shadow-xl"
+                  >
+                    <svg
+                      className="h-5 w-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"
+                      />
+                    </svg>
+                    {t('aiAsk.login.button')}
+                  </button>
+                </div>
+              ) : (
+                <h1 className="mb-12 text-center text-4xl font-light text-gray-800 md:text-5xl">
+                  <span className="bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 bg-clip-text text-transparent">
+                    {getGreeting()}
                   </span>
-                )}
-              </h1>
+                  {user?.username && (
+                    <span className="text-gray-700">
+                      , {user.username.split(' ')[0]}
+                    </span>
+                  )}
+                </h1>
+              )}
 
-              {/* Input Box */}
-              <div className="relative">
-                <div className="rounded-2xl border border-gray-200 bg-white shadow-sm transition-all focus-within:border-purple-300 focus-within:shadow-md">
-                  <textarea
-                    ref={inputRef}
-                    value={input}
-                    onChange={handleInputChange}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Ask anything..."
-                    rows={1}
-                    className="w-full resize-none rounded-t-2xl bg-transparent px-4 py-4 text-gray-900 placeholder-gray-400 focus:outline-none"
-                    disabled={isLoading || modelsLoading}
-                  />
+              {/* Input Box and Quote - Only show when logged in */}
+              {token && (
+                <>
+                  <div className="relative">
+                    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm transition-all focus-within:border-purple-300 focus-within:shadow-md">
+                      <textarea
+                        ref={inputRef}
+                        value={input}
+                        onChange={handleInputChange}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Ask anything..."
+                        rows={1}
+                        className="w-full resize-none rounded-t-2xl bg-transparent px-4 py-4 text-gray-900 placeholder-gray-400 focus:outline-none"
+                        disabled={isLoading || modelsLoading}
+                      />
 
-                  <div className="flex items-center justify-between border-t border-gray-100 px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      {/* Tools Button */}
-                      <div className="relative" ref={toolsRef}>
-                        <button
-                          type="button"
-                          onClick={() => setShowTools(!showTools)}
-                          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                            showTools
-                              ? 'bg-purple-100 text-purple-700'
-                              : 'text-gray-500 hover:bg-gray-100'
-                          }`}
-                        >
-                          <svg
-                            className="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
-                            />
-                          </svg>
-                          Tools
-                        </button>
-
-                        {showTools && (
-                          <div className="absolute bottom-full left-0 z-50 mb-2 max-h-96 w-64 overflow-y-auto rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
-                            {/* AI Office Agents */}
-                            <div className="px-3 pb-1 text-xs font-medium text-gray-400">
-                              AI Office
-                            </div>
+                      <div className="flex items-center justify-between border-t border-gray-100 px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          {/* Tools Button */}
+                          <div className="relative" ref={toolsRef}>
                             <button
                               type="button"
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setShowTools(false);
-                                router.push('/ai-office?tab=slides');
-                              }}
+                              onClick={() => setShowTools(!showTools)}
+                              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                                showTools
+                                  ? 'bg-purple-100 text-purple-700'
+                                  : 'text-gray-500 hover:bg-gray-100'
+                              }`}
                             >
-                              <span className="text-base">📊</span>
-                              <span className="flex-1">AI Slides</span>
-                              <span className="text-xs text-gray-400">PPT</span>
-                            </button>
-                            <button
-                              type="button"
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setShowTools(false);
-                                router.push('/ai-office?tab=docs');
-                              }}
-                            >
-                              <span className="text-base">📝</span>
-                              <span className="flex-1">AI Docs</span>
-                              <span className="text-xs text-gray-400">
-                                Word
-                              </span>
-                            </button>
-                            <button
-                              type="button"
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setShowTools(false);
-                                router.push('/ai-office?tab=designer');
-                              }}
-                            >
-                              <span className="text-base">🎨</span>
-                              <span className="flex-1">AI Designer</span>
-                              <span className="text-xs text-gray-400">
-                                Design
-                              </span>
-                            </button>
-
-                            {/* Divider */}
-                            <div className="my-2 border-t border-gray-100" />
-
-                            {/* AI Teams */}
-                            <div className="px-3 pb-1 text-xs font-medium text-gray-400">
-                              Collaboration
-                            </div>
-                            <button
-                              type="button"
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setShowTools(false);
-                                router.push('/ai-teams');
-                              }}
-                            >
-                              <span className="text-base">👥</span>
-                              <span className="flex-1">AI Teams</span>
-                              <span className="text-xs text-gray-400">
-                                Multi-Agent
-                              </span>
-                            </button>
-
-                            {/* Divider */}
-                            <div className="my-2 border-t border-gray-100" />
-
-                            {/* Creative */}
-                            <div className="px-3 pb-1 text-xs font-medium text-gray-400">
-                              Creative
-                            </div>
-                            <button
-                              type="button"
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setShowTools(false);
-                                router.push('/studio?tab=create');
-                              }}
-                            >
-                              <span className="text-base">🖼️</span>
-                              <span className="flex-1">Image Generation</span>
-                              <span className="text-xs text-gray-400">
-                                DALL-E
-                              </span>
-                            </button>
-                            <button
-                              type="button"
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setShowTools(false);
-                                router.push('/ai-studio');
-                              }}
-                            >
-                              <span className="text-base">🎬</span>
-                              <span className="flex-1">AI Studio</span>
-                              <span className="text-xs text-gray-400">
-                                Projects
-                              </span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Model Selector */}
-                      <div className="relative" ref={modelSelectorRef}>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setShowModelSelector(!showModelSelector)
-                          }
-                          disabled={modelsLoading}
-                          className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-100"
-                        >
-                          {modelsLoading ? (
-                            <span className="text-gray-400">Loading...</span>
-                          ) : (
-                            <>
-                              {isMixtureMode ? (
-                                <span>🔀</span>
-                              ) : selectedModelInfo ? (
-                                <ModelIcon
-                                  model={selectedModelInfo}
-                                  size={16}
-                                />
-                              ) : (
-                                <span>🤖</span>
-                              )}
-                              <span>
-                                {isMixtureMode
-                                  ? 'Mixture'
-                                  : selectedModelInfo?.name || 'Select'}
-                              </span>
                               <svg
-                                className="h-4 w-4 text-gray-400"
+                                className="h-4 w-4"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -1738,180 +1638,355 @@ export default function AskPage() {
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
                                   strokeWidth={2}
-                                  d="M19 9l-7 7-7-7"
+                                  d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
                                 />
                               </svg>
-                            </>
-                          )}
-                        </button>
+                              Tools
+                            </button>
 
-                        {showModelSelector && (
-                          <div className="absolute bottom-full left-0 z-50 mb-2 max-h-80 w-56 overflow-y-auto rounded-xl border border-gray-200 bg-white py-1.5 shadow-xl">
-                            <div className="px-3 pb-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400">
-                              Chat Models
-                            </div>
-                            {modelOptions.map((model) => (
-                              <button
-                                key={model.id}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedModel(model.id);
-                                  setShowModelSelector(false);
-                                }}
-                                className={`flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-gray-50 ${
-                                  selectedModel === model.id
-                                    ? 'bg-purple-50'
-                                    : ''
-                                }`}
-                              >
-                                <ModelIcon model={model} size={16} />
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="truncate text-sm font-medium text-gray-900">
-                                      {model.name}
-                                    </span>
-                                    {'isMixture' in model &&
-                                      model.isMixture && (
-                                        <span className="shrink-0 rounded bg-gradient-to-r from-violet-500 to-fuchsia-500 px-1 py-0.5 text-[10px] text-white">
-                                          Multi
-                                        </span>
-                                      )}
-                                  </div>
-                                  <span className="text-[11px] text-gray-500">
-                                    {model.provider}
-                                  </span>
+                            {showTools && (
+                              <div className="absolute bottom-full left-0 z-50 mb-2 max-h-96 w-64 overflow-y-auto rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
+                                {/* AI Office Agents */}
+                                <div className="px-3 pb-1 text-xs font-medium text-gray-400">
+                                  AI Office
                                 </div>
-                                {selectedModel === model.id && (
+                                <button
+                                  type="button"
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setShowTools(false);
+                                    router.push('/ai-office?tab=slides');
+                                  }}
+                                >
+                                  <span className="text-base">📊</span>
+                                  <span className="flex-1">AI Slides</span>
+                                  <span className="text-xs text-gray-400">
+                                    PPT
+                                  </span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setShowTools(false);
+                                    router.push('/ai-office?tab=docs');
+                                  }}
+                                >
+                                  <span className="text-base">📝</span>
+                                  <span className="flex-1">AI Docs</span>
+                                  <span className="text-xs text-gray-400">
+                                    Word
+                                  </span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setShowTools(false);
+                                    router.push('/ai-office?tab=designer');
+                                  }}
+                                >
+                                  <span className="text-base">🎨</span>
+                                  <span className="flex-1">AI Designer</span>
+                                  <span className="text-xs text-gray-400">
+                                    Design
+                                  </span>
+                                </button>
+
+                                {/* Divider */}
+                                <div className="my-2 border-t border-gray-100" />
+
+                                {/* AI Teams */}
+                                <div className="px-3 pb-1 text-xs font-medium text-gray-400">
+                                  Collaboration
+                                </div>
+                                <button
+                                  type="button"
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setShowTools(false);
+                                    router.push('/ai-teams');
+                                  }}
+                                >
+                                  <span className="text-base">👥</span>
+                                  <span className="flex-1">AI Teams</span>
+                                  <span className="text-xs text-gray-400">
+                                    Multi-Agent
+                                  </span>
+                                </button>
+
+                                {/* Divider */}
+                                <div className="my-2 border-t border-gray-100" />
+
+                                {/* Creative */}
+                                <div className="px-3 pb-1 text-xs font-medium text-gray-400">
+                                  Creative
+                                </div>
+                                <button
+                                  type="button"
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setShowTools(false);
+                                    router.push('/studio?tab=create');
+                                  }}
+                                >
+                                  <span className="text-base">🖼️</span>
+                                  <span className="flex-1">
+                                    Image Generation
+                                  </span>
+                                  <span className="text-xs text-gray-400">
+                                    DALL-E
+                                  </span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setShowTools(false);
+                                    router.push('/ai-studio');
+                                  }}
+                                >
+                                  <span className="text-base">🎬</span>
+                                  <span className="flex-1">AI Studio</span>
+                                  <span className="text-xs text-gray-400">
+                                    Projects
+                                  </span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Model Selector */}
+                          <div className="relative" ref={modelSelectorRef}>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setShowModelSelector(!showModelSelector)
+                              }
+                              disabled={modelsLoading}
+                              className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-100"
+                            >
+                              {modelsLoading ? (
+                                <span className="text-gray-400">
+                                  Loading...
+                                </span>
+                              ) : (
+                                <>
+                                  {isMixtureMode ? (
+                                    <span>🔀</span>
+                                  ) : selectedModelInfo ? (
+                                    <ModelIcon
+                                      model={selectedModelInfo}
+                                      size={16}
+                                    />
+                                  ) : (
+                                    <span>🤖</span>
+                                  )}
+                                  <span>
+                                    {isMixtureMode
+                                      ? 'Mixture'
+                                      : selectedModelInfo?.name || 'Select'}
+                                  </span>
                                   <svg
-                                    className="h-4 w-4 shrink-0 text-purple-600"
-                                    fill="currentColor"
-                                    viewBox="0 0 20 20"
+                                    className="h-4 w-4 text-gray-400"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
                                   >
                                     <path
-                                      fillRule="evenodd"
-                                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                      clipRule="evenodd"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M19 9l-7 7-7-7"
                                     />
                                   </svg>
-                                )}
-                              </button>
-                            ))}
+                                </>
+                              )}
+                            </button>
+
+                            {showModelSelector && (
+                              <div className="absolute bottom-full left-0 z-50 mb-2 max-h-80 w-56 overflow-y-auto rounded-xl border border-gray-200 bg-white py-1.5 shadow-xl">
+                                <div className="px-3 pb-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400">
+                                  Chat Models
+                                </div>
+                                {modelOptions.map((model) => (
+                                  <button
+                                    key={model.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedModel(model.id);
+                                      setShowModelSelector(false);
+                                    }}
+                                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-gray-50 ${
+                                      selectedModel === model.id
+                                        ? 'bg-purple-50'
+                                        : ''
+                                    }`}
+                                  >
+                                    <ModelIcon model={model} size={16} />
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="truncate text-sm font-medium text-gray-900">
+                                          {model.name}
+                                        </span>
+                                        {'isMixture' in model &&
+                                          model.isMixture && (
+                                            <span className="shrink-0 rounded bg-gradient-to-r from-violet-500 to-fuchsia-500 px-1 py-0.5 text-[10px] text-white">
+                                              Multi
+                                            </span>
+                                          )}
+                                      </div>
+                                      <span className="text-[11px] text-gray-500">
+                                        {model.provider}
+                                      </span>
+                                    </div>
+                                    {selectedModel === model.id && (
+                                      <svg
+                                        className="h-4 w-4 shrink-0 text-purple-600"
+                                        fill="currentColor"
+                                        viewBox="0 0 20 20"
+                                      >
+                                        <path
+                                          fillRule="evenodd"
+                                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                          clipRule="evenodd"
+                                        />
+                                      </svg>
+                                    )}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
 
-                      {/* Web Search Toggle */}
-                      <button
-                        type="button"
-                        onClick={() => setWebSearchEnabled(!webSearchEnabled)}
-                        className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                          webSearchEnabled
-                            ? 'bg-blue-50 text-blue-600'
-                            : 'text-gray-400 hover:bg-gray-100'
-                        }`}
-                        title={
-                          webSearchEnabled
-                            ? 'Web search enabled'
-                            : 'Web search disabled'
-                        }
-                      >
-                        <svg
-                          className="h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
-                          />
-                        </svg>
-                        <span>Search</span>
-                        {webSearchEnabled && (
-                          <svg
-                            className="h-3.5 w-3.5"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
+                          {/* Web Search Toggle */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setWebSearchEnabled(!webSearchEnabled)
+                            }
+                            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                              webSearchEnabled
+                                ? 'bg-blue-50 text-blue-600'
+                                : 'text-gray-400 hover:bg-gray-100'
+                            }`}
+                            title={
+                              webSearchEnabled
+                                ? 'Web search enabled'
+                                : 'Web search disabled'
+                            }
                           >
-                            <path
-                              fillRule="evenodd"
-                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        )}
-                      </button>
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+                              />
+                            </svg>
+                            <span>Search</span>
+                            {webSearchEnabled && (
+                              <svg
+                                className="h-3.5 w-3.5"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            )}
+                          </button>
 
-                      {/* Knowledge Base Selector */}
-                      <KnowledgeBaseSelector
-                        selectedIds={selectedKnowledgeBases}
-                        onSelectionChange={setSelectedKnowledgeBases}
-                        multiple={true}
-                        maxSelections={3}
-                        compact={true}
-                        onlyReady={false}
-                        disabled={isLoading}
-                      />
+                          {/* Knowledge Base Selector */}
+                          <KnowledgeBaseSelector
+                            selectedIds={selectedKnowledgeBases}
+                            onSelectionChange={setSelectedKnowledgeBases}
+                            multiple={true}
+                            maxSelections={3}
+                            compact={true}
+                            onlyReady={false}
+                            disabled={isLoading}
+                          />
+                        </div>
+
+                        {/* Send/Stop Button */}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            isLoading ? handleStopGeneration() : handleSubmit()
+                          }
+                          disabled={
+                            !isLoading &&
+                            ((!input.trim() &&
+                              attachedFiles.length === 0 &&
+                              !quotedMessage) ||
+                              modelsLoading)
+                          }
+                          className={`flex h-9 w-9 items-center justify-center rounded-xl text-white transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
+                            isLoading
+                              ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700'
+                              : 'bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700'
+                          }`}
+                          title={isLoading ? 'Stop generation' : 'Send message'}
+                        >
+                          {isLoading ? (
+                            <svg
+                              className="h-5 w-5"
+                              fill="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <rect x="6" y="6" width="12" height="12" rx="1" />
+                            </svg>
+                          ) : (
+                            <svg
+                              className="h-5 w-5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                              />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
                     </div>
 
-                    {/* Send/Stop Button */}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        isLoading ? handleStopGeneration() : handleSubmit()
-                      }
-                      disabled={
-                        !isLoading &&
-                        ((!input.trim() &&
-                          attachedFiles.length === 0 &&
-                          !quotedMessage) ||
-                          modelsLoading)
-                      }
-                      className={`flex h-9 w-9 items-center justify-center rounded-xl text-white transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
-                        isLoading
-                          ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700'
-                          : 'bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700'
-                      }`}
-                      title={isLoading ? 'Stop generation' : 'Send message'}
-                    >
-                      {isLoading ? (
-                        <svg
-                          className="h-5 w-5"
-                          fill="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <rect x="6" y="6" width="12" height="12" rx="1" />
-                        </svg>
-                      ) : (
-                        <svg
-                          className="h-5 w-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                          />
-                        </svg>
-                      )}
-                    </button>
+                    <p className="mt-3 text-center text-xs text-gray-400">
+                      Press Enter to send, Shift+Enter for new line
+                    </p>
                   </div>
-                </div>
 
-                <p className="mt-3 text-center text-xs text-gray-400">
-                  Press Enter to send, Shift+Enter for new line
-                </p>
-              </div>
-
-              {/* Inspirational Quote - Below search box */}
-              <div className="mt-8">
-                <QuoteCard quote={randomQuote} />
-              </div>
+                  {/* Inspirational Quote - Below search box */}
+                  <div className="mt-8">
+                    <QuoteCard quote={randomQuote} />
+                  </div>
+                </>
+              )}
             </div>
           </div>
         ) : (
@@ -1998,60 +2073,15 @@ export default function AskPage() {
                             </ReactMarkdown>
                           </div>
                         )}
-                        {/* RAG Sources indicator */}
+                        {/* RAG Sources - 可折叠组件 */}
                         {message.role === 'assistant' &&
                           message.ragSources &&
                           message.ragSources.length > 0 && (
-                            <div className="mt-3 rounded-lg border border-purple-100 bg-purple-50 p-3">
-                              <div className="mb-2 flex items-center gap-2 text-xs font-medium text-purple-700">
-                                <svg
-                                  className="h-4 w-4"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                                  />
-                                </svg>
-                                参考知识库内容 ({message.ragSources.length}{' '}
-                                个来源)
-                              </div>
-                              <div className="space-y-1.5">
-                                {message.ragSources
-                                  .slice(0, 3)
-                                  .map((source, idx) => (
-                                    <div
-                                      key={idx}
-                                      className="flex items-start gap-2 rounded bg-white/60 p-2"
-                                    >
-                                      <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-purple-200 text-[10px] font-bold text-purple-700">
-                                        {idx + 1}
-                                      </span>
-                                      <div className="min-w-0 flex-1">
-                                        <div className="truncate text-xs font-medium text-gray-700">
-                                          {source.documentTitle}
-                                        </div>
-                                        <div className="mt-0.5 line-clamp-2 text-[10px] text-gray-500">
-                                          {source.excerpt}
-                                        </div>
-                                      </div>
-                                      <span className="flex-shrink-0 rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium text-purple-600">
-                                        {(source.score * 100).toFixed(0)}%
-                                      </span>
-                                    </div>
-                                  ))}
-                                {message.ragSources.length > 3 && (
-                                  <div className="text-center text-[10px] text-purple-600">
-                                    还有 {message.ragSources.length - 3}{' '}
-                                    个来源...
-                                  </div>
-                                )}
-                              </div>
-                            </div>
+                            <CollapsibleRagSources
+                              sources={message.ragSources}
+                              maxSources={5}
+                              defaultExpanded={false}
+                            />
                           )}
                         {/* Action buttons for assistant messages */}
                         {message.role === 'assistant' && (
