@@ -1051,6 +1051,30 @@ export default function AskPage() {
         return null;
       }
 
+      // Build request body with optional knowledgeBaseIds
+      const requestBody: {
+        content: string;
+        modelId?: string;
+        webSearch: boolean;
+        knowledgeBaseIds?: string[];
+      } = {
+        content,
+        modelId:
+          modelId || (selectedModel !== 'mixture' ? selectedModel : undefined),
+        webSearch: webSearchEnabled,
+      };
+
+      // Add knowledge base IDs if any are selected
+      if (selectedKnowledgeBases.length > 0) {
+        requestBody.knowledgeBaseIds = selectedKnowledgeBases;
+      }
+
+      console.log('[AiAsk] sendMessageToSession:', {
+        sessionId,
+        contentLength: content.length,
+        knowledgeBaseIds: requestBody.knowledgeBaseIds,
+      });
+
       try {
         const response = await fetch(
           `${config.apiUrl}/ask/sessions/${sessionId}/messages`,
@@ -1060,18 +1084,17 @@ export default function AskPage() {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify({
-              content,
-              modelId:
-                modelId ||
-                (selectedModel !== 'mixture' ? selectedModel : undefined),
-              webSearch: webSearchEnabled,
-            }),
+            body: JSON.stringify(requestBody),
           }
         );
 
         if (response.ok) {
-          return await response.json();
+          const result = await response.json();
+          console.log('[AiAsk] sendMessageToSession response:', {
+            hasRagSources: !!result.ragSources,
+            ragSourcesCount: result.ragSources?.length || 0,
+          });
+          return result;
         } else {
           const errorData = await response.json().catch(() => ({}));
           console.error('Failed to send message:', response.status, errorData);
@@ -1081,7 +1104,7 @@ export default function AskPage() {
       }
       return null;
     },
-    [token, selectedModel, webSearchEnabled]
+    [token, selectedModel, webSearchEnabled, selectedKnowledgeBases]
   );
 
   // Load session messages
@@ -1371,6 +1394,8 @@ export default function AskPage() {
                   modelId: result.assistantMessage.modelId,
                   modelName: result.assistantMessage.modelName,
                   createdAt: result.assistantMessage.createdAt,
+                  // Include RAG sources from session response
+                  ragSources: result.ragSources,
                 },
               ];
             });

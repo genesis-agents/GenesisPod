@@ -249,7 +249,13 @@ export class AiAskService {
 
       // RAG 查询：如果指定了知识库，先进行 RAG 检索
       let ragContext = "";
-      this.logger.debug(
+      let ragSources: Array<{
+        documentTitle: string;
+        excerpt: string;
+        score: number;
+      }> = [];
+
+      this.logger.log(
         `[sendMessage] Received knowledgeBaseIds: ${dto.knowledgeBaseIds?.join(", ") || "none"}, ragPipelineService available: ${!!this.ragPipelineService}`,
       );
       if (
@@ -276,8 +282,18 @@ export class AiAskService {
 
           if (ragResponse.context && ragResponse.context.sources.length > 0) {
             ragContext = ragResponse.context.text;
+            // Collect RAG sources to return to frontend
+            ragSources = ragResponse.context.sources.map((s) => ({
+              documentTitle: s.documentTitle,
+              excerpt: s.excerpt,
+              score: s.score,
+            }));
             this.logger.log(
-              `[sendMessage] RAG context added (${ragResponse.context.sources.length} sources)`,
+              `[sendMessage] RAG context added (${ragSources.length} sources): ${ragSources.map((s) => s.documentTitle).join(", ")}`,
+            );
+          } else {
+            this.logger.log(
+              `[sendMessage] RAG query returned no results above threshold`,
             );
           }
         } catch (ragError) {
@@ -418,6 +434,8 @@ export class AiAskService {
         userMessage,
         assistantMessage,
         toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined,
+        // Include RAG sources for frontend display
+        ragSources: ragSources.length > 0 ? ragSources : undefined,
       };
     } catch (error) {
       this.logger.error(`Failed to get AI response: ${error}`);
