@@ -182,6 +182,10 @@ Focus on being specific and informative.`;
       },
     );
 
+    this.logger.log(
+      `[hybridSearch] Vector search returned ${vectorResults.length} results, top similarity: ${vectorResults[0]?.similarity?.toFixed(4) || "N/A"}`,
+    );
+
     // Get keyword search results using PostgreSQL full-text search
     const keywordResults = await this.keywordSearch(
       queryText,
@@ -189,22 +193,41 @@ Focus on being specific and informative.`;
       topK * 2,
     );
 
+    this.logger.log(
+      `[hybridSearch] Keyword search returned ${keywordResults.length} results`,
+    );
+
     // Perform RRF (Reciprocal Rank Fusion) to combine results
+    // IMPORTANT: RRF scores are very small (max ~0.016), so we preserve original vectorScore
+    const mappedVectorResults = vectorResults.map((r) => ({
+      childChunkId: r.childChunkId,
+      parentChunkId: r.parentChunkId,
+      documentId: r.documentId,
+      content: r.content,
+      parentContent: r.parentContent,
+      score: r.similarity,
+      vectorScore: r.similarity,
+    }));
+
     const rrfResults = this.reciprocalRankFusion(
-      vectorResults.map((r) => ({
-        childChunkId: r.childChunkId,
-        parentChunkId: r.parentChunkId,
-        documentId: r.documentId,
-        content: r.content,
-        parentContent: r.parentContent,
-        score: r.similarity,
-        vectorScore: r.similarity,
-      })),
+      mappedVectorResults,
       keywordResults,
       alpha,
     );
 
-    return rrfResults.slice(0, topK);
+    // Use the original vectorScore for filtering if available, otherwise use RRF score
+    // This prevents good vector matches from being filtered out due to low RRF scores
+    const resultsWithPreservedScores = rrfResults.map((r) => ({
+      ...r,
+      // Keep the higher score between vectorScore and RRF score for filtering purposes
+      score: Math.max(r.vectorScore || 0, r.score || 0),
+    }));
+
+    this.logger.log(
+      `[hybridSearch] After RRF fusion: ${rrfResults.length} results, top score: ${resultsWithPreservedScores[0]?.score?.toFixed(4) || "N/A"}`,
+    );
+
+    return resultsWithPreservedScores.slice(0, topK);
   }
 
   /**
