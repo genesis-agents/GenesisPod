@@ -17,6 +17,12 @@ interface AdminUser {
   createdAt: string;
   lastLoginAt: string | null;
   isAdmin: boolean;
+  credits: {
+    balance: number;
+    totalEarned: number;
+    totalSpent: number;
+    isFrozen: boolean;
+  } | null;
   _count: {
     notes: number;
     comments: number;
@@ -59,6 +65,14 @@ export default function UsersPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
+
+  // 积分发放相关状态
+  const [grantModalOpen, setGrantModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [grantAmount, setGrantAmount] = useState('1000');
+  const [grantDescription, setGrantDescription] = useState('');
+  const [granting, setGranting] = useState(false);
+  const [initializingCredits, setInitializingCredits] = useState(false);
 
   useEffect(() => {
     void fetchUsers();
@@ -117,6 +131,83 @@ export default function UsersPage() {
       }
     } catch (error) {
       console.error('Failed to toggle user status:', error);
+    }
+  };
+
+  // 打开发放积分弹窗
+  const openGrantModal = (user: AdminUser) => {
+    setSelectedUser(user);
+    setGrantAmount('1000');
+    setGrantDescription('管理员发放');
+    setGrantModalOpen(true);
+  };
+
+  // 发放积分
+  const handleGrantCredits = async () => {
+    if (!selectedUser || !grantAmount) return;
+
+    setGranting(true);
+    try {
+      const response = await fetch(`${config.apiUrl}/admin/credits/grant`, {
+        method: 'POST',
+        headers: {
+          ...getAuthHeader(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: selectedUser.id,
+          amount: parseInt(grantAmount, 10),
+          description: grantDescription || '管理员发放',
+        }),
+      });
+
+      if (response.ok) {
+        setGrantModalOpen(false);
+        void fetchUsers();
+      } else {
+        const error = await response.json();
+        alert(`发放失败: ${error.message || '未知错误'}`);
+      }
+    } catch (error) {
+      console.error('Failed to grant credits:', error);
+      alert('发放失败');
+    } finally {
+      setGranting(false);
+    }
+  };
+
+  // 为所有用户初始化积分账户
+  const handleInitializeAllCredits = async () => {
+    if (
+      !confirm(
+        '确定要为所有没有积分账户的用户创建账户吗？每个新账户将获得 10000 积分。'
+      )
+    ) {
+      return;
+    }
+
+    setInitializingCredits(true);
+    try {
+      const response = await fetch(`${config.apiUrl}/admin/credits/init-all`, {
+        method: 'POST',
+        headers: getAuthHeader(),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(
+          `初始化完成！\n新建账户: ${result.data.created}\n跳过: ${result.data.skipped}\n总用户: ${result.data.total}`
+        );
+        void fetchUsers();
+      } else {
+        const error = await response.json();
+        alert(`初始化失败: ${error.message || '未知错误'}`);
+      }
+    } catch (error) {
+      console.error('Failed to initialize credits:', error);
+      alert('初始化失败');
+    } finally {
+      setInitializingCredits(false);
     }
   };
 
@@ -230,6 +321,46 @@ export default function UsersPage() {
               User Management
             </h2>
             <div className="flex gap-3">
+              {/* 初始化积分账户按钮 */}
+              <button
+                onClick={() => void handleInitializeAllCredits()}
+                disabled={initializingCredits}
+                className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 px-4 py-2 text-sm font-medium text-white transition-all hover:from-green-600 hover:to-emerald-600 disabled:opacity-50"
+              >
+                {initializingCredits ? (
+                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24">
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      fill="none"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                )}
+                Init All Credits
+              </button>
               <div className="relative">
                 <svg
                   className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
@@ -271,9 +402,9 @@ export default function UsersPage() {
                   <th className="px-5 py-3 font-medium">User</th>
                   <th className="px-5 py-3 font-medium">Email</th>
                   <th className="px-5 py-3 font-medium">Role</th>
+                  <th className="px-5 py-3 font-medium">Credits</th>
                   <th className="px-5 py-3 font-medium">Status</th>
                   <th className="px-5 py-3 font-medium">Last Login</th>
-                  <th className="px-5 py-3 font-medium">Activity</th>
                   <th className="px-5 py-3 font-medium">Joined</th>
                   <th className="px-5 py-3 font-medium">Actions</th>
                 </tr>
@@ -317,6 +448,23 @@ export default function UsersPage() {
                       >
                         {u.isAdmin ? 'Admin' : 'User'}
                       </span>
+                    </td>
+                    {/* Credits Column */}
+                    <td className="px-5 py-4">
+                      {u.credits ? (
+                        <div className="flex flex-col gap-1">
+                          <span className="font-semibold text-blue-600">
+                            {u.credits.balance.toLocaleString()}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            Spent: {u.credits.totalSpent.toLocaleString()}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">
+                          No account
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-2">
@@ -363,19 +511,19 @@ export default function UsersPage() {
                         {formatRelativeTime(u.lastLoginAt)}
                       </span>
                     </td>
-                    <td className="px-5 py-4">
-                      <div className="flex flex-col gap-1 text-xs text-gray-500">
-                        <span title="Notes">{u._count.notes} notes</span>
-                        <span title="Collections">
-                          {u._count.collections} collections
-                        </span>
-                      </div>
-                    </td>
                     <td className="px-5 py-4 text-sm text-gray-600">
                       {new Date(u.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-2">
+                        {/* Grant Credits Button */}
+                        <button
+                          onClick={() => openGrantModal(u)}
+                          className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-100"
+                          title="Grant Credits"
+                        >
+                          +Credits
+                        </button>
                         <button
                           onClick={() =>
                             void handleToggleUserStatus(u.id, u.isActive)
@@ -387,24 +535,6 @@ export default function UsersPage() {
                           }`}
                         >
                           {u.isActive ? 'Disable' : 'Enable'}
-                        </button>
-                        <button
-                          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                          title="More actions"
-                        >
-                          <svg
-                            className="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
-                            />
-                          </svg>
                         </button>
                       </div>
                     </td>
@@ -440,6 +570,72 @@ export default function UsersPage() {
           </div>
         )}
       </div>
+
+      {/* Grant Credits Modal */}
+      {grantModalOpen && selectedUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="mb-4 text-lg font-semibold text-gray-900">
+              Grant Credits
+            </h3>
+            <div className="mb-4">
+              <p className="text-sm text-gray-600">
+                Granting credits to:{' '}
+                <span className="font-medium">
+                  {selectedUser.username || selectedUser.email}
+                </span>
+              </p>
+              <p className="text-sm text-gray-500">
+                Current balance:{' '}
+                <span className="font-medium text-blue-600">
+                  {selectedUser.credits?.balance?.toLocaleString() ??
+                    'No account'}
+                </span>
+              </p>
+            </div>
+            <div className="mb-4">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Amount
+              </label>
+              <input
+                type="number"
+                value={grantAmount}
+                onChange={(e) => setGrantAmount(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder="Enter amount"
+                min="1"
+              />
+            </div>
+            <div className="mb-6">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Description
+              </label>
+              <input
+                type="text"
+                value={grantDescription}
+                onChange={(e) => setGrantDescription(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder="Reason for granting credits"
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setGrantModalOpen(false)}
+                className="flex-1 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => void handleGrantCredits()}
+                disabled={granting || !grantAmount}
+                className="flex-1 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 px-4 py-2 font-medium text-white transition-all hover:from-blue-600 hover:to-purple-600 disabled:opacity-50"
+              >
+                {granting ? 'Granting...' : 'Grant Credits'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

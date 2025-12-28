@@ -551,6 +551,83 @@ export class CreditsService implements OnModuleInit {
   }
 
   /**
+   * 为所有现有用户初始化积分账户
+   * 用于迁移现有用户
+   */
+  async initializeAllUserAccounts(): Promise<{
+    total: number;
+    created: number;
+    skipped: number;
+  }> {
+    // 获取所有没有积分账户的用户
+    const usersWithoutAccount = await this.prisma.user.findMany({
+      where: {
+        creditAccount: null,
+      },
+      select: {
+        id: true,
+        username: true,
+      },
+    });
+
+    let created = 0;
+    let skipped = 0;
+
+    for (const user of usersWithoutAccount) {
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          // 双重检查账户不存在
+          const existing = await tx.creditAccount.findUnique({
+            where: { userId: user.id },
+          });
+
+          if (existing) {
+            skipped++;
+            return;
+          }
+
+          // 创建账户
+          const account = await tx.creditAccount.create({
+            data: {
+              userId: user.id,
+              balance: 10000,
+              totalEarned: 10000,
+            },
+          });
+
+          // 创建初始积分交易记录
+          await tx.creditTransaction.create({
+            data: {
+              accountId: account.id,
+              type: CreditTransactionType.INITIAL,
+              amount: 10000,
+              balanceAfter: 10000,
+              description: "Welcome bonus credits (migration)",
+            },
+          });
+
+          created++;
+        });
+      } catch (error) {
+        this.logger.error(
+          `Failed to create account for user ${user.id}: ${error}`,
+        );
+        skipped++;
+      }
+    }
+
+    this.logger.log(
+      `Initialized credit accounts: ${created} created, ${skipped} skipped out of ${usersWithoutAccount.length} users`,
+    );
+
+    return {
+      total: usersWithoutAccount.length,
+      created,
+      skipped,
+    };
+  }
+
+  /**
    * 获取用户积分统计
    */
   async getCreditsStats(userId: string): Promise<{

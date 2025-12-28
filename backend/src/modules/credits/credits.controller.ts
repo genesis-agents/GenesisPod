@@ -325,4 +325,17 @@ export class AdminCreditsController {
       message: "Rules cache refreshed",
     };
   }
+
+  /**
+   * 为所有现有用户初始化积分账户
+   */
+  @Post("init-all")
+  @HttpCode(HttpStatus.OK)
+  async initAllUserAccounts() {
+    const result = await this.creditsService.initializeAllUserAccounts();
+    return {
+      success: true,
+      data: result,
+    };
+  }
 }

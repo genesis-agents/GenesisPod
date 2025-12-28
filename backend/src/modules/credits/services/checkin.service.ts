@@ -1,7 +1,8 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { CreditTransactionType } from "@prisma/client";
 import { AlreadyCheckedInException } from "../exceptions/insufficient-credits.exception";
+import { CreditsService } from "../credits.service";
 
 /**
  * 签到奖励配置
@@ -52,13 +53,17 @@ export interface CheckinStatus {
 export class CheckinService {
   private readonly logger = new Logger(CheckinService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(forwardRef(() => CreditsService))
+    private creditsService: CreditsService,
+  ) {}
 
   /**
    * 获取签到状态
    */
   async getCheckinStatus(userId: string): Promise<CheckinStatus> {
-    const account = await this.prisma.creditAccount.findUnique({
+    let account = await this.prisma.creditAccount.findUnique({
       where: { userId },
       include: {
         checkins: {
@@ -68,15 +73,34 @@ export class CheckinService {
       },
     });
 
+    // 如果账户不存在，自动创建
     if (!account) {
-      return {
-        canCheckin: false,
-        hasCheckedInToday: false,
-        streakDays: 0,
-        lastCheckinDate: null,
-        nextReward: CHECKIN_REWARDS.base,
-        message: "Account not found",
-      };
+      this.logger.log(
+        `Creating credit account for user ${userId} during checkin status check`,
+      );
+      await this.creditsService.getOrCreateAccount(userId);
+
+      // 重新获取账户（包含checkins关系）
+      account = await this.prisma.creditAccount.findUnique({
+        where: { userId },
+        include: {
+          checkins: {
+            orderBy: { checkinDate: "desc" },
+            take: 1,
+          },
+        },
+      });
+
+      if (!account) {
+        return {
+          canCheckin: false,
+          hasCheckedInToday: false,
+          streakDays: 0,
+          lastCheckinDate: null,
+          nextReward: CHECKIN_REWARDS.base,
+          message: "Failed to create account",
+        };
+      }
     }
 
     const today = this.getTodayDate();

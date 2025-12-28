@@ -93,6 +93,14 @@ export class AdminService {
           subscriptionTier: true,
           createdAt: true,
           lastLoginAt: true,
+          creditAccount: {
+            select: {
+              balance: true,
+              totalEarned: true,
+              totalSpent: true,
+              isFrozen: true,
+            },
+          },
           _count: {
             select: {
               notes: true,
@@ -105,7 +113,7 @@ export class AdminService {
       this.prisma.user.count({ where }),
     ]);
 
-    // 标记管理员
+    // 标记管理员并添加积分信息
     const usersWithAdminFlag = users.map(
       (user: {
         email: string;
@@ -119,10 +127,24 @@ export class AdminService {
         subscriptionTier: string;
         createdAt: Date;
         lastLoginAt: Date | null;
+        creditAccount: {
+          balance: number;
+          totalEarned: number;
+          totalSpent: number;
+          isFrozen: boolean;
+        } | null;
         _count: { notes: number; comments: number; collections: number };
       }) => ({
         ...user,
         isAdmin: user.role === "ADMIN" || this.adminEmails.includes(user.email),
+        credits: user.creditAccount
+          ? {
+              balance: user.creditAccount.balance,
+              totalEarned: user.creditAccount.totalEarned,
+              totalSpent: user.creditAccount.totalSpent,
+              isFrozen: user.creditAccount.isFrozen,
+            }
+          : null,
       }),
     );
 
