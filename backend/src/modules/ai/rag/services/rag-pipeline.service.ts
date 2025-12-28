@@ -89,6 +89,14 @@ export class RAGPipelineService {
     const searchTime = Date.now() - searchStart;
     this.logger.debug(`Hybrid search completed in ${searchTime}ms`);
 
+    // Debug: Log search results details
+    this.logger.log(
+      `[RAG] Search results: ${searchResults.length} found, top scores: ${searchResults
+        .slice(0, 3)
+        .map((r) => r.score?.toFixed(4))
+        .join(", ")}`,
+    );
+
     // Stage 3: Rerank
     let rerankTime: number | undefined;
     let rankedResults = searchResults;
@@ -398,6 +406,19 @@ Focus on being specific and informative.`;
   ): Promise<RAGContext> {
     // Filter by minimum score
     const filteredResults = results.filter((r) => r.score >= minScore);
+
+    // Debug: Log filtering results
+    this.logger.log(
+      `[RAG buildContext] Input: ${results.length} results, minScore: ${minScore}, after filter: ${filteredResults.length}`,
+    );
+    if (results.length > 0 && filteredResults.length === 0) {
+      this.logger.warn(
+        `[RAG buildContext] All results filtered out! Top scores were: ${results
+          .slice(0, 5)
+          .map((r) => r.score?.toFixed(6))
+          .join(", ")}`,
+      );
+    }
 
     if (filteredResults.length === 0) {
       return {

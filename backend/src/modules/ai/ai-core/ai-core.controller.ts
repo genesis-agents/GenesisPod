@@ -440,6 +440,11 @@ export class AiCoreController {
       `Simple chat request: model=${model}, stream=${stream}, message_len=${message?.length || 0}, context_messages=${contextMessages?.length || 0}, kbIds=${knowledgeBaseIds?.join(",") || "none"}`,
     );
 
+    // Debug: Log RAG service availability
+    this.logger.debug(
+      `[simple-chat] RAG service available: ${!!this.ragPipelineService}, KB IDs provided: ${knowledgeBaseIds?.length || 0}`,
+    );
+
     if (!message || message.trim().length === 0) {
       throw new BadRequestException("Message is required");
     }
@@ -452,6 +457,15 @@ export class AiCoreController {
         excerpt: string;
         score: number;
       }> = [];
+
+      // Check why RAG might not run
+      if (knowledgeBaseIds && knowledgeBaseIds.length > 0) {
+        if (!this.ragPipelineService) {
+          this.logger.warn(
+            `[simple-chat] RAG pipeline service not available! KB IDs were provided but RAG won't run.`,
+          );
+        }
+      }
 
       if (
         knowledgeBaseIds &&
