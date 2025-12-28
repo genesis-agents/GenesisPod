@@ -15,6 +15,8 @@ import { RAGPipelineService } from "./services/rag-pipeline.service";
 import { KnowledgeBaseService } from "./services/knowledge-base.service";
 import { GoogleDriveRAGService } from "./services/google-drive-rag.service";
 import { VectorService } from "./services/vector.service";
+import { UrlFetchService } from "./services/url-fetch.service";
+import { PlatformImportService } from "./services/platform-import.service";
 
 // Controller
 import { RAGController } from "./rag.controller";
@@ -29,6 +31,8 @@ import { RAGController } from "./rag.controller";
     RAGPipelineService,
     KnowledgeBaseService,
     GoogleDriveRAGService,
+    UrlFetchService,
+    PlatformImportService,
   ],
   exports: [
     VectorService,
@@ -37,6 +41,8 @@ import { RAGController } from "./rag.controller";
     RAGPipelineService,
     KnowledgeBaseService,
     GoogleDriveRAGService,
+    UrlFetchService,
+    PlatformImportService,
   ],
 })
 export class RAGModule {}

@@ -7,6 +7,7 @@ import { I18nProvider } from '@/lib/i18n';
 import { ChunkErrorHandler } from '@/components/shared/ChunkErrorHandler';
 import { ToastContainer } from '@/components/ui/Toast';
 import { toast } from '@/stores/toastStore';
+import { CheckinModal, InsufficientCreditsModal } from '@/components/credits';
 
 /**
  * Create QueryClient with global error handling
@@ -39,6 +40,8 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         <ChunkErrorHandler />
         <AuthProvider>{children}</AuthProvider>
         <ToastContainer />
+        <CheckinModal />
+        <InsufficientCreditsModal />
       </I18nProvider>
     </QueryClientProvider>
   );

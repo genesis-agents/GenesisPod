@@ -20,6 +20,7 @@ import { EmailModule } from "./modules/core/email/email.module";
 import { FeedbackModule } from "./modules/core/feedback/feedback.module";
 import { SettingsModule } from "./modules/core/settings/settings.module";
 import { StorageModule } from "./modules/core/storage/storage.module";
+import { CreditsModule } from "./modules/credits/credits.module";
 // AI modules
 import { AiCoreModule } from "./modules/ai/ai-core/ai-core.module";
 import { AiAgentsModule } from "./modules/ai/ai-agents/ai-agents.module";
@@ -100,6 +101,7 @@ import { ExportModule } from "./modules/export";
     FeedbackModule,
     SettingsModule,
     StorageModule,
+    CreditsModule,
 
     // AI modules (ai-* prefix)
     AiCoreModule,

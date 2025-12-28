@@ -287,3 +287,78 @@ export class AddResourcesDto {
   @IsArray()
   resources!: ExternalResourceDto[];
 }
+
+// ==================== URL Import DTOs ====================
+
+export class FetchUrlDto {
+  @ApiProperty({ description: "The URL to fetch and preview" })
+  @IsUrl()
+  url!: string;
+}
+
+export class ImportUrlsDto {
+  @ApiProperty({
+    description: "List of URLs to import",
+    type: [String],
+  })
+  @IsArray()
+  @IsUrl({}, { each: true })
+  urls!: string[];
+}
+
+// ==================== Bookmark Import DTOs ====================
+
+export class ImportBookmarksDto {
+  @ApiProperty({
+    description: "List of bookmark resource IDs to import",
+    type: [String],
+  })
+  @IsArray()
+  @IsString({ each: true })
+  bookmarkIds!: string[];
+}
+
+// ==================== Note Import DTOs ====================
+
+export class ImportNotesDto {
+  @ApiProperty({
+    description: "List of note IDs to import",
+    type: [String],
+  })
+  @IsArray()
+  @IsString({ each: true })
+  noteIds!: string[];
+
+  @ApiPropertyOptional({
+    description: "Whether to auto-sync when notes are updated",
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  autoSync?: boolean;
+}
+
+// ==================== OCR Import DTOs ====================
+
+export class OcrResultDto {
+  @ApiProperty({ description: "URL of the uploaded image" })
+  @IsString()
+  imageUrl!: string;
+
+  @ApiProperty({ description: "Title for the document" })
+  @IsString()
+  title!: string;
+
+  @ApiProperty({ description: "OCR extracted content (may be user-edited)" })
+  @IsString()
+  content!: string;
+}
+
+export class ImportOcrDto {
+  @ApiProperty({
+    description: "List of OCR results to import",
+    type: [OcrResultDto],
+  })
+  @IsArray()
+  documents!: OcrResultDto[];
+}

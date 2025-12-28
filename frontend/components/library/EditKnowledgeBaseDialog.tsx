@@ -333,17 +333,27 @@ export default function EditKnowledgeBaseDialog({
             </div>
           )}
 
-          {/* Coming Soon for other sources */}
+          {/* URL Import Info */}
+          {sourceTypes.includes('URL') && (
+            <div className="rounded-lg border border-purple-200 bg-purple-50 p-4">
+              <p className="text-sm text-purple-800">
+                <span className="font-medium">URL 抓取：</span>
+                保存后，可以通过「添加内容」按钮导入网页内容
+              </p>
+            </div>
+          )}
+
+          {/* Platform Data Import Info */}
           {sourceTypes.some((t) =>
             ['BOOKMARK', 'NOTE', 'IMAGE'].includes(t)
           ) && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm text-amber-800">
-                <span className="font-medium">即将推出：</span>
-                {sourceTypes.includes('BOOKMARK') && ' 书签导入'}
-                {sourceTypes.includes('NOTE') && ' 笔记导入'}
-                {sourceTypes.includes('IMAGE') && ' 图片 OCR'}
-                <span className="text-gray-600"> 功能正在开发中</span>
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+              <p className="text-sm text-blue-800">
+                <span className="font-medium">平台数据导入：</span>
+                保存后，可以通过「添加内容」按钮导入
+                {sourceTypes.includes('BOOKMARK') && ' 书签'}
+                {sourceTypes.includes('NOTE') && ' 笔记'}
+                {sourceTypes.includes('IMAGE') && ' 图片'}
               </p>
             </div>
           )}

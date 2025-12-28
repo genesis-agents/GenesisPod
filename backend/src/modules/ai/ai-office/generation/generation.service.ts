@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AiChatService, ChatMessage } from "../../ai-core/ai-chat.service";
 import { AIModelService } from "../core";
@@ -7,6 +7,7 @@ import {
   OfficeDocumentType,
   VersionTrigger,
 } from "../documents";
+import { CreditsService } from "../../../credits/credits.service";
 
 // ============================================================================
 // Types & Interfaces
@@ -65,6 +66,7 @@ export class GenerationService {
     private readonly aiChatService: AiChatService,
     private readonly aiModelService: AIModelService,
     private readonly documentService: DocumentsService,
+    @Optional() private readonly creditsService: CreditsService,
   ) {}
 
   /**
@@ -80,6 +82,32 @@ export class GenerationService {
     this.logger.log(
       `[generateDocument] Starting generation for user ${userId}`,
     );
+
+    // 根据文档类型确定积分消耗
+    const creditsMap: Record<OfficeDocumentType, number> = {
+      PPT: 300,
+      ARTICLE: 200,
+      SPREADSHEET: 150,
+      REPORT: 200,
+      PROPOSAL: 250,
+      RESEARCH: 300,
+    };
+    const estimatedCredits = creditsMap[config.documentType] || 200;
+
+    // 积分检查
+    if (this.creditsService) {
+      const balanceCheck = await this.creditsService.checkBalance(
+        userId,
+        estimatedCredits,
+      );
+      if (!balanceCheck.sufficient) {
+        yield {
+          type: "error",
+          error: `积分不足：需要 ${estimatedCredits} 积分，当前余额 ${balanceCheck.balance}`,
+        };
+        return;
+      }
+    }
 
     try {
       // Step 1: 获取 AI 模型配置
@@ -224,6 +252,27 @@ export class GenerationService {
         triggerSource: textModel.displayName,
         description: `AI 生成 ${config.title}`,
       });
+
+      // 扣减积分
+      if (this.creditsService) {
+        try {
+          await this.creditsService.consumeCredits({
+            userId,
+            moduleType: "ai-office",
+            operationType: `generate-${config.documentType.toLowerCase()}`,
+            referenceId: document.id,
+            description: `AI Office - 生成 ${config.documentType} "${config.title}"`,
+          });
+          this.logger.log(
+            `[generateDocument] Credits consumed: ${estimatedCredits} for ${config.documentType}`,
+          );
+        } catch (creditError) {
+          this.logger.warn(
+            `[generateDocument] Failed to consume credits: ${creditError}`,
+          );
+          // 积分扣减失败不应阻止文档生成完成
+        }
+      }
 
       // 完成
       yield {

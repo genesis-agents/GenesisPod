@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { Subject, Observable } from "rxjs";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { DeepResearchStatus } from "@prisma/client";
@@ -13,6 +13,8 @@ import {
   Reflection,
   ThinkingStep,
 } from "./types";
+import { CreditsService } from "../../../credits/credits.service";
+import { InsufficientCreditsException } from "../../../credits/exceptions/insufficient-credits.exception";
 
 /**
  * 深度研究 Agent 主控服务
@@ -31,6 +33,7 @@ export class DeepResearchAgentService {
     private readonly searchService: IterativeSearchService,
     private readonly reflectionService: SelfReflectionService,
     private readonly reportService: ReportSynthesizerService,
+    @Optional() private readonly creditsService: CreditsService,
   ) {}
 
   /**
@@ -72,6 +75,40 @@ export class DeepResearchAgentService {
     const thinkingChain: ThinkingStep[] = [];
     const searchRounds: SearchRound[] = [];
     const reflections: Reflection[] = [];
+
+    // 获取项目信息以获取 userId
+    const project = await this.prisma.researchProject.findUnique({
+      where: { id: projectId },
+      select: { userId: true },
+    });
+
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    const userId = project.userId;
+
+    // 积分检查：根据研究深度确定积分消耗
+    const depth = dto.options?.depth || "standard";
+    const creditsMap: Record<string, number> = {
+      quick: 200,
+      standard: 500,
+      deep: 1000,
+    };
+    const estimatedCredits = creditsMap[depth] || 500;
+
+    if (this.creditsService) {
+      const balanceCheck = await this.creditsService.checkBalance(
+        userId,
+        estimatedCredits,
+      );
+      if (!balanceCheck.sufficient) {
+        throw new InsufficientCreditsException(
+          estimatedCredits,
+          balanceCheck.balance,
+        );
+      }
+    }
 
     // 创建研究会话
     const session = await this.prisma.deepResearchSession.create({
@@ -310,6 +347,27 @@ export class DeepResearchAgentService {
         sourcesUsed: totalSources,
         completedAt: new Date(),
       });
+
+      // 扣减积分
+      if (this.creditsService) {
+        try {
+          await this.creditsService.consumeCredits({
+            userId,
+            moduleType: "ai-studio",
+            operationType: `research-${depth}`,
+            referenceId: session.id,
+            description: `Deep Research (${depth}) - ${dto.query.slice(0, 50)}...`,
+          });
+          this.logger.log(
+            `Credits consumed for research: ${estimatedCredits} credits for session ${session.id}`,
+          );
+        } catch (creditError) {
+          this.logger.warn(
+            `Failed to consume credits for research: ${creditError}`,
+          );
+          // 积分扣减失败不应阻止研究完成
+        }
+      }
 
       // 发送完成事件
       subject.next({

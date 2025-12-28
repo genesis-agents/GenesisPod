@@ -34,6 +34,7 @@ import CreateKnowledgeBaseDialog from './CreateKnowledgeBaseDialog';
 import EditKnowledgeBaseDialog from './EditKnowledgeBaseDialog';
 import SearchTestDialog from './SearchTestDialog';
 import DocumentListDialog from './DocumentListDialog';
+import AddDocumentsDialog from './AddDocumentsDialog';
 import SignInPrompt, { isAuthError } from '@/components/shared/SignInPrompt';
 
 /**
@@ -52,6 +53,10 @@ export default function PersonalKnowledgeBaseTab() {
     kbId: string;
     kbName: string;
   } | null>(null); // 文档列表弹窗
+  const [showAddDocs, setShowAddDocs] = useState<{
+    kbId: string;
+    kbName: string;
+  } | null>(null); // 添加内容弹窗
 
   const {
     knowledgeBases,
@@ -639,6 +644,16 @@ export default function PersonalKnowledgeBaseTab() {
                         <Pencil className="h-4 w-4" />
                         编辑
                       </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowAddDocs({ kbId: kb.id, kbName: kb.name });
+                        }}
+                        className="flex items-center gap-1.5 rounded-lg border border-green-300 bg-green-50 px-3 py-1.5 text-sm font-medium text-green-700 transition-colors hover:bg-green-100"
+                      >
+                        <Plus className="h-4 w-4" />
+                        添加内容
+                      </button>
                     </div>
 
                     {/* 文档列表按钮 */}
@@ -786,6 +801,26 @@ export default function PersonalKnowledgeBaseTab() {
           documents={expandedDocs}
           knowledgeBaseName={showDocList.kbName}
           onClose={() => setShowDocList(null)}
+        />
+      )}
+
+      {/* 添加内容弹窗 */}
+      {showAddDocs && (
+        <AddDocumentsDialog
+          knowledgeBaseId={showAddDocs.kbId}
+          knowledgeBaseName={showAddDocs.kbName}
+          onClose={() => setShowAddDocs(null)}
+          onDocumentsAdded={async () => {
+            // Refresh the expanded KB data after adding documents
+            if (expandedKbId === showAddDocs.kbId) {
+              await Promise.all([
+                refreshExpanded(),
+                refreshExpandedStats(),
+                refreshExpandedDocs(),
+              ]);
+            }
+            await refreshList();
+          }}
         />
       )}
 

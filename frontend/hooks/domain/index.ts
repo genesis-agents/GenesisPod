@@ -33,3 +33,15 @@ export type {
   AddDocumentDto,
   RAGQueryResult,
 } from './useKnowledgeBase';
+
+// Credits hooks
+export {
+  useCredits,
+  useCreditsTransactions,
+  useCreditsStats,
+  useCreditRules,
+  useCheckinHistory,
+  useEstimateCredits,
+  useCreditsCheck,
+} from './useCredits';
+export type { CreditsStats, CreditRule } from './useCredits';

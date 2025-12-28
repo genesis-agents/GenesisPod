@@ -681,7 +681,36 @@ function isMermaidDiagram(code: string, language?: string): boolean {
   return MERMAID_KEYWORDS.some((keyword) => trimmedCode.startsWith(keyword));
 }
 
-// Custom code renderer for ReactMarkdown that supports Mermaid
+// Helper function to detect if code is SVG
+function isSvgCode(code: string, language?: string): boolean {
+  if (language === 'svg' || language === 'xml') {
+    const trimmed = code.trim();
+    return trimmed.startsWith('<svg') || trimmed.includes('<svg');
+  }
+  // Auto-detect SVG even without language hint
+  const trimmed = code.trim();
+  return trimmed.startsWith('<svg') && trimmed.endsWith('</svg>');
+}
+
+// SVG Renderer component
+function SvgRenderer({ svgCode }: { svgCode: string }) {
+  // Sanitize SVG to prevent XSS - only allow safe SVG elements and attributes
+  const sanitizedSvg = svgCode
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags
+    .replace(/on\w+\s*=/gi, 'data-removed='); // Remove event handlers
+
+  return (
+    <div className="my-4 overflow-x-auto rounded-lg border border-gray-200 bg-white p-4">
+      <div
+        className="mx-auto"
+        style={{ maxWidth: '100%' }}
+        dangerouslySetInnerHTML={{ __html: sanitizedSvg }}
+      />
+    </div>
+  );
+}
+
+// Custom code renderer for ReactMarkdown that supports Mermaid and SVG
 function CodeBlock({ inline, className, children, ...props }: any) {
   const match = /language-(\w+)/.exec(className || '');
   const language = match ? match[1] : '';
@@ -690,6 +719,11 @@ function CodeBlock({ inline, className, children, ...props }: any) {
   // Check if this is a Mermaid diagram
   if (!inline && isMermaidDiagram(codeString, language)) {
     return <MermaidDiagram chart={codeString} className="my-4" />;
+  }
+
+  // Check if this is SVG code
+  if (!inline && isSvgCode(codeString, language)) {
+    return <SvgRenderer svgCode={codeString} />;
   }
 
   // Default code block rendering
@@ -831,7 +865,7 @@ function ModelIcon({
 
 export default function AskPage() {
   const router = useRouter();
-  const { user, accessToken: token } = useAuth();
+  const { user, accessToken: token, loginWithGoogle } = useAuth();
   const { t } = useI18n();
   const { userMessageStyle, aiMessageStyle } = useThemeStore();
   const { models, loading: modelsLoading } = useAIModels();
@@ -1567,7 +1601,7 @@ export default function AskPage() {
                     </span>
                   </div>
                   <button
-                    onClick={() => router.push('/login')}
+                    onClick={loginWithGoogle}
                     className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 px-8 py-3 text-lg font-medium text-white shadow-lg transition-all hover:scale-105 hover:shadow-xl"
                   >
                     <svg

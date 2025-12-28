@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  NotFoundException,
+  Logger,
+  Optional,
+} from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { MessageContentType } from "@prisma/client";
 import { AiChatService, ChatMessage } from "../../../ai-core/ai-chat.service";
@@ -16,6 +21,8 @@ import {
 } from "../../../ai-agents/core/agent/agent.types";
 import { ToolContext } from "../../../ai-agents/core/tool/tool.interface";
 import { TopicEventEmitterService } from "../topic-event-emitter.service";
+import { CreditsService } from "../../../../credits/credits.service";
+import { InsufficientCreditsException } from "../../../../credits/exceptions/insufficient-credits.exception";
 
 /**
  * Service responsible for generating AI responses in topics
@@ -34,6 +41,7 @@ export class AiResponseService {
     private teamsLLMAdapter: TeamsLLMAdapter,
     private functionCallingExecutor: FunctionCallingExecutor,
     private topicEventEmitter: TopicEventEmitterService,
+    @Optional() private creditsService: CreditsService,
   ) {
     // 保留重试方法引用供未来集成
     void this.generateWithToolsWithRetry;
@@ -318,7 +326,7 @@ export class AiResponseService {
 
   async generateAIResponse(
     topicId: string,
-    _userId: string,
+    userId: string,
     aiMemberId: string,
     _contextMessageIds: string[],
     debateRole?: {
@@ -327,6 +335,21 @@ export class AiResponseService {
       topic: string;
     } | null,
   ) {
+    // 积分检查
+    const estimatedCredits = 30; // AI Teams 每次回复消耗 30 积分
+    if (this.creditsService) {
+      const balanceCheck = await this.creditsService.checkBalance(
+        userId,
+        estimatedCredits,
+      );
+      if (!balanceCheck.sufficient) {
+        throw new InsufficientCreditsException(
+          estimatedCredits,
+          balanceCheck.balance,
+        );
+      }
+    }
+
     const aiMember = await this.prisma.topicAIMember.findFirst({
       where: { id: aiMemberId, topicId },
       select: {
@@ -1192,6 +1215,26 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
       where: { id: topicId },
       data: { updatedAt: new Date() },
     });
+
+    // 扣减积分
+    if (this.creditsService) {
+      try {
+        await this.creditsService.consumeCredits({
+          userId,
+          moduleType: "ai-teams",
+          operationType: "ai-reply",
+          tokenCount: tokensUsed,
+          modelName: aiMember.aiModel,
+          referenceId: message.id,
+          description: `AI Teams - ${aiMember.displayName} 回复`,
+        });
+      } catch (creditError) {
+        this.logger.warn(
+          `Failed to consume credits for AI Teams: ${creditError}`,
+        );
+        // 积分扣减失败不应阻止响应返回
+      }
+    }
 
     return message;
   }

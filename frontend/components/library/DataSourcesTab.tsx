@@ -17,11 +17,8 @@ import {
   Loader2,
   ChevronRight,
   FolderOpen,
-  Server,
-  Database,
-  Cpu,
-  Activity,
 } from 'lucide-react';
+import RAGStatusIndicator, { RAGServiceStatus } from './RAGStatusIndicator';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { useTranslation } from '@/lib/i18n';
@@ -148,20 +145,7 @@ interface DataSourceStatus {
   needsReauth?: boolean;
 }
 
-// RAG服务状态
-interface RAGServiceStatus {
-  embedding: {
-    status: 'ok' | 'error' | 'loading';
-    modelId?: string;
-    provider?: string;
-    dimensions?: number;
-    error?: string;
-  };
-  database: {
-    status: 'ok' | 'error' | 'loading';
-    error?: string;
-  };
-}
+// RAGServiceStatus 从 RAGStatusIndicator 组件导入
 
 /**
  * 个人数据源 TAB
@@ -416,100 +400,7 @@ export default function DataSourcesTab({
 
     return (
       <div className="space-y-6">
-        {/* RAG Service Status */}
-        <div className="rounded-xl border border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-blue-600" />
-              <h4 className="font-semibold text-gray-900">RAG 服务状态</h4>
-            </div>
-            <button
-              onClick={fetchRAGServiceStatus}
-              className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-white/50"
-              title="刷新服务状态"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {/* Embedding Service */}
-            <div className="flex items-center gap-3 rounded-lg bg-white/80 p-3">
-              <div
-                className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-                  ragServiceStatus.embedding.status === 'ok'
-                    ? 'bg-green-100 text-green-600'
-                    : ragServiceStatus.embedding.status === 'error'
-                      ? 'bg-red-100 text-red-600'
-                      : 'bg-gray-100 text-gray-400'
-                }`}
-              >
-                <Cpu className="h-5 w-5" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-900">
-                    向量嵌入服务
-                  </span>
-                  {ragServiceStatus.embedding.status === 'ok' ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  ) : ragServiceStatus.embedding.status === 'error' ? (
-                    <XCircle className="h-4 w-4 text-red-500" />
-                  ) : (
-                    <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-                  )}
-                </div>
-                {ragServiceStatus.embedding.status === 'ok' &&
-                ragServiceStatus.embedding.modelId ? (
-                  <p className="text-xs text-gray-500">
-                    {ragServiceStatus.embedding.modelId} (
-                    {ragServiceStatus.embedding.dimensions}D)
-                  </p>
-                ) : ragServiceStatus.embedding.status === 'error' ? (
-                  <p className="text-xs text-red-500">
-                    {ragServiceStatus.embedding.error}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-            {/* Database Service */}
-            <div className="flex items-center gap-3 rounded-lg bg-white/80 p-3">
-              <div
-                className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-                  ragServiceStatus.database.status === 'ok'
-                    ? 'bg-green-100 text-green-600'
-                    : ragServiceStatus.database.status === 'error'
-                      ? 'bg-red-100 text-red-600'
-                      : 'bg-gray-100 text-gray-400'
-                }`}
-              >
-                <Database className="h-5 w-5" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-900">
-                    向量数据库
-                  </span>
-                  {ragServiceStatus.database.status === 'ok' ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  ) : ragServiceStatus.database.status === 'error' ? (
-                    <XCircle className="h-4 w-4 text-red-500" />
-                  ) : (
-                    <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-                  )}
-                </div>
-                {ragServiceStatus.database.status === 'ok' ? (
-                  <p className="text-xs text-gray-500">PostgreSQL + pgvector</p>
-                ) : ragServiceStatus.database.status === 'error' ? (
-                  <p className="text-xs text-red-500">
-                    {ragServiceStatus.database.error}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Header */}
+        {/* Header with RAG Status Indicator */}
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">
@@ -519,13 +410,20 @@ export default function DataSourcesTab({
               {t('dataSources.overviewDesc')}
             </p>
           </div>
-          <button
-            onClick={fetchDataSourceStatuses}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-          >
-            <RefreshCw className="h-4 w-4" />
-            {t('dataSources.refreshStatus')}
-          </button>
+          <div className="flex items-center gap-3">
+            {/* RAG Status Indicator - 小型状态指示器 */}
+            <RAGStatusIndicator
+              status={ragServiceStatus}
+              onRefresh={fetchRAGServiceStatus}
+            />
+            <button
+              onClick={fetchDataSourceStatuses}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              <RefreshCw className="h-4 w-4" />
+              {t('dataSources.refreshStatus')}
+            </button>
+          </div>
         </div>
 
         {/* External Data Sources */}

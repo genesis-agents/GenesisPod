@@ -5,6 +5,7 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiCoreModule } from "../ai-core/ai-core.module";
 import { AiImageModule } from "../ai-image/ai-image.module";
 import { StorageModule } from "../../core/storage/storage.module";
+import { CreditsModule } from "../../credits/credits.module";
 
 // Core
 import { AIModelController, AIModelService, IntentParserService } from "./core";
@@ -67,6 +68,7 @@ import { AgentsController } from "./agents";
     AiCoreModule,
     AiImageModule,
     StorageModule,
+    CreditsModule,
   ],
   controllers: [
     AIModelController,

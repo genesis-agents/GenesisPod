@@ -9,6 +9,7 @@ import { AiTeamsGateway } from "./ai-teams.gateway";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiCoreModule } from "../ai-core/ai-core.module";
 import { AiAgentsModule } from "../ai-agents/ai-agents.module";
+import { CreditsModule } from "../../credits/credits.module";
 import { TeamMemberAgent, TeamsLLMAdapter } from "./agents";
 import { AiTeamsIntegrationService } from "./ai-teams-integration.service";
 import {
@@ -26,7 +27,12 @@ import {
 } from "./services";
 
 @Module({
-  imports: [PrismaModule, AiCoreModule, forwardRef(() => AiAgentsModule)],
+  imports: [
+    PrismaModule,
+    AiCoreModule,
+    forwardRef(() => AiAgentsModule),
+    CreditsModule,
+  ],
   controllers: [AiTeamsController, UsersController, BookmarksController],
   providers: [
     AiTeamsService,

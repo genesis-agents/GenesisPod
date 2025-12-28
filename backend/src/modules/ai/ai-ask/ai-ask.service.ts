@@ -10,6 +10,8 @@ import { AIModelType } from "@prisma/client";
 import { AgentOrchestrator, ToolType, ToolRegistry } from "../ai-agents/core";
 import { AskLLMAdapter } from "./adapters";
 import { RAGPipelineService } from "../rag/services/rag-pipeline.service";
+import { CreditsService } from "../../credits/credits.service";
+import { InsufficientCreditsException } from "../../credits/exceptions/insufficient-credits.exception";
 
 interface CreateSessionDto {
   title?: string;
@@ -57,6 +59,7 @@ export class AiAskService {
     @Optional() private readonly askLLMAdapter: AskLLMAdapter,
     @Optional() private readonly toolRegistry: ToolRegistry,
     @Optional() private readonly ragPipelineService: RAGPipelineService,
+    @Optional() private readonly creditsService: CreditsService,
   ) {}
 
   /**
@@ -220,6 +223,24 @@ export class AiAskService {
     // 获取模型配置
     const modelId = dto.modelId || session.modelId;
     const modelConfig = await this.getModelConfig(modelId);
+
+    // 积分检查：判断操作类型和预估积分
+    const isRagQuery = dto.knowledgeBaseIds && dto.knowledgeBaseIds.length > 0;
+    const operationType = isRagQuery ? "rag-chat" : "chat";
+    const estimatedCredits = isRagQuery ? 15 : 10; // RAG 查询需要更多积分
+
+    if (this.creditsService) {
+      const balanceCheck = await this.creditsService.checkBalance(
+        userId,
+        estimatedCredits,
+      );
+      if (!balanceCheck.sufficient) {
+        throw new InsufficientCreditsException(
+          estimatedCredits,
+          balanceCheck.balance,
+        );
+      }
+    }
 
     // 构建上下文消息
     const contextMessages = await this.buildContext(sessionId);
@@ -411,6 +432,26 @@ export class AiAskService {
           tokens: tokensUsed,
         },
       });
+
+      // 扣减积分
+      if (this.creditsService) {
+        try {
+          await this.creditsService.consumeCredits({
+            userId,
+            moduleType: "ai-ask",
+            operationType,
+            tokenCount: tokensUsed,
+            modelName: modelConfig.name,
+            referenceId: assistantMessage.id,
+            description: `AI Ask ${operationType === "rag-chat" ? "(RAG)" : ""} - ${modelConfig.name}`,
+          });
+        } catch (creditError) {
+          this.logger.warn(
+            `Failed to consume credits for AI Ask: ${creditError}`,
+          );
+          // 积分扣减失败不应阻止响应返回
+        }
+      }
 
       // 更新会话时间戳
       await this.prisma.askSession.update({

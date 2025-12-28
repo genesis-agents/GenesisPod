@@ -123,6 +123,9 @@ model User {
   // 用户数据源连接 (用于知识库)
   userDataSources UserDataSource[]
 
+  // 积分系统
+  creditAccount CreditAccount?
+
   @@map("users")
 }
 
@@ -4180,6 +4183,9 @@ enum KnowledgeBaseSourceType {
   GOOGLE_DRIVE
   MANUAL
   URL
+  BOOKMARK // 平台内书签
+  NOTE // 平台内笔记
+  IMAGE // 图片OCR
 }
 
 // 知识库类型
@@ -4518,4 +4524,111 @@ model OfficeDocumentKnowledgeBase {
 
   @@unique([officeDocumentId, knowledgeBaseId])
   @@map("office_document_knowledge_bases")
+}
+
+// ============ 积分系统 (Credits System) ============
+
+// 积分交易类型
+enum CreditTransactionType {
+  // 获取类型
+  INITIAL           // 注册初始积分
+  DAILY_CHECKIN     // 每日签到
+  TASK_REWARD       // 任务奖励
+  REFERRAL_BONUS    // 推荐奖励
+  ADMIN_GRANT       // 管理员发放
+  COMPENSATION      // 异常补偿
+  // 消耗类型
+  AI_ASK            // AI 问答消耗
+  AI_STUDIO         // AI 研究室消耗
+  AI_TEAMS          // AI 团队消耗
+  AI_OFFICE         // AI 办公消耗
+  AI_CODING         // AI 编程消耗
+  AI_SIMULATION     // AI 模拟消耗
+  // 调整类型
+  EXPIRATION        // 过期扣除
+  REFUND            // 退款
+  ADJUSTMENT        // 手动调整
+}
+
+// 积分账户
+model CreditAccount {
+  id            String    @id @default(uuid())
+  userId        String    @unique @map("user_id")
+  balance       Int       @default(10000)
+  totalEarned   Int       @default(10000) @map("total_earned")
+  totalSpent    Int       @default(0) @map("total_spent")
+  giftBalance   Int       @default(0) @map("gift_balance")
+  giftExpiresAt DateTime? @map("gift_expires_at")
+  isActive      Boolean   @default(true) @map("is_active")
+  isFrozen      Boolean   @default(false) @map("is_frozen")
+  todaySpent    Int       @default(0) @map("today_spent")
+  todayDate     DateTime? @map("today_date")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions CreditTransaction[]
+  checkins     DailyCheckin[]
+
+  @@index([userId])
+  @@map("credit_accounts")
+}
+
+// 积分交易记录
+model CreditTransaction {
+  id             String                @id @default(uuid())
+  accountId      String                @map("account_id")
+  type           CreditTransactionType
+  amount         Int                   // 正数为收入，负数为支出
+  balanceAfter   Int                   @map("balance_after")
+  description    String                @db.VarChar(500)
+  moduleType     String?               @map("module_type")     // ai-ask, ai-studio 等
+  operationType  String?               @map("operation_type")  // chat, research-deep 等
+  referenceId    String?               @map("reference_id")    // 关联的业务ID
+  tokenCount     Int?                  @map("token_count")     // AI调用消耗的token数
+  modelName      String?               @map("model_name")      // 使用的AI模型
+  idempotencyKey String?               @unique @map("idempotency_key")  // 幂等性key
+  createdAt      DateTime              @default(now()) @map("created_at")
+
+  account CreditAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt(sort: Desc)])
+  @@index([type])
+  @@index([moduleType, operationType])
+  @@map("credit_transactions")
+}
+
+// 积分规则配置
+model CreditRule {
+  id               String   @id @default(uuid())
+  moduleType       String   @map("module_type")      // ai-ask, ai-studio, ai-teams 等
+  operationType    String   @map("operation_type")   // chat, research-quick, ai-reply 等
+  baseCredits      Int      @map("base_credits")     // 基础积分消耗
+  tokenMultiplier  Float    @default(1.0) @map("token_multiplier")  // Token乘数
+  modelMultipliers Json     @default("{}") @map("model_multipliers") // 不同模型的倍率 {"gpt-4o": 2.0}
+  name             String   @db.VarChar(100)         // 规则名称
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@unique([moduleType, operationType])
+  @@map("credit_rules")
+}
+
+// 每日签到记录
+model DailyCheckin {
+  id            String   @id @default(uuid())
+  accountId     String   @map("account_id")
+  checkinDate   DateTime @map("checkin_date") @db.Date
+  creditsEarned Int      @map("credits_earned")
+  streakDays    Int      @default(1) @map("streak_days")
+  ipAddress     String?  @map("ip_address") @db.VarChar(45)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  account CreditAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, checkinDate])
+  @@index([accountId, checkinDate(sort: Desc)])
+  @@index([ipAddress, checkinDate])
+  @@map("daily_checkins")
 }

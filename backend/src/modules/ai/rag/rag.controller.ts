@@ -33,7 +33,14 @@ import {
   RAGQueryDto,
   SimpleQueryDto,
   AddResourcesDto,
+  FetchUrlDto,
+  ImportUrlsDto,
+  ImportBookmarksDto,
+  ImportNotesDto,
+  ImportOcrDto,
 } from "./dto";
+import { UrlFetchService } from "./services/url-fetch.service";
+import { PlatformImportService } from "./services/platform-import.service";
 
 @ApiTags("RAG")
 @Controller("rag")
@@ -45,6 +52,8 @@ export class RAGController {
     private readonly ragPipelineService: RAGPipelineService,
     private readonly googleDriveRAGService: GoogleDriveRAGService,
     private readonly embeddingService: EmbeddingService,
+    private readonly urlFetchService: UrlFetchService,
+    private readonly platformImportService: PlatformImportService,
   ) {}
 
   // ==================== Embedding Configuration ====================
@@ -283,6 +292,145 @@ export class RAGController {
     @Query("parentId") parentId?: string,
   ) {
     return this.googleDriveRAGService.listFolders(req.user.id, parentId);
+  }
+
+  // ==================== URL Import ====================
+
+  @Post("knowledge-bases/:id/fetch-url")
+  @ApiOperation({ summary: "Preview URL content before importing" })
+  @ApiResponse({ status: 200, description: "URL content preview" })
+  async fetchUrl(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() dto: FetchUrlDto,
+  ) {
+    // Verify ownership
+    await this.knowledgeBaseService.findById(id, req.user.id);
+    return this.urlFetchService.fetchUrl(dto.url);
+  }
+
+  @Post("knowledge-bases/:id/import-urls")
+  @ApiOperation({ summary: "Batch import URLs to knowledge base" })
+  @ApiResponse({ status: 201, description: "URLs imported" })
+  async importUrls(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() dto: ImportUrlsDto,
+  ) {
+    // Verify ownership
+    await this.knowledgeBaseService.findById(id, req.user.id);
+    return this.urlFetchService.importUrls(id, dto.urls);
+  }
+
+  // ==================== Platform Bookmark Import ====================
+
+  @Get("knowledge-bases/:id/available-bookmarks")
+  @ApiOperation({ summary: "Get available bookmarks for import" })
+  @ApiResponse({ status: 200, description: "List of available bookmarks" })
+  async getAvailableBookmarks(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Query("search") search?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+  ) {
+    // Verify ownership
+    await this.knowledgeBaseService.findById(id, req.user.id);
+    return this.platformImportService.getAvailableBookmarks(req.user.id, {
+      search,
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+    });
+  }
+
+  @Post("knowledge-bases/:id/import-bookmarks")
+  @ApiOperation({ summary: "Import platform bookmarks to knowledge base" })
+  @ApiResponse({ status: 201, description: "Bookmarks imported" })
+  async importBookmarks(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() dto: ImportBookmarksDto,
+  ) {
+    // Verify ownership
+    await this.knowledgeBaseService.findById(id, req.user.id);
+    return this.platformImportService.importBookmarks(
+      id,
+      req.user.id,
+      dto.bookmarkIds,
+    );
+  }
+
+  // ==================== Platform Note Import ====================
+
+  @Get("knowledge-bases/:id/available-notes")
+  @ApiOperation({ summary: "Get available notes for import" })
+  @ApiResponse({ status: 200, description: "List of available notes" })
+  async getAvailableNotes(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Query("search") search?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+  ) {
+    // Verify ownership
+    await this.knowledgeBaseService.findById(id, req.user.id);
+    return this.platformImportService.getAvailableNotes(req.user.id, {
+      search,
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+    });
+  }
+
+  @Post("knowledge-bases/:id/import-notes")
+  @ApiOperation({ summary: "Import platform notes to knowledge base" })
+  @ApiResponse({ status: 201, description: "Notes imported" })
+  async importNotes(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() dto: ImportNotesDto,
+  ) {
+    // Verify ownership
+    await this.knowledgeBaseService.findById(id, req.user.id);
+    return this.platformImportService.importNotes(
+      id,
+      req.user.id,
+      dto.noteIds,
+      dto.autoSync,
+    );
+  }
+
+  // ==================== Image OCR Import ====================
+
+  @Post("knowledge-bases/:id/import-ocr")
+  @ApiOperation({ summary: "Import OCR results to knowledge base" })
+  @ApiResponse({ status: 201, description: "OCR results imported" })
+  async importOcr(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() dto: ImportOcrDto,
+  ) {
+    // Verify ownership
+    await this.knowledgeBaseService.findById(id, req.user.id);
+
+    const results = [];
+    for (const doc of dto.documents) {
+      const kbDoc = await this.knowledgeBaseService.addDocument(id, {
+        title: doc.title,
+        content: doc.content,
+        sourceType: "IMAGE",
+        sourceUrl: doc.imageUrl,
+        mimeType: "image/*",
+        metadata: {
+          ocrProcessed: true,
+        },
+      });
+      results.push(kbDoc.id);
+    }
+
+    return {
+      success: results.length,
+      documentIds: results,
+    };
   }
 
   // ==================== Member Management (Team Knowledge Base) ====================

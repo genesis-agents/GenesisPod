@@ -2,8 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { User, LogOut, LogIn, UserCircle } from 'lucide-react';
+import { User, LogOut, LogIn, UserCircle, Coins } from 'lucide-react';
 import Link from 'next/link';
+import { useCreditsStore } from '@/stores/creditsStore';
+import { useTranslation } from '@/lib/i18n';
 
 interface UserProfileButtonProps {
   isCollapsed?: boolean;
@@ -24,6 +26,31 @@ export default function UserProfileButton({
   const { user, loginWithGoogle, logout, isLoading } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { t } = useTranslation();
+  const {
+    account,
+    checkinStatus,
+    isCheckingIn,
+    fetchBalance,
+    fetchCheckinStatus,
+    performCheckin,
+    showCheckinModal,
+  } = useCreditsStore();
+
+  // 初始化加载积分数据
+  useEffect(() => {
+    if (user) {
+      fetchBalance();
+      fetchCheckinStatus();
+    }
+  }, [user, fetchBalance, fetchCheckinStatus]);
+
+  // 处理签到
+  const handleCheckin = async () => {
+    if (!checkinStatus?.canCheckin || isCheckingIn) return;
+    await performCheckin();
+    showCheckinModal();
+  };
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -97,6 +124,18 @@ export default function UserProfileButton({
             <div className="mt-0.5 truncate text-sm text-gray-500">
               {user.email}
             </div>
+            {/* Credits Balance */}
+            <div className="mt-2 flex items-center justify-between rounded-lg bg-gradient-to-r from-blue-50 to-purple-50 px-3 py-2">
+              <div className="flex items-center gap-1.5">
+                <Coins className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-medium text-gray-700">
+                  {t('credits.balance')}
+                </span>
+              </div>
+              <span className="font-semibold text-blue-600">
+                {account?.balance?.toLocaleString() ?? 0}
+              </span>
+            </div>
           </div>
           <div className="p-1">
             <Link
@@ -105,8 +144,40 @@ export default function UserProfileButton({
               className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
             >
               <UserCircle className="h-4 w-4" />
-              <span>Profile</span>
+              <span>{t('common.profile')}</span>
             </Link>
+            <Link
+              href="/credits"
+              onClick={() => setShowMenu(false)}
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              <Coins className="h-4 w-4" />
+              <span>{t('credits.center')}</span>
+            </Link>
+            {checkinStatus?.canCheckin && (
+              <button
+                onClick={() => {
+                  handleCheckin();
+                  setShowMenu(false);
+                }}
+                disabled={isCheckingIn}
+                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-green-600 transition-colors hover:bg-green-50 disabled:opacity-50"
+              >
+                {isCheckingIn ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-green-300 border-t-green-600" />
+                ) : (
+                  <svg
+                    className="h-4 w-4"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" />
+                  </svg>
+                )}
+                <span>{t('credits.checkin')}</span>
+              </button>
+            )}
+            <div className="my-1 border-t border-gray-100" />
             <button
               onClick={() => {
                 logout();
@@ -115,7 +186,7 @@ export default function UserProfileButton({
               className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
             >
               <LogOut className="h-4 w-4" />
-              <span>Logout</span>
+              <span>{t('common.logout')}</span>
             </button>
           </div>
         </div>

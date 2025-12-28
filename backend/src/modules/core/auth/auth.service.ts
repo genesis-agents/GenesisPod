@@ -53,6 +53,23 @@ export class AuthService {
       },
     });
 
+    // 创建积分账户（初始 10000 积分）
+    try {
+      await this.prisma.creditAccount.create({
+        data: {
+          userId: user.id,
+          balance: 10000,
+          totalEarned: 10000,
+        },
+      });
+      this.logger.log(`Credit account created for user: ${user.username}`);
+    } catch (creditError) {
+      this.logger.warn(
+        `Failed to create credit account for user ${user.id}: ${creditError}`,
+      );
+      // 积分账户创建失败不应阻止用户注册
+    }
+
     // 生成 tokens
     const tokens = this.generateTokens(user.id, user.email);
 
@@ -194,6 +211,25 @@ export class AuthService {
           isVerified: true, // Google账户已验证
         },
       });
+
+      // 创建积分账户（初始 10000 积分）
+      try {
+        await this.prisma.creditAccount.create({
+          data: {
+            userId: user.id,
+            balance: 10000,
+            totalEarned: 10000,
+          },
+        });
+        this.logger.log(
+          `Credit account created for Google user: ${user.username}`,
+        );
+      } catch (creditError) {
+        this.logger.warn(
+          `Failed to create credit account for Google user ${user.id}: ${creditError}`,
+        );
+        // 积分账户创建失败不应阻止用户注册
+      }
 
       this.logger.log(`New Google user created: ${user.username}`);
     } else if (!user.oauthId || user.oauthProvider !== "google") {
