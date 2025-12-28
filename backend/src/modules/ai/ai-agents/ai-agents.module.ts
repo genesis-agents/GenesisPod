@@ -102,6 +102,7 @@ import { AiCoreModule } from "../ai-core/ai-core.module";
 import { AiStudioModule } from "../ai-studio/ai-studio.module";
 import { AiSimulationModule } from "../ai-simulation/ai-simulation.module";
 import { AiTeamsModule } from "../ai-teams/ai-teams.module";
+import { ExportModule } from "../../export/export.module";
 
 @Module({
   imports: [
@@ -111,6 +112,7 @@ import { AiTeamsModule } from "../ai-teams/ai-teams.module";
     AiStudioModule,
     AiSimulationModule,
     forwardRef(() => AiTeamsModule),
+    ExportModule,
   ],
   controllers: [AiAgentsController],
   providers: [
