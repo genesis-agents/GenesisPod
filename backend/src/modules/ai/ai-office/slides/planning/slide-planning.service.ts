@@ -289,12 +289,32 @@ export class SlidePlanningService {
       `[generateOutline] Using model: ${textModel.displayName} (${textModel.modelId}), provider: ${textModel.provider}, apiKey: ${textModel.apiKey ? "***" + textModel.apiKey.slice(-4) : "NONE"}`,
     );
 
+    // 智能计算页数：根据内容长度自动决定
+    let targetSlideCount = options.slideCount;
+    if (!targetSlideCount || targetSlideCount <= 0) {
+      // 自动计算：每2000字约5页，最少8页，最多40页
+      const contentLength = content.length;
+      targetSlideCount = Math.max(
+        8,
+        Math.min(40, Math.ceil(contentLength / 2000) * 5),
+      );
+      this.logger.log(
+        `[generateOutline] Auto-calculated slide count: ${targetSlideCount} (content: ${contentLength} chars)`,
+      );
+    }
+
     // 构建提示词
     let prompt = OUTLINE_GENERATION_PROMPT.replace("{content}", content);
 
-    if (options.slideCount) {
-      prompt += `\n\nTarget slide count: approximately ${options.slideCount} slides.`;
-    }
+    // 强制页数约束（不是建议，是要求）
+    prompt += `\n\n## CRITICAL SLIDE COUNT REQUIREMENT
+You MUST generate EXACTLY ${targetSlideCount} slides (±2 slides allowed for optimal content flow).
+- Minimum: ${Math.max(5, targetSlideCount - 2)} slides
+- Maximum: ${targetSlideCount + 2} slides
+- Do NOT generate fewer slides to save effort
+- Do NOT generate more slides than needed
+- Ensure comprehensive coverage of the content`;
+
     if (options.language === "zh") {
       prompt += `\n\nIMPORTANT: Generate all titles and content in Chinese (简体中文).`;
     }

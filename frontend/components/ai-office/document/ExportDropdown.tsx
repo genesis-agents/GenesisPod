@@ -112,7 +112,7 @@ export default function ExportDropdown({
 
     try {
       const response = await fetch(
-        `${config.apiBaseUrl}/ai-office/slides/${documentId}/export`,
+        `${config.apiUrl}/ai-office/slides/${documentId}/export`,
         {
           method: 'POST',
           headers: {

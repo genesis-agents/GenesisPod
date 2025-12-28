@@ -809,7 +809,7 @@ export default function SlidesTab() {
         urls: [] as string[],
         visualStyle: 'default',
         visualStyleName: '默认',
-        pageCount: 8,
+        pageCount: 0, // 0 表示自动计算
         colorTheme: null,
         cleanPrompt: userInput,
       };
@@ -836,8 +836,10 @@ export default function SlidesTab() {
       if (intentData.visualStyleName && intentData.visualStyle !== 'default') {
         intentSummary.push(`风格: ${intentData.visualStyleName}`);
       }
-      if (intentData.pageCount) {
+      if (intentData.pageCount && intentData.pageCount > 0) {
         intentSummary.push(`页数: ${intentData.pageCount}页`);
+      } else {
+        intentSummary.push(`页数: 自动`);
       }
 
       if (intentSummary.length > 0) {
@@ -852,9 +854,14 @@ export default function SlidesTab() {
         ]);
       }
 
-      // 使用解析后的参数
-      const slideCount = intentData.pageCount || 8;
+      // 智能计算页数：用户指定 > 自动计算
+      // 自动计算逻辑：有URL时让后端根据内容长度决定，纯提示词时默认10-15页
       const urls = intentData.urls || [];
+      let slideCount = intentData.pageCount;
+      if (!slideCount || slideCount <= 0) {
+        // 没有指定页数时，让后端自动计算（传 undefined）
+        slideCount = undefined as any;
+      }
 
       // 智能选择 API 端点：
       // 1. 如果 config.apiUrl 包含 localhost，说明环境变量没配置，使用相对路径（通过 Next.js API route）
@@ -1658,397 +1665,213 @@ export default function SlidesTab() {
         className="relative flex flex-shrink-0 flex-col border-r border-gray-200 bg-white"
         style={{ width: `${leftPanelWidth}px` }}
       >
-        {/* 头部 */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-orange-600">
-              <Sparkles className="h-4 w-4 text-white" />
+        {/* 头部 - 固定 */}
+        <div className="flex-shrink-0 border-b border-gray-200 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-orange-600">
+                <Sparkles className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <h1 className="text-sm font-semibold">AI Slides</h1>
+                <p className="text-xs text-gray-500">智能PPT生成器</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-sm font-semibold">AI Slides</h1>
-              <p className="text-xs text-gray-500">智能PPT生成器</p>
+            <div className="flex items-center gap-2">
+              {generationStep !== 'idle' && (
+                <button
+                  onClick={resetGeneration}
+                  className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+                  title="重新开始"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {generationStep !== 'idle' && (
-              <button
-                onClick={resetGeneration}
-                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
-                title="重新开始"
-              >
-                <RefreshCw className="h-4 w-4" />
-              </button>
-            )}
-          </div>
+
+          {/* 步骤指示器 - 紧凑显示 */}
+          {generationStep !== 'idle' && (
+            <div className="mt-3">
+              <StepIndicator currentStep={generationStep} />
+            </div>
+          )}
+
+          {/* AI 解析结果提示 - 紧凑标签 */}
+          {parsedIntent && generationStep !== 'idle' && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {parsedIntent.urls.length > 0 && (
+                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                  📎 {parsedIntent.urls.length}链接
+                </span>
+              )}
+              {parsedIntent.visualStyle !== 'default' && (
+                <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">
+                  🎨 {parsedIntent.visualStyleName}
+                </span>
+              )}
+              {parsedIntent.pageCount && (
+                <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                  📄 {parsedIntent.pageCount}页
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* 步骤指示器 */}
-        {generationStep !== 'idle' && (
-          <div className="border-b border-gray-200 bg-gray-50">
-            <StepIndicator currentStep={generationStep} />
-          </div>
-        )}
-
-        {/* AI 解析结果提示（仅在有解析结果时显示） */}
-        <AnimatePresence>
-          {parsedIntent && generationStep !== 'idle' && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden border-b border-gray-200"
-            >
-              <div className="flex flex-wrap items-center gap-2 bg-gradient-to-r from-orange-50 to-amber-50 px-4 py-2">
-                <span className="text-xs text-gray-500">AI 理解:</span>
-                {parsedIntent.urls.length > 0 && (
-                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
-                    📎 {parsedIntent.urls.length} 个链接
-                  </span>
-                )}
-                {parsedIntent.visualStyle !== 'default' && (
-                  <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">
-                    🎨 {parsedIntent.visualStyleName}
-                  </span>
-                )}
-                {parsedIntent.pageCount && (
-                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
-                    📄 {parsedIntent.pageCount}页
-                  </span>
-                )}
-                {parsedIntent.colorTheme && (
-                  <span className="rounded-full bg-pink-100 px-2 py-0.5 text-xs text-pink-700">
-                    🎨 {parsedIntent.colorTheme}
-                  </span>
-                )}
+        {/* 可滚动的内容区域 */}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          {/* AI 思考过程 - 仅在生成中显示，紧凑版 */}
+          {generationStep !== 'idle' &&
+            generationStep !== 'complete' &&
+            thinkingSteps.length > 0 && (
+              <div className="flex-shrink-0 border-b border-gray-200 px-3 py-2">
+                <AIThinkingPanel
+                  steps={thinkingSteps}
+                  isGenerating={true}
+                  currentTool={currentThinkingTool}
+                  currentDescription={currentThinkingDescription}
+                />
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* AI 思考过程面板 - Genspark 风格 */}
-        {(generationStep !== 'idle' || thinkingSteps.length > 0) && (
-          <div className="border-b border-gray-200 px-3 py-3">
-            <AIThinkingPanel
-              steps={thinkingSteps}
-              isGenerating={
-                generationStep !== 'idle' && generationStep !== 'complete'
-              }
-              currentTool={currentThinkingTool}
-              currentDescription={currentThinkingDescription}
-            />
-          </div>
-        )}
-
-        {/* 历史记录区域 */}
-        <div className="border-b border-gray-200">
-          <button
-            onClick={() => setShowHistory(!showHistory)}
-            className="flex w-full items-center justify-between bg-gray-50 px-4 py-2.5 hover:bg-gray-100"
-          >
-            <div className="flex items-center space-x-2">
-              <Clock className="h-4 w-4 text-gray-500" />
-              <h3 className="text-sm font-semibold text-gray-700">生成历史</h3>
-              <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-500">
-                {history.length}
-              </span>
-            </div>
-            {showHistory ? (
-              <ChevronUp className="h-4 w-4 text-gray-600" />
-            ) : (
-              <ChevronDown className="h-4 w-4 text-gray-600" />
             )}
-          </button>
-          <AnimatePresence>
-            {showHistory && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="max-h-[200px] overflow-y-auto bg-gray-50 p-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-xs text-gray-500">
-                      最近 {history.length} 条记录
-                    </span>
-                    {history.length > 0 && (
-                      <button
-                        onClick={clearHistory}
-                        className="text-xs text-red-500 hover:text-red-600"
-                      >
-                        清空
-                      </button>
-                    )}
-                  </div>
-                  {history.length === 0 ? (
-                    <p className="py-4 text-center text-xs text-gray-400">
-                      暂无历史记录
-                    </p>
+
+          {/* 主内容区域 - 根据步骤显示不同内容 */}
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {generationStep === 'idle' && (
+              <>
+                <div className="flex-1 space-y-3 overflow-y-auto p-4">
+                  {messages.length === 0 ? (
+                    <div className="flex h-full items-center justify-center text-gray-400">
+                      <div className="text-center">
+                        <Wand2 className="mx-auto mb-3 h-10 w-10" />
+                        <p className="text-sm font-medium">开始创建PPT</p>
+                        <p className="mt-1 text-xs">
+                          描述主题和要求，AI会为你规划大纲、设计布局
+                        </p>
+                      </div>
+                    </div>
                   ) : (
-                    <div className="space-y-2">
-                      {history.slice(0, 20).map((item) => (
+                    <>
+                      {messages.map((message) => (
                         <div
-                          key={item.id}
-                          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-2 hover:border-gray-300"
+                          key={message.id}
+                          className={cn(
+                            'flex',
+                            message.role === 'user'
+                              ? 'justify-end'
+                              : 'justify-start'
+                          )}
                         >
-                          <div className="mr-2 min-w-0 flex-1">
-                            <p className="truncate text-sm text-gray-900">
-                              {item.prompt}
+                          <div
+                            className={cn(
+                              'max-w-[85%] rounded-lg px-4 py-2',
+                              message.role === 'user'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-900'
+                            )}
+                          >
+                            <p className="whitespace-pre-wrap text-sm">
+                              {message.content}
                             </p>
-                            <div className="mt-1 flex items-center gap-2">
-                              <span className="text-xs text-gray-500">
-                                {formatRelativeTime(item.timestamp)}
-                              </span>
-                              <span className="rounded bg-orange-100 px-1.5 py-0.5 text-xs text-orange-600">
-                                {item.slideCount} 页
-                              </span>
-                              {item.status === 'success' ? (
-                                <Check className="h-3 w-3 text-green-500" />
-                              ) : item.status === 'error' ? (
-                                <span className="text-xs text-red-500">
-                                  失败
-                                </span>
-                              ) : (
-                                <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            {item.status === 'success' &&
-                              item.result?.documentId && (
-                                <button
-                                  onClick={() => {
-                                    if (item.result?.documentId) {
-                                      setCurrentDocument(
-                                        item.result.documentId
-                                      );
-                                    }
-                                  }}
-                                  className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-blue-600"
-                                  title="查看结果"
-                                >
-                                  <Eye className="h-3.5 w-3.5" />
-                                </button>
-                              )}
-                            <button
-                              onClick={() => removeHistory(item.id)}
-                              className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-red-500"
-                              title="删除"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
                           </div>
                         </div>
                       ))}
-                    </div>
+                      <div ref={messagesEndRef} />
+                    </>
                   )}
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* 资源列表区域 */}
-        <div
-          className={cn(
-            'border-b border-gray-200 transition-all duration-300',
-            resourceListCollapsed ? 'h-11' : 'h-40'
-          )}
-        >
-          <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-2.5">
-            <div className="flex items-center space-x-2">
-              <h3 className="text-sm font-semibold text-gray-700">已选资源</h3>
-              <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-500">
-                {resources.length}
-              </span>
-            </div>
-            <button
-              onClick={() => setResourceListCollapsed(!resourceListCollapsed)}
-              className="rounded p-1 hover:bg-gray-200"
-            >
-              {resourceListCollapsed ? (
-                <ChevronDown className="h-4 w-4 text-gray-600" />
-              ) : (
-                <ChevronUp className="h-4 w-4 text-gray-600" />
-              )}
-            </button>
-          </div>
-          {!resourceListCollapsed && (
-            <div className="flex h-[calc(100%-40px)] flex-col overflow-hidden">
-              {resources.length > 0 && (
-                <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-2">
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="checkbox"
-                      checked={
-                        selectedResourceIds.length === resources.length &&
-                        resources.length > 0
-                      }
-                      onChange={handleToggleSelectAll}
-                      className="h-4 w-4 cursor-pointer rounded border-gray-300 text-blue-600"
+                <div className="border-t border-gray-200 bg-white p-4">
+                  <div className="relative">
+                    <textarea
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          generateOutline();
+                        }
+                      }}
+                      placeholder="直接描述你想要的PPT，AI会自动理解你的需求：&#10;&#10;例如：&#10;• 帮我做一个10页的AI发展历程PPT，用漫画风格&#10;• 基于 https://example.com/report 这篇文章做一个哆啦A梦风格的介绍&#10;• 做一份关于新能源汽车的商业报告，要专业一点，15页左右"
+                      className="w-full resize-none rounded-xl border-2 border-gray-200 px-4 py-4 pb-14 text-sm placeholder:text-gray-400 focus:border-orange-500 focus:outline-none"
+                      rows={4}
+                      disabled={isLoading}
                     />
-                    <span className="text-xs text-gray-600">
-                      已选 {selectedResourceIds.length}/{resources.length}
-                    </span>
-                  </div>
-                </div>
-              )}
-              <div className="flex-1 space-y-2 overflow-y-auto p-3">
-                {resources.length === 0 ? (
-                  <div className="py-4 text-center">
-                    <Plus className="mx-auto h-6 w-6 text-gray-400" />
-                    <p className="mt-2 text-xs text-gray-500">
-                      在 Explore 页面添加资源
-                    </p>
-                  </div>
-                ) : (
-                  resources.map((resource) => (
-                    <ResourceCard
-                      key={resource._id}
-                      resource={resource as Resource}
-                    />
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* 主内容区域 - 根据步骤显示不同内容 */}
-        <div className="flex flex-1 flex-col overflow-hidden">
-          {generationStep === 'idle' && (
-            <>
-              <div className="flex-1 space-y-3 overflow-y-auto p-4">
-                {messages.length === 0 ? (
-                  <div className="flex h-full items-center justify-center text-gray-400">
-                    <div className="text-center">
-                      <Wand2 className="mx-auto mb-3 h-10 w-10" />
-                      <p className="text-sm font-medium">开始创建PPT</p>
-                      <p className="mt-1 text-xs">
-                        描述主题和要求，AI会为你规划大纲、设计布局
+                    <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
+                      <p className="text-xs text-gray-400">
+                        支持直接粘贴URL、指定风格、页数、配色等，AI会自动理解
                       </p>
+                      <button
+                        onClick={generateOutline}
+                        disabled={!input.trim() || isLoading}
+                        className="flex items-center gap-2 rounded-lg bg-orange-500 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-orange-600 disabled:bg-gray-300"
+                      >
+                        {isLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-4 w-4" />
+                        )}
+                        <span>生成PPT</span>
+                      </button>
                     </div>
                   </div>
+                </div>
+              </>
+            )}
+
+            {generationStep === 'outline' && (
+              <OutlineEditor
+                outline={outline}
+                onUpdate={setOutline}
+                onConfirm={confirmOutline}
+                onRegenerate={generateOutline}
+                isLoading={isLoading}
+              />
+            )}
+
+            {generationStep === 'layout' && (
+              <LayoutConfigurator
+                layouts={layouts}
+                onUpdate={setLayouts}
+                onConfirm={generateContent}
+                onBack={() => setGenerationStep('outline')}
+                isLoading={isLoading}
+              />
+            )}
+
+            {(generationStep === 'content' ||
+              generationStep === 'complete') && (
+              <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
+                {generationStep === 'content' ? (
+                  <>
+                    <Loader2 className="mb-4 h-10 w-10 animate-spin text-blue-600" />
+                    <h3 className="text-base font-semibold text-gray-800">
+                      正在生成PPT...
+                    </h3>
+                    <p className="mt-2 text-sm text-gray-500">
+                      AI正在根据大纲和布局配置生成内容
+                    </p>
+                  </>
                 ) : (
                   <>
-                    {messages.map((message) => (
-                      <div
-                        key={message.id}
-                        className={cn(
-                          'flex',
-                          message.role === 'user'
-                            ? 'justify-end'
-                            : 'justify-start'
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            'max-w-[85%] rounded-lg px-4 py-2',
-                            message.role === 'user'
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-100 text-gray-900'
-                          )}
-                        >
-                          <p className="whitespace-pre-wrap text-sm">
-                            {message.content}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                    <div ref={messagesEndRef} />
+                    <CheckCircle2 className="mb-4 h-10 w-10 text-green-500" />
+                    <h3 className="text-base font-semibold text-gray-800">
+                      PPT生成完成！
+                    </h3>
+                    <p className="mt-2 text-sm text-gray-500">
+                      共 {slides.length} 页，可在右侧预览和编辑
+                    </p>
+                    <button
+                      onClick={resetGeneration}
+                      className="mt-4 flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span>创建新PPT</span>
+                    </button>
                   </>
                 )}
               </div>
-              <div className="border-t border-gray-200 bg-white p-4">
-                <div className="relative">
-                  <textarea
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        generateOutline();
-                      }
-                    }}
-                    placeholder="直接描述你想要的PPT，AI会自动理解你的需求：&#10;&#10;例如：&#10;• 帮我做一个10页的AI发展历程PPT，用漫画风格&#10;• 基于 https://example.com/report 这篇文章做一个哆啦A梦风格的介绍&#10;• 做一份关于新能源汽车的商业报告，要专业一点，15页左右"
-                    className="w-full resize-none rounded-xl border-2 border-gray-200 px-4 py-4 pb-14 text-sm placeholder:text-gray-400 focus:border-orange-500 focus:outline-none"
-                    rows={4}
-                    disabled={isLoading}
-                  />
-                  <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
-                    <p className="text-xs text-gray-400">
-                      支持直接粘贴URL、指定风格、页数、配色等，AI会自动理解
-                    </p>
-                    <button
-                      onClick={generateOutline}
-                      disabled={!input.trim() || isLoading}
-                      className="flex items-center gap-2 rounded-lg bg-orange-500 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-orange-600 disabled:bg-gray-300"
-                    >
-                      {isLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Sparkles className="h-4 w-4" />
-                      )}
-                      <span>生成PPT</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          {generationStep === 'outline' && (
-            <OutlineEditor
-              outline={outline}
-              onUpdate={setOutline}
-              onConfirm={confirmOutline}
-              onRegenerate={generateOutline}
-              isLoading={isLoading}
-            />
-          )}
-
-          {generationStep === 'layout' && (
-            <LayoutConfigurator
-              layouts={layouts}
-              onUpdate={setLayouts}
-              onConfirm={generateContent}
-              onBack={() => setGenerationStep('outline')}
-              isLoading={isLoading}
-            />
-          )}
-
-          {(generationStep === 'content' || generationStep === 'complete') && (
-            <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
-              {generationStep === 'content' ? (
-                <>
-                  <Loader2 className="mb-4 h-10 w-10 animate-spin text-blue-600" />
-                  <h3 className="text-base font-semibold text-gray-800">
-                    正在生成PPT...
-                  </h3>
-                  <p className="mt-2 text-sm text-gray-500">
-                    AI正在根据大纲和布局配置生成内容
-                  </p>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="mb-4 h-10 w-10 text-green-500" />
-                  <h3 className="text-base font-semibold text-gray-800">
-                    PPT生成完成！
-                  </h3>
-                  <p className="mt-2 text-sm text-gray-500">
-                    共 {slides.length} 页，可在右侧预览和编辑
-                  </p>
-                  <button
-                    onClick={resetGeneration}
-                    className="mt-4 flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span>创建新PPT</span>
-                  </button>
-                </>
-              )}
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* 拖拽调节手柄 */}

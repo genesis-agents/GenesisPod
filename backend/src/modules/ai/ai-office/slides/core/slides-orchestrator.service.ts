@@ -1158,8 +1158,8 @@ export class SlidesOrchestratorService {
 
       const totalScore = titleScore * 0.6 + outlineScore * 0.4;
 
-      if (totalScore > bestScore && totalScore > 30) {
-        // 阈值 30%
+      if (totalScore > bestScore && totalScore > 55) {
+        // 阈值 55%（提高精度，减少错误绑定）
         bestScore = totalScore;
         bestMatch = chapter;
       }
