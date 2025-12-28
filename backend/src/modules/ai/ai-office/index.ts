@@ -6,17 +6,23 @@
 // Core
 export * from "./core";
 
-// Documents
-export * from "./documents";
+// Document Management (CRUD)
+export * from "./document-management";
 
 // Generation
 export * from "./generation";
 
-// Export
-export * from "./export";
+// Slides (幻灯片生成)
+export * from "./slides";
 
-// PPT
-export * from "./ppt";
+// Docs (文档生成)
+export * from "./docs";
+
+// Common (共享服务)
+export * from "./common";
+
+// Designer
+export * from "./designer";
 
 // Integration
 export { AiOfficeIntegrationService } from "./ai-office-integration.service";

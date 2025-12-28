@@ -19,7 +19,10 @@ import {
   Max,
   IsIn,
 } from "class-validator";
-import { OFFICE_DOCUMENT_TYPES, OfficeDocumentType } from "../documents";
+import {
+  OFFICE_DOCUMENT_TYPES,
+  OfficeDocumentType,
+} from "../document-management";
 
 // ============================================================================
 // DTOs

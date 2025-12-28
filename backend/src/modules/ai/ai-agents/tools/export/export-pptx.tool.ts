@@ -6,7 +6,8 @@
 import { Injectable } from "@nestjs/common";
 import { BaseTool, JSONSchema, ToolContext } from "../../core";
 import { ToolType } from "../../core";
-import { ExportService, ExportResult } from "../../../ai-office/export";
+import { ExportOrchestratorService } from "../../../../export";
+import { ExportFormat } from "@prisma/client";
 
 // ============================================================================
 // Types
@@ -142,7 +143,7 @@ export class ExportPPTXTool extends BaseTool<
     },
   };
 
-  constructor(private readonly exportService: ExportService) {
+  constructor(private readonly exportOrchestrator: ExportOrchestratorService) {
     super();
     this.defaultTimeout = 60000; // 60 秒超时
   }
@@ -158,30 +159,62 @@ export class ExportPPTXTool extends BaseTool<
 
   protected async doExecute(
     input: ExportPPTXInput,
-    _context: ToolContext,
+    context: ToolContext,
   ): Promise<ExportPPTXOutput> {
-    const { title, content, templateId, author, company } = input;
+    const { title, content, templateId } = input;
 
     try {
-      const result: ExportResult = await this.exportService.exportDocument({
-        format: "pptx",
-        documentType: "PPT",
-        title,
-        content,
-        templateId,
-        metadata: {
-          author,
-          company,
+      // 使用统一导出模块创建导出任务
+      const job = await this.exportOrchestrator.createExportJob(
+        context.userId || "system",
+        {
+          source: {
+            type: "RAW",
+            content,
+            contentType: "markdown",
+            title,
+          },
+          format: ExportFormat.PPTX,
+          templateId,
         },
-      });
+      );
 
-      return {
-        filename: result.filename,
-        mimeType: result.mimeType,
-        size: result.buffer.length,
-        base64Content: result.buffer.toString("base64"),
-        success: true,
-      };
+      // 等待导出完成（轮询）
+      let result = job;
+      const maxWait = 30000; // 30秒超时
+      const startTime = Date.now();
+
+      while (
+        result.status !== "COMPLETED" &&
+        result.status !== "FAILED" &&
+        Date.now() - startTime < maxWait
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        result = await this.exportOrchestrator.getJobStatus(
+          job.jobId,
+          context.userId || "system",
+        );
+      }
+
+      if (result.status === "COMPLETED" && result.downloadUrl) {
+        return {
+          filename: result.fileName || `${title}.pptx`,
+          mimeType:
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+          size: result.fileSize || 0,
+          base64Content: "", // 下载 URL 模式，不返回 base64
+          success: true,
+        };
+      } else {
+        return {
+          filename: "",
+          mimeType: "",
+          size: 0,
+          base64Content: "",
+          success: false,
+          error: result.error || "Export timed out",
+        };
+      }
     } catch (error) {
       return {
         filename: "",

@@ -196,10 +196,12 @@
     "overviewTitle": "数据源概览",
     "overviewDesc": "管理你的数据源连接，这些数据可以导入到知识库",
     "refreshStatus": "刷新状态",
-    "external": "外部数据",
+    "external": "外部数据源",
     "internal": "平台内数据",
     "connected": "已连接",
     "notConnected": "未连接",
+    "needsReauth": "需重新授权",
+    "reauthorize": "重新授权",
     "lastSync": "上次同步",
     "browse": "浏览",
     "sync": "同步",
@@ -212,6 +214,24 @@
       "1": "连接外部数据后，可以在创建知识库时选择作为数据源",
       "2": "平台内数据（书签、笔记等）可以直接导入到知识库",
       "3": "同步功能会自动更新知识库中的内容"
+    },
+    "tabs": {
+      "overview": "概览",
+      "bookmarks": "书签",
+      "notes": "笔记",
+      "images": "图片"
+    },
+    "placeholder": {
+      "bookmarks": "书签内容",
+      "notes": "笔记内容",
+      "images": "图片内容",
+      "notion": "Notion 内容",
+      "googleDrive": "Google Drive 内容"
+    },
+    "errors": {
+      "embeddingConfigFailed": "无法获取嵌入模型配置",
+      "embeddingConnectionFailed": "嵌入服务连接失败",
+      "authExpired": "授权已过期，需要重新授权"
     },
     "types": {
       "GOOGLE_DRIVE": {
@@ -236,11 +256,11 @@
       },
       "UPLOAD": {
         "name": "上传文件",
-        "description": "手动上传的文档文件"
+        "description": "通过知识库「添加内容」上传"
       },
       "URL": {
         "name": "URL 抓取",
-        "description": "从网页 URL 抓取的内容"
+        "description": "通过知识库「添加内容」导入"
       }
     }
   },

@@ -200,6 +200,8 @@
     "internal": "Platform Data",
     "connected": "Connected",
     "notConnected": "Not Connected",
+    "needsReauth": "Needs Reauthorization",
+    "reauthorize": "Reauthorize",
     "lastSync": "Last sync",
     "browse": "Browse",
     "sync": "Sync",
@@ -212,6 +214,24 @@
       "1": "After connecting external data sources, you can select them as data sources when creating knowledge bases",
       "2": "Platform data (bookmarks, notes, etc.) can be directly imported into knowledge bases",
       "3": "Sync function will automatically update the content in knowledge bases"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "bookmarks": "Bookmarks",
+      "notes": "Notes",
+      "images": "Images"
+    },
+    "placeholder": {
+      "bookmarks": "Bookmarks content",
+      "notes": "Notes content",
+      "images": "Images content",
+      "notion": "Notion content",
+      "googleDrive": "Google Drive content"
+    },
+    "errors": {
+      "embeddingConfigFailed": "Failed to get embedding model config",
+      "embeddingConnectionFailed": "Embedding service connection failed",
+      "authExpired": "Authorization expired, needs reauthorization"
     },
     "types": {
       "GOOGLE_DRIVE": {
@@ -236,11 +256,11 @@
       },
       "UPLOAD": {
         "name": "Uploaded Files",
-        "description": "Manually uploaded document files"
+        "description": "Upload via \"Add Content\" in knowledge base"
       },
       "URL": {
         "name": "URL Crawl",
-        "description": "Content crawled from web URLs"
+        "description": "Import via \"Add Content\" in knowledge base"
       }
     }
   },

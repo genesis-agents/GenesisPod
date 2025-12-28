@@ -25,7 +25,8 @@ import {
   GenerationConfig,
   StreamChunk,
 } from "../../../ai-office/generation";
-import { ExportService, ExportFormat } from "../../../ai-office/export";
+import { ExportOrchestratorService } from "../../../../export";
+import { ExportFormat } from "@prisma/client";
 
 @Injectable()
 export class DocsAgent extends BaseAgent {
@@ -120,7 +121,7 @@ export class DocsAgent extends BaseAgent {
 
   constructor(
     private readonly generationService: GenerationService,
-    private readonly exportService: ExportService,
+    private readonly exportOrchestrator: ExportOrchestratorService,
   ) {
     super();
   }
@@ -186,13 +187,16 @@ export class DocsAgent extends BaseAgent {
     });
 
     // Step 6: 导出文档
-    const exportFormat =
-      (input.options?.exportFormat as ExportFormat) || "docx";
+    const exportFormatOption =
+      (input.options?.exportFormat as string) || "docx";
     steps.push({
       id: this.generateStepId(),
       name: "导出文档",
-      description: `导出为 ${exportFormat.toUpperCase()} 格式`,
-      tool: exportFormat === "pdf" ? ToolType.EXPORT_PDF : ToolType.EXPORT_DOCX,
+      description: `导出为 ${exportFormatOption.toUpperCase()} 格式`,
+      tool:
+        exportFormatOption === "pdf"
+          ? ToolType.EXPORT_PDF
+          : ToolType.EXPORT_DOCX,
       dependencies: [steps[steps.length - 1].id],
       estimatedDuration: 5000,
     });
@@ -265,50 +269,78 @@ export class DocsAgent extends BaseAgent {
       }
 
       // 导出文档
+      const exportFormatStr = String(input.options?.exportFormat || "docx");
       const exportFormat =
-        (input.options?.exportFormat as ExportFormat) || "docx";
+        exportFormatStr === "pdf" ? ExportFormat.PDF : ExportFormat.DOCX;
 
       yield {
         type: "step_progress",
         stepId: plan.steps[plan.steps.length - 1]?.id || "",
         progress: 50,
-        message: `正在导出 ${exportFormat.toUpperCase()}...`,
+        message: `正在导出 ${exportFormatStr.toUpperCase()}...`,
       };
 
-      const exportResult = await this.exportService.exportDocument({
-        format: exportFormat,
-        documentType: config.documentType,
-        title: config.title,
-        content: generatedContent,
-        metadata: {
-          author: "AI Docs",
-          wordCount: generatedContent.length,
+      // 使用统一导出模块
+      const job = await this.exportOrchestrator.createExportJob(userId, {
+        source: {
+          type: "RAW",
+          content: generatedContent,
+          contentType: "markdown",
+          title: config.title,
         },
+        format: exportFormat,
       });
+
+      // 等待导出完成
+      let exportResult = job;
+      const maxWait = 60000;
+      const exportStartTime = Date.now();
+
+      while (
+        exportResult.status !== "COMPLETED" &&
+        exportResult.status !== "FAILED" &&
+        Date.now() - exportStartTime < maxWait
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        exportResult = await this.exportOrchestrator.getJobStatus(
+          job.jobId,
+          userId,
+        );
+      }
 
       // 完成
       const duration = Date.now() - startTime;
 
-      yield {
-        type: "complete",
-        result: {
-          success: true,
-          artifacts: [
-            {
-              id: documentId || this.generateTaskId(),
-              type:
-                exportFormat === "pdf" ? ArtifactType.PDF : ArtifactType.DOCX,
-              name: exportResult.filename,
-              mimeType: exportResult.mimeType,
-              size: exportResult.buffer.length,
-              url: `/api/agents/docs/${plan.taskId}/download`,
-            },
-          ],
-          summary: `成功生成文档: ${config.title}`,
-          tokensUsed: 0,
-          duration,
-        },
-      };
+      if (exportResult.status === "COMPLETED") {
+        yield {
+          type: "complete",
+          result: {
+            success: true,
+            artifacts: [
+              {
+                id: documentId || this.generateTaskId(),
+                type:
+                  exportFormat === ExportFormat.PDF
+                    ? ArtifactType.PDF
+                    : ArtifactType.DOCX,
+                name:
+                  exportResult.fileName || `${config.title}.${exportFormatStr}`,
+                mimeType:
+                  exportFormat === ExportFormat.PDF
+                    ? "application/pdf"
+                    : "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                size: exportResult.fileSize || 0,
+                url: `/api/agents/docs/${plan.taskId}/download`,
+              },
+            ],
+            summary: `成功生成文档: ${config.title}`,
+            tokensUsed: 0,
+            duration,
+          },
+        };
+      } else {
+        throw new Error(exportResult.error || "导出失败");
+      }
     } catch (error) {
       this.logger.error(`[execute] Error: ${error}`);
       yield {

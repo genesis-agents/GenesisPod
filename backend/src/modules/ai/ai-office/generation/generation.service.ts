@@ -6,7 +6,7 @@ import {
   DocumentsService,
   OfficeDocumentType,
   VersionTrigger,
-} from "../documents";
+} from "../document-management";
 import { CreditsService } from "../../../credits/credits.service";
 
 // ============================================================================

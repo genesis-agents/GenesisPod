@@ -323,15 +323,6 @@ npx prisma generate
 
 ## 已知问题和注意事项
 
-### 数据采集模块问题 (待修复)
-
-1. `data_collection_raw_data` 集合数据不完整，缺少有效信息
-2. 原始数据与 resource 之间没有正确的引用关系
-3. `resource-xxx` 集合存在大量重复数据，缺少判重逻辑
-4. 资源集合类型不完整
-
-**修复优先级: P0**
-
 ### 技术债务
 
 - [ ] 部分组件仍使用旧的 import 路径
@@ -424,12 +415,16 @@ REDIS_URL=redis://...
 
 | 命令                     | 描述               |
 | ------------------------ | ------------------ |
-| `npm run dev`            | 启动前端开发服务   |
-| `npm run backend:dev`    | 启动后端开发服务   |
+| `npm run dev`            | 启动全栈开发服务   |
+| `npm run dev:frontend`   | 启动前端开发服务   |
+| `npm run dev:backend`    | 启动后端开发服务   |
+| `npm run verify:quick`   | 快速验证（推荐）   |
+| `npm run verify:changed` | 智能变更验证       |
+| `npm run verify:full`    | 完整验证           |
+| `npm run type-check`     | 类型检查           |
+| `npm run test:quick`     | 快速测试           |
 | `npx prisma studio`      | 打开数据库管理界面 |
 | `npx prisma migrate dev` | 运行数据库迁移     |
-| `npm run lint`           | 代码检查           |
-| `npm run type-check`     | 类型检查           |
 
 ---
 
@@ -445,6 +440,6 @@ REDIS_URL=redis://...
 
 ---
 
-**最后更新**: 2024-12-25
+**最后更新**: 2025-12-28
 **维护者**: Claude Code
-**版本**: 1.0
+**版本**: 1.1

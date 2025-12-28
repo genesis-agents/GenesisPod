@@ -6,7 +6,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { BaseTool, JSONSchema, ToolContext } from "../../core";
 import { ToolType } from "../../core";
-import { ExportService, ExportFormat } from "../../../ai-office/export";
+import { ExportOrchestratorService } from "../../../../export";
+import { ExportFormat } from "@prisma/client";
 
 // ============================================================================
 // Types
@@ -199,7 +200,7 @@ export class FileConversionTool extends BaseTool<
     },
   };
 
-  constructor(private readonly exportService: ExportService) {
+  constructor(private readonly exportOrchestrator: ExportOrchestratorService) {
     super();
     this.defaultTimeout = 60000; // 60 秒超时
   }
@@ -251,9 +252,10 @@ export class FileConversionTool extends BaseTool<
 
   protected async doExecute(
     input: FileConversionInput,
-    _context: ToolContext,
+    context: ToolContext,
   ): Promise<FileConversionOutput> {
     const { sourceContent, sourceFormat, targetFormat, options = {} } = input;
+    const userId = context.userId || "system";
 
     this.logger.log(
       `[doExecute] Converting from ${sourceFormat} to ${targetFormat}`,
@@ -269,17 +271,17 @@ export class FileConversionTool extends BaseTool<
           return await this.markdownToHTML(sourceContent, options);
 
         case "markdown_to_docx":
-          return await this.markdownToDOCX(sourceContent, options);
+          return await this.markdownToDOCX(sourceContent, options, userId);
 
         case "markdown_to_pdf":
-          return await this.markdownToPDF(sourceContent, options);
+          return await this.markdownToPDF(sourceContent, options, userId);
 
         // HTML 转换
         case "html_to_pdf":
           return await this.htmlToPDF(sourceContent, options);
 
         case "html_to_docx":
-          return await this.htmlToDOCX(sourceContent, options);
+          return await this.htmlToDOCX(sourceContent, options, userId);
 
         // JSON/CSV 互转
         case "json_to_csv":
@@ -340,53 +342,101 @@ export class FileConversionTool extends BaseTool<
   private async markdownToDOCX(
     markdown: string,
     options: FileConversionInput["options"],
+    userId: string = "system",
   ): Promise<FileConversionOutput> {
     const title = options?.title || "Document";
 
-    const result = await this.exportService.exportDocument({
-      format: "docx" as ExportFormat,
-      documentType: "REPORT",
-      title,
-      content: markdown,
-      metadata: {
-        author: options?.author,
+    // 使用统一导出模块创建导出任务
+    const job = await this.exportOrchestrator.createExportJob(userId, {
+      source: {
+        type: "RAW",
+        content: markdown,
+        contentType: "markdown",
+        title,
       },
+      format: ExportFormat.DOCX,
     });
 
-    return {
-      content: result.buffer.toString("base64"),
-      format: "docx",
-      isBase64: true,
-      filename: result.filename,
-      mimeType: result.mimeType,
-      success: true,
-    };
+    // 等待导出完成（轮询）
+    let result = job;
+    const maxWait = 30000;
+    const startTime = Date.now();
+
+    while (
+      result.status !== "COMPLETED" &&
+      result.status !== "FAILED" &&
+      Date.now() - startTime < maxWait
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      result = await this.exportOrchestrator.getJobStatus(job.jobId, userId);
+    }
+
+    if (result.status === "COMPLETED") {
+      const file = await this.exportOrchestrator.getExportFile(
+        job.jobId,
+        userId,
+      );
+      return {
+        content: file.buffer.toString("base64"),
+        format: "docx",
+        isBase64: true,
+        filename: file.fileName,
+        mimeType: file.mimeType,
+        success: true,
+      };
+    } else {
+      throw new Error(result.error || "Export failed");
+    }
   }
 
   private async markdownToPDF(
     markdown: string,
     options: FileConversionInput["options"],
+    userId: string = "system",
   ): Promise<FileConversionOutput> {
     const title = options?.title || "Document";
 
-    const result = await this.exportService.exportDocument({
-      format: "pdf" as ExportFormat,
-      documentType: "REPORT",
-      title,
-      content: markdown,
-      metadata: {
-        author: options?.author,
+    // 使用统一导出模块创建导出任务
+    const job = await this.exportOrchestrator.createExportJob(userId, {
+      source: {
+        type: "RAW",
+        content: markdown,
+        contentType: "markdown",
+        title,
       },
+      format: ExportFormat.PDF,
     });
 
-    return {
-      content: result.buffer.toString("base64"),
-      format: "pdf",
-      isBase64: true,
-      filename: result.filename,
-      mimeType: result.mimeType,
-      success: true,
-    };
+    // 等待导出完成（轮询）
+    let result = job;
+    const maxWait = 60000;
+    const startTime = Date.now();
+
+    while (
+      result.status !== "COMPLETED" &&
+      result.status !== "FAILED" &&
+      Date.now() - startTime < maxWait
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      result = await this.exportOrchestrator.getJobStatus(job.jobId, userId);
+    }
+
+    if (result.status === "COMPLETED") {
+      const file = await this.exportOrchestrator.getExportFile(
+        job.jobId,
+        userId,
+      );
+      return {
+        content: file.buffer.toString("base64"),
+        format: "pdf",
+        isBase64: true,
+        filename: file.fileName,
+        mimeType: file.mimeType,
+        success: true,
+      };
+    } else {
+      throw new Error(result.error || "Export failed");
+    }
   }
 
   private async markdownToJSON(
@@ -473,6 +523,7 @@ export class FileConversionTool extends BaseTool<
   private async htmlToDOCX(
     html: string,
     options: FileConversionInput["options"],
+    userId: string = "system",
   ): Promise<FileConversionOutput> {
     // 先转 HTML 为 Markdown（简化处理）
     const turndown = await import("turndown");
@@ -481,7 +532,7 @@ export class FileConversionTool extends BaseTool<
     const markdown = turndownService.turndown(html);
 
     // 然后用 Markdown to DOCX
-    return this.markdownToDOCX(markdown, options);
+    return this.markdownToDOCX(markdown, options, userId);
   }
 
   private async htmlToJSON(

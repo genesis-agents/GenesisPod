@@ -52,8 +52,6 @@ interface DataSourcesTabProps {
 // 数据源配置类型
 interface DataSourceConfig {
   type: string;
-  name: string;
-  description: string;
   icon: typeof HardDrive;
   color: string;
   connectedColor: string;
@@ -62,12 +60,10 @@ interface DataSourceConfig {
   subTab?: DataSourceSubTab;
 }
 
-// 数据源类型配置
+// 数据源类型配置 (name/description 通过 i18n 获取)
 const DATA_SOURCE_CONFIGS: DataSourceConfig[] = [
   {
     type: 'GOOGLE_DRIVE',
-    name: 'Google Drive',
-    description: '同步 Google Drive 文件到知识库',
     icon: HardDrive,
     color: 'bg-green-50 text-green-600 border-green-200',
     connectedColor: 'bg-green-100 text-green-700',
@@ -77,8 +73,6 @@ const DATA_SOURCE_CONFIGS: DataSourceConfig[] = [
   },
   {
     type: 'NOTION',
-    name: 'Notion',
-    description: '同步 Notion 页面到知识库',
     icon: FileText,
     color: 'bg-gray-50 text-gray-600 border-gray-200',
     connectedColor: 'bg-gray-100 text-gray-700',
@@ -88,8 +82,6 @@ const DATA_SOURCE_CONFIGS: DataSourceConfig[] = [
   },
   {
     type: 'BOOKMARK',
-    name: '书签',
-    description: '平台内保存的书签资源',
     icon: Bookmark,
     color: 'bg-orange-50 text-orange-600 border-orange-200',
     connectedColor: 'bg-orange-100 text-orange-700',
@@ -98,8 +90,6 @@ const DATA_SOURCE_CONFIGS: DataSourceConfig[] = [
   },
   {
     type: 'NOTE',
-    name: '笔记',
-    description: '平台内创建的笔记内容',
     icon: StickyNote,
     color: 'bg-yellow-50 text-yellow-600 border-yellow-200',
     connectedColor: 'bg-yellow-100 text-yellow-700',
@@ -108,8 +98,6 @@ const DATA_SOURCE_CONFIGS: DataSourceConfig[] = [
   },
   {
     type: 'IMAGE',
-    name: '图片',
-    description: '图片文件（支持 OCR 提取文字）',
     icon: Image,
     color: 'bg-pink-50 text-pink-600 border-pink-200',
     connectedColor: 'bg-pink-100 text-pink-700',
@@ -118,8 +106,6 @@ const DATA_SOURCE_CONFIGS: DataSourceConfig[] = [
   },
   {
     type: 'UPLOAD',
-    name: '上传文件',
-    description: '通过知识库「添加内容」上传',
     icon: Upload,
     color: 'bg-blue-50 text-blue-600 border-blue-200',
     connectedColor: 'bg-blue-100 text-blue-700',
@@ -127,8 +113,6 @@ const DATA_SOURCE_CONFIGS: DataSourceConfig[] = [
   },
   {
     type: 'URL',
-    name: 'URL 抓取',
-    description: '通过知识库「添加内容」导入',
     icon: LinkIcon,
     color: 'bg-purple-50 text-purple-600 border-purple-200',
     connectedColor: 'bg-purple-100 text-purple-700',
@@ -205,7 +189,7 @@ export default function DataSourcesTab({
           ...prev,
           embedding: {
             status: 'error',
-            error: '无法获取嵌入模型配置',
+            error: t('dataSources.errors.embeddingConfigFailed'),
           },
         }));
       }
@@ -214,7 +198,7 @@ export default function DataSourcesTab({
         ...prev,
         embedding: {
           status: 'error',
-          error: '嵌入服务连接失败',
+          error: t('dataSources.errors.embeddingConnectionFailed'),
         },
       }));
     }
@@ -260,7 +244,7 @@ export default function DataSourcesTab({
             isConnected: isActive,
             lastSyncAt: connection?.lastSyncAt,
             lastError: needsReauth
-              ? connection.lastError || '授权已过期，需要重新授权'
+              ? connection.lastError || t('dataSources.errors.authExpired')
               : undefined,
             needsReauth: needsReauth,
           };
@@ -340,10 +324,22 @@ export default function DataSourcesTab({
 
   // Sub-tab navigation items
   const subTabs = [
-    { id: 'overview' as const, name: '概览', icon: FolderOpen },
-    { id: 'bookmarks' as const, name: '书签', icon: Bookmark },
-    { id: 'notes' as const, name: '笔记', icon: StickyNote },
-    { id: 'images' as const, name: '图片', icon: Image },
+    {
+      id: 'overview' as const,
+      name: t('dataSources.tabs.overview'),
+      icon: FolderOpen,
+    },
+    {
+      id: 'bookmarks' as const,
+      name: t('dataSources.tabs.bookmarks'),
+      icon: Bookmark,
+    },
+    {
+      id: 'notes' as const,
+      name: t('dataSources.tabs.notes'),
+      icon: StickyNote,
+    },
+    { id: 'images' as const, name: t('dataSources.tabs.images'), icon: Image },
     { id: 'notion' as const, name: 'Notion', icon: FileText },
     { id: 'google-drive' as const, name: 'Google Drive', icon: HardDrive },
   ];
@@ -355,32 +351,40 @@ export default function DataSourcesTab({
         return renderBookmarks ? (
           renderBookmarks()
         ) : (
-          <div className="py-12 text-center text-gray-500">书签内容</div>
+          <div className="py-12 text-center text-gray-500">
+            {t('dataSources.placeholder.bookmarks')}
+          </div>
         );
       case 'notes':
         return renderNotes ? (
           renderNotes()
         ) : (
-          <div className="py-12 text-center text-gray-500">笔记内容</div>
+          <div className="py-12 text-center text-gray-500">
+            {t('dataSources.placeholder.notes')}
+          </div>
         );
       case 'images':
         return renderImages ? (
           renderImages()
         ) : (
-          <div className="py-12 text-center text-gray-500">图片内容</div>
+          <div className="py-12 text-center text-gray-500">
+            {t('dataSources.placeholder.images')}
+          </div>
         );
       case 'notion':
         return renderNotion ? (
           renderNotion()
         ) : (
-          <div className="py-12 text-center text-gray-500">Notion 内容</div>
+          <div className="py-12 text-center text-gray-500">
+            {t('dataSources.placeholder.notion')}
+          </div>
         );
       case 'google-drive':
         return renderGoogleDrive ? (
           renderGoogleDrive()
         ) : (
           <div className="py-12 text-center text-gray-500">
-            Google Drive 内容
+            {t('dataSources.placeholder.googleDrive')}
           </div>
         );
       default:
@@ -457,10 +461,10 @@ export default function DataSourcesTab({
                         </div>
                         <div>
                           <h4 className="font-semibold text-gray-900">
-                            {source.name}
+                            {t(`dataSources.types.${source.type}.name`)}
                           </h4>
                           <p className="text-xs text-gray-500">
-                            {source.description}
+                            {t(`dataSources.types.${source.type}.description`)}
                           </p>
                         </div>
                       </div>
@@ -471,21 +475,21 @@ export default function DataSourcesTab({
                           <>
                             <CheckCircle2 className="h-4 w-4 text-green-600" />
                             <span className="text-xs font-medium text-green-600">
-                              已连接
+                              {t('dataSources.connected')}
                             </span>
                           </>
                         ) : status?.needsReauth ? (
                           <>
                             <XCircle className="h-4 w-4 text-amber-500" />
                             <span className="text-xs font-medium text-amber-600">
-                              需重新授权
+                              {t('dataSources.needsReauth')}
                             </span>
                           </>
                         ) : (
                           <>
                             <XCircle className="h-4 w-4 text-gray-400" />
                             <span className="text-xs text-gray-500">
-                              未连接
+                              {t('dataSources.notConnected')}
                             </span>
                           </>
                         )}
@@ -495,7 +499,8 @@ export default function DataSourcesTab({
                     {/* Last Sync Info */}
                     {isConnected && status?.lastSyncAt && (
                       <p className="mt-3 text-xs text-gray-500">
-                        上次同步: {new Date(status.lastSyncAt).toLocaleString()}
+                        {t('dataSources.lastSync')}:{' '}
+                        {new Date(status.lastSyncAt).toLocaleString()}
                       </p>
                     )}
 
@@ -520,7 +525,7 @@ export default function DataSourcesTab({
                               className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
                             >
                               <FolderOpen className="h-4 w-4" />
-                              浏览
+                              {t('dataSources.browse')}
                             </button>
                           )}
                           <button
@@ -533,7 +538,7 @@ export default function DataSourcesTab({
                             ) : (
                               <RefreshCw className="h-4 w-4" />
                             )}
-                            同步
+                            {t('dataSources.sync')}
                           </button>
                           {source.settingsUrl && (
                             <a
@@ -541,7 +546,7 @@ export default function DataSourcesTab({
                               className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
                             >
                               <Settings className="h-4 w-4" />
-                              设置
+                              {t('dataSources.settings')}
                             </a>
                           )}
                         </>
@@ -551,14 +556,14 @@ export default function DataSourcesTab({
                           className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-amber-600"
                         >
                           <RefreshCw className="h-4 w-4" />
-                          重新授权
+                          {t('dataSources.reauthorize')}
                         </a>
                       ) : (
                         <a
                           href={source.settingsUrl || '#'}
                           className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
                         >
-                          连接
+                          {t('dataSources.connect')}
                         </a>
                       )}
                     </div>
@@ -573,7 +578,7 @@ export default function DataSourcesTab({
         <div>
           <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-gray-700">
             <HardDrive className="h-4 w-4" />
-            平台内数据
+            {t('dataSources.internal')}
           </h4>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:grid-cols-5">
             {DATA_SOURCE_CONFIGS.filter((ds) => ds.isInternal).map((source) => {
@@ -597,10 +602,12 @@ export default function DataSourcesTab({
                   </div>
                   <div className="min-w-0 flex-1 text-left">
                     <p className="truncate text-sm font-medium text-gray-900">
-                      {source.name}
+                      {t(`dataSources.types.${source.type}.name`)}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {source.subTab ? '点击浏览' : source.description}
+                      {source.subTab
+                        ? t('dataSources.clickToBrowse')
+                        : t(`dataSources.types.${source.type}.description`)}
                     </p>
                   </div>
                   {source.subTab && (

@@ -23,8 +23,11 @@ import {
   ArtifactType,
   AIModelType,
 } from "../../core";
-import { PPTOrchestratorService } from "../../../ai-office/ppt/ppt-orchestrator.service";
-import { PPTStreamEvent, PPT_THEMES } from "../../../ai-office/ppt/ppt.types";
+import {
+  SlidesOrchestratorService,
+  PPTStreamEvent,
+  PPT_THEMES,
+} from "../../../ai-office/slides";
 
 @Injectable()
 export class SlidesAgent extends BaseAgent {
@@ -116,7 +119,7 @@ export class SlidesAgent extends BaseAgent {
     },
   ];
 
-  constructor(private readonly pptOrchestrator: PPTOrchestratorService) {
+  constructor(private readonly slidesOrchestrator: SlidesOrchestratorService) {
     super();
   }
 
@@ -227,7 +230,7 @@ export class SlidesAgent extends BaseAgent {
     const pptInput = this.convertToPPTInput(input);
 
     // 调用现有的 PPT 生成流
-    const pptStream = this.pptOrchestrator.generatePPTStream(pptInput);
+    const pptStream = this.slidesOrchestrator.generatePPTStream(pptInput);
 
     // 转换事件流
     const currentStepIndex = 0;

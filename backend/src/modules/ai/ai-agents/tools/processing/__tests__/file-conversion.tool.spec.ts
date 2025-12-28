@@ -4,24 +4,26 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { FileConversionTool } from "../file-conversion.tool";
-import { ExportService as DocumentExportService } from "../../../../ai-office/export";
+import { ExportOrchestratorService } from "../../../../../export";
 
 describe("FileConversionTool", () => {
   let tool: FileConversionTool;
-  let mockExportService: jest.Mocked<DocumentExportService>;
+  let mockExportOrchestrator: jest.Mocked<ExportOrchestratorService>;
 
   beforeEach(async () => {
     // 创建 mock 服务
-    mockExportService = {
-      exportDocument: jest.fn(),
+    mockExportOrchestrator = {
+      createExportJob: jest.fn(),
+      getJobStatus: jest.fn(),
+      getExportFile: jest.fn(),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         FileConversionTool,
         {
-          provide: DocumentExportService,
-          useValue: mockExportService,
+          provide: ExportOrchestratorService,
+          useValue: mockExportOrchestrator,
         },
       ],
     }).compile();
@@ -144,10 +146,23 @@ describe("FileConversionTool", () => {
   });
 
   describe("Markdown to DOCX 转换", () => {
-    it("should call export service for DOCX conversion", async () => {
-      mockExportService.exportDocument.mockResolvedValue({
+    it("should call export orchestrator for DOCX conversion", async () => {
+      // Mock the async job pattern
+      mockExportOrchestrator.createExportJob.mockResolvedValue({
+        jobId: "test-job-id",
+        status: "QUEUED",
+        progress: 0,
+      });
+      mockExportOrchestrator.getJobStatus.mockResolvedValue({
+        jobId: "test-job-id",
+        status: "COMPLETED",
+        progress: 100,
+        fileName: "test.docx",
+        fileSize: 1000,
+      });
+      mockExportOrchestrator.getExportFile.mockResolvedValue({
         buffer: Buffer.from("mock docx content"),
-        filename: "test.docx",
+        fileName: "test.docx",
         mimeType:
           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       });
@@ -159,18 +174,15 @@ describe("FileConversionTool", () => {
         options: { title: "Test", author: "Tester" },
       };
 
-      const result = await tool.execute(input, { taskId: "test-4" });
+      const result = await tool.execute(input, {
+        taskId: "test-4",
+        userId: "test-user",
+      });
 
       expect(result.success).toBe(true);
       expect(result.data?.isBase64).toBe(true);
       expect(result.data?.format).toBe("docx");
-      expect(mockExportService.exportDocument).toHaveBeenCalledWith(
-        expect.objectContaining({
-          format: "docx",
-          documentType: "REPORT",
-          title: "Test",
-        }),
-      );
+      expect(mockExportOrchestrator.createExportJob).toHaveBeenCalled();
     });
   });
 
@@ -189,7 +201,7 @@ describe("FileConversionTool", () => {
     });
 
     it("should handle export service errors", async () => {
-      mockExportService.exportDocument.mockRejectedValue(
+      mockExportOrchestrator.createExportJob.mockRejectedValue(
         new Error("Export failed"),
       );
 
@@ -199,7 +211,10 @@ describe("FileConversionTool", () => {
         targetFormat: "pdf" as const,
       };
 
-      const result = await tool.execute(input, { taskId: "test-6" });
+      const result = await tool.execute(input, {
+        taskId: "test-6",
+        userId: "test-user",
+      });
 
       expect(result.success).toBe(false);
       expect(result.error).toContain("Export failed");

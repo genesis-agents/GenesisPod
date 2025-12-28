@@ -9,7 +9,8 @@ import {
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { GenerateReportDto } from "./dto/generate-report.dto";
-import { ExportService, ExportFormat } from "../../ai/ai-office/export";
+import { ExportOrchestratorService } from "../../export";
+import { ExportFormat } from "@prisma/client";
 import axios from "axios";
 
 interface ReportSection {
@@ -28,8 +29,8 @@ interface AIReportResponse {
 export class ReportsService {
   constructor(
     private prisma: PrismaService,
-    @Inject(forwardRef(() => ExportService))
-    private exportService: ExportService,
+    @Inject(forwardRef(() => ExportOrchestratorService))
+    private exportOrchestrator: ExportOrchestratorService,
   ) {}
 
   /**
@@ -235,9 +236,9 @@ export class ReportsService {
 
   /**
    * 导出文档为各种格式
-   * 使用 NestJS 依赖注入的 DocumentExportService
+   * 使用统一导出模块
    */
-  async exportDocument(dto: any, res: any) {
+  async exportDocument(dto: any, res: any, userId: string) {
     try {
       const { format, content, title } = dto;
 
@@ -251,10 +252,10 @@ export class ReportsService {
 
       // 验证格式并映射到新的格式名称
       const formatMapping: Record<string, ExportFormat> = {
-        word: "docx",
-        ppt: "pptx",
-        pdf: "pdf",
-        markdown: "markdown",
+        word: ExportFormat.DOCX,
+        ppt: ExportFormat.PPTX,
+        pdf: ExportFormat.PDF,
+        markdown: ExportFormat.MARKDOWN,
       };
 
       const validFormats = Object.keys(formatMapping);
@@ -265,22 +266,50 @@ export class ReportsService {
         });
       }
 
-      // 使用注入的 DocumentExportService
+      // 使用统一导出模块创建导出任务
       const exportFormat = formatMapping[format];
-      const result = await this.exportService.exportDocument({
-        title,
-        content,
+      const job = await this.exportOrchestrator.createExportJob(userId, {
+        source: {
+          type: "RAW",
+          content,
+          contentType: "markdown",
+          title,
+        },
         format: exportFormat,
-        documentType: format === "ppt" ? "PPT" : "REPORT",
       });
 
-      // 设置响应头
-      res.setHeader("Content-Type", result.mimeType);
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="${encodeURIComponent(result.filename)}"`,
-      );
-      return res.send(result.buffer);
+      // 等待导出完成
+      let result = job;
+      const maxWait = 60000;
+      const startTime = Date.now();
+
+      while (
+        result.status !== "COMPLETED" &&
+        result.status !== "FAILED" &&
+        Date.now() - startTime < maxWait
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        result = await this.exportOrchestrator.getJobStatus(job.jobId, userId);
+      }
+
+      if (result.status === "COMPLETED") {
+        const file = await this.exportOrchestrator.getExportFile(
+          job.jobId,
+          userId,
+        );
+        // 设置响应头
+        res.setHeader("Content-Type", file.mimeType);
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="${encodeURIComponent(file.fileName)}"`,
+        );
+        return res.send(file.buffer);
+      } else {
+        return res.status(500).json({
+          success: false,
+          error: result.error || "Export failed",
+        });
+      }
     } catch (error) {
       console.error("Export error:", error);
       return res.status(500).json({

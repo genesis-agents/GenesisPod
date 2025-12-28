@@ -22,7 +22,7 @@ import { randomUUID } from "crypto";
 import { AgentType, AgentTask, taskStore } from "./agents.types";
 import { DocsOrchestratorService } from "../docs";
 import { DesignerOrchestratorService } from "../designer";
-import { PPTOrchestratorService } from "../ppt";
+import { SlidesOrchestratorService } from "../slides";
 
 interface ExecuteAgentDto {
   prompt: string;
@@ -41,7 +41,7 @@ export class AgentsController {
   constructor(
     private readonly docsOrchestrator: DocsOrchestratorService,
     private readonly designerOrchestrator: DesignerOrchestratorService,
-    private readonly pptOrchestrator: PPTOrchestratorService,
+    private readonly slidesOrchestrator: SlidesOrchestratorService,
   ) {}
 
   /**
@@ -373,7 +373,7 @@ export class AgentsController {
     const input = task.input;
     const options = input.options || {};
 
-    const stream = this.pptOrchestrator.generatePPTStream({
+    const stream = this.slidesOrchestrator.generatePPTStream({
       prompt: input.prompt,
       urls: input.urls,
       slideCount: options.slideCount || 8,

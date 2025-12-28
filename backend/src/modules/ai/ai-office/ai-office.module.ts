@@ -10,37 +10,29 @@ import { CreditsModule } from "../../credits/credits.module";
 // Core
 import { AIModelController, AIModelService, IntentParserService } from "./core";
 
-// Documents
-import { DocumentsController, DocumentsService } from "./documents";
+// Document Management (CRUD)
+import { DocumentsController, DocumentsService } from "./document-management";
 
 // Generation
-import {
-  GenerationController,
-  GenerationService,
-  QuickGenerateController,
-  QuickGenerateService,
-} from "./generation";
+import { GenerationController, GenerationService } from "./generation";
 
-// Export
-import { ExportController, ExportService } from "./export";
-
-// PPT 3.0
+// Slides (幻灯片生成)
 import {
-  PPTGenerationController,
-  PPTOrchestratorService,
+  SlidesController,
+  SlidesOrchestratorService,
   SlidePlanningService,
   SlideContentService,
+  SlideContentGeneratorService,
   SlideImageService,
   SlideRendererService,
-  PPTExportService,
+  SlidesExportService,
   NaturalEditService,
-  PPTVersionService,
+  SlidesVersionService,
   TemplateMatcher,
   QualityCheckService,
   SourceAnalysisService,
   BatchOperationService,
-  ConsistencyService,
-} from "./ppt";
+} from "./slides";
 
 // Integration
 import { AiOfficeIntegrationService } from "./ai-office-integration.service";
@@ -51,14 +43,23 @@ import {
   CodeExecutionService,
 } from "./code-execution";
 
-// Docs
-import { DocsOrchestratorService } from "./docs";
+// Docs (文档生成)
+import { DocsOrchestratorService, DocsGeneratorService } from "./docs";
 
 // Designer
 import { DesignerOrchestratorService } from "./designer";
 
 // Agents
 import { AgentsController } from "./agents";
+
+// Common (共享服务)
+import {
+  AIOfficeCommonModule,
+  ContentAnalysisService,
+  TemplateSelectionService,
+  ImageMatchingService,
+  ReadingExperienceService,
+} from "./common";
 
 @Module({
   imports: [
@@ -69,14 +70,13 @@ import { AgentsController } from "./agents";
     AiImageModule,
     StorageModule,
     CreditsModule,
+    AIOfficeCommonModule,
   ],
   controllers: [
     AIModelController,
     DocumentsController,
     GenerationController,
-    QuickGenerateController,
-    ExportController,
-    PPTGenerationController,
+    SlidesController,
     CodeExecutionController,
     AgentsController,
   ],
@@ -85,22 +85,24 @@ import { AgentsController } from "./agents";
     IntentParserService,
     DocumentsService,
     GenerationService,
-    QuickGenerateService,
-    ExportService,
-    PPTOrchestratorService,
+    // Slides
+    SlidesOrchestratorService,
     SlidePlanningService,
     SlideContentService,
+    SlideContentGeneratorService,
     SlideImageService,
     SlideRendererService,
-    PPTExportService,
+    SlidesExportService,
     NaturalEditService,
-    PPTVersionService,
+    SlidesVersionService,
     TemplateMatcher,
     QualityCheckService,
     SourceAnalysisService,
     BatchOperationService,
-    ConsistencyService,
+    // Docs
     DocsOrchestratorService,
+    DocsGeneratorService,
+    // Designer
     DesignerOrchestratorService,
     AiOfficeIntegrationService,
     CodeExecutionService,
@@ -110,24 +112,31 @@ import { AgentsController } from "./agents";
     IntentParserService,
     DocumentsService,
     GenerationService,
-    QuickGenerateService,
-    ExportService,
-    PPTOrchestratorService,
+    // Slides
+    SlidesOrchestratorService,
     SlidePlanningService,
     SlideContentService,
+    SlideContentGeneratorService,
     SlideImageService,
     SlideRendererService,
-    PPTExportService,
+    SlidesExportService,
     NaturalEditService,
-    PPTVersionService,
+    SlidesVersionService,
     TemplateMatcher,
     QualityCheckService,
     SourceAnalysisService,
     BatchOperationService,
-    ConsistencyService,
+    // Docs
     DocsOrchestratorService,
+    DocsGeneratorService,
+    // Designer
     DesignerOrchestratorService,
     AiOfficeIntegrationService,
+    // Common
+    ContentAnalysisService,
+    TemplateSelectionService,
+    ImageMatchingService,
+    ReadingExperienceService,
   ],
 })
 export class AiOfficeModule {}

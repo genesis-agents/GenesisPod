@@ -6,7 +6,8 @@
 import { Injectable } from "@nestjs/common";
 import { BaseTool, JSONSchema, ToolContext } from "../../core";
 import { ToolType } from "../../core";
-import { ExportService, ExportResult } from "../../../ai-office/export";
+import { ExportOrchestratorService } from "../../../../export";
+import { ExportFormat } from "@prisma/client";
 
 // ============================================================================
 // Types
@@ -174,7 +175,7 @@ export class ExportPDFTool extends BaseTool<ExportPDFInput, ExportPDFOutput> {
     },
   };
 
-  constructor(private readonly exportService: ExportService) {
+  constructor(private readonly exportOrchestrator: ExportOrchestratorService) {
     super();
     this.defaultTimeout = 90000; // 90 秒超时（PDF 生成需要 puppeteer）
   }
@@ -215,31 +216,60 @@ export class ExportPDFTool extends BaseTool<ExportPDFInput, ExportPDFOutput> {
 
   protected async doExecute(
     input: ExportPDFInput,
-    _context: ToolContext,
+    context: ToolContext,
   ): Promise<ExportPDFOutput> {
-    const { title, content, author, company } = input;
+    const { title, content } = input;
 
     try {
-      // Note: 当前 DocumentExportService 的 exportToPDF 方法使用固定的页面设置
-      // pageSize 和 margins 参数在此版本中暂不支持，但保留在接口中以便未来扩展
-      const result: ExportResult = await this.exportService.exportDocument({
-        format: "pdf",
-        documentType: "REPORT",
-        title,
-        content,
-        metadata: {
-          author,
-          company,
+      // 使用统一导出模块创建导出任务
+      const job = await this.exportOrchestrator.createExportJob(
+        context.userId || "system",
+        {
+          source: {
+            type: "RAW",
+            content,
+            contentType: "markdown",
+            title,
+          },
+          format: ExportFormat.PDF,
         },
-      });
+      );
 
-      return {
-        filename: result.filename,
-        mimeType: result.mimeType,
-        size: result.buffer.length,
-        base64Content: result.buffer.toString("base64"),
-        success: true,
-      };
+      // 等待导出完成（轮询）
+      let result = job;
+      const maxWait = 60000; // 60秒超时
+      const startTime = Date.now();
+
+      while (
+        result.status !== "COMPLETED" &&
+        result.status !== "FAILED" &&
+        Date.now() - startTime < maxWait
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        result = await this.exportOrchestrator.getJobStatus(
+          job.jobId,
+          context.userId || "system",
+        );
+      }
+
+      if (result.status === "COMPLETED" && result.downloadUrl) {
+        return {
+          filename: result.fileName || `${title}.pdf`,
+          mimeType: "application/pdf",
+          size: result.fileSize || 0,
+          base64Content: "", // 下载 URL 模式，不返回 base64
+          success: true,
+        };
+      } else {
+        return {
+          filename: "",
+          mimeType: "",
+          size: 0,
+          base64Content: "",
+          success: false,
+          error: result.error || "Export timed out",
+        };
+      }
     } catch (error) {
       return {
         filename: "",

@@ -1,0 +1,28 @@
+/**
+ * AI Office 提示词模块
+ * 统一管理内容分析、模板选择、内容生成的 AI 提示词
+ */
+
+// 内容分析提示词
+export {
+  CONTENT_ANALYSIS_SYSTEM_PROMPT,
+  CONTENT_ANALYSIS_USER_PROMPT,
+  IMAGE_MATCHING_SYSTEM_PROMPT,
+  READING_EXPERIENCE_SYSTEM_PROMPT,
+} from "./content-analysis.prompt";
+
+// 模板选择提示词
+export {
+  SLIDE_TEMPLATE_SELECTION_SYSTEM_PROMPT,
+  DOCS_TEMPLATE_SELECTION_SYSTEM_PROMPT,
+  TEMPLATE_SELECTION_USER_PROMPT,
+} from "./template-selection.prompt";
+
+// 内容生成提示词
+export {
+  SLIDE_CONTENT_GENERATION_SYSTEM_PROMPT,
+  DOCS_CONTENT_GENERATION_SYSTEM_PROMPT,
+  SLIDE_CONTENT_USER_PROMPT,
+  DOCS_SECTION_USER_PROMPT,
+  IMAGE_PROMPT_GENERATION_SYSTEM_PROMPT,
+} from "./content-generation.prompt";

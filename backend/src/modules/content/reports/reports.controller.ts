@@ -83,9 +83,11 @@ export class ReportsController {
   @Post("export")
   @HttpCode(HttpStatus.OK)
   async exportDocument(
-    @Body() dto: { format: string; content: string; title: string },
+    @Body()
+    dto: { format: string; content: string; title: string; userId?: string },
     @Res() res: Response,
   ) {
-    return this.reportsService.exportDocument(dto, res);
+    const userId = dto.userId || "system";
+    return this.reportsService.exportDocument(dto, res, userId);
   }
 }

@@ -3,16 +3,17 @@
  * AI Office 整合服务 - 为 ai-agents 模块提供统一入口
  *
  * 整合以下服务：
- * - PPTOrchestratorService: PPT 生成编排
+ * - SlidesOrchestratorService: 幻灯片生成编排
  * - GenerationService: 文档生成
- * - ExportService: 文档导出
- * - SlidePlanningService: 幻灯片规划
+ * - SlidesExportService: 幻灯片导出
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { PPTOrchestratorService } from "./ppt/ppt-orchestrator.service";
+import { SlidesOrchestratorService } from "./slides";
 import { GenerationService, GenerationConfig } from "./generation";
-import { ExportService, ExportFormat } from "./export";
+
+// 导出格式类型
+export type ExportFormat = "docx" | "pdf" | "markdown" | "pptx";
 
 /**
  * 办公文档类型
@@ -79,25 +80,24 @@ export class AiOfficeIntegrationService {
   private readonly logger = new Logger(AiOfficeIntegrationService.name);
 
   constructor(
-    private readonly pptOrchestrator: PPTOrchestratorService,
+    private readonly slidesOrchestrator: SlidesOrchestratorService,
     private readonly generationService: GenerationService,
-    private readonly exportService: ExportService,
   ) {}
 
   /**
-   * 生成 PPT
-   * 通过 PPTOrchestratorService 生成演示文稿
+   * 生成幻灯片
+   * 通过 SlidesOrchestratorService 生成演示文稿
    */
   async *generatePPT(
     options: PPTGenerationOptions,
   ): AsyncGenerator<PPTStreamEvent> {
     this.logger.log(
-      `[generatePPT] Starting PPT generation for: ${options.prompt.slice(0, 50)}...`,
+      `[generatePPT] Starting slides generation for: ${options.prompt.slice(0, 50)}...`,
     );
 
     try {
       // 使用 generatePPTStream 获取 Observable 并转换为 AsyncGenerator
-      const observable = this.pptOrchestrator.generatePPTStream({
+      const observable = this.slidesOrchestrator.generatePPTStream({
         prompt: options.prompt,
         themeId: options.themeId || "professional",
         slideCount: options.slideCount || 10,
@@ -209,33 +209,16 @@ export class AiOfficeIntegrationService {
 
   /**
    * 导出文档
-   * 通过 ExportService 导出文档
+   * TODO: 使用统一的 ExportModule 实现
    */
   async exportDocument(options: DocExportOptions): Promise<GenerationResult> {
     this.logger.log(`[exportDocument] Exporting document: ${options.title}`);
 
-    try {
-      const result = await this.exportService.exportDocument({
-        format: options.format,
-        title: options.title,
-        content: options.content,
-        documentType: options.documentType as any,
-        metadata: options.metadata,
-      });
-
-      return {
-        success: true,
-        buffer: result.buffer,
-        filename: result.filename,
-        mimeType: result.mimeType,
-      };
-    } catch (error) {
-      this.logger.error(`[exportDocument] Error: ${error}`);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "文档导出失败",
-      };
-    }
+    // TODO: 集成统一的 ExportModule
+    return {
+      success: false,
+      error: "文档导出功能待集成统一的 ExportModule",
+    };
   }
 
   /**
