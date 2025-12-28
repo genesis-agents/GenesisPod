@@ -877,6 +877,11 @@ export default function TeamKnowledgeBaseTab({
           documents={expandedDocs}
           knowledgeBaseName={showDocList.kbName}
           onClose={() => setShowDocList(null)}
+          onBack={() => {
+            // Close doc list and ensure KB is still expanded
+            setShowDocList(null);
+            // The KB should still be expanded via expandedKbId
+          }}
         />
       )}
 

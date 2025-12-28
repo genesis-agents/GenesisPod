@@ -550,6 +550,11 @@ export default function PersonalKnowledgeBaseTab({
           documents={showDocList.documents}
           knowledgeBaseName={showDocList.kbName}
           onClose={() => setShowDocList(null)}
+          onBack={() => {
+            const kbId = showDocList.kbId;
+            setShowDocList(null);
+            setShowDetailKbId(kbId);
+          }}
         />
       )}
 

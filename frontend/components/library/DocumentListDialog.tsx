@@ -14,6 +14,7 @@ import {
   FileType,
   Calendar,
   Link2,
+  ArrowLeft,
 } from 'lucide-react';
 
 interface Document {
@@ -33,6 +34,7 @@ interface DocumentListDialogProps {
   documents: Document[];
   knowledgeBaseName: string;
   onClose: () => void;
+  onBack?: () => void;
 }
 
 /**
@@ -43,6 +45,7 @@ export default function DocumentListDialog({
   documents,
   knowledgeBaseName,
   onClose,
+  onBack,
 }: DocumentListDialogProps) {
   const vectorizedCount = documents.filter(
     (d) => d.isVectorized === true
@@ -116,6 +119,15 @@ export default function DocumentListDialog({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-purple-50 px-6 py-4">
           <div className="flex items-center gap-3">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-white/80 hover:text-gray-700"
+                title="返回知识库详情"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+            )}
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg">
               <Database className="h-5 w-5" />
             </div>
