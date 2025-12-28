@@ -230,14 +230,19 @@ export class GoogleDriveRAGService {
       }
 
       // Update knowledge base status
+      // Only set to ERROR if ALL files failed (no files added or updated)
+      // Partial success (some files processed) should still be READY with error log
+      const hasAnySuccess = result.added > 0 || result.updated > 0;
+      const allFailed = !hasAnySuccess && result.errors.length > 0;
+
       await this.prisma.knowledgeBase.update({
         where: { id: knowledgeBaseId },
         data: {
-          status:
-            result.errors.length > 0
-              ? KnowledgeBaseStatus.ERROR
-              : KnowledgeBaseStatus.READY,
+          status: allFailed
+            ? KnowledgeBaseStatus.ERROR
+            : KnowledgeBaseStatus.READY,
           lastSyncedAt: new Date(),
+          // Still log errors even on partial success, but don't fail the KB
           lastError: result.errors.length > 0 ? result.errors.join("\n") : null,
         },
       });
