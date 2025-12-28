@@ -62,14 +62,12 @@ export class PlatformImportService {
     const skip = (page - 1) * limit;
 
     // Query resources that user has bookmarked (upvoted/saved)
-    // Use NOT clause to filter out null sourceUrl values (Prisma compatible syntax)
+    // sourceUrl is non-nullable in schema (String, not String?), so filter out empty strings
     const where: any = {
       upvotes: {
         some: { userId },
       },
-      NOT: {
-        sourceUrl: null,
-      },
+      sourceUrl: { not: "" },
     };
 
     if (search) {
