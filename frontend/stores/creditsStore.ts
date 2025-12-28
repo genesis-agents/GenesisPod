@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import { getAuthTokens } from '@/lib/utils/auth';
 
 /**
  * 积分账户信息
@@ -109,6 +110,15 @@ interface CreditsState {
 const API_BASE = '/api/v1/credits';
 
 /**
+ * 获取认证请求头
+ */
+function getAuthHeaders(): Record<string, string> {
+  const tokens = getAuthTokens();
+  if (!tokens?.accessToken) return {};
+  return { Authorization: `Bearer ${tokens.accessToken}` };
+}
+
+/**
  * 积分 Store
  */
 export const useCreditsStore = create<CreditsState>()(
@@ -130,6 +140,7 @@ export const useCreditsStore = create<CreditsState>()(
         try {
           const response = await fetch(API_BASE + '/balance', {
             credentials: 'include',
+            headers: getAuthHeaders(),
           });
           // Silently ignore 401 - user not authenticated
           if (response.status === 401) {
@@ -175,6 +186,7 @@ export const useCreditsStore = create<CreditsState>()(
         try {
           const response = await fetch(API_BASE, {
             credentials: 'include',
+            headers: getAuthHeaders(),
           });
           // Silently ignore 401 - user not authenticated
           if (response.status === 401) {
@@ -199,6 +211,7 @@ export const useCreditsStore = create<CreditsState>()(
         try {
           const response = await fetch(API_BASE + '/checkin/status', {
             credentials: 'include',
+            headers: getAuthHeaders(),
           });
           // Silently ignore 401 - user not authenticated
           if (response.status === 401) {
@@ -222,7 +235,10 @@ export const useCreditsStore = create<CreditsState>()(
           const response = await fetch(API_BASE + '/checkin', {
             method: 'POST',
             credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              ...getAuthHeaders(),
+            },
           });
 
           const result = await response.json();

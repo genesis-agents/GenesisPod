@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useApiGet, useApiPost, useApiMutation } from '@/hooks/core';
 import { apiClient } from '@/lib/api/client';
 
@@ -191,20 +191,15 @@ export function useKnowledgeBase() {
  * 单个知识库详情 Hook
  */
 export function useKnowledgeBaseDetail(id: string | null) {
-  // 跟踪当前 id，用于检测是否需要重置数据
-  const [currentId, setCurrentId] = useState<string | null>(null);
-  const [isIdChanging, setIsIdChanging] = useState(false);
-
   // 获取知识库详情 - 只在有 id 时请求
   const {
     data: knowledgeBase,
     loading,
     error,
     execute: refresh,
-    reset: resetKb,
-  } = useApiGet<KnowledgeBase>(`/rag/knowledge-bases/${id || 'placeholder'}`, {
+  } = useApiGet<KnowledgeBase>(id ? `/rag/knowledge-bases/${id}` : '', {
     immediate: !!id,
-    deps: [id], // 当 id 变化时重新请求
+    deps: [id],
   });
 
   // 获取统计信息
@@ -212,9 +207,8 @@ export function useKnowledgeBaseDetail(id: string | null) {
     data: stats,
     loading: statsLoading,
     execute: fetchStats,
-    reset: resetStats,
   } = useApiGet<KnowledgeBaseStats>(
-    `/rag/knowledge-bases/${id || 'placeholder'}/stats`,
+    id ? `/rag/knowledge-bases/${id}/stats` : '',
     { immediate: !!id, deps: [id] }
   );
 
@@ -223,36 +217,22 @@ export function useKnowledgeBaseDetail(id: string | null) {
     data: documents,
     loading: docsLoading,
     execute: fetchDocuments,
-    reset: resetDocs,
   } = useApiGet<KnowledgeBaseDocument[]>(
-    `/rag/knowledge-bases/${id || 'placeholder'}/documents`,
+    id ? `/rag/knowledge-bases/${id}/documents` : '',
     { immediate: !!id, deps: [id] }
   );
-
-  // 当 id 变化时标记正在切换，不再调用 reset 函数
-  // reset 函数会将 loading 设为 false，导致与 useApiGet 的 loading=true 冲突
-  // useApiGet 的 deps: [id] 会自动触发新的 fetch，无需手动 reset
-  useEffect(() => {
-    if (id !== currentId) {
-      setIsIdChanging(true);
-      setCurrentId(id);
-      // 短暂延迟后清除 isIdChanging 状态，让新数据有时间加载
-      const timer = setTimeout(() => setIsIdChanging(false), 100);
-      return () => clearTimeout(timer);
-    }
-  }, [id, currentId]);
 
   // 更新知识库
   const { execute: updateKnowledgeBase, loading: updating } = useApiMutation<
     KnowledgeBase,
     Partial<CreateKnowledgeBaseDto>
-  >('patch', `/rag/knowledge-bases/${id || 'placeholder'}`);
+  >('patch', id ? `/rag/knowledge-bases/${id}` : '');
 
   // 处理文档
   const { execute: processDocuments, loading: processing } = useApiPost<
     { processed: number },
     Record<string, never>
-  >(`/rag/knowledge-bases/${id || 'placeholder'}/process`);
+  >(id ? `/rag/knowledge-bases/${id}/process` : '');
 
   // 同步 Google Drive
   const { execute: syncGoogleDrive, loading: syncing } = useApiPost<
@@ -263,21 +243,19 @@ export function useKnowledgeBaseDetail(id: string | null) {
       errors: string[];
     },
     Record<string, never>
-  >(`/rag/knowledge-bases/${id || 'placeholder'}/sync`);
+  >(id ? `/rag/knowledge-bases/${id}/sync` : '');
 
   // 添加文档
   const { execute: addDocument, loading: addingDocument } = useApiPost<
     KnowledgeBaseDocument,
     AddDocumentDto
-  >(`/rag/knowledge-bases/${id || 'placeholder'}/documents`);
+  >(id ? `/rag/knowledge-bases/${id}/documents` : '');
 
   return {
-    knowledgeBase: id && !isIdChanging ? knowledgeBase : undefined,
-    stats: id && !isIdChanging ? stats : undefined,
-    documents: id && !isIdChanging ? documents : undefined,
-    loading: id
-      ? isIdChanging || loading || statsLoading || docsLoading
-      : false,
+    knowledgeBase: id ? knowledgeBase : undefined,
+    stats: id ? stats : undefined,
+    documents: id ? documents : undefined,
+    loading: id ? loading || statsLoading || docsLoading : false,
     updating,
     processing,
     syncing,

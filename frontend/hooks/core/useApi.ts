@@ -82,6 +82,12 @@ export function useApiGet<T>(
   // Internal fetch function that supports skipCache
   const fetchData = useCallback(
     async (skipCache = false) => {
+      // Don't fetch if path is empty
+      if (!path) {
+        setLoading(false);
+        return undefined;
+      }
+
       // 检查 LRU 缓存 (除非强制刷新)
       if (cacheKey && !skipCache) {
         const cached = apiCache.get(cacheKey) as T | undefined;
