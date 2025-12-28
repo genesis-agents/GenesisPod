@@ -489,6 +489,11 @@ export class AiCoreController {
             },
           });
 
+          // Debug: Log full RAG response
+          this.logger.log(
+            `[simple-chat] RAG response: hasContext=${!!ragResponse.context}, sourcesCount=${ragResponse.context?.sources?.length || 0}, contextTextLength=${ragResponse.context?.text?.length || 0}`,
+          );
+
           if (ragResponse.context && ragResponse.context.sources.length > 0) {
             ragContext = ragResponse.context.text;
             ragSources = ragResponse.context.sources.map((s) => ({
