@@ -27,9 +27,10 @@ export interface CreditRule {
 }
 
 /**
- * 交易记录分页响应
+ * 交易记录分页响应（后端返回格式包含 success 和 data）
  */
 interface TransactionsResponse {
+  success?: boolean;
   data: CreditTransaction[];
   total: number;
   limit: number;

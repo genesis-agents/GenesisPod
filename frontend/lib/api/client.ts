@@ -240,7 +240,29 @@ class ApiClient {
           return {} as T;
         }
 
-        return JSON.parse(text) as T;
+        const parsed = JSON.parse(text);
+
+        // 自动解包标准响应格式 { success: true, data: T }
+        // 只有当 data 是唯一的数据字段时才解包（排除分页等额外字段）
+        // 这样前端 hooks 可以直接使用 data，而不用处理 wrapper
+        if (
+          parsed &&
+          typeof parsed === 'object' &&
+          'success' in parsed &&
+          'data' in parsed
+        ) {
+          // 检查除了 success, data, metadata 之外是否还有其他字段
+          const otherKeys = Object.keys(parsed).filter(
+            (k) => !['success', 'data', 'metadata', 'message'].includes(k)
+          );
+
+          // 只有在没有其他字段时才解包（如分页响应有 total, hasMore 等）
+          if (otherKeys.length === 0) {
+            return parsed.data as T;
+          }
+        }
+
+        return parsed as T;
       } catch (error) {
         lastError = error as Error;
 

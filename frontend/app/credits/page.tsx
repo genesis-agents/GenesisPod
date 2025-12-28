@@ -30,10 +30,20 @@ export default function CreditsPage() {
     refreshAccount,
     refreshCheckinStatus,
   } = useCredits();
-  const { stats } = useCreditsStats();
-  const { rules } = useCreditRules();
-  const { transactions } = useCreditsTransactions({ limit: 10 });
-  const { history: checkinHistory } = useCheckinHistory(7);
+  const { stats, loading: statsLoading } = useCreditsStats();
+  const { rules, loading: rulesLoading } = useCreditRules();
+  const { transactions, loading: txLoading } = useCreditsTransactions({
+    limit: 10,
+  });
+  const { history: checkinHistory, loading: historyLoading } =
+    useCheckinHistory(7);
+
+  // 确保数组类型安全
+  const safeCheckinHistory = Array.isArray(checkinHistory)
+    ? checkinHistory
+    : [];
+  const safeRules = Array.isArray(rules) ? rules : [];
+  const safeTransactions = Array.isArray(transactions) ? transactions : [];
 
   // 未登录重定向
   useEffect(() => {
@@ -156,7 +166,7 @@ export default function CreditsPage() {
           <div className="flex items-center gap-6">
             {/* 签到日历（最近7天） */}
             <div className="flex gap-2">
-              {checkinHistory.map((day, idx) => (
+              {safeCheckinHistory.map((day, idx) => (
                 <div
                   key={idx}
                   className="flex h-12 w-12 flex-col items-center justify-center rounded-lg bg-green-100 text-green-700"
@@ -174,7 +184,7 @@ export default function CreditsPage() {
               ))}
               {/* 填充空位 */}
               {Array.from({
-                length: Math.max(0, 7 - checkinHistory.length),
+                length: Math.max(0, 7 - safeCheckinHistory.length),
               }).map((_, idx) => (
                 <div
                   key={`empty-${idx}`}
@@ -210,7 +220,7 @@ export default function CreditsPage() {
               {t('credits.creditsRules')}
             </h2>
             <div className="space-y-3">
-              {rules.slice(0, 8).map((rule) => (
+              {safeRules.slice(0, 8).map((rule) => (
                 <div
                   key={`${rule.moduleType}-${rule.operationType}`}
                   className="flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3"
@@ -241,9 +251,9 @@ export default function CreditsPage() {
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
               {t('credits.transactions')}
             </h2>
-            {transactions.length > 0 ? (
+            {safeTransactions.length > 0 ? (
               <div className="space-y-3">
-                {transactions.map((tx) => (
+                {safeTransactions.map((tx) => (
                   <div
                     key={tx.id}
                     className="flex items-center justify-between border-b border-gray-100 pb-3 last:border-b-0"

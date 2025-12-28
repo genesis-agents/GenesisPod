@@ -1,0 +1,392 @@
+'use client';
+
+import { useEffect } from 'react';
+import {
+  X,
+  FileText,
+  RefreshCw,
+  Loader2,
+  Calendar,
+  Search,
+  Layers,
+  CheckCircle,
+  Clock,
+  Zap,
+  Database,
+  Plus,
+  Pencil,
+  FolderOpen,
+  AlertCircle,
+} from 'lucide-react';
+import {
+  useKnowledgeBaseDetail,
+  type KnowledgeBase,
+  type KnowledgeBaseStats,
+  type KnowledgeBaseDocument,
+} from '@/hooks/domain/useKnowledgeBase';
+
+interface KnowledgeBaseDetailDialogProps {
+  knowledgeBaseId: string;
+  onClose: () => void;
+  onEdit?: () => void;
+  onAddDocuments?: () => void;
+  onSearchTest?: () => void;
+  onViewDocuments?: (docs: KnowledgeBaseDocument[]) => void;
+}
+
+/**
+ * 知识库详情弹窗
+ * 显示知识库的概览信息、统计数据和文档列表
+ */
+export default function KnowledgeBaseDetailDialog({
+  knowledgeBaseId,
+  onClose,
+  onEdit,
+  onAddDocuments,
+  onSearchTest,
+  onViewDocuments,
+}: KnowledgeBaseDetailDialogProps) {
+  const {
+    knowledgeBase,
+    stats,
+    documents,
+    loading,
+    syncing,
+    processing,
+    syncGoogleDrive,
+    processDocuments,
+    error,
+  } = useKnowledgeBaseDetail(knowledgeBaseId);
+
+  // 关闭时按 ESC
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [onClose]);
+
+  const getSourceTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      GOOGLE_DRIVE: 'Google Drive',
+      MANUAL: '手动上传',
+      URL: 'URL 抓取',
+      NOTION: 'Notion',
+      BOOKMARK: '书签',
+      NOTE: '笔记',
+      IMAGE: '图片',
+    };
+    return labels[type] || type;
+  };
+
+  const getSourceTypeIcon = (type: string) => {
+    switch (type) {
+      case 'GOOGLE_DRIVE':
+        return <FolderOpen className="h-4 w-4 text-blue-500" />;
+      case 'URL':
+        return <Search className="h-4 w-4 text-green-500" />;
+      default:
+        return <FileText className="h-4 w-4 text-gray-500" />;
+    }
+  };
+
+  const getStatusInfo = (status: string) => {
+    switch (status) {
+      case 'READY':
+        return {
+          label: '就绪',
+          color: 'text-green-600',
+          bgColor: 'bg-green-100',
+          icon: <CheckCircle className="h-4 w-4" />,
+        };
+      case 'PROCESSING':
+        return {
+          label: '处理中',
+          color: 'text-blue-600',
+          bgColor: 'bg-blue-100',
+          icon: <Loader2 className="h-4 w-4 animate-spin" />,
+        };
+      case 'ERROR':
+        return {
+          label: '错误',
+          color: 'text-red-600',
+          bgColor: 'bg-red-100',
+          icon: <AlertCircle className="h-4 w-4" />,
+        };
+      default:
+        return {
+          label: '待处理',
+          color: 'text-gray-600',
+          bgColor: 'bg-gray-100',
+          icon: <Clock className="h-4 w-4" />,
+        };
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-lg">
+              <Database className="h-6 w-6" />
+            </div>
+            <div>
+              {loading ? (
+                <div className="h-6 w-32 animate-pulse rounded bg-gray-200" />
+              ) : (
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {knowledgeBase?.name || '知识库详情'}
+                </h2>
+              )}
+              <p className="text-sm text-gray-500">知识库概览</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-white/80 hover:text-gray-700"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+              <span className="ml-3 text-gray-500">加载中...</span>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-16">
+              <AlertCircle className="h-12 w-12 text-red-400" />
+              <p className="mt-3 text-gray-600">加载失败</p>
+              <p className="text-sm text-gray-500">{error.message}</p>
+            </div>
+          ) : knowledgeBase ? (
+            <div className="space-y-6 p-6">
+              {/* Status and Source Types */}
+              <div className="flex flex-wrap items-center gap-3">
+                {(() => {
+                  const status = getStatusInfo(knowledgeBase.status);
+                  return (
+                    <span
+                      className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium ${status.bgColor} ${status.color}`}
+                    >
+                      {status.icon}
+                      {status.label}
+                    </span>
+                  );
+                })()}
+                {(knowledgeBase.sourceTypes?.length
+                  ? knowledgeBase.sourceTypes
+                  : [knowledgeBase.sourceType]
+                ).map((type) => (
+                  <span
+                    key={type}
+                    className="flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-600"
+                  >
+                    {getSourceTypeIcon(type)}
+                    {getSourceTypeLabel(type)}
+                  </span>
+                ))}
+              </div>
+
+              {/* Description */}
+              {knowledgeBase.description && (
+                <p className="text-gray-600">{knowledgeBase.description}</p>
+              )}
+
+              {/* Statistics */}
+              {stats && (
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                  <div className="rounded-xl bg-blue-50 p-4 text-center">
+                    <p className="text-2xl font-bold text-blue-700">
+                      {stats.documentCount}
+                    </p>
+                    <p className="text-sm text-blue-600">文档</p>
+                  </div>
+                  <div className="rounded-xl bg-green-50 p-4 text-center">
+                    <p className="text-2xl font-bold text-green-700">
+                      {stats.childChunkCount}
+                    </p>
+                    <p className="text-sm text-green-600">分块</p>
+                  </div>
+                  <div className="rounded-xl bg-purple-50 p-4 text-center">
+                    <p className="text-2xl font-bold text-purple-700">
+                      {stats.embeddingCount ?? 0}
+                    </p>
+                    <p className="text-sm text-purple-600">向量</p>
+                  </div>
+                  <div className="rounded-xl bg-orange-50 p-4 text-center">
+                    <p className="text-2xl font-bold text-orange-700">
+                      {stats.totalTokens >= 1000
+                        ? `${(stats.totalTokens / 1000).toFixed(1)}k`
+                        : stats.totalTokens}
+                    </p>
+                    <p className="text-sm text-orange-600">Tokens</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Dates */}
+              <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
+                <div className="flex items-center gap-2 text-gray-600">
+                  <Calendar className="h-4 w-4 text-gray-400" />
+                  <span>
+                    创建:{' '}
+                    {new Date(knowledgeBase.createdAt).toLocaleDateString(
+                      'zh-CN'
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-600">
+                  <Calendar className="h-4 w-4 text-gray-400" />
+                  <span>
+                    更新:{' '}
+                    {new Date(knowledgeBase.updatedAt).toLocaleDateString(
+                      'zh-CN'
+                    )}
+                  </span>
+                </div>
+                {knowledgeBase.lastSyncedAt && (
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <RefreshCw className="h-4 w-4 text-gray-400" />
+                    <span>
+                      同步:{' '}
+                      {new Date(knowledgeBase.lastSyncedAt).toLocaleDateString(
+                        'zh-CN'
+                      )}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4">
+                {stats && (stats.embeddingCount ?? 0) > 0 && onSearchTest && (
+                  <button
+                    onClick={onSearchTest}
+                    className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:from-purple-700 hover:to-indigo-700"
+                  >
+                    <Search className="h-4 w-4" />
+                    测试搜索
+                  </button>
+                )}
+                <button
+                  onClick={() => processDocuments()}
+                  disabled={processing}
+                  className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+                >
+                  <Layers
+                    className={`h-4 w-4 ${processing ? 'animate-spin' : ''}`}
+                  />
+                  {processing ? '处理中...' : '向量化'}
+                </button>
+                {(knowledgeBase.sourceType === 'GOOGLE_DRIVE' ||
+                  knowledgeBase.sourceTypes?.includes('GOOGLE_DRIVE')) && (
+                  <button
+                    onClick={() => syncGoogleDrive()}
+                    disabled={syncing}
+                    className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    <RefreshCw
+                      className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`}
+                    />
+                    {syncing ? '同步中...' : '同步'}
+                  </button>
+                )}
+                {onEdit && (
+                  <button
+                    onClick={onEdit}
+                    className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    编辑
+                  </button>
+                )}
+                {onAddDocuments && (
+                  <button
+                    onClick={onAddDocuments}
+                    className="flex items-center gap-2 rounded-lg border border-green-300 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 transition-colors hover:bg-green-100"
+                  >
+                    <Plus className="h-4 w-4" />
+                    添加内容
+                  </button>
+                )}
+              </div>
+
+              {/* Documents Section */}
+              {documents && documents.length > 0 && (
+                <div className="space-y-3 border-t border-gray-100 pt-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium text-gray-900">
+                      文档列表 ({documents.length})
+                    </h3>
+                    {onViewDocuments && (
+                      <button
+                        onClick={() => onViewDocuments(documents)}
+                        className="text-sm text-blue-600 hover:text-blue-700 hover:underline"
+                      >
+                        查看全部
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-48 space-y-2 overflow-y-auto">
+                    {documents.slice(0, 5).map((doc) => (
+                      <div
+                        key={doc.id}
+                        className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2"
+                      >
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <FileText className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                          <span className="truncate text-sm text-gray-700">
+                            {doc.title}
+                          </span>
+                        </div>
+                        <span
+                          className={`flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                            doc.isVectorized
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-gray-100 text-gray-600'
+                          }`}
+                        >
+                          {doc.isVectorized ? '已向量化' : '待处理'}
+                        </span>
+                      </div>
+                    ))}
+                    {documents.length > 5 && (
+                      <p className="text-center text-sm text-gray-500">
+                        还有 {documents.length - 5} 个文档...
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16">
+              <AlertCircle className="h-12 w-12 text-amber-400" />
+              <p className="mt-3 text-gray-600">未找到知识库</p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end border-t border-gray-100 bg-gray-50/50 px-6 py-3">
+          <button
+            onClick={onClose}
+            className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
+          >
+            关闭
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
