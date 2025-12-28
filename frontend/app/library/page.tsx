@@ -34,6 +34,9 @@ import { useResourceStore } from '@/stores/aiOfficeStore';
 import { useImageSourceStore } from '@/stores/imageSourceStore';
 import type { Resource as AIOfficeResource } from '@/types/ai-office';
 import type { Note } from '@/components/features/NotesList';
+import AddToKnowledgeBaseDialog, {
+  type ResourceToAdd,
+} from '@/components/shared/AddToKnowledgeBaseDialog';
 
 // 懒加载条件渲染的组件
 const NotesList = dynamicImport(
@@ -321,6 +324,13 @@ function LibraryPageContent() {
   const [selectedImage, setSelectedImage] = useState<BookmarkedImage | null>(
     null
   );
+
+  // Add to Knowledge Base dialog state
+  const [addToKBDialogOpen, setAddToKBDialogOpen] = useState(false);
+  const [addToKBResources, setAddToKBResources] = useState<ResourceToAdd[]>([]);
+  const [addToKBSourceType, setAddToKBSourceType] = useState<
+    'BOOKMARK' | 'NOTE' | 'URL'
+  >('BOOKMARK');
 
   // Knowledge Graph state
   const [graphData, setGraphData] = useState<{
@@ -1166,61 +1176,89 @@ function LibraryPageContent() {
     }
 
     return (
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-        {bookmarkedImages.map((image) => (
-          <div
-            key={image.id}
-            className="group relative cursor-pointer overflow-hidden rounded-lg border border-gray-200 bg-white transition-all hover:shadow-lg"
-            onClick={() => handleImageClick(image)}
+      <div className="space-y-4">
+        {/* 操作栏 */}
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-500">
+            {bookmarkedImages.length} 张图片
+          </div>
+          <button
+            onClick={() => {
+              const resources: ResourceToAdd[] = bookmarkedImages.map(
+                (img) => ({
+                  id: img.id,
+                  name: img.prompt || `Image ${img.id.slice(0, 8)}`,
+                  type: 'url' as const, // Images will be handled as URLs
+                  url: img.imageUrl,
+                })
+              );
+              setAddToKBResources(resources);
+              setAddToKBSourceType('URL');
+              setAddToKBDialogOpen(true);
+            }}
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
           >
-            {/* 图片 */}
-            <div className="aspect-square overflow-hidden bg-gray-100">
-              <img
-                src={image.imageUrl}
-                alt={image.prompt}
-                className="h-full w-full object-cover transition-transform group-hover:scale-105"
-              />
-            </div>
+            <Database className="h-4 w-4" />
+            加入知识库
+          </button>
+        </div>
 
-            {/* 悬浮信息 */}
-            <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 to-transparent p-3 opacity-0 transition-opacity group-hover:opacity-100">
-              <p className="line-clamp-2 text-xs text-white">
-                {image.enhancedPrompt || image.prompt}
-              </p>
-            </div>
-
-            {/* 删除按钮 */}
-            <button
-              onClick={(e) => handleRemoveImageBookmark(image.id, e)}
-              className="absolute right-2 top-2 rounded-lg bg-white p-1.5 opacity-0 shadow-md transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
-              title="删除"
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {bookmarkedImages.map((image) => (
+            <div
+              key={image.id}
+              className="group relative cursor-pointer overflow-hidden rounded-lg border border-gray-200 bg-white transition-all hover:shadow-lg"
+              onClick={() => handleImageClick(image)}
             >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              {/* 图片 */}
+              <div className="aspect-square overflow-hidden bg-gray-100">
+                <img
+                  src={image.imageUrl}
+                  alt={image.prompt}
+                  className="h-full w-full object-cover transition-transform group-hover:scale-105"
                 />
-              </svg>
-            </button>
+              </div>
 
-            {/* 底部信息 */}
-            <div className="border-t border-gray-100 bg-white px-2 py-1.5">
-              <div className="flex items-center justify-between text-xs text-gray-500">
-                <span>
-                  {image.width}×{image.height}
-                </span>
-                <span>{new Date(image.createdAt).toLocaleDateString()}</span>
+              {/* 悬浮信息 */}
+              <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 to-transparent p-3 opacity-0 transition-opacity group-hover:opacity-100">
+                <p className="line-clamp-2 text-xs text-white">
+                  {image.enhancedPrompt || image.prompt}
+                </p>
+              </div>
+
+              {/* 删除按钮 */}
+              <button
+                onClick={(e) => handleRemoveImageBookmark(image.id, e)}
+                className="absolute right-2 top-2 rounded-lg bg-white p-1.5 opacity-0 shadow-md transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+                title="删除"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+              </button>
+
+              {/* 底部信息 */}
+              <div className="border-t border-gray-100 bg-white px-2 py-1.5">
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span>
+                    {image.width}×{image.height}
+                  </span>
+                  <span>{new Date(image.createdAt).toLocaleDateString()}</span>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     );
   };
@@ -1750,6 +1788,31 @@ function LibraryPageContent() {
 
                 return (
                   <div className="space-y-4">
+                    {/* 操作栏 */}
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-gray-500">
+                        {paginatedItems.pagination.total} 个书签
+                      </div>
+                      <button
+                        onClick={() => {
+                          const resources: ResourceToAdd[] =
+                            paginatedItems.items.map((item) => ({
+                              id: item.id,
+                              name: item.resource.title,
+                              type: 'bookmark' as const,
+                              url: item.resource.sourceUrl,
+                            }));
+                          setAddToKBResources(resources);
+                          setAddToKBSourceType('BOOKMARK');
+                          setAddToKBDialogOpen(true);
+                        }}
+                        className="flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                      >
+                        <Database className="h-4 w-4" />
+                        加入知识库
+                      </button>
+                    </div>
+
                     {/* 资源网格 */}
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       {paginatedItems.items.map((item) => (
@@ -1787,7 +1850,20 @@ function LibraryPageContent() {
                 );
               }}
               renderNotes={() => (
-                <NotesList showActions onAddToOffice={handleAddNoteToOffice} />
+                <NotesList
+                  showActions
+                  onAddToOffice={handleAddNoteToOffice}
+                  onAddToKnowledgeBase={(notes) => {
+                    const resources: ResourceToAdd[] = notes.map((note) => ({
+                      id: note.id,
+                      name: note.name,
+                      type: 'note' as const,
+                    }));
+                    setAddToKBResources(resources);
+                    setAddToKBSourceType('NOTE');
+                    setAddToKBDialogOpen(true);
+                  }}
+                />
               )}
               renderImages={() => <ImagesTabContent />}
               renderNotion={() => <NotionTabContent />}
@@ -2447,6 +2523,21 @@ function LibraryPageContent() {
           onSuccess={(projectId, projectName) => {
             setToast({
               message: `Added to "${projectName}" in AI Studio`,
+              type: 'success',
+            });
+          }}
+        />
+      )}
+
+      {/* Add to Knowledge Base Dialog */}
+      {addToKBDialogOpen && (
+        <AddToKnowledgeBaseDialog
+          resources={addToKBResources}
+          sourceType={addToKBSourceType}
+          onClose={() => setAddToKBDialogOpen(false)}
+          onSuccess={(kbId, count) => {
+            setToast({
+              message: `已添加 ${count} 个资源到知识库`,
               type: 'success',
             });
           }}

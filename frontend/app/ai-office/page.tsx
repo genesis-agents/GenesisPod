@@ -17,8 +17,8 @@ function WorkspaceLoading() {
 }
 
 /**
- * AI Office 工作区页面
- * 整合资源管理、AI交互、文档生成的统一工作区
+ * AI Reports 工作区页面
+ * 整合资源管理、AI交互、报告生成的统一工作区
  * 支持生成 Word、Excel、PPT 等多种格式文档
  */
 export default function AIOfficePage() {

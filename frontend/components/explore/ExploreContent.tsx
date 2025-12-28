@@ -2018,7 +2018,7 @@ function HomeContent() {
                                   (r) => r._id === resource.id
                                 )
                                   ? 'Added'
-                                  : 'AI Office'}
+                                  : 'AI Reports'}
                               </button>
 
                               {/* To Image Button - Toggle */}

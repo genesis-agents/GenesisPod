@@ -106,7 +106,7 @@ interface CreditsState {
   reset: () => void;
 }
 
-const API_BASE = '/api/credits';
+const API_BASE = '/api/v1/credits';
 
 /**
  * 积分 Store

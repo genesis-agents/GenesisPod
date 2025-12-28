@@ -347,13 +347,29 @@ export class CreditsService implements OnModuleInit {
       });
 
       if (!account) {
+        // 创建新账户，给予初始积分
         account = await tx.creditAccount.create({
           data: {
             userId,
-            balance: 0,
-            totalEarned: 0,
+            balance: 10000,
+            totalEarned: 10000,
           },
         });
+
+        // 创建初始积分交易记录
+        await tx.creditTransaction.create({
+          data: {
+            accountId: account.id,
+            type: CreditTransactionType.INITIAL,
+            amount: 10000,
+            balanceAfter: 10000,
+            description: "Welcome bonus credits",
+          },
+        });
+
+        this.logger.log(
+          `Created new credit account with initial credits for user ${userId}`,
+        );
       }
 
       // 更新余额

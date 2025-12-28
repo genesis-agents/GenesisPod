@@ -81,7 +81,7 @@ export class ExportService {
 
     // 设置文档属性
     pptx.title = config.title;
-    pptx.author = config.metadata?.author || "AI Office";
+    pptx.author = config.metadata?.author || "AI Reports";
     pptx.company = config.metadata?.company || "";
     pptx.subject = config.title;
 
@@ -240,7 +240,7 @@ export class ExportService {
 
     const ExcelJS = await import("exceljs");
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = config.metadata?.author || "AI Office";
+    workbook.creator = config.metadata?.author || "AI Reports";
     workbook.created = new Date();
 
     const worksheet = workbook.addWorksheet(config.title.substring(0, 31)); // Excel 限制 31 字符

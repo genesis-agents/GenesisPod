@@ -117,17 +117,14 @@ export function useCreditsTransactions(options?: {
     loading,
     error,
     execute: refresh,
-  } = useApiGet<TransactionsResponse>(
-    `/api/credits/transactions?${queryString}`,
-    {
-      immediate: true,
-    }
-  );
+  } = useApiGet<TransactionsResponse>(`/credits/transactions?${queryString}`, {
+    immediate: true,
+  });
 
   const loadMore = useCallback(
     async (offset: number) => {
       const response = await fetch(
-        `/api/credits/transactions?offset=${offset}&limit=${options?.limit || 20}`,
+        `/api/v1/credits/transactions?offset=${offset}&limit=${options?.limit || 20}`,
         { credentials: 'include' }
       );
       return response.json();
@@ -155,7 +152,7 @@ export function useCreditsStats() {
     loading,
     error,
     execute: refresh,
-  } = useApiGet<CreditsStats>('/api/credits/stats', { immediate: true });
+  } = useApiGet<CreditsStats>('/credits/stats', { immediate: true });
 
   return {
     stats: data,
@@ -169,12 +166,9 @@ export function useCreditsStats() {
  * 积分规则 Hook
  */
 export function useCreditRules() {
-  const { data, loading, error } = useApiGet<CreditRule[]>(
-    '/api/credits/rules',
-    {
-      immediate: true,
-    }
-  );
+  const { data, loading, error } = useApiGet<CreditRule[]>('/credits/rules', {
+    immediate: true,
+  });
 
   return {
     rules: data ?? [],
@@ -193,7 +187,7 @@ export function useCheckinHistory(limit: number = 30) {
     error,
     execute: refresh,
   } = useApiGet<Array<{ date: string; credits: number; streakDays: number }>>(
-    `/api/credits/checkin/history?limit=${limit}`,
+    `/credits/checkin/history?limit=${limit}`,
     {
       immediate: true,
     }
@@ -212,7 +206,7 @@ export function useCheckinHistory(limit: number = 30) {
  */
 export function useEstimateCredits() {
   const { loading, execute } = useApiGet<{ estimatedCredits: number }>(
-    '/api/credits/estimate',
+    '/credits/estimate',
     { immediate: false }
   );
 
@@ -230,7 +224,7 @@ export function useEstimateCredits() {
         ...(modelName && { modelName }),
       });
 
-      const response = await fetch(`/api/credits/estimate?${params}`, {
+      const response = await fetch(`/api/v1/credits/estimate?${params}`, {
         credentials: 'include',
       });
       const result = await response.json();

@@ -189,6 +189,7 @@ class ApiClient {
       timeout = 30000,
       retries = 0,
       retryDelay = 1000,
+      signal: externalSignal,
       ...init
     } = options;
     const url = this.buildUrl(path);
@@ -197,8 +198,17 @@ class ApiClient {
 
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
+        // 使用外部传入的 signal，或创建新的用于超时控制
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+        // 如果外部 signal 被 abort，也 abort 内部 controller
+        if (externalSignal) {
+          externalSignal.addEventListener('abort', () => {
+            controller.abort();
+            clearTimeout(timeoutId);
+          });
+        }
 
         // 合并认证头
         const headers = {

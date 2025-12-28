@@ -103,6 +103,23 @@ export class CheckinService {
       }
     }
 
+    // 检查新账户 24 小时限制
+    const hoursSinceCreation =
+      (Date.now() - account.createdAt.getTime()) / (1000 * 60 * 60);
+    if (hoursSinceCreation < ANTI_ABUSE_CONFIG.newAccountWaitHours) {
+      const hoursLeft = Math.ceil(
+        ANTI_ABUSE_CONFIG.newAccountWaitHours - hoursSinceCreation,
+      );
+      return {
+        canCheckin: false,
+        hasCheckedInToday: false,
+        streakDays: 0,
+        lastCheckinDate: null,
+        nextReward: CHECKIN_REWARDS.base,
+        message: `新账户需要等待 ${hoursLeft} 小时后才能签到`,
+      };
+    }
+
     const today = this.getTodayDate();
     const lastCheckin = account.checkins[0];
 

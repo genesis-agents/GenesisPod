@@ -131,7 +131,7 @@ export class ExportController {
       content: dto.content,
       templateId: dto.templateId,
       metadata: {
-        author: req.user?.name || req.user?.email || "AI Office",
+        author: req.user?.name || req.user?.email || "AI Reports",
       },
     };
 

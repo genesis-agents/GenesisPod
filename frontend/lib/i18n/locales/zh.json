@@ -46,7 +46,7 @@
     "explore": "探索",
     "aiStudio": "AI 工作室",
     "aiTeams": "AI 团队",
-    "aiOffice": "AI 办公",
+    "aiOffice": "AI 报告",
     "aiAsk": "AI 问答",
     "aiCoding": "AI 编程",
     "aiStore": "AI 商店",
@@ -482,12 +482,12 @@
     "signInDesc": "创建并加入与 AI 助手协作的团队"
   },
   "aiOffice": {
-    "title": "AI Office",
-    "subtitle": "智能文档生成工作区",
+    "title": "AI 报告",
+    "subtitle": "智能报告生成工作区",
     "loading": "加载中...",
     "signIn": {
-      "title": "AI Office",
-      "description": "登录后即可使用智能文档生成功能，包括 PPT、Word、Excel 等",
+      "title": "AI 报告",
+      "description": "登录后即可使用智能报告生成功能，包括 PPT、Word、Excel 等",
       "button": "使用 Google 登录"
     },
     "header": {

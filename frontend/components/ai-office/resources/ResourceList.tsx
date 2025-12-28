@@ -182,7 +182,7 @@ export default function ResourceList() {
             </div>
             <p className="mb-2 text-sm text-gray-600">还没有添加资源</p>
             <p className="text-xs text-gray-500">
-              在 Explore 页面点击"AI Office"添加资源
+              在 Explore 页面点击"AI Reports"添加资源
             </p>
           </div>
         ) : (

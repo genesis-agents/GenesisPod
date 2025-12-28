@@ -46,7 +46,7 @@
     "explore": "Explore",
     "aiStudio": "AI Studio",
     "aiTeams": "AI Teams",
-    "aiOffice": "AI Office",
+    "aiOffice": "AI Reports",
     "aiAsk": "Ask AI",
     "aiCoding": "AI Coding",
     "aiStore": "AI Store",
@@ -482,12 +482,12 @@
     "signInDesc": "Create and join collaborative teams with AI assistants"
   },
   "aiOffice": {
-    "title": "AI Office",
-    "subtitle": "Smart Document Generation Workspace",
+    "title": "AI Reports",
+    "subtitle": "Smart Report Generation Workspace",
     "loading": "Loading...",
     "signIn": {
-      "title": "AI Office",
-      "description": "Sign in to use smart document generation, including PPT, Word, Excel, and more",
+      "title": "AI Reports",
+      "description": "Sign in to use smart report generation, including PPT, Word, Excel, and more",
       "button": "Sign in with Google"
     },
     "header": {

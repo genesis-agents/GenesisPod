@@ -147,8 +147,7 @@ export function useApiGet<T>(
     return () => {
       abortRef.current?.abort();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [immediate, ...deps]);
+  }, [immediate, fetchData, ...deps]);
 
   return { data, loading, error, execute, refresh, reset, setData };
 }

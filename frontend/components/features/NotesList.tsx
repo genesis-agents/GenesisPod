@@ -36,6 +36,9 @@ interface NotesListProps {
   selectedNoteIds?: Set<string>; // Currently selected note IDs
   onToggleSelect?: (noteId: string) => void; // Toggle note selection
   onAddToOffice?: (note: Note) => void; // Add note to AI Office
+  onAddToKnowledgeBase?: (
+    notes: Array<{ id: string; name: string; content: string }>
+  ) => void; // Add all notes to KB
 }
 
 export { type Note };
@@ -84,6 +87,7 @@ export default function NotesList({
   selectedNoteIds = new Set(),
   onToggleSelect,
   onAddToOffice,
+  onAddToKnowledgeBase,
 }: NotesListProps) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
@@ -321,6 +325,42 @@ export default function NotesList({
 
   return (
     <div className="space-y-4">
+      {/* Action bar */}
+      {onAddToKnowledgeBase && filteredNotes.length > 0 && (
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-500">
+            {filteredNotes.length} 个笔记
+          </div>
+          <button
+            onClick={() => {
+              onAddToKnowledgeBase(
+                filteredNotes.map((note) => ({
+                  id: note.id,
+                  name: note.resource?.title || `Note ${note.id.slice(0, 8)}`,
+                  content: note.content,
+                }))
+              );
+            }}
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+          >
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"
+              />
+            </svg>
+            加入知识库
+          </button>
+        </div>
+      )}
+
       {/* Tag filter chips - Only show in Notes tab */}
       {allTags.length > 0 && (
         <div className="mb-2 flex flex-wrap items-center gap-2">

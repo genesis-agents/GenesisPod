@@ -190,9 +190,11 @@ export default function CreditsPage() {
               <p className="text-gray-600">
                 {checkinStatus?.hasCheckedInToday
                   ? t('credits.streakDays', { days: checkinStatus.streakDays })
-                  : t('credits.dailyCheckinDesc', { credits: 50 })}
+                  : checkinStatus?.message
+                    ? checkinStatus.message
+                    : t('credits.dailyCheckinDesc', { credits: 50 })}
               </p>
-              {!checkinStatus?.hasCheckedInToday && (
+              {!checkinStatus?.hasCheckedInToday && !checkinStatus?.message && (
                 <p className="mt-1 text-sm text-gray-500">
                   {t('credits.streakRewardDesc')}
                 </p>

@@ -131,9 +131,12 @@ export class RAGController {
     description: "List of documents with vectorization status",
   })
   async listDocuments(@Req() req: any, @Param("id") id: string) {
+    console.log(`[RAG] Listing documents for KB ${id}`);
     // Verify ownership
     await this.knowledgeBaseService.findById(id, req.user.id);
-    return this.knowledgeBaseService.listDocuments(id);
+    const documents = await this.knowledgeBaseService.listDocuments(id);
+    console.log(`[RAG] Found ${documents.length} documents for KB ${id}`);
+    return documents;
   }
 
   @Patch("knowledge-bases/:id")

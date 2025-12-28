@@ -90,7 +90,7 @@ class DocumentExportService {
     const pptx = new PptxGenJS();
 
     // 设置文档属性
-    pptx.author = 'AI Office';
+    pptx.author = 'AI Reports';
     pptx.company = 'DeepDive Engine';
     pptx.title = title;
 

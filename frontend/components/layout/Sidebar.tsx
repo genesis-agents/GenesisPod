@@ -435,7 +435,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 ? 'bg-gradient-to-r from-blue-50 to-purple-50 text-gray-900 shadow-sm'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
-            title="AI Office"
+            title="AI Reports"
           >
             <svg
               className="h-5 w-5 flex-shrink-0"
