@@ -43,6 +43,18 @@ export class KnowledgeBaseService {
   ) {}
 
   /**
+   * Sanitize string by removing NULL bytes and other invalid characters
+   * PostgreSQL doesn't allow NULL bytes (0x00) in text fields
+   */
+  private sanitizeString(input: string | undefined | null): string {
+    if (!input) return "";
+    // Remove NULL bytes and other control characters except newlines and tabs
+    return input
+      .replace(/\x00/g, "")
+      .replace(/[\x01-\x08\x0B\x0C\x0E-\x1F]/g, "");
+  }
+
+  /**
    * Create a new knowledge base
    */
   async create(userId: string, input: CreateKnowledgeBaseInput) {
@@ -302,15 +314,20 @@ export class KnowledgeBaseService {
   async addDocument(knowledgeBaseId: string, input: AddDocumentInput) {
     this.logger.log(`Adding document to KB ${knowledgeBaseId}: ${input.title}`);
 
+    // Sanitize string fields to remove NULL bytes that PostgreSQL doesn't accept
+    const sanitizedTitle = this.sanitizeString(input.title);
+    const sanitizedContent = this.sanitizeString(input.content);
+    const sanitizedSourceUrl = this.sanitizeString(input.sourceUrl);
+
     const doc = await this.prisma.knowledgeBaseDocument.create({
       data: {
         knowledgeBaseId,
-        title: input.title,
+        title: sanitizedTitle || "Untitled",
         sourceType: input.sourceType,
         sourceId: input.sourceId,
-        sourceUrl: input.sourceUrl,
+        sourceUrl: sanitizedSourceUrl || undefined,
         mimeType: input.mimeType,
-        rawContent: input.content,
+        rawContent: sanitizedContent,
         status: KnowledgeBaseStatus.PENDING,
         metadata: input.metadata || {},
       },
