@@ -8,7 +8,12 @@ import { StorageModule } from "../../core/storage/storage.module";
 import { CreditsModule } from "../../credits/credits.module";
 
 // Core
-import { AIModelController, AIModelService, IntentParserService } from "./core";
+import {
+  AIModelController,
+  AIModelService,
+  IntentParserService,
+  IntentParserController,
+} from "./core";
 
 // Document Management (CRUD)
 import { DocumentsController, DocumentsService } from "./document-management";
@@ -68,6 +73,7 @@ import { AIOfficeCommonModule } from "./common";
   ],
   controllers: [
     AIModelController,
+    IntentParserController,
     DocumentsController,
     GenerationController,
     SlidesController,

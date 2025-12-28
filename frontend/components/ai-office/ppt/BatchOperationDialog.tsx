@@ -9,7 +9,7 @@
  * 3. 实时预览效果
  *
  * API 调用：
- * - POST /api/ai-office/ppt/{id}/batch-update - 执行批量更新
+ * - POST /api/ai-office/slides/{id}/batch-update - 执行批量更新
  */
 
 import React, { useState } from 'react';
@@ -110,7 +110,7 @@ export const BatchOperationDialog: React.FC<BatchOperationDialogProps> = ({
   const [config, setConfig] = useState<Record<string, any>>({});
 
   const { execute, loading, error } = useApiPost(
-    `/api/ai-office/ppt/${pptId}/batch-update`
+    `/api/ai-office/slides/${pptId}/batch-update`
   );
 
   const handleExecute = async () => {

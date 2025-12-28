@@ -318,7 +318,7 @@ export const QualityReportPanel: React.FC<QualityReportPanelProps> = ({
     error,
     execute: refetchReport,
   } = useApiGet<QualityReport>(
-    `/api/ai-office/ppt/${documentId}/quality-check`,
+    `/api/ai-office/slides/${documentId}/quality-check`,
     {
       onSuccess: (data) => {
         onReportUpdate?.(data);
@@ -328,7 +328,7 @@ export const QualityReportPanel: React.FC<QualityReportPanelProps> = ({
 
   // 应用单个修复
   const { execute: applySingleFix } = useApiPost(
-    `/api/ai-office/ppt/${documentId}/apply-suggestion`,
+    `/api/ai-office/slides/${documentId}/apply-suggestion`,
     {
       onSuccess: () => {
         void refetchReport();
@@ -338,7 +338,7 @@ export const QualityReportPanel: React.FC<QualityReportPanelProps> = ({
 
   // 应用所有自动修复
   const { execute: applyAllFixes, loading: applyingAll } = useApiPost(
-    `/api/ai-office/ppt/${documentId}/apply-all-suggestions`,
+    `/api/ai-office/slides/${documentId}/apply-all-suggestions`,
     {
       onSuccess: () => {
         void refetchReport();

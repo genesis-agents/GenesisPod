@@ -6,7 +6,7 @@ const BACKEND_API_URL =
   'https://deepdive-engine.up.railway.app/api/v1';
 
 /**
- * 获取 PPT 文档
+ * 获取 Slides 文档
  */
 export async function GET(
   request: NextRequest,
@@ -15,7 +15,7 @@ export async function GET(
   const { id } = params;
 
   try {
-    const response = await fetch(`${BACKEND_API_URL}/ai-office/ppt/${id}`, {
+    const response = await fetch(`${BACKEND_API_URL}/ai-office/slides/${id}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -32,16 +32,16 @@ export async function GET(
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('[PPT GET] Error:', error);
+    console.error('[Slides GET] Error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch PPT document' },
+      { error: 'Failed to fetch Slides document' },
       { status: 500 }
     );
   }
 }
 
 /**
- * 删除 PPT 文档
+ * 删除 Slides 文档
  */
 export async function DELETE(
   request: NextRequest,
@@ -50,7 +50,7 @@ export async function DELETE(
   const { id } = params;
 
   try {
-    const response = await fetch(`${BACKEND_API_URL}/ai-office/ppt/${id}`, {
+    const response = await fetch(`${BACKEND_API_URL}/ai-office/slides/${id}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -66,9 +66,9 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[PPT DELETE] Error:', error);
+    console.error('[Slides DELETE] Error:', error);
     return NextResponse.json(
-      { error: 'Failed to delete PPT document' },
+      { error: 'Failed to delete Slides document' },
       { status: 500 }
     );
   }

@@ -18,7 +18,7 @@ export async function POST(
     const body = await request.json();
 
     const response = await fetch(
-      `${BACKEND_API_URL}/ai-office/ppt/${id}/slides/${slideIndex}/regenerate`,
+      `${BACKEND_API_URL}/ai-office/slides/${id}/slides/${slideIndex}/regenerate`,
       {
         method: 'POST',
         headers: {
@@ -38,7 +38,7 @@ export async function POST(
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('[PPT Regenerate Slide] Error:', error);
+    console.error('[Slides Regenerate] Error:', error);
     return NextResponse.json(
       { error: 'Failed to regenerate slide' },
       { status: 500 }

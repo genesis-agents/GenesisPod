@@ -171,7 +171,7 @@ async function applyTemplateToSlide(
 ): Promise<void> {
   try {
     const response = await fetch(
-      `/api/ai-office/ppt/${pptId}/slides/${slideIndex}/apply-template`,
+      `/api/ai-office/slides/${pptId}/slides/${slideIndex}/apply-template`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

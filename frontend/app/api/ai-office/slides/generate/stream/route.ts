@@ -5,13 +5,13 @@ const BACKEND_API_URL =
   process.env.BACKEND_API_URL ||
   'https://deepdive-engine.up.railway.app/api/v1';
 
-// 设置更长的超时时间以支持长时间的 PPT 生成
+// 设置更长的超时时间以支持长时间的 Slides 生成
 // Railway Pro plan 支持最多 300 秒
 export const maxDuration = 300;
 export const runtime = 'nodejs';
 
 /**
- * PPT 3.0 流式生成 API 代理
+ * Slides 3.0 流式生成 API 代理
  * 转发 SSE 请求到后端
  */
 export async function GET(request: NextRequest) {
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
   // 构建后端 URL
   const backendUrl = new URL(
-    `${BACKEND_API_URL}/ai-office/ppt/generate/stream`
+    `${BACKEND_API_URL}/ai-office/slides/generate/stream`
   );
 
   // 转发所有查询参数
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     backendUrl.searchParams.set(key, value);
   });
 
-  console.log('[PPT 3.0 Stream] Proxying to:', backendUrl.toString());
+  console.log('[Slides 3.0 Stream] Proxying to:', backendUrl.toString());
 
   try {
     const response = await fetch(backendUrl.toString(), {
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       console.error(
-        '[PPT 3.0 Stream] Backend error:',
+        '[Slides 3.0 Stream] Backend error:',
         response.status,
         response.statusText
       );
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[PPT 3.0 Stream] Error:', error);
+    console.error('[Slides 3.0 Stream] Error:', error);
     return new Response(
       JSON.stringify({
         error: 'Failed to connect to backend service',

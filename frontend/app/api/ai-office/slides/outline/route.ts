@@ -13,23 +13,23 @@ export const maxDuration = 180;
 export const runtime = 'nodejs';
 
 /**
- * PPT 大纲生成 API 代理
- * POST /api/ai-office/ppt/outline
+ * Slides 大纲生成 API 代理
+ * POST /api/ai-office/slides/outline
  */
 export async function POST(request: NextRequest) {
-  console.log('[PPT Outline] API route called');
+  console.log('[Slides Outline] API route called');
 
   try {
     const body = await request.json();
 
     console.log(
-      '[PPT Outline] Request body:',
+      '[Slides Outline] Request body:',
       JSON.stringify(body).slice(0, 500)
     );
-    console.log('[PPT Outline] prompt:', body.prompt?.slice(0, 100));
-    console.log('[PPT Outline] slideCount:', body.slideCount);
+    console.log('[Slides Outline] prompt:', body.prompt?.slice(0, 100));
+    console.log('[Slides Outline] slideCount:', body.slideCount);
 
-    const backendUrl = `${BACKEND_API_URL}/ai-office/ppt/outline`;
+    const backendUrl = `${BACKEND_API_URL}/ai-office/slides/outline`;
 
     // 创建 AbortController 用于超时控制（2 分钟）
     const controller = new AbortController();
@@ -48,7 +48,11 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[PPT Outline] Backend error:', response.status, errorText);
+      console.error(
+        '[Slides Outline] Backend error:',
+        response.status,
+        errorText
+      );
       return NextResponse.json(
         {
           error: `Backend error: ${response.status}`,
@@ -60,13 +64,13 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
     console.log(
-      '[PPT Outline] Success, slides count:',
+      '[Slides Outline] Success, slides count:',
       data.outline?.slides?.length || 0
     );
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error('[PPT Outline] Error:', error);
+    console.error('[Slides Outline] Error:', error);
     return NextResponse.json(
       {
         error: 'Failed to generate outline',

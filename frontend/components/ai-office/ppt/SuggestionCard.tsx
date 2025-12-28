@@ -10,7 +10,7 @@
  * 4. 支持忽略/关闭建议
  *
  * API 调用：
- * - POST /api/ai-office/ppt/{id}/apply-suggestion - 应用修复建议
+ * - POST /api/ai-office/slides/{id}/apply-suggestion - 应用修复建议
  */
 
 import React, { useState } from 'react';
@@ -254,7 +254,7 @@ export const SuggestionCard: React.FC<SuggestionCardProps> = ({
   >('idle');
 
   const { execute: applySuggestion, loading: applying } = useApiPost(
-    `/api/ai-office/ppt/${pptId}/apply-suggestion`
+    `/api/ai-office/slides/${pptId}/apply-suggestion`
   );
 
   const issueTypeInfo = getIssueTypeInfo(issue.type);

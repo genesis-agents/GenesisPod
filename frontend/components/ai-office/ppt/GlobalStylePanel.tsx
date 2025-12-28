@@ -10,9 +10,9 @@
  * 4. 支持实时预览
  *
  * API 调用：
- * - GET /api/ai-office/ppt/{id}/global-style - 获取全局样式
- * - POST /api/ai-office/ppt/{id}/global-style - 保存全局样式
- * - POST /api/ai-office/ppt/{id}/batch-update - 批量更新样式
+ * - GET /api/ai-office/slides/{id}/global-style - 获取全局样式
+ * - POST /api/ai-office/slides/{id}/global-style - 保存全局样式
+ * - POST /api/ai-office/slides/{id}/batch-update - 批量更新样式
  */
 
 import React, { useState, useEffect } from 'react';
@@ -190,16 +190,16 @@ export const GlobalStylePanel: React.FC<GlobalStylePanelProps> = ({
     loading: loadingStyle,
     execute: fetchGlobalStyle,
   } = useApiGet<{ success: boolean; globalStyle: GlobalStyleConfig | null }>(
-    `/api/ai-office/ppt/${pptId}/global-style`,
+    `/api/ai-office/slides/${pptId}/global-style`,
     { immediate: true }
   );
 
   const { execute: saveGlobalStyle, loading: savingStyle } = useApiPost(
-    `/api/ai-office/ppt/${pptId}/global-style`
+    `/api/ai-office/slides/${pptId}/global-style`
   );
 
   const { execute: batchUpdate, loading: applyingStyle } = useApiPost(
-    `/api/ai-office/ppt/${pptId}/batch-update`
+    `/api/ai-office/slides/${pptId}/batch-update`
   );
 
   // 加载全局样式

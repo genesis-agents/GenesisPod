@@ -9,8 +9,8 @@ const BACKEND_API_URL =
 export const maxDuration = 60;
 
 /**
- * PPT 幻灯片规划 API 代理
- * POST /api/ai-office/ppt/plan-slides
+ * Slides 幻灯片规划 API 代理
+ * POST /api/ai-office/slides/plan-slides
  *
  * 输入已确认的大纲，生成每页的详细设计规格：
  * - 布局类型 + 理由
@@ -22,12 +22,9 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    console.log(
-      '[PPT Plan Slides] Request:',
-      JSON.stringify(body).slice(0, 200)
-    );
+    console.log('[Slides Plan] Request:', JSON.stringify(body).slice(0, 200));
 
-    const backendUrl = `${BACKEND_API_URL}/ai-office/ppt/plan-slides`;
+    const backendUrl = `${BACKEND_API_URL}/ai-office/slides/plan-slides`;
 
     // 创建 AbortController 用于超时控制（2 分钟）
     const controller = new AbortController();
@@ -46,11 +43,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(
-        '[PPT Plan Slides] Backend error:',
-        response.status,
-        errorText
-      );
+      console.error('[Slides Plan] Backend error:', response.status, errorText);
       return NextResponse.json(
         {
           error: `Backend error: ${response.status}`,
@@ -62,13 +55,13 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
     console.log(
-      '[PPT Plan Slides] Success, specs count:',
+      '[Slides Plan] Success, specs count:',
       data.slideSpecs?.length || 0
     );
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error('[PPT Plan Slides] Error:', error);
+    console.error('[Slides Plan] Error:', error);
     return NextResponse.json(
       {
         error: 'Failed to plan slides',

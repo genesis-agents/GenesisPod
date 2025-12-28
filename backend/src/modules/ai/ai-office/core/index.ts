@@ -9,3 +9,4 @@ export type { ParsedIntent } from "./intent-parser.service";
 
 // Controllers
 export { AIModelController } from "./ai-model.controller";
+export { IntentParserController } from "./intent-parser.controller";

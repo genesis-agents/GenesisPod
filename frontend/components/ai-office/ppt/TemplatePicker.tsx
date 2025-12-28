@@ -266,7 +266,7 @@ export const TemplatePicker: React.FC<TemplatePickerProps> = ({
     setError(null);
 
     try {
-      const response = await fetch('/api/ai-office/ppt/templates/all');
+      const response = await fetch('/api/ai-office/slides/templates/all');
       if (!response.ok) {
         throw new Error('获取模板列表失败');
       }
@@ -293,7 +293,7 @@ export const TemplatePicker: React.FC<TemplatePickerProps> = ({
 
     try {
       const response = await fetch(
-        `/api/ai-office/ppt/${pptId}/slides/${slideIndex}/suggest-templates`,
+        `/api/ai-office/slides/${pptId}/slides/${slideIndex}/suggest-templates`,
         { method: 'POST' }
       );
 

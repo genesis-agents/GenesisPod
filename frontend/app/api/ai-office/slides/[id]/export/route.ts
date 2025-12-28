@@ -6,7 +6,7 @@ const BACKEND_API_URL =
   'https://deepdive-engine.up.railway.app/api/v1';
 
 /**
- * 导出 PPT
+ * 导出 Slides
  */
 export async function POST(
   request: NextRequest,
@@ -18,7 +18,7 @@ export async function POST(
     const body = await request.json();
 
     const response = await fetch(
-      `${BACKEND_API_URL}/ai-office/ppt/${id}/export`,
+      `${BACKEND_API_URL}/ai-office/slides/${id}/export`,
       {
         method: 'POST',
         headers: {
@@ -45,9 +45,9 @@ export async function POST(
       },
     });
   } catch (error) {
-    console.error('[PPT Export] Error:', error);
+    console.error('[Slides Export] Error:', error);
     return NextResponse.json(
-      { error: 'Failed to export PPT' },
+      { error: 'Failed to export Slides' },
       { status: 500 }
     );
   }

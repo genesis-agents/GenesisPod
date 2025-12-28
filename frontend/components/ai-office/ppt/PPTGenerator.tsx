@@ -422,7 +422,7 @@ export const PPTGenerator: React.FC = () => {
     }
 
     // 创建 SSE 连接
-    const url = `/api/ai-office/ppt/generate/stream?${params.toString()}`;
+    const url = `/api/ai-office/slides/generate/stream?${params.toString()}`;
     const eventSource = new EventSource(url);
     eventSourceRef.current = eventSource;
 
@@ -504,7 +504,7 @@ export const PPTGenerator: React.FC = () => {
   // 获取完整文档
   const fetchPPTDocument = async (pptId: string) => {
     try {
-      const response = await fetch(`/api/ai-office/ppt/${pptId}`);
+      const response = await fetch(`/api/ai-office/slides/${pptId}`);
       if (response.ok) {
         const doc = await response.json();
         setPptDocument(doc);
@@ -545,7 +545,7 @@ export const PPTGenerator: React.FC = () => {
 
     try {
       const response = await fetch(
-        `/api/ai-office/ppt/${pptDocument.id}/slides/${selectedSlideIndex}/regenerate`,
+        `/api/ai-office/slides/${pptDocument.id}/slides/${selectedSlideIndex}/regenerate`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -576,7 +576,7 @@ export const PPTGenerator: React.FC = () => {
 
     try {
       const response = await fetch(
-        `/api/ai-office/ppt/${pptDocument.id}/export`,
+        `/api/ai-office/slides/${pptDocument.id}/export`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

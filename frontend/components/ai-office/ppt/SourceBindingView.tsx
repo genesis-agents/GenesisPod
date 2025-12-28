@@ -10,7 +10,7 @@
  * 4. 验证内容与素材的一致性
  *
  * API 调用：
- * - POST /api/ai-office/ppt/{id}/analyze-source - 分析素材
+ * - POST /api/ai-office/slides/{id}/analyze-source - 分析素材
  */
 
 import React, { useState } from 'react';
@@ -110,7 +110,7 @@ export const SourceBindingView: React.FC<SourceBindingViewProps> = ({
   const [expandedChapter, setExpandedChapter] = useState<string | null>(null);
 
   const { execute: analyzeSource, loading: analyzing } = useApiPost(
-    `/api/ai-office/ppt/${pptId}/analyze-source`
+    `/api/ai-office/slides/${pptId}/analyze-source`
   );
 
   const handleAnalyze = async () => {

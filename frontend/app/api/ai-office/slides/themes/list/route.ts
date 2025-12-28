@@ -11,7 +11,7 @@ const BACKEND_API_URL =
 export async function GET() {
   try {
     const response = await fetch(
-      `${BACKEND_API_URL}/ai-office/ppt/themes/list`,
+      `${BACKEND_API_URL}/ai-office/slides/themes/list`,
       {
         method: 'GET',
         headers: {
@@ -30,7 +30,7 @@ export async function GET() {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('[PPT Themes] Error:', error);
+    console.error('[Slides Themes] Error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch themes' },
       { status: 500 }

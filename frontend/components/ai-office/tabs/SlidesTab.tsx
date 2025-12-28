@@ -861,10 +861,10 @@ export default function SlidesTab() {
       // 2. 否则直接调用后端 API（更快，没有 serverless 超时限制）
       const isLocalhost = config.apiUrl.includes('localhost');
       const backendUrl = isLocalhost
-        ? '/api/ai-office/ppt/outline' // 使用 Next.js API route 作为代理
-        : `${config.apiUrl}/ai-office/ppt/outline`; // 直接调用后端
+        ? '/api/ai-office/slides/outline' // 使用 Next.js API route 作为代理
+        : `${config.apiUrl}/ai-office/slides/outline`; // 直接调用后端
       console.log(
-        `[PPT] API URL: ${backendUrl} (${isLocalhost ? 'via proxy' : 'direct'})`
+        `[Slides] API URL: ${backendUrl} (${isLocalhost ? 'via proxy' : 'direct'})`
       );
 
       // 带重试的 API 调用（处理 AI API 偶发的 5xx 错误）
@@ -1152,8 +1152,8 @@ export default function SlidesTab() {
       // 2. 否则使用 Next.js API route 作为代理
       const isLocalhost = config.apiUrl.includes('localhost');
       const sseUrl = isLocalhost
-        ? `/api/ai-office/ppt/generate/stream?${params.toString()}`
-        : `${config.apiUrl}/ai-office/ppt/generate/stream?${params.toString()}`;
+        ? `/api/ai-office/slides/generate/stream?${params.toString()}`
+        : `${config.apiUrl}/ai-office/slides/generate/stream?${params.toString()}`;
 
       console.log(
         `[PPT] SSE URL: ${sseUrl.slice(0, 100)}... (${isLocalhost ? 'via proxy' : 'direct'})`
