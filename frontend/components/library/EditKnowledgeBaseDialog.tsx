@@ -144,6 +144,7 @@ export default function EditKnowledgeBaseDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // 始终传递完整的数组（包括空数组），这样后端才能正确更新
     await onUpdate({
       name: name !== knowledgeBase.name ? name : undefined,
       description:
@@ -151,16 +152,15 @@ export default function EditKnowledgeBaseDialog({
           ? description || undefined
           : undefined,
       sourceTypes: sourceTypes as KnowledgeBaseSourceType[],
-      googleDriveFolderIds:
-        sourceTypes.includes('GOOGLE_DRIVE') && selectedFolderIds.length > 0
-          ? selectedFolderIds
-          : undefined,
-      googleDriveFileIds:
-        sourceTypes.includes('GOOGLE_DRIVE') && selectedFileIds.length > 0
-          ? selectedFileIds
-          : undefined,
+      // 修复: 始终传递数组，即使是空数组，这样后端才会更新字段
+      googleDriveFolderIds: sourceTypes.includes('GOOGLE_DRIVE')
+        ? selectedFolderIds
+        : [], // 不使用 GOOGLE_DRIVE 时清空
+      googleDriveFileIds: sourceTypes.includes('GOOGLE_DRIVE')
+        ? selectedFileIds
+        : [], // 不使用 GOOGLE_DRIVE 时清空
     });
-    onClose();
+    // 注意: onClose 由父组件在刷新完成后调用，不在这里调用
   };
 
   // 检查表单是否可以提交 - 需要选择至少一个文件夹或文件
@@ -319,6 +319,7 @@ export default function EditKnowledgeBaseDialog({
                 </span>
               </label>
               <GoogleDriveFolderPicker
+                key={`edit-gdrive-picker-${knowledgeBase.id}`}
                 selectedFolderIds={selectedFolderIds}
                 selectedFileIds={selectedFileIds}
                 onSelectionChange={handleFolderSelectionChange}

@@ -311,6 +311,7 @@ export default function TeamKnowledgeBaseTab() {
 
         {showCreateDialog && (
           <CreateKnowledgeBaseDialog
+            key={`create-team-kb-empty-${Date.now()}`}
             onClose={() => setShowCreateDialog(false)}
             onCreate={handleCreate}
             creating={creating}
@@ -733,6 +734,7 @@ export default function TeamKnowledgeBaseTab() {
       {/* Create Dialog */}
       {showCreateDialog && (
         <CreateKnowledgeBaseDialog
+          key={`create-team-kb-${Date.now()}`}
           onClose={() => setShowCreateDialog(false)}
           onCreate={handleCreate}
           creating={creating}
@@ -743,17 +745,32 @@ export default function TeamKnowledgeBaseTab() {
       {/* Edit Dialog */}
       {editingKbId && editingKbDetail.knowledgeBase && (
         <EditKnowledgeBaseDialog
+          key={`edit-team-kb-${editingKbId}`}
           knowledgeBase={editingKbDetail.knowledgeBase}
           onClose={() => setEditingKbId(null)}
           onUpdate={async (data) => {
             console.log('[TeamKB] Updating KB with data:', data);
             await editingKbDetail.updateKnowledgeBase(data);
-            // Auto-sync if Google Drive folders/files were updated
-            if (data.googleDriveFolderIds || data.googleDriveFileIds) {
+
+            // Check if GOOGLE_DRIVE is in sourceTypes AND has files/folders
+            const hasGoogleDriveSource = data.sourceTypes?.includes(
+              'GOOGLE_DRIVE' as any
+            );
+            const hasGoogleDriveData =
+              (data.googleDriveFolderIds &&
+                data.googleDriveFolderIds.length > 0) ||
+              (data.googleDriveFileIds && data.googleDriveFileIds.length > 0);
+
+            if (hasGoogleDriveSource && hasGoogleDriveData) {
               console.log('[TeamKB] Starting Google Drive sync...');
-              await editingKbDetail.syncGoogleDrive();
-              console.log('[TeamKB] Sync completed');
+              try {
+                const syncResult = await editingKbDetail.syncGoogleDrive();
+                console.log('[TeamKB] Sync completed:', syncResult);
+              } catch (err) {
+                console.error('[TeamKB] Sync failed:', err);
+              }
             }
+
             // Refresh expanded KB if it's the same one being edited
             if (expandedKbId === editingKbId) {
               console.log(
@@ -765,8 +782,8 @@ export default function TeamKnowledgeBaseTab() {
                 refreshExpandedDocs(),
               ]);
             }
+            await refreshList();
             setEditingKbId(null);
-            refreshList();
           }}
           updating={editingKbDetail.updating || editingKbDetail.syncing}
         />

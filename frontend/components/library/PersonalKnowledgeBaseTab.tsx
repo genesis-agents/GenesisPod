@@ -311,6 +311,7 @@ export default function PersonalKnowledgeBaseTab() {
 
         {showCreateDialog && (
           <CreateKnowledgeBaseDialog
+            key={`create-kb-empty-${Date.now()}`}
             onClose={() => setShowCreateDialog(false)}
             onCreate={handleCreate}
             creating={creating}
@@ -682,6 +683,7 @@ export default function PersonalKnowledgeBaseTab() {
       {/* Create Dialog */}
       {showCreateDialog && (
         <CreateKnowledgeBaseDialog
+          key={`create-kb-${Date.now()}`}
           onClose={() => setShowCreateDialog(false)}
           onCreate={handleCreate}
           creating={creating}
@@ -692,6 +694,7 @@ export default function PersonalKnowledgeBaseTab() {
       {/* Edit Dialog */}
       {editingKbId && editingKbDetail.knowledgeBase && (
         <EditKnowledgeBaseDialog
+          key={`edit-kb-${editingKbId}`}
           knowledgeBase={editingKbDetail.knowledgeBase}
           onClose={() => setEditingKbId(null)}
           onUpdate={async (data) => {
@@ -699,7 +702,16 @@ export default function PersonalKnowledgeBaseTab() {
             await editingKbDetail.updateKnowledgeBase(data);
 
             // For Google Drive files, use sync to actually import the files
-            if (data.googleDriveFolderIds || data.googleDriveFileIds) {
+            // Check if GOOGLE_DRIVE is in sourceTypes AND has files/folders
+            const hasGoogleDriveSource = data.sourceTypes?.includes(
+              'GOOGLE_DRIVE' as any
+            );
+            const hasGoogleDriveData =
+              (data.googleDriveFolderIds &&
+                data.googleDriveFolderIds.length > 0) ||
+              (data.googleDriveFileIds && data.googleDriveFileIds.length > 0);
+
+            if (hasGoogleDriveSource && hasGoogleDriveData) {
               console.log('[PersonalKB] Starting Google Drive sync...');
               try {
                 const syncResult = await editingKbDetail.syncGoogleDrive();
@@ -721,8 +733,8 @@ export default function PersonalKnowledgeBaseTab() {
                 refreshExpandedDocs(),
               ]);
             }
+            await refreshList();
             setEditingKbId(null);
-            refreshList();
           }}
           updating={editingKbDetail.updating || editingKbDetail.syncing}
         />

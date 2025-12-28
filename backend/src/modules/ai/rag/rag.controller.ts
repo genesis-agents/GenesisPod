@@ -74,13 +74,22 @@ export class RAGController {
       dto.googleDriveFolderIds && dto.googleDriveFolderIds.length > 0;
 
     if (hasGoogleDriveFiles || hasGoogleDriveFolders) {
-      // Trigger sync in background (don't await to avoid blocking response)
-      this.googleDriveRAGService.syncKnowledgeBase(kb.id).catch((err) => {
+      // Await sync to complete so frontend sees documents immediately
+      try {
+        const syncResult = await this.googleDriveRAGService.syncKnowledgeBase(
+          kb.id,
+        );
+        console.log(
+          `[KB Create] Auto-sync completed for KB ${kb.id}: added=${syncResult.added}, updated=${syncResult.updated}`,
+        );
+      } catch (err) {
         console.error(`[KB Create] Auto-sync failed for KB ${kb.id}:`, err);
-      });
+        // Don't throw - KB was created successfully, sync can be retried later
+      }
     }
 
-    return kb;
+    // Return the updated KB with document count
+    return this.knowledgeBaseService.findById(kb.id, req.user.id);
   }
 
   @Get("knowledge-bases")

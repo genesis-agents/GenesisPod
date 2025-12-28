@@ -101,6 +101,45 @@ export default function GoogleDriveFolderPicker({
     });
   }, [fetchFolders]);
 
+  // 同步 props 和内部状态 - 当 selectedFolderIds 从 props 变化时
+  useEffect(() => {
+    // 如果 props 中没有选择的文件夹，清空内部状态
+    if (selectedFolderIds.length === 0) {
+      setSelectedFolderNames(new Map());
+    } else {
+      // 从 folders 列表中查找名称并同步
+      const newNamesMap = new Map<string, string>();
+      selectedFolderIds.forEach((id) => {
+        const folder = folders.find((f) => f.id === id);
+        if (folder) {
+          newNamesMap.set(id, folder.name);
+        }
+      });
+      // 只有当有匹配到的文件夹时才更新，否则保持现有状态
+      if (newNamesMap.size > 0) {
+        setSelectedFolderNames(newNamesMap);
+      }
+    }
+  }, [selectedFolderIds, folders]);
+
+  // 同步 selectedFileIds 和 selectedFileNames
+  useEffect(() => {
+    if (selectedFileIds.length === 0) {
+      setSelectedFileNames(new Map());
+    } else {
+      const newNamesMap = new Map<string, string>();
+      selectedFileIds.forEach((id) => {
+        const file = files.find((f) => f.id === id);
+        if (file) {
+          newNamesMap.set(id, file.name);
+        }
+      });
+      if (newNamesMap.size > 0) {
+        setSelectedFileNames(newNamesMap);
+      }
+    }
+  }, [selectedFileIds, files]);
+
   // Debug: log current state
   console.log(
     '[GDrivePicker] Current state - folders:',

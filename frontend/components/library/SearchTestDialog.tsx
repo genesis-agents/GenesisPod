@@ -12,7 +12,7 @@ import {
   CheckCircle,
   AlertCircle,
 } from 'lucide-react';
-import { config } from '@/lib/utils/config';
+import { apiClient } from '@/lib/api/client';
 
 interface SearchResult {
   id: string;
@@ -51,25 +51,17 @@ export default function SearchTestDialog({
     setResults([]);
 
     try {
-      const response = await fetch(`${config.apiUrl}/rag/simple-query`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
+      const data = await apiClient.post<{ results: SearchResult[] }>(
+        '/rag/simple-query',
+        {
           query: query.trim(),
           knowledgeBaseIds: [knowledgeBaseId],
           topK,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`搜索失败: ${response.status}`);
-      }
-
-      const data = await response.json();
+        }
+      );
       setResults(data.results || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '搜索出错');
+    } catch (err: any) {
+      setError(err?.message || '搜索出错');
     } finally {
       setSearching(false);
     }

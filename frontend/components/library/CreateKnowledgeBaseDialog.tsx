@@ -306,6 +306,7 @@ export default function CreateKnowledgeBaseDialog({
                 </span>
               </label>
               <GoogleDriveFolderPicker
+                key="create-gdrive-picker"
                 selectedFolderIds={selectedFolderIds}
                 selectedFileIds={selectedFileIds}
                 onSelectionChange={handleFolderSelectionChange}
