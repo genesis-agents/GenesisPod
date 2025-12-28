@@ -34,11 +34,28 @@ export default function MermaidDiagram({
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+    let timeoutId: NodeJS.Timeout | null = null;
+
     const renderChart = async () => {
-      if (!chart || !containerRef.current) return;
+      if (!chart) {
+        setIsLoading(false);
+        return;
+      }
+
+      // Note: containerRef is only used for reference, actual rendering uses mermaid.render()
+      // which doesn't require a container element
 
       setIsLoading(true);
       setError(null);
+
+      // Set a timeout to prevent infinite loading
+      timeoutId = setTimeout(() => {
+        if (isMounted) {
+          setError('图表渲染超时，请检查语法是否正确');
+          setIsLoading(false);
+        }
+      }, 10000); // 10 second timeout
 
       try {
         // Dynamically import mermaid only on client
@@ -78,16 +95,28 @@ export default function MermaidDiagram({
 
         // 渲染图表
         const { svg: renderedSvg } = await mermaid.render(id, cleanChart);
-        setSvg(renderedSvg);
+
+        if (isMounted) {
+          if (timeoutId) clearTimeout(timeoutId);
+          setSvg(renderedSvg);
+          setIsLoading(false);
+        }
       } catch (err) {
         console.error('Mermaid rendering error:', err);
-        setError(err instanceof Error ? err.message : '图表渲染失败');
-      } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          if (timeoutId) clearTimeout(timeoutId);
+          setError(err instanceof Error ? err.message : '图表渲染失败');
+          setIsLoading(false);
+        }
       }
     };
 
     renderChart();
+
+    return () => {
+      isMounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [chart]);
 
   if (isLoading) {
