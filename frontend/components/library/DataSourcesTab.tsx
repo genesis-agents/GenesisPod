@@ -119,7 +119,7 @@ const DATA_SOURCE_CONFIGS: DataSourceConfig[] = [
   {
     type: 'UPLOAD',
     name: '上传文件',
-    description: '手动上传的文档文件',
+    description: '通过知识库「添加内容」上传',
     icon: Upload,
     color: 'bg-blue-50 text-blue-600 border-blue-200',
     connectedColor: 'bg-blue-100 text-blue-700',
@@ -128,7 +128,7 @@ const DATA_SOURCE_CONFIGS: DataSourceConfig[] = [
   {
     type: 'URL',
     name: 'URL 抓取',
-    description: '从网页 URL 抓取的内容',
+    description: '通过知识库「添加内容」导入',
     icon: LinkIcon,
     color: 'bg-purple-50 text-purple-600 border-purple-200',
     connectedColor: 'bg-purple-100 text-purple-700',
@@ -580,13 +580,15 @@ export default function DataSourcesTab({
               const Icon = source.icon;
 
               return (
-                <button
+                <div
                   key={source.type}
                   onClick={() =>
                     source.subTab &&
                     setActiveSubTab(source.subTab as DataSourceSubTab)
                   }
-                  className={`flex items-center gap-3 rounded-lg border bg-white p-4 transition-all hover:shadow-md ${source.color} ${source.subTab ? 'cursor-pointer' : 'cursor-default'}`}
+                  className={`flex items-center gap-3 rounded-lg border bg-white p-4 transition-all ${source.color} ${source.subTab ? 'cursor-pointer hover:shadow-md' : 'cursor-default opacity-80'}`}
+                  role={source.subTab ? 'button' : undefined}
+                  tabIndex={source.subTab ? 0 : undefined}
                 >
                   <div
                     className={`flex h-10 w-10 items-center justify-center rounded-lg ${source.connectedColor}`}
@@ -598,13 +600,13 @@ export default function DataSourcesTab({
                       {source.name}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {source.subTab ? '点击浏览' : '可用'}
+                      {source.subTab ? '点击浏览' : source.description}
                     </p>
                   </div>
                   {source.subTab && (
                     <ChevronRight className="h-4 w-4 text-gray-400" />
                   )}
-                </button>
+                </div>
               );
             })}
           </div>

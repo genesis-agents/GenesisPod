@@ -515,8 +515,27 @@ export default function PersonalKnowledgeBaseTab() {
                 {expandedLoading ? (
                   <div className="flex items-center justify-center py-6">
                     <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                    <span className="ml-2 text-sm text-gray-500">
+                      加载中...
+                    </span>
                   </div>
-                ) : expandedKb ? (
+                ) : !expandedKb ? (
+                  <div className="flex flex-col items-center justify-center py-6 text-center">
+                    <AlertCircle className="h-8 w-8 text-amber-500" />
+                    <p className="mt-2 text-sm text-gray-600">
+                      无法加载知识库详情
+                    </p>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        refreshExpanded();
+                      }}
+                      className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-700"
+                    >
+                      重试
+                    </button>
+                  </div>
+                ) : (
                   <div className="space-y-4">
                     {/* 统计信息 */}
                     {expandedStats && (
@@ -688,7 +707,7 @@ export default function PersonalKnowledgeBaseTab() {
                       </button>
                     )}
                   </div>
-                ) : null}
+                )}
               </div>
             )}
           </div>
@@ -707,53 +726,78 @@ export default function PersonalKnowledgeBaseTab() {
       )}
 
       {/* Edit Dialog */}
-      {editingKbId && editingKbDetail.knowledgeBase && (
-        <EditKnowledgeBaseDialog
-          key={`edit-kb-${editingKbId}`}
-          knowledgeBase={editingKbDetail.knowledgeBase}
-          onClose={() => setEditingKbId(null)}
-          onUpdate={async (data) => {
-            console.log('[PersonalKB] Updating KB with data:', data);
-            await editingKbDetail.updateKnowledgeBase(data);
+      {editingKbId &&
+        (editingKbDetail.loading ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="rounded-xl bg-white p-8 shadow-xl">
+              <div className="flex items-center gap-3">
+                <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                <span className="text-gray-600">加载知识库信息...</span>
+              </div>
+            </div>
+          </div>
+        ) : editingKbDetail.knowledgeBase ? (
+          <EditKnowledgeBaseDialog
+            key={`edit-kb-${editingKbId}`}
+            knowledgeBase={editingKbDetail.knowledgeBase}
+            onClose={() => setEditingKbId(null)}
+            onUpdate={async (data) => {
+              console.log('[PersonalKB] Updating KB with data:', data);
+              await editingKbDetail.updateKnowledgeBase(data);
 
-            // For Google Drive files, use sync to actually import the files
-            // Check if GOOGLE_DRIVE is in sourceTypes AND has files/folders
-            const hasGoogleDriveSource = data.sourceTypes?.includes(
-              'GOOGLE_DRIVE' as any
-            );
-            const hasGoogleDriveData =
-              (data.googleDriveFolderIds &&
-                data.googleDriveFolderIds.length > 0) ||
-              (data.googleDriveFileIds && data.googleDriveFileIds.length > 0);
-
-            if (hasGoogleDriveSource && hasGoogleDriveData) {
-              console.log('[PersonalKB] Starting Google Drive sync...');
-              try {
-                const syncResult = await editingKbDetail.syncGoogleDrive();
-                console.log('[PersonalKB] Sync completed:', syncResult);
-              } catch (err) {
-                console.error('[PersonalKB] Sync failed:', err);
-                // Still continue to refresh UI even if sync fails
-              }
-            }
-
-            // Refresh expanded KB if it's the same one being edited
-            if (expandedKbId === editingKbId) {
-              console.log(
-                '[PersonalKB] Refreshing expanded KB (detail, stats, docs)...'
+              // For Google Drive files, use sync to actually import the files
+              // Check if GOOGLE_DRIVE is in sourceTypes AND has files/folders
+              const hasGoogleDriveSource = data.sourceTypes?.includes(
+                'GOOGLE_DRIVE' as any
               );
-              await Promise.all([
-                refreshExpanded(),
-                refreshExpandedStats(),
-                refreshExpandedDocs(),
-              ]);
-            }
-            await refreshList();
-            setEditingKbId(null);
-          }}
-          updating={editingKbDetail.updating || editingKbDetail.syncing}
-        />
-      )}
+              const hasGoogleDriveData =
+                (data.googleDriveFolderIds &&
+                  data.googleDriveFolderIds.length > 0) ||
+                (data.googleDriveFileIds && data.googleDriveFileIds.length > 0);
+
+              if (hasGoogleDriveSource && hasGoogleDriveData) {
+                console.log('[PersonalKB] Starting Google Drive sync...');
+                try {
+                  const syncResult = await editingKbDetail.syncGoogleDrive();
+                  console.log('[PersonalKB] Sync completed:', syncResult);
+                } catch (err) {
+                  console.error('[PersonalKB] Sync failed:', err);
+                  // Still continue to refresh UI even if sync fails
+                }
+              }
+
+              // Refresh expanded KB if it's the same one being edited
+              if (expandedKbId === editingKbId) {
+                console.log(
+                  '[PersonalKB] Refreshing expanded KB (detail, stats, docs)...'
+                );
+                await Promise.all([
+                  refreshExpanded(),
+                  refreshExpandedStats(),
+                  refreshExpandedDocs(),
+                ]);
+              }
+              await refreshList();
+              setEditingKbId(null);
+            }}
+            updating={editingKbDetail.updating || editingKbDetail.syncing}
+          />
+        ) : (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="rounded-xl bg-white p-8 shadow-xl">
+              <div className="flex flex-col items-center gap-3">
+                <AlertCircle className="h-8 w-8 text-red-500" />
+                <span className="text-gray-600">无法加载知识库信息</span>
+                <button
+                  onClick={() => setEditingKbId(null)}
+                  className="mt-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                >
+                  关闭
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
 
       {/* Delete Confirmation Dialog */}
       {deletingKbId && (

@@ -217,10 +217,15 @@ export function GoogleDriveConnectionCard() {
                       </div>
                       <p className="text-xs text-gray-500">{conn.email}</p>
                       <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
-                        <span>{formatStorageSize(conn.totalSize)}</span>
-                        <span>•</span>
+                        {conn.totalSize !== undefined && conn.totalSize > 0 && (
+                          <>
+                            <span>{formatStorageSize(conn.totalSize)}</span>
+                            <span>•</span>
+                          </>
+                        )}
                         <span>
-                          {conn.filesCount} files, {conn.foldersCount} folders
+                          {conn.filesCount ?? 0} files, {conn.foldersCount ?? 0}{' '}
+                          folders
                         </span>
                         <span>•</span>
                         <span>Last synced: {formatDate(conn.lastSyncAt)}</span>

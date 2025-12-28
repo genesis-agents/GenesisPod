@@ -229,20 +229,18 @@ export function useKnowledgeBaseDetail(id: string | null) {
     { immediate: !!id, deps: [id] }
   );
 
-  // 当 id 变化时重置所有数据，确保不显示旧数据
+  // 当 id 变化时标记正在切换，不再调用 reset 函数
+  // reset 函数会将 loading 设为 false，导致与 useApiGet 的 loading=true 冲突
+  // useApiGet 的 deps: [id] 会自动触发新的 fetch，无需手动 reset
   useEffect(() => {
     if (id !== currentId) {
       setIsIdChanging(true);
-      // 重置所有缓存的数据
-      resetKb();
-      resetStats();
-      resetDocs();
       setCurrentId(id);
-      // 短暂延迟后清除 isIdChanging 状态
-      const timer = setTimeout(() => setIsIdChanging(false), 50);
+      // 短暂延迟后清除 isIdChanging 状态，让新数据有时间加载
+      const timer = setTimeout(() => setIsIdChanging(false), 100);
       return () => clearTimeout(timer);
     }
-  }, [id, currentId, resetKb, resetStats, resetDocs]);
+  }, [id, currentId]);
 
   // 更新知识库
   const { execute: updateKnowledgeBase, loading: updating } = useApiMutation<

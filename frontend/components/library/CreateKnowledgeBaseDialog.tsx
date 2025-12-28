@@ -80,6 +80,8 @@ export default function CreateKnowledgeBaseDialog({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [sourceTypes, setSourceTypes] = useState<string[]>(['MANUAL']); // 支持多选
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
   const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>([]);
   const [selectedFolderNames, setSelectedFolderNames] = useState<string[]>([]);
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
@@ -124,6 +126,15 @@ export default function CreateKnowledgeBaseDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitted(true);
+
+    // Validate name
+    if (!name.trim()) {
+      setNameError('请输入知识库名称');
+      return;
+    }
+    setNameError(null);
+
     onCreate({
       name,
       description: description || undefined,
@@ -146,6 +157,14 @@ export default function CreateKnowledgeBaseDialog({
           ? selectedFileIds
           : undefined,
     });
+  };
+
+  // Clear error when name changes
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setName(e.target.value);
+    if (e.target.value.trim()) {
+      setNameError(null);
+    }
   };
 
   // 检查表单是否可以提交 - 需要选择至少一个文件夹或文件
@@ -207,11 +226,17 @@ export default function CreateKnowledgeBaseDialog({
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              onChange={handleNameChange}
+              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+                nameError
+                  ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                  : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+              }`}
               placeholder={isTeam ? '例如：产品团队知识库' : '例如：工作资料库'}
             />
+            {nameError && (
+              <p className="mt-1 text-sm text-red-500">{nameError}</p>
+            )}
           </div>
 
           {/* Description */}

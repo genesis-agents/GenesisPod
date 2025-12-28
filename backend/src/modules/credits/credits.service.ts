@@ -655,6 +655,20 @@ export class CreditsService implements OnModuleInit {
     monthSpent: number;
     topModules: Array<{ module: string; spent: number }>;
   }> {
+    // Validate userId to prevent Prisma errors
+    if (!userId) {
+      this.logger.warn("getCreditsStats called with empty userId");
+      return {
+        totalEarned: 0,
+        totalSpent: 0,
+        currentBalance: 0,
+        todaySpent: 0,
+        weekSpent: 0,
+        monthSpent: 0,
+        topModules: [],
+      };
+    }
+
     const account = await this.prisma.creditAccount.findUnique({
       where: { userId },
     });

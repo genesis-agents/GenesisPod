@@ -131,6 +131,10 @@ export const useCreditsStore = create<CreditsState>()(
           const response = await fetch(API_BASE + '/balance', {
             credentials: 'include',
           });
+          // Silently ignore 401 - user not authenticated
+          if (response.status === 401) {
+            return;
+          }
           if (!response.ok) throw new Error('Failed to fetch balance');
 
           const result = await response.json();
@@ -172,6 +176,11 @@ export const useCreditsStore = create<CreditsState>()(
           const response = await fetch(API_BASE, {
             credentials: 'include',
           });
+          // Silently ignore 401 - user not authenticated
+          if (response.status === 401) {
+            set({ isLoading: false });
+            return;
+          }
           if (!response.ok) throw new Error('Failed to fetch account');
 
           const result = await response.json();
@@ -191,6 +200,10 @@ export const useCreditsStore = create<CreditsState>()(
           const response = await fetch(API_BASE + '/checkin/status', {
             credentials: 'include',
           });
+          // Silently ignore 401 - user not authenticated
+          if (response.status === 401) {
+            return;
+          }
           if (!response.ok) throw new Error('Failed to fetch checkin status');
 
           const result = await response.json();
@@ -198,7 +211,7 @@ export const useCreditsStore = create<CreditsState>()(
             set({ checkinStatus: result.data });
           }
         } catch (error) {
-          console.error('Failed to fetch checkin status:', error);
+          // Silently fail - don't log error for checkin status
         }
       },
 

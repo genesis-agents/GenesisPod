@@ -587,6 +587,19 @@ function LibraryPageContent() {
     }
   }, [activeTab]);
 
+  // Reload items when search query changes (with debounce)
+  useEffect(() => {
+    if (
+      activeTab === 'data-sources' &&
+      currentDataSourceSubTab === 'bookmarks'
+    ) {
+      const timeoutId = setTimeout(() => {
+        loadItems(1, false);
+      }, 300);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [searchQuery, currentDataSourceSubTab]);
+
   // Load knowledge graph data
   const loadGraphData = useCallback(async () => {
     setGraphLoading(true);

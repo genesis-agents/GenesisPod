@@ -63,6 +63,19 @@ export class CheckinService {
    * 获取签到状态
    */
   async getCheckinStatus(userId: string): Promise<CheckinStatus> {
+    // Validate userId to prevent Prisma errors
+    if (!userId) {
+      this.logger.warn("getCheckinStatus called with empty userId");
+      return {
+        canCheckin: false,
+        hasCheckedInToday: false,
+        streakDays: 0,
+        lastCheckinDate: null,
+        nextReward: CHECKIN_REWARDS.base,
+        message: "User not authenticated",
+      };
+    }
+
     let account = await this.prisma.creditAccount.findUnique({
       where: { userId },
       include: {
@@ -169,6 +182,18 @@ export class CheckinService {
     userId: string,
     ipAddress?: string,
   ): Promise<CheckinResult> {
+    // Validate userId
+    if (!userId) {
+      this.logger.warn("performCheckin called with empty userId");
+      return {
+        success: false,
+        creditsEarned: 0,
+        streakDays: 0,
+        message: "User not authenticated",
+        isStreakBonus: false,
+      };
+    }
+
     // 检查签到状态
     const status = await this.getCheckinStatus(userId);
 
@@ -383,6 +408,12 @@ export class CheckinService {
       streakDays: number;
     }>
   > {
+    // Validate userId to prevent Prisma errors
+    if (!userId) {
+      this.logger.warn("getCheckinHistory called with empty userId");
+      return [];
+    }
+
     const account = await this.prisma.creditAccount.findUnique({
       where: { userId },
     });
