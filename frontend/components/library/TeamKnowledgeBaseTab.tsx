@@ -19,6 +19,11 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
+  Search,
+  Clock,
+  Zap,
+  Database,
+  FileType,
 } from 'lucide-react';
 import {
   useKnowledgeBase,
@@ -28,6 +33,7 @@ import {
 import CreateKnowledgeBaseDialog from './CreateKnowledgeBaseDialog';
 import EditKnowledgeBaseDialog from './EditKnowledgeBaseDialog';
 import MemberManagementDialog from './MemberManagementDialog';
+import SearchTestDialog from './SearchTestDialog';
 import SignInPrompt, { isAuthError } from '@/components/shared/SignInPrompt';
 
 /**
@@ -44,6 +50,7 @@ export default function TeamKnowledgeBaseTab() {
   );
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedKbId, setExpandedKbId] = useState<string | null>(null); // 展开的知识库ID
+  const [showSearchTest, setShowSearchTest] = useState<string | null>(null); // 搜索测试的知识库ID
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -116,33 +123,89 @@ export default function TeamKnowledgeBaseTab() {
     setShowCreateDialog(false);
   };
 
-  const getStatusBadge = (kb: KnowledgeBase) => {
-    const status = kb.status;
-    const statusConfig: Record<
-      string,
-      { color: string; label: string; dot: string }
-    > = {
-      PENDING: { color: 'text-gray-500', label: '待处理', dot: 'bg-gray-400' },
-      PROCESSING: {
-        color: 'text-purple-600',
-        label: '处理中',
-        dot: 'bg-purple-500 animate-pulse',
-      },
-      READY: { color: 'text-green-600', label: '就绪', dot: 'bg-green-500' },
-      UPDATING: {
-        color: 'text-yellow-600',
-        label: '更新中',
-        dot: 'bg-yellow-500 animate-pulse',
-      },
-      ERROR: { color: 'text-red-600', label: '错误', dot: 'bg-red-500' },
+  // 智能状态计算 - 基于实际数据而非仅依赖后端 status
+  const getSmartStatus = (
+    kb: KnowledgeBase,
+    stats?: typeof expandedStats,
+    docs?: typeof expandedDocs
+  ) => {
+    if (kb.status === 'PROCESSING') {
+      return { status: 'PROCESSING', label: '处理中', color: 'purple' };
+    }
+
+    if (stats) {
+      const hasDocuments = stats.documentCount > 0;
+      const hasEmbeddings = (stats.embeddingCount ?? 0) > 0;
+
+      if (!hasDocuments) {
+        return { status: 'EMPTY', label: '空', color: 'gray' };
+      }
+      if (hasEmbeddings) {
+        return { status: 'READY', label: '就绪', color: 'green' };
+      }
+      return { status: 'PENDING', label: '待向量化', color: 'yellow' };
+    }
+
+    if (docs && docs.length > 0) {
+      const vectorizedCount = docs.filter((d) => d.isVectorized).length;
+      const errorCount = docs.filter((d) => d.status === 'ERROR').length;
+      const processingCount = docs.filter(
+        (d) => d.status === 'PROCESSING'
+      ).length;
+
+      if (processingCount > 0) {
+        return { status: 'PROCESSING', label: '处理中', color: 'purple' };
+      }
+      if (vectorizedCount === docs.length) {
+        return { status: 'READY', label: '就绪', color: 'green' };
+      }
+      if (vectorizedCount > 0) {
+        return {
+          status: 'PARTIAL',
+          label: `${vectorizedCount}/${docs.length} 就绪`,
+          color: 'yellow',
+        };
+      }
+      if (errorCount === docs.length) {
+        return { status: 'ERROR', label: '错误', color: 'red' };
+      }
+      return { status: 'PENDING', label: '待处理', color: 'gray' };
+    }
+
+    const statusMap: Record<string, { label: string; color: string }> = {
+      PENDING: { label: '待处理', color: 'gray' },
+      PROCESSING: { label: '处理中', color: 'purple' },
+      READY: { label: '就绪', color: 'green' },
+      UPDATING: { label: '更新中', color: 'yellow' },
+      ERROR: { label: '错误', color: 'red' },
     };
-    const config = statusConfig[status] || statusConfig.PENDING;
+    return {
+      status: kb.status,
+      ...(statusMap[kb.status] || statusMap.PENDING),
+    };
+  };
+
+  const getStatusBadge = (
+    kb: KnowledgeBase,
+    stats?: typeof expandedStats,
+    docs?: typeof expandedDocs
+  ) => {
+    const smartStatus = getSmartStatus(kb, stats, docs);
+    const colorClasses: Record<string, { text: string; dot: string }> = {
+      gray: { text: 'text-gray-500', dot: 'bg-gray-400' },
+      purple: { text: 'text-purple-600', dot: 'bg-purple-500 animate-pulse' },
+      green: { text: 'text-green-600', dot: 'bg-green-500' },
+      yellow: { text: 'text-amber-600', dot: 'bg-amber-500' },
+      red: { text: 'text-red-600', dot: 'bg-red-500' },
+    };
+    const colors = colorClasses[smartStatus.color] || colorClasses.gray;
+
     return (
       <span
-        className={`flex items-center gap-1.5 whitespace-nowrap text-xs ${config.color}`}
+        className={`flex items-center gap-1.5 whitespace-nowrap text-xs font-medium ${colors.text}`}
       >
-        <span className={`h-2 w-2 rounded-full ${config.dot}`} />
-        {config.label}
+        <span className={`h-2 w-2 rounded-full ${colors.dot}`} />
+        {smartStatus.label}
       </span>
     );
   };
@@ -422,7 +485,10 @@ export default function TeamKnowledgeBaseTab() {
                     </p>
                   </div>
                 </div>
-                {getStatusBadge(kb)}
+                {/* 展开状态用智能状态，否则用基本状态 */}
+                {expandedKbId === kb.id
+                  ? getStatusBadge(kb, expandedStats, expandedDocs)
+                  : getStatusBadge(kb)}
               </div>
 
               {kb.description && (
@@ -529,8 +595,36 @@ export default function TeamKnowledgeBaseTab() {
                     </div>
 
                     {/* 操作按钮 */}
-                    <div className="flex items-center gap-2 pt-2">
-                      {expandedKb.sourceType === 'GOOGLE_DRIVE' && (
+                    <div className="flex flex-wrap items-center gap-2 pt-2">
+                      {/* 测试搜索按钮 - 有向量时显示 */}
+                      {expandedStats &&
+                        (expandedStats.embeddingCount ?? 0) > 0 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowSearchTest(kb.id);
+                            }}
+                            className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:from-purple-700 hover:to-pink-700"
+                          >
+                            <Search className="h-4 w-4" />
+                            测试搜索
+                          </button>
+                        )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          processDocuments();
+                        }}
+                        disabled={processing}
+                        className="flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-700 disabled:opacity-50"
+                      >
+                        <Layers
+                          className={`h-4 w-4 ${processing ? 'animate-spin' : ''}`}
+                        />
+                        {processing ? '处理中...' : '向量化'}
+                      </button>
+                      {(expandedKb.sourceType === 'GOOGLE_DRIVE' ||
+                        expandedKb.sourceTypes?.includes('GOOGLE_DRIVE')) && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -545,19 +639,6 @@ export default function TeamKnowledgeBaseTab() {
                           {syncing ? '同步中...' : '同步'}
                         </button>
                       )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          processDocuments();
-                        }}
-                        disabled={processing}
-                        className="flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-700 disabled:opacity-50"
-                      >
-                        <Layers
-                          className={`h-4 w-4 ${processing ? 'animate-spin' : ''}`}
-                        />
-                        {processing ? '处理中...' : '向量化'}
-                      </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -580,48 +661,139 @@ export default function TeamKnowledgeBaseTab() {
                       </button>
                     </div>
 
-                    {/* 文档列表 - 向量化状态 */}
+                    {/* 文档列表 - 专业重设计 */}
                     {expandedDocs && expandedDocs.length > 0 && (
-                      <div className="mt-4 border-t border-gray-100 pt-4">
-                        <h4 className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
-                          <FileText className="h-4 w-4" />
-                          文档列表 ({expandedDocs.length})
-                        </h4>
-                        <div className="max-h-48 space-y-2 overflow-y-auto">
-                          {expandedDocs.map((doc) => (
-                            <div
-                              key={doc.id}
-                              className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm"
-                            >
-                              <div className="flex items-center gap-2 truncate">
-                                {doc.isVectorized ? (
-                                  <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-500" />
-                                ) : doc.status === 'ERROR' ? (
-                                  <XCircle className="h-4 w-4 flex-shrink-0 text-red-500" />
-                                ) : doc.status === 'PROCESSING' ? (
-                                  <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-purple-500" />
-                                ) : (
-                                  <AlertCircle className="h-4 w-4 flex-shrink-0 text-gray-400" />
-                                )}
-                                <span className="truncate" title={doc.title}>
-                                  {doc.title}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2 text-xs text-gray-500">
-                                {doc.embeddingCount !== undefined &&
-                                  doc.embeddingCount > 0 && (
-                                    <span className="rounded bg-purple-100 px-1.5 py-0.5 text-purple-700">
-                                      {doc.embeddingCount} 向量
+                      <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50/50">
+                        {/* 列表头部 */}
+                        <div className="flex items-center justify-between border-b border-gray-200 bg-purple-50/80 px-4 py-2.5">
+                          <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                            <Database className="h-4 w-4 text-purple-500" />
+                            文档列表
+                            <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-600">
+                              {expandedDocs.length}
+                            </span>
+                          </h4>
+                          <div className="flex items-center gap-3 text-xs text-gray-500">
+                            <span className="flex items-center gap-1">
+                              <CheckCircle className="h-3 w-3 text-green-500" />
+                              {
+                                expandedDocs.filter((d) => d.isVectorized)
+                                  .length
+                              }{' '}
+                              已向量化
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* 文档表格 */}
+                        <div className="max-h-64 overflow-y-auto">
+                          <table className="w-full">
+                            <thead className="sticky top-0 bg-gray-50">
+                              <tr className="text-left text-xs font-medium text-gray-500">
+                                <th className="px-4 py-2">状态</th>
+                                <th className="px-4 py-2">文档名称</th>
+                                <th className="px-4 py-2 text-center">分块</th>
+                                <th className="px-4 py-2 text-center">向量</th>
+                                <th className="px-4 py-2 text-right">来源</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {expandedDocs.map((doc, idx) => (
+                                <tr
+                                  key={doc.id}
+                                  className={`text-sm transition-colors hover:bg-white ${
+                                    idx % 2 === 0
+                                      ? 'bg-white/50'
+                                      : 'bg-gray-50/30'
+                                  }`}
+                                >
+                                  <td className="px-4 py-3">
+                                    <div className="flex items-center">
+                                      {doc.isVectorized ? (
+                                        <span className="flex items-center gap-1.5 text-green-600">
+                                          <CheckCircle className="h-4 w-4" />
+                                          <span className="text-xs font-medium">
+                                            就绪
+                                          </span>
+                                        </span>
+                                      ) : doc.status === 'ERROR' ? (
+                                        <span className="flex items-center gap-1.5 text-red-600">
+                                          <XCircle className="h-4 w-4" />
+                                          <span className="text-xs font-medium">
+                                            错误
+                                          </span>
+                                        </span>
+                                      ) : doc.status === 'PROCESSING' ? (
+                                        <span className="flex items-center gap-1.5 text-purple-600">
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                          <span className="text-xs font-medium">
+                                            处理中
+                                          </span>
+                                        </span>
+                                      ) : (
+                                        <span className="flex items-center gap-1.5 text-gray-400">
+                                          <Clock className="h-4 w-4" />
+                                          <span className="text-xs font-medium">
+                                            待处理
+                                          </span>
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="max-w-[200px] px-4 py-3">
+                                    <div className="flex items-center gap-2">
+                                      <FileType className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                                      <span
+                                        className="truncate font-medium text-gray-900"
+                                        title={doc.title}
+                                      >
+                                        {doc.title}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    {doc.chunkCount > 0 ? (
+                                      <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700">
+                                        <Layers className="h-3 w-3" />
+                                        {doc.chunkCount}
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs text-gray-400">
+                                        -
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    {doc.embeddingCount !== undefined &&
+                                    doc.embeddingCount > 0 ? (
+                                      <span className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700">
+                                        <Zap className="h-3 w-3" />
+                                        {doc.embeddingCount}
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs text-gray-400">
+                                        -
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 text-right">
+                                    <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-xs text-gray-600">
+                                      {doc.sourceType === 'google_drive' ||
+                                      doc.sourceType === 'GOOGLE_DRIVE'
+                                        ? '📁 Drive'
+                                        : doc.sourceType === 'MANUAL' ||
+                                            doc.sourceType === 'manual'
+                                          ? '📄 手动'
+                                          : doc.sourceType === 'URL' ||
+                                              doc.sourceType === 'url'
+                                            ? '🔗 URL'
+                                            : doc.sourceType || '📄'}
                                     </span>
-                                  )}
-                                {doc.chunkCount > 0 && (
-                                  <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-indigo-700">
-                                    {doc.chunkCount} 分块
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
                     )}
@@ -716,6 +888,14 @@ export default function TeamKnowledgeBaseTab() {
               ?.name || ''
           }
           onClose={() => setManagingMembersKbId(null)}
+        />
+      )}
+
+      {/* 向量搜索测试对话框 */}
+      {showSearchTest && (
+        <SearchTestDialog
+          knowledgeBaseId={showSearchTest}
+          onClose={() => setShowSearchTest(null)}
         />
       )}
 
