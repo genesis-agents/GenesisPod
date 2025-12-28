@@ -39,7 +39,7 @@ export class CreditsController {
    */
   @Get()
   async getAccount(@Request() req: any) {
-    const account = await this.creditsService.getOrCreateAccount(req.user.sub);
+    const account = await this.creditsService.getOrCreateAccount(req.user.id);
     return {
       success: true,
       data: account,
@@ -51,7 +51,7 @@ export class CreditsController {
    */
   @Get("balance")
   async getBalance(@Request() req: any) {
-    const balance = await this.creditsService.getBalance(req.user.sub);
+    const balance = await this.creditsService.getBalance(req.user.id);
     return {
       success: true,
       data: balance,
@@ -63,7 +63,7 @@ export class CreditsController {
    */
   @Get("stats")
   async getStats(@Request() req: any) {
-    const stats = await this.creditsService.getCreditsStats(req.user.sub);
+    const stats = await this.creditsService.getCreditsStats(req.user.id);
     return {
       success: true,
       data: stats,
@@ -79,7 +79,7 @@ export class CreditsController {
     @Query() query: TransactionQueryDto,
   ) {
     const transactions = await this.creditsService.getTransactions(
-      req.user.sub,
+      req.user.id,
       query,
     );
     return {
@@ -93,7 +93,7 @@ export class CreditsController {
    */
   @Get("checkin/status")
   async getCheckinStatus(@Request() req: any) {
-    const status = await this.checkinService.getCheckinStatus(req.user.sub);
+    const status = await this.checkinService.getCheckinStatus(req.user.id);
     return {
       success: true,
       data: status,
@@ -106,7 +106,7 @@ export class CreditsController {
   @Post("checkin")
   @HttpCode(HttpStatus.OK)
   async performCheckin(@Request() req: any, @Ip() ip: string) {
-    const result = await this.checkinService.performCheckin(req.user.sub, ip);
+    const result = await this.checkinService.performCheckin(req.user.id, ip);
     return {
       success: result.success,
       data: result,
@@ -119,7 +119,7 @@ export class CreditsController {
   @Get("checkin/history")
   async getCheckinHistory(@Request() req: any, @Query("limit") limit?: number) {
     const history = await this.checkinService.getCheckinHistory(
-      req.user.sub,
+      req.user.id,
       limit || 30,
     );
     return {
