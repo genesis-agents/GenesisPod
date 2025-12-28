@@ -52,6 +52,14 @@ function getSharedWorker(): Worker | null {
 
       sharedWorker.onerror = (err) => {
         console.error('Mermaid Worker error:', err);
+        // 拒绝所有挂起的请求，触发回退渲染
+        pendingRequests.forEach((pending, id) => {
+          clearTimeout(pending.timeoutId);
+          pending.reject(
+            new Error('Worker not available, falling back to main thread')
+          );
+        });
+        pendingRequests.clear();
         // 重置 Worker
         sharedWorker?.terminate();
         sharedWorker = null;

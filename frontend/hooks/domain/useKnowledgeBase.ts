@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useApiGet, useApiPost, useApiMutation } from '@/hooks/core';
 import { apiClient } from '@/lib/api/client';
 
@@ -191,14 +191,20 @@ export function useKnowledgeBase() {
  * 单个知识库详情 Hook
  */
 export function useKnowledgeBaseDetail(id: string | null) {
+  // 跟踪当前 id，用于检测是否需要重置数据
+  const [currentId, setCurrentId] = useState<string | null>(null);
+  const [isIdChanging, setIsIdChanging] = useState(false);
+
   // 获取知识库详情 - 只在有 id 时请求
   const {
     data: knowledgeBase,
     loading,
     error,
     execute: refresh,
+    reset: resetKb,
   } = useApiGet<KnowledgeBase>(`/rag/knowledge-bases/${id || 'placeholder'}`, {
     immediate: !!id,
+    deps: [id], // 当 id 变化时重新请求
   });
 
   // 获取统计信息
@@ -206,9 +212,10 @@ export function useKnowledgeBaseDetail(id: string | null) {
     data: stats,
     loading: statsLoading,
     execute: fetchStats,
+    reset: resetStats,
   } = useApiGet<KnowledgeBaseStats>(
     `/rag/knowledge-bases/${id || 'placeholder'}/stats`,
-    { immediate: !!id }
+    { immediate: !!id, deps: [id] }
   );
 
   // 获取文档列表 (带向量化状态)
@@ -216,10 +223,26 @@ export function useKnowledgeBaseDetail(id: string | null) {
     data: documents,
     loading: docsLoading,
     execute: fetchDocuments,
+    reset: resetDocs,
   } = useApiGet<KnowledgeBaseDocument[]>(
     `/rag/knowledge-bases/${id || 'placeholder'}/documents`,
-    { immediate: !!id }
+    { immediate: !!id, deps: [id] }
   );
+
+  // 当 id 变化时重置所有数据，确保不显示旧数据
+  useEffect(() => {
+    if (id !== currentId) {
+      setIsIdChanging(true);
+      // 重置所有缓存的数据
+      resetKb();
+      resetStats();
+      resetDocs();
+      setCurrentId(id);
+      // 短暂延迟后清除 isIdChanging 状态
+      const timer = setTimeout(() => setIsIdChanging(false), 50);
+      return () => clearTimeout(timer);
+    }
+  }, [id, currentId, resetKb, resetStats, resetDocs]);
 
   // 更新知识库
   const { execute: updateKnowledgeBase, loading: updating } = useApiMutation<
@@ -251,10 +274,12 @@ export function useKnowledgeBaseDetail(id: string | null) {
   >(`/rag/knowledge-bases/${id || 'placeholder'}/documents`);
 
   return {
-    knowledgeBase: id ? knowledgeBase : undefined,
-    stats: id ? stats : undefined,
-    documents: id ? documents : undefined,
-    loading: id ? loading || statsLoading || docsLoading : false,
+    knowledgeBase: id && !isIdChanging ? knowledgeBase : undefined,
+    stats: id && !isIdChanging ? stats : undefined,
+    documents: id && !isIdChanging ? documents : undefined,
+    loading: id
+      ? isIdChanging || loading || statsLoading || docsLoading
+      : false,
     updating,
     processing,
     syncing,

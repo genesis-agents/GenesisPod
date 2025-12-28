@@ -44,8 +44,10 @@ export default function MermaidDiagram({
   const [fallbackError, setFallbackError] = useState<string | null>(null);
   const [fallbackLoading, setFallbackLoading] = useState(false);
 
-  // 判断是否需要回退渲染
-  const needsFallback = workerError?.includes('Worker not available');
+  // 判断是否需要回退渲染（Worker 不可用或 Worker 渲染失败）
+  const needsFallback =
+    workerError?.includes('Worker not available') ||
+    workerError?.includes('falling back');
 
   // 回退到主线程渲染
   useEffect(() => {
@@ -123,11 +125,14 @@ export default function MermaidDiagram({
 
   // 确定最终状态
   const svg = needsFallback ? fallbackSvg : workerSvg;
+  // 只显示真正的渲染错误，不显示回退触发消息
   const error = needsFallback
     ? fallbackError
-    : workerError?.includes('Worker not available')
-      ? null
-      : workerError;
+    : workerError &&
+        !workerError.includes('Worker not available') &&
+        !workerError.includes('falling back')
+      ? workerError
+      : null;
   const isLoading = needsFallback ? fallbackLoading : workerLoading;
 
   // 加载状态
