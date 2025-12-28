@@ -348,10 +348,30 @@ export class RAGController {
       await this.knowledgeBaseService.findById(kbId, req.user.id);
     }
 
-    return this.ragPipelineService.simpleQuery(
+    const results = await this.ragPipelineService.simpleQuery(
       dto.query,
       dto.knowledgeBaseIds,
       dto.topK,
     );
+
+    // Enhance results with document titles
+    const enhancedResults = await Promise.all(
+      results.map(async (result) => {
+        // Get document title from the document
+        const document = await this.knowledgeBaseService.getDocumentById(
+          result.documentId,
+        );
+        return {
+          id: result.childChunkId,
+          content: result.content,
+          score: result.score,
+          documentId: result.documentId,
+          documentTitle: document?.title || "Unknown Document",
+          metadata: result.metadata,
+        };
+      }),
+    );
+
+    return { results: enhancedResults };
   }
 }

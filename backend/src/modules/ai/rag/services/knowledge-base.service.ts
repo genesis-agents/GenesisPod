@@ -743,6 +743,22 @@ export class KnowledgeBaseService {
   }
 
   /**
+   * Get document by ID (for search result enhancement)
+   */
+  async getDocumentById(documentId: string) {
+    return this.prisma.knowledgeBaseDocument.findUnique({
+      where: { id: documentId },
+      select: {
+        id: true,
+        title: true,
+        sourceType: true,
+        sourceUrl: true,
+        mimeType: true,
+      },
+    });
+  }
+
+  /**
    * 检查用户是否有知识库访问权限
    */
   async hasAccess(

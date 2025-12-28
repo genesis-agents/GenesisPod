@@ -447,6 +447,12 @@ export class AiCoreController {
     try {
       // RAG: Query knowledge bases if IDs are provided
       let ragContext = "";
+      let ragSources: Array<{
+        documentTitle: string;
+        excerpt: string;
+        score: number;
+      }> = [];
+
       if (
         knowledgeBaseIds &&
         knowledgeBaseIds.length > 0 &&
@@ -469,8 +475,17 @@ export class AiCoreController {
 
           if (ragResponse.context && ragResponse.context.sources.length > 0) {
             ragContext = ragResponse.context.text;
+            ragSources = ragResponse.context.sources.map((s) => ({
+              documentTitle: s.documentTitle,
+              excerpt: s.excerpt,
+              score: s.score,
+            }));
             this.logger.log(
-              `[simple-chat] RAG context added (${ragResponse.context.sources.length} sources)`,
+              `[simple-chat] RAG context added (${ragResponse.context.sources.length} sources): ${ragSources.map((s) => s.documentTitle).join(", ")}`,
+            );
+          } else {
+            this.logger.log(
+              `[simple-chat] RAG query returned no results above threshold`,
             );
           }
         } catch (ragError) {
@@ -518,11 +533,20 @@ export class AiCoreController {
       }
 
       // Add RAG context as system message if available
-      if (ragContext) {
+      if (ragContext && ragSources.length > 0) {
         chatMessages = [
           {
             role: "system",
-            content: `You have access to the following knowledge base context. Use this information to answer the user's question accurately. If the context doesn't contain relevant information, you can still answer based on your general knowledge but indicate that.\n\n<knowledge_context>\n${ragContext}\n</knowledge_context>`,
+            content: `你是一个基于知识库回答问题的助手。以下是从用户知识库中检索到的相关内容。
+
+## 知识库参考内容
+${ragContext}
+
+## 回答要求
+1. 优先使用知识库中的内容来回答问题
+2. 如果使用了知识库内容，请在回答中明确提及来源（如"根据文档XXX..."）
+3. 如果知识库内容不足以回答问题，可以结合通用知识补充，但要说明
+4. 保持回答准确、专业、有帮助`,
           },
           ...chatMessages,
         ];
@@ -559,6 +583,12 @@ export class AiCoreController {
               `data: ${JSON.stringify({ content: chunk, model: result.model })}\n\n`,
             );
           }
+          // Send RAG sources if available
+          if (ragSources.length > 0) {
+            res.write(
+              `data: ${JSON.stringify({ ragSources, usedKnowledgeBase: true })}\n\n`,
+            );
+          }
           res.write("data: [DONE]\n\n");
           res.end();
         } catch (error) {
@@ -581,6 +611,11 @@ export class AiCoreController {
         res.json({
           content: result.content,
           model: result.model,
+          // Include RAG sources if knowledge bases were used
+          ...(ragSources.length > 0 && {
+            usedKnowledgeBase: true,
+            ragSources,
+          }),
         });
       }
     } catch (error) {

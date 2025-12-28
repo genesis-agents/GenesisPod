@@ -718,6 +718,12 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   );
 }
 
+interface RagSource {
+  documentTitle: string;
+  excerpt: string;
+  score: number;
+}
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -725,6 +731,7 @@ interface Message {
   modelId?: string;
   modelName?: string;
   createdAt: string;
+  ragSources?: RagSource[];
 }
 
 interface MixtureResponse {
@@ -1129,7 +1136,7 @@ export default function AskPage() {
     enableWebSearch: boolean = false,
     contextMessages?: Message[],
     signal?: AbortSignal
-  ): Promise<string> => {
+  ): Promise<{ content: string; ragSources?: RagSource[] }> => {
     // Build messages array with context
     const apiMessages = contextMessages
       ? [
@@ -1172,7 +1179,15 @@ export default function AskPage() {
     }
 
     const data = await response.json();
-    return data.content || 'No response';
+    console.log('[AiAsk] Response data:', {
+      hasContent: !!data.content,
+      usedKnowledgeBase: data.usedKnowledgeBase,
+      ragSourcesCount: data.ragSources?.length || 0,
+    });
+    return {
+      content: data.content || 'No response',
+      ragSources: data.ragSources,
+    };
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -1279,7 +1294,7 @@ export default function AskPage() {
         await Promise.all(
           modelsToCall.map(async (model, index) => {
             try {
-              const content = await callAIChat(
+              const result = await callAIChat(
                 model.modelName,
                 userContent,
                 webSearchEnabled,
@@ -1290,7 +1305,7 @@ export default function AskPage() {
                 const newResponses = [...prev];
                 newResponses[index] = {
                   ...newResponses[index],
-                  content,
+                  content: result.content,
                 };
                 return newResponses;
               });
@@ -1375,7 +1390,7 @@ export default function AskPage() {
           // Pass context messages (last 20) for memory
           const contextForAI = currentMessages.slice(-20);
           // Send full content to AI
-          const content = await callAIChat(
+          const result = await callAIChat(
             modelName,
             userContent,
             webSearchEnabled,
@@ -1388,9 +1403,10 @@ export default function AskPage() {
             {
               id: (Date.now() + 1).toString(),
               role: 'assistant',
-              content,
+              content: result.content,
               modelId: selectedModel,
               createdAt: new Date().toISOString(),
+              ragSources: result.ragSources,
             },
           ]);
         }
@@ -1954,6 +1970,61 @@ export default function AskPage() {
                             </ReactMarkdown>
                           </div>
                         )}
+                        {/* RAG Sources indicator */}
+                        {message.role === 'assistant' &&
+                          message.ragSources &&
+                          message.ragSources.length > 0 && (
+                            <div className="mt-3 rounded-lg border border-purple-100 bg-purple-50 p-3">
+                              <div className="mb-2 flex items-center gap-2 text-xs font-medium text-purple-700">
+                                <svg
+                                  className="h-4 w-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                                  />
+                                </svg>
+                                参考知识库内容 ({message.ragSources.length}{' '}
+                                个来源)
+                              </div>
+                              <div className="space-y-1.5">
+                                {message.ragSources
+                                  .slice(0, 3)
+                                  .map((source, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="flex items-start gap-2 rounded bg-white/60 p-2"
+                                    >
+                                      <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-purple-200 text-[10px] font-bold text-purple-700">
+                                        {idx + 1}
+                                      </span>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="truncate text-xs font-medium text-gray-700">
+                                          {source.documentTitle}
+                                        </div>
+                                        <div className="mt-0.5 line-clamp-2 text-[10px] text-gray-500">
+                                          {source.excerpt}
+                                        </div>
+                                      </div>
+                                      <span className="flex-shrink-0 rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium text-purple-600">
+                                        {(source.score * 100).toFixed(0)}%
+                                      </span>
+                                    </div>
+                                  ))}
+                                {message.ragSources.length > 3 && (
+                                  <div className="text-center text-[10px] text-purple-600">
+                                    还有 {message.ragSources.length - 3}{' '}
+                                    个来源...
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         {/* Action buttons for assistant messages */}
                         {message.role === 'assistant' && (
                           <div className="mt-3 flex items-center gap-2 border-t border-gray-100 pt-2">
