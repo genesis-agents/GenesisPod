@@ -52,14 +52,8 @@ import { DesignerOrchestratorService } from "./designer";
 // Agents
 import { AgentsController } from "./agents";
 
-// Common (共享服务)
-import {
-  AIOfficeCommonModule,
-  ContentAnalysisService,
-  TemplateSelectionService,
-  ImageMatchingService,
-  ReadingExperienceService,
-} from "./common";
+// Common (共享服务) - services are provided by AIOfficeCommonModule
+import { AIOfficeCommonModule } from "./common";
 
 @Module({
   imports: [
@@ -132,11 +126,8 @@ import {
     // Designer
     DesignerOrchestratorService,
     AiOfficeIntegrationService,
-    // Common
-    ContentAnalysisService,
-    TemplateSelectionService,
-    ImageMatchingService,
-    ReadingExperienceService,
+    // Common - re-export the module to make its services available
+    AIOfficeCommonModule,
   ],
 })
 export class AiOfficeModule {}
