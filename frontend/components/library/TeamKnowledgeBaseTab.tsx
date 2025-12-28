@@ -12,18 +12,7 @@ import {
   Trash2,
   MoreVertical,
   UserPlus,
-  Calendar,
-  Layers,
   ChevronRight,
-  User,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  Search,
-  Clock,
-  Zap,
-  Database,
-  FileType,
   Eye,
 } from 'lucide-react';
 import {
@@ -59,7 +48,6 @@ export default function TeamKnowledgeBaseTab({
     null
   );
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [expandedKbId, setExpandedKbId] = useState<string | null>(null); // 展开的知识库ID
   const [showDetailKbId, setShowDetailKbId] = useState<string | null>(null); // 弹窗显示详情的知识库ID
   const [showSearchTest, setShowSearchTest] = useState<string | null>(null); // 搜索测试的知识库ID
   const [showDocList, setShowDocList] = useState<{
@@ -110,21 +98,6 @@ export default function TeamKnowledgeBaseTab({
   // Get detail hook for editing
   const editingKbDetail = useKnowledgeBaseDetail(editingKbId || '');
 
-  // 获取展开的知识库详情
-  const {
-    knowledgeBase: expandedKb,
-    stats: expandedStats,
-    documents: expandedDocs,
-    loading: expandedLoading,
-    syncing,
-    processing,
-    syncGoogleDrive,
-    processDocuments,
-    refresh: refreshExpanded,
-    fetchStats: refreshExpandedStats,
-    fetchDocuments: refreshExpandedDocs,
-  } = useKnowledgeBaseDetail(expandedKbId);
-
   const handleDelete = async (kbId: string) => {
     try {
       await deleteKnowledgeBase(kbId);
@@ -152,55 +125,8 @@ export default function TeamKnowledgeBaseTab({
     setShowCreateDialog(false);
   };
 
-  // 智能状态计算 - 基于实际数据而非仅依赖后端 status
-  const getSmartStatus = (
-    kb: KnowledgeBase,
-    stats?: typeof expandedStats,
-    docs?: typeof expandedDocs
-  ) => {
-    if (kb.status === 'PROCESSING') {
-      return { status: 'PROCESSING', label: '处理中', color: 'purple' };
-    }
-
-    if (stats) {
-      const hasDocuments = stats.documentCount > 0;
-      const hasEmbeddings = (stats.embeddingCount ?? 0) > 0;
-
-      if (!hasDocuments) {
-        return { status: 'EMPTY', label: '空', color: 'gray' };
-      }
-      if (hasEmbeddings) {
-        return { status: 'READY', label: '就绪', color: 'green' };
-      }
-      return { status: 'PENDING', label: '待向量化', color: 'yellow' };
-    }
-
-    if (docs && docs.length > 0) {
-      const vectorizedCount = docs.filter((d) => d.isVectorized).length;
-      const errorCount = docs.filter((d) => d.status === 'ERROR').length;
-      const processingCount = docs.filter(
-        (d) => d.status === 'PROCESSING'
-      ).length;
-
-      if (processingCount > 0) {
-        return { status: 'PROCESSING', label: '处理中', color: 'purple' };
-      }
-      if (vectorizedCount === docs.length) {
-        return { status: 'READY', label: '就绪', color: 'green' };
-      }
-      if (vectorizedCount > 0) {
-        return {
-          status: 'PARTIAL',
-          label: `${vectorizedCount}/${docs.length} 就绪`,
-          color: 'yellow',
-        };
-      }
-      if (errorCount === docs.length) {
-        return { status: 'ERROR', label: '错误', color: 'red' };
-      }
-      return { status: 'PENDING', label: '待处理', color: 'gray' };
-    }
-
+  // 状态计算
+  const getSmartStatus = (kb: KnowledgeBase) => {
     const statusMap: Record<string, { label: string; color: string }> = {
       PENDING: { label: '待处理', color: 'gray' },
       PROCESSING: { label: '处理中', color: 'purple' },
@@ -214,12 +140,8 @@ export default function TeamKnowledgeBaseTab({
     };
   };
 
-  const getStatusBadge = (
-    kb: KnowledgeBase,
-    stats?: typeof expandedStats,
-    docs?: typeof expandedDocs
-  ) => {
-    const smartStatus = getSmartStatus(kb, stats, docs);
+  const getStatusBadge = (kb: KnowledgeBase) => {
+    const smartStatus = getSmartStatus(kb);
     const colorClasses: Record<string, { text: string; dot: string }> = {
       gray: { text: 'text-gray-500', dot: 'bg-gray-400' },
       purple: { text: 'text-purple-600', dot: 'bg-purple-500 animate-pulse' },
@@ -503,9 +425,7 @@ export default function TeamKnowledgeBaseTab({
             </div>
 
             <button
-              onClick={() =>
-                setExpandedKbId(expandedKbId === kb.id ? null : kb.id)
-              }
+              onClick={() => setShowDetailKbId(kb.id)}
               className="block w-full text-left"
             >
               <div className="flex items-start justify-between pr-8">
@@ -527,10 +447,7 @@ export default function TeamKnowledgeBaseTab({
                     </p>
                   </div>
                 </div>
-                {/* 展开状态用智能状态，否则用基本状态 */}
-                {expandedKbId === kb.id
-                  ? getStatusBadge(kb, expandedStats, expandedDocs)
-                  : getStatusBadge(kb)}
+                {getStatusBadge(kb)}
               </div>
 
               {kb.description && (
@@ -550,233 +467,9 @@ export default function TeamKnowledgeBaseTab({
                     团队
                   </span>
                 </div>
-                <ChevronRight
-                  className={`h-4 w-4 text-gray-400 transition-transform ${expandedKbId === kb.id ? 'rotate-90' : ''}`}
-                />
+                <ChevronRight className="h-4 w-4 text-gray-400" />
               </div>
             </button>
-
-            {/* 展开的详情面板 */}
-            {expandedKbId === kb.id && (
-              <div className="mt-4 border-t border-gray-200 pt-4">
-                {expandedLoading ? (
-                  <div className="flex items-center justify-center py-6">
-                    <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
-                  </div>
-                ) : expandedKb ? (
-                  <div className="space-y-4">
-                    {/* 统计信息 */}
-                    {expandedStats && (
-                      <div className="grid grid-cols-4 gap-2">
-                        <div className="rounded-lg bg-purple-50 p-3 text-center">
-                          <p className="text-lg font-bold text-purple-700">
-                            {expandedStats.documentCount}
-                          </p>
-                          <p className="text-xs text-purple-600">文档</p>
-                        </div>
-                        <div className="rounded-lg bg-pink-50 p-3 text-center">
-                          <p className="text-lg font-bold text-pink-700">
-                            {expandedStats.childChunkCount}
-                          </p>
-                          <p className="text-xs text-pink-600">分块</p>
-                        </div>
-                        <div className="rounded-lg bg-indigo-50 p-3 text-center">
-                          <p className="text-lg font-bold text-indigo-700">
-                            {expandedStats.embeddingCount ?? 0}
-                          </p>
-                          <p className="text-xs text-indigo-600">向量</p>
-                        </div>
-                        <div className="rounded-lg bg-fuchsia-50 p-3 text-center">
-                          <p className="text-lg font-bold text-fuchsia-700">
-                            {expandedStats.totalTokens >= 1000
-                              ? `${(expandedStats.totalTokens / 1000).toFixed(1)}k`
-                              : expandedStats.totalTokens}
-                          </p>
-                          <p className="text-xs text-fuchsia-600">Tokens</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 详细信息 */}
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Calendar className="h-4 w-4 text-gray-400" />
-                        <span>
-                          创建:{' '}
-                          {new Date(expandedKb.createdAt).toLocaleDateString(
-                            'zh-CN'
-                          )}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Calendar className="h-4 w-4 text-gray-400" />
-                        <span>
-                          更新:{' '}
-                          {new Date(expandedKb.updatedAt).toLocaleDateString(
-                            'zh-CN'
-                          )}
-                        </span>
-                      </div>
-                      {expandedKb.lastSyncedAt && (
-                        <div className="flex items-center gap-2 text-gray-600">
-                          <RefreshCw className="h-4 w-4 text-gray-400" />
-                          <span>
-                            同步:{' '}
-                            {new Date(
-                              expandedKb.lastSyncedAt
-                            ).toLocaleDateString('zh-CN')}
-                          </span>
-                        </div>
-                      )}
-                      {expandedKb.googleDriveConnectionId && (
-                        <div className="flex items-center gap-2 text-gray-600">
-                          <User className="h-4 w-4 text-gray-400" />
-                          <span>Google Drive 已连接</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 操作按钮 */}
-                    <div className="flex flex-wrap items-center gap-2 pt-2">
-                      {/* 测试搜索按钮 - 有向量时显示 */}
-                      {expandedStats &&
-                        (expandedStats.embeddingCount ?? 0) > 0 && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShowSearchTest(kb.id);
-                            }}
-                            className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:from-purple-700 hover:to-pink-700"
-                          >
-                            <Search className="h-4 w-4" />
-                            测试搜索
-                          </button>
-                        )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          processDocuments();
-                        }}
-                        disabled={processing}
-                        className="flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-700 disabled:opacity-50"
-                      >
-                        <Layers
-                          className={`h-4 w-4 ${processing ? 'animate-spin' : ''}`}
-                        />
-                        {processing ? '处理中...' : '向量化'}
-                      </button>
-                      {(expandedKb.sourceType === 'GOOGLE_DRIVE' ||
-                        expandedKb.sourceTypes?.includes('GOOGLE_DRIVE')) && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            syncGoogleDrive();
-                          }}
-                          disabled={syncing}
-                          className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
-                        >
-                          <RefreshCw
-                            className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`}
-                          />
-                          {syncing ? '同步中...' : '同步'}
-                        </button>
-                      )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setManagingMembersKbId(kb.id);
-                        }}
-                        className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-                      >
-                        <UserPlus className="h-4 w-4" />
-                        成员管理
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingKbId(kb.id);
-                        }}
-                        className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-                      >
-                        <Pencil className="h-4 w-4" />
-                        编辑
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowAddDocs({ kbId: kb.id, kbName: kb.name });
-                        }}
-                        className="flex items-center gap-1.5 rounded-lg border border-green-300 bg-green-50 px-3 py-1.5 text-sm font-medium text-green-700 transition-colors hover:bg-green-100"
-                      >
-                        <Plus className="h-4 w-4" />
-                        添加内容
-                      </button>
-                    </div>
-
-                    {/* 文档列表 - 专业重设计 */}
-                    {expandedDocs && expandedDocs.length > 0 && (
-                      <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50/50">
-                        {/* 列表头部 */}
-                        <div className="flex items-center justify-between border-b border-gray-200 bg-purple-50/80 px-4 py-2.5">
-                          <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                            <Database className="h-4 w-4 text-purple-500" />
-                            文档列表
-                            <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-600">
-                              {expandedDocs.length}
-                            </span>
-                          </h4>
-                          <div className="flex items-center gap-3 text-xs text-gray-500">
-                            <span className="flex items-center gap-1">
-                              <CheckCircle className="h-3 w-3 text-green-500" />
-                              {
-                                expandedDocs.filter((d) => d.isVectorized)
-                                  .length
-                              }{' '}
-                              已向量化
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* 文档列表按钮 */}
-                        <button
-                          onClick={() =>
-                            setShowDocList({
-                              kbId: kb.id,
-                              kbName: kb.name,
-                              documents: expandedDocs || [],
-                            })
-                          }
-                          className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 text-left transition-all hover:border-indigo-300 hover:bg-indigo-50/50"
-                        >
-                          <div className="flex items-center gap-3">
-                            <Database className="h-5 w-5 text-indigo-500" />
-                            <div>
-                              <span className="font-medium text-gray-900">
-                                查看文档列表
-                              </span>
-                              <span className="ml-2 text-sm text-gray-500">
-                                {expandedDocs.length} 个文档
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-gray-500">
-                            <span className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-green-700">
-                              <CheckCircle className="h-3 w-3" />
-                              {
-                                expandedDocs.filter((d) => d.isVectorized)
-                                  .length
-                              }{' '}
-                              已向量化
-                            </span>
-                            <ChevronRight className="h-4 w-4 text-gray-400" />
-                          </div>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ) : null}
-              </div>
-            )}
           </div>
         ))}
       </div>
@@ -821,17 +514,6 @@ export default function TeamKnowledgeBaseTab({
               }
             }
 
-            // Refresh expanded KB if it's the same one being edited
-            if (expandedKbId === editingKbId) {
-              console.log(
-                '[TeamKB] Refreshing expanded KB (detail, stats, docs)...'
-              );
-              await Promise.all([
-                refreshExpanded(),
-                refreshExpandedStats(),
-                refreshExpandedDocs(),
-              ]);
-            }
             await refreshList();
             setEditingKbId(null);
           }}
@@ -944,14 +626,6 @@ export default function TeamKnowledgeBaseTab({
           knowledgeBaseName={showAddDocs.kbName}
           onClose={() => setShowAddDocs(null)}
           onDocumentsAdded={async () => {
-            // Refresh the expanded KB data after adding documents
-            if (expandedKbId === showAddDocs.kbId) {
-              await Promise.all([
-                refreshExpanded(),
-                refreshExpandedStats(),
-                refreshExpandedDocs(),
-              ]);
-            }
             await refreshList();
           }}
         />
