@@ -1,0 +1,37 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npm run type-check 2>&1 | head -40",
+            "timeout": 90000
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$TOOL_INPUT_FILE_PATH\" | grep -q 'prisma/schema.prisma'; then echo '[Prisma] Schema modified - generating client...' && cd backend && npx prisma generate 2>&1 | tail -10; fi",
+            "timeout": 30000
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[Final Validation] Running quick tests...' && npm run test:quick 2>&1 | tail -60",
+            "timeout": 180000
+          }
+        ]
+      }
+    ]
+  }
+}

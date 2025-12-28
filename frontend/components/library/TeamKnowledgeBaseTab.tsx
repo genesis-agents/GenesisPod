@@ -24,6 +24,7 @@ import {
   Zap,
   Database,
   FileType,
+  Eye,
 } from 'lucide-react';
 import {
   useKnowledgeBase,
@@ -36,6 +37,7 @@ import MemberManagementDialog from './MemberManagementDialog';
 import SearchTestDialog from './SearchTestDialog';
 import DocumentListDialog from './DocumentListDialog';
 import AddDocumentsDialog from './AddDocumentsDialog';
+import KnowledgeBaseDetailDialog from './KnowledgeBaseDetailDialog';
 import SignInPrompt, { isAuthError } from '@/components/shared/SignInPrompt';
 
 interface TeamKnowledgeBaseTabProps {
@@ -58,10 +60,12 @@ export default function TeamKnowledgeBaseTab({
   );
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedKbId, setExpandedKbId] = useState<string | null>(null); // 展开的知识库ID
+  const [showDetailKbId, setShowDetailKbId] = useState<string | null>(null); // 弹窗显示详情的知识库ID
   const [showSearchTest, setShowSearchTest] = useState<string | null>(null); // 搜索测试的知识库ID
   const [showDocList, setShowDocList] = useState<{
     kbId: string;
     kbName: string;
+    documents: any[];
   } | null>(null); // 文档列表弹窗
   const [showAddDocs, setShowAddDocs] = useState<{
     kbId: string;
@@ -430,7 +434,19 @@ export default function TeamKnowledgeBaseTab({
             </div>
 
             {/* Action Menu */}
-            <div className="absolute right-3 top-3 z-10">
+            <div className="absolute right-3 top-3 z-10 flex items-center gap-1">
+              {/* 查看详情按钮 */}
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowDetailKbId(kb.id);
+                }}
+                className="rounded-lg p-1.5 text-gray-400 opacity-0 transition-all hover:bg-purple-50 hover:text-purple-600 group-hover:opacity-100"
+                title="查看详情"
+              >
+                <Eye className="h-4 w-4" />
+              </button>
               <div className="relative">
                 <button
                   onClick={(e) => {
@@ -724,7 +740,11 @@ export default function TeamKnowledgeBaseTab({
                         {/* 文档列表按钮 */}
                         <button
                           onClick={() =>
-                            setShowDocList({ kbId: kb.id, kbName: kb.name })
+                            setShowDocList({
+                              kbId: kb.id,
+                              kbName: kb.name,
+                              documents: expandedDocs || [],
+                            })
                           }
                           className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 text-left transition-all hover:border-indigo-300 hover:bg-indigo-50/50"
                         >
@@ -872,15 +892,47 @@ export default function TeamKnowledgeBaseTab({
       )}
 
       {/* 文档列表弹窗 */}
-      {showDocList && expandedDocs && (
+      {showDocList && (
         <DocumentListDialog
-          documents={expandedDocs}
+          documents={showDocList.documents}
           knowledgeBaseName={showDocList.kbName}
           onClose={() => setShowDocList(null)}
           onBack={() => {
-            // Close doc list and ensure KB is still expanded
+            const kbId = showDocList.kbId;
             setShowDocList(null);
-            // The KB should still be expanded via expandedKbId
+            setShowDetailKbId(kbId);
+          }}
+        />
+      )}
+
+      {/* 知识库详情弹窗 */}
+      {showDetailKbId && (
+        <KnowledgeBaseDetailDialog
+          knowledgeBaseId={showDetailKbId}
+          onClose={() => setShowDetailKbId(null)}
+          onEdit={() => {
+            const kbId = showDetailKbId;
+            setShowDetailKbId(null);
+            setEditingKbId(kbId);
+          }}
+          onAddDocuments={() => {
+            const kb = teamKBs.find((k) => k.id === showDetailKbId);
+            if (kb) {
+              setShowDetailKbId(null);
+              setShowAddDocs({ kbId: kb.id, kbName: kb.name });
+            }
+          }}
+          onSearchTest={() => {
+            const kbId = showDetailKbId;
+            setShowDetailKbId(null);
+            setShowSearchTest(kbId);
+          }}
+          onViewDocuments={(docs) => {
+            const kb = teamKBs.find((k) => k.id === showDetailKbId);
+            if (kb) {
+              setShowDetailKbId(null);
+              setShowDocList({ kbId: kb.id, kbName: kb.name, documents: docs });
+            }
           }}
         />
       )}
