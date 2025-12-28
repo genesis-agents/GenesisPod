@@ -38,11 +38,17 @@ import DocumentListDialog from './DocumentListDialog';
 import AddDocumentsDialog from './AddDocumentsDialog';
 import SignInPrompt, { isAuthError } from '@/components/shared/SignInPrompt';
 
+interface TeamKnowledgeBaseTabProps {
+  searchQuery?: string;
+}
+
 /**
  * 团队知识库 TAB
  * 显示用户可访问的团队知识库列表
  */
-export default function TeamKnowledgeBaseTab() {
+export default function TeamKnowledgeBaseTab({
+  searchQuery = '',
+}: TeamKnowledgeBaseTabProps) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingKbId, setEditingKbId] = useState<string | null>(null);
   const [deletingKbId, setDeletingKbId] = useState<string | null>(null);
@@ -126,7 +132,16 @@ export default function TeamKnowledgeBaseTab() {
   };
 
   // Filter team knowledge bases (type = TEAM)
-  const teamKBs = knowledgeBases.filter((kb: any) => kb.type === 'TEAM');
+  // Also apply search query filter if provided
+  const teamKBs = knowledgeBases.filter((kb: any) => {
+    if (kb.type !== 'TEAM') return false;
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      kb.name?.toLowerCase().includes(query) ||
+      kb.description?.toLowerCase().includes(query)
+    );
+  });
 
   const handleCreate = async (dto: any) => {
     await createKnowledgeBase({ ...dto, type: 'TEAM' });

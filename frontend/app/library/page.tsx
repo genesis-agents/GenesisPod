@@ -1757,10 +1757,14 @@ function LibraryPageContent() {
             )}
 
           {/* Personal Knowledge Base Tab */}
-          {activeTab === 'personal-kb' && <PersonalKnowledgeBaseTab />}
+          {activeTab === 'personal-kb' && (
+            <PersonalKnowledgeBaseTab searchQuery={searchQuery} />
+          )}
 
           {/* Team Knowledge Base Tab */}
-          {activeTab === 'team-kb' && <TeamKnowledgeBaseTab />}
+          {activeTab === 'team-kb' && (
+            <TeamKnowledgeBaseTab searchQuery={searchQuery} />
+          )}
 
           {/* Data Sources Tab - 包含子TAB：书签、笔记、图片、Notion、Google Drive */}
           {activeTab === 'data-sources' && (

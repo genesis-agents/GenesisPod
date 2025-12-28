@@ -170,8 +170,8 @@ export default function CreateKnowledgeBaseDialog({
   // 检查表单是否可以提交 - 需要选择至少一个文件夹或文件
   const hasGoogleDriveSelection =
     selectedFolderIds.length > 0 || selectedFileIds.length > 0;
+  // 允许点击提交按钮以显示验证错误，只在创建中或 Google Drive 未选择时禁用
   const canSubmit =
-    name.trim() &&
     !creating &&
     sourceTypes.length > 0 &&
     (!sourceTypes.includes('GOOGLE_DRIVE') || hasGoogleDriveSelection);

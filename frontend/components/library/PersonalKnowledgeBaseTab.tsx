@@ -26,11 +26,17 @@ import AddDocumentsDialog from './AddDocumentsDialog';
 import KnowledgeBaseDetailDialog from './KnowledgeBaseDetailDialog';
 import SignInPrompt, { isAuthError } from '@/components/shared/SignInPrompt';
 
+interface PersonalKnowledgeBaseTabProps {
+  searchQuery?: string;
+}
+
 /**
  * 个人知识库 TAB
  * 显示用户的个人知识库列表，点击直接进入 RAG 工作台
  */
-export default function PersonalKnowledgeBaseTab() {
+export default function PersonalKnowledgeBaseTab({
+  searchQuery = '',
+}: PersonalKnowledgeBaseTabProps) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingKbId, setEditingKbId] = useState<string | null>(null);
   const [deletingKbId, setDeletingKbId] = useState<string | null>(null);
@@ -108,9 +114,17 @@ export default function PersonalKnowledgeBaseTab() {
   };
 
   // Filter personal knowledge bases (type = PERSONAL or type is not set)
-  const personalKBs = knowledgeBases.filter(
-    (kb: any) => !kb.type || kb.type === 'PERSONAL'
-  );
+  // Also apply search query filter if provided
+  const personalKBs = knowledgeBases.filter((kb: any) => {
+    const isPersonal = !kb.type || kb.type === 'PERSONAL';
+    if (!isPersonal) return false;
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      kb.name?.toLowerCase().includes(query) ||
+      kb.description?.toLowerCase().includes(query)
+    );
+  });
 
   const handleCreate = async (dto: any) => {
     await createKnowledgeBase({ ...dto, type: 'PERSONAL' });
