@@ -268,7 +268,9 @@ export class AiAskService {
               topK: 5,
               useHyde: false, // 简化查询，加快速度
               useRerank: false,
-              minScore: 0.3,
+              // When useRerank=false, scores are RRF scores (max ~0.016)
+              // So we need a much lower threshold than when using rerank scores (0-1)
+              minScore: 0.001,
             },
           });
 
