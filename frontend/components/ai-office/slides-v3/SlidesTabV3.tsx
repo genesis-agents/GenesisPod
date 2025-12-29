@@ -968,10 +968,16 @@ function PreviewPanel() {
     const container = containerRef.current;
     if (!container) return;
 
+    // 初始化时立即获取尺寸
+    const rect = container.getBoundingClientRect();
+    setDimensions({ width: rect.width, height: rect.height });
+
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
-        setDimensions({ width, height });
+        if (width > 0 && height > 0) {
+          setDimensions({ width, height });
+        }
       }
     });
 
@@ -979,20 +985,23 @@ function PreviewPanel() {
     return () => resizeObserver.disconnect();
   }, []);
 
-  // 计算缩放比例
+  // 固定画布尺寸
   const SLIDE_WIDTH = 1280;
   const SLIDE_HEIGHT = 720;
-  const PADDING = 48; // 24px * 2
+  const PADDING = 48; // p-6 = 24px * 2
 
-  const availableWidth = Math.max(dimensions.width - PADDING, 100);
-  const availableHeight = Math.max(dimensions.height - PADDING, 100);
+  // 计算可用空间（减去内边距）
+  const availableWidth = Math.max(dimensions.width - PADDING, 200);
+  const availableHeight = Math.max(dimensions.height - PADDING, 150);
 
+  // 计算缩放比例，保持宽高比
   const scaleX = availableWidth / SLIDE_WIDTH;
   const scaleY = availableHeight / SLIDE_HEIGHT;
-  const scale = Math.min(scaleX, scaleY, 1);
+  const scale = Math.min(scaleX, scaleY, 1); // 最大不超过 1
 
-  const scaledWidth = SLIDE_WIDTH * scale;
-  const scaledHeight = SLIDE_HEIGHT * scale;
+  // 缩放后的尺寸
+  const scaledWidth = Math.floor(SLIDE_WIDTH * scale);
+  const scaledHeight = Math.floor(SLIDE_HEIGHT * scale);
 
   return (
     <div className="flex flex-1 flex-col bg-gradient-to-br from-slate-100 to-slate-200">
@@ -1025,28 +1034,42 @@ function PreviewPanel() {
       >
         {currentPage ? (
           <div
-            className="relative overflow-hidden rounded-xl shadow-2xl ring-1 ring-slate-700/50"
+            className="relative rounded-xl shadow-2xl ring-1 ring-slate-700/50"
             style={{
               width: scaledWidth,
               height: scaledHeight,
+              overflow: 'hidden', // 强制隐藏溢出
             }}
           >
             {currentPage.html ? (
-              <iframe
-                srcDoc={currentPage.html}
+              <div
                 style={{
-                  width: SLIDE_WIDTH,
-                  height: SLIDE_HEIGHT,
-                  border: 'none',
-                  transform: `scale(${scale})`,
-                  transformOrigin: 'top left',
+                  width: scaledWidth,
+                  height: scaledHeight,
+                  overflow: 'hidden',
+                  position: 'relative',
                 }}
-                sandbox="allow-scripts"
-              />
+              >
+                <iframe
+                  srcDoc={currentPage.html}
+                  style={{
+                    width: SLIDE_WIDTH,
+                    height: SLIDE_HEIGHT,
+                    border: 'none',
+                    display: 'block', // 避免 inline 元素的间隙
+                    transform: `scale(${scale})`,
+                    transformOrigin: 'top left',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                  }}
+                  sandbox="allow-scripts"
+                />
+              </div>
             ) : (
               <div
                 className="flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900"
-                style={{ width: scaledWidth, height: scaledHeight }}
+                style={{ width: '100%', height: '100%' }}
               >
                 {currentPage.status === 'generating' ? (
                   <div className="text-center">
