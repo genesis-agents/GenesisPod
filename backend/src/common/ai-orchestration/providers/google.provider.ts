@@ -26,7 +26,9 @@ export class GeminiProvider extends BaseTextProvider {
   readonly displayName = "Google Gemini";
 
   private static readonly SUPPORTED_MODELS = [
+    "gemini-3",
     "gemini-2.0",
+    "gemini-2",
     "gemini-1.5",
     "gemini-pro",
     "gemini-flash",

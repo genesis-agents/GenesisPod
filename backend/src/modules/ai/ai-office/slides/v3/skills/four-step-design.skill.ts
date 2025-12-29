@@ -453,8 +453,27 @@ ${this.getTemplateReference(pageOutline.templateType)}
     content: string,
     input: FourStepDesignInput,
   ): { design: PageDesign; html: string } {
-    const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
-    const jsonStr = jsonMatch ? jsonMatch[1] : content;
+    // 尝试多种方式提取 JSON
+    let jsonStr = content;
+
+    // 方式1: 匹配 ```json ... ``` 代码块
+    const jsonCodeBlockMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonCodeBlockMatch) {
+      jsonStr = jsonCodeBlockMatch[1].trim();
+    } else {
+      // 方式2: 匹配 ``` ... ``` 代码块（无语言标记）
+      const codeBlockMatch = content.match(/```\s*([\s\S]*?)\s*```/);
+      if (codeBlockMatch) {
+        jsonStr = codeBlockMatch[1].trim();
+      } else {
+        // 方式3: 尝试找到第一个 { 和最后一个 }
+        const firstBrace = content.indexOf("{");
+        const lastBrace = content.lastIndexOf("}");
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          jsonStr = content.slice(firstBrace, lastBrace + 1);
+        }
+      }
+    }
 
     try {
       const parsed = JSON.parse(jsonStr);
@@ -464,6 +483,9 @@ ${this.getTemplateReference(pageOutline.templateType)}
       return { design, html };
     } catch (error) {
       this.logger.error("[parseResponse] JSON parse error:", error);
+      this.logger.debug(
+        `[parseResponse] Raw content (first 500 chars): ${content.substring(0, 500)}`,
+      );
       return {
         design: this.createFallbackDesign(),
         html: this.createFallbackHtml(input),

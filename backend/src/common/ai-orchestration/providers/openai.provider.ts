@@ -26,6 +26,7 @@ export class OpenAITextProvider extends BaseTextProvider {
   readonly displayName = "OpenAI GPT";
 
   private static readonly SUPPORTED_MODELS = [
+    "gpt-5",
     "gpt-4",
     "gpt-4-turbo",
     "gpt-4o",
@@ -57,8 +58,8 @@ export class OpenAITextProvider extends BaseTextProvider {
     const isNewModel =
       modelId.includes("gpt-4o") ||
       modelId.includes("gpt-5") ||
-      modelId.startsWith("o1") ||
-      modelId.startsWith("o3");
+      modelId.includes("o1") ||
+      modelId.includes("o3");
 
     const tokenParam = isNewModel
       ? { max_completion_tokens: options.maxTokens || 2048 }
