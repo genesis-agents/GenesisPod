@@ -133,11 +133,14 @@ export class SlidesV3Controller {
     };
 
     return this.orchestrator.generateSlides(input).pipe(
-      map((event) => ({
-        data: JSON.stringify(event),
-        type: event.type,
-        id: `${event.type}-${Date.now()}`,
-      })),
+      map((event) => {
+        this.logger.debug(`[generateSlides] Sending SSE event: ${event.type}`);
+        // 不设置 type 字段，让所有事件都通过 EventSource.onmessage 处理
+        // 如果设置了 type，浏览器需要用 addEventListener(type, handler) 而不是 onmessage
+        return {
+          data: JSON.stringify(event),
+        };
+      }),
       catchError((error) => {
         this.logger.error("[generateSlides] Error:", error);
         return of({
@@ -146,8 +149,6 @@ export class SlidesV3Controller {
             timestamp: new Date().toISOString(),
             error: error.message || "Generation failed",
           }),
-          type: "error",
-          id: `error-${Date.now()}`,
         });
       }),
     );
@@ -177,11 +178,14 @@ export class SlidesV3Controller {
     };
 
     return this.orchestrator.generateSlides(input).pipe(
-      map((event) => ({
-        data: JSON.stringify(event),
-        type: event.type,
-        id: `${event.type}-${Date.now()}`,
-      })),
+      map((event) => {
+        this.logger.debug(
+          `[generateSlidesPost] Sending SSE event: ${event.type}`,
+        );
+        return {
+          data: JSON.stringify(event),
+        };
+      }),
       catchError((error) => {
         this.logger.error("[generateSlidesPost] Error:", error);
         return of({
@@ -190,8 +194,6 @@ export class SlidesV3Controller {
             timestamp: new Date().toISOString(),
             error: error.message || "Generation failed",
           }),
-          type: "error",
-          id: `error-${Date.now()}`,
         });
       }),
     );
