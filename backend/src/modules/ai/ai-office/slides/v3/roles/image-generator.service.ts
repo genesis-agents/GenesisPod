@@ -2,14 +2,11 @@
  * Slides Engine v3.0 - Image Generator Service
  *
  * 图像生成器角色：负责生成幻灯片所需的图像
- * 使用 IMAGE_GENERATION 模型 + DEFAULT 策略
+ * 复用 AI Image 模块的 ImageGenerationService
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import {
-  MultiModelService,
-  ImageGenerationInput,
-} from "../orchestrator/multi-model.service";
+import { ImageGenerationService } from "../../../../ai-image/generation/image-generation.service";
 import {
   GeneratedImage,
   ImageRequirement,
@@ -50,7 +47,9 @@ export interface PageImageGenerationResult {
 export class ImageGeneratorService {
   private readonly logger = new Logger(ImageGeneratorService.name);
 
-  constructor(private readonly multiModel: MultiModelService) {}
+  constructor(
+    private readonly imageGenerationService: ImageGenerationService,
+  ) {}
 
   /**
    * 为单页生成图像
@@ -58,7 +57,7 @@ export class ImageGeneratorService {
   async generateForPage(
     input: PageImageGenerationInput,
   ): Promise<PageImageGenerationResult> {
-    const { pageOutline, globalStyles, sessionId } = input;
+    const { pageOutline, globalStyles } = input;
 
     // 如果没有定义图像需求，自动生成默认需求
     let requirements = pageOutline.imageRequirements || [];
@@ -97,7 +96,6 @@ export class ImageGeneratorService {
           requirement,
           pageOutline,
           globalStyles,
-          sessionId,
         );
 
         if (image) {
@@ -164,13 +162,12 @@ export class ImageGeneratorService {
   }
 
   /**
-   * 生成单张图像
+   * 生成单张图像 - 使用 ImageGenerationService
    */
   private async generateImage(
     requirement: ImageRequirement,
     pageOutline: PageOutline,
     globalStyles?: GlobalStyles,
-    sessionId?: string,
   ): Promise<GeneratedImage | null> {
     // 如果是可选图像且语义上下文不明确，跳过
     if (requirement.optional && !requirement.semanticContext) {
@@ -188,48 +185,71 @@ export class ImageGeneratorService {
     );
 
     this.logger.log(
-      `[generateImage] Calling multiModel.generateImage for page ${pageOutline.pageNumber}, position=${requirement.position}`,
+      `[generateImage] Generating image for page ${pageOutline.pageNumber}, position=${requirement.position}`,
     );
     this.logger.debug(`[generateImage] Prompt: ${prompt.substring(0, 100)}...`);
 
-    const generationInput: ImageGenerationInput = {
-      prompt,
-      semanticContext: requirement.semanticContext,
-      style: requirement.style || this.getDefaultStyle(requirement.position),
-      aspectRatio: this.getAspectRatio(requirement.position),
-      metadata: {
-        sessionId,
-        pageNumber: pageOutline.pageNumber,
-      },
-    };
+    // 获取图像生成模型配置
+    const imageModel = await this.imageGenerationService.getDefaultImageModel();
 
-    const result = await this.multiModel.generateImage(generationInput);
-
-    this.logger.log(
-      `[generateImage] Result: success=${result.success}, url=${result.url ? "yes" : "no"}, model=${result.modelUsed}, provider=${result.provider}`,
-    );
-
-    if (!result.success || !result.url) {
-      this.logger.error(
-        `[generateImage] Image generation FAILED for page ${pageOutline.pageNumber}: ${result.error}`,
-      );
-      this.logger.error(
-        `[generateImage] Model used: ${result.modelUsed}, Provider: ${result.provider}`,
-      );
-      // 不使用硬编码回退，返回 null 让页面使用默认背景
+    if (!imageModel) {
+      this.logger.error("[generateImage] No image generation model available");
       return null;
     }
 
-    return {
-      id: uuidv4(),
-      url: result.url,
-      prompt,
-      semanticContext: requirement.semanticContext,
-      position: requirement.position,
-      width: result.width,
-      height: result.height,
-      generatedAt: new Date(),
+    this.logger.log(
+      `[generateImage] Using model: ${imageModel.name} (${imageModel.modelId})`,
+    );
+
+    // 根据 position 确定尺寸
+    const dimensions = this.getDimensions(requirement.position);
+
+    try {
+      // 调用 ImageGenerationService 的 API
+      const imageUrl = await this.imageGenerationService.callImageGenerationAPI(
+        imageModel,
+        prompt,
+        dimensions,
+      );
+
+      this.logger.log(
+        `[generateImage] Image generated successfully for page ${pageOutline.pageNumber}`,
+      );
+
+      return {
+        id: uuidv4(),
+        url: imageUrl,
+        prompt,
+        semanticContext: requirement.semanticContext,
+        position: requirement.position,
+        width: dimensions.width,
+        height: dimensions.height,
+        generatedAt: new Date(),
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `[generateImage] Image generation FAILED for page ${pageOutline.pageNumber}: ${errorMsg}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * 根据 position 获取图像尺寸
+   */
+  private getDimensions(position: ImageRequirement["position"]): {
+    width: number;
+    height: number;
+  } {
+    const dimensionsMap: Record<string, { width: number; height: number }> = {
+      background: { width: 1280, height: 720 }, // 16:9
+      inline: { width: 800, height: 600 }, // 4:3
+      card: { width: 800, height: 600 }, // 4:3
+      icon: { width: 512, height: 512 }, // 1:1
     };
+
+    return dimensionsMap[position] || { width: 1024, height: 1024 };
   }
 
   /**
@@ -280,36 +300,6 @@ export class ImageGeneratorService {
     );
 
     return parts.join(". ");
-  }
-
-  /**
-   * 获取默认样式
-   */
-  private getDefaultStyle(position: ImageRequirement["position"]): string {
-    const styles: Record<string, string> = {
-      background: "abstract, subtle, dark",
-      inline: "professional, clean, modern",
-      card: "minimalist, professional",
-      icon: "flat, simple, monochrome",
-    };
-
-    return styles[position] || "professional";
-  }
-
-  /**
-   * 获取宽高比
-   */
-  private getAspectRatio(
-    position: ImageRequirement["position"],
-  ): "16:9" | "4:3" | "1:1" | "9:16" {
-    const ratios: Record<string, "16:9" | "4:3" | "1:1" | "9:16"> = {
-      background: "16:9",
-      inline: "4:3",
-      card: "4:3",
-      icon: "1:1",
-    };
-
-    return ratios[position] || "16:9";
   }
 
   /**
