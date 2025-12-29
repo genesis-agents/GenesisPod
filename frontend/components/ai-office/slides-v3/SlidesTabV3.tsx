@@ -751,6 +751,8 @@ function HistoryPanel({
 
 function ExportDropdown({ onClose }: { onClose: () => void }) {
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { session } = useSlidesV3Store();
+  const [exporting, setExporting] = useState<'pptx' | 'pdf' | null>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -765,17 +767,93 @@ function ExportDropdown({ onClose }: { onClose: () => void }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [onClose]);
 
+  const handleExport = useCallback(
+    async (format: 'pptx' | 'pdf') => {
+      if (!session?.id) {
+        alert('请先生成幻灯片');
+        return;
+      }
+
+      setExporting(format);
+      try {
+        const response = await fetch(
+          `${config.apiBaseUrl}/ai-office/slides-v3/sessions/${session.id}/export`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              format,
+              quality: 'high',
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || `导出失败: ${response.status}`);
+        }
+
+        // 获取文件名
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = `slides.${format}`;
+        if (contentDisposition) {
+          const match = contentDisposition.match(/filename="?([^"]+)"?/);
+          if (match) {
+            filename = match[1];
+          }
+        }
+
+        // 下载文件
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        onClose();
+      } catch (error: unknown) {
+        console.error('Export failed:', error);
+        alert(error instanceof Error ? error.message : '导出失败，请重试');
+      } finally {
+        setExporting(null);
+      }
+    },
+    [session?.id, onClose]
+  );
+
   return (
     <div
       ref={dropdownRef}
       className="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border border-gray-200 bg-white py-2 shadow-lg"
     >
-      <button className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
-        <FileText className="h-4 w-4" />
+      <button
+        onClick={() => handleExport('pptx')}
+        disabled={exporting !== null || !session?.id}
+        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+      >
+        {exporting === 'pptx' ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <FileText className="h-4 w-4" />
+        )}
         导出 PPTX
       </button>
-      <button className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
-        <FileText className="h-4 w-4" />
+      <button
+        onClick={() => handleExport('pdf')}
+        disabled={exporting !== null || !session?.id}
+        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+      >
+        {exporting === 'pdf' ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <FileText className="h-4 w-4" />
+        )}
         导出 PDF
       </button>
     </div>
