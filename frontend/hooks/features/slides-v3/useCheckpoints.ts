@@ -50,7 +50,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
 
       try {
         const response = await fetch(
-          `${API_BASE}/api/v1/ai-office/slides-v3/sessions/${targetSessionId}/checkpoints`
+          `${API_BASE}/ai-office/slides-v3/sessions/${targetSessionId}/checkpoints`
         );
 
         if (!response.ok) {
@@ -81,7 +81,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
       try {
         // 先获取检查点详情
         const detailResponse = await fetch(
-          `${API_BASE}/api/v1/ai-office/slides-v3/checkpoints/${checkpointId}`
+          `${API_BASE}/ai-office/slides-v3/checkpoints/${checkpointId}`
         );
 
         if (!detailResponse.ok) {
@@ -93,7 +93,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
 
         // 调用恢复 API
         const restoreResponse = await fetch(
-          `${API_BASE}/api/v1/ai-office/slides-v3/restore/${checkpointId}`,
+          `${API_BASE}/ai-office/slides-v3/restore/${checkpointId}`,
           { method: 'POST' }
         );
 
@@ -130,7 +130,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
 
       try {
         const response = await fetch(
-          `${API_BASE}/api/v1/ai-office/slides-v3/sessions/${session.id}/prune?keepCount=${keepCount}`,
+          `${API_BASE}/ai-office/slides-v3/sessions/${session.id}/prune?keepCount=${keepCount}`,
           { method: 'POST' }
         );
 
@@ -186,7 +186,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
 
       try {
         const response = await fetch(
-          `${API_BASE}/api/v1/ai-office/slides-v3/sessions/${session.id}/checkpoints`,
+          `${API_BASE}/ai-office/slides-v3/sessions/${session.id}/checkpoints`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

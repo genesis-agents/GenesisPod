@@ -17,16 +17,26 @@ export interface SlidesArtifact {
 }
 
 /**
- * 历史记录项
+ * 历史记录项 - 兼容 v2 和 v3 格式
+ * v2 使用: prompt, slideCount
+ * v3 使用: title, sourceText, targetPages
  */
 export interface SlidesHistoryItem {
   id: string;
-  timestamp: number;
-  prompt: string;
+  timestamp: Date;
+  // v3 字段 (可选，用于新版本)
+  title?: string;
+  sourceText?: string;
+  targetPages?: number;
+  // v2 字段 (可选，用于旧版本)
+  prompt?: string;
+  slideCount?: number;
   templateId?: string;
-  slideCount: number;
-  status: 'success' | 'error' | 'pending';
   summary?: string;
+  // 共用字段
+  status: 'success' | 'error' | 'pending';
+  sessionId?: string;
+  checkpointId?: string;
   /** 保存结果以便恢复 */
   result?: {
     artifacts: SlidesArtifact[];
@@ -56,7 +66,7 @@ export const useSlidesHistoryStore = create<SlidesHistoryStore>()(
         const newItem: SlidesHistoryItem = {
           ...item,
           id,
-          timestamp: Date.now(),
+          timestamp: new Date(),
         };
 
         set((state) => {
@@ -91,6 +101,24 @@ export const useSlidesHistoryStore = create<SlidesHistoryStore>()(
     }),
     {
       name: 'slides-history-storage',
+      partialize: (state) => ({
+        history: state.history.map((item) => ({
+          ...item,
+          timestamp:
+            item.timestamp instanceof Date
+              ? item.timestamp.toISOString()
+              : item.timestamp,
+        })),
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          // 将 timestamp 字符串转换回 Date 对象
+          state.history = state.history.map((item) => ({
+            ...item,
+            timestamp: new Date(item.timestamp as unknown as string),
+          }));
+        }
+      },
     }
   )
 );
@@ -98,9 +126,11 @@ export const useSlidesHistoryStore = create<SlidesHistoryStore>()(
 /**
  * 格式化时间为相对时间
  */
-export function formatRelativeTime(timestamp: number): string {
-  const now = Date.now();
-  const diff = now - timestamp;
+export function formatRelativeTime(date: Date): string {
+  const now = new Date();
+  const timestamp =
+    date instanceof Date ? date.getTime() : new Date(date).getTime();
+  const diff = now.getTime() - timestamp;
 
   const minutes = Math.floor(diff / (1000 * 60));
   const hours = Math.floor(diff / (1000 * 60 * 60));
@@ -111,6 +141,6 @@ export function formatRelativeTime(timestamp: number): string {
   if (hours < 24) return `${hours}小时前`;
   if (days < 7) return `${days}天前`;
 
-  const date = new Date(timestamp);
-  return `${date.getMonth() + 1}/${date.getDate()}`;
+  const d = new Date(timestamp);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
 }

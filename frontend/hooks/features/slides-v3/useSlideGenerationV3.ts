@@ -102,7 +102,7 @@ export function useSlideGenerationV3(
           params.append('targetAudience', request.targetAudience);
         }
 
-        const url = `${API_BASE}/api/v1/ai-office/slides-v3/generate?${params.toString()}`;
+        const url = `${API_BASE}/ai-office/slides-v3/generate?${params.toString()}`;
 
         // 创建 EventSource
         const eventSource = new EventSource(url);
