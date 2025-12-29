@@ -138,26 +138,44 @@ export function SlidesTabV3() {
           timestamp: new Date(event.timestamp),
         });
       } else if (event.type === 'phase_completed') {
-        const data = event.data as {
+        // 后端发送格式: { phase, data: actualResult }
+        const eventData = event.data as {
           phase: string;
-          result?: Record<string, unknown>;
-          // 任务分解结果
-          totalPages?: number;
-          chapters?: Array<{ title: string; pageRange: number[] }>;
-          sourceAnalysis?: {
-            dataPoints?: Array<{
-              type: string;
-              value: string;
-              context: string;
-            }>;
-            keyInsights?: string[];
-          };
-          // 大纲规划结果
-          pages?: Array<{ title: string; templateType: string }>;
+          data?: Record<string, unknown>;
         };
 
+        // 从嵌套的 data 字段提取实际结果
+        const phaseResult = eventData.data as
+          | {
+              // 任务分解结果
+              totalPages?: number;
+              chapters?: Array<{ title: string; pageRange: number[] }>;
+              sourceAnalysis?: {
+                dataPoints?: Array<{
+                  type: string;
+                  value: string;
+                  context: string;
+                }>;
+                keyInsights?: string[];
+              };
+              // 大纲规划结果
+              pages?: Array<{
+                title: string;
+                templateType: string;
+                pageNumber: number;
+              }>;
+              globalStyles?: Record<string, unknown>;
+              // 页面渲染结果
+              completedPages?: number;
+              // 质量审核结果
+              overallScore?: number;
+              suggestions?: string[];
+            }
+          | undefined;
+
         const existingIndex = calls.findIndex(
-          (c) => c.title === getPhaseTitle(data.phase) && c.status === 'running'
+          (c) =>
+            c.title === getPhaseTitle(eventData.phase) && c.status === 'running'
         );
 
         // 提取详细内容
@@ -165,33 +183,45 @@ export function SlidesTabV3() {
         let details: Record<string, unknown> | undefined;
 
         // 任务分解阶段 - 提取章节信息
-        if (data.phase === 'task_decomposition' && data.chapters) {
-          content = data.chapters
+        if (eventData.phase === 'task_decomposition' && phaseResult?.chapters) {
+          content = phaseResult.chapters
             .map(
               (ch) =>
                 `• ${ch.title} (第${ch.pageRange?.[0]}-${ch.pageRange?.[1]}页)`
             )
             .join('\n');
-          if (data.sourceAnalysis) {
+          if (phaseResult.sourceAnalysis) {
             details = {
-              dataPoints: data.sourceAnalysis.dataPoints?.slice(0, 5),
-              insights: data.sourceAnalysis.keyInsights?.slice(0, 3),
+              dataPoints: phaseResult.sourceAnalysis.dataPoints?.slice(0, 5),
+              insights: phaseResult.sourceAnalysis.keyInsights?.slice(0, 3),
             };
           }
         }
         // 大纲规划阶段 - 提取页面列表
-        else if (data.phase === 'outline_planning' && data.pages) {
-          content = data.pages
-            .slice(0, 5)
-            .map((p, i) => `${i + 1}. ${p.title} [${p.templateType}]`)
+        else if (eventData.phase === 'outline_planning' && phaseResult?.pages) {
+          content = phaseResult.pages
+            .slice(0, 8)
+            .map((p) => `${p.pageNumber}. ${p.title} [${p.templateType}]`)
             .join('\n');
-          if (data.pages.length > 5) {
-            content += `\n... 及其他 ${data.pages.length - 5} 页`;
+          if (phaseResult.pages.length > 8) {
+            content += `\n... 及其他 ${phaseResult.pages.length - 8} 页`;
           }
         }
-        // 其他阶段 - 使用 result
-        else if (data.result) {
-          details = data.result;
+        // 页面渲染阶段
+        else if (
+          eventData.phase === 'page_rendering' &&
+          phaseResult?.completedPages
+        ) {
+          content = `完成渲染 ${phaseResult.completedPages} 页`;
+        }
+        // 质量审核阶段
+        else if (eventData.phase === 'quality_review' && phaseResult) {
+          if (phaseResult.overallScore !== undefined) {
+            content = `质量评分: ${phaseResult.overallScore}/100`;
+          }
+          if (phaseResult.suggestions?.length) {
+            details = { suggestions: phaseResult.suggestions.slice(0, 3) };
+          }
         }
 
         if (existingIndex >= 0) {
@@ -202,12 +232,12 @@ export function SlidesTabV3() {
           calls.push({
             id,
             type:
-              data.phase === 'task_decomposition'
+              eventData.phase === 'task_decomposition'
                 ? 'thinking'
-                : data.phase === 'outline_planning'
+                : eventData.phase === 'outline_planning'
                   ? 'outline'
                   : 'step',
-            title: getPhaseTitle(data.phase),
+            title: getPhaseTitle(eventData.phase),
             status: 'completed',
             content,
             details,
