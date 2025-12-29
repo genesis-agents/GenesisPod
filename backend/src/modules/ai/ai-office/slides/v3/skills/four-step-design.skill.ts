@@ -23,7 +23,9 @@ import {
   GlobalStyles,
   GENSPARK_DESIGN_SYSTEM,
   CDN_RESOURCES,
+  PageTemplateType,
 } from "../checkpoint/checkpoint.types";
+import { getTemplate } from "../templates";
 
 /**
  * 四步设计输入
@@ -307,9 +309,34 @@ ${JSON.stringify(globalStyles, null, 2)}
 - ECharts: ${CDN_RESOURCES.echarts}
 - Noto Sans SC: ${CDN_RESOURCES.notoSansSC}
 
+## 参考模板
+
+以下是该页面类型的参考模板，请参考其布局结构和设计风格，但要根据实际内容进行调整和创新：
+
+\`\`\`html
+${this.getTemplateReference(pageOutline.templateType)}
+\`\`\`
+
 ## 请求
 
-请执行四步设计流程，生成该页面的设计方案和 HTML 代码。`;
+请执行四步设计流程，生成该页面的设计方案和 HTML 代码。
+注意：
+1. 参考模板的结构和风格，但要根据实际内容进行调整
+2. 所有内容必须来自"页面内容"部分，不要使用模板中的占位符
+3. 确保生成的 HTML 完整、独立，可以直接渲染`;
+  }
+
+  /**
+   * 获取模板参考
+   */
+  private getTemplateReference(templateType: PageTemplateType): string {
+    const template = getTemplate(templateType);
+    // 截取模板核心结构，避免过长
+    const html = template.html;
+    if (html.length > 3000) {
+      return html.substring(0, 3000) + "\n<!-- 模板已截断，请参考结构 -->";
+    }
+    return html;
   }
 
   /**
