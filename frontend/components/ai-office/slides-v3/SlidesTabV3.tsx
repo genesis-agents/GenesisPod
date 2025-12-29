@@ -961,28 +961,38 @@ function PreviewPanel() {
   const { pages, selectedPageIndex, setSelectedPageIndex } = useSlidesV3Store();
   const currentPage = pages[selectedPageIndex];
   const containerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
-  // 计算缩放比例以适应容器
+  // 使用 ResizeObserver 监听容器尺寸变化
   useEffect(() => {
-    const updateScale = () => {
-      if (containerRef.current) {
-        const containerWidth = containerRef.current.clientWidth - 48; // padding
-        const containerHeight = containerRef.current.clientHeight - 48;
-        const slideWidth = 1280;
-        const slideHeight = 720;
+    const container = containerRef.current;
+    if (!container) return;
 
-        const scaleX = containerWidth / slideWidth;
-        const scaleY = containerHeight / slideHeight;
-        const newScale = Math.min(scaleX, scaleY, 1); // 不超过1
-        setScale(newScale);
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        setDimensions({ width, height });
       }
-    };
+    });
 
-    updateScale();
-    window.addEventListener('resize', updateScale);
-    return () => window.removeEventListener('resize', updateScale);
+    resizeObserver.observe(container);
+    return () => resizeObserver.disconnect();
   }, []);
+
+  // 计算缩放比例
+  const SLIDE_WIDTH = 1280;
+  const SLIDE_HEIGHT = 720;
+  const PADDING = 48; // 24px * 2
+
+  const availableWidth = Math.max(dimensions.width - PADDING, 100);
+  const availableHeight = Math.max(dimensions.height - PADDING, 100);
+
+  const scaleX = availableWidth / SLIDE_WIDTH;
+  const scaleY = availableHeight / SLIDE_HEIGHT;
+  const scale = Math.min(scaleX, scaleY, 1);
+
+  const scaledWidth = SLIDE_WIDTH * scale;
+  const scaledHeight = SLIDE_HEIGHT * scale;
 
   return (
     <div className="flex flex-1 flex-col bg-gradient-to-br from-slate-100 to-slate-200">
@@ -1011,22 +1021,22 @@ function PreviewPanel() {
       {/* 主预览区域 */}
       <div
         ref={containerRef}
-        className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-6"
+        className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden p-6"
       >
         {currentPage ? (
           <div
             className="relative overflow-hidden rounded-xl shadow-2xl ring-1 ring-slate-700/50"
             style={{
-              width: 1280 * scale,
-              height: 720 * scale,
+              width: scaledWidth,
+              height: scaledHeight,
             }}
           >
             {currentPage.html ? (
               <iframe
                 srcDoc={currentPage.html}
                 style={{
-                  width: 1280,
-                  height: 720,
+                  width: SLIDE_WIDTH,
+                  height: SLIDE_HEIGHT,
                   border: 'none',
                   transform: `scale(${scale})`,
                   transformOrigin: 'top left',
@@ -1036,7 +1046,7 @@ function PreviewPanel() {
             ) : (
               <div
                 className="flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900"
-                style={{ width: 1280 * scale, height: 720 * scale }}
+                style={{ width: scaledWidth, height: scaledHeight }}
               >
                 {currentPage.status === 'generating' ? (
                   <div className="text-center">
