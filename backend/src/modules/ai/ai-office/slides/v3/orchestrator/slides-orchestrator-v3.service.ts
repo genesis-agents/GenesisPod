@@ -369,6 +369,21 @@ export class SlidesOrchestratorV3Service {
           sessionId,
         });
 
+        // 日志：显示图片生成结果
+        this.logger.log(
+          `[renderAllPages] Page ${pageOutline.pageNumber} image result: ${imageResult.images.length} images, ${imageResult.errors.length} errors`,
+        );
+        if (imageResult.images.length > 0) {
+          this.logger.log(
+            `[renderAllPages] Page ${pageOutline.pageNumber} images: ${imageResult.images.map((img) => `${img.position}:${img.url?.substring(0, 50)}...`).join(", ")}`,
+          );
+        }
+        if (imageResult.errors.length > 0) {
+          this.logger.warn(
+            `[renderAllPages] Page ${pageOutline.pageNumber} image errors: ${imageResult.errors.join(", ")}`,
+          );
+        }
+
         // Step 4: 渲染 HTML，传入生成的图片
         const renderResult = await this.renderer.renderPage({
           pageOutline,

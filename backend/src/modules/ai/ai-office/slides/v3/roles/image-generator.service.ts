@@ -64,11 +64,21 @@ export class ImageGeneratorService {
     let requirements = pageOutline.imageRequirements || [];
     if (requirements.length === 0) {
       requirements = this.generateDefaultImageRequirements(pageOutline);
+      this.logger.log(
+        `[generateForPage] Auto-generated ${requirements.length} image requirements for page ${pageOutline.pageNumber} (type: ${pageOutline.templateType})`,
+      );
     }
 
     this.logger.log(
       `[generateForPage] Generating ${requirements.length} images for page ${pageOutline.pageNumber} (type: ${pageOutline.templateType})`,
     );
+
+    // 详细日志：显示需求详情
+    for (const req of requirements) {
+      this.logger.debug(
+        `[generateForPage] Requirement: position=${req.position}, context=${req.semanticContext?.substring(0, 50)}..., optional=${req.optional}`,
+      );
+    }
 
     if (requirements.length === 0) {
       return {
@@ -177,6 +187,11 @@ export class ImageGeneratorService {
       globalStyles,
     );
 
+    this.logger.log(
+      `[generateImage] Calling multiModel.generateImage for page ${pageOutline.pageNumber}, position=${requirement.position}`,
+    );
+    this.logger.debug(`[generateImage] Prompt: ${prompt.substring(0, 100)}...`);
+
     const generationInput: ImageGenerationInput = {
       prompt,
       semanticContext: requirement.semanticContext,
@@ -190,11 +205,33 @@ export class ImageGeneratorService {
 
     const result = await this.multiModel.generateImage(generationInput);
 
+    this.logger.log(
+      `[generateImage] Result: success=${result.success}, url=${result.url ? "yes" : "no"}, model=${result.modelUsed}, provider=${result.provider}`,
+    );
+
     if (!result.success || !result.url) {
-      this.logger.warn(
-        "[generateImage] Image generation failed:",
-        result.error,
+      this.logger.error(
+        `[generateImage] Image generation FAILED for page ${pageOutline.pageNumber}: ${result.error}`,
       );
+
+      // 回退：使用 Unsplash 作为后备图片源
+      const fallbackUrl = this.getFallbackImageUrl(requirement, pageOutline);
+      if (fallbackUrl) {
+        this.logger.log(
+          `[generateImage] Using Unsplash fallback for page ${pageOutline.pageNumber}: ${fallbackUrl}`,
+        );
+        return {
+          id: uuidv4(),
+          url: fallbackUrl,
+          prompt: `Unsplash fallback: ${requirement.semanticContext || pageOutline.title}`,
+          semanticContext: requirement.semanticContext,
+          position: requirement.position,
+          width: 1280,
+          height: 720,
+          generatedAt: new Date(),
+        };
+      }
+
       return null;
     }
 
@@ -208,6 +245,74 @@ export class ImageGeneratorService {
       height: result.height,
       generatedAt: new Date(),
     };
+  }
+
+  /**
+   * 获取回退图片 URL (使用 Unsplash)
+   */
+  private getFallbackImageUrl(
+    requirement: ImageRequirement,
+    pageOutline: PageOutline,
+  ): string | null {
+    // 只为背景图提供回退
+    if (requirement.position !== "background") {
+      return null;
+    }
+
+    // 根据页面类型和标题选择合适的 Unsplash 搜索词
+    const searchTerms = this.getUnsplashSearchTerms(pageOutline);
+
+    // Unsplash Source API (免费，无需 API Key)
+    // 格式: https://source.unsplash.com/1280x720/?{keywords}
+    const keywords = encodeURIComponent(searchTerms.join(","));
+    return `https://source.unsplash.com/1280x720/?${keywords}`;
+  }
+
+  /**
+   * 根据页面类型获取 Unsplash 搜索词
+   */
+  private getUnsplashSearchTerms(pageOutline: PageOutline): string[] {
+    const templateType = pageOutline.templateType;
+    const title = pageOutline.title.toLowerCase();
+
+    // 基础搜索词：深色、科技感
+    const baseTerms = ["dark", "technology"];
+
+    // 根据模板类型添加特定词
+    const typeTerms: Record<string, string[]> = {
+      cover: ["abstract", "gradient", "minimal"],
+      dashboard: ["data", "analytics", "digital"],
+      framework: ["network", "structure", "connection"],
+      pillars: ["architecture", "building", "foundation"],
+      timeline: ["time", "evolution", "progress"],
+      evolutionRoadmap: ["road", "path", "journey"],
+      comparison: ["contrast", "balance", "symmetry"],
+      caseStudy: ["business", "office", "professional"],
+      recommendations: ["direction", "arrow", "future"],
+      multiColumn: ["grid", "pattern", "geometric"],
+      splitLayout: ["divided", "contrast", "modern"],
+    };
+
+    // 根据标题关键词添加额外搜索词
+    const titleKeywords: string[] = [];
+    if (title.includes("城市") || title.includes("city"))
+      titleKeywords.push("city", "urban");
+    if (title.includes("科技") || title.includes("tech"))
+      titleKeywords.push("tech", "innovation");
+    if (title.includes("经济") || title.includes("econom"))
+      titleKeywords.push("finance", "economy");
+    if (title.includes("教育") || title.includes("education"))
+      titleKeywords.push("education", "learning");
+    if (title.includes("医疗") || title.includes("health"))
+      titleKeywords.push("healthcare", "medical");
+    if (title.includes("环境") || title.includes("environment"))
+      titleKeywords.push("nature", "green");
+
+    return [
+      ...baseTerms,
+      ...(typeTerms[templateType] || ["abstract"]),
+      ...titleKeywords.slice(0, 2), // 只取前2个
+    ];
   }
 
   /**
