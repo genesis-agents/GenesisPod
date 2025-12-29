@@ -39,6 +39,11 @@ import {
   Home,
   Copy,
   Terminal,
+  Play,
+  Maximize2,
+  Minimize2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils/common';
@@ -111,6 +116,7 @@ export function SlidesTabV3() {
   const [restoring, setRestoring] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showNewForm, setShowNewForm] = useState(false);
+  const [showPresentation, setShowPresentation] = useState(false);
   const currentHistoryIdRef = useRef<string | null>(null);
 
   // 重置回到历史记录画廊
@@ -474,6 +480,8 @@ export function SlidesTabV3() {
         onCreateCheckpoint={handleCreateCheckpoint}
         showBackButton={true}
         onBackToGallery={handleBackToGallery}
+        onStartPresentation={() => setShowPresentation(true)}
+        hasPages={pages.length > 0}
       />
 
       {/* 历史记录面板 */}
@@ -500,6 +508,206 @@ export function SlidesTabV3() {
 
       {/* 底部进度条 */}
       <ProgressBar />
+
+      {/* 演示模式 */}
+      {showPresentation && (
+        <PresentationMode
+          pages={pages}
+          onClose={() => setShowPresentation(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// PresentationMode 组件 - 全屏演示
+// ============================================================================
+
+function PresentationMode({
+  pages,
+  onClose,
+}: {
+  pages: PageState[];
+  onClose: () => void;
+}) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // 键盘导航
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      switch (e.key) {
+        case 'ArrowRight':
+        case 'ArrowDown':
+        case ' ':
+        case 'PageDown':
+          e.preventDefault();
+          setCurrentIndex((prev) => Math.min(prev + 1, pages.length - 1));
+          break;
+        case 'ArrowLeft':
+        case 'ArrowUp':
+        case 'PageUp':
+          e.preventDefault();
+          setCurrentIndex((prev) => Math.max(prev - 1, 0));
+          break;
+        case 'Home':
+          e.preventDefault();
+          setCurrentIndex(0);
+          break;
+        case 'End':
+          e.preventDefault();
+          setCurrentIndex(pages.length - 1);
+          break;
+        case 'Escape':
+          e.preventDefault();
+          onClose();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [pages.length, onClose]);
+
+  // 进入/退出全屏
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container && document.fullscreenEnabled) {
+      container.requestFullscreen?.().catch(() => {
+        // 全屏请求失败，静默处理
+      });
+    }
+
+    return () => {
+      if (document.fullscreenElement) {
+        document.exitFullscreen?.().catch(() => {});
+      }
+    };
+  }, []);
+
+  const currentPage = pages[currentIndex];
+
+  // 固定画布尺寸 (16:9)
+  const SLIDE_WIDTH = 1280;
+  const SLIDE_HEIGHT = 720;
+
+  // 计算全屏缩放
+  const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
+  const screenHeight =
+    typeof window !== 'undefined' ? window.innerHeight : 1080;
+  const scaleX = screenWidth / SLIDE_WIDTH;
+  const scaleY = screenHeight / SLIDE_HEIGHT;
+  const scale = Math.min(scaleX, scaleY);
+
+  const scaledWidth = Math.floor(SLIDE_WIDTH * scale);
+  const scaledHeight = Math.floor(SLIDE_HEIGHT * scale);
+
+  // 为 iframe 添加缩放样式
+  const enhanceHtmlForPresentation = (
+    html: string,
+    zoomScale: number
+  ): string => {
+    const enhancementStyles = `
+      <style>
+        * {
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+          text-rendering: optimizeLegibility;
+        }
+        html {
+          zoom: ${zoomScale};
+        }
+        body {
+          margin: 0;
+          padding: 0;
+          width: ${SLIDE_WIDTH}px;
+          height: ${SLIDE_HEIGHT}px;
+          overflow: hidden;
+        }
+      </style>
+    `;
+    if (html.includes('</head>')) {
+      return html.replace('</head>', enhancementStyles + '</head>');
+    }
+    if (html.includes('<body')) {
+      return html.replace('<body', enhancementStyles + '<body');
+    }
+    return enhancementStyles + html;
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className="fixed inset-0 z-50 flex flex-col bg-black"
+      onClick={(e) => {
+        // 点击空白区域下一页
+        if (e.target === e.currentTarget) {
+          setCurrentIndex((prev) => Math.min(prev + 1, pages.length - 1));
+        }
+      }}
+    >
+      {/* 幻灯片内容 */}
+      <div className="flex flex-1 items-center justify-center">
+        {currentPage?.html ? (
+          <iframe
+            srcDoc={enhanceHtmlForPresentation(currentPage.html, scale)}
+            style={{
+              width: scaledWidth,
+              height: scaledHeight,
+              border: 'none',
+              display: 'block',
+              backgroundColor: '#0f172a',
+            }}
+            sandbox="allow-scripts"
+          />
+        ) : (
+          <div className="text-center text-white">
+            <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin" />
+            <p>加载中...</p>
+          </div>
+        )}
+      </div>
+
+      {/* 控制栏 */}
+      <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between bg-gradient-to-t from-black/80 to-transparent px-6 py-4 opacity-0 transition-opacity hover:opacity-100">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={onClose}
+            className="rounded-lg bg-white/10 p-2 text-white hover:bg-white/20"
+            title="退出演示 (Esc)"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <span className="text-sm text-white/80">
+            按 Esc 退出 | 方向键或空格切换页面
+          </span>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setCurrentIndex((prev) => Math.max(prev - 1, 0))}
+            disabled={currentIndex === 0}
+            className="rounded-lg bg-white/10 p-2 text-white hover:bg-white/20 disabled:opacity-30"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+
+          <span className="min-w-[80px] text-center text-sm font-medium text-white">
+            {currentIndex + 1} / {pages.length}
+          </span>
+
+          <button
+            onClick={() =>
+              setCurrentIndex((prev) => Math.min(prev + 1, pages.length - 1))
+            }
+            disabled={currentIndex === pages.length - 1}
+            className="rounded-lg bg-white/10 p-2 text-white hover:bg-white/20 disabled:opacity-30"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -517,8 +725,10 @@ function Header({
   viewMode,
   onViewModeChange,
   onNewClick,
+  onStartPresentation,
   showViewToggle = false,
   showBackButton = false,
+  hasPages = false,
 }: {
   title?: string;
   showHistory: boolean;
@@ -528,8 +738,10 @@ function Header({
   viewMode?: 'grid' | 'list';
   onViewModeChange?: (mode: 'grid' | 'list') => void;
   onNewClick?: () => void;
+  onStartPresentation?: () => void;
   showViewToggle?: boolean;
   showBackButton?: boolean;
+  hasPages?: boolean;
 }) {
   const [showExportMenu, setShowExportMenu] = useState(false);
 
@@ -620,6 +832,17 @@ function Header({
             <Save className="h-4 w-4" />
             创建保存点
           </button>
+
+          {/* 播放演示 */}
+          {hasPages && onStartPresentation && (
+            <button
+              onClick={onStartPresentation}
+              className="flex items-center gap-1.5 rounded-lg bg-orange-500 px-3 py-2 text-sm text-white hover:bg-orange-600"
+            >
+              <Play className="h-4 w-4" />
+              播放
+            </button>
+          )}
 
           {/* 导出 */}
           <div className="relative">
@@ -1298,46 +1521,60 @@ function PreviewPanel() {
     return () => resizeObserver.disconnect();
   }, []);
 
-  // 固定画布尺寸
+  // 固定画布尺寸 (16:9)
   const SLIDE_WIDTH = 1280;
   const SLIDE_HEIGHT = 720;
-  const PADDING = 32; // 减少内边距以最大化显示空间
+  const PADDING = 24;
 
-  // 计算可用空间（减去内边距）
-  const availableWidth = Math.max(dimensions.width - PADDING, 200);
-  const availableHeight = Math.max(dimensions.height - PADDING, 150);
+  // 计算可用空间
+  const availableWidth = Math.max(dimensions.width - PADDING, 300);
+  const availableHeight = Math.max(dimensions.height - PADDING, 200);
 
-  // 计算缩放比例，保持宽高比
+  // 计算缩放比例，保持宽高比，允许放大以填充空间
   const scaleX = availableWidth / SLIDE_WIDTH;
   const scaleY = availableHeight / SLIDE_HEIGHT;
-  const scale = Math.min(scaleX, scaleY, 1); // 最大不超过 1
+  const scale = Math.min(scaleX, scaleY); // 移除最大 1 的限制，允许放大
 
   // 缩放后的尺寸
   const scaledWidth = Math.floor(SLIDE_WIDTH * scale);
   const scaledHeight = Math.floor(SLIDE_HEIGHT * scale);
 
-  // 为 iframe 内容添加字体平滑样式
-  const enhanceHtmlForClarity = (html: string): string => {
-    // 注入全局样式来改善字体渲染
-    const fontSmoothingStyles = `
+  // 为 iframe 内容添加缩放样式 - 使用内部缩放而非外部 transform
+  // 这样渲染更清晰，因为浏览器会重新渲染而不是缩放像素
+  const enhanceHtmlForClarity = useCallback(
+    (html: string, zoomScale: number): string => {
+      // 注入缩放和字体平滑样式
+      const enhancementStyles = `
       <style>
         * {
           -webkit-font-smoothing: antialiased;
           -moz-osx-font-smoothing: grayscale;
           text-rendering: optimizeLegibility;
         }
-        html, body {
-          image-rendering: -webkit-optimize-contrast;
-          transform: translateZ(0);
+        html {
+          zoom: ${zoomScale};
+        }
+        body {
+          margin: 0;
+          padding: 0;
+          width: ${SLIDE_WIDTH}px;
+          height: ${SLIDE_HEIGHT}px;
+          overflow: hidden;
         }
       </style>
     `;
-    // 在 </head> 前插入样式，如果没有 head 则在开头插入
-    if (html.includes('</head>')) {
-      return html.replace('</head>', fontSmoothingStyles + '</head>');
-    }
-    return fontSmoothingStyles + html;
-  };
+      // 在 </head> 前插入样式
+      if (html.includes('</head>')) {
+        return html.replace('</head>', enhancementStyles + '</head>');
+      }
+      // 如果没有 head，在 body 前插入
+      if (html.includes('<body')) {
+        return html.replace('<body', enhancementStyles + '<body');
+      }
+      return enhancementStyles + html;
+    },
+    []
+  );
 
   return (
     <div className="flex flex-1 flex-col bg-gradient-to-br from-slate-100 to-slate-200">
@@ -1382,35 +1619,17 @@ function PreviewPanel() {
             }}
           >
             {currentPage.html ? (
-              <div
+              <iframe
+                srcDoc={enhanceHtmlForClarity(currentPage.html, scale)}
                 style={{
                   width: scaledWidth,
                   height: scaledHeight,
-                  overflow: 'hidden',
-                  position: 'relative',
-                  // 创建新的合成层
-                  isolation: 'isolate',
+                  border: 'none',
+                  display: 'block',
+                  backgroundColor: '#0f172a',
                 }}
-              >
-                <iframe
-                  srcDoc={enhanceHtmlForClarity(currentPage.html)}
-                  style={{
-                    width: SLIDE_WIDTH,
-                    height: SLIDE_HEIGHT,
-                    border: 'none',
-                    display: 'block',
-                    transform: `scale(${scale})`,
-                    transformOrigin: 'top left',
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    // 改善缩放后的渲染质量
-                    willChange: 'transform',
-                    backfaceVisibility: 'hidden',
-                  }}
-                  sandbox="allow-scripts"
-                />
-              </div>
+                sandbox="allow-scripts"
+              />
             ) : (
               <div
                 className="flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900"

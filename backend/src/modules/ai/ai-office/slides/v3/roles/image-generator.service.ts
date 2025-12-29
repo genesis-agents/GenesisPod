@@ -59,10 +59,15 @@ export class ImageGeneratorService {
     input: PageImageGenerationInput,
   ): Promise<PageImageGenerationResult> {
     const { pageOutline, globalStyles, sessionId } = input;
-    const requirements = pageOutline.imageRequirements || [];
+
+    // 如果没有定义图像需求，自动生成默认需求
+    let requirements = pageOutline.imageRequirements || [];
+    if (requirements.length === 0) {
+      requirements = this.generateDefaultImageRequirements(pageOutline);
+    }
 
     this.logger.log(
-      `[generateForPage] Generating ${requirements.length} images for page ${pageOutline.pageNumber}`,
+      `[generateForPage] Generating ${requirements.length} images for page ${pageOutline.pageNumber} (type: ${pageOutline.templateType})`,
     );
 
     if (requirements.length === 0) {
@@ -283,6 +288,114 @@ export class ImageGeneratorService {
     };
 
     return ratios[position] || "16:9";
+  }
+
+  /**
+   * 根据页面类型生成默认图像需求
+   */
+  private generateDefaultImageRequirements(
+    pageOutline: PageOutline,
+  ): ImageRequirement[] {
+    const templateType = pageOutline.templateType;
+    const title = pageOutline.title;
+
+    // 根据模板类型生成适当的图像需求
+    const defaultRequirements: Record<string, ImageRequirement[]> = {
+      cover: [
+        {
+          position: "background",
+          semanticContext: `${title} - 科技创新深色背景，抽象几何图案，专业商务风格`,
+          style: "abstract dark tech gradient",
+          optional: false,
+        },
+      ],
+      dashboard: [
+        {
+          position: "background",
+          semanticContext: `数据可视化背景，数据流动效果，与${title}相关`,
+          style: "data visualization abstract dark",
+          optional: false,
+        },
+      ],
+      framework: [
+        {
+          position: "background",
+          semanticContext: `框架概念背景，网络连接效果，与${title}相关`,
+          style: "network abstract dark professional",
+          optional: false,
+        },
+      ],
+      pillars: [
+        {
+          position: "background",
+          semanticContext: `支柱概念背景，结构化元素，与${title}相关`,
+          style: "structured abstract dark minimal",
+          optional: false,
+        },
+      ],
+      timeline: [
+        {
+          position: "background",
+          semanticContext: `时间线背景，进化演进效果，与${title}相关`,
+          style: "timeline evolution abstract dark",
+          optional: false,
+        },
+      ],
+      evolutionRoadmap: [
+        {
+          position: "background",
+          semanticContext: `演进路线图背景，发展轨迹，与${title}相关`,
+          style: "roadmap progression abstract dark",
+          optional: false,
+        },
+      ],
+      comparison: [
+        {
+          position: "background",
+          semanticContext: `对比分析背景，双向效果，与${title}相关`,
+          style: "comparison abstract dark professional",
+          optional: false,
+        },
+      ],
+      caseStudy: [
+        {
+          position: "background",
+          semanticContext: `案例研究背景，专业分析风格，与${title}相关`,
+          style: "case study professional dark",
+          optional: false,
+        },
+      ],
+      recommendations: [
+        {
+          position: "background",
+          semanticContext: `建议行动背景，前进方向感，与${title}相关`,
+          style: "forward momentum abstract dark",
+          optional: false,
+        },
+      ],
+    };
+
+    // 获取默认需求，如果没有则使用通用背景
+    const requirements = defaultRequirements[templateType];
+
+    if (requirements) {
+      return requirements;
+    }
+
+    // toc 页面不需要图像
+    if (templateType === "toc") {
+      return [];
+    }
+
+    // 其他类型使用通用背景
+    return [
+      {
+        position: "background",
+        semanticContext: `${title} - 专业深色背景，抽象几何元素`,
+        style: "abstract dark professional gradient",
+        optional: false,
+      },
+    ];
   }
 
   /**
