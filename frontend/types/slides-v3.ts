@@ -335,6 +335,7 @@ export type StreamEventType =
   | 'page_started'
   | 'page_completed'
   | 'progress_update'
+  | 'heartbeat'
   | 'error'
   | 'complete';
 

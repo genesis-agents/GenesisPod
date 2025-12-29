@@ -136,7 +136,7 @@ export class MultiModelService {
   }
 
   /**
-   * 根据角色调用 AI
+   * 根据角色调用 AI（带超时）
    */
   async callByRole(input: RoleCallInput): Promise<RoleCallResult> {
     const { role, messages, maxTokens, temperature, metadata } = input;
@@ -147,6 +147,7 @@ export class MultiModelService {
     );
 
     const startTime = Date.now();
+    const timeoutMs = this.getTimeoutForRole(role);
 
     try {
       // 构建 AI 调用输入
@@ -163,8 +164,12 @@ export class MultiModelService {
         },
       };
 
-      // 调用 AI
-      const result = await this.aiOrchestration.call(aiInput);
+      // 调用 AI（带超时）
+      const result = await this.callWithTimeout(
+        this.aiOrchestration.call(aiInput),
+        timeoutMs,
+        `AI call for role ${role} timed out after ${timeoutMs}ms`,
+      );
 
       return {
         success: result.success,
@@ -189,6 +194,52 @@ export class MultiModelService {
         latencyMs: Date.now() - startTime,
         error: error instanceof Error ? error.message : String(error),
       };
+    }
+  }
+
+  /**
+   * 带超时的 Promise 调用
+   */
+  private async callWithTimeout<T>(
+    promise: Promise<T>,
+    timeoutMs: number,
+    errorMessage: string,
+  ): Promise<T> {
+    let timeoutId: NodeJS.Timeout;
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error(errorMessage));
+      }, timeoutMs);
+    });
+
+    try {
+      const result = await Promise.race([promise, timeoutPromise]);
+      clearTimeout(timeoutId!);
+      return result;
+    } catch (error) {
+      clearTimeout(timeoutId!);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取角色的超时时间（毫秒）
+   */
+  private getTimeoutForRole(role: SlidesRole): number {
+    switch (role) {
+      case "architect":
+        return 60000; // 60s - 任务分解和大纲需要更多时间
+      case "writer":
+        return 30000; // 30s - 内容填充
+      case "renderer":
+        return 90000; // 90s - HTML 生成可能较慢
+      case "reviewer":
+        return 30000; // 30s - 质量审核
+      case "image":
+        return 60000; // 60s - 图像生成
+      default:
+        return 30000; // 默认 30s
     }
   }
 

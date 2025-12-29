@@ -119,6 +119,48 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
   );
 
   /**
+   * 通过会话 ID 恢复
+   * 自动获取会话的最新检查点并恢复
+   */
+  const restoreBySessionId = useCallback(
+    async (sessionId: string) => {
+      setRestoring(true);
+
+      try {
+        // 获取会话详情
+        const sessionResponse = await fetch(
+          `${API_BASE}/ai-office/slides-v3/sessions/${sessionId}`
+        );
+
+        if (!sessionResponse.ok) {
+          throw new Error('Failed to fetch session details');
+        }
+
+        const sessionData = await sessionResponse.json();
+
+        if (!sessionData.latestCheckpoint?.id) {
+          throw new Error('Session has no checkpoints');
+        }
+
+        // 恢复到最新检查点
+        await restoreCheckpoint(sessionData.latestCheckpoint.id);
+
+        // 更新会话信息
+        const { setSession } = useSlidesV3Store.getState();
+        setSession(sessionData.session);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : '恢复会话失败';
+        setError(errorMessage);
+        options.onRestoreError?.(errorMessage);
+      } finally {
+        setRestoring(false);
+      }
+    },
+    [restoreCheckpoint, setError, options]
+  );
+
+  /**
    * 清理旧检查点
    */
   const pruneCheckpoints = useCallback(
@@ -219,6 +261,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
     // 操作
     fetchCheckpoints,
     restoreCheckpoint,
+    restoreBySessionId,
     pruneCheckpoints,
     createCheckpoint,
 

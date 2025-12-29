@@ -123,6 +123,18 @@ export class SlidesOrchestratorV3Service {
     const startTime = Date.now();
     let sessionId = "";
 
+    // 启动心跳定时器，每 15 秒发送一次心跳
+    const heartbeatInterval = setInterval(() => {
+      if (!subject.closed) {
+        subject.next(
+          this.createEvent("heartbeat", sessionId, {
+            timestamp: new Date().toISOString(),
+            elapsed: Date.now() - startTime,
+          }),
+        );
+      }
+    }, 15000);
+
     try {
       // 创建会话
       const session = await this.checkpoint.createSession(
@@ -302,6 +314,7 @@ export class SlidesOrchestratorV3Service {
         }),
       );
     } finally {
+      clearInterval(heartbeatInterval);
       subject.complete();
     }
   }

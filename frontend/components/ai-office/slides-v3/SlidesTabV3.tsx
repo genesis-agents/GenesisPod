@@ -34,6 +34,7 @@ import {
   List,
   Plus,
   FolderOpen,
+  X,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils/common';
@@ -84,7 +85,7 @@ export function SlidesTabV3() {
   const { createCheckpoint, checkpoints } = useCheckpoints();
   const { history, addHistory, updateHistory, removeHistory, clearHistory } =
     useSlidesHistoryStore();
-  const { restoreCheckpoint } = useCheckpoints();
+  const { restoreCheckpoint, restoreBySessionId } = useCheckpoints();
   const { user } = useAuth();
   const [toolCalls, setToolCalls] = useState<ToolCallItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -215,14 +216,17 @@ export function SlidesTabV3() {
   // 恢复历史记录
   const handleRestoreHistory = useCallback(
     async (item: SlidesHistoryItem) => {
-      if (!item.checkpointId) {
-        console.warn('No checkpointId in history item');
-        return;
-      }
-
       setRestoring(true);
       try {
-        await restoreCheckpoint(item.checkpointId);
+        // 优先使用 checkpointId，如果没有则使用 sessionId
+        if (item.checkpointId) {
+          await restoreCheckpoint(item.checkpointId);
+        } else if (item.sessionId) {
+          await restoreBySessionId(item.sessionId);
+        } else {
+          console.warn('No checkpointId or sessionId in history item');
+          return;
+        }
         setShowHistory(false);
       } catch (err) {
         console.error('Failed to restore:', err);
@@ -230,7 +234,7 @@ export function SlidesTabV3() {
         setRestoring(false);
       }
     },
-    [restoreCheckpoint]
+    [restoreCheckpoint, restoreBySessionId]
   );
 
   // 初始状态 - 显示 Sessions 画廊或输入表单
@@ -299,6 +303,7 @@ export function SlidesTabV3() {
       <div className="flex flex-1 overflow-hidden">
         <ConversationPanel
           onSendMessage={handleSendMessage}
+          onCancel={cancel}
           toolCalls={toolCalls}
           generating={generating}
           progress={progress}
@@ -583,12 +588,14 @@ function ExportDropdown({ onClose }: { onClose: () => void }) {
 
 function ConversationPanel({
   onSendMessage,
+  onCancel,
   toolCalls,
   generating,
   progress,
   outlinePlan,
 }: {
   onSendMessage: (message: string) => void;
+  onCancel: () => void;
   toolCalls: ToolCallItem[];
   generating: boolean;
   progress: GenerationProgress | null;
@@ -633,9 +640,20 @@ function ConversationPanel({
           {/* 当前进度 */}
           {generating && progress && (
             <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
-              <div className="flex items-center gap-2 text-orange-700">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm font-medium">{progress.message}</span>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-orange-700">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm font-medium">
+                    {progress.message}
+                  </span>
+                </div>
+                <button
+                  onClick={onCancel}
+                  className="flex items-center gap-1 rounded-lg bg-orange-100 px-2.5 py-1 text-xs font-medium text-orange-700 transition-colors hover:bg-orange-200"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  取消
+                </button>
               </div>
               {progress.totalPages && (
                 <div className="mt-2 text-xs text-orange-600">
