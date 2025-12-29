@@ -5,7 +5,7 @@
  * 所有模板遵循 Genspark 设计系统规范
  */
 
-import { PageTemplateType, GlobalStyles, GENSPARK_DESIGN_SYSTEM } from '../checkpoint/checkpoint.types';
+import { PageTemplateType } from "../checkpoint/checkpoint.types";
 
 // ============================================================================
 // Template Interface
@@ -63,10 +63,10 @@ const FOOTER_STYLE = `
 // ============================================================================
 
 export const COVER_TEMPLATE: SlideTemplate = {
-  type: 'cover',
-  name: '封面页',
-  description: '演示文稿的首页，包含标题、副标题和装饰元素',
-  variables: ['{{TITLE}}', '{{SUBTITLE}}', '{{AUTHOR}}', '{{DATE}}'],
+  type: "cover",
+  name: "封面页",
+  description: "演示文稿的首页，包含标题、副标题和装饰元素",
+  variables: ["{{TITLE}}", "{{SUBTITLE}}", "{{AUTHOR}}", "{{DATE}}"],
   html: `
 <div style="${COMMON_CONTAINER}">
   <!-- 装饰元素 -->
@@ -108,10 +108,10 @@ export const COVER_TEMPLATE: SlideTemplate = {
 // ============================================================================
 
 export const TOC_TEMPLATE: SlideTemplate = {
-  type: 'toc',
-  name: '目录页',
-  description: '展示演示文稿的内容结构和章节',
-  variables: ['{{TITLE}}', '{{CHAPTERS}}'],
+  type: "toc",
+  name: "目录页",
+  description: "展示演示文稿的内容结构和章节",
+  variables: ["{{TITLE}}", "{{CHAPTERS}}"],
   html: `
 <div style="${COMMON_CONTAINER}">
   <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">内容概览</h1>
@@ -165,10 +165,18 @@ export const TOC_TEMPLATE: SlideTemplate = {
 // ============================================================================
 
 export const DASHBOARD_TEMPLATE: SlideTemplate = {
-  type: 'dashboard',
-  name: '数据仪表盘',
-  description: '展示多个关键指标和数据的综合视图',
-  variables: ['{{TITLE}}', '{{STAT1_VALUE}}', '{{STAT1_LABEL}}', '{{STAT2_VALUE}}', '{{STAT2_LABEL}}', '{{STAT3_VALUE}}', '{{STAT3_LABEL}}'],
+  type: "dashboard",
+  name: "数据仪表盘",
+  description: "展示多个关键指标和数据的综合视图",
+  variables: [
+    "{{TITLE}}",
+    "{{STAT1_VALUE}}",
+    "{{STAT1_LABEL}}",
+    "{{STAT2_VALUE}}",
+    "{{STAT2_LABEL}}",
+    "{{STAT3_VALUE}}",
+    "{{STAT3_LABEL}}",
+  ],
   html: `
 <div style="${COMMON_CONTAINER}">
   <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
@@ -238,10 +246,10 @@ export const DASHBOARD_TEMPLATE: SlideTemplate = {
 // ============================================================================
 
 export const COMPARISON_TEMPLATE: SlideTemplate = {
-  type: 'comparison',
-  name: '对比分析',
-  description: '并排展示两个或多个选项的对比',
-  variables: ['{{TITLE}}', '{{OPTION_A}}', '{{OPTION_B}}'],
+  type: "comparison",
+  name: "对比分析",
+  description: "并排展示两个或多个选项的对比",
+  variables: ["{{TITLE}}", "{{OPTION_A}}", "{{OPTION_B}}"],
   html: `
 <div style="${COMMON_CONTAINER}">
   <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
@@ -323,10 +331,10 @@ export const COMPARISON_TEMPLATE: SlideTemplate = {
 // ============================================================================
 
 export const TIMELINE_TEMPLATE: SlideTemplate = {
-  type: 'timeline',
-  name: '时间线',
-  description: '展示项目或事件的时间进度',
-  variables: ['{{TITLE}}', '{{MILESTONES}}'],
+  type: "timeline",
+  name: "时间线",
+  description: "展示项目或事件的时间进度",
+  variables: ["{{TITLE}}", "{{MILESTONES}}"],
   html: `
 <div style="${COMMON_CONTAINER}">
   <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
@@ -407,10 +415,10 @@ export const TIMELINE_TEMPLATE: SlideTemplate = {
 // ============================================================================
 
 export const PILLARS_TEMPLATE: SlideTemplate = {
-  type: 'pillars',
-  name: '核心支柱',
-  description: '展示战略的核心支撑要素',
-  variables: ['{{TITLE}}', '{{PILLARS}}'],
+  type: "pillars",
+  name: "核心支柱",
+  description: "展示战略的核心支撑要素",
+  variables: ["{{TITLE}}", "{{PILLARS}}"],
   html: `
 <div style="${COMMON_CONTAINER}">
   <div style="text-align: center; margin-bottom: 40px;">
@@ -482,10 +490,10 @@ export const PILLARS_TEMPLATE: SlideTemplate = {
 // ============================================================================
 
 export const SPLIT_LAYOUT_TEMPLATE: SlideTemplate = {
-  type: 'splitLayout',
-  name: '分栏布局',
-  description: '左右分栏展示数据和内容',
-  variables: ['{{TITLE}}', '{{STAT_VALUE}}', '{{STAT_LABEL}}', '{{POINTS}}'],
+  type: "splitLayout",
+  name: "分栏布局",
+  description: "左右分栏展示数据和内容",
+  variables: ["{{TITLE}}", "{{STAT_VALUE}}", "{{STAT_LABEL}}", "{{POINTS}}"],
   html: `
 <div style="${COMMON_CONTAINER}">
   <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
@@ -565,10 +573,10 @@ export const SPLIT_LAYOUT_TEMPLATE: SlideTemplate = {
 // ============================================================================
 
 export const RECOMMENDATIONS_TEMPLATE: SlideTemplate = {
-  type: 'recommendations',
-  name: '建议与行动',
-  description: '展示核心建议和下一步行动',
-  variables: ['{{TITLE}}', '{{RECOMMENDATIONS}}'],
+  type: "recommendations",
+  name: "建议与行动",
+  description: "展示核心建议和下一步行动",
+  variables: ["{{TITLE}}", "{{RECOMMENDATIONS}}"],
   html: `
 <div style="${COMMON_CONTAINER}">
   <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
@@ -663,10 +671,10 @@ export const RECOMMENDATIONS_TEMPLATE: SlideTemplate = {
 // ============================================================================
 
 export const QUESTIONS_TEMPLATE: SlideTemplate = {
-  type: 'questions',
-  name: '核心问题',
-  description: '提出关键问题引发思考',
-  variables: ['{{TITLE}}', '{{QUESTIONS}}'],
+  type: "questions",
+  name: "核心问题",
+  description: "提出关键问题引发思考",
+  variables: ["{{TITLE}}", "{{QUESTIONS}}"],
   html: `
 <div style="${COMMON_CONTAINER}">
   <div style="display: flex; flex-direction: column; justify-content: center; height: 100%;">
@@ -739,11 +747,11 @@ export function getTemplateTypes(): PageTemplateType[] {
  */
 export function applyTemplateVariables(
   template: SlideTemplate,
-  variables: Record<string, string>
+  variables: Record<string, string>,
 ): string {
   let html = template.html;
   for (const [key, value] of Object.entries(variables)) {
-    html = html.replace(new RegExp(key, 'g'), value);
+    html = html.replace(new RegExp(key, "g"), value);
   }
   return html;
 }

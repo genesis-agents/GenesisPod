@@ -5,7 +5,7 @@
  * 遵循 Genspark 深色主题设计规范
  */
 
-import { ChartContent, DataPoint } from '../checkpoint/checkpoint.types';
+import { ChartContent, DataPoint } from "../checkpoint/checkpoint.types";
 
 // ============================================================================
 // Types
@@ -45,7 +45,7 @@ export interface EChartsConfig {
 // Color Palettes
 // ============================================================================
 
-export type ThemeMode = 'dark' | 'light';
+export type ThemeMode = "dark" | "light";
 
 export interface ThemeColors {
   primary: string;
@@ -64,68 +64,68 @@ export interface ThemeColors {
 }
 
 const DARK_THEME_COLORS: ThemeColors = {
-  primary: '#D4AF37',
-  secondary: '#3B82F6',
-  success: '#10B981',
-  warning: '#F59E0B',
-  danger: '#EF4444',
-  purple: '#8B5CF6',
-  textPrimary: '#F8FAFC',
-  textSecondary: '#94A3B8',
-  background: 'transparent',
-  gridLine: '#334155',
-  tooltipBg: '#1E293B',
-  tooltipBorder: '#334155',
-  itemBorder: '#0F172A',
+  primary: "#D4AF37",
+  secondary: "#3B82F6",
+  success: "#10B981",
+  warning: "#F59E0B",
+  danger: "#EF4444",
+  purple: "#8B5CF6",
+  textPrimary: "#F8FAFC",
+  textSecondary: "#94A3B8",
+  background: "transparent",
+  gridLine: "#334155",
+  tooltipBg: "#1E293B",
+  tooltipBorder: "#334155",
+  itemBorder: "#0F172A",
 };
 
 const LIGHT_THEME_COLORS: ThemeColors = {
-  primary: '#B8860B', // Darker gold for light theme
-  secondary: '#2563EB',
-  success: '#059669',
-  warning: '#D97706',
-  danger: '#DC2626',
-  purple: '#7C3AED',
-  textPrimary: '#1E293B',
-  textSecondary: '#64748B',
-  background: 'transparent',
-  gridLine: '#E2E8F0',
-  tooltipBg: '#FFFFFF',
-  tooltipBorder: '#E2E8F0',
-  itemBorder: '#FFFFFF',
+  primary: "#B8860B", // Darker gold for light theme
+  secondary: "#2563EB",
+  success: "#059669",
+  warning: "#D97706",
+  danger: "#DC2626",
+  purple: "#7C3AED",
+  textPrimary: "#1E293B",
+  textSecondary: "#64748B",
+  background: "transparent",
+  gridLine: "#E2E8F0",
+  tooltipBg: "#FFFFFF",
+  tooltipBorder: "#E2E8F0",
+  itemBorder: "#FFFFFF",
 };
 
 function getThemeColors(theme: ThemeMode): ThemeColors {
-  return theme === 'light' ? LIGHT_THEME_COLORS : DARK_THEME_COLORS;
+  return theme === "light" ? LIGHT_THEME_COLORS : DARK_THEME_COLORS;
 }
 
 // Legacy export for backward compatibility
-const GENSPARK_COLORS = DARK_THEME_COLORS;
+export const GENSPARK_COLORS = DARK_THEME_COLORS;
 
 const CHART_PALETTE = [
-  '#D4AF37', // Gold
-  '#3B82F6', // Blue
-  '#10B981', // Green
-  '#F59E0B', // Orange
-  '#8B5CF6', // Purple
-  '#EC4899', // Pink
-  '#14B8A6', // Teal
-  '#EF4444', // Red
+  "#D4AF37", // Gold
+  "#3B82F6", // Blue
+  "#10B981", // Green
+  "#F59E0B", // Orange
+  "#8B5CF6", // Purple
+  "#EC4899", // Pink
+  "#14B8A6", // Teal
+  "#EF4444", // Red
 ];
 
 const LIGHT_CHART_PALETTE = [
-  '#B8860B', // Darker Gold
-  '#2563EB', // Blue
-  '#059669', // Green
-  '#D97706', // Orange
-  '#7C3AED', // Purple
-  '#DB2777', // Pink
-  '#0D9488', // Teal
-  '#DC2626', // Red
+  "#B8860B", // Darker Gold
+  "#2563EB", // Blue
+  "#059669", // Green
+  "#D97706", // Orange
+  "#7C3AED", // Purple
+  "#DB2777", // Pink
+  "#0D9488", // Teal
+  "#DC2626", // Red
 ];
 
 function getChartPalette(theme: ThemeMode): string[] {
-  return theme === 'light' ? LIGHT_CHART_PALETTE : CHART_PALETTE;
+  return theme === "light" ? LIGHT_CHART_PALETTE : CHART_PALETTE;
 }
 
 // ============================================================================
@@ -136,13 +136,13 @@ export function generateBarChart(
   data: { name: string; value: number }[],
   title?: string,
   horizontal = false,
-  theme: ThemeMode = 'dark'
+  theme: ThemeMode = "dark",
 ): EChartsConfig {
   const colors = getThemeColors(theme);
   const palette = getChartPalette(theme);
 
   const categoryAxis = {
-    type: 'category',
+    type: "category",
     data: data.map((d) => d.name),
     axisLine: { lineStyle: { color: colors.gridLine } },
     axisLabel: { color: colors.textSecondary, fontSize: 12 },
@@ -150,10 +150,10 @@ export function generateBarChart(
   };
 
   const valueAxis = {
-    type: 'value',
+    type: "value",
     axisLine: { show: false },
     axisLabel: { color: colors.textSecondary, fontSize: 12 },
-    splitLine: { lineStyle: { color: colors.gridLine, type: 'dashed' } },
+    splitLine: { lineStyle: { color: colors.gridLine, type: "dashed" } },
   };
 
   return {
@@ -168,9 +168,9 @@ export function generateBarChart(
           textStyle: {
             color: colors.textPrimary,
             fontSize: 14,
-            fontWeight: '600',
+            fontWeight: "600",
           },
-          left: 'left',
+          left: "left",
         }
       : undefined,
     grid: {
@@ -183,19 +183,19 @@ export function generateBarChart(
     xAxis: horizontal ? valueAxis : categoryAxis,
     yAxis: horizontal ? categoryAxis : valueAxis,
     tooltip: {
-      trigger: 'axis',
+      trigger: "axis",
       backgroundColor: colors.tooltipBg,
       borderColor: colors.tooltipBorder,
       textStyle: { color: colors.textPrimary },
     },
     series: [
       {
-        type: 'bar',
+        type: "bar",
         data: data.map((d, i) => ({
           value: d.value,
           itemStyle: {
             color: {
-              type: 'linear',
+              type: "linear",
               x: 0,
               y: 0,
               x2: horizontal ? 1 : 0,
@@ -204,20 +204,20 @@ export function generateBarChart(
                 { offset: 0, color: palette[i % palette.length] },
                 {
                   offset: 1,
-                  color: palette[i % palette.length] + '80', // 50% opacity
+                  color: palette[i % palette.length] + "80", // 50% opacity
                 },
               ],
             },
             borderRadius: horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0],
           },
         })),
-        barWidth: '60%',
+        barWidth: "60%",
         label: {
           show: true,
-          position: horizontal ? 'right' : 'top',
+          position: horizontal ? "right" : "top",
           color: colors.textPrimary,
           fontSize: 12,
-          fontWeight: 'bold',
+          fontWeight: "bold",
         },
       },
     ],
@@ -232,7 +232,7 @@ export function generateLineChart(
   data: { name: string; value: number }[],
   title?: string,
   showArea = true,
-  theme: ThemeMode = 'dark'
+  theme: ThemeMode = "dark",
 ): EChartsConfig {
   const colors = getThemeColors(theme);
 
@@ -248,9 +248,9 @@ export function generateLineChart(
           textStyle: {
             color: colors.textPrimary,
             fontSize: 14,
-            fontWeight: '600',
+            fontWeight: "600",
           },
-          left: 'left',
+          left: "left",
         }
       : undefined,
     grid: {
@@ -261,27 +261,27 @@ export function generateLineChart(
       containLabel: true,
     },
     xAxis: {
-      type: 'category',
+      type: "category",
       data: data.map((d) => d.name),
       axisLine: { lineStyle: { color: colors.gridLine } },
       axisLabel: { color: colors.textSecondary, fontSize: 12 },
       axisTick: { show: false },
     },
     yAxis: {
-      type: 'value',
+      type: "value",
       axisLine: { show: false },
       axisLabel: { color: colors.textSecondary, fontSize: 12 },
-      splitLine: { lineStyle: { color: colors.gridLine, type: 'dashed' } },
+      splitLine: { lineStyle: { color: colors.gridLine, type: "dashed" } },
     },
     tooltip: {
-      trigger: 'axis',
+      trigger: "axis",
       backgroundColor: colors.tooltipBg,
       borderColor: colors.tooltipBorder,
       textStyle: { color: colors.textPrimary },
     },
     series: [
       {
-        type: 'line',
+        type: "line",
         data: data.map((d) => d.value),
         smooth: true,
         lineStyle: {
@@ -291,19 +291,19 @@ export function generateLineChart(
         areaStyle: showArea
           ? {
               color: {
-                type: 'linear',
+                type: "linear",
                 x: 0,
                 y: 0,
                 x2: 0,
                 y2: 1,
                 colorStops: [
-                  { offset: 0, color: colors.primary + '40' },
-                  { offset: 1, color: colors.primary + '00' },
+                  { offset: 0, color: colors.primary + "40" },
+                  { offset: 1, color: colors.primary + "00" },
                 ],
               },
             }
           : undefined,
-        symbol: 'circle',
+        symbol: "circle",
         symbolSize: 8,
         itemStyle: {
           color: colors.primary,
@@ -323,7 +323,7 @@ export function generatePieChart(
   data: { name: string; value: number }[],
   title?: string,
   donut = true,
-  theme: ThemeMode = 'dark'
+  theme: ThemeMode = "dark",
 ): EChartsConfig {
   const colors = getThemeColors(theme);
   const palette = getChartPalette(theme);
@@ -340,28 +340,28 @@ export function generatePieChart(
           textStyle: {
             color: colors.textPrimary,
             fontSize: 14,
-            fontWeight: '600',
+            fontWeight: "600",
           },
-          left: 'center',
+          left: "center",
         }
       : undefined,
     tooltip: {
-      trigger: 'item',
+      trigger: "item",
       backgroundColor: colors.tooltipBg,
       borderColor: colors.tooltipBorder,
       textStyle: { color: colors.textPrimary },
-      formatter: '{b}: {c} ({d}%)',
+      formatter: "{b}: {c} ({d}%)",
     },
     legend: {
-      orient: 'horizontal',
+      orient: "horizontal",
       bottom: 10,
       textStyle: { color: colors.textSecondary, fontSize: 12 },
     },
     series: [
       {
-        type: 'pie',
-        radius: donut ? ['40%', '70%'] : '70%',
-        center: ['50%', '45%'],
+        type: "pie",
+        radius: donut ? ["40%", "70%"] : "70%",
+        center: ["50%", "45%"],
         data: data.map((d, i) => ({
           name: d.name,
           value: d.value,
@@ -373,7 +373,7 @@ export function generatePieChart(
           show: true,
           color: colors.textPrimary,
           fontSize: 12,
-          formatter: '{b}\n{d}%',
+          formatter: "{b}\n{d}%",
         },
         labelLine: {
           lineStyle: { color: colors.textSecondary },
@@ -382,7 +382,7 @@ export function generatePieChart(
           itemStyle: {
             shadowBlur: 20,
             shadowOffsetX: 0,
-            shadowColor: 'rgba(0, 0, 0, 0.5)',
+            shadowColor: "rgba(0, 0, 0, 0.5)",
           },
         },
       },
@@ -398,12 +398,13 @@ export function generateRadarChart(
   data: { name: string; value: number }[],
   title?: string,
   maxValue = 100,
-  theme: ThemeMode = 'dark'
+  theme: ThemeMode = "dark",
 ): EChartsConfig {
   const colors = getThemeColors(theme);
-  const splitAreaColors = theme === 'light'
-    ? ['rgba(226, 232, 240, 0.3)', 'rgba(226, 232, 240, 0.5)']
-    : ['rgba(30, 41, 59, 0.3)', 'rgba(30, 41, 59, 0.5)'];
+  const splitAreaColors =
+    theme === "light"
+      ? ["rgba(226, 232, 240, 0.3)", "rgba(226, 232, 240, 0.5)"]
+      : ["rgba(30, 41, 59, 0.3)", "rgba(30, 41, 59, 0.5)"];
 
   return {
     backgroundColor: colors.background,
@@ -417,13 +418,13 @@ export function generateRadarChart(
           textStyle: {
             color: colors.textPrimary,
             fontSize: 14,
-            fontWeight: '600',
+            fontWeight: "600",
           },
-          left: 'center',
+          left: "center",
         }
       : undefined,
     tooltip: {
-      trigger: 'item',
+      trigger: "item",
       backgroundColor: colors.tooltipBg,
       borderColor: colors.tooltipBorder,
       textStyle: { color: colors.textPrimary },
@@ -452,19 +453,19 @@ export function generateRadarChart(
     },
     series: [
       {
-        type: 'radar',
+        type: "radar",
         data: [
           {
             value: data.map((d) => d.value),
             areaStyle: {
               color: {
-                type: 'radial',
+                type: "radial",
                 x: 0.5,
                 y: 0.5,
                 r: 0.5,
                 colorStops: [
-                  { offset: 0, color: colors.primary + '60' },
-                  { offset: 1, color: colors.primary + '20' },
+                  { offset: 0, color: colors.primary + "60" },
+                  { offset: 1, color: colors.primary + "20" },
                 ],
               },
             },
@@ -491,21 +492,21 @@ export function generateRadarChart(
  */
 export function generateEChartsConfig(
   chartContent: ChartContent,
-  theme: ThemeMode = 'dark'
+  theme: ThemeMode = "dark",
 ): EChartsConfig {
   const data = chartContent.data.map((d) => ({
-    name: String(d.name || ''),
+    name: String(d.name || ""),
     value: Number(d.value || 0),
   }));
 
   switch (chartContent.type) {
-    case 'bar':
+    case "bar":
       return generateBarChart(data, chartContent.title, false, theme);
-    case 'line':
+    case "line":
       return generateLineChart(data, chartContent.title, true, theme);
-    case 'pie':
+    case "pie":
       return generatePieChart(data, chartContent.title, true, theme);
-    case 'radar':
+    case "radar":
       return generateRadarChart(data, chartContent.title, 100, theme);
     default:
       return generateBarChart(data, chartContent.title, false, theme);
@@ -520,7 +521,7 @@ export function generateEChartsHTML(
   chartId: string,
   width = 500,
   height = 300,
-  theme: ThemeMode = 'dark'
+  theme: ThemeMode = "dark",
 ): string {
   const config = generateEChartsConfig(chartContent, theme);
   const configJson = JSON.stringify(config);
@@ -543,14 +544,17 @@ export function generateEChartsHTML(
  * 从数据点生成图表内容
  */
 export function dataPointToChartContent(
-  dataPoint: DataPoint & { relatedData?: { name: string; value: number }[]; chartType?: string }
+  dataPoint: DataPoint & {
+    relatedData?: { name: string; value: number }[];
+    chartType?: string;
+  },
 ): ChartContent | null {
   if (!dataPoint.relatedData || dataPoint.relatedData.length === 0) {
     return null;
   }
 
   return {
-    type: (dataPoint.chartType as ChartContent['type']) || 'bar',
+    type: (dataPoint.chartType as ChartContent["type"]) || "bar",
     data: dataPoint.relatedData,
     title: dataPoint.context,
   };
