@@ -19,6 +19,8 @@ import type {
   StreamEvent,
   GenerationProgress,
   PageState,
+  PageContent,
+  PageDesign,
   TaskDecomposition,
   OutlinePlan,
   QualityReport,
@@ -178,8 +180,8 @@ export function useSlideGenerationV3(
             pageNumber: number;
             totalPages: number;
             html?: string;
-            content?: unknown;
-            design?: unknown;
+            content?: PageContent;
+            design?: PageDesign;
           };
           console.log('[SSE] Page completed:', pageCompleteData.pageNumber, 'hasHtml:', !!pageCompleteData.html);
           updatePage(pageCompleteData.pageNumber, {
