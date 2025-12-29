@@ -73,10 +73,18 @@ import { config } from '@/lib/utils/config';
 
 interface ToolCallItem {
   id: string;
-  type: 'thinking' | 'outline' | 'render' | 'image' | 'checkpoint';
+  type:
+    | 'thinking'
+    | 'outline'
+    | 'render'
+    | 'image'
+    | 'checkpoint'
+    | 'data'
+    | 'step';
   title: string;
   status: 'running' | 'completed' | 'error';
   content?: string;
+  details?: Record<string, unknown>;
   timestamp: Date;
 }
 
@@ -92,7 +100,11 @@ export function SlidesTabV3() {
   const { history, addHistory, updateHistory, removeHistory, clearHistory } =
     useSlidesHistoryStore();
   const { restoreCheckpoint, restoreBySessionId } = useCheckpoints();
-  const { sessions: backendSessions, loading: sessionsLoading, refresh: refreshSessions } = useSessions();
+  const {
+    sessions: backendSessions,
+    loading: sessionsLoading,
+    refresh: refreshSessions,
+  } = useSessions();
   const { user } = useAuth();
   const [toolCalls, setToolCalls] = useState<ToolCallItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -109,7 +121,7 @@ export function SlidesTabV3() {
     refreshSessions();
   }, [refreshSessions]);
 
-  // 将 streamEvents 转换为 toolCalls
+  // 将 streamEvents 转换为 toolCalls - 增强版：提取更多详细信息
   useEffect(() => {
     const calls: ToolCallItem[] = [];
 
@@ -120,24 +132,85 @@ export function SlidesTabV3() {
         const data = event.data as { phase: string };
         calls.push({
           id,
-          type: 'thinking',
+          type: 'step',
           title: getPhaseTitle(data.phase),
           status: 'running',
           timestamp: new Date(event.timestamp),
         });
       } else if (event.type === 'phase_completed') {
-        const data = event.data as { phase: string };
+        const data = event.data as {
+          phase: string;
+          result?: Record<string, unknown>;
+          // 任务分解结果
+          totalPages?: number;
+          chapters?: Array<{ title: string; pageRange: number[] }>;
+          sourceAnalysis?: {
+            dataPoints?: Array<{
+              type: string;
+              value: string;
+              context: string;
+            }>;
+            keyInsights?: string[];
+          };
+          // 大纲规划结果
+          pages?: Array<{ title: string; templateType: string }>;
+        };
+
         const existingIndex = calls.findIndex(
           (c) => c.title === getPhaseTitle(data.phase) && c.status === 'running'
         );
+
+        // 提取详细内容
+        let content: string | undefined;
+        let details: Record<string, unknown> | undefined;
+
+        // 任务分解阶段 - 提取章节信息
+        if (data.phase === 'task_decomposition' && data.chapters) {
+          content = data.chapters
+            .map(
+              (ch) =>
+                `• ${ch.title} (第${ch.pageRange?.[0]}-${ch.pageRange?.[1]}页)`
+            )
+            .join('\n');
+          if (data.sourceAnalysis) {
+            details = {
+              dataPoints: data.sourceAnalysis.dataPoints?.slice(0, 5),
+              insights: data.sourceAnalysis.keyInsights?.slice(0, 3),
+            };
+          }
+        }
+        // 大纲规划阶段 - 提取页面列表
+        else if (data.phase === 'outline_planning' && data.pages) {
+          content = data.pages
+            .slice(0, 5)
+            .map((p, i) => `${i + 1}. ${p.title} [${p.templateType}]`)
+            .join('\n');
+          if (data.pages.length > 5) {
+            content += `\n... 及其他 ${data.pages.length - 5} 页`;
+          }
+        }
+        // 其他阶段 - 使用 result
+        else if (data.result) {
+          details = data.result;
+        }
+
         if (existingIndex >= 0) {
           calls[existingIndex].status = 'completed';
+          if (content) calls[existingIndex].content = content;
+          if (details) calls[existingIndex].details = details;
         } else {
           calls.push({
             id,
-            type: 'thinking',
+            type:
+              data.phase === 'task_decomposition'
+                ? 'thinking'
+                : data.phase === 'outline_planning'
+                  ? 'outline'
+                  : 'step',
             title: getPhaseTitle(data.phase),
             status: 'completed',
+            content,
+            details,
             timestamp: new Date(event.timestamp),
           });
         }
@@ -146,28 +219,70 @@ export function SlidesTabV3() {
         calls.push({
           id,
           type: 'checkpoint',
-          title: `保存检查点: ${data.name || data.type || '自动保存'}`,
+          title: `💾 ${data.name || data.type || '自动保存'}`,
           status: 'completed',
           timestamp: new Date(event.timestamp),
         });
       } else if (event.type === 'page_started') {
-        const data = event.data as { pageNumber: number };
+        const data = event.data as {
+          pageNumber: number;
+          outline?: { title: string; templateType: string };
+        };
+        const pageTitle = data.outline?.title || `第 ${data.pageNumber} 页`;
+        const templateType = data.outline?.templateType || '';
         calls.push({
           id,
           type: 'render',
-          title: `渲染第 ${data.pageNumber} 页`,
+          title: `🎨 渲染: ${pageTitle}`,
+          content: templateType ? `模板: ${templateType}` : undefined,
           status: 'running',
+          details: { pageNumber: data.pageNumber },
           timestamp: new Date(event.timestamp),
         });
       } else if (event.type === 'page_completed') {
-        const data = event.data as { pageNumber: number };
+        const data = event.data as { pageNumber: number; html?: string };
         const existingIndex = calls.findIndex(
           (c) =>
-            c.title === `渲染第 ${data.pageNumber} 页` && c.status === 'running'
+            c.type === 'render' &&
+            c.details?.pageNumber === data.pageNumber &&
+            c.status === 'running'
         );
         if (existingIndex >= 0) {
           calls[existingIndex].status = 'completed';
+          // 添加生成内容长度信息
+          if (data.html) {
+            calls[existingIndex].content =
+              `HTML 大小: ${(data.html.length / 1024).toFixed(1)} KB`;
+          }
         }
+      } else if (event.type === 'error') {
+        const data = event.data as { message?: string; phase?: string };
+        calls.push({
+          id,
+          type: 'step',
+          title: `❌ 错误: ${data.phase || '未知阶段'}`,
+          content: data.message,
+          status: 'error',
+          timestamp: new Date(event.timestamp),
+        });
+      } else if (event.type === 'session_created') {
+        const data = event.data as { session?: { id: string; title: string } };
+        calls.push({
+          id,
+          type: 'step',
+          title: `🚀 会话已创建`,
+          content: data.session?.title,
+          status: 'completed',
+          timestamp: new Date(event.timestamp),
+        });
+      } else if (event.type === 'complete') {
+        calls.push({
+          id,
+          type: 'checkpoint',
+          title: `✅ 生成完成`,
+          status: 'completed',
+          timestamp: new Date(event.timestamp),
+        });
       }
     });
 
@@ -742,9 +857,7 @@ function ConversationPanel({
               开始生成后将显示过程信息
             </div>
           ) : (
-            toolCalls.map((call) => (
-              <ToolCallCard key={call.id} call={call} />
-            ))
+            toolCalls.map((call) => <ToolCallCard key={call.id} call={call} />)
           )}
 
           {/* 当前进度 */}
@@ -862,6 +975,7 @@ function ConversationPanel({
 
 function ToolCallCard({ call }: { call: ToolCallItem }) {
   const [expanded, setExpanded] = useState(false);
+  const hasDetails = call.content || call.details;
 
   const getIcon = () => {
     switch (call.type) {
@@ -875,6 +989,10 @@ function ToolCallCard({ call }: { call: ToolCallItem }) {
         return <Eye className="h-4 w-4" />;
       case 'checkpoint':
         return <Save className="h-4 w-4" />;
+      case 'step':
+        return <Layers className="h-4 w-4" />;
+      case 'data':
+        return <Grid3X3 className="h-4 w-4" />;
       default:
         return <Brain className="h-4 w-4" />;
     }
@@ -891,24 +1009,106 @@ function ToolCallCard({ call }: { call: ToolCallItem }) {
     }
   };
 
+  const getStatusBg = () => {
+    switch (call.status) {
+      case 'running':
+        return 'border-orange-200 bg-orange-50';
+      case 'completed':
+        return 'border-gray-200 bg-white';
+      case 'error':
+        return 'border-red-200 bg-red-50';
+    }
+  };
+
+  // 渲染详细信息
+  const renderDetails = () => {
+    if (!call.details) return null;
+
+    const details = call.details as {
+      dataPoints?: Array<{ type: string; value: string; context: string }>;
+      insights?: string[];
+    };
+
+    return (
+      <div className="space-y-2">
+        {details.dataPoints && details.dataPoints.length > 0 && (
+          <div>
+            <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">
+              数据点
+            </div>
+            <div className="space-y-1">
+              {details.dataPoints.map((dp, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-2 rounded bg-blue-50 px-2 py-1 text-xs"
+                >
+                  <span className="font-semibold text-blue-700">
+                    {dp.value}
+                  </span>
+                  <span className="text-gray-600">{dp.context}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {details.insights && details.insights.length > 0 && (
+          <div>
+            <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">
+              关键洞察
+            </div>
+            <div className="space-y-1">
+              {details.insights.map((insight, i) => (
+                <div
+                  key={i}
+                  className="rounded bg-green-50 px-2 py-1 text-xs text-green-700"
+                >
+                  💡 {insight}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className="rounded-lg border border-gray-200 bg-white">
+    <div className={cn('rounded-lg border', getStatusBg())}>
       <button
-        onClick={() => call.content && setExpanded(!expanded)}
+        onClick={() => hasDetails && setExpanded(!expanded)}
         className="flex w-full items-center gap-3 p-3 text-left"
+        disabled={!hasDetails}
       >
-        <div className="text-orange-500">{getIcon()}</div>
-        <div className="flex-1">
-          <div className="text-sm font-medium text-gray-900">{call.title}</div>
-          <div className="text-xs text-gray-500">
+        <div
+          className={cn(
+            'flex-shrink-0',
+            call.status === 'running'
+              ? 'text-orange-500'
+              : call.status === 'error'
+                ? 'text-red-500'
+                : 'text-gray-500'
+          )}
+        >
+          {getIcon()}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-medium text-gray-900">
+            {call.title}
+          </div>
+          {call.content && !expanded && (
+            <div className="mt-0.5 truncate text-xs text-gray-500">
+              {call.content.split('\n')[0]}
+            </div>
+          )}
+          <div className="mt-0.5 text-[10px] text-gray-400">
             {call.timestamp.toLocaleTimeString()}
           </div>
         </div>
         {getStatusIcon()}
-        {call.content && (
+        {hasDetails && (
           <ChevronDown
             className={cn(
-              'h-4 w-4 text-gray-400 transition-transform',
+              'h-4 w-4 flex-shrink-0 text-gray-400 transition-transform',
               expanded ? '' : '-rotate-90'
             )}
           />
@@ -916,17 +1116,20 @@ function ToolCallCard({ call }: { call: ToolCallItem }) {
       </button>
 
       <AnimatePresence>
-        {expanded && call.content && (
+        {expanded && hasDetails && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="border-t border-gray-100 p-3">
-              <pre className="max-h-48 overflow-auto whitespace-pre-wrap text-xs text-gray-600">
-                {call.content}
-              </pre>
+            <div className="space-y-2 border-t border-gray-100 p-3">
+              {call.content && (
+                <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded bg-gray-50 p-2 text-xs text-gray-600">
+                  {call.content}
+                </pre>
+              )}
+              {renderDetails()}
             </div>
           </motion.div>
         )}
@@ -947,7 +1150,9 @@ function OutlineItem({ page, index }: { page: PageOutline; index: number }) {
       </span>
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium text-slate-700">{page.title}</div>
-        <div className="truncate text-[10px] text-slate-400">{page.templateType}</div>
+        <div className="truncate text-[10px] text-slate-400">
+          {page.templateType}
+        </div>
       </div>
     </div>
   );
@@ -988,7 +1193,7 @@ function PreviewPanel() {
   // 固定画布尺寸
   const SLIDE_WIDTH = 1280;
   const SLIDE_HEIGHT = 720;
-  const PADDING = 48; // p-6 = 24px * 2
+  const PADDING = 32; // 减少内边距以最大化显示空间
 
   // 计算可用空间（减去内边距）
   const availableWidth = Math.max(dimensions.width - PADDING, 200);
@@ -1003,10 +1208,33 @@ function PreviewPanel() {
   const scaledWidth = Math.floor(SLIDE_WIDTH * scale);
   const scaledHeight = Math.floor(SLIDE_HEIGHT * scale);
 
+  // 为 iframe 内容添加字体平滑样式
+  const enhanceHtmlForClarity = (html: string): string => {
+    // 注入全局样式来改善字体渲染
+    const fontSmoothingStyles = `
+      <style>
+        * {
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+          text-rendering: optimizeLegibility;
+        }
+        html, body {
+          image-rendering: -webkit-optimize-contrast;
+          transform: translateZ(0);
+        }
+      </style>
+    `;
+    // 在 </head> 前插入样式，如果没有 head 则在开头插入
+    if (html.includes('</head>')) {
+      return html.replace('</head>', fontSmoothingStyles + '</head>');
+    }
+    return fontSmoothingStyles + html;
+  };
+
   return (
     <div className="flex flex-1 flex-col bg-gradient-to-br from-slate-100 to-slate-200">
       {/* 缩略图区域 */}
-      <div className="flex-shrink-0 border-b border-slate-200 bg-white/80 backdrop-blur-sm px-4 py-3">
+      <div className="flex-shrink-0 border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur-sm">
         <div className="flex items-center gap-2 overflow-x-auto">
           {pages.length === 0 ? (
             <div className="flex h-14 w-full items-center justify-center text-sm text-slate-500">
@@ -1030,7 +1258,7 @@ function PreviewPanel() {
       {/* 主预览区域 */}
       <div
         ref={containerRef}
-        className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden p-6"
+        className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden p-4"
       >
         {currentPage ? (
           <div
@@ -1038,7 +1266,11 @@ function PreviewPanel() {
             style={{
               width: scaledWidth,
               height: scaledHeight,
-              overflow: 'hidden', // 强制隐藏溢出
+              overflow: 'hidden',
+              // 硬件加速
+              willChange: 'transform',
+              backfaceVisibility: 'hidden',
+              perspective: 1000,
             }}
           >
             {currentPage.html ? (
@@ -1048,20 +1280,25 @@ function PreviewPanel() {
                   height: scaledHeight,
                   overflow: 'hidden',
                   position: 'relative',
+                  // 创建新的合成层
+                  isolation: 'isolate',
                 }}
               >
                 <iframe
-                  srcDoc={currentPage.html}
+                  srcDoc={enhanceHtmlForClarity(currentPage.html)}
                   style={{
                     width: SLIDE_WIDTH,
                     height: SLIDE_HEIGHT,
                     border: 'none',
-                    display: 'block', // 避免 inline 元素的间隙
+                    display: 'block',
                     transform: `scale(${scale})`,
                     transformOrigin: 'top left',
                     position: 'absolute',
                     top: 0,
                     left: 0,
+                    // 改善缩放后的渲染质量
+                    willChange: 'transform',
+                    backfaceVisibility: 'hidden',
                   }}
                   sandbox="allow-scripts"
                 />
@@ -1082,13 +1319,19 @@ function PreviewPanel() {
                 ) : currentPage.status === 'error' ? (
                   <div className="text-center">
                     <AlertCircle className="mx-auto mb-4 h-10 w-10 text-red-400" />
-                    <p className="text-sm font-medium text-red-300">{currentPage.error || '生成失败'}</p>
-                    <p className="mt-1 text-xs text-slate-500">请重试或检查内容</p>
+                    <p className="text-sm font-medium text-red-300">
+                      {currentPage.error || '生成失败'}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      请重试或检查内容
+                    </p>
                   </div>
                 ) : (
                   <div className="text-center">
                     <Layers className="mx-auto mb-4 h-10 w-10 text-slate-600" />
-                    <p className="text-sm font-medium text-slate-400">等待生成...</p>
+                    <p className="text-sm font-medium text-slate-400">
+                      等待生成...
+                    </p>
                   </div>
                 )}
               </div>
@@ -1099,15 +1342,19 @@ function PreviewPanel() {
             <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-200">
               <Grid3X3 className="h-10 w-10 text-slate-400" />
             </div>
-            <p className="text-lg font-medium text-slate-700">开始生成演示文稿</p>
-            <p className="mt-2 text-sm text-slate-500">在左侧输入内容并点击生成</p>
+            <p className="text-lg font-medium text-slate-700">
+              开始生成演示文稿
+            </p>
+            <p className="mt-2 text-sm text-slate-500">
+              在左侧输入内容并点击生成
+            </p>
           </div>
         )}
       </div>
 
       {/* 属性面板 */}
       {currentPage && (
-        <div className="flex-shrink-0 border-t border-slate-200 bg-white/90 backdrop-blur-sm px-6 py-3">
+        <div className="flex-shrink-0 border-t border-slate-200 bg-white/90 px-6 py-3 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4 text-sm">
               <div className="flex items-center gap-1.5">
@@ -1120,10 +1367,13 @@ function PreviewPanel() {
                 <span className="text-slate-500">状态:</span>
                 <span
                   className={cn('rounded px-2 py-0.5 font-medium', {
-                    'bg-green-100 text-green-700': currentPage.status === 'completed',
-                    'bg-orange-100 text-orange-700': currentPage.status === 'generating',
+                    'bg-green-100 text-green-700':
+                      currentPage.status === 'completed',
+                    'bg-orange-100 text-orange-700':
+                      currentPage.status === 'generating',
                     'bg-red-100 text-red-700': currentPage.status === 'error',
-                    'bg-slate-100 text-slate-600': currentPage.status === 'pending',
+                    'bg-slate-100 text-slate-600':
+                      currentPage.status === 'pending',
                   })}
                 >
                   {getStatusText(currentPage.status)}
@@ -1135,9 +1385,7 @@ function PreviewPanel() {
                 {selectedPageIndex + 1}
               </span>
               <span className="text-slate-400">/</span>
-              <span className="text-slate-500">
-                {pages.length} 页
-              </span>
+              <span className="text-slate-500">{pages.length} 页</span>
             </div>
           </div>
         </div>
@@ -1167,7 +1415,7 @@ function ThumbnailCard({
       className={cn(
         'relative aspect-[16/9] w-24 flex-shrink-0 overflow-hidden rounded-lg transition-all',
         isSelected
-          ? 'ring-2 ring-orange-500 ring-offset-2 shadow-lg'
+          ? 'shadow-lg ring-2 ring-orange-500 ring-offset-2'
           : 'ring-1 ring-slate-200 hover:ring-slate-300'
       )}
     >
@@ -1189,7 +1437,9 @@ function ThumbnailCard({
           ) : page.status === 'error' ? (
             <AlertCircle className="h-4 w-4 text-red-500" />
           ) : (
-            <span className="text-xs font-medium text-slate-400">{index + 1}</span>
+            <span className="text-xs font-medium text-slate-400">
+              {index + 1}
+            </span>
           )}
         </div>
       )}
