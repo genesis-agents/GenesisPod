@@ -35,6 +35,10 @@ import {
   Plus,
   FolderOpen,
   X,
+  ArrowLeft,
+  Home,
+  Copy,
+  Terminal,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils/common';
@@ -96,6 +100,14 @@ export function SlidesTabV3() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showNewForm, setShowNewForm] = useState(false);
   const currentHistoryIdRef = useRef<string | null>(null);
+
+  // 重置回到历史记录画廊
+  const handleBackToGallery = useCallback(() => {
+    const { reset } = useSlidesV3Store.getState();
+    reset();
+    setShowNewForm(false);
+    refreshSessions();
+  }, [refreshSessions]);
 
   // 将 streamEvents 转换为 toolCalls
   useEffect(() => {
@@ -315,6 +327,8 @@ export function SlidesTabV3() {
         showHistory={showHistory}
         onToggleHistory={() => setShowHistory(!showHistory)}
         onCreateCheckpoint={handleCreateCheckpoint}
+        showBackButton={true}
+        onBackToGallery={handleBackToGallery}
       />
 
       {/* 历史记录面板 */}
@@ -354,19 +368,23 @@ function Header({
   showHistory,
   onToggleHistory,
   onCreateCheckpoint,
+  onBackToGallery,
   viewMode,
   onViewModeChange,
   onNewClick,
   showViewToggle = false,
+  showBackButton = false,
 }: {
   title?: string;
   showHistory: boolean;
   onToggleHistory: () => void;
   onCreateCheckpoint: () => void;
+  onBackToGallery?: () => void;
   viewMode?: 'grid' | 'list';
   onViewModeChange?: (mode: 'grid' | 'list') => void;
   onNewClick?: () => void;
   showViewToggle?: boolean;
+  showBackButton?: boolean;
 }) {
   const [showExportMenu, setShowExportMenu] = useState(false);
 
@@ -374,6 +392,16 @@ function Header({
     <header className="flex-shrink-0 border-b border-gray-200 bg-white">
       <div className="flex h-14 items-center justify-between px-6">
         <div className="flex items-center gap-3">
+          {/* 返回按钮 */}
+          {showBackButton && onBackToGallery && (
+            <button
+              onClick={onBackToGallery}
+              className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
+              title="返回历史记录"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          )}
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-orange-600">
             <Sparkles className="h-4 w-4 text-white" />
           </div>
@@ -630,7 +658,9 @@ function ConversationPanel({
 }) {
   const [inputValue, setInputValue] = useState('');
   const [outlineExpanded, setOutlineExpanded] = useState(true);
+  const [copied, setCopied] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { streamEvents } = useSlidesV3Store();
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -654,15 +684,68 @@ function ConversationPanel({
     [handleSend]
   );
 
+  // 复制日志到剪贴板
+  const handleCopyLog = useCallback(() => {
+    const logText = streamEvents
+      .map((event) => {
+        const time = new Date(event.timestamp).toLocaleTimeString();
+        const data = JSON.stringify(event.data, null, 2);
+        return `[${time}] ${event.type}\n${data}`;
+      })
+      .join('\n\n');
+
+    navigator.clipboard.writeText(logText).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [streamEvents]);
+
   return (
     <div className="flex h-full w-[400px] flex-shrink-0 flex-col border-r border-gray-200 bg-gray-50">
+      {/* 顶部标题栏 */}
+      <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
+        <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+          <Terminal className="h-4 w-4 text-orange-500" />
+          生成过程 ({toolCalls.length})
+        </div>
+        <button
+          onClick={handleCopyLog}
+          disabled={streamEvents.length === 0}
+          className={cn(
+            'flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors',
+            copied
+              ? 'bg-green-100 text-green-700'
+              : 'text-gray-600 hover:bg-gray-100'
+          )}
+          title="复制完整日志"
+        >
+          {copied ? (
+            <>
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              已复制
+            </>
+          ) : (
+            <>
+              <Copy className="h-3.5 w-3.5" />
+              复制日志
+            </>
+          )}
+        </button>
+      </div>
+
       {/* 滚动区域 */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
         {/* 工具调用展示 */}
         <div className="space-y-3">
-          {toolCalls.map((call) => (
-            <ToolCallCard key={call.id} call={call} />
-          ))}
+          {toolCalls.length === 0 && !generating ? (
+            <div className="py-8 text-center text-sm text-gray-400">
+              开始生成后将显示过程信息
+            </div>
+          ) : (
+            toolCalls.map((call) => (
+              <ToolCallCard key={call.id} call={call} />
+            ))
+          )}
 
           {/* 当前进度 */}
           {generating && progress && (
@@ -724,24 +807,17 @@ function ConversationPanel({
                     )}
                   </div>
 
-                  <div className="mt-4 flex gap-2">
+                  <div className="mt-4">
                     {generating ? (
-                      <div className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-100 py-2 text-sm font-medium text-green-700">
-                        <CheckCircle2 className="h-4 w-4" />
-                        大纲已确认，正在生成...
+                      <div className="flex items-center justify-center gap-2 rounded-lg bg-orange-100 py-2 text-sm font-medium text-orange-700">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        正在生成页面...
                       </div>
                     ) : (
-                      <>
-                        <button
-                          onClick={() => setOutlineExpanded(false)}
-                          className="flex-1 rounded-lg bg-orange-500 py-2 text-sm font-medium text-white hover:bg-orange-600"
-                        >
-                          确认大纲
-                        </button>
-                        <button className="flex-1 rounded-lg border border-gray-300 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                          修改
-                        </button>
-                      </>
+                      <div className="flex items-center justify-center gap-2 rounded-lg bg-green-100 py-2 text-sm font-medium text-green-700">
+                        <CheckCircle2 className="h-4 w-4" />
+                        大纲已确认，生成完成
+                      </div>
                     )}
                   </div>
                 </motion.div>
@@ -886,12 +962,13 @@ function PreviewPanel() {
   const currentPage = pages[selectedPageIndex];
 
   return (
-    <div className="flex flex-1 flex-col bg-gray-100">
+    <div className="flex flex-1 flex-col bg-gradient-to-br from-slate-100 to-slate-200">
       {/* 缩略图区域 */}
-      <div className="flex-shrink-0 border-b border-gray-200 bg-white p-4">
-        <div className="flex items-center gap-2 overflow-x-auto pb-2">
+      <div className="flex-shrink-0 border-b border-slate-200 bg-white/80 backdrop-blur-sm px-4 py-3">
+        <div className="flex items-center gap-2 overflow-x-auto">
           {pages.length === 0 ? (
-            <div className="flex h-16 items-center justify-center text-sm text-gray-500">
+            <div className="flex h-14 w-full items-center justify-center text-sm text-slate-500">
+              <Layers className="mr-2 h-4 w-4 opacity-50" />
               开始生成后将显示缩略图
             </div>
           ) : (
@@ -909,9 +986,16 @@ function PreviewPanel() {
       </div>
 
       {/* 主预览区域 */}
-      <div className="flex flex-1 items-center justify-center overflow-auto p-8">
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-6">
         {currentPage ? (
-          <div className="relative aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-lg bg-[#0F172A] shadow-2xl">
+          <div
+            className="relative w-full overflow-hidden rounded-xl bg-slate-900 shadow-2xl ring-1 ring-slate-700/50"
+            style={{
+              maxWidth: 'min(100%, 900px)',
+              aspectRatio: '16/9',
+              maxHeight: 'calc(100% - 24px)'
+            }}
+          >
             {currentPage.html ? (
               <iframe
                 srcDoc={currentPage.html}
@@ -920,64 +1004,73 @@ function PreviewPanel() {
                 sandbox="allow-scripts"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center">
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
                 {currentPage.status === 'generating' ? (
                   <div className="text-center">
-                    <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-orange-400" />
-                    <p className="text-gray-400">
+                    <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-orange-400" />
+                    <p className="text-sm font-medium text-slate-300">
                       正在生成第 {currentPage.pageNumber} 页...
                     </p>
+                    <p className="mt-1 text-xs text-slate-500">请稍候</p>
                   </div>
                 ) : currentPage.status === 'error' ? (
-                  <div className="text-center text-red-400">
-                    <AlertCircle className="mx-auto mb-4 h-12 w-12" />
-                    <p>{currentPage.error || '生成失败'}</p>
+                  <div className="text-center">
+                    <AlertCircle className="mx-auto mb-4 h-10 w-10 text-red-400" />
+                    <p className="text-sm font-medium text-red-300">{currentPage.error || '生成失败'}</p>
+                    <p className="mt-1 text-xs text-slate-500">请重试或检查内容</p>
                   </div>
                 ) : (
-                  <div className="text-center text-gray-500">
-                    <Layers className="mx-auto mb-4 h-12 w-12 opacity-30" />
-                    <p>等待生成...</p>
+                  <div className="text-center">
+                    <Layers className="mx-auto mb-4 h-10 w-10 text-slate-600" />
+                    <p className="text-sm font-medium text-slate-400">等待生成...</p>
                   </div>
                 )}
               </div>
             )}
           </div>
         ) : (
-          <div className="text-center text-gray-400">
-            <Grid3X3 className="mx-auto mb-4 h-16 w-16 opacity-20" />
-            <p className="text-lg">开始生成演示文稿</p>
-            <p className="mt-2 text-sm">在左侧输入内容并点击生成</p>
+          <div className="text-center">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-200">
+              <Grid3X3 className="h-10 w-10 text-slate-400" />
+            </div>
+            <p className="text-lg font-medium text-slate-700">开始生成演示文稿</p>
+            <p className="mt-2 text-sm text-slate-500">在左侧输入内容并点击生成</p>
           </div>
         )}
       </div>
 
       {/* 属性面板 */}
       {currentPage && (
-        <div className="flex-shrink-0 border-t border-gray-200 bg-white px-6 py-3">
-          <div className="flex items-center gap-6 text-sm">
-            <div>
-              <span className="text-gray-500">模板:</span>
-              <span className="ml-2 font-medium text-gray-900">
-                {currentPage.outline?.templateType || '未知'}
-              </span>
+        <div className="flex-shrink-0 border-t border-slate-200 bg-white/90 backdrop-blur-sm px-6 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500">模板:</span>
+                <span className="rounded bg-slate-100 px-2 py-0.5 font-medium text-slate-700">
+                  {currentPage.outline?.templateType || '未知'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500">状态:</span>
+                <span
+                  className={cn('rounded px-2 py-0.5 font-medium', {
+                    'bg-green-100 text-green-700': currentPage.status === 'completed',
+                    'bg-orange-100 text-orange-700': currentPage.status === 'generating',
+                    'bg-red-100 text-red-700': currentPage.status === 'error',
+                    'bg-slate-100 text-slate-600': currentPage.status === 'pending',
+                  })}
+                >
+                  {getStatusText(currentPage.status)}
+                </span>
+              </div>
             </div>
-            <div>
-              <span className="text-gray-500">状态:</span>
-              <span
-                className={cn('ml-2 font-medium', {
-                  'text-green-600': currentPage.status === 'completed',
-                  'text-orange-600': currentPage.status === 'generating',
-                  'text-red-600': currentPage.status === 'error',
-                  'text-gray-600': currentPage.status === 'pending',
-                })}
-              >
-                {getStatusText(currentPage.status)}
+            <div className="flex items-center gap-2 text-sm">
+              <span className="font-medium text-slate-700">
+                {selectedPageIndex + 1}
               </span>
-            </div>
-            <div>
-              <span className="text-gray-500">页码:</span>
-              <span className="ml-2 font-medium text-gray-900">
-                {selectedPageIndex + 1} / {pages.length}
+              <span className="text-slate-400">/</span>
+              <span className="text-slate-500">
+                {pages.length} 页
               </span>
             </div>
           </div>
@@ -1006,15 +1099,15 @@ function ThumbnailCard({
     <button
       onClick={onClick}
       className={cn(
-        'relative aspect-[16/9] w-24 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-all',
+        'relative aspect-[16/9] w-24 flex-shrink-0 overflow-hidden rounded-lg transition-all',
         isSelected
-          ? 'border-orange-500 shadow-lg'
-          : 'border-gray-200 hover:border-gray-300'
+          ? 'ring-2 ring-orange-500 ring-offset-2 shadow-lg'
+          : 'ring-1 ring-slate-200 hover:ring-slate-300'
       )}
     >
       {page.html ? (
         <div
-          className="h-full w-full bg-[#0F172A]"
+          className="h-full w-full bg-slate-900"
           style={{
             transform: 'scale(0.1)',
             transformOrigin: 'top left',
@@ -1024,13 +1117,13 @@ function ThumbnailCard({
           dangerouslySetInnerHTML={{ __html: page.html }}
         />
       ) : (
-        <div className="flex h-full w-full items-center justify-center bg-gray-100">
+        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
           {page.status === 'generating' ? (
             <Loader2 className="h-4 w-4 animate-spin text-orange-500" />
           ) : page.status === 'error' ? (
             <AlertCircle className="h-4 w-4 text-red-500" />
           ) : (
-            <span className="text-xs text-gray-400">{index + 1}</span>
+            <span className="text-xs font-medium text-slate-400">{index + 1}</span>
           )}
         </div>
       )}
