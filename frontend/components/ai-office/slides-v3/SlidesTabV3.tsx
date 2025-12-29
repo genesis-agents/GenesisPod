@@ -2566,35 +2566,46 @@ function BackendSessionCard({
               </button>
 
               {showMenu && (
-                <div className="absolute right-0 top-full z-10 mt-1 w-28 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsEditing(true);
-                      setShowMenu(false);
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                    重命名
-                  </button>
-                  <button
+                <>
+                  {/* 点击外部关闭菜单的遮罩层 */}
+                  <div
+                    className="fixed inset-0 z-40"
                     onClick={(e) => {
                       e.stopPropagation();
                       setShowMenu(false);
-                      handleDelete();
                     }}
-                    disabled={isDeleting}
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
-                  >
-                    {isDeleting ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-3.5 w-3.5" />
-                    )}
-                    删除
-                  </button>
-                </div>
+                  />
+                  {/* 下拉菜单 - 向上弹出避免被截断 */}
+                  <div className="absolute bottom-full right-0 z-50 mb-1 w-28 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsEditing(true);
+                        setShowMenu(false);
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      重命名
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowMenu(false);
+                        handleDelete();
+                      }}
+                      disabled={isDeleting}
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {isDeleting ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                      删除
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           </div>
