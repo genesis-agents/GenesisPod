@@ -337,12 +337,17 @@ export type StreamEventType =
   | 'progress_update'
   | 'heartbeat'
   | 'error'
-  | 'complete';
+  | 'complete'
+  // 用户交互事件
+  | 'user_message'
+  | 'system_message'
+  // 恢复事件
+  | 'tool_call';
 
 export interface StreamEvent {
   type: StreamEventType;
   timestamp: Date;
-  sessionId: string;
+  sessionId?: string;
   data: unknown;
 }
 

@@ -88,7 +88,9 @@ interface ToolCallItem {
     | 'image'
     | 'checkpoint'
     | 'data'
-    | 'step';
+    | 'step'
+    | 'user'
+    | 'system';
   title: string;
   status: 'running' | 'completed' | 'error';
   content?: string;
@@ -324,6 +326,29 @@ export function SlidesTabV3() {
           status: 'completed',
           timestamp: new Date(event.timestamp),
         });
+      } else if (event.type === 'user_message') {
+        const data = event.data as { message: string; pageNumber?: number };
+        calls.push({
+          id,
+          type: 'user',
+          title: `💬 用户输入`,
+          content: data.message,
+          details: data.pageNumber
+            ? { pageNumber: data.pageNumber }
+            : undefined,
+          status: 'completed',
+          timestamp: new Date(event.timestamp),
+        });
+      } else if (event.type === 'system_message') {
+        const data = event.data as { message: string };
+        calls.push({
+          id,
+          type: 'system',
+          title: `🤖 系统提示`,
+          content: data.message,
+          status: 'completed',
+          timestamp: new Date(event.timestamp),
+        });
       }
     });
 
@@ -331,7 +356,40 @@ export function SlidesTabV3() {
   }, [streamEvents]);
 
   const handleSendMessage = useCallback((message: string) => {
-    console.log('Send message:', message);
+    // 添加用户消息到 streamEvents
+    const { addStreamEvent, pages, selectedPageIndex } =
+      useSlidesV3Store.getState();
+
+    // 添加用户消息事件
+    addStreamEvent({
+      type: 'user_message',
+      timestamp: new Date(),
+      data: {
+        message,
+        pageNumber: pages[selectedPageIndex]?.pageNumber,
+      },
+    });
+
+    // TODO: 实现后端接续生成 API
+    // 目前显示提示信息
+    const currentPage = pages[selectedPageIndex];
+    if (currentPage) {
+      addStreamEvent({
+        type: 'system_message',
+        timestamp: new Date(),
+        data: {
+          message: `收到您对第 ${currentPage.pageNumber} 页的修改建议。接续编辑功能正在开发中，敬请期待！`,
+        },
+      });
+    } else {
+      addStreamEvent({
+        type: 'system_message',
+        timestamp: new Date(),
+        data: {
+          message: '收到您的反馈。接续编辑功能正在开发中，敬请期待！',
+        },
+      });
+    }
   }, []);
 
   const handleCreateCheckpoint = useCallback(() => {

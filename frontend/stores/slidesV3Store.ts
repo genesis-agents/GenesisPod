@@ -244,16 +244,89 @@ export const useSlidesV3Store = create<SlidesV3State & SlidesV3Actions>()(
 
         // 从检查点恢复状态
         restoreFromCheckpointState: (checkpointState) => {
+          // 确保页面状态正确：如果有 HTML，则状态应该是 completed
+          const restoredPages = (checkpointState.pages || []).map((page) => ({
+            ...page,
+            // 如果页面有 HTML，确保状态是 completed
+            status: page.html
+              ? ('completed' as const)
+              : page.status || ('pending' as const),
+          }));
+
+          // 重建 streamEvents 用于显示生成过程
+          const reconstructedEvents: StreamEvent[] = [];
+
+          // 如果有任务分解信息，添加到 events
+          if (checkpointState.taskDecomposition) {
+            reconstructedEvents.push({
+              type: 'phase_started',
+              timestamp: new Date(),
+              data: {
+                phase: 'task_decomposition',
+                message: `任务分解完成: ${checkpointState.taskDecomposition.totalPages} 页`,
+              },
+            });
+            reconstructedEvents.push({
+              type: 'phase_completed',
+              timestamp: new Date(),
+              data: {
+                phase: 'task_decomposition',
+              },
+            });
+          }
+
+          // 如果有大纲信息，添加到 events
+          if (checkpointState.outlinePlan) {
+            reconstructedEvents.push({
+              type: 'phase_started',
+              timestamp: new Date(),
+              data: {
+                phase: 'outline_planning',
+                message: `大纲规划完成: ${checkpointState.outlinePlan.title}`,
+              },
+            });
+            reconstructedEvents.push({
+              type: 'phase_completed',
+              timestamp: new Date(),
+              data: {
+                phase: 'outline_planning',
+              },
+            });
+          }
+
+          // 为每个已完成的页面添加事件
+          restoredPages.forEach((page) => {
+            if (page.status === 'completed' && page.html) {
+              reconstructedEvents.push({
+                type: 'page_started',
+                timestamp: new Date(),
+                data: {
+                  pageNumber: page.pageNumber,
+                  outline: page.outline,
+                },
+              });
+              reconstructedEvents.push({
+                type: 'page_completed',
+                timestamp: new Date(),
+                data: {
+                  pageNumber: page.pageNumber,
+                  title: page.outline?.title || `第 ${page.pageNumber} 页`,
+                },
+              });
+            }
+          });
+
           set({
             taskDecomposition: checkpointState.taskDecomposition || null,
             outlinePlan: checkpointState.outlinePlan || null,
-            pages: checkpointState.pages || [],
+            pages: restoredPages,
             globalStyles: checkpointState.globalStyles || DEFAULT_GLOBAL_STYLES,
             error: null,
             // 重置生成状态
             generating: false,
             progress: null,
-            streamEvents: [],
+            // 恢复重建的事件（而不是清空）
+            streamEvents: reconstructedEvents,
             selectedPageIndex: 0,
           });
         },
