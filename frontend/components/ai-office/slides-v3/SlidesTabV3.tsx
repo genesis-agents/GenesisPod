@@ -698,12 +698,24 @@ function ConversationPanel({
                   </div>
 
                   <div className="mt-4 flex gap-2">
-                    <button className="flex-1 rounded-lg bg-orange-500 py-2 text-sm font-medium text-white hover:bg-orange-600">
-                      确认大纲
-                    </button>
-                    <button className="flex-1 rounded-lg border border-gray-300 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                      修改
-                    </button>
+                    {generating ? (
+                      <div className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-100 py-2 text-sm font-medium text-green-700">
+                        <CheckCircle2 className="h-4 w-4" />
+                        大纲已确认，正在生成...
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => setOutlineExpanded(false)}
+                          className="flex-1 rounded-lg bg-orange-500 py-2 text-sm font-medium text-white hover:bg-orange-600"
+                        >
+                          确认大纲
+                        </button>
+                        <button className="flex-1 rounded-lg border border-gray-300 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                          修改
+                        </button>
+                      </>
+                    )}
                   </div>
                 </motion.div>
               )}
