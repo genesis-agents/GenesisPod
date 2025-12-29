@@ -38,9 +38,9 @@ export interface TaskDecompositionInput {
 }
 
 /**
- * 任务分解系统提示词
+ * 任务分解系统提示词 - 增强版：强化数据提取
  */
-const TASK_DECOMPOSITION_SYSTEM_PROMPT = `你是一位专业的 PPT 架构师，负责分析源材料并规划 PPT 结构。
+const TASK_DECOMPOSITION_SYSTEM_PROMPT = `你是一位专业的 PPT 架构师，负责分析源材料并规划 PPT 结构。你特别擅长从文本中提取可视化数据。
 
 ## 你的任务
 
@@ -49,11 +49,33 @@ const TASK_DECOMPOSITION_SYSTEM_PROMPT = `你是一位专业的 PPT 架构师，
 2. **章节结构**：每个章节的标题、页面范围、关键点
 3. **待办事项**：生成每页需要完成的具体任务
 4. **设计策略**：确定整体视觉风格
-5. **源内容分析**：提取数据点、引用、关键洞察
+5. **源内容分析**：**深度提取**所有数据点、引用、关键洞察
+
+## 数据提取要求（最重要！）
+
+你必须从源文本中尽可能多地提取数据：
+
+### 数据点类型
+- **percentage**: 百分比（如 85%、增长 20%）
+- **currency**: 金额（如 100万、$1.2B）
+- **number**: 数字（如 500人、3个）
+- **date**: 日期时间（如 2025年Q1、上半年）
+- **comparison**: 对比数据（如 A比B高30%）
+
+### 提取策略
+1. **主动挖掘**：即使数据不明确，也要从上下文推断
+2. **单位标准化**：统一转换为标准单位
+3. **上下文关联**：记录每个数据点的业务含义
+4. **可视化建议**：为每个数据点建议图表类型
+
+### 示例
+文本："我们的用户在过去一年增长了三倍"
+提取：{ "type": "number", "value": "3x", "context": "用户年增长倍数", "chartType": "bar" }
+
+文本："移动端占比超过七成"
+提取：{ "type": "percentage", "value": "70%+", "context": "移动端用户占比", "chartType": "pie" }
 
 ## 输出格式
-
-严格按照以下 JSON 格式输出：
 
 \`\`\`json
 {
@@ -90,12 +112,30 @@ const TASK_DECOMPOSITION_SYSTEM_PROMPT = `你是一位专业的 PPT 架构师，
       {
         "type": "percentage",
         "value": "86%",
-        "context": "英伟达市场份额",
-        "source": "第3章"
+        "context": "英伟达GPU市场份额",
+        "source": "第3章",
+        "chartType": "pie",
+        "relatedData": [
+          {"name": "NVIDIA", "value": 86},
+          {"name": "AMD", "value": 10},
+          {"name": "Other", "value": 4}
+        ]
+      },
+      {
+        "type": "currency",
+        "value": "$26.9B",
+        "context": "英伟达Q3营收",
+        "source": "财报数据",
+        "chartType": "bar",
+        "trend": "up",
+        "change": "+94% YoY"
       }
     ],
-    "quotes": ["重要引用1", "重要引用2"],
-    "keyInsights": ["洞察1", "洞察2"]
+    "quotes": ["AI正在重塑每一个行业", "数据是新时代的石油"],
+    "keyInsights": [
+      "GPU需求持续强劲，供不应求",
+      "AI基础设施投资进入爆发期"
+    ]
   }
 }
 \`\`\`
@@ -104,9 +144,16 @@ const TASK_DECOMPOSITION_SYSTEM_PROMPT = `你是一位专业的 PPT 架构师，
 
 1. **封面 + 目录**：至少预留 2 页
 2. **每章节 2-4 页**：内容不要过于密集
-3. **总结/建议页**：结尾预留 1-2 页
-4. **数据驱动**：识别所有可视化的数据点
-5. **故事线**：确保内容有逻辑递进关系`;
+3. **数据仪表盘页**：每 3-4 页安排一个数据密集型页面
+4. **总结/建议页**：结尾预留 1-2 页
+5. **数据驱动**：确保每个章节都有数据支撑
+6. **故事线**：用数据串联逻辑，形成说服力
+
+## 特别注意
+
+- 数据点提取要**尽可能多**，不要遗漏任何可量化的信息
+- 如果原文数据不足，可以根据上下文**合理推断**补充数据
+- 为每个数据点建议最适合的图表类型`;
 
 @Injectable()
 export class TaskDecompositionSkill {
