@@ -19,7 +19,7 @@ import { AiModelConfig, AiTaskType } from "../types";
 import { OpenAITextProvider, DallEProvider } from "./openai.provider";
 import { AnthropicProvider } from "./anthropic.provider";
 import { GeminiProvider, ImagenProvider } from "./google.provider";
-import { XAIProvider } from "./xai.provider";
+import { XAIProvider, XAIImageProvider } from "./xai.provider";
 
 /**
  * Provider 注册项
@@ -118,6 +118,14 @@ export class AIProviderFactory {
         AiTaskType.TRANSLATION,
         AiTaskType.EXTRACTION,
       ],
+    });
+
+    // xAI Grok Image
+    this.registerProvider({
+      providerId: "xai-image",
+      providerAliases: ["grok-image", "aurora"],
+      instance: new XAIImageProvider(this.httpService),
+      supportedTaskTypes: [AiTaskType.IMAGE_GENERATION],
     });
 
     this.logger.log(

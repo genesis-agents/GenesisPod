@@ -126,6 +126,7 @@ export class ImagenProvider extends BaseImageProvider {
   readonly displayName = "Google Imagen";
 
   private static readonly SUPPORTED_MODELS = [
+    "imagen-4",
     "imagen-3",
     "imagen-2",
     "imagegeneration",
