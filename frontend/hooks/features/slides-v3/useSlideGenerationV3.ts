@@ -65,10 +65,198 @@ export function useSlideGenerationV3(
   } = useSlidesV3Store();
 
   /**
+   * 处理阶段完成
+   */
+  const handlePhaseCompleted = useCallback(
+    (phase: string, data: unknown) => {
+      console.log('[SSE] Phase completed:', phase, data);
+      switch (phase) {
+        case 'task_decomposition':
+          setTaskDecomposition(data as TaskDecomposition);
+          break;
+        case 'outline_planning':
+          const outlineData = data as OutlinePlan;
+          setOutlinePlan(outlineData);
+          // 初始化页面状态
+          const initialPages: PageState[] = outlineData.pages.map(
+            (outline) => ({
+              pageNumber: outline.pageNumber,
+              outline,
+              status: 'pending',
+            })
+          );
+          setPages(initialPages);
+          break;
+        case 'quality_review':
+          setQualityReport(data as QualityReport);
+          break;
+      }
+    },
+    [setTaskDecomposition, setOutlinePlan, setPages, setQualityReport]
+  );
+
+  /**
+   * 处理流事件 - 必须在 generate 之前定义
+   */
+  const handleStreamEvent = useCallback(
+    (event: StreamEvent) => {
+      console.log('[SSE] Received event:', event.type, event);
+
+      switch (event.type) {
+        case 'session_created':
+          const sessionData = event.data as {
+            session: { id: string; title: string };
+          };
+          console.log('[SSE] Session created:', sessionData.session.id);
+          setSession({
+            id: sessionData.session.id,
+            userId: user?.id || 'anonymous',
+            title: sessionData.session.title,
+            status: 'active',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+          options.onSessionCreated?.(sessionData.session.id);
+          break;
+
+        case 'phase_started':
+          const phaseStartData = event.data as { phase: string };
+          console.log('[SSE] Phase started:', phaseStartData.phase);
+          setProgress({
+            phase: phaseStartData.phase as GenerationProgress['phase'],
+            phaseProgress: 0,
+            overallProgress: calculateOverallProgress(
+              phaseStartData.phase as GenerationProgress['phase'],
+              0
+            ),
+            message: getPhaseMessage(phaseStartData.phase, 'started'),
+          });
+          options.onPhaseStarted?.(phaseStartData.phase);
+          break;
+
+        case 'phase_completed':
+          const phaseCompleteData = event.data as {
+            phase: string;
+            data: unknown;
+          };
+          handlePhaseCompleted(phaseCompleteData.phase, phaseCompleteData.data);
+          options.onPhaseCompleted?.(
+            phaseCompleteData.phase,
+            phaseCompleteData.data
+          );
+          break;
+
+        case 'checkpoint_created':
+          const checkpointData = event.data as {
+            type: string;
+            pageNumber?: number;
+          };
+          console.log('[SSE] Checkpoint created:', checkpointData.type);
+          break;
+
+        case 'page_started':
+          const pageStartData = event.data as {
+            pageNumber: number;
+            totalPages: number;
+          };
+          console.log('[SSE] Page started:', pageStartData.pageNumber);
+          const currentProgress = useSlidesV3Store.getState().progress;
+          setProgress({
+            phase: currentProgress?.phase || 'page_rendering',
+            phaseProgress: currentProgress?.phaseProgress || 0,
+            overallProgress: currentProgress?.overallProgress || 0,
+            currentPage: pageStartData.pageNumber,
+            totalPages: pageStartData.totalPages,
+            message: `正在生成第 ${pageStartData.pageNumber} 页...`,
+          });
+          updatePage(pageStartData.pageNumber, { status: 'generating' });
+          break;
+
+        case 'page_completed':
+          const pageCompleteData = event.data as {
+            pageNumber: number;
+            totalPages: number;
+          };
+          console.log('[SSE] Page completed:', pageCompleteData.pageNumber);
+          updatePage(pageCompleteData.pageNumber, { status: 'completed' });
+          options.onPageCompleted?.(pageCompleteData.pageNumber);
+          break;
+
+        case 'progress_update':
+          const progressData = event.data as {
+            phase: string;
+            current: number;
+            total: number;
+            percentage: number;
+          };
+          console.log('[SSE] Progress update:', progressData);
+          setProgress({
+            phase: progressData.phase as GenerationProgress['phase'],
+            phaseProgress: progressData.percentage,
+            overallProgress: calculateOverallProgress(
+              progressData.phase as GenerationProgress['phase'],
+              progressData.percentage
+            ),
+            currentPage: progressData.current,
+            totalPages: progressData.total,
+            message: `正在生成第 ${progressData.current}/${progressData.total} 页...`,
+          });
+          break;
+
+        case 'error':
+          const errorData = event.data as { error: string };
+          console.error('[SSE] Error:', errorData.error);
+          setError(errorData.error);
+          setGenerating(false);
+          options.onError?.(errorData.error);
+          break;
+
+        case 'complete':
+          const completeData = event.data as {
+            sessionId: string;
+            checkpointId: string;
+            totalPages: number;
+            qualityScore: number;
+            durationMs: number;
+          };
+          console.log('[SSE] Complete:', completeData);
+          setProgress({
+            phase: 'quality_review',
+            phaseProgress: 100,
+            overallProgress: 100,
+            totalPages: completeData.totalPages,
+            message: '生成完成！',
+          });
+          setGenerating(false);
+          options.onComplete?.({
+            sessionId: completeData.sessionId,
+            checkpointId: completeData.checkpointId,
+          });
+          break;
+
+        default:
+          console.log('[SSE] Unknown event type:', event.type);
+      }
+    },
+    [
+      setSession,
+      setProgress,
+      updatePage,
+      setError,
+      setGenerating,
+      handlePhaseCompleted,
+      options,
+      user?.id,
+    ]
+  );
+
+  /**
    * 开始生成幻灯片
    */
   const generate = useCallback(
     async (request: GenerateV3Request) => {
+      console.log('[SSE] Starting generation:', request.title);
+
       // 清理之前的状态
       clearStreamEvents();
       setError(null);
@@ -105,22 +293,47 @@ export function useSlideGenerationV3(
         }
 
         const url = `${API_BASE}/ai-office/slides-v3/generate?${params.toString()}`;
+        console.log('[SSE] Connecting to:', url);
 
         // 创建 EventSource
         const eventSource = new EventSource(url);
 
+        // 连接成功
+        eventSource.onopen = () => {
+          console.log(
+            '[SSE] Connection opened, readyState:',
+            eventSource.readyState
+          );
+        };
+
+        // 接收消息
         eventSource.onmessage = (event) => {
+          console.log(
+            '[SSE] Raw message received:',
+            event.data?.substring(0, 200)
+          );
           try {
             const streamEvent: StreamEvent = JSON.parse(event.data);
             addStreamEvent(streamEvent);
             handleStreamEvent(streamEvent);
           } catch (e) {
-            console.error('Failed to parse stream event:', e);
+            console.error(
+              '[SSE] Failed to parse stream event:',
+              e,
+              'Data:',
+              event.data
+            );
           }
         };
 
+        // 错误处理
         eventSource.onerror = (event) => {
-          console.error('SSE error:', event);
+          console.error(
+            '[SSE] Error occurred, readyState:',
+            eventSource.readyState,
+            'Event:',
+            event
+          );
           eventSource.close();
           setGenerating(false);
           setError('连接中断，请重试');
@@ -132,9 +345,11 @@ export function useSlideGenerationV3(
 
         // 监听 abort
         abortControllerRef.current.signal.addEventListener('abort', () => {
+          console.log('[SSE] Aborting connection');
           eventSource.close();
         });
       } catch (err) {
+        console.error('[SSE] Setup error:', err);
         const errorMessage = err instanceof Error ? err.message : '生成失败';
         setError(errorMessage);
         setGenerating(false);
@@ -147,172 +362,10 @@ export function useSlideGenerationV3(
       setGenerating,
       setProgress,
       addStreamEvent,
+      handleStreamEvent,
       options,
+      user?.id,
     ]
-  );
-
-  /**
-   * 处理流事件
-   */
-  const handleStreamEvent = useCallback(
-    (event: StreamEvent) => {
-      switch (event.type) {
-        case 'session_created':
-          const sessionData = event.data as {
-            session: { id: string; title: string };
-          };
-          setSession({
-            id: sessionData.session.id,
-            userId: user?.id || 'anonymous',
-            title: sessionData.session.title,
-            status: 'active',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          });
-          options.onSessionCreated?.(sessionData.session.id);
-          break;
-
-        case 'phase_started':
-          const phaseStartData = event.data as { phase: string };
-          setProgress({
-            phase: phaseStartData.phase as GenerationProgress['phase'],
-            phaseProgress: 0,
-            overallProgress: calculateOverallProgress(
-              phaseStartData.phase as GenerationProgress['phase'],
-              0
-            ),
-            message: getPhaseMessage(phaseStartData.phase, 'started'),
-          });
-          options.onPhaseStarted?.(phaseStartData.phase);
-          break;
-
-        case 'phase_completed':
-          const phaseCompleteData = event.data as {
-            phase: string;
-            data: unknown;
-          };
-          handlePhaseCompleted(phaseCompleteData.phase, phaseCompleteData.data);
-          options.onPhaseCompleted?.(
-            phaseCompleteData.phase,
-            phaseCompleteData.data
-          );
-          break;
-
-        case 'checkpoint_created':
-          const checkpointData = event.data as {
-            type: string;
-            pageNumber?: number;
-          };
-          // 可以在这里更新检查点列表
-          break;
-
-        case 'page_started':
-          const pageStartData = event.data as {
-            pageNumber: number;
-            totalPages: number;
-          };
-          const currentProgress = useSlidesV3Store.getState().progress;
-          setProgress({
-            phase: currentProgress?.phase || 'page_rendering',
-            phaseProgress: currentProgress?.phaseProgress || 0,
-            overallProgress: currentProgress?.overallProgress || 0,
-            currentPage: pageStartData.pageNumber,
-            totalPages: pageStartData.totalPages,
-            message: `正在生成第 ${pageStartData.pageNumber} 页...`,
-          });
-          updatePage(pageStartData.pageNumber, { status: 'generating' });
-          break;
-
-        case 'page_completed':
-          const pageCompleteData = event.data as {
-            pageNumber: number;
-            totalPages: number;
-          };
-          updatePage(pageCompleteData.pageNumber, { status: 'completed' });
-          options.onPageCompleted?.(pageCompleteData.pageNumber);
-          break;
-
-        case 'progress_update':
-          const progressData = event.data as {
-            phase: string;
-            current: number;
-            total: number;
-            percentage: number;
-          };
-          setProgress({
-            phase: progressData.phase as GenerationProgress['phase'],
-            phaseProgress: progressData.percentage,
-            overallProgress: calculateOverallProgress(
-              progressData.phase as GenerationProgress['phase'],
-              progressData.percentage
-            ),
-            currentPage: progressData.current,
-            totalPages: progressData.total,
-            message: `正在生成第 ${progressData.current}/${progressData.total} 页...`,
-          });
-          break;
-
-        case 'error':
-          const errorData = event.data as { error: string };
-          setError(errorData.error);
-          setGenerating(false);
-          options.onError?.(errorData.error);
-          break;
-
-        case 'complete':
-          const completeData = event.data as {
-            sessionId: string;
-            checkpointId: string;
-            totalPages: number;
-            qualityScore: number;
-            durationMs: number;
-          };
-          setProgress({
-            phase: 'quality_review',
-            phaseProgress: 100,
-            overallProgress: 100,
-            totalPages: completeData.totalPages,
-            message: '生成完成！',
-          });
-          setGenerating(false);
-          options.onComplete?.({
-            sessionId: completeData.sessionId,
-            checkpointId: completeData.checkpointId,
-          });
-          break;
-      }
-    },
-    [setSession, setProgress, updatePage, setError, setGenerating, options]
-  );
-
-  /**
-   * 处理阶段完成
-   */
-  const handlePhaseCompleted = useCallback(
-    (phase: string, data: unknown) => {
-      switch (phase) {
-        case 'task_decomposition':
-          setTaskDecomposition(data as TaskDecomposition);
-          break;
-        case 'outline_planning':
-          const outlineData = data as OutlinePlan;
-          setOutlinePlan(outlineData);
-          // 初始化页面状态
-          const initialPages: PageState[] = outlineData.pages.map(
-            (outline) => ({
-              pageNumber: outline.pageNumber,
-              outline,
-              status: 'pending',
-            })
-          );
-          setPages(initialPages);
-          break;
-        case 'quality_review':
-          setQualityReport(data as QualityReport);
-          break;
-      }
-    },
-    [setTaskDecomposition, setOutlinePlan, setPages, setQualityReport]
   );
 
   /**
