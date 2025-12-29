@@ -1,7 +1,7 @@
 /**
  * Slides Engine v3.0 - Sessions Hook
  *
- * 从后端加载用户的会话列表
+ * 从后端加载、管理用户的会话列表
  */
 
 import { useCallback, useState, useEffect } from 'react';
@@ -10,6 +10,7 @@ import { config } from '@/lib/utils/config';
 import type { SlidesSession } from '@/types/slides-v3';
 
 const API_BASE = config.apiUrl || '';
+const API_OFFICE_BASE = `${API_BASE}/ai-office/slides-v3`;
 
 export interface SessionWithCheckpoint extends SlidesSession {
   latestCheckpoint?: {
@@ -97,6 +98,72 @@ export function useSessions(options: UseSessionsOptions = {}) {
     return loadSessions();
   }, [loadSessions]);
 
+  /**
+   * 更新会话标题
+   */
+  const updateSession = useCallback(
+    async (sessionId: string, title: string): Promise<boolean> => {
+      try {
+        const response = await fetch(
+          `${API_OFFICE_BASE}/sessions/${sessionId}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ title }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error('Failed to update session');
+        }
+
+        // 更新本地状态
+        setSessions((prev) =>
+          prev.map((s) => (s.id === sessionId ? { ...s, title } : s))
+        );
+
+        return true;
+      } catch (err) {
+        console.error('[useSessions] Update error:', err);
+        setError(err instanceof Error ? err.message : '更新会话失败');
+        return false;
+      }
+    },
+    []
+  );
+
+  /**
+   * 删除会话
+   */
+  const deleteSession = useCallback(
+    async (sessionId: string): Promise<boolean> => {
+      try {
+        const response = await fetch(
+          `${API_OFFICE_BASE}/sessions/${sessionId}`,
+          {
+            method: 'DELETE',
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error('Failed to delete session');
+        }
+
+        // 从本地状态移除
+        setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+
+        return true;
+      } catch (err) {
+        console.error('[useSessions] Delete error:', err);
+        setError(err instanceof Error ? err.message : '删除会话失败');
+        return false;
+      }
+    },
+    []
+  );
+
   // 自动加载
   useEffect(() => {
     if (autoLoad && user?.id) {
@@ -110,6 +177,8 @@ export function useSessions(options: UseSessionsOptions = {}) {
     error,
     loadSessions,
     refresh,
+    updateSession,
+    deleteSession,
   };
 }
 

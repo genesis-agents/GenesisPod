@@ -44,6 +44,9 @@ import {
   Minimize2,
   ChevronLeft,
   ChevronRight,
+  Pencil,
+  Check,
+  MoreVertical,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils/common';
@@ -109,6 +112,8 @@ export function SlidesTabV3() {
     sessions: backendSessions,
     loading: sessionsLoading,
     refresh: refreshSessions,
+    updateSession,
+    deleteSession,
   } = useSessions();
   const { user } = useAuth();
   const [toolCalls, setToolCalls] = useState<ToolCallItem[]>([]);
@@ -463,6 +468,8 @@ export function SlidesTabV3() {
             onRestoreHistory={handleRestoreHistory}
             onNewClick={() => setShowNewForm(true)}
             loading={sessionsLoading}
+            onUpdateSession={updateSession}
+            onDeleteSession={deleteSession}
           />
         )}
       </div>
@@ -1963,6 +1970,8 @@ function SessionsGallery({
   onRestoreHistory,
   onNewClick,
   loading,
+  onUpdateSession,
+  onDeleteSession,
 }: {
   backendSessions: SessionWithCheckpoint[];
   localHistory: SlidesHistoryItem[];
@@ -1971,6 +1980,8 @@ function SessionsGallery({
   onRestoreHistory: (item: SlidesHistoryItem) => void;
   onNewClick: () => void;
   loading?: boolean;
+  onUpdateSession?: (sessionId: string, title: string) => Promise<boolean>;
+  onDeleteSession?: (sessionId: string) => Promise<boolean>;
 }) {
   // 优先使用后端会话，如果没有则使用本地历史
   const hasBackendSessions = backendSessions.length > 0;
@@ -2023,6 +2034,8 @@ function SessionsGallery({
                 key={session.id}
                 session={session}
                 onClick={() => onRestoreSession(session)}
+                onUpdate={onUpdateSession}
+                onDelete={onDeleteSession}
               />
             ))}
             {/* 本地历史（只显示不在后端的） */}
@@ -2043,6 +2056,8 @@ function SessionsGallery({
                 key={session.id}
                 session={session}
                 onClick={() => onRestoreSession(session)}
+                onUpdate={onUpdateSession}
+                onDelete={onDeleteSession}
               />
             ))}
             {/* 本地历史 */}
@@ -2065,17 +2080,59 @@ function SessionsGallery({
 function BackendSessionCard({
   session,
   onClick,
+  onUpdate,
+  onDelete,
 }: {
   session: SessionWithCheckpoint;
   onClick: () => void;
+  onUpdate?: (sessionId: string, title: string) => Promise<boolean>;
+  onDelete?: (sessionId: string) => Promise<boolean>;
 }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(session.title);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleSaveEdit = async () => {
+    if (onUpdate && editTitle.trim() && editTitle !== session.title) {
+      await onUpdate(session.id, editTitle.trim());
+    }
+    setIsEditing(false);
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete) return;
+    if (!confirm('确定要删除这个演示文稿吗？此操作不可撤销。')) return;
+    setIsDeleting(true);
+    await onDelete(session.id);
+    setIsDeleting(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      setIsEditing(false);
+      setEditTitle(session.title);
+    }
+  };
+
   return (
-    <button
-      onClick={onClick}
-      className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white text-left transition-all hover:border-orange-300 hover:shadow-lg"
-    >
-      {/* 缩略图占位 */}
-      <div className="relative aspect-[16/9] bg-gradient-to-br from-slate-800 to-slate-900">
+    <div className="group relative flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white text-left transition-all hover:border-orange-300 hover:shadow-lg">
+      {/* 缩略图占位 - 可点击 */}
+      <button
+        onClick={onClick}
+        className="relative aspect-[16/9] bg-gradient-to-br from-slate-800 to-slate-900"
+      >
         <div className="absolute inset-0 flex items-center justify-center">
           <Layers className="h-8 w-8 text-slate-600" />
         </div>
@@ -2086,18 +2143,81 @@ function BackendSessionCard({
         <div className="absolute left-2 top-2 rounded bg-green-500/80 px-1.5 py-0.5 text-xs text-white">
           已保存
         </div>
-      </div>
+      </button>
 
-      {/* 信息 */}
+      {/* 信息和操作按钮 */}
       <div className="flex-1 p-3">
-        <h3 className="line-clamp-2 text-sm font-medium text-gray-900 group-hover:text-orange-600">
-          {session.title}
-        </h3>
-        <p className="mt-1 text-xs text-gray-500">
-          {formatRelativeTime(session.updatedAt)}
-        </p>
+        {isEditing ? (
+          <div className="flex items-center gap-1">
+            <input
+              ref={inputRef}
+              type="text"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onBlur={handleSaveEdit}
+              className="flex-1 rounded border border-orange-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500"
+            />
+          </div>
+        ) : (
+          <div className="flex items-start justify-between gap-2">
+            <button onClick={onClick} className="min-w-0 flex-1 text-left">
+              <h3 className="line-clamp-2 text-sm font-medium text-gray-900 group-hover:text-orange-600">
+                {session.title}
+              </h3>
+              <p className="mt-1 text-xs text-gray-500">
+                {formatRelativeTime(session.updatedAt)}
+              </p>
+            </button>
+
+            {/* 操作菜单 */}
+            <div className="relative flex-shrink-0">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowMenu(!showMenu);
+                }}
+                className="rounded p-1 text-gray-400 opacity-0 transition-opacity hover:bg-gray-100 hover:text-gray-600 group-hover:opacity-100"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </button>
+
+              {showMenu && (
+                <div className="absolute right-0 top-full z-10 mt-1 w-28 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsEditing(true);
+                      setShowMenu(false);
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    重命名
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowMenu(false);
+                      handleDelete();
+                    }}
+                    disabled={isDeleting}
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5" />
+                    )}
+                    删除
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -2105,17 +2225,58 @@ function BackendSessionCard({
 function BackendSessionListItem({
   session,
   onClick,
+  onUpdate,
+  onDelete,
 }: {
   session: SessionWithCheckpoint;
   onClick: () => void;
+  onUpdate?: (sessionId: string, title: string) => Promise<boolean>;
+  onDelete?: (sessionId: string) => Promise<boolean>;
 }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(session.title);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleSaveEdit = async () => {
+    if (onUpdate && editTitle.trim() && editTitle !== session.title) {
+      await onUpdate(session.id, editTitle.trim());
+    }
+    setIsEditing(false);
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete) return;
+    if (!confirm('确定要删除这个演示文稿吗？此操作不可撤销。')) return;
+    setIsDeleting(true);
+    await onDelete(session.id);
+    setIsDeleting(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      setIsEditing(false);
+      setEditTitle(session.title);
+    }
+  };
+
   return (
-    <button
-      onClick={onClick}
-      className="flex w-full items-center gap-4 rounded-lg border border-gray-200 bg-white p-4 text-left transition-all hover:border-orange-300 hover:bg-orange-50"
-    >
-      {/* 缩略图 */}
-      <div className="relative h-16 w-28 flex-shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-slate-800 to-slate-900">
+    <div className="group flex w-full items-center gap-4 rounded-lg border border-gray-200 bg-white p-4 text-left transition-all hover:border-orange-300 hover:bg-orange-50">
+      {/* 缩略图 - 可点击 */}
+      <button
+        onClick={onClick}
+        className="relative h-16 w-28 flex-shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-slate-800 to-slate-900"
+      >
         <div className="absolute inset-0 flex items-center justify-center">
           <Layers className="h-6 w-6 text-slate-600" />
         </div>
@@ -2123,24 +2284,70 @@ function BackendSessionListItem({
         <div className="absolute left-1 top-1 rounded bg-green-500/80 px-1 py-0.5 text-[10px] text-white">
           已保存
         </div>
-      </div>
+      </button>
 
       {/* 信息 */}
       <div className="min-w-0 flex-1">
-        <h3 className="truncate text-sm font-medium text-gray-900">
-          {session.title}
-        </h3>
-        <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
-          <span>{formatRelativeTime(session.updatedAt)}</span>
-          <span className="rounded bg-orange-100 px-1.5 py-0.5 text-orange-600">
-            {session.latestCheckpoint?.pagesCount || '?'} 页
-          </span>
-        </div>
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={handleSaveEdit}
+            className="w-full rounded border border-orange-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500"
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <button onClick={onClick} className="w-full text-left">
+            <h3 className="truncate text-sm font-medium text-gray-900">
+              {session.title}
+            </h3>
+            <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
+              <span>{formatRelativeTime(session.updatedAt)}</span>
+              <span className="rounded bg-orange-100 px-1.5 py-0.5 text-orange-600">
+                {session.latestCheckpoint?.pagesCount || '?'} 页
+              </span>
+            </div>
+          </button>
+        )}
+      </div>
+
+      {/* 操作按钮 */}
+      <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsEditing(true);
+          }}
+          className="rounded p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          title="重命名"
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDelete();
+          }}
+          disabled={isDeleting}
+          className="rounded p-2 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+          title="删除"
+        >
+          {isDeleting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Trash2 className="h-4 w-4" />
+          )}
+        </button>
       </div>
 
       {/* 箭头 */}
-      <ChevronDown className="h-5 w-5 -rotate-90 text-gray-400" />
-    </button>
+      <button onClick={onClick}>
+        <ChevronDown className="h-5 w-5 -rotate-90 text-gray-400" />
+      </button>
+    </div>
   );
 }
 

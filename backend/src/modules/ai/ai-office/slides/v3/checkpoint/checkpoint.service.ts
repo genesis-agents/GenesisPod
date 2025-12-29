@@ -229,6 +229,50 @@ export class CheckpointService {
   }
 
   /**
+   * 更新会话标题
+   */
+  async updateSessionTitle(
+    sessionId: string,
+    title: string,
+  ): Promise<SlidesSession> {
+    this.logger.log(
+      `[updateSessionTitle] Session: ${sessionId}, Title: ${title}`,
+    );
+
+    const session = await this.prisma.slidesSession.update({
+      where: { id: sessionId },
+      data: { title },
+    });
+
+    return {
+      id: session.id,
+      userId: session.userId,
+      title: session.title,
+      status: PRISMA_TO_SESSION_STATUS[session.status],
+      currentCheckpointId: session.currentStateId || undefined,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+    };
+  }
+
+  /**
+   * 删除会话及其所有检查点
+   */
+  async deleteSession(sessionId: string): Promise<void> {
+    this.logger.log(`[deleteSession] Deleting session: ${sessionId}`);
+
+    // 先删除所有检查点
+    await this.prisma.slidesCheckpoint.deleteMany({
+      where: { sessionId },
+    });
+
+    // 再删除会话
+    await this.prisma.slidesSession.delete({
+      where: { id: sessionId },
+    });
+  }
+
+  /**
    * 创建检查点
    */
   async create(input: CreateCheckpointInput): Promise<Checkpoint> {

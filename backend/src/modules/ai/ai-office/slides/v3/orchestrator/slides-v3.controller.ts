@@ -14,6 +14,8 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
+  Patch,
   Body,
   Param,
   Query,
@@ -91,6 +93,11 @@ class ExportV3Dto {
   @IsOptional()
   @IsIn(["standard", "high"])
   quality?: "standard" | "high";
+}
+
+class UpdateSessionDto {
+  @IsString()
+  title!: string;
 }
 
 @Controller("ai-office/slides-v3")
@@ -511,6 +518,60 @@ export class SlidesV3Controller {
       this.logger.error(`[archiveSession] Error: ${error.message}`);
       throw new HttpException(
         error.message || "Failed to archive session",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * 更新会话标题
+   */
+  @Patch("sessions/:sessionId")
+  async updateSession(
+    @Param("sessionId") sessionId: string,
+    @Body() dto: UpdateSessionDto,
+  ): Promise<any> {
+    this.logger.log(
+      `[updateSession] Session: ${sessionId}, Title: ${dto.title}`,
+    );
+
+    try {
+      const session = await this.checkpointService.updateSessionTitle(
+        sessionId,
+        dto.title,
+      );
+
+      return {
+        success: true,
+        session,
+      };
+    } catch (error: any) {
+      this.logger.error(`[updateSession] Error: ${error.message}`);
+      throw new HttpException(
+        error.message || "Failed to update session",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * 删除会话
+   */
+  @Delete("sessions/:sessionId")
+  async deleteSession(@Param("sessionId") sessionId: string): Promise<any> {
+    this.logger.log(`[deleteSession] Session: ${sessionId}`);
+
+    try {
+      await this.checkpointService.deleteSession(sessionId);
+
+      return {
+        success: true,
+        message: "Session deleted successfully",
+      };
+    } catch (error: any) {
+      this.logger.error(`[deleteSession] Error: ${error.message}`);
+      throw new HttpException(
+        error.message || "Failed to delete session",
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
