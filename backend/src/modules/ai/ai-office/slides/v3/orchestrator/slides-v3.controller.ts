@@ -609,27 +609,154 @@ export class SlidesV3Controller {
    * 将 CheckpointState 转换为导出格式
    */
   private convertToExportFormat(sessionId: string, state: any): any {
+    // 从 globalStyles 构建主题
+    const globalStyles = state.globalStyles || {
+      canvasWidth: 1280,
+      canvasHeight: 720,
+      backgroundColor: "#0F172A",
+      cardBackground: "#1E293B",
+      borderColor: "#334155",
+      accentColor: "#D4AF37",
+      accentColorSecondary: "#3B82F6",
+      textPrimary: "#F8FAFC",
+      textSecondary: "#CBD5E1",
+      textMuted: "#94A3B8",
+      fontFamily: "'Noto Sans SC', sans-serif",
+    };
+
+    // 构建 PPTTheme
+    const theme = {
+      id: "genspark-dark",
+      name: "Genspark Dark",
+      colors: {
+        primary: globalStyles.accentColor || "#D4AF37",
+        secondary: globalStyles.accentColorSecondary || "#3B82F6",
+        accent: globalStyles.accentColor || "#D4AF37",
+        background: globalStyles.backgroundColor || "#0F172A",
+        backgroundSecondary: globalStyles.cardBackground || "#1E293B",
+        text: globalStyles.textPrimary || "#F8FAFC",
+        textLight: globalStyles.textSecondary || "#CBD5E1",
+        textMuted: globalStyles.textMuted || "#94A3B8",
+      },
+      fonts: {
+        heading: globalStyles.fontFamily || "'Noto Sans SC', sans-serif",
+        body: globalStyles.fontFamily || "'Noto Sans SC', sans-serif",
+      },
+    };
+
     // 转换为 PPTDocument 格式
     return {
       id: sessionId,
       title: state.outlinePlan?.title || "Untitled",
-      slides: (state.pages || []).map((page: any) => ({
-        id: `slide-${page.pageNumber}`,
-        spec: {
-          id: `spec-${page.pageNumber}`,
-          index: page.pageNumber - 1,
-          purpose: page.outline?.templateType || "content",
-          title: page.outline?.title || "",
-          contentOutline: page.content?.keyPoints || [],
-        },
-        content: {
-          title: page.content?.title || page.outline?.title || "",
-          sections: page.content?.sections || [],
-          dataPoints: page.content?.dataPoints || [],
-        },
-        html: page.html || "",
-        generatedAt: new Date().toISOString(),
-      })),
+      subtitle: state.taskDecomposition?.designStrategy?.overallStyle || "",
+      theme,
+      slides: (state.pages || []).map((page: any, idx: number) => {
+        // 映射模板类型到布局类型
+        const layoutTypeMap: Record<string, string> = {
+          cover: "title_center",
+          toc: "bullet_points",
+          pillars: "statistics_cards",
+          framework: "two_columns",
+          timeline: "timeline_horizontal",
+          dashboard: "statistics_cards",
+          comparison: "comparison_split",
+          caseStudy: "text_image_right",
+          multiColumn: "two_columns",
+          recommendations: "bullet_points",
+          riskOpportunity: "comparison_split",
+          evolutionRoadmap: "timeline_horizontal",
+          splitLayout: "text_image_right",
+        };
+
+        // 映射模板类型到目的
+        const purposeMap: Record<string, string> = {
+          cover: "title",
+          toc: "toc",
+          pillars: "content",
+          framework: "content",
+          timeline: "content",
+          dashboard: "content",
+          comparison: "content",
+          caseStudy: "content",
+          multiColumn: "content",
+          recommendations: "closing",
+          riskOpportunity: "content",
+          evolutionRoadmap: "content",
+          splitLayout: "content",
+        };
+
+        const templateType = page.outline?.templateType || "content";
+
+        // 从 sections 提取 bulletPoints
+        const bulletPoints: string[] = [];
+        const statistics: any[] = [];
+
+        if (page.content?.sections) {
+          for (const section of page.content.sections) {
+            if (section.type === "list" && Array.isArray(section.content)) {
+              bulletPoints.push(...section.content);
+            } else if (
+              section.type === "text" &&
+              typeof section.content === "string"
+            ) {
+              bulletPoints.push(section.content);
+            } else if (section.type === "stat" && section.content) {
+              statistics.push({
+                value: section.content.value || "0",
+                label: section.content.label || "",
+                trend: section.content.trend,
+                comparison: section.content.change,
+              });
+            }
+          }
+        }
+
+        return {
+          id: `slide-${page.pageNumber}`,
+          index: idx,
+          spec: {
+            id: `spec-${page.pageNumber}`,
+            index: idx,
+            purpose: purposeMap[templateType] || "content",
+            layoutType: layoutTypeMap[templateType] || "bullet_points",
+            title: page.outline?.title || "",
+            contentOutline:
+              page.content?.keyPoints || page.outline?.keyPoints || [],
+            backgroundDecision: {
+              type: "gradient",
+              colors: {
+                primary: globalStyles.backgroundColor,
+                secondary: globalStyles.cardBackground,
+              },
+            },
+          },
+          content: {
+            title: page.content?.title || page.outline?.title || "",
+            subtitle: page.content?.subtitle || page.outline?.subtitle || "",
+            bulletPoints:
+              bulletPoints.length > 0
+                ? bulletPoints
+                : page.outline?.keyPoints || [],
+            bodyText: page.content?.footer || "",
+            statistics,
+            quote: page.content?.quotes?.[0]
+              ? {
+                  text: page.content.quotes[0].text,
+                  author: page.content.quotes[0].author,
+                  source: page.content.quotes[0].source,
+                }
+              : undefined,
+          },
+          images: (page.images || []).map((img: any) => ({
+            id: img.id,
+            url: img.url,
+            position: img.position,
+            prompt: img.prompt,
+          })),
+          html: page.html || "",
+          generatedAt: new Date().toISOString(),
+        };
+      }),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
