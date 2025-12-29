@@ -47,7 +47,14 @@ export class AIProviderFactory {
     // OpenAI GPT
     this.registerProvider({
       providerId: "openai",
-      providerAliases: ["gpt", "openai-gpt"],
+      providerAliases: [
+        "gpt",
+        "openai-gpt",
+        "gpt-4",
+        "gpt-4o",
+        "gpt-3.5",
+        "chatgpt",
+      ],
       instance: new OpenAITextProvider(this.httpService),
       supportedTaskTypes: [
         AiTaskType.CHAT,
@@ -61,7 +68,13 @@ export class AIProviderFactory {
     // DALL-E
     this.registerProvider({
       providerId: "openai-dalle",
-      providerAliases: ["dalle", "dall-e"],
+      providerAliases: [
+        "dalle",
+        "dall-e",
+        "dall-e-3",
+        "dall-e-2",
+        "openai-image",
+      ],
       instance: new DallEProvider(this.httpService),
       supportedTaskTypes: [
         AiTaskType.IMAGE_GENERATION,
@@ -72,7 +85,13 @@ export class AIProviderFactory {
     // Anthropic Claude
     this.registerProvider({
       providerId: "anthropic",
-      providerAliases: ["claude"],
+      providerAliases: [
+        "claude",
+        "claude-3",
+        "claude-3.5",
+        "claude-sonnet",
+        "claude-opus",
+      ],
       instance: new AnthropicProvider(this.httpService),
       supportedTaskTypes: [
         AiTaskType.CHAT,
@@ -86,7 +105,14 @@ export class AIProviderFactory {
     // Google Gemini
     this.registerProvider({
       providerId: "google-gemini",
-      providerAliases: ["gemini", "google"],
+      providerAliases: [
+        "gemini",
+        "google",
+        "gemini-2",
+        "gemini-1.5",
+        "gemini-pro",
+        "gemini-flash",
+      ],
       instance: new GeminiProvider(this.httpService),
       supportedTaskTypes: [
         AiTaskType.CHAT,
@@ -101,7 +127,7 @@ export class AIProviderFactory {
     // Google Imagen
     this.registerProvider({
       providerId: "google-imagen",
-      providerAliases: ["imagen"],
+      providerAliases: ["imagen", "imagen-4", "imagen-3", "imagen-2"],
       instance: new ImagenProvider(this.httpService),
       supportedTaskTypes: [AiTaskType.IMAGE_GENERATION],
     });
@@ -109,7 +135,7 @@ export class AIProviderFactory {
     // xAI Grok
     this.registerProvider({
       providerId: "xai",
-      providerAliases: ["grok", "x"],
+      providerAliases: ["grok", "x", "grok-3", "grok-2", "x.ai"],
       instance: new XAIProvider(this.httpService),
       supportedTaskTypes: [
         AiTaskType.CHAT,
@@ -123,7 +149,7 @@ export class AIProviderFactory {
     // xAI Grok Image
     this.registerProvider({
       providerId: "xai-image",
-      providerAliases: ["grok-image", "aurora"],
+      providerAliases: ["grok-image", "aurora", "grok-2-image", "x-image"],
       instance: new XAIImageProvider(this.httpService),
       supportedTaskTypes: [AiTaskType.IMAGE_GENERATION],
     });
@@ -159,19 +185,51 @@ export class AIProviderFactory {
    * 根据模型配置获取合适的 Provider
    */
   getProviderForModel(model: AiModelConfig): IAIProvider | undefined {
+    this.logger.debug(
+      `[getProviderForModel] Looking for provider: name=${model.name}, provider=${model.provider}, modelId=${model.modelId}`,
+    );
+
     // 首先尝试通过 provider 字段匹配
     const byProvider = this.getProvider(model.provider);
-    if (byProvider && byProvider.supportsModel(model.modelId)) {
+    if (byProvider) {
+      if (byProvider.supportsModel(model.modelId)) {
+        this.logger.debug(
+          `[getProviderForModel] Found by provider field: ${model.provider}`,
+        );
+        return byProvider;
+      }
+      // 即使 supportsModel 返回 false，如果 provider 精确匹配，也使用它
+      // 这处理了用户配置自定义 modelId 的情况
+      this.logger.debug(
+        `[getProviderForModel] Provider ${model.provider} found but doesn't support modelId=${model.modelId}, still using it`,
+      );
       return byProvider;
     }
 
     // 其次通过模型 ID 自动匹配
     for (const [, registration] of this.providers) {
       if (registration.instance.supportsModel(model.modelId)) {
+        this.logger.debug(
+          `[getProviderForModel] Found by modelId match: ${registration.providerId}`,
+        );
         return registration.instance;
       }
     }
 
+    // 最后尝试通过模型名称匹配
+    const modelNameLower = model.name?.toLowerCase() || "";
+    for (const [, registration] of this.providers) {
+      if (registration.instance.supportsModel(modelNameLower)) {
+        this.logger.debug(
+          `[getProviderForModel] Found by model name match: ${registration.providerId}`,
+        );
+        return registration.instance;
+      }
+    }
+
+    this.logger.warn(
+      `[getProviderForModel] No provider found for: name=${model.name}, provider=${model.provider}, modelId=${model.modelId}`,
+    );
     return undefined;
   }
 
