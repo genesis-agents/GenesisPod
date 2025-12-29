@@ -30,6 +30,10 @@ import {
   Sparkles,
   RefreshCw,
   Trash2,
+  LayoutGrid,
+  List,
+  Plus,
+  FolderOpen,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils/common';
@@ -53,6 +57,8 @@ import {
   formatRelativeTime,
   SlidesHistoryItem,
 } from '@/stores/slidesHistoryStore';
+import { useAuth } from '@/contexts/AuthContext';
+import { config } from '@/lib/utils/config';
 
 // ============================================================================
 // 类型定义
@@ -76,10 +82,16 @@ export function SlidesTabV3() {
     useSlidesV3Store();
   const { generate, cancel } = useSlideGenerationV3();
   const { createCheckpoint, checkpoints } = useCheckpoints();
-  const { history, addHistory, removeHistory, clearHistory } =
+  const { history, addHistory, updateHistory, removeHistory, clearHistory } =
     useSlidesHistoryStore();
+  const { restoreCheckpoint } = useCheckpoints();
+  const { user } = useAuth();
   const [toolCalls, setToolCalls] = useState<ToolCallItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [showNewForm, setShowNewForm] = useState(false);
+  const currentHistoryIdRef = useRef<string | null>(null);
 
   // 将 streamEvents 转换为 toolCalls
   useEffect(() => {
@@ -156,18 +168,72 @@ export function SlidesTabV3() {
 
   const handleGenerate = useCallback(
     (request: GenerateV3Request) => {
-      addHistory({
+      const historyId = addHistory({
         title: request.title,
         sourceText: request.sourceText.slice(0, 200),
         targetPages: request.targetPages || 10,
         status: 'pending',
       });
+      currentHistoryIdRef.current = historyId;
       generate(request);
     },
     [generate, addHistory]
   );
 
-  // 初始状态 - 显示输入表单
+  // 监听 session 创建和完成事件，更新历史记录
+  useEffect(() => {
+    const historyId = currentHistoryIdRef.current;
+    if (!historyId) return;
+
+    // 查找最新的 session_created 和 complete 事件
+    const sessionEvent = streamEvents.find((e) => e.type === 'session_created');
+    const completeEvent = streamEvents.find((e) => e.type === 'complete');
+
+    if (sessionEvent) {
+      const sessionData = sessionEvent.data as {
+        session: { id: string; title: string };
+      };
+      updateHistory(historyId, {
+        sessionId: sessionData.session.id,
+      });
+    }
+
+    if (completeEvent) {
+      const completeData = completeEvent.data as {
+        sessionId: string;
+        checkpointId: string;
+      };
+      updateHistory(historyId, {
+        status: 'success',
+        sessionId: completeData.sessionId,
+        checkpointId: completeData.checkpointId,
+      });
+      currentHistoryIdRef.current = null;
+    }
+  }, [streamEvents, updateHistory]);
+
+  // 恢复历史记录
+  const handleRestoreHistory = useCallback(
+    async (item: SlidesHistoryItem) => {
+      if (!item.checkpointId) {
+        console.warn('No checkpointId in history item');
+        return;
+      }
+
+      setRestoring(true);
+      try {
+        await restoreCheckpoint(item.checkpointId);
+        setShowHistory(false);
+      } catch (err) {
+        console.error('Failed to restore:', err);
+      } finally {
+        setRestoring(false);
+      }
+    },
+    [restoreCheckpoint]
+  );
+
+  // 初始状态 - 显示 Sessions 画廊或输入表单
   if (!session && pages.length === 0 && !generating) {
     return (
       <div className="flex h-full flex-col overflow-hidden bg-white">
@@ -176,6 +242,10 @@ export function SlidesTabV3() {
           showHistory={showHistory}
           onToggleHistory={() => setShowHistory(!showHistory)}
           onCreateCheckpoint={handleCreateCheckpoint}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          onNewClick={() => setShowNewForm(true)}
+          showViewToggle={!showNewForm}
         />
 
         {/* 历史记录面板 */}
@@ -184,10 +254,23 @@ export function SlidesTabV3() {
           history={history}
           onRemove={removeHistory}
           onClear={clearHistory}
+          onRestore={handleRestoreHistory}
         />
 
-        {/* 初始输入表单 */}
-        <InitialInputForm onGenerate={handleGenerate} />
+        {/* 根据状态显示画廊或输入表单 */}
+        {showNewForm ? (
+          <InitialInputForm
+            onGenerate={handleGenerate}
+            onCancel={() => setShowNewForm(false)}
+          />
+        ) : (
+          <SessionsGallery
+            history={history}
+            viewMode={viewMode}
+            onRestore={handleRestoreHistory}
+            onNewClick={() => setShowNewForm(true)}
+          />
+        )}
       </div>
     );
   }
@@ -209,6 +292,7 @@ export function SlidesTabV3() {
         history={history}
         onRemove={removeHistory}
         onClear={clearHistory}
+        onRestore={handleRestoreHistory}
       />
 
       {/* 两栏布局 */}
@@ -238,11 +322,19 @@ function Header({
   showHistory,
   onToggleHistory,
   onCreateCheckpoint,
+  viewMode,
+  onViewModeChange,
+  onNewClick,
+  showViewToggle = false,
 }: {
   title?: string;
   showHistory: boolean;
   onToggleHistory: () => void;
   onCreateCheckpoint: () => void;
+  viewMode?: 'grid' | 'list';
+  onViewModeChange?: (mode: 'grid' | 'list') => void;
+  onNewClick?: () => void;
+  showViewToggle?: boolean;
 }) {
   const [showExportMenu, setShowExportMenu] = useState(false);
 
@@ -260,6 +352,47 @@ function Header({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* 新建按钮 */}
+          {onNewClick && (
+            <button
+              onClick={onNewClick}
+              className="flex items-center gap-1.5 rounded-lg bg-orange-500 px-3 py-2 text-sm font-medium text-white hover:bg-orange-600"
+            >
+              <Plus className="h-4 w-4" />
+              新建
+            </button>
+          )}
+
+          {/* 视图切换 */}
+          {showViewToggle && viewMode && onViewModeChange && (
+            <div className="flex items-center rounded-lg border border-gray-200 p-1">
+              <button
+                onClick={() => onViewModeChange('grid')}
+                className={cn(
+                  'rounded p-1.5 transition-colors',
+                  viewMode === 'grid'
+                    ? 'bg-orange-100 text-orange-600'
+                    : 'text-gray-400 hover:text-gray-600'
+                )}
+                title="网格视图"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => onViewModeChange('list')}
+                className={cn(
+                  'rounded p-1.5 transition-colors',
+                  viewMode === 'list'
+                    ? 'bg-orange-100 text-orange-600'
+                    : 'text-gray-400 hover:text-gray-600'
+                )}
+                title="列表视图"
+              >
+                <List className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
           {/* 历史记录 */}
           <button
             onClick={onToggleHistory}
@@ -312,11 +445,13 @@ function HistoryPanel({
   history,
   onRemove,
   onClear,
+  onRestore,
 }: {
   show: boolean;
   history: SlidesHistoryItem[];
   onRemove: (id: string) => void;
   onClear: () => void;
+  onRestore: (item: SlidesHistoryItem) => void;
 }) {
   return (
     <AnimatePresence>
@@ -349,7 +484,13 @@ function HistoryPanel({
                 {history.slice(0, 20).map((item) => (
                   <div
                     key={item.id}
-                    className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-3 hover:border-gray-300"
+                    onClick={() => item.sessionId && onRestore(item)}
+                    className={cn(
+                      'flex items-center justify-between rounded-lg border border-gray-200 bg-white p-3 transition-colors',
+                      item.sessionId
+                        ? 'cursor-pointer hover:border-orange-300 hover:bg-orange-50'
+                        : 'hover:border-gray-300'
+                    )}
                   >
                     <div className="mr-2 min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-gray-900">
@@ -369,11 +510,19 @@ function HistoryPanel({
                         ) : (
                           <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
                         )}
+                        {item.sessionId && (
+                          <span className="text-xs text-orange-500">
+                            点击恢复
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
                       <button
-                        onClick={() => onRemove(item.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRemove(item.id);
+                        }}
                         className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-red-500"
                         title="删除"
                       >
@@ -890,8 +1039,10 @@ function ProgressBar() {
 
 function InitialInputForm({
   onGenerate,
+  onCancel,
 }: {
   onGenerate: (request: GenerateV3Request) => void;
+  onCancel?: () => void;
 }) {
   const [title, setTitle] = useState('');
   const [sourceText, setSourceText] = useState('');
@@ -913,9 +1064,19 @@ function InitialInputForm({
       <div className="flex-1 overflow-auto p-8">
         <div className="mx-auto w-full max-w-2xl">
           <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
-            <h2 className="mb-6 text-xl font-semibold text-gray-900">
-              创建新的演示文稿
-            </h2>
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900">
+                创建新的演示文稿
+              </h2>
+              {onCancel && (
+                <button
+                  onClick={onCancel}
+                  className="text-sm text-gray-500 hover:text-gray-700"
+                >
+                  取消
+                </button>
+              )}
+            </div>
 
             <div className="space-y-6">
               <div>
@@ -994,6 +1155,153 @@ function InitialInputForm({
         </div>
       </div>
     </main>
+  );
+}
+
+// ============================================================================
+// Sessions 画廊组件
+// ============================================================================
+
+function SessionsGallery({
+  history,
+  viewMode,
+  onRestore,
+  onNewClick,
+}: {
+  history: SlidesHistoryItem[];
+  viewMode: 'grid' | 'list';
+  onRestore: (item: SlidesHistoryItem) => void;
+  onNewClick: () => void;
+}) {
+  // 只显示有 sessionId 的成功项目
+  const sessions = history.filter(
+    (item) => item.sessionId && item.status === 'success'
+  );
+
+  if (sessions.length === 0) {
+    return (
+      <main className="flex min-h-0 flex-1 flex-col items-center justify-center bg-gray-50 p-8">
+        <div className="text-center">
+          <FolderOpen className="mx-auto mb-4 h-16 w-16 text-gray-300" />
+          <h2 className="mb-2 text-lg font-medium text-gray-900">
+            还没有演示文稿
+          </h2>
+          <p className="mb-6 text-sm text-gray-500">
+            点击新建按钮创建您的第一个 AI 演示文稿
+          </p>
+          <button
+            onClick={onNewClick}
+            className="inline-flex items-center gap-2 rounded-lg bg-orange-500 px-6 py-3 text-sm font-medium text-white hover:bg-orange-600"
+          >
+            <Plus className="h-4 w-4" />
+            新建演示文稿
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="flex min-h-0 flex-1 flex-col bg-gray-50">
+      <div className="flex-1 overflow-auto p-6">
+        {viewMode === 'grid' ? (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {sessions.map((item) => (
+              <SessionGridCard
+                key={item.id}
+                item={item}
+                onClick={() => onRestore(item)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {sessions.map((item) => (
+              <SessionListItem
+                key={item.id}
+                item={item}
+                onClick={() => onRestore(item)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
+
+// 网格卡片
+function SessionGridCard({
+  item,
+  onClick,
+}: {
+  item: SlidesHistoryItem;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white text-left transition-all hover:border-orange-300 hover:shadow-lg"
+    >
+      {/* 缩略图占位 */}
+      <div className="relative aspect-[16/9] bg-gradient-to-br from-slate-800 to-slate-900">
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Layers className="h-8 w-8 text-slate-600" />
+        </div>
+        <div className="absolute bottom-2 right-2 rounded bg-black/50 px-1.5 py-0.5 text-xs text-white">
+          {item.targetPages || '?'} 页
+        </div>
+      </div>
+
+      {/* 信息 */}
+      <div className="flex-1 p-3">
+        <h3 className="line-clamp-2 text-sm font-medium text-gray-900 group-hover:text-orange-600">
+          {item.title}
+        </h3>
+        <p className="mt-1 text-xs text-gray-500">
+          {formatRelativeTime(item.timestamp)}
+        </p>
+      </div>
+    </button>
+  );
+}
+
+// 列表项
+function SessionListItem({
+  item,
+  onClick,
+}: {
+  item: SlidesHistoryItem;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-4 rounded-lg border border-gray-200 bg-white p-4 text-left transition-all hover:border-orange-300 hover:bg-orange-50"
+    >
+      {/* 缩略图 */}
+      <div className="relative h-16 w-28 flex-shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-slate-800 to-slate-900">
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Layers className="h-6 w-6 text-slate-600" />
+        </div>
+      </div>
+
+      {/* 信息 */}
+      <div className="min-w-0 flex-1">
+        <h3 className="truncate text-sm font-medium text-gray-900">
+          {item.title}
+        </h3>
+        <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
+          <span>{formatRelativeTime(item.timestamp)}</span>
+          <span className="rounded bg-orange-100 px-1.5 py-0.5 text-orange-600">
+            {item.targetPages || '?'} 页
+          </span>
+        </div>
+      </div>
+
+      {/* 箭头 */}
+      <ChevronDown className="h-5 w-5 -rotate-90 text-gray-400" />
+    </button>
   );
 }
 
