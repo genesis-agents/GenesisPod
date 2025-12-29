@@ -1500,12 +1500,15 @@ function OutlineItem({ page, index }: { page: PageOutline; index: number }) {
 // 预览面板 - 右侧
 // ============================================================================
 
+type ViewMode = 'preview' | 'code' | 'thinking';
+
 function PreviewPanel() {
   const { pages, selectedPageIndex, setSelectedPageIndex } = useSlidesV3Store();
   const currentPage = pages[selectedPageIndex];
   const containerRef = useRef<HTMLDivElement>(null);
   const thumbnailStripRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [viewMode, setViewMode] = useState<ViewMode>('preview');
 
   // 鼠标滚轮切换页面
   const handleThumbnailWheel = useCallback(
@@ -1649,81 +1652,419 @@ function PreviewPanel() {
         </div>
       </div>
 
-      {/* 主预览区域 */}
+      {/* 视图模式切换标签 - Preview | Code | Thinking */}
+      <div className="flex-shrink-0 border-b border-slate-200 bg-white/60 px-4 py-2 backdrop-blur-sm">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setViewMode('preview')}
+            className={cn(
+              'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all',
+              viewMode === 'preview'
+                ? 'bg-orange-100 text-orange-700 shadow-sm'
+                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+            )}
+          >
+            <Eye className="h-4 w-4" />
+            Preview
+          </button>
+          <button
+            onClick={() => setViewMode('code')}
+            className={cn(
+              'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all',
+              viewMode === 'code'
+                ? 'bg-orange-100 text-orange-700 shadow-sm'
+                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+            )}
+          >
+            <Terminal className="h-4 w-4" />
+            Code
+          </button>
+          <button
+            onClick={() => setViewMode('thinking')}
+            className={cn(
+              'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all',
+              viewMode === 'thinking'
+                ? 'bg-orange-100 text-orange-700 shadow-sm'
+                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+            )}
+          >
+            <Brain className="h-4 w-4" />
+            Thinking
+          </button>
+
+          {/* 右侧操作按钮 */}
+          {currentPage?.html && viewMode === 'code' && (
+            <div className="ml-auto">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(currentPage.html || '');
+                }}
+                className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-700"
+              >
+                <Copy className="h-4 w-4" />
+                Copy
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 主内容区域 - 根据 viewMode 显示不同内容 */}
       <div
         ref={containerRef}
-        className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden p-4"
+        className="relative flex min-h-0 flex-1 overflow-hidden"
       >
-        {currentPage ? (
-          <div
-            className="relative rounded-xl shadow-2xl ring-1 ring-slate-700/50"
-            style={{
-              width: scaledWidth,
-              height: scaledHeight,
-              overflow: 'hidden',
-              // 硬件加速
-              willChange: 'transform',
-              backfaceVisibility: 'hidden',
-              perspective: 1000,
-            }}
-          >
-            {currentPage.html ? (
-              <iframe
-                srcDoc={enhanceHtmlForClarity(currentPage.html, scale)}
+        {/* Preview 模式 */}
+        {viewMode === 'preview' && (
+          <div className="flex flex-1 items-center justify-center p-4">
+            {currentPage ? (
+              <div
+                className="relative rounded-xl shadow-2xl ring-1 ring-slate-700/50"
                 style={{
                   width: scaledWidth,
                   height: scaledHeight,
-                  border: 'none',
-                  display: 'block',
-                  backgroundColor: '#0f172a',
+                  overflow: 'hidden',
+                  willChange: 'transform',
+                  backfaceVisibility: 'hidden',
+                  perspective: 1000,
                 }}
-                sandbox="allow-scripts"
-              />
-            ) : (
-              <div
-                className="flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900"
-                style={{ width: '100%', height: '100%' }}
               >
-                {currentPage.status === 'generating' ? (
-                  <div className="text-center">
-                    <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-orange-400" />
-                    <p className="text-sm font-medium text-slate-300">
-                      正在生成第 {currentPage.pageNumber} 页...
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">请稍候</p>
-                  </div>
-                ) : currentPage.status === 'error' ? (
-                  <div className="text-center">
-                    <AlertCircle className="mx-auto mb-4 h-10 w-10 text-red-400" />
-                    <p className="text-sm font-medium text-red-300">
-                      {currentPage.error || '生成失败'}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      请重试或检查内容
-                    </p>
-                  </div>
+                {currentPage.html ? (
+                  <iframe
+                    srcDoc={enhanceHtmlForClarity(currentPage.html, scale)}
+                    style={{
+                      width: scaledWidth,
+                      height: scaledHeight,
+                      border: 'none',
+                      display: 'block',
+                      backgroundColor: '#0f172a',
+                    }}
+                    sandbox="allow-scripts"
+                  />
                 ) : (
-                  <div className="text-center">
-                    <Layers className="mx-auto mb-4 h-10 w-10 text-slate-600" />
-                    <p className="text-sm font-medium text-slate-400">
-                      等待生成...
+                  <div
+                    className="flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900"
+                    style={{ width: '100%', height: '100%' }}
+                  >
+                    {currentPage.status === 'generating' ? (
+                      <div className="text-center">
+                        <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-orange-400" />
+                        <p className="text-sm font-medium text-slate-300">
+                          正在生成第 {currentPage.pageNumber} 页...
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">请稍候</p>
+                      </div>
+                    ) : currentPage.status === 'error' ? (
+                      <div className="text-center">
+                        <AlertCircle className="mx-auto mb-4 h-10 w-10 text-red-400" />
+                        <p className="text-sm font-medium text-red-300">
+                          {currentPage.error || '生成失败'}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          请重试或检查内容
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        <Layers className="mx-auto mb-4 h-10 w-10 text-slate-600" />
+                        <p className="text-sm font-medium text-slate-400">
+                          等待生成...
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center">
+                <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-200">
+                  <Grid3X3 className="h-10 w-10 text-slate-400" />
+                </div>
+                <p className="text-lg font-medium text-slate-700">
+                  开始生成演示文稿
+                </p>
+                <p className="mt-2 text-sm text-slate-500">
+                  在左侧输入内容并点击生成
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Code 模式 - 显示当前页面的 HTML 代码 */}
+        {viewMode === 'code' && (
+          <div className="flex-1 overflow-auto bg-slate-900 p-4">
+            {currentPage?.html ? (
+              <pre className="font-mono text-sm leading-relaxed text-slate-300">
+                <code>{formatHtmlCode(currentPage.html)}</code>
+              </pre>
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <div className="text-center">
+                  <Terminal className="mx-auto mb-4 h-10 w-10 text-slate-600" />
+                  <p className="text-sm text-slate-500">
+                    {currentPage
+                      ? '代码将在生成完成后显示'
+                      : '选择一个页面查看代码'}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Thinking 模式 - 显示 AI 的思考过程 */}
+        {viewMode === 'thinking' && (
+          <div className="flex-1 overflow-auto bg-slate-50 p-4">
+            {currentPage ? (
+              <div className="space-y-4">
+                {/* 页面大纲信息 */}
+                <div className="rounded-lg border border-slate-200 bg-white p-4">
+                  <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
+                    <FileText className="h-4 w-4 text-orange-500" />
+                    页面大纲
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <span className="text-slate-500">标题: </span>
+                      <span className="font-medium text-slate-700">
+                        {currentPage.outline?.title || '未设置'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">模板类型: </span>
+                      <span className="rounded bg-orange-100 px-2 py-0.5 text-orange-700">
+                        {currentPage.outline?.templateType || '未知'}
+                      </span>
+                    </div>
+                    {currentPage.outline?.keyPoints &&
+                      currentPage.outline.keyPoints.length > 0 && (
+                        <div>
+                          <span className="text-slate-500">要点:</span>
+                          <ul className="mt-1 list-inside list-disc space-y-1 text-slate-600">
+                            {currentPage.outline.keyPoints.map((point, i) => (
+                              <li key={i}>{point}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                  </div>
+                </div>
+
+                {/* 设计思考过程 - 4 步 */}
+                {currentPage.design && (
+                  <>
+                    {/* Step 1: 草稿设计 */}
+                    <div className="rounded-lg border border-slate-200 bg-white p-4">
+                      <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
+                          1
+                        </span>
+                        Drafting 草稿设计
+                      </h3>
+                      <div className="space-y-2 text-sm">
+                        <div>
+                          <span className="text-slate-500">风格: </span>
+                          <span className="text-slate-700">
+                            {currentPage.design.step1_drafting?.style || '-'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500">情绪: </span>
+                          <span className="text-slate-700">
+                            {currentPage.design.step1_drafting?.mood || '-'}
+                          </span>
+                        </div>
+                        {currentPage.design.step1_drafting?.coreElements && (
+                          <div>
+                            <span className="text-slate-500">核心元素:</span>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {currentPage.design.step1_drafting.coreElements.map(
+                                (el, i) => (
+                                  <span
+                                    key={i}
+                                    className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
+                                  >
+                                    {el}
+                                  </span>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Step 2: 布局优化 */}
+                    <div className="rounded-lg border border-slate-200 bg-white p-4">
+                      <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-green-100 text-xs font-bold text-green-700">
+                          2
+                        </span>
+                        Layout 布局优化
+                      </h3>
+                      <div className="space-y-2 text-sm">
+                        <div>
+                          <span className="text-slate-500">对齐方式: </span>
+                          <span className="text-slate-700">
+                            {currentPage.design.step2_refiningLayout
+                              ?.alignment || '-'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500">图形位置: </span>
+                          <span className="text-slate-700">
+                            {currentPage.design.step2_refiningLayout
+                              ?.graphicsPosition || '-'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500">间距: </span>
+                          <span className="text-slate-700">
+                            {currentPage.design.step2_refiningLayout?.spacing ||
+                              '-'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Step 3: 视觉规划 */}
+                    <div className="rounded-lg border border-slate-200 bg-white p-4">
+                      <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-purple-100 text-xs font-bold text-purple-700">
+                          3
+                        </span>
+                        Visuals 视觉规划
+                      </h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className="text-slate-500">背景色: </span>
+                          {currentPage.design.step3_planningVisuals
+                            ?.backgroundColor && (
+                            <>
+                              <span
+                                className="inline-block h-4 w-4 rounded border border-slate-300"
+                                style={{
+                                  backgroundColor:
+                                    currentPage.design.step3_planningVisuals
+                                      .backgroundColor,
+                                }}
+                              />
+                              <span className="font-mono text-xs text-slate-600">
+                                {
+                                  currentPage.design.step3_planningVisuals
+                                    .backgroundColor
+                                }
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        {currentPage.design.step3_planningVisuals
+                          ?.accentColors && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-slate-500">强调色:</span>
+                            <div className="flex gap-1">
+                              {currentPage.design.step3_planningVisuals.accentColors.map(
+                                (color, i) => (
+                                  <span
+                                    key={i}
+                                    className="inline-block h-4 w-4 rounded border border-slate-300"
+                                    style={{ backgroundColor: color }}
+                                    title={color}
+                                  />
+                                )
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {currentPage.design.step3_planningVisuals
+                          ?.decorations &&
+                          currentPage.design.step3_planningVisuals.decorations
+                            .length > 0 && (
+                            <div>
+                              <span className="text-slate-500">装饰元素:</span>
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {currentPage.design.step3_planningVisuals.decorations.map(
+                                  (dec, i) => (
+                                    <span
+                                      key={i}
+                                      className="rounded bg-purple-100 px-2 py-0.5 text-xs text-purple-700"
+                                    >
+                                      {dec}
+                                    </span>
+                                  )
+                                )}
+                              </div>
+                            </div>
+                          )}
+                      </div>
+                    </div>
+
+                    {/* Step 4: HTML 生成 */}
+                    <div className="rounded-lg border border-slate-200 bg-white p-4">
+                      <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-100 text-xs font-bold text-orange-700">
+                          4
+                        </span>
+                        HTML 生成
+                      </h3>
+                      <div className="space-y-2 text-sm">
+                        <div>
+                          <span className="text-slate-500">状态: </span>
+                          <span
+                            className={cn('rounded px-2 py-0.5', {
+                              'bg-green-100 text-green-700': currentPage.html,
+                              'bg-yellow-100 text-yellow-700':
+                                !currentPage.html,
+                            })}
+                          >
+                            {currentPage.html ? '已生成' : '待生成'}
+                          </span>
+                        </div>
+                        {currentPage.design.step4_formulatingHTML
+                          ?.externalDependencies &&
+                          currentPage.design.step4_formulatingHTML
+                            .externalDependencies.length > 0 && (
+                            <div>
+                              <span className="text-slate-500">外部依赖:</span>
+                              <ul className="mt-1 list-inside list-disc text-xs text-slate-600">
+                                {currentPage.design.step4_formulatingHTML.externalDependencies.map(
+                                  (dep, i) => (
+                                    <li key={i} className="truncate">
+                                      {dep}
+                                    </li>
+                                  )
+                                )}
+                              </ul>
+                            </div>
+                          )}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* 如果没有设计数据 */}
+                {!currentPage.design && (
+                  <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+                    <Brain className="mx-auto mb-3 h-8 w-8 text-slate-400" />
+                    <p className="text-sm text-slate-500">
+                      {currentPage.status === 'generating'
+                        ? '正在思考中...'
+                        : '设计思考数据将在生成时显示'}
                     </p>
                   </div>
                 )}
               </div>
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <div className="text-center">
+                  <Brain className="mx-auto mb-4 h-10 w-10 text-slate-400" />
+                  <p className="text-sm text-slate-500">
+                    选择一个页面查看 AI 思考过程
+                  </p>
+                </div>
+              </div>
             )}
-          </div>
-        ) : (
-          <div className="text-center">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-200">
-              <Grid3X3 className="h-10 w-10 text-slate-400" />
-            </div>
-            <p className="text-lg font-medium text-slate-700">
-              开始生成演示文稿
-            </p>
-            <p className="mt-2 text-sm text-slate-500">
-              在左侧输入内容并点击生成
-            </p>
           </div>
         )}
       </div>
@@ -2490,6 +2831,41 @@ function getStatusText(status: string): string {
     error: '失败',
   };
   return texts[status] || status;
+}
+
+/**
+ * 格式化 HTML 代码，添加缩进以提高可读性
+ */
+function formatHtmlCode(html: string): string {
+  try {
+    let formatted = '';
+    let indent = 0;
+    const lines = html.split(/>\s*</);
+
+    lines.forEach((line, i) => {
+      // 检测是否为自闭合标签或闭合标签
+      const isClosingTag = line.match(/^\/\w/);
+      const isSelfClosing = line.match(/\/$/);
+      const isOpeningTag =
+        line.match(/^<?\w/) && !isClosingTag && !isSelfClosing;
+
+      if (isClosingTag) {
+        indent = Math.max(0, indent - 1);
+      }
+
+      const prefix = i === 0 ? '' : '<';
+      const suffix = i === lines.length - 1 ? '' : '>';
+      formatted += '  '.repeat(indent) + prefix + line + suffix + '\n';
+
+      if (isOpeningTag && !isSelfClosing) {
+        indent++;
+      }
+    });
+
+    return formatted.trim();
+  } catch {
+    return html; // 如果格式化失败，返回原始代码
+  }
 }
 
 export default SlidesTabV3;
