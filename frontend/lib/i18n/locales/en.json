@@ -502,12 +502,12 @@
     "signInDesc": "Create and join collaborative teams with AI assistants"
   },
   "aiOffice": {
-    "title": "AI Reports",
-    "subtitle": "Smart Report Generation Workspace",
+    "title": "AI Excel",
+    "subtitle": "Smart Document Generation Workspace",
     "loading": "Loading...",
     "signIn": {
-      "title": "AI Reports",
-      "description": "Sign in to use smart report generation, including PPT, Word, Excel, and more",
+      "title": "AI Excel",
+      "description": "Sign in to use smart document generation, including PPT, Word, Excel, and more",
       "button": "Sign in with Google"
     },
     "header": {

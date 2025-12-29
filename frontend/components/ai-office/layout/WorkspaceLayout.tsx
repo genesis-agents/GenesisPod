@@ -3,19 +3,16 @@
 /**
  * AI Office 工作区布局组件
  * 三个专项 Tab：Slides/Docs/Designer
- * 右侧浮动：任务列表 (Genspark风格)
  * 注意：左侧菜单使用系统全局Sidebar
  */
 
 import React, { useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useTaskStore } from '@/stores/aiOfficeStore';
-import { ListTodo, Presentation, FileText, Palette } from 'lucide-react';
-import TaskList from '../task/TaskList';
+import { Presentation, FileText, Palette } from 'lucide-react';
 import CommandPalette, {
   useCommandPalette,
 } from '@/components/ai-studio/CommandPalette';
-import SlidesTab from '../tabs/SlidesTab';
+import { SlidesTabV3 } from '../slides-v3/SlidesTabV3';
 import DocsTab from '../tabs/DocsTab';
 import DesignerTab from '../tabs/DesignerTab';
 import { useTranslation } from '@/lib/i18n';
@@ -44,10 +41,6 @@ export default function WorkspaceLayout({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const commandPalette = useCommandPalette();
-
-  const tasks = useTaskStore((state) => state.tasks);
-  const isTaskListOpen = useTaskStore((state) => state.isTaskListOpen);
-  const toggleTaskList = useTaskStore((state) => state.toggleTaskList);
 
   // Update URL when tab changes
   const handleTabChange = (tab: WorkspaceTab) => {
@@ -108,7 +101,7 @@ export default function WorkspaceLayout({
         {activeTab === 'slides' && (
           /* AI Slides - PPT 生成器 */
           <div className="flex-1 overflow-hidden">
-            <SlidesTab />
+            <SlidesTabV3 />
           </div>
         )}
 
@@ -126,26 +119,6 @@ export default function WorkspaceLayout({
           </div>
         )}
       </div>
-
-      {/* 浮动任务列表按钮 (Genspark风格) */}
-      {!isTaskListOpen && (
-        <button
-          onClick={toggleTaskList}
-          className="fixed bottom-6 right-6 z-30 flex items-center space-x-2 rounded-full bg-blue-600 px-5 py-3 text-white shadow-lg transition-all hover:scale-105 hover:bg-blue-700 hover:shadow-xl active:scale-95"
-          title={t('aiOffice.taskButton.title')}
-        >
-          <ListTodo className="h-5 w-5" />
-          <span className="font-medium">{t('aiOffice.taskButton.label')}</span>
-          {tasks.length > 0 && (
-            <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs font-bold text-blue-600">
-              {tasks.length}
-            </span>
-          )}
-        </button>
-      )}
-
-      {/* 任务列表侧边栏 */}
-      <TaskList />
 
       {/* Command Palette (Cmd+K) */}
       <CommandPalette

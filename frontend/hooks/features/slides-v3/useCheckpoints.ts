@@ -174,6 +174,41 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
     [checkpoints]
   );
 
+  /**
+   * 手动创建检查点
+   */
+  const createCheckpoint = useCallback(
+    async (name: string) => {
+      if (!session?.id) {
+        console.warn('No session ID');
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `${API_BASE}/api/v1/ai-office/slides-v3/sessions/${session.id}/checkpoints`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, type: 'user_modified' }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error('Failed to create checkpoint');
+        }
+
+        // 刷新检查点列表
+        await fetchCheckpoints();
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : '创建检查点失败';
+        setError(errorMessage);
+      }
+    },
+    [session?.id, fetchCheckpoints, setError]
+  );
+
   return {
     // 状态
     checkpoints,
@@ -185,6 +220,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
     fetchCheckpoints,
     restoreCheckpoint,
     pruneCheckpoints,
+    createCheckpoint,
 
     // 工具
     getCheckpointPreview,

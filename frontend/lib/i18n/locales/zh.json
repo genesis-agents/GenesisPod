@@ -502,12 +502,12 @@
     "signInDesc": "创建并加入与 AI 助手协作的团队"
   },
   "aiOffice": {
-    "title": "AI 报告",
-    "subtitle": "智能报告生成工作区",
+    "title": "AI Excel",
+    "subtitle": "智能文档生成工作区",
     "loading": "加载中...",
     "signIn": {
-      "title": "AI 报告",
-      "description": "登录后即可使用智能报告生成功能，包括 PPT、Word、Excel 等",
+      "title": "AI Excel",
+      "description": "登录后即可使用智能文档生成功能，包括 PPT、Word、Excel 等",
       "button": "使用 Google 登录"
     },
     "header": {
