@@ -227,9 +227,9 @@ ${input.style || "formal"}
    */
   private calculateMaxCharacters(pageOutline: PageOutline): number {
     // 根据模板类型调整最大字符数
-    // 注意：封面页需要足够的字符来包含标题、副标题、元信息和数据亮点
+    // 封面页只需要标题+副标题，保持极简
     const templateLimits: Record<string, number> = {
-      cover: 400, // 封面需要标题+副标题+核心数据展示
+      cover: 100, // 封面只需要标题+副标题，极简设计
       toc: 300,
       questions: 300,
       pillars: 400,
