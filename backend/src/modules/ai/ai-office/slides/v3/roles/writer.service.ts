@@ -227,25 +227,26 @@ ${input.style || "formal"}
    */
   private calculateMaxCharacters(pageOutline: PageOutline): number {
     // 根据模板类型调整最大字符数
+    // 注意：封面页需要足够的字符来包含标题、副标题、元信息和数据亮点
     const templateLimits: Record<string, number> = {
-      cover: 100,
-      toc: 200,
-      questions: 200,
-      pillars: 250,
-      framework: 250,
-      timeline: 300,
-      evolutionRoadmap: 300,
-      dashboard: 200,
-      comparison: 300,
-      splitLayout: 300,
-      caseStudy: 350,
-      multiColumn: 300,
-      recommendations: 250,
-      maturityModel: 300,
-      riskOpportunity: 300,
+      cover: 400, // 封面需要标题+副标题+核心数据展示
+      toc: 300,
+      questions: 300,
+      pillars: 400,
+      framework: 400,
+      timeline: 400,
+      evolutionRoadmap: 400,
+      dashboard: 400, // 数据仪表板需要多个数据点
+      comparison: 450,
+      splitLayout: 450,
+      caseStudy: 500,
+      multiColumn: 450,
+      recommendations: 400,
+      maturityModel: 400,
+      riskOpportunity: 450,
     };
 
-    return templateLimits[pageOutline.templateType] || 300;
+    return templateLimits[pageOutline.templateType] || 400;
   }
 
   /**
