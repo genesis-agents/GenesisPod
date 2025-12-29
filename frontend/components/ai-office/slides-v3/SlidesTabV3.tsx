@@ -1187,11 +1187,11 @@ function ConversationPanel({
       </div>
 
       {/* 滚动区域 */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3">
         {/* 工具调用展示 */}
-        <div className="space-y-3">
+        <div className="space-y-2">
           {toolCalls.length === 0 && !generating ? (
-            <div className="py-8 text-center text-sm text-gray-400">
+            <div className="py-3 text-center text-sm text-gray-400">
               开始生成后将显示过程信息
             </div>
           ) : (
@@ -1200,7 +1200,7 @@ function ConversationPanel({
 
           {/* 当前进度 */}
           {generating && progress && (
-            <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+            <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-orange-700">
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -1210,14 +1210,14 @@ function ConversationPanel({
                 </div>
                 <button
                   onClick={onCancel}
-                  className="flex items-center gap-1 rounded-lg bg-orange-100 px-2.5 py-1 text-xs font-medium text-orange-700 transition-colors hover:bg-orange-200"
+                  className="flex items-center gap-1 rounded-lg bg-orange-100 px-2 py-1 text-xs font-medium text-orange-700 transition-colors hover:bg-orange-200"
                 >
                   <X className="h-3.5 w-3.5" />
                   取消
                 </button>
               </div>
               {progress.totalPages && (
-                <div className="mt-2 text-xs text-orange-600">
+                <div className="mt-1.5 text-xs text-orange-600">
                   页面 {progress.currentPage || 0} / {progress.totalPages}
                 </div>
               )}
@@ -1227,7 +1227,7 @@ function ConversationPanel({
 
         {/* 大纲预览 */}
         {outlinePlan && (
-          <div className="mt-4 rounded-lg border border-gray-200 bg-white p-4">
+          <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3">
             <button
               onClick={() => setOutlineExpanded(!outlineExpanded)}
               className="flex w-full items-center gap-2 text-left text-sm font-medium text-gray-700"
@@ -1258,14 +1258,14 @@ function ConversationPanel({
                     )}
                   </div>
 
-                  <div className="mt-4">
+                  <div className="mt-3">
                     {generating ? (
-                      <div className="flex items-center justify-center gap-2 rounded-lg bg-orange-100 py-2 text-sm font-medium text-orange-700">
+                      <div className="flex items-center justify-center gap-2 rounded-lg bg-orange-100 py-1.5 text-sm font-medium text-orange-700">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         正在生成页面...
                       </div>
                     ) : (
-                      <div className="flex items-center justify-center gap-2 rounded-lg bg-green-100 py-2 text-sm font-medium text-green-700">
+                      <div className="flex items-center justify-center gap-2 rounded-lg bg-green-100 py-1.5 text-sm font-medium text-green-700">
                         <CheckCircle2 className="h-4 w-4" />
                         大纲已确认，生成完成
                       </div>
@@ -1279,15 +1279,15 @@ function ConversationPanel({
       </div>
 
       {/* 固定在底部的输入框 */}
-      <div className="flex-shrink-0 border-t border-gray-200 bg-white p-4">
+      <div className="flex-shrink-0 border-t border-gray-200 bg-white p-3">
         <div className="flex items-end gap-2">
           <textarea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="输入修改建议..."
-            rows={1}
-            className="max-h-32 min-h-[40px] flex-1 resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+            placeholder="输入修改建议或反馈..."
+            rows={3}
+            className="max-h-40 min-h-[80px] flex-1 resize-none rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
           />
           <button
             onClick={handleSend}
@@ -1504,7 +1504,43 @@ function PreviewPanel() {
   const { pages, selectedPageIndex, setSelectedPageIndex } = useSlidesV3Store();
   const currentPage = pages[selectedPageIndex];
   const containerRef = useRef<HTMLDivElement>(null);
+  const thumbnailStripRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+
+  // 鼠标滚轮切换页面
+  const handleThumbnailWheel = useCallback(
+    (e: React.WheelEvent) => {
+      if (pages.length <= 1) return;
+
+      e.preventDefault();
+
+      // deltaY > 0 表示向下滚动（切换到下一页）
+      // deltaY < 0 表示向上滚动（切换到上一页）
+      if (e.deltaY > 0) {
+        // 下一页
+        setSelectedPageIndex(Math.min(selectedPageIndex + 1, pages.length - 1));
+      } else if (e.deltaY < 0) {
+        // 上一页
+        setSelectedPageIndex(Math.max(selectedPageIndex - 1, 0));
+      }
+    },
+    [pages.length, selectedPageIndex, setSelectedPageIndex]
+  );
+
+  // 自动滚动缩略图到当前选中页
+  useEffect(() => {
+    if (thumbnailStripRef.current && pages.length > 0) {
+      const strip = thumbnailStripRef.current;
+      const selectedThumb = strip.children[selectedPageIndex] as HTMLElement;
+      if (selectedThumb) {
+        selectedThumb.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'center',
+        });
+      }
+    }
+  }, [selectedPageIndex, pages.length]);
 
   // 使用 ResizeObserver 监听容器尺寸变化
   useEffect(() => {
@@ -1585,9 +1621,15 @@ function PreviewPanel() {
 
   return (
     <div className="flex flex-1 flex-col bg-gradient-to-br from-slate-100 to-slate-200">
-      {/* 缩略图区域 */}
-      <div className="flex-shrink-0 border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur-sm">
-        <div className="flex items-center gap-2 overflow-x-auto">
+      {/* 缩略图区域 - 支持鼠标滚轮切换页面 */}
+      <div
+        className="flex-shrink-0 border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur-sm"
+        onWheel={handleThumbnailWheel}
+      >
+        <div
+          ref={thumbnailStripRef}
+          className="scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent flex items-center gap-2 overflow-x-auto"
+        >
           {pages.length === 0 ? (
             <div className="flex h-14 w-full items-center justify-center text-sm text-slate-500">
               <Layers className="mr-2 h-4 w-4 opacity-50" />

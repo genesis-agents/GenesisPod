@@ -484,6 +484,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.aiTeams')}</span>}
           </Link>
 
+          {/* AI Coding - 暂时隐藏，待功能完善后对外开放
           <Link
             href="/ai-coding"
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium ${
@@ -493,7 +494,6 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             }`}
             title="AI Coding"
           >
-            {/* Code/Terminal icon */}
             <svg
               className="h-5 w-5 flex-shrink-0"
               fill="none"
@@ -509,6 +509,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             </svg>
             {showExpanded && <span>{t('nav.aiCoding')}</span>}
           </Link>
+          */}
 
           <Link
             href="/ai-simulation"
