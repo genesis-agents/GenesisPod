@@ -1568,11 +1568,17 @@ function PreviewPanel() {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [viewMode, setViewMode] = useState<ViewMode>('preview');
 
-  // 鼠标滚轮切换页面
+  // 鼠标滚轮切换页面（仅垂直滚动时，允许水平滚动正常工作）
   const handleThumbnailWheel = useCallback(
     (e: React.WheelEvent) => {
       if (pages.length <= 1) return;
 
+      // 如果是水平滚动（deltaX 大于 deltaY），让原生滚动处理
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+        return; // 不阻止默认行为，允许水平滚动
+      }
+
+      // 垂直滚动时切换页面
       e.preventDefault();
 
       // deltaY > 0 表示向下滚动（切换到下一页）
@@ -1681,15 +1687,15 @@ function PreviewPanel() {
   );
 
   return (
-    <div className="flex flex-1 flex-col bg-gradient-to-br from-slate-100 to-slate-200">
+    <div className="flex min-w-0 flex-1 flex-col bg-gradient-to-br from-slate-100 to-slate-200">
       {/* 缩略图区域 - 支持鼠标滚轮切换页面和水平滚动 */}
       <div
-        className="flex-shrink-0 overflow-hidden border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur-sm"
+        className="flex-shrink-0 border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur-sm"
         onWheel={handleThumbnailWheel}
       >
         <div
           ref={thumbnailStripRef}
-          className="scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent flex w-full items-center gap-2 overflow-x-auto pb-1"
+          className="scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent flex items-center gap-2 overflow-x-auto pb-1"
         >
           {pages.length === 0 ? (
             <div className="flex h-14 w-full items-center justify-center text-sm text-slate-500">
