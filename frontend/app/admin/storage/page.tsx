@@ -84,17 +84,13 @@ interface NodeMemoryStats {
   warnings: string[];
 }
 
-interface SystemMemoryStats {
-  totalMemory: number;
-  freeMemory: number;
-  usedMemory: number;
-  usedPercent: number;
-  platform: string;
-  cpuCount: number;
-  loadAverage: number[];
-  hostname: string;
-  status: 'healthy' | 'warning' | 'critical';
-}
+// Railway 数据库存储限额配置 (MB)
+const RAILWAY_DB_LIMITS = {
+  free: 1024, // 1GB 免费额度
+  hobby: 5120, // 5GB Hobby 计划
+  pro: 25600, // 25GB Pro 计划
+  enterprise: 102400, // 100GB Enterprise
+};
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 const ADMIN_KEY = 'deepdive-admin-cleanup-2024';
@@ -235,9 +231,6 @@ export default function StoragePage() {
   const [stats, setStats] = useState<StorageStats | null>(null);
   const [dbAnalysis, setDbAnalysis] = useState<DatabaseAnalysis | null>(null);
   const [nodeMemory, setNodeMemory] = useState<NodeMemoryStats | null>(null);
-  const [systemMemory, setSystemMemory] = useState<SystemMemoryStats | null>(
-    null
-  );
   const [loading, setLoading] = useState(true);
   const [analyzingDb, setAnalyzingDb] = useState(false);
   const [vacuuming, setVacuuming] = useState(false);
@@ -257,11 +250,11 @@ export default function StoragePage() {
   const loadStats = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch all data in parallel
-      const [statsRes, nodeMemRes, sysMemRes] = await Promise.all([
+      // Fetch stats and node memory in parallel, also try to get DB analysis
+      const [statsRes, nodeMemRes, dbRes] = await Promise.all([
         fetch(`${API_BASE}/api/v1/storage/stats?key=${ADMIN_KEY}`),
         fetch(`${API_BASE}/api/v1/storage/node-memory?key=${ADMIN_KEY}`),
-        fetch(`${API_BASE}/api/v1/storage/system-memory?key=${ADMIN_KEY}`),
+        fetch(`${API_BASE}/api/v1/storage/database-analysis?key=${ADMIN_KEY}`),
       ]);
 
       if (statsRes.ok) {
@@ -272,9 +265,9 @@ export default function StoragePage() {
         const data = await nodeMemRes.json();
         setNodeMemory(data);
       }
-      if (sysMemRes.ok) {
-        const data = await sysMemRes.json();
-        setSystemMemory(data);
+      if (dbRes.ok) {
+        const data = await dbRes.json();
+        setDbAnalysis(data);
       }
     } catch (error) {
       console.error('Failed to load storage stats:', error);
@@ -765,40 +758,84 @@ Provide detailed analysis with executable actions for each issue.`,
               )}
             </div>
 
-            {/* System Memory */}
+            {/* Railway Database Storage Quota */}
             <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
               <div className="flex items-center gap-2">
                 <Server className="h-5 w-5 text-green-600" />
                 <span className="text-sm font-medium text-gray-500">
-                  System Memory
+                  Railway DB Quota
                 </span>
               </div>
-              {systemMemory ? (
-                <>
-                  <div className="mt-2 text-3xl font-bold text-green-600">
-                    {systemMemory.usedMemory.toFixed(1)} GB
-                  </div>
-                  <div className="mt-1 text-xs text-gray-500">
-                    {systemMemory.usedPercent.toFixed(1)}% of{' '}
-                    {systemMemory.totalMemory.toFixed(1)} GB
-                  </div>
-                  <div className="mt-1 text-xs text-gray-400">
-                    {systemMemory.platform} | {systemMemory.cpuCount} CPUs
-                  </div>
-                  {systemMemory.status !== 'healthy' && (
-                    <div
-                      className={`mt-2 text-xs ${
-                        systemMemory.status === 'critical'
-                          ? 'text-red-600'
-                          : 'text-yellow-600'
-                      }`}
-                    >
-                      ⚠ High memory usage
-                    </div>
-                  )}
-                </>
+              {dbAnalysis ? (
+                (() => {
+                  const usedMB = dbAnalysis.totalDatabaseSizeMB;
+                  const limitMB = RAILWAY_DB_LIMITS.hobby; // 假设 Hobby 计划 5GB
+                  const usedPercent = (usedMB / limitMB) * 100;
+                  const status =
+                    usedPercent > 90
+                      ? 'critical'
+                      : usedPercent > 75
+                        ? 'warning'
+                        : 'healthy';
+                  return (
+                    <>
+                      <div
+                        className={`mt-2 text-3xl font-bold ${
+                          status === 'critical'
+                            ? 'text-red-600'
+                            : status === 'warning'
+                              ? 'text-yellow-600'
+                              : 'text-green-600'
+                        }`}
+                      >
+                        {formatSize(usedMB)}
+                      </div>
+                      <div className="mt-1 text-xs text-gray-500">
+                        {usedPercent.toFixed(1)}% of {formatSize(limitMB)} limit
+                      </div>
+                      {/* Progress bar */}
+                      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                        <div
+                          className={`h-full transition-all ${
+                            status === 'critical'
+                              ? 'bg-red-500'
+                              : status === 'warning'
+                                ? 'bg-yellow-500'
+                                : 'bg-green-500'
+                          }`}
+                          style={{ width: `${Math.min(usedPercent, 100)}%` }}
+                        />
+                      </div>
+                      {status !== 'healthy' && (
+                        <div
+                          className={`mt-2 text-xs ${
+                            status === 'critical'
+                              ? 'text-red-600'
+                              : 'text-yellow-600'
+                          }`}
+                        >
+                          ⚠{' '}
+                          {status === 'critical'
+                            ? 'Near limit!'
+                            : 'Monitor closely'}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()
               ) : (
-                <div className="mt-2 text-xl text-gray-400">Loading...</div>
+                <>
+                  <div className="mt-2 text-xl text-gray-400">
+                    Click Analyze DB
+                  </div>
+                  <button
+                    onClick={() => void loadDbAnalysis()}
+                    disabled={analyzingDb}
+                    className="mt-2 text-xs text-green-600 hover:underline"
+                  >
+                    {analyzingDb ? 'Analyzing...' : 'Get real usage →'}
+                  </button>
+                </>
               )}
             </div>
 
