@@ -105,19 +105,18 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
         restoreFromCheckpointState(checkpointState);
         setCurrentCheckpointId(checkpointId);
 
-        // 如果有大纲信息，设置 session
-        if (checkpointState.outlinePlan) {
-          const { setSession } = useSlidesV3Store.getState();
-          // 从检查点恢复基本的 session 信息
-          setSession({
-            id: 'restored-session',
-            userId: 'user',
-            title: checkpointState.outlinePlan.title || '已恢复的演示文稿',
-            status: 'active',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          });
-        }
+        // 设置 session - 用于显示恢复后的内容
+        const { setSession } = useSlidesV3Store.getState();
+        setSession({
+          id: checkpointId, // 使用 checkpointId 作为临时 session id
+          userId: 'user',
+          title: checkpointState.outlinePlan?.title || '已恢复的演示文稿',
+          status: 'active',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
+        console.log('[restoreCheckpoint] Restored pages:', checkpointState.pages?.length, 'with html:', checkpointState.pages?.filter(p => p.html).length);
 
         options.onRestoreSuccess?.(checkpointId);
       } catch (err) {

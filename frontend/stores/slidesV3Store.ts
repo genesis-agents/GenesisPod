@@ -250,6 +250,11 @@ export const useSlidesV3Store = create<SlidesV3State & SlidesV3Actions>()(
             pages: checkpointState.pages || [],
             globalStyles: checkpointState.globalStyles || DEFAULT_GLOBAL_STYLES,
             error: null,
+            // 重置生成状态
+            generating: false,
+            progress: null,
+            streamEvents: [],
+            selectedPageIndex: 0,
           });
         },
 
