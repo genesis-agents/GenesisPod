@@ -701,9 +701,9 @@ function ConversationPanel({
   }, [streamEvents]);
 
   return (
-    <div className="flex h-full w-[400px] flex-shrink-0 flex-col border-r border-gray-200 bg-gray-50">
+    <div className="flex h-full w-[360px] flex-shrink-0 flex-col border-r border-slate-200 bg-slate-50">
       {/* 顶部标题栏 */}
-      <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
+      <div className="flex items-center justify-between border-b border-slate-200 bg-white px-3 py-2">
         <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
           <Terminal className="h-4 w-4 text-orange-500" />
           生成过程 ({toolCalls.length})
@@ -799,7 +799,7 @@ function ConversationPanel({
                   exit={{ height: 0, opacity: 0 }}
                   className="overflow-hidden"
                 >
-                  <div className="mt-3 space-y-2">
+                  <div className="mt-2 space-y-1">
                     {outlinePlan.pages.map(
                       (page: PageOutline, index: number) => (
                         <OutlineItem key={index} page={page} index={index} />
@@ -941,13 +941,13 @@ function ToolCallCard({ call }: { call: ToolCallItem }) {
 
 function OutlineItem({ page, index }: { page: PageOutline; index: number }) {
   return (
-    <div className="flex items-start gap-2 rounded-lg bg-gray-50 p-2 text-sm">
-      <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-orange-100 text-xs font-medium text-orange-600">
+    <div className="flex items-center gap-2 rounded bg-slate-50 px-2 py-1.5 text-xs">
+      <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded bg-orange-100 text-[10px] font-medium text-orange-600">
         {index + 1}
       </span>
-      <div className="flex-1">
-        <div className="font-medium text-gray-900">{page.title}</div>
-        <div className="mt-0.5 text-xs text-gray-500">{page.templateType}</div>
+      <div className="min-w-0 flex-1">
+        <div className="truncate font-medium text-slate-700">{page.title}</div>
+        <div className="truncate text-[10px] text-slate-400">{page.templateType}</div>
       </div>
     </div>
   );
@@ -960,6 +960,29 @@ function OutlineItem({ page, index }: { page: PageOutline; index: number }) {
 function PreviewPanel() {
   const { pages, selectedPageIndex, setSelectedPageIndex } = useSlidesV3Store();
   const currentPage = pages[selectedPageIndex];
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+
+  // 计算缩放比例以适应容器
+  useEffect(() => {
+    const updateScale = () => {
+      if (containerRef.current) {
+        const containerWidth = containerRef.current.clientWidth - 48; // padding
+        const containerHeight = containerRef.current.clientHeight - 48;
+        const slideWidth = 1280;
+        const slideHeight = 720;
+
+        const scaleX = containerWidth / slideWidth;
+        const scaleY = containerHeight / slideHeight;
+        const newScale = Math.min(scaleX, scaleY, 1); // 不超过1
+        setScale(newScale);
+      }
+    };
+
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, []);
 
   return (
     <div className="flex flex-1 flex-col bg-gradient-to-br from-slate-100 to-slate-200">
@@ -986,25 +1009,35 @@ function PreviewPanel() {
       </div>
 
       {/* 主预览区域 */}
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-6">
+      <div
+        ref={containerRef}
+        className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-6"
+      >
         {currentPage ? (
           <div
-            className="relative w-full overflow-hidden rounded-xl bg-slate-900 shadow-2xl ring-1 ring-slate-700/50"
+            className="relative overflow-hidden rounded-xl shadow-2xl ring-1 ring-slate-700/50"
             style={{
-              maxWidth: 'min(100%, 900px)',
-              aspectRatio: '16/9',
-              maxHeight: 'calc(100% - 24px)'
+              width: 1280 * scale,
+              height: 720 * scale,
             }}
           >
             {currentPage.html ? (
               <iframe
                 srcDoc={currentPage.html}
-                className="h-full w-full"
-                style={{ border: 'none' }}
+                style={{
+                  width: 1280,
+                  height: 720,
+                  border: 'none',
+                  transform: `scale(${scale})`,
+                  transformOrigin: 'top left',
+                }}
                 sandbox="allow-scripts"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
+              <div
+                className="flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900"
+                style={{ width: 1280 * scale, height: 720 * scale }}
+              >
                 {currentPage.status === 'generating' ? (
                   <div className="text-center">
                     <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-orange-400" />
