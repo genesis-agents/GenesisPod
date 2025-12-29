@@ -1682,14 +1682,14 @@ function PreviewPanel() {
 
   return (
     <div className="flex flex-1 flex-col bg-gradient-to-br from-slate-100 to-slate-200">
-      {/* 缩略图区域 - 支持鼠标滚轮切换页面 */}
+      {/* 缩略图区域 - 支持鼠标滚轮切换页面和水平滚动 */}
       <div
-        className="flex-shrink-0 border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur-sm"
+        className="flex-shrink-0 overflow-hidden border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur-sm"
         onWheel={handleThumbnailWheel}
       >
         <div
           ref={thumbnailStripRef}
-          className="scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent flex items-center gap-2 overflow-x-auto"
+          className="scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent flex w-full items-center gap-2 overflow-x-auto pb-1"
         >
           {pages.length === 0 ? (
             <div className="flex h-14 w-full items-center justify-center text-sm text-slate-500">

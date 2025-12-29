@@ -324,7 +324,10 @@ export class FourStepDesignSkill {
       throw new Error(`Four-step design failed: ${result.error}`);
     }
 
-    const { design, html } = this.parseResponse(result.content, input);
+    const { design, html: rawHtml } = this.parseResponse(result.content, input);
+
+    // 替换图片占位符为真实 URL
+    const html = this.replaceImagePlaceholders(rawHtml, input.images);
 
     const durationMs = Date.now() - startTime;
 
@@ -336,12 +339,48 @@ export class FourStepDesignSkill {
   }
 
   /**
+   * 替换 HTML 中的图片占位符为真实 URL
+   */
+  private replaceImagePlaceholders(
+    html: string,
+    images?: GeneratedImage[],
+  ): string {
+    if (!images || images.length === 0) {
+      return html;
+    }
+
+    let result = html;
+
+    // 替换背景图占位符
+    const backgroundImage = images.find((img) => img.position === "background");
+    if (backgroundImage?.url) {
+      result = result.replace(/\{\{BACKGROUND_IMAGE\}\}/g, backgroundImage.url);
+    }
+
+    // 替换内联图片占位符
+    const inlineImages = images.filter((img) => img.position !== "background");
+    inlineImages.forEach((img, index) => {
+      if (img.url) {
+        const placeholder = `{{INLINE_IMAGE_${index + 1}}}`;
+        result = result.replace(
+          new RegExp(placeholder.replace(/[{}]/g, "\\$&"), "g"),
+          img.url,
+        );
+      }
+    });
+
+    return result;
+  }
+
+  /**
    * 构建用户消息
+   * 重要：不要将 base64 图片数据发送给 AI，否则会导致 token 爆炸（100KB 图片 = 25000+ tokens）
+   * 使用占位符 {{BACKGROUND_IMAGE}} 和 {{INLINE_IMAGE_N}}，之后替换为真实 URL
    */
   private buildUserMessage(input: FourStepDesignInput): string {
     const { pageOutline, pageContent, globalStyles, images } = input;
 
-    // 获取背景图 URL
+    // 获取背景图信息（但不包含 base64 数据）
     const backgroundImage = images?.find(
       (img) => img.position === "background",
     );
@@ -390,10 +429,17 @@ ${JSON.stringify(globalStyles, null, 2)}
 
 ${
   backgroundImage
-    ? `### 背景图 URL（必须使用！）
-\`${backgroundImage.url}\`
+    ? `### 背景图（必须使用！）
+已预生成背景图，语义：${backgroundImage.semanticContext || "专业背景"}
 
-**使用方式**：将此 URL 作为页面的 background-image，并添加半透明叠加层确保文字可读。
+**使用方式**：在 HTML 中使用占位符 \`{{BACKGROUND_IMAGE}}\` 作为 background-image 的 URL，系统会自动替换为真实图片。
+
+示例：
+\`\`\`html
+background-image: url('{{BACKGROUND_IMAGE}}');
+\`\`\`
+
+请添加半透明叠加层确保文字可读。
 `
     : `### 背景图
 无预生成背景图，请使用纯色渐变背景：linear-gradient(135deg, #0F172A 0%, #1E293B 100%)
@@ -403,7 +449,7 @@ ${
 ${
   inlineImages.length > 0
     ? `### 内联图片
-${inlineImages.map((img, i) => `- 图片${i + 1}: \`${img.url}\` (位置: ${img.position}, 语义: ${img.semanticContext || "无"})`).join("\n")}
+${inlineImages.map((img, i) => `- 图片${i + 1}: 使用占位符 \`{{INLINE_IMAGE_${i + 1}}}\` (语义: ${img.semanticContext || "无"})`).join("\n")}
 `
     : ""
 }
@@ -430,7 +476,7 @@ ${this.getTemplateReference(pageOutline.templateType)}
 1. 参考模板的结构和风格，但要根据实际内容进行调整
 2. 所有内容必须来自"页面内容"部分，不要使用模板中的占位符
 3. 确保生成的 HTML 完整、独立，可以直接渲染
-4. **⭐ 如果提供了背景图 URL，必须在 HTML 中使用！** 使用 background-image 并添加叠加层`;
+4. **⭐ 使用图片占位符 {{BACKGROUND_IMAGE}} 或 {{INLINE_IMAGE_N}}**，系统会自动替换为真实图片 URL`;
   }
 
   /**
@@ -475,22 +521,117 @@ ${this.getTemplateReference(pageOutline.templateType)}
       }
     }
 
+    // 尝试解析 JSON
     try {
       const parsed = JSON.parse(jsonStr);
       const design = this.normalizeDesign(parsed);
       const html = this.extractHtml(parsed, input);
-
       return { design, html };
     } catch (error) {
-      this.logger.error("[parseResponse] JSON parse error:", error);
-      this.logger.debug(
-        `[parseResponse] Raw content (first 500 chars): ${content.substring(0, 500)}`,
+      this.logger.warn(
+        "[parseResponse] First JSON parse attempt failed, trying repair...",
       );
+    }
+
+    // 尝试修复常见的 JSON 问题
+    try {
+      const repairedJson = this.repairJson(jsonStr);
+      const parsed = JSON.parse(repairedJson);
+      const design = this.normalizeDesign(parsed);
+      const html = this.extractHtml(parsed, input);
+      this.logger.log("[parseResponse] JSON repaired successfully");
+      return { design, html };
+    } catch (error) {
+      this.logger.warn(
+        "[parseResponse] JSON repair failed, trying to extract HTML directly...",
+      );
+    }
+
+    // 最后尝试：直接从响应中提取 HTML
+    const directHtml = this.extractHtmlDirect(content);
+    if (directHtml) {
+      this.logger.log("[parseResponse] Extracted HTML directly from response");
       return {
         design: this.createFallbackDesign(),
-        html: this.createFallbackHtml(input),
+        html: this.wrapHtmlWithContainer(directHtml, input.globalStyles),
       };
     }
+
+    // 最终降级
+    this.logger.error("[parseResponse] All parsing methods failed");
+    this.logger.debug(
+      `[parseResponse] Raw content (first 500 chars): ${content.substring(0, 500)}`,
+    );
+    return {
+      design: this.createFallbackDesign(),
+      html: this.createFallbackHtml(input),
+    };
+  }
+
+  /**
+   * 尝试修复常见的 JSON 问题
+   */
+  private repairJson(jsonStr: string): string {
+    let repaired = jsonStr;
+
+    // 1. 移除 JSON 中的控制字符（除了 \n, \r, \t）
+    repaired = repaired.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, "");
+
+    // 2. 修复 HTML 字符串中的未转义换行符
+    // 找到 "html": "..." 模式并修复其中的换行符
+    repaired = repaired.replace(
+      /"html"\s*:\s*"([\s\S]*?)"/g,
+      (_match, htmlContent) => {
+        // 转义 HTML 内容中的换行符和特殊字符
+        const escaped = htmlContent
+          .replace(/\\/g, "\\\\")
+          .replace(/\n/g, "\\n")
+          .replace(/\r/g, "\\r")
+          .replace(/\t/g, "\\t")
+          .replace(/"/g, '\\"');
+        return `"html": "${escaped}"`;
+      },
+    );
+
+    // 3. 移除尾随逗号
+    repaired = repaired.replace(/,(\s*[}\]])/g, "$1");
+
+    return repaired;
+  }
+
+  /**
+   * 直接从响应中提取 HTML（当 JSON 解析失败时）
+   */
+  private extractHtmlDirect(content: string): string | null {
+    // 尝试匹配 HTML 代码块
+    const htmlBlockMatch = content.match(/```html\s*([\s\S]*?)\s*```/);
+    if (htmlBlockMatch) {
+      return htmlBlockMatch[1].trim();
+    }
+
+    // 尝试匹配 "html": 后面的内容
+    const htmlFieldMatch = content.match(
+      /"html"\s*:\s*"([\s\S]*?)(?:"\s*[,}]|$)/,
+    );
+    if (htmlFieldMatch) {
+      // 解码转义的字符
+      return htmlFieldMatch[1]
+        .replace(/\\n/g, "\n")
+        .replace(/\\r/g, "\r")
+        .replace(/\\t/g, "\t")
+        .replace(/\\"/g, '"')
+        .replace(/\\\\/g, "\\");
+    }
+
+    // 尝试匹配完整的 HTML 结构
+    const fullHtmlMatch = content.match(
+      /<div\s+style="[^"]*width:\s*1280px[\s\S]*?<\/div>\s*$/,
+    );
+    if (fullHtmlMatch) {
+      return fullHtmlMatch[0];
+    }
+
+    return null;
   }
 
   /**
