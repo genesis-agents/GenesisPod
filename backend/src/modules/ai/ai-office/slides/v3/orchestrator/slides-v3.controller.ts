@@ -332,25 +332,52 @@ export class SlidesV3Controller {
 
   /**
    * 获取会话列表
-   *
-   * Note: This is a placeholder - full implementation requires adding
-   * a getSessions method to CheckpointService
    */
   @Get("sessions")
   async getSessions(
-    @Query("userId") _userId: string,
-    @Query("status") _status?: string,
-    @Query("limit") _limit?: string,
+    @Query("userId") userId: string,
+    @Query("status") status?: string,
+    @Query("limit") limit?: string,
   ): Promise<any> {
-    this.logger.log(`[getSessions] Getting sessions list`);
+    this.logger.log(`[getSessions] Getting sessions for user: ${userId}`);
 
-    // TODO: Implement getSessions in CheckpointService
-    // For now, return empty list
-    return {
-      success: true,
-      sessions: [],
-      message: "Sessions listing not yet implemented",
-    };
+    try {
+      const sessions = await this.checkpointService.getSessions({
+        userId,
+        status: status as "active" | "completed" | "archived" | undefined,
+        limit: limit ? parseInt(limit, 10) : 50,
+      });
+
+      // 获取每个会话的最新检查点信息
+      const sessionsWithCheckpoints = await Promise.all(
+        sessions.map(async (session) => {
+          const latestCheckpoint =
+            await this.checkpointService.getLatestCheckpoint(session.id);
+          return {
+            ...session,
+            latestCheckpoint: latestCheckpoint
+              ? {
+                  id: latestCheckpoint.id,
+                  type: latestCheckpoint.type,
+                  timestamp: latestCheckpoint.timestamp,
+                  pagesCount: latestCheckpoint.state?.pages?.length || 0,
+                }
+              : null,
+          };
+        }),
+      );
+
+      return {
+        success: true,
+        sessions: sessionsWithCheckpoints,
+      };
+    } catch (error: any) {
+      this.logger.error(`[getSessions] Error: ${error.message}`);
+      throw new HttpException(
+        error.message || "Failed to get sessions",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   /**

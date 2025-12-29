@@ -149,9 +149,10 @@ export function useSlideGenerationV3(
         case 'checkpoint_created':
           const checkpointData = event.data as {
             type: string;
+            name?: string;
             pageNumber?: number;
           };
-          console.log('[SSE] Checkpoint created:', checkpointData.type);
+          console.log('[SSE] Checkpoint created:', checkpointData.name || checkpointData.type);
           break;
 
         case 'page_started':
@@ -176,9 +177,17 @@ export function useSlideGenerationV3(
           const pageCompleteData = event.data as {
             pageNumber: number;
             totalPages: number;
+            html?: string;
+            content?: unknown;
+            design?: unknown;
           };
-          console.log('[SSE] Page completed:', pageCompleteData.pageNumber);
-          updatePage(pageCompleteData.pageNumber, { status: 'completed' });
+          console.log('[SSE] Page completed:', pageCompleteData.pageNumber, 'hasHtml:', !!pageCompleteData.html);
+          updatePage(pageCompleteData.pageNumber, {
+            status: 'completed',
+            html: pageCompleteData.html,
+            content: pageCompleteData.content,
+            design: pageCompleteData.design,
+          });
           options.onPageCompleted?.(pageCompleteData.pageNumber);
           break;
 

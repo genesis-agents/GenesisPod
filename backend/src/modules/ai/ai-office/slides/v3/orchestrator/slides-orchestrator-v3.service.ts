@@ -182,6 +182,7 @@ export class SlidesOrchestratorV3Service {
       subject.next(
         this.createEvent("checkpoint_created", sessionId, {
           type: "task_decomposition",
+          name: "任务分解完成",
         }),
       );
 
@@ -232,6 +233,7 @@ export class SlidesOrchestratorV3Service {
       subject.next(
         this.createEvent("checkpoint_created", sessionId, {
           type: "outline_confirmed",
+          name: "大纲规划完成",
         }),
       );
 
@@ -390,6 +392,9 @@ export class SlidesOrchestratorV3Service {
           this.createEvent("page_completed", sessionId, {
             pageNumber: pageOutline.pageNumber,
             totalPages,
+            html: pageState.html,
+            content: pageState.content,
+            design: pageState.design,
           }),
         );
 
@@ -414,6 +419,7 @@ export class SlidesOrchestratorV3Service {
             this.createEvent("checkpoint_created", sessionId, {
               type: "page_rendered",
               pageNumber: pageOutline.pageNumber,
+              name: `渲染到第 ${pageOutline.pageNumber} 页`,
             }),
           );
         }

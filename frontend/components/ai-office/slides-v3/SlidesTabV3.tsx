@@ -45,6 +45,8 @@ import {
 import {
   useSlideGenerationV3,
   useCheckpoints,
+  useSessions,
+  SessionWithCheckpoint,
 } from '@/hooks/features/slides-v3';
 import type {
   GenerateV3Request,
@@ -86,6 +88,7 @@ export function SlidesTabV3() {
   const { history, addHistory, updateHistory, removeHistory, clearHistory } =
     useSlidesHistoryStore();
   const { restoreCheckpoint, restoreBySessionId } = useCheckpoints();
+  const { sessions: backendSessions, loading: sessionsLoading, refresh: refreshSessions } = useSessions();
   const { user } = useAuth();
   const [toolCalls, setToolCalls] = useState<ToolCallItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -127,11 +130,11 @@ export function SlidesTabV3() {
           });
         }
       } else if (event.type === 'checkpoint_created') {
-        const data = event.data as { name: string };
+        const data = event.data as { name?: string; type?: string };
         calls.push({
           id,
           type: 'checkpoint',
-          title: `保存检查点: ${data.name}`,
+          title: `保存检查点: ${data.name || data.type || '自动保存'}`,
           status: 'completed',
           timestamp: new Date(event.timestamp),
         });
@@ -213,7 +216,7 @@ export function SlidesTabV3() {
     }
   }, [streamEvents, updateHistory]);
 
-  // 恢复历史记录
+  // 恢复历史记录（localStorage）
   const handleRestoreHistory = useCallback(
     async (item: SlidesHistoryItem) => {
       setRestoring(true);
@@ -230,6 +233,27 @@ export function SlidesTabV3() {
         setShowHistory(false);
       } catch (err) {
         console.error('Failed to restore:', err);
+      } finally {
+        setRestoring(false);
+      }
+    },
+    [restoreCheckpoint, restoreBySessionId]
+  );
+
+  // 恢复后端会话
+  const handleRestoreSession = useCallback(
+    async (sessionItem: SessionWithCheckpoint) => {
+      setRestoring(true);
+      try {
+        if (sessionItem.latestCheckpoint?.id) {
+          await restoreCheckpoint(sessionItem.latestCheckpoint.id);
+        } else {
+          await restoreBySessionId(sessionItem.id);
+        }
+        setShowHistory(false);
+        setShowNewForm(false);
+      } catch (err) {
+        console.error('Failed to restore session:', err);
       } finally {
         setRestoring(false);
       }
@@ -269,10 +293,13 @@ export function SlidesTabV3() {
           />
         ) : (
           <SessionsGallery
-            history={history}
+            backendSessions={backendSessions}
+            localHistory={history}
             viewMode={viewMode}
-            onRestore={handleRestoreHistory}
+            onRestoreSession={handleRestoreSession}
+            onRestoreHistory={handleRestoreHistory}
             onNewClick={() => setShowNewForm(true)}
+            loading={sessionsLoading}
           />
         )}
       </div>
@@ -1193,22 +1220,40 @@ function InitialInputForm({
 // ============================================================================
 
 function SessionsGallery({
-  history,
+  backendSessions,
+  localHistory,
   viewMode,
-  onRestore,
+  onRestoreSession,
+  onRestoreHistory,
   onNewClick,
+  loading,
 }: {
-  history: SlidesHistoryItem[];
+  backendSessions: SessionWithCheckpoint[];
+  localHistory: SlidesHistoryItem[];
   viewMode: 'grid' | 'list';
-  onRestore: (item: SlidesHistoryItem) => void;
+  onRestoreSession: (session: SessionWithCheckpoint) => void;
+  onRestoreHistory: (item: SlidesHistoryItem) => void;
   onNewClick: () => void;
+  loading?: boolean;
 }) {
-  // 只显示有 sessionId 的成功项目
-  const sessions = history.filter(
+  // 优先使用后端会话，如果没有则使用本地历史
+  const hasBackendSessions = backendSessions.length > 0;
+  const localSessions = localHistory.filter(
     (item) => item.sessionId && item.status === 'success'
   );
 
-  if (sessions.length === 0) {
+  if (loading) {
+    return (
+      <main className="flex min-h-0 flex-1 flex-col items-center justify-center bg-gray-50 p-8">
+        <div className="text-center">
+          <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-orange-500" />
+          <p className="text-sm text-gray-500">加载历史记录...</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!hasBackendSessions && localSessions.length === 0) {
     return (
       <main className="flex min-h-0 flex-1 flex-col items-center justify-center bg-gray-50 p-8">
         <div className="text-center">
@@ -1236,27 +1281,130 @@ function SessionsGallery({
       <div className="flex-1 overflow-auto p-6">
         {viewMode === 'grid' ? (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {sessions.map((item) => (
-              <SessionGridCard
-                key={item.id}
-                item={item}
-                onClick={() => onRestore(item)}
+            {/* 后端会话 */}
+            {backendSessions.map((session) => (
+              <BackendSessionCard
+                key={session.id}
+                session={session}
+                onClick={() => onRestoreSession(session)}
               />
             ))}
+            {/* 本地历史（只显示不在后端的） */}
+            {!hasBackendSessions &&
+              localSessions.map((item) => (
+                <SessionGridCard
+                  key={item.id}
+                  item={item}
+                  onClick={() => onRestoreHistory(item)}
+                />
+              ))}
           </div>
         ) : (
           <div className="space-y-2">
-            {sessions.map((item) => (
-              <SessionListItem
-                key={item.id}
-                item={item}
-                onClick={() => onRestore(item)}
+            {/* 后端会话 */}
+            {backendSessions.map((session) => (
+              <BackendSessionListItem
+                key={session.id}
+                session={session}
+                onClick={() => onRestoreSession(session)}
               />
             ))}
+            {/* 本地历史 */}
+            {!hasBackendSessions &&
+              localSessions.map((item) => (
+                <SessionListItem
+                  key={item.id}
+                  item={item}
+                  onClick={() => onRestoreHistory(item)}
+                />
+              ))}
           </div>
         )}
       </div>
     </main>
+  );
+}
+
+// 后端会话卡片
+function BackendSessionCard({
+  session,
+  onClick,
+}: {
+  session: SessionWithCheckpoint;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white text-left transition-all hover:border-orange-300 hover:shadow-lg"
+    >
+      {/* 缩略图占位 */}
+      <div className="relative aspect-[16/9] bg-gradient-to-br from-slate-800 to-slate-900">
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Layers className="h-8 w-8 text-slate-600" />
+        </div>
+        <div className="absolute bottom-2 right-2 rounded bg-black/50 px-1.5 py-0.5 text-xs text-white">
+          {session.latestCheckpoint?.pagesCount || '?'} 页
+        </div>
+        {/* 来源标识 */}
+        <div className="absolute left-2 top-2 rounded bg-green-500/80 px-1.5 py-0.5 text-xs text-white">
+          已保存
+        </div>
+      </div>
+
+      {/* 信息 */}
+      <div className="flex-1 p-3">
+        <h3 className="line-clamp-2 text-sm font-medium text-gray-900 group-hover:text-orange-600">
+          {session.title}
+        </h3>
+        <p className="mt-1 text-xs text-gray-500">
+          {formatRelativeTime(session.updatedAt)}
+        </p>
+      </div>
+    </button>
+  );
+}
+
+// 后端会话列表项
+function BackendSessionListItem({
+  session,
+  onClick,
+}: {
+  session: SessionWithCheckpoint;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-4 rounded-lg border border-gray-200 bg-white p-4 text-left transition-all hover:border-orange-300 hover:bg-orange-50"
+    >
+      {/* 缩略图 */}
+      <div className="relative h-16 w-28 flex-shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-slate-800 to-slate-900">
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Layers className="h-6 w-6 text-slate-600" />
+        </div>
+        {/* 来源标识 */}
+        <div className="absolute left-1 top-1 rounded bg-green-500/80 px-1 py-0.5 text-[10px] text-white">
+          已保存
+        </div>
+      </div>
+
+      {/* 信息 */}
+      <div className="min-w-0 flex-1">
+        <h3 className="truncate text-sm font-medium text-gray-900">
+          {session.title}
+        </h3>
+        <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
+          <span>{formatRelativeTime(session.updatedAt)}</span>
+          <span className="rounded bg-orange-100 px-1.5 py-0.5 text-orange-600">
+            {session.latestCheckpoint?.pagesCount || '?'} 页
+          </span>
+        </div>
+      </div>
+
+      {/* 箭头 */}
+      <ChevronDown className="h-5 w-5 -rotate-90 text-gray-400" />
+    </button>
   );
 }
 

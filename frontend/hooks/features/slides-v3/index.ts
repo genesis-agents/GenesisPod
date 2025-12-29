@@ -4,3 +4,5 @@
 
 export { useSlideGenerationV3 } from './useSlideGenerationV3';
 export { useCheckpoints } from './useCheckpoints';
+export { useSessions } from './useSessions';
+export type { SessionWithCheckpoint } from './useSessions';

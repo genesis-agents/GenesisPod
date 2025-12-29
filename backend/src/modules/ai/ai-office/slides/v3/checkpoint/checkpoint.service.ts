@@ -182,6 +182,40 @@ export class CheckpointService {
   }
 
   /**
+   * 获取用户的会话列表
+   */
+  async getSessions(filter: {
+    userId?: string;
+    status?: "active" | "completed" | "archived";
+    limit?: number;
+  }): Promise<SlidesSession[]> {
+    const where: Record<string, unknown> = {};
+
+    if (filter.userId) {
+      where.userId = filter.userId;
+    }
+    if (filter.status) {
+      where.status = SESSION_STATUS_TO_PRISMA[filter.status];
+    }
+
+    const sessions = await this.prisma.slidesSession.findMany({
+      where,
+      orderBy: { updatedAt: "desc" },
+      take: filter.limit || 50,
+    });
+
+    return sessions.map((session) => ({
+      id: session.id,
+      userId: session.userId,
+      title: session.title,
+      status: PRISMA_TO_SESSION_STATUS[session.status],
+      currentCheckpointId: session.currentStateId || undefined,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+    }));
+  }
+
+  /**
    * 更新会话状态
    */
   async updateSessionStatus(

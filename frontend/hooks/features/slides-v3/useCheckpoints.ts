@@ -105,6 +105,20 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
         restoreFromCheckpointState(checkpointState);
         setCurrentCheckpointId(checkpointId);
 
+        // 如果有大纲信息，设置 session
+        if (checkpointState.outlinePlan) {
+          const { setSession } = useSlidesV3Store.getState();
+          // 从检查点恢复基本的 session 信息
+          setSession({
+            id: 'restored-session',
+            userId: 'user',
+            title: checkpointState.outlinePlan.title || '已恢复的演示文稿',
+            status: 'active',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+        }
+
         options.onRestoreSuccess?.(checkpointId);
       } catch (err) {
         const errorMessage =
@@ -142,12 +156,45 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
           throw new Error('Session has no checkpoints');
         }
 
-        // 恢复到最新检查点
-        await restoreCheckpoint(sessionData.latestCheckpoint.id);
+        // 获取检查点详情
+        const detailResponse = await fetch(
+          `${API_BASE}/ai-office/slides-v3/checkpoints/${sessionData.latestCheckpoint.id}`
+        );
 
-        // 更新会话信息
+        if (!detailResponse.ok) {
+          throw new Error('Failed to fetch checkpoint details');
+        }
+
+        const detailData = await detailResponse.json();
+        const checkpointState: CheckpointState = detailData.state;
+
+        // 调用恢复 API
+        const restoreResponse = await fetch(
+          `${API_BASE}/ai-office/slides-v3/restore/${sessionData.latestCheckpoint.id}`,
+          { method: 'POST' }
+        );
+
+        if (!restoreResponse.ok) {
+          throw new Error('Failed to restore checkpoint');
+        }
+
+        // 更新本地状态
+        restoreFromCheckpointState(checkpointState);
+        setCurrentCheckpointId(sessionData.latestCheckpoint.id);
+
+        // 更新会话信息 - 转换日期
         const { setSession } = useSlidesV3Store.getState();
-        setSession(sessionData.session);
+        setSession({
+          id: sessionData.session.id,
+          userId: sessionData.session.userId,
+          title: sessionData.session.title,
+          status: sessionData.session.status,
+          currentCheckpointId: sessionData.session.currentCheckpointId,
+          createdAt: new Date(sessionData.session.createdAt),
+          updatedAt: new Date(sessionData.session.updatedAt),
+        });
+
+        options.onRestoreSuccess?.(sessionData.latestCheckpoint.id);
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : '恢复会话失败';
@@ -157,7 +204,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
         setRestoring(false);
       }
     },
-    [restoreCheckpoint, setError, options]
+    [restoreFromCheckpointState, setCurrentCheckpointId, setError, options]
   );
 
   /**
