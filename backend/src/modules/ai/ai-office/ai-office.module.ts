@@ -6,6 +6,7 @@ import { AiCoreModule } from "../ai-core/ai-core.module";
 import { AiImageModule } from "../ai-image/ai-image.module";
 import { StorageModule } from "../../core/storage/storage.module";
 import { CreditsModule } from "../../credits/credits.module";
+import { ExportModule } from "../../export/export.module";
 
 // Core
 import {
@@ -37,7 +38,33 @@ import {
   QualityCheckService,
   SourceAnalysisService,
   BatchOperationService,
+  // 🆕 Phase 5 Services
+  ContentAnalyzerService,
+  TemplateSelectorService,
+  LayoutAdjusterService,
 } from "./slides";
+
+// Slides v3.0 (新一代幻灯片引擎)
+import {
+  // Checkpoint
+  CheckpointService,
+  // Orchestrator
+  MultiModelService,
+  SlidesOrchestratorV3Service,
+  SlidesV3Controller,
+  // Skills
+  TaskDecompositionSkill,
+  OutlinePlanningSkill,
+  PageTypeSelectionSkill,
+  FourStepDesignSkill,
+  ContentCompressionSkill,
+  // Roles
+  ArchitectService,
+  WriterService,
+  RendererService,
+  ImageGeneratorService,
+  ReviewerService,
+} from "./slides/v3";
 
 // Integration
 import { AiOfficeIntegrationService } from "./ai-office-integration.service";
@@ -69,6 +96,7 @@ import { AIOfficeCommonModule } from "./common";
     AiImageModule,
     StorageModule,
     CreditsModule,
+    ExportModule,
     AIOfficeCommonModule,
   ],
   controllers: [
@@ -77,6 +105,7 @@ import { AIOfficeCommonModule } from "./common";
     DocumentsController,
     GenerationController,
     SlidesController,
+    SlidesV3Controller, // 🆕 v3.0 Controller
     CodeExecutionController,
     AgentsController,
   ],
@@ -99,6 +128,24 @@ import { AIOfficeCommonModule } from "./common";
     QualityCheckService,
     SourceAnalysisService,
     BatchOperationService,
+    // 🆕 Phase 5 Services
+    ContentAnalyzerService,
+    TemplateSelectorService,
+    LayoutAdjusterService,
+    // 🆕 Slides v3.0 Services
+    CheckpointService,
+    MultiModelService,
+    SlidesOrchestratorV3Service,
+    TaskDecompositionSkill,
+    OutlinePlanningSkill,
+    PageTypeSelectionSkill,
+    FourStepDesignSkill,
+    ContentCompressionSkill,
+    ArchitectService,
+    WriterService,
+    RendererService,
+    ImageGeneratorService,
+    ReviewerService,
     // Docs
     DocsOrchestratorService,
     DocsGeneratorService,
@@ -126,6 +173,19 @@ import { AIOfficeCommonModule } from "./common";
     QualityCheckService,
     SourceAnalysisService,
     BatchOperationService,
+    // 🆕 Phase 5 Services
+    ContentAnalyzerService,
+    TemplateSelectorService,
+    LayoutAdjusterService,
+    // 🆕 Slides v3.0 Services
+    CheckpointService,
+    MultiModelService,
+    SlidesOrchestratorV3Service,
+    ArchitectService,
+    WriterService,
+    RendererService,
+    ImageGeneratorService,
+    ReviewerService,
     // Docs
     DocsOrchestratorService,
     DocsGeneratorService,

@@ -19,6 +19,7 @@ import { RENDERER_TOKEN } from "./renderers/renderer.interface";
 import { PdfRenderer } from "./renderers/pdf.renderer";
 import { DocxRenderer } from "./renderers/docx.renderer";
 import { PptxRenderer } from "./renderers/pptx.renderer";
+import { PptxSlidesRenderer } from "./renderers/pptx-slides.renderer";
 import { XlsxRenderer } from "./renderers/xlsx.renderer";
 import { MarkdownRenderer } from "./renderers/markdown.renderer";
 import { HtmlRenderer } from "./renderers/html.renderer";
@@ -39,6 +40,7 @@ import { PrismaModule } from "../../common/prisma/prisma.module";
     PdfRenderer,
     DocxRenderer,
     PptxRenderer,
+    PptxSlidesRenderer,
     XlsxRenderer,
     MarkdownRenderer,
     HtmlRenderer,
@@ -77,6 +79,7 @@ import { PrismaModule } from "../../common/prisma/prisma.module";
     ExportOrchestratorService,
     ContentTransformerService,
     TemplateManagerService,
+    PptxSlidesRenderer,
   ],
 })
 export class ExportModule {}

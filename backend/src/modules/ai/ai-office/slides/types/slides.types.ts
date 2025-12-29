@@ -93,6 +93,10 @@ export interface SlideSpec {
   // 图像规划（如果需要）
   imageSpec?: SlideImageSpec;
 
+  // 🆕 语义块图片规格（支持图文并茂）
+  // 用于多栏、时间线、案例研究等需要多图的模板
+  contentBlockImages?: ContentBlockImageSpec[];
+
   // 图表规划（如果需要）
   chartSpec?: SlideChartSpec;
 
@@ -142,6 +146,36 @@ export interface SlideImageSpec {
   style: string; // 风格要求
   aspectRatio: "16:9" | "4:3" | "1:1" | "9:16";
   negativePrompt?: string;
+}
+
+/**
+ * 🆕 语义块图片规格
+ * 用于在多栏、时间线、案例研究等模板中为每个内容块生成对应图片
+ */
+export interface ContentBlockImageSpec {
+  /** 语义块标识符 (如 "column-0", "stage-1", "challenge", "solution") */
+  blockId: string;
+  /** 语义块类型 */
+  blockType:
+    | "column"
+    | "stage"
+    | "section"
+    | "item"
+    | "quote"
+    | "stat"
+    | "other";
+  /** 图片生成提示词 - 必须与该语义块内容语义匹配 */
+  prompt: string;
+  /** 中文提示词（用于显示） */
+  promptZh?: string;
+  /** 原始语义内容（用于验证匹配度） */
+  semanticContent: string;
+  /** 图片风格 */
+  style: "photo" | "illustration" | "3d" | "abstract" | "icon" | "diagram";
+  /** 图片宽高比 */
+  aspectRatio: "16:9" | "4:3" | "1:1" | "3:4";
+  /** 重要性等级 */
+  importance: "hero" | "supporting" | "decorative";
 }
 
 export interface SlideChartSpec {
@@ -837,11 +871,19 @@ export interface SlideEditRequest {
 
 export type PPTStreamEventType =
   | "progress" // 进度更新
+  | "content_analyzing" // 🆕 内容分析开始
+  | "content_analyzed" // 🆕 内容分析完成
+  | "outline_generating" // 🆕 大纲生成开始
   | "outline_complete" // 大纲完成
+  | "template_selecting" // 🆕 模板选择开始
+  | "template_selected" // 🆕 模板选择完成
+  | "layout_generating" // 布局生成中
   | "slide_planned" // 单页规划完成
+  | "slide_generating" // 🆕 单页生成开始
   | "slide_content_complete" // 单页内容完成
   | "slide_image_complete" // 单页图像完成
   | "slide_complete" // 单页全部完成
+  | "images_generating" // 🆕 图片生成阶段
   | "complete" // 全部完成
   | "error"; // 错误
 
@@ -858,8 +900,25 @@ export interface PPTStreamEvent {
     totalSlides?: number;
   };
 
+  // 🆕 内容特征（content_analyzed 事件）
+  features?: {
+    topic: string;
+    contentType: string;
+    suggestedSlideRange: {
+      min: number;
+      max: number;
+    };
+  };
+
   // 大纲数据
   outline?: PPTOutline;
+
+  // 🆕 模板配置（template_selected 事件）
+  templates?: Array<{
+    index: number;
+    layoutType: SlideLayoutType;
+    reason: string;
+  }>;
 
   // 单页数据
   slide?: {

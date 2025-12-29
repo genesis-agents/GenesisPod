@@ -1,6 +1,11 @@
 /**
  * 统一导出系统 - PDF 渲染器
  * 使用 Puppeteer 将 HTML 转换为 PDF
+ *
+ * 功能增强：
+ * 1. 支持 AI Slides 15种专业模板
+ * 2. 完整保留 PPTX 的视觉效果
+ * 3. 使用设计系统的颜色和字体
  */
 
 import { Injectable, Logger } from "@nestjs/common";

@@ -1,0 +1,195 @@
+/**
+ * Slides Engine v3.0 - 检查点 Hook
+ *
+ * 管理检查点操作，包括：
+ * - 获取检查点列表
+ * - 恢复检查点
+ * - 删除检查点
+ */
+
+import { useCallback, useState } from 'react';
+import { useSlidesV3Store } from '@/stores/slidesV3Store';
+import { config } from '@/lib/utils/config';
+import type { Checkpoint, CheckpointState } from '@/types/slides-v3';
+
+const API_BASE = config.apiUrl || '';
+
+interface UseCheckpointsOptions {
+  onRestoreSuccess?: (checkpointId: string) => void;
+  onRestoreError?: (error: string) => void;
+}
+
+export function useCheckpoints(options: UseCheckpointsOptions = {}) {
+  const [loading, setLoading] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+
+  const {
+    session,
+    checkpoints,
+    currentCheckpointId,
+    setCheckpoints,
+    setCurrentCheckpointId,
+    setCheckpointsLoading,
+    restoreFromCheckpointState,
+    setError,
+  } = useSlidesV3Store();
+
+  /**
+   * 获取会话的检查点列表
+   */
+  const fetchCheckpoints = useCallback(
+    async (sessionId?: string) => {
+      const targetSessionId = sessionId || session?.id;
+      if (!targetSessionId) {
+        console.warn('No session ID provided');
+        return;
+      }
+
+      setLoading(true);
+      setCheckpointsLoading(true);
+
+      try {
+        const response = await fetch(
+          `${API_BASE}/api/v1/ai-office/slides-v3/sessions/${targetSessionId}/checkpoints`
+        );
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch checkpoints');
+        }
+
+        const data = await response.json();
+        setCheckpoints(data.checkpoints || []);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : '获取检查点失败';
+        setError(errorMessage);
+      } finally {
+        setLoading(false);
+        setCheckpointsLoading(false);
+      }
+    },
+    [session?.id, setCheckpoints, setCheckpointsLoading, setError]
+  );
+
+  /**
+   * 恢复到指定检查点
+   */
+  const restoreCheckpoint = useCallback(
+    async (checkpointId: string) => {
+      setRestoring(true);
+
+      try {
+        // 先获取检查点详情
+        const detailResponse = await fetch(
+          `${API_BASE}/api/v1/ai-office/slides-v3/checkpoints/${checkpointId}`
+        );
+
+        if (!detailResponse.ok) {
+          throw new Error('Failed to fetch checkpoint details');
+        }
+
+        const detailData = await detailResponse.json();
+        const checkpointState: CheckpointState = detailData.state;
+
+        // 调用恢复 API
+        const restoreResponse = await fetch(
+          `${API_BASE}/api/v1/ai-office/slides-v3/restore/${checkpointId}`,
+          { method: 'POST' }
+        );
+
+        if (!restoreResponse.ok) {
+          throw new Error('Failed to restore checkpoint');
+        }
+
+        // 更新本地状态
+        restoreFromCheckpointState(checkpointState);
+        setCurrentCheckpointId(checkpointId);
+
+        options.onRestoreSuccess?.(checkpointId);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : '恢复检查点失败';
+        setError(errorMessage);
+        options.onRestoreError?.(errorMessage);
+      } finally {
+        setRestoring(false);
+      }
+    },
+    [restoreFromCheckpointState, setCurrentCheckpointId, setError, options]
+  );
+
+  /**
+   * 清理旧检查点
+   */
+  const pruneCheckpoints = useCallback(
+    async (keepCount: number = 10) => {
+      if (!session?.id) {
+        console.warn('No session ID');
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `${API_BASE}/api/v1/ai-office/slides-v3/sessions/${session.id}/prune?keepCount=${keepCount}`,
+          { method: 'POST' }
+        );
+
+        if (!response.ok) {
+          throw new Error('Failed to prune checkpoints');
+        }
+
+        const data = await response.json();
+
+        // 刷新检查点列表
+        await fetchCheckpoints();
+
+        return data.prunedCount;
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : '清理检查点失败';
+        setError(errorMessage);
+        return 0;
+      }
+    },
+    [session?.id, fetchCheckpoints, setError]
+  );
+
+  /**
+   * 获取指定检查点的预览数据
+   */
+  const getCheckpointPreview = useCallback(
+    (checkpointId: string): Checkpoint | null => {
+      return checkpoints.find((cp) => cp.id === checkpointId) || null;
+    },
+    [checkpoints]
+  );
+
+  /**
+   * 按类型筛选检查点
+   */
+  const getCheckpointsByType = useCallback(
+    (type: Checkpoint['type']): Checkpoint[] => {
+      return checkpoints.filter((cp) => cp.type === type);
+    },
+    [checkpoints]
+  );
+
+  return {
+    // 状态
+    checkpoints,
+    currentCheckpointId,
+    loading,
+    restoring,
+
+    // 操作
+    fetchCheckpoints,
+    restoreCheckpoint,
+    pruneCheckpoints,
+
+    // 工具
+    getCheckpointPreview,
+    getCheckpointsByType,
+  };
+}
+
+export default useCheckpoints;

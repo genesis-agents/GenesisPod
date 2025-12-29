@@ -1,6 +1,6 @@
 # AI Reports 优化设计方案
 
-> 基于 Genspark 专业报告生成逻辑，全面升级 DeepDive Engine 的 AI Reports 功能
+> 基于 Genspark 专业报告生成逻辑，全面升级 DeepDive Engine 的 AI Office Reports 功能
 
 ## 文档目录
 
@@ -25,11 +25,22 @@
 ### 参考资料
 
 - 原始参考：`debug/genspark.txt`
-- 当前实现：`backend/src/modules/ai/ai-studio/`
-- 前端组件：`frontend/components/ai-studio/`
+- 后端实现：`backend/src/modules/ai/ai-office/`
+- 前端组件：`frontend/components/ai-office/`
+- 前端页面菜单：**AI Reports** (在 AI Office 模块下)
+
+### 模块说明
+
+AI Office 是 DeepDive Engine 的 AI 办公套件模块，包含：
+
+- **AI Reports** - PPT/演示文稿生成（本设计方案的重构目标）
+- **AI Docs** - 文档生成
+- **AI Slides** - 幻灯片生成
+
+本设计方案专注于 **AI Reports** 功能的全面升级。
 
 ---
 
 **创建日期**: 2024-12-28
 **最后更新**: 2024-12-28
-**版本**: v1.0
+**版本**: v1.1

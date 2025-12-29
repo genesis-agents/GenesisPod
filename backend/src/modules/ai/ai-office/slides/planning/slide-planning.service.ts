@@ -24,6 +24,7 @@ import {
   PPTTheme,
   BackgroundDecision,
   BackgroundType,
+  ContentBlockImageSpec,
 } from "../types/slides.types";
 import { SourceAnalysis } from "../generation/source-analysis.service";
 import { randomUUID } from "crypto";
@@ -40,6 +41,21 @@ const OUTLINE_GENERATION_PROMPT = `You are a world-class presentation designer w
 3. **Visual Hierarchy**: Guide the eye with deliberate layout and emphasis
 4. **Breathing Room**: Embrace white space - it's not empty, it's powerful
 5. **Emotional Connection**: Design for impact, not just information transfer
+
+## 🆕 MECE Principle (Mutually Exclusive, Collectively Exhaustive)
+When structuring the presentation:
+- **Mutually Exclusive**: Each slide/section covers distinct topics with NO overlap
+- **Collectively Exhaustive**: Together, all slides cover the COMPLETE story
+- Example: If analyzing "Market Strategy", split into MECE buckets: Product | Pricing | Promotion | Place (4Ps)
+- Avoid: Vague overlap like "Strategy Overview" + "Key Strategies" (not MECE)
+
+## 🆕 Problem-Driven Design
+Structure the narrative around a central question or problem:
+1. **Hook**: What's the burning question or problem? (Slide 1-2)
+2. **Context**: Why does this matter now? What's changed? (Slide 3-4)
+3. **Analysis**: What did we find? Break down the problem MECE-style (Slide 5-N)
+4. **Solution**: How do we solve it? Clear, actionable recommendations (Slide N+1 to N+3)
+5. **Impact**: What happens if we act? Paint the future state (Final slides)
 
 ## Input Content
 {content}
@@ -262,6 +278,11 @@ export class SlidePlanningService {
 
   /**
    * 生成 PPT 大纲
+   *
+   * 🆕 Phase 2 重构：
+   * 1. 智能页数计算（基于内容特征）
+   * 2. 重试机制（如果大纲验证失败）
+   * 3. 金字塔结构强制约束
    */
   async generateOutline(
     content: string,
@@ -289,25 +310,148 @@ export class SlidePlanningService {
       `[generateOutline] Using model: ${textModel.displayName} (${textModel.modelId}), provider: ${textModel.provider}, apiKey: ${textModel.apiKey ? "***" + textModel.apiKey.slice(-4) : "NONE"}`,
     );
 
-    // 智能计算页数：根据内容长度自动决定
+    // 🆕 智能计算页数：根据内容长度和复杂度
     let targetSlideCount = options.slideCount;
     if (!targetSlideCount || targetSlideCount <= 0) {
-      // 自动计算：每2000字约5页，最少8页，最多40页
-      const contentLength = content.length;
-      targetSlideCount = Math.max(
-        8,
-        Math.min(40, Math.ceil(contentLength / 2000) * 5),
-      );
+      targetSlideCount = this.calculateOptimalSlideCount(content, options);
       this.logger.log(
-        `[generateOutline] Auto-calculated slide count: ${targetSlideCount} (content: ${contentLength} chars)`,
+        `[generateOutline] Auto-calculated slide count: ${targetSlideCount} (content: ${content.length} chars)`,
       );
     }
 
-    // 构建提示词
+    // 🆕 重试机制：最多尝试3次
+    const maxRetries = 3;
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        this.logger.log(`[generateOutline] Attempt ${attempt}/${maxRetries}`);
+
+        // 构建提示词
+        const prompt = this.buildOutlinePrompt(
+          content,
+          targetSlideCount,
+          options,
+          attempt,
+        );
+
+        this.logger.log(`[generateOutline] Prompt length: ${prompt.length}`);
+
+        // 调用文本模型
+        const response = await this.callTextModel(
+          {
+            apiEndpoint: textModel.apiEndpoint || "",
+            apiKey: textModel.apiKey || "",
+            modelId: textModel.modelId,
+            provider: textModel.provider,
+          },
+          prompt,
+        );
+
+        const elapsed = Date.now() - startTime;
+        this.logger.log(
+          `[generateOutline] Got response in ${elapsed}ms, length: ${response.length}`,
+        );
+
+        // 解析响应（如果失败会抛出错误）
+        const outline = this.parseOutlineResponse(response);
+
+        // 验证大纲质量
+        const validation = this.validateOutlineQuality(
+          outline,
+          targetSlideCount,
+        );
+        if (!validation.passed) {
+          throw new Error(
+            `Outline validation failed: ${validation.issues.join(", ")}`,
+          );
+        }
+
+        this.logger.log(
+          `[generateOutline] Generated outline with ${outline.slides.length} slides in ${elapsed}ms`,
+        );
+
+        return outline;
+      } catch (error: any) {
+        lastError = error;
+        this.logger.warn(
+          `[generateOutline] Attempt ${attempt} failed: ${error.message}`,
+        );
+
+        // 如果是最后一次尝试，抛出错误
+        if (attempt === maxRetries) {
+          break;
+        }
+
+        // 等待一小段时间后重试
+        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+      }
+    }
+
+    // 所有重试失败，抛出错误
+    const elapsed = Date.now() - startTime;
+    this.logger.error(
+      `[generateOutline] All ${maxRetries} attempts failed after ${elapsed}ms`,
+    );
+    throw new Error(
+      `Failed to generate valid outline after ${maxRetries} attempts: ${lastError?.message || "Unknown error"}. Please try again or adjust your input.`,
+    );
+  }
+
+  /**
+   * 🆕 智能计算最佳页数
+   *
+   * 基于内容长度、语言、风格等因素
+   */
+  private calculateOptimalSlideCount(
+    content: string,
+    options: {
+      presentationStyle?: string;
+    },
+  ): number {
+    const length = content.length;
+    const style = options.presentationStyle?.toLowerCase() || "standard";
+
+    // 基础页数计算
+    let baseCount: number;
+    if (length < 1000) {
+      baseCount = 10; // 快速模式：8-12页
+    } else if (length < 3000) {
+      baseCount = 18; // 标准模式：15-25页
+    } else if (length < 5000) {
+      baseCount = 25; // 深度模式：25-40页
+    } else {
+      baseCount = 30; // 超长内容：30-40页
+    }
+
+    // 风格调整
+    if (style === "formal" || style === "educational") {
+      baseCount = Math.round(baseCount * 1.2); // 正式/教育风格：内容更详细
+    } else if (style === "casual" || style === "persuasive") {
+      baseCount = Math.round(baseCount * 0.9); // 轻松/说服风格：更简洁
+    }
+
+    // 确保在合理范围内
+    return Math.max(8, Math.min(40, baseCount));
+  }
+
+  /**
+   * 🆕 构建大纲生成提示词
+   */
+  private buildOutlinePrompt(
+    content: string,
+    targetSlideCount: number,
+    options: {
+      language?: string;
+      targetAudience?: string;
+      presentationStyle?: string;
+    },
+    attempt: number,
+  ): string {
     let prompt = OUTLINE_GENERATION_PROMPT.replace("{content}", content);
 
-    // 强制页数约束（不是建议，是要求）
-    prompt += `\n\n## CRITICAL SLIDE COUNT REQUIREMENT
+    // 强制页数约束
+    prompt += `\n\n## 🎯 CRITICAL SLIDE COUNT REQUIREMENT
 You MUST generate EXACTLY ${targetSlideCount} slides (±2 slides allowed for optimal content flow).
 - Minimum: ${Math.max(5, targetSlideCount - 2)} slides
 - Maximum: ${targetSlideCount + 2} slides
@@ -315,9 +459,22 @@ You MUST generate EXACTLY ${targetSlideCount} slides (±2 slides allowed for opt
 - Do NOT generate more slides than needed
 - Ensure comprehensive coverage of the content`;
 
+    // 🆕 金字塔结构要求
+    prompt += `\n\n## 📐 PYRAMID STRUCTURE REQUIREMENT (MANDATORY)
+Your outline MUST follow this professional structure:
+1. **Title Slide** (purpose: "title") - First slide MUST be the title
+2. **Agenda/Table of Contents** (purpose: "agenda") - If > 5 content slides
+3. **Content Slides** (purpose: "content", "statistics", "comparison", etc.) - Main body
+4. **Closing Slide** (purpose: "closing" or "qna") - Last slide MUST be closing/Q&A
+
+MECE Check: Ensure each slide covers DISTINCT content with NO overlap.`;
+
+    // 语言要求
     if (options.language === "zh") {
       prompt += `\n\nIMPORTANT: Generate all titles and content in Chinese (简体中文).`;
     }
+
+    // 受众和风格
     if (options.targetAudience) {
       prompt += `\nTarget audience: ${options.targetAudience}`;
     }
@@ -325,43 +482,64 @@ You MUST generate EXACTLY ${targetSlideCount} slides (±2 slides allowed for opt
       prompt += `\nPresentation style: ${options.presentationStyle}`;
     }
 
-    this.logger.log(`[generateOutline] Prompt length: ${prompt.length}`);
-
-    // 调用文本模型
-    let response: string;
-    try {
-      response = await this.callTextModel(
-        {
-          apiEndpoint: textModel.apiEndpoint || "",
-          apiKey: textModel.apiKey || "",
-          modelId: textModel.modelId,
-          provider: textModel.provider,
-        },
-        prompt,
-      );
-    } catch (apiError: any) {
-      const elapsed = Date.now() - startTime;
-      this.logger.error(
-        `[generateOutline] API call failed after ${elapsed}ms: ${apiError.message}`,
-      );
-      throw new Error(
-        `AI model API call failed: ${apiError.message}. Please check your AI model configuration.`,
-      );
+    // 重试提示
+    if (attempt > 1) {
+      prompt += `\n\n⚠️ RETRY ATTEMPT ${attempt}: Previous attempt failed validation. Please ensure:
+- Correct JSON format with no syntax errors
+- Slide count within target range (${Math.max(5, targetSlideCount - 2)}-${targetSlideCount + 2})
+- First slide is "title" purpose
+- Last slide is "closing" or "qna" purpose
+- MECE principle: No overlapping content between slides`;
     }
 
-    const elapsed = Date.now() - startTime;
-    this.logger.log(
-      `[generateOutline] Got response in ${elapsed}ms, length: ${response.length}`,
+    return prompt;
+  }
+
+  /**
+   * 🆕 验证大纲质量
+   */
+  private validateOutlineQuality(
+    outline: PPTOutline,
+    targetSlideCount: number,
+  ): { passed: boolean; issues: string[] } {
+    const issues: string[] = [];
+
+    // 1. 检查页数是否在合理范围
+    const minSlides = Math.max(5, targetSlideCount - 3);
+    const maxSlides = targetSlideCount + 3;
+    if (outline.slides.length < minSlides) {
+      issues.push(`Too few slides: ${outline.slides.length} < ${minSlides}`);
+    }
+    if (outline.slides.length > maxSlides) {
+      issues.push(`Too many slides: ${outline.slides.length} > ${maxSlides}`);
+    }
+
+    // 2. 检查是否有标题页
+    const hasTitle = outline.slides.some((s) => s.purpose === "title");
+    if (!hasTitle) {
+      issues.push("Missing title slide");
+    }
+
+    // 3. 检查是否有结束页
+    const hasClosing = outline.slides.some(
+      (s) => s.purpose === "closing" || s.purpose === "qna",
     );
+    if (!hasClosing) {
+      issues.push("Missing closing slide");
+    }
 
-    // 解析响应
-    const outline = this.parseOutlineResponse(response);
+    // 4. 检查重复标题（MECE违反）
+    const titles = outline.slides.map((s) => s.title.toLowerCase());
+    const uniqueTitles = new Set(titles);
+    if (uniqueTitles.size < titles.length * 0.9) {
+      // 允许10%重复（如章节标题）
+      issues.push("Too many duplicate titles (violates MECE principle)");
+    }
 
-    this.logger.log(
-      `[generateOutline] Generated outline with ${outline.slides.length} slides in ${elapsed}ms`,
-    );
-
-    return outline;
+    return {
+      passed: issues.length === 0,
+      issues,
+    };
   }
 
   /**
@@ -482,6 +660,12 @@ You MUST generate EXACTLY ${targetSlideCount} slides (±2 slides allowed for opt
       backgroundDecision.type,
     );
 
+    // 🆕 生成语义块图片规格（图文并茂支持）
+    const contentBlockImages = this.generateContentBlockImages(
+      outlineItem,
+      layoutType,
+    );
+
     // 决定是否需要图表
     const chartSpec = outlineItem.needsChart
       ? this.determineChartSpec(outlineItem)
@@ -497,12 +681,262 @@ You MUST generate EXACTLY ${targetSlideCount} slides (±2 slides allowed for opt
       layoutReasoning: `Auto-determined based on purpose: ${outlineItem.purpose}`,
       backgroundDecision,
       imageSpec,
+      contentBlockImages,
       chartSpec,
       estimatedGenerationTime: this.estimateGenerationTime(
         backgroundDecision,
         imageSpec,
+        contentBlockImages,
       ),
     };
+  }
+
+  /**
+   * 🆕 生成语义块图片规格
+   * 根据布局类型和内容要点，为每个语义块生成对应的图片 prompt
+   */
+  private generateContentBlockImages(
+    outlineItem: SlideOutlineItem,
+    layoutType: SlideLayoutType,
+  ): ContentBlockImageSpec[] | undefined {
+    const images: ContentBlockImageSpec[] = [];
+
+    // 根据布局类型决定是否需要语义块图片
+    const needsBlockImages = [
+      "two_columns",
+      "three_columns",
+      "cards_grid",
+      "timeline_horizontal",
+      "timeline_vertical",
+      "comparison_split",
+    ].includes(layoutType);
+
+    if (!needsBlockImages || outlineItem.keyPoints.length === 0) {
+      return undefined;
+    }
+
+    // 为每个关键点生成图片规格
+    outlineItem.keyPoints.forEach((keyPoint, idx) => {
+      // 只为前4个关键点生成图片，避免过多
+      if (idx >= 4) return;
+
+      const blockId = this.getBlockIdForLayout(layoutType, idx);
+      const blockType = this.getBlockTypeForLayout(layoutType);
+
+      images.push({
+        blockId,
+        blockType,
+        prompt: this.generateSemanticImagePrompt(
+          keyPoint,
+          outlineItem.title,
+          outlineItem.purpose,
+        ),
+        promptZh: this.generateSemanticImagePromptZh(keyPoint),
+        semanticContent: keyPoint,
+        style: this.determineImageStyleForBlock(outlineItem.purpose),
+        aspectRatio: layoutType.includes("column") ? "1:1" : "4:3",
+        importance: idx === 0 ? "hero" : "supporting",
+      });
+    });
+
+    return images.length > 0 ? images : undefined;
+  }
+
+  /**
+   * 根据布局类型获取块ID
+   */
+  private getBlockIdForLayout(
+    layoutType: SlideLayoutType,
+    index: number,
+  ): string {
+    if (layoutType.includes("column")) {
+      return `column-${index}`;
+    } else if (layoutType.includes("timeline")) {
+      return `stage-${index}`;
+    } else if (layoutType === "comparison_split") {
+      return index === 0 ? "left" : "right";
+    } else if (layoutType === "cards_grid") {
+      return `card-${index}`;
+    }
+    return `block-${index}`;
+  }
+
+  /**
+   * 根据布局类型获取块类型
+   */
+  private getBlockTypeForLayout(
+    layoutType: SlideLayoutType,
+  ): ContentBlockImageSpec["blockType"] {
+    if (layoutType.includes("column")) return "column";
+    if (layoutType.includes("timeline")) return "stage";
+    if (layoutType === "comparison_split") return "section";
+    if (layoutType === "cards_grid") return "item";
+    return "other";
+  }
+
+  /**
+   * 🆕 生成语义匹配的图片提示词
+   * 确保图片与文字内容完全对应
+   */
+  private generateSemanticImagePrompt(
+    keyPoint: string,
+    slideTitle: string,
+    purpose: SlidePurpose,
+  ): string {
+    // 提取关键词
+    const keywords = this.extractKeywords(keyPoint);
+
+    // 根据内容语义生成精确的图片提示词
+    const styleGuide = this.getStyleGuideForPurpose(purpose);
+
+    return `Professional ${styleGuide.style} image that visually represents: "${keyPoint}".
+Key concepts to illustrate: ${keywords.join(", ")}.
+Context: Part of a slide about "${slideTitle}".
+Style: ${styleGuide.description}
+Mood: ${styleGuide.mood}
+DO NOT include any text, words, letters, or numbers in the image.
+High quality, 4K resolution, professional business presentation aesthetic.`;
+  }
+
+  /**
+   * 生成中文图片提示词（用于显示）
+   */
+  private generateSemanticImagePromptZh(keyPoint: string): string {
+    return `与"${keyPoint}"语义匹配的专业配图`;
+  }
+
+  /**
+   * 提取关键词
+   */
+  private extractKeywords(text: string): string[] {
+    // 移除常见停用词，提取核心概念
+    const stopWords = [
+      "的",
+      "是",
+      "在",
+      "和",
+      "与",
+      "或",
+      "了",
+      "the",
+      "a",
+      "an",
+      "is",
+      "are",
+      "of",
+      "to",
+      "and",
+      "for",
+    ];
+    const words = text
+      .split(/[\s,，、]+/)
+      .filter((w) => w.length > 1 && !stopWords.includes(w.toLowerCase()));
+    return words.slice(0, 5); // 最多5个关键词
+  }
+
+  /**
+   * 根据目的获取风格指南
+   */
+  private getStyleGuideForPurpose(purpose: SlidePurpose): {
+    style: string;
+    description: string;
+    mood: string;
+  } {
+    const guides: Record<
+      SlidePurpose,
+      { style: string; description: string; mood: string }
+    > = {
+      title: {
+        style: "hero",
+        description: "Cinematic, dramatic visual",
+        mood: "Inspiring, bold",
+      },
+      agenda: {
+        style: "minimal",
+        description: "Clean icons or abstract shapes",
+        mood: "Organized, clear",
+      },
+      section_header: {
+        style: "bold",
+        description: "Strong visual statement",
+        mood: "Impactful, transitional",
+      },
+      content: {
+        style: "illustrative",
+        description: "Clear conceptual illustration",
+        mood: "Informative, engaging",
+      },
+      comparison: {
+        style: "contrasting",
+        description: "Visual that shows difference",
+        mood: "Analytical, balanced",
+      },
+      timeline: {
+        style: "progressive",
+        description: "Visual showing flow or progress",
+        mood: "Dynamic, sequential",
+      },
+      statistics: {
+        style: "data-driven",
+        description: "Abstract data visualization feel",
+        mood: "Analytical, modern",
+      },
+      quote: {
+        style: "atmospheric",
+        description: "Subtle, emotional backdrop",
+        mood: "Thoughtful, inspiring",
+      },
+      team: {
+        style: "warm",
+        description: "Human connection imagery",
+        mood: "Collaborative, approachable",
+      },
+      image_focus: {
+        style: "hero",
+        description: "Stunning main visual",
+        mood: "High impact, memorable",
+      },
+      chart: {
+        style: "analytical",
+        description: "Supporting data visual",
+        mood: "Clear, professional",
+      },
+      closing: {
+        style: "inspiring",
+        description: "Forward-looking imagery",
+        mood: "Hopeful, conclusive",
+      },
+      qna: {
+        style: "inviting",
+        description: "Open, welcoming visual",
+        mood: "Conversational, engaging",
+      },
+    };
+    return guides[purpose] || guides.content;
+  }
+
+  /**
+   * 确定语义块的图片风格
+   */
+  private determineImageStyleForBlock(
+    purpose: SlidePurpose,
+  ): ContentBlockImageSpec["style"] {
+    const styleMap: Record<SlidePurpose, ContentBlockImageSpec["style"]> = {
+      title: "photo",
+      agenda: "icon",
+      section_header: "abstract",
+      content: "illustration",
+      comparison: "illustration",
+      timeline: "illustration",
+      statistics: "abstract",
+      quote: "photo",
+      team: "photo",
+      image_focus: "photo",
+      chart: "diagram",
+      closing: "photo",
+      qna: "illustration",
+    };
+    return styleMap[purpose] || "illustration";
   }
 
   // ============================================
@@ -684,6 +1118,11 @@ You MUST generate EXACTLY ${targetSlideCount} slides (±2 slides allowed for opt
 
   /**
    * 解析大纲响应
+   *
+   * 🆕 Phase 2 重构：
+   * 1. 移除固定3页fallback（改为抛出错误重试）
+   * 2. 强制金字塔结构验证
+   * 3. 智能补全缺失的结构性页面
    */
   private parseOutlineResponse(response: string): PPTOutline {
     try {
@@ -721,55 +1160,149 @@ You MUST generate EXACTLY ${targetSlideCount} slides (±2 slides allowed for opt
         }));
       }
 
-      // 确保第一页是标题页
-      if (outline.slides.length > 0 && outline.slides[0].purpose !== "title") {
-        outline.slides.unshift({
-          index: 0,
-          purpose: "title",
-          title: outline.title,
-          keyPoints: [outline.subtitle || ""],
-          needsImage: true,
-          needsChart: false,
-        });
-        // 重新编号
-        outline.slides.forEach((s, i) => (s.index = i));
-      }
+      // 🆕 强制金字塔结构验证和修复
+      const validatedOutline = this.enforceOutlineStructure(outline);
 
-      return outline;
+      return validatedOutline;
     } catch (error) {
       this.logger.error("[parseOutlineResponse] Parse error:", error);
-      // 返回默认大纲
-      return {
-        title: "Presentation",
-        estimatedDuration: 10,
-        slides: [
-          {
-            index: 0,
-            purpose: "title",
-            title: "Presentation",
-            keyPoints: [],
-            needsImage: true,
-            needsChart: false,
-          },
-          {
-            index: 1,
-            purpose: "content",
-            title: "Main Content",
-            keyPoints: ["Content will be generated"],
-            needsImage: false,
-            needsChart: false,
-          },
-          {
-            index: 2,
-            purpose: "closing",
-            title: "Thank You",
-            keyPoints: [],
-            needsImage: true,
-            needsChart: false,
-          },
-        ],
-      };
+      // 🆕 不再返回默认3页大纲，抛出错误触发重试
+      throw new Error(
+        `Failed to parse outline response: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
+  }
+
+  /**
+   * 🆕 强制金字塔结构：封面→目录→摘要→正文章节→结语
+   *
+   * 确保大纲符合专业PPT的标准结构
+   */
+  private enforceOutlineStructure(outline: PPTOutline): PPTOutline {
+    const slides = [...outline.slides];
+    const fixedSlides: typeof slides = [];
+
+    // 1. 确保第一页是标题页
+    const titleSlide = slides.find((s) => s.purpose === "title");
+    if (titleSlide) {
+      fixedSlides.push({ ...titleSlide, index: 0 });
+    } else {
+      fixedSlides.push({
+        index: 0,
+        purpose: "title",
+        title: outline.title,
+        keyPoints: [outline.subtitle || ""],
+        needsImage: true,
+        needsChart: false,
+        emphasis: "high",
+      });
+    }
+
+    // 2. 检查是否需要目录页（如果内容页 > 5页）
+    const contentSlides = slides.filter(
+      (s) =>
+        s.purpose !== "title" &&
+        s.purpose !== "closing" &&
+        s.purpose !== "qna" &&
+        s.purpose !== "agenda",
+    );
+
+    if (contentSlides.length > 5) {
+      // 查找现有目录页
+      const agendaSlide = slides.find((s) => s.purpose === "agenda");
+      if (agendaSlide) {
+        fixedSlides.push({ ...agendaSlide, index: fixedSlides.length });
+      } else {
+        // 自动生成目录页
+        const sections = this.extractSections(slides);
+        fixedSlides.push({
+          index: fixedSlides.length,
+          purpose: "agenda",
+          title: "目录",
+          keyPoints: sections.map((s) => s.title),
+          needsImage: false,
+          needsChart: false,
+          emphasis: "medium",
+        });
+      }
+    }
+
+    // 3. 添加正文内容（按原始顺序）
+    for (const slide of contentSlides) {
+      fixedSlides.push({ ...slide, index: fixedSlides.length });
+    }
+
+    // 4. 确保最后一页是结束页或Q&A
+    const closingSlide = slides.find(
+      (s) => s.purpose === "closing" || s.purpose === "qna",
+    );
+    if (closingSlide) {
+      fixedSlides.push({ ...closingSlide, index: fixedSlides.length });
+    } else {
+      fixedSlides.push({
+        index: fixedSlides.length,
+        purpose: "closing",
+        title: "谢谢",
+        keyPoints: ["感谢聆听", "欢迎交流"],
+        needsImage: true,
+        needsChart: false,
+        emphasis: "high",
+      });
+    }
+
+    // 5. 重新编号所有幻灯片
+    fixedSlides.forEach((s, i) => (s.index = i));
+
+    this.logger.log(
+      `[enforceOutlineStructure] Validated structure: ${fixedSlides.length} slides (${slides.length} original)`,
+    );
+
+    return {
+      ...outline,
+      slides: fixedSlides,
+    };
+  }
+
+  /**
+   * 提取章节结构（用于生成目录）
+   */
+  private extractSections(
+    slides: SlideOutlineItem[],
+  ): Array<{ title: string; slideIndex: number }> {
+    const sections: Array<{ title: string; slideIndex: number }> = [];
+
+    for (let i = 0; i < slides.length; i++) {
+      const slide = slides[i];
+      // 章节标题页作为章节分隔
+      if (slide.purpose === "section_header") {
+        sections.push({
+          title: slide.title,
+          slideIndex: i,
+        });
+      }
+    }
+
+    // 如果没有明确的章节标题，根据内容页自动划分
+    if (sections.length === 0) {
+      const contentSlides = slides.filter(
+        (s) =>
+          s.purpose === "content" ||
+          s.purpose === "statistics" ||
+          s.purpose === "comparison" ||
+          s.purpose === "timeline",
+      );
+
+      // 每3-4页内容作为一个章节
+      for (let i = 0; i < contentSlides.length; i += 4) {
+        const slide = contentSlides[i];
+        sections.push({
+          title: slide.title,
+          slideIndex: slides.indexOf(slide),
+        });
+      }
+    }
+
+    return sections;
   }
 
   /**
@@ -1255,6 +1788,7 @@ DO NOT include any text or words in the image.`;
   private estimateGenerationTime(
     backgroundDecision: BackgroundDecision,
     imageSpec?: SlideImageSpec,
+    contentBlockImages?: ContentBlockImageSpec[],
   ): number {
     let time = 2000; // 基础内容生成时间
 
@@ -1264,6 +1798,11 @@ DO NOT include any text or words in the image.`;
 
     if (imageSpec) {
       time += 5000; // 内容图片生成
+    }
+
+    // 语义块图片生成时间
+    if (contentBlockImages && contentBlockImages.length > 0) {
+      time += contentBlockImages.length * 3000; // 每个语义块图片约3秒
     }
 
     return time;

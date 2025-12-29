@@ -32,6 +32,9 @@ import {
   SourceAnalysisService,
   SourceAnalysis,
 } from "../generation/source-analysis.service";
+import { ContentAnalyzerService } from "../template-selection/content-analyzer.service";
+import { TemplateSelectorService } from "../services/template-selector.service";
+import { LayoutAdjusterService } from "../services/layout-adjuster.service";
 import {
   PPTGenerationInput,
   PPTDocument,
@@ -60,7 +63,16 @@ export class SlidesOrchestratorService {
     private readonly slideImage: SlideImageService,
     private readonly slideRenderer: SlideRendererService,
     private readonly sourceAnalysis: SourceAnalysisService,
-  ) {}
+    // 🆕 Phase 5 Services
+    private readonly contentAnalyzer: ContentAnalyzerService,
+    private readonly templateSelector: TemplateSelectorService,
+    private readonly layoutAdjuster: LayoutAdjusterService,
+  ) {
+    // 确保 Phase 5 服务可用（用于后续模板选择功能）
+    this.logger.debug(
+      `[Phase5] Services initialized: templateSelector=${!!this.templateSelector}`,
+    );
+  }
 
   /**
    * 生成 PPT（流式）
@@ -120,7 +132,327 @@ export class SlidesOrchestratorService {
   }
 
   /**
-   * 执行生成流程
+   * 🆕 执行生成流程（Phase 5 重构版 - 4层管道架构）
+   *
+   * 流程：
+   * 1. 内容分析 → 提取特征
+   * 2. 大纲规划 → 金字塔结构
+   * 3. 模板选择 → 内容→模板匹配
+   * 4. 内容生成 → 按模板生成
+   * 5. 图片生成 → 背景+插图
+   */
+  async *generateSlides(
+    options: PPTGenerationInput,
+  ): AsyncGenerator<PPTStreamEvent> {
+    const startTime = Date.now();
+    const pptId = randomUUID();
+
+    this.logger.log(`[generateSlides] Starting Phase 5 generation: ${pptId}`);
+
+    try {
+      // ============================================
+      // Step 1: 内容分析
+      // ============================================
+      yield {
+        type: "content_analyzing",
+        timestamp: new Date().toISOString(),
+        progress: {
+          phase: "analyzing",
+          percentage: 5,
+          message: "分析内容特征...",
+        },
+      };
+
+      const extractedContent = await this.extractContent(options);
+      const features = await this.contentAnalyzer.analyze(
+        extractedContent,
+        options.urls,
+      );
+
+      yield {
+        type: "content_analyzed",
+        timestamp: new Date().toISOString(),
+        features: {
+          topic: features.topic,
+          contentType: features.contentType,
+          suggestedSlideRange: features.suggestedSlideRange,
+        },
+        progress: {
+          phase: "analyzing",
+          percentage: 10,
+          message: `特征提取完成: ${features.topic}`,
+        },
+      };
+
+      this.logger.log(
+        `[generateSlides] Content analysis complete: topic="${features.topic}", type=${features.contentType}`,
+      );
+
+      // ============================================
+      // Step 2: 大纲规划
+      // ============================================
+      yield {
+        type: "outline_generating",
+        timestamp: new Date().toISOString(),
+        progress: {
+          phase: "planning",
+          percentage: 15,
+          message: "规划PPT结构...",
+        },
+      };
+
+      const outline = await this.slidePlanning.generateOutline(
+        extractedContent,
+        {
+          slideCount: options.slideCount || features.suggestedSlideRange.max,
+          language: options.language,
+          targetAudience: options.targetAudience || features.targetAudience,
+          presentationStyle: options.presentationStyle,
+        },
+      );
+
+      yield {
+        type: "outline_complete",
+        timestamp: new Date().toISOString(),
+        outline,
+        progress: {
+          phase: "planning",
+          percentage: 25,
+          message: `大纲生成完成: ${outline.slides.length} 页`,
+        },
+      };
+
+      this.logger.log(
+        `[generateSlides] Outline generated with ${outline.slides.length} slides`,
+      );
+
+      // ============================================
+      // Step 3: 模板选择（使用现有的快速规划）
+      // ============================================
+      yield {
+        type: "template_selecting",
+        timestamp: new Date().toISOString(),
+        progress: {
+          phase: "template",
+          percentage: 30,
+          message: "选择页面模板...",
+        },
+      };
+
+      // 注意：模板选择功能已集成到 SlidePlanningService.planAllSlides 中
+      // 这里仅发送事件以保持流程一致性
+
+      yield {
+        type: "template_selected",
+        timestamp: new Date().toISOString(),
+        progress: {
+          phase: "template",
+          percentage: 35,
+          message: "模板选择完成",
+        },
+      };
+
+      this.logger.log(
+        `[generateSlides] Template selection integrated into planning`,
+      );
+
+      // ============================================
+      // Step 4: 内容生成
+      // ============================================
+      const theme = this.getTheme(options.themeId, outline.suggestedTheme);
+      const generatedSlides: GeneratedSlide[] = [];
+
+      const textModel = await this.aiModelService.getDefaultTextModel(
+        options.textModelId,
+      );
+      let imageModel = null;
+
+      if (options.includeImages !== false) {
+        try {
+          imageModel = await this.aiModelService.getDefaultImageModel(
+            options.imageModelId,
+          );
+        } catch (error: any) {
+          this.logger.warn(
+            `[generateSlides] Image model not available: ${error.message}`,
+          );
+        }
+      }
+
+      // 使用 SlideSpec（已经包含布局决策）
+      const slideSpecs = await this.slidePlanning.planAllSlides(outline, theme);
+
+      for (let i = 0; i < slideSpecs.length; i++) {
+        const spec = slideSpecs[i];
+        const progressBase = 40 + (i / slideSpecs.length) * 45;
+
+        yield {
+          type: "slide_generating",
+          timestamp: new Date().toISOString(),
+          slide: { index: i },
+          progress: {
+            phase: "content",
+            percentage: progressBase,
+            message: `生成第 ${i + 1}/${slideSpecs.length} 页: ${spec.title}`,
+            currentSlide: i + 1,
+            totalSlides: slideSpecs.length,
+          },
+        };
+
+        // 并行生成内容和图像
+        const [content, images] = await Promise.all([
+          this.slideContent.generateContent(spec, extractedContent, {
+            language: options.language || "auto",
+            includeSpeakerNotes: options.includeSpeakerNotes !== false,
+          }),
+          this.generateSlideImages(
+            spec,
+            theme,
+            imageModel,
+            options.includeImages !== false,
+          ),
+        ]);
+
+        yield {
+          type: "slide_content_complete",
+          timestamp: new Date().toISOString(),
+          slide: {
+            index: i,
+            content,
+          },
+        };
+
+        if (images.length > 0) {
+          yield {
+            type: "slide_image_complete",
+            timestamp: new Date().toISOString(),
+            slide: {
+              index: i,
+              images,
+            },
+          };
+        }
+
+        // 渲染 HTML
+        const renderedHtml = await this.slideRenderer.renderSlide(
+          { spec, content, images },
+          theme,
+        );
+
+        const generatedSlide: GeneratedSlide = {
+          id: spec.id,
+          index: spec.index,
+          spec,
+          content,
+          images,
+          renderedHtml,
+          isEdited: false,
+          editHistory: [],
+          generationMetadata: {
+            textModelUsed: textModel?.name || "unknown",
+            imageModelUsed: imageModel?.name,
+            contentGeneratedAt: new Date().toISOString(),
+            imagesGeneratedAt:
+              images.length > 0 ? new Date().toISOString() : undefined,
+          },
+        };
+
+        generatedSlides.push(generatedSlide);
+
+        yield {
+          type: "slide_complete",
+          timestamp: new Date().toISOString(),
+          slide: {
+            index: i,
+            spec,
+            content,
+            images,
+            renderedHtml,
+          },
+        };
+      }
+
+      // ============================================
+      // Step 5: 布局调整与全局样式
+      // ============================================
+      yield {
+        type: "progress",
+        timestamp: new Date().toISOString(),
+        progress: {
+          phase: "rendering",
+          percentage: 90,
+          message: "应用全局样式...",
+        },
+      };
+
+      // 布局调整
+      await this.layoutAdjuster.adjustAllSlides(generatedSlides);
+
+      // 全局样式
+      await this.applyGlobalStyleToSlides(generatedSlides, options);
+
+      // ============================================
+      // Step 6: 组装并保存文档
+      // ============================================
+      yield {
+        type: "progress",
+        timestamp: new Date().toISOString(),
+        progress: {
+          phase: "finalizing",
+          percentage: 95,
+          message: "保存演示文稿...",
+        },
+      };
+
+      const pptDocument = await this.assemblePPTDocument(
+        pptId,
+        options,
+        outline,
+        theme,
+        generatedSlides,
+        textModel,
+        imageModel,
+      );
+
+      await this.savePPTDocument(pptDocument);
+
+      const duration = Date.now() - startTime;
+
+      this.logger.log(
+        `[generateSlides] Completed in ${duration}ms, ${generatedSlides.length} slides`,
+      );
+
+      yield {
+        type: "complete",
+        timestamp: new Date().toISOString(),
+        progress: {
+          phase: "complete",
+          percentage: 100,
+          message: "PPT生成完成!",
+        },
+        result: {
+          pptId,
+          totalSlides: generatedSlides.length,
+          duration,
+        },
+      };
+    } catch (error) {
+      this.logger.error("[generateSlides] Error:", error);
+      yield {
+        type: "error",
+        timestamp: new Date().toISOString(),
+        error: {
+          code: "GENERATION_FAILED",
+          message:
+            error instanceof Error ? error.message : "PPT generation failed",
+        },
+      };
+      throw error;
+    }
+  }
+
+  /**
+   * 执行生成流程（保留旧版本以确保向后兼容）
    */
   private async executeGeneration(
     input: PPTGenerationInput,

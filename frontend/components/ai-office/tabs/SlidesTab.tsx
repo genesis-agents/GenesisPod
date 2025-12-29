@@ -183,50 +183,82 @@ function ResourceCard({ resource }: { resource: Resource }) {
   );
 }
 
-// 步骤指示器
-function StepIndicator({ currentStep }: { currentStep: GenerationStep }) {
+// 扩展的生成步骤类型
+type ExtendedGenerationStep =
+  | 'idle'
+  | 'parsing' // 需求解析
+  | 'analyzing' // 素材分析
+  | 'outline' // 大纲规划
+  | 'layout' // 布局设计
+  | 'content' // 内容生成
+  | 'images' // 图片生成
+  | 'complete';
+
+// 步骤指示器 - 扩展版，6个步骤
+function StepIndicator({
+  currentStep,
+  extendedStep,
+}: {
+  currentStep: GenerationStep;
+  extendedStep?: ExtendedGenerationStep;
+}) {
   const steps = [
-    { id: 'outline' as const, label: '大纲规划', icon: FileText },
-    { id: 'layout' as const, label: '布局配色', icon: Layout },
-    { id: 'content' as const, label: '内容生成', icon: Wand2 },
+    { id: 'parsing' as const, label: '需求解析', shortLabel: '解析' },
+    { id: 'analyzing' as const, label: '素材分析', shortLabel: '分析' },
+    { id: 'outline' as const, label: '大纲规划', shortLabel: '大纲' },
+    { id: 'layout' as const, label: '布局设计', shortLabel: '布局' },
+    { id: 'content' as const, label: '内容生成', shortLabel: '内容' },
+    { id: 'images' as const, label: '图片生成', shortLabel: '图片' },
   ];
 
-  const getStepStatus = (stepId: GenerationStep) => {
-    const order = ['idle', 'outline', 'layout', 'content', 'complete'];
-    const currentIndex = order.indexOf(currentStep);
+  const getStepStatus = (stepId: ExtendedGenerationStep) => {
+    const order = [
+      'idle',
+      'parsing',
+      'analyzing',
+      'outline',
+      'layout',
+      'content',
+      'images',
+      'complete',
+    ];
+    // 映射旧步骤到新步骤
+    const activeStep = extendedStep || currentStep;
+    const currentIndex = order.indexOf(activeStep);
     const stepIndex = order.indexOf(stepId);
-    if (currentStep === 'complete') return 'complete';
+    if (activeStep === 'complete') return 'complete';
     if (stepIndex < currentIndex) return 'complete';
     if (stepIndex === currentIndex) return 'current';
     return 'pending';
   };
 
   return (
-    <div className="flex items-center justify-center gap-2 py-3">
+    <div className="flex items-center justify-center gap-1 py-2">
       {steps.map((step, index) => {
         const status = getStepStatus(step.id);
         return (
           <React.Fragment key={step.id}>
             <div
               className={cn(
-                'flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium',
+                'flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium transition-all',
                 status === 'complete' && 'bg-green-100 text-green-700',
                 status === 'current' &&
-                  'bg-blue-100 text-blue-700 ring-2 ring-blue-500',
+                  'bg-blue-100 text-blue-700 ring-1 ring-blue-500',
                 status === 'pending' && 'bg-gray-100 text-gray-400'
               )}
+              title={step.label}
             >
               {status === 'complete' ? (
-                <CheckCircle2 className="h-4 w-4" />
+                <CheckCircle2 className="h-3 w-3" />
               ) : status === 'current' ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-3 w-3 animate-spin" />
               ) : (
-                <Circle className="h-4 w-4" />
+                <Circle className="h-3 w-3" />
               )}
-              <span>{step.label}</span>
+              <span className="hidden sm:inline">{step.shortLabel}</span>
             </div>
             {index < steps.length - 1 && (
-              <ChevronRight className="h-4 w-4 text-gray-300" />
+              <ChevronRight className="h-3 w-3 flex-shrink-0 text-gray-300" />
             )}
           </React.Fragment>
         );
@@ -666,8 +698,12 @@ export default function SlidesTab() {
   // 历史记录
   const { history, addHistory, updateHistory, removeHistory, clearHistory } =
     useSlidesHistoryStore();
-  const [showHistory, setShowHistory] = useState(false);
+  const [showHistory, setShowHistory] = useState(false); // 默认隐藏历史记录
   const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
+
+  // 扩展步骤状态
+  const [extendedStep, setExtendedStep] =
+    useState<ExtendedGenerationStep>('idle');
 
   // PPT 预览状态
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
@@ -778,6 +814,7 @@ export default function SlidesTab() {
     setInput('');
     setIsLoading(true);
     setGenerationStep('outline');
+    setExtendedStep('parsing'); // 扩展步骤：需求解析
 
     // 初始化大纲阶段思考步骤
     setThinkingSteps([
@@ -965,6 +1002,7 @@ export default function SlidesTab() {
 
       setOutline(outlineData);
       setSelectedTheme(suggestedTheme);
+      setExtendedStep('outline'); // 扩展步骤：大纲规划完成
 
       // 更新思考步骤 - 大纲生成完成
       setThinkingSteps([
@@ -1031,6 +1069,7 @@ export default function SlidesTab() {
   // 确认大纲
   const confirmOutline = () => {
     setGenerationStep('layout');
+    setExtendedStep('layout'); // 扩展步骤：布局设计
     const defaultLayouts: LayoutConfig[] = outline.map((item, index) => ({
       slideNumber: item.slideNumber,
       layoutType:
@@ -1057,6 +1096,7 @@ export default function SlidesTab() {
   const generateContent = async () => {
     setIsLoading(true);
     setGenerationStep('content');
+    setExtendedStep('content'); // 扩展步骤：内容生成
 
     // 初始化 AI 思考步骤
     const initialSteps: AIThinkingStep[] = outline.map((item, idx) => ({
@@ -1321,6 +1361,7 @@ export default function SlidesTab() {
             case 'complete':
               // 生成完成
               pptDocument = data.result;
+              setExtendedStep('complete'); // 扩展步骤：全部完成
 
               // 标记所有思考步骤完成
               setThinkingSteps((prev) =>
@@ -1624,6 +1665,7 @@ export default function SlidesTab() {
   // 重置流程
   const resetGeneration = () => {
     setGenerationStep('idle');
+    setExtendedStep('idle');
     setOutline([]);
     setLayouts([]);
     setMessages([]);
@@ -1658,9 +1700,20 @@ export default function SlidesTab() {
     [currentDocumentId, content, updateDocument]
   );
 
+  // 恢复历史记录
+  const restoreHistory = useCallback(
+    (item: SlidesHistoryItem) => {
+      if (!item.result?.documentId) return;
+      setCurrentDocument(item.result.documentId);
+      setCurrentHistoryId(item.id);
+      setShowHistory(false);
+    },
+    [setCurrentDocument]
+  );
+
   return (
     <div ref={containerRef} className="flex h-full overflow-hidden">
-      {/* 左侧面板：资源 + 生成流程 */}
+      {/* 左侧面板：历史记录 + 消息/大纲/工具区 + 输入框 */}
       <div
         className="relative flex flex-shrink-0 flex-col border-r border-gray-200 bg-white"
         style={{ width: `${leftPanelWidth}px` }}
@@ -1678,6 +1731,19 @@ export default function SlidesTab() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {/* 历史记录按钮 */}
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className={cn(
+                  'rounded-lg p-2 transition-colors',
+                  showHistory
+                    ? 'bg-orange-100 text-orange-600'
+                    : 'text-gray-500 hover:bg-gray-100'
+                )}
+                title="历史记录"
+              >
+                <Clock className="h-4 w-4" />
+              </button>
               {generationStep !== 'idle' && (
                 <button
                   onClick={resetGeneration}
@@ -1690,10 +1756,13 @@ export default function SlidesTab() {
             </div>
           </div>
 
-          {/* 步骤指示器 - 紧凑显示 */}
+          {/* 步骤指示器 - 扩展版6步骤 */}
           {generationStep !== 'idle' && (
             <div className="mt-3">
-              <StepIndicator currentStep={generationStep} />
+              <StepIndicator
+                currentStep={generationStep}
+                extendedStep={extendedStep}
+              />
             </div>
           )}
 
@@ -1719,8 +1788,97 @@ export default function SlidesTab() {
           )}
         </div>
 
-        {/* 可滚动的内容区域 */}
+        {/* 可滚动的内容区域 - 消息区、大纲区、工具区可独立滚动 */}
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          {/* 历史记录面板 - 折叠式 */}
+          <AnimatePresence>
+            {showHistory && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="flex-shrink-0 overflow-hidden border-b border-gray-200"
+              >
+                <div className="max-h-80 overflow-y-auto p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <h3 className="text-xs font-semibold text-gray-700">
+                      历史记录
+                    </h3>
+                    {history.length > 0 && (
+                      <button
+                        onClick={clearHistory}
+                        className="text-xs text-red-600 hover:text-red-700"
+                      >
+                        清空
+                      </button>
+                    )}
+                  </div>
+                  {history.length === 0 ? (
+                    <div className="py-8 text-center text-xs text-gray-400">
+                      暂无历史记录
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {history.map((item) => (
+                        <div
+                          key={item.id}
+                          className={cn(
+                            'group relative rounded-lg border p-3 transition-all hover:shadow-sm',
+                            item.id === currentHistoryId
+                              ? 'border-orange-300 bg-orange-50'
+                              : 'border-gray-200 bg-white hover:border-gray-300'
+                          )}
+                        >
+                          <div
+                            className="cursor-pointer"
+                            onClick={() => restoreHistory(item)}
+                          >
+                            <div className="mb-1 flex items-center justify-between">
+                              <p className="line-clamp-1 text-xs font-medium text-gray-900">
+                                {item.prompt}
+                              </p>
+                              <span
+                                className={cn(
+                                  'ml-2 flex-shrink-0 rounded-full px-2 py-0.5 text-xs',
+                                  item.status === 'success' &&
+                                    'bg-green-100 text-green-700',
+                                  item.status === 'error' &&
+                                    'bg-red-100 text-red-700',
+                                  item.status === 'pending' &&
+                                    'bg-yellow-100 text-yellow-700'
+                                )}
+                              >
+                                {item.status === 'success'
+                                  ? '成功'
+                                  : item.status === 'error'
+                                    ? '失败'
+                                    : '生成中'}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs text-gray-500">
+                              <span>{item.slideCount} 页</span>
+                              <span>{formatRelativeTime(item.timestamp)}</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeHistory(item.id);
+                            }}
+                            className="absolute right-2 top-2 rounded p-1 opacity-0 hover:bg-red-50 group-hover:opacity-100"
+                          >
+                            <Trash2 className="h-3 w-3 text-red-500" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* AI 思考过程 - 仅在生成中显示，紧凑版 */}
           {generationStep !== 'idle' &&
             generationStep !== 'complete' &&
@@ -1735,84 +1893,52 @@ export default function SlidesTab() {
               </div>
             )}
 
-          {/* 主内容区域 - 根据步骤显示不同内容 */}
+          {/* 主内容区域 - 根据步骤显示不同内容，可独立滚动 */}
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             {generationStep === 'idle' && (
               <>
-                <div className="flex-1 space-y-3 overflow-y-auto p-4">
-                  {messages.length === 0 ? (
-                    <div className="flex h-full items-center justify-center text-gray-400">
-                      <div className="text-center">
-                        <Wand2 className="mx-auto mb-3 h-10 w-10" />
-                        <p className="text-sm font-medium">开始创建PPT</p>
-                        <p className="mt-1 text-xs">
-                          描述主题和要求，AI会为你规划大纲、设计布局
-                        </p>
+                {/* 消息区域 - 可独立滚动 */}
+                <div className="flex-1 overflow-y-auto">
+                  <div className="space-y-3 p-4">
+                    {messages.length === 0 ? (
+                      <div className="flex min-h-[300px] items-center justify-center text-gray-400">
+                        <div className="text-center">
+                          <Wand2 className="mx-auto mb-3 h-10 w-10" />
+                          <p className="text-sm font-medium">开始创建PPT</p>
+                          <p className="mt-1 text-xs">
+                            描述主题和要求，AI会为你规划大纲、设计布局
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <>
-                      {messages.map((message) => (
-                        <div
-                          key={message.id}
-                          className={cn(
-                            'flex',
-                            message.role === 'user'
-                              ? 'justify-end'
-                              : 'justify-start'
-                          )}
-                        >
+                    ) : (
+                      <>
+                        {messages.map((message) => (
                           <div
+                            key={message.id}
                             className={cn(
-                              'max-w-[85%] rounded-lg px-4 py-2',
+                              'flex',
                               message.role === 'user'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-100 text-gray-900'
+                                ? 'justify-end'
+                                : 'justify-start'
                             )}
                           >
-                            <p className="whitespace-pre-wrap text-sm">
-                              {message.content}
-                            </p>
+                            <div
+                              className={cn(
+                                'max-w-[85%] rounded-lg px-4 py-2',
+                                message.role === 'user'
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-gray-100 text-gray-900'
+                              )}
+                            >
+                              <p className="whitespace-pre-wrap text-sm">
+                                {message.content}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                      <div ref={messagesEndRef} />
-                    </>
-                  )}
-                </div>
-                <div className="border-t border-gray-200 bg-white p-4">
-                  <div className="relative">
-                    <textarea
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          generateOutline();
-                        }
-                      }}
-                      placeholder="直接描述你想要的PPT，AI会自动理解你的需求：&#10;&#10;例如：&#10;• 帮我做一个10页的AI发展历程PPT，用漫画风格&#10;• 基于 https://example.com/report 这篇文章做一个哆啦A梦风格的介绍&#10;• 做一份关于新能源汽车的商业报告，要专业一点，15页左右"
-                      className="w-full resize-none rounded-xl border-2 border-gray-200 px-4 py-4 pb-14 text-sm placeholder:text-gray-400 focus:border-orange-500 focus:outline-none"
-                      rows={4}
-                      disabled={isLoading}
-                    />
-                    <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
-                      <p className="text-xs text-gray-400">
-                        支持直接粘贴URL、指定风格、页数、配色等，AI会自动理解
-                      </p>
-                      <button
-                        onClick={generateOutline}
-                        disabled={!input.trim() || isLoading}
-                        className="flex items-center gap-2 rounded-lg bg-orange-500 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-orange-600 disabled:bg-gray-300"
-                      >
-                        {isLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Sparkles className="h-4 w-4" />
-                        )}
-                        <span>生成PPT</span>
-                      </button>
-                    </div>
+                        ))}
+                        <div ref={messagesEndRef} />
+                      </>
+                    )}
                   </div>
                 </div>
               </>
@@ -1840,39 +1966,99 @@ export default function SlidesTab() {
 
             {(generationStep === 'content' ||
               generationStep === 'complete') && (
-              <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
-                {generationStep === 'content' ? (
-                  <>
-                    <Loader2 className="mb-4 h-10 w-10 animate-spin text-blue-600" />
-                    <h3 className="text-base font-semibold text-gray-800">
-                      正在生成PPT...
-                    </h3>
-                    <p className="mt-2 text-sm text-gray-500">
-                      AI正在根据大纲和布局配置生成内容
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="mb-4 h-10 w-10 text-green-500" />
-                    <h3 className="text-base font-semibold text-gray-800">
-                      PPT生成完成！
-                    </h3>
-                    <p className="mt-2 text-sm text-gray-500">
-                      共 {slides.length} 页，可在右侧预览和编辑
-                    </p>
-                    <button
-                      onClick={resetGeneration}
-                      className="mt-4 flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
-                    >
-                      <Plus className="h-4 w-4" />
-                      <span>创建新PPT</span>
-                    </button>
-                  </>
-                )}
+              <div className="flex flex-1 flex-col overflow-y-auto">
+                <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
+                  {generationStep === 'content' ? (
+                    <>
+                      <Loader2 className="mb-4 h-10 w-10 animate-spin text-blue-600" />
+                      <h3 className="text-base font-semibold text-gray-800">
+                        正在生成PPT...
+                      </h3>
+                      <p className="mt-2 text-sm text-gray-500">
+                        AI正在根据大纲和布局配置生成内容
+                      </p>
+                      {slides.length > 0 && (
+                        <div className="mt-4 rounded-lg bg-blue-50 px-4 py-2">
+                          <p className="text-sm text-blue-700">
+                            已生成 {slides.length} / {outline.length} 页
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="mb-4 h-10 w-10 text-green-500" />
+                      <h3 className="text-base font-semibold text-gray-800">
+                        PPT生成完成！
+                      </h3>
+                      <p className="mt-2 text-sm text-gray-500">
+                        共 {slides.length} 页，可在右侧预览和编辑
+                      </p>
+                      <div className="mt-6 flex gap-3">
+                        <button
+                          onClick={resetGeneration}
+                          className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+                        >
+                          <Plus className="h-4 w-4" />
+                          <span>创建新PPT</span>
+                        </button>
+                        {currentDocumentId && (
+                          <ExportDropdown
+                            documentId={currentDocumentId}
+                            documentTitle={
+                              currentDocument?.title || '未命名演示文稿'
+                            }
+                            slideCount={slides.length}
+                            disabled={false}
+                          />
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             )}
           </div>
         </div>
+
+        {/* 输入框 - 固定在底部 */}
+        {generationStep === 'idle' && (
+          <div className="flex-shrink-0 border-t border-gray-200 bg-white p-4">
+            <div className="relative">
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    generateOutline();
+                  }
+                }}
+                placeholder="直接描述你想要的PPT，AI会自动理解你的需求：&#10;&#10;例如：&#10;• 帮我做一个10页的AI发展历程PPT，用漫画风格&#10;• 基于 https://example.com/report 这篇文章做一个哆啦A梦风格的介绍&#10;• 做一份关于新能源汽车的商业报告，要专业一点，15页左右"
+                className="w-full resize-none rounded-xl border-2 border-gray-200 px-4 py-4 pb-14 text-sm placeholder:text-gray-400 focus:border-orange-500 focus:outline-none"
+                rows={4}
+                disabled={isLoading}
+              />
+              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
+                <p className="text-xs text-gray-400">
+                  支持直接粘贴URL、指定风格、页数、配色等，AI会自动理解
+                </p>
+                <button
+                  onClick={generateOutline}
+                  disabled={!input.trim() || isLoading}
+                  className="flex items-center gap-2 rounded-lg bg-orange-500 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-orange-600 disabled:bg-gray-300"
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  <span>生成PPT</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 拖拽调节手柄 */}
         <div

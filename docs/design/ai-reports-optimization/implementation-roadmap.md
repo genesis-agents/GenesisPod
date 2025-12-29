@@ -52,9 +52,9 @@
 
 | 任务 | 文件路径                                                           | 描述                       |
 | ---- | ------------------------------------------------------------------ | -------------------------- |
-| T1.1 | `backend/src/modules/ai/ai-studio/types/report-v2.types.ts`        | 定义 ReportV2 完整类型系统 |
-| T1.2 | `backend/src/modules/ai/ai-studio/types/page-template.types.ts`    | 定义 15 种页面模板类型     |
-| T1.3 | `backend/src/modules/ai/ai-studio/types/content-features.types.ts` | 定义内容特征分析类型       |
+| T1.1 | `backend/src/modules/ai/ai-office/types/report-v2.types.ts`        | 定义 ReportV2 完整类型系统 |
+| T1.2 | `backend/src/modules/ai/ai-office/types/page-template.types.ts`    | 定义 15 种页面模板类型     |
+| T1.3 | `backend/src/modules/ai/ai-office/types/content-features.types.ts` | 定义内容特征分析类型       |
 | T1.4 | `backend/prisma/schema.prisma`                                     | 新增 ReportPage 表（可选） |
 
 **T1.1 详细规格**:
@@ -75,9 +75,9 @@ export interface DeepResearchReportV2 {
 
 | 任务 | 文件路径                                                              | 描述                       |
 | ---- | --------------------------------------------------------------------- | -------------------------- |
-| T1.5 | `backend/src/modules/ai/ai-studio/prompts/report-structure.prompt.ts` | 金字塔结构生成提示词       |
-| T1.6 | `backend/src/modules/ai/ai-studio/prompts/content-analyzer.prompt.ts` | 内容特征分析提示词         |
-| T1.7 | `backend/src/modules/ai/ai-studio/prompts/page-content.prompt.ts`     | 单页内容生成提示词         |
+| T1.5 | `backend/src/modules/ai/ai-office/prompts/report-structure.prompt.ts` | 金字塔结构生成提示词       |
+| T1.6 | `backend/src/modules/ai/ai-office/prompts/content-analyzer.prompt.ts` | 内容特征分析提示词         |
+| T1.7 | `backend/src/modules/ai/ai-office/prompts/page-content.prompt.ts`     | 单页内容生成提示词         |
 | T1.8 | 更新现有 `report-synthesizer` 提示词                                  | 整合 MECE 原则和多视角分析 |
 
 **T1.5 提示词核心要点**:
@@ -91,7 +91,7 @@ export interface DeepResearchReportV2 {
 
 | 任务  | 文件路径                                                             | 描述               |
 | ----- | -------------------------------------------------------------------- | ------------------ |
-| T1.9  | `backend/src/modules/ai/ai-studio/services/report-engine.service.ts` | 新建报告引擎主服务 |
+| T1.9  | `backend/src/modules/ai/ai-office/services/report-engine.service.ts` | 新建报告引擎主服务 |
 | T1.10 | 更新 `deep-research-agent.service.ts`                                | 集成新报告引擎     |
 | T1.11 | 更新 `report-synthesizer.service.ts`                                 | 适配新数据结构     |
 
@@ -385,7 +385,7 @@ interface TemplateSelectorService {
 ### 10.1 文件结构规划
 
 ```
-backend/src/modules/ai/ai-studio/
+backend/src/modules/ai/ai-office/
 ├── types/
 │   ├── report-v2.types.ts          # 报告类型
 │   ├── page-template.types.ts       # 模板类型
@@ -416,16 +416,16 @@ frontend/components/report/
 
 ```typescript
 // 新增 API 端点
-POST /api/v1/ai-studio/projects/:id/reports/v2
+POST /api/v1/ai-office/projects/:id/reports/v2
   - 使用新报告引擎生成
 
-GET /api/v1/ai-studio/projects/:id/reports/:reportId/preview
+GET /api/v1/ai-office/projects/:id/reports/:reportId/preview
   - 获取报告预览数据
 
-POST /api/v1/ai-studio/projects/:id/reports/:reportId/export
+POST /api/v1/ai-office/projects/:id/reports/:reportId/export
   - 导出报告 (format: pdf|pptx|docx)
 
-POST /api/v1/ai-studio/template-preview
+POST /api/v1/ai-office/template-preview
   - 模板预览 API
 ```
 

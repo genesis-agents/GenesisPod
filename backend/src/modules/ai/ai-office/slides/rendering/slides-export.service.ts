@@ -1,20 +1,22 @@
 /**
  * PPT Export Service - 高质量 PPTX 导出
  *
- * AI Office 3.0 - PPTX 导出增强
+ * AI Office 3.0 - PPTX 导出增强（Phase 7 升级）
  *
  * 功能:
- * 1. 主题系统映射 - 将 PPTTheme 转换为 pptxgenjs 配置
- * 2. 复杂布局支持 - 20种布局类型全面支持
- * 3. 图片嵌入 - AI 生成的图片正确导出
- * 4. 图表主题化 - 图表颜色与主题一致
- * 5. 渐变背景 - 支持渐变和图片背景
+ * 1. 15种专业模板支持 - 使用新的 PptxSlidesRenderer
+ * 2. 主题系统映射 - 将 PPTTheme 转换为 pptxgenjs 配置
+ * 3. 复杂布局支持 - 20种布局类型全面支持
+ * 4. 图片嵌入 - AI 生成的图片正确导出
+ * 5. 图表主题化 - 图表颜色与主题一致
+ * 6. 渐变背景 - 支持渐变和图片背景
  */
 
 import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import * as puppeteer from "puppeteer";
+import { PptxSlidesRenderer } from "../../../../export/renderers/pptx-slides.renderer";
 import {
   PPTDocument,
   PPTTheme,
@@ -83,7 +85,15 @@ interface TextStyle {
 export class SlidesExportService {
   private readonly logger = new Logger(SlidesExportService.name);
 
-  constructor(private readonly httpService: HttpService) {}
+  constructor(
+    private readonly httpService: HttpService,
+    private readonly pptxSlidesRenderer: PptxSlidesRenderer,
+  ) {
+    // 确保 PPTX 渲染器可用
+    this.logger.debug(
+      `[SlidesExport] PPTX renderer initialized: ${!!this.pptxSlidesRenderer}`,
+    );
+  }
 
   /**
    * 导出 PPT 文档为 PPTX

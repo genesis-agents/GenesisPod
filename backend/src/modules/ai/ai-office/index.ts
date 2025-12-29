@@ -12,14 +12,34 @@ export * from "./document-management";
 // Generation
 export * from "./generation";
 
-// Slides (幻灯片生成)
+// Slides (幻灯片生成) - 优先导出，包含主要类型定义
 export * from "./slides";
 
 // Docs (文档生成)
 export * from "./docs";
 
-// Common (共享服务)
-export * from "./common";
+// Common (共享服务) - 选择性导出避免与 slides 重复
+export {
+  AIOfficeCommonModule,
+  // 枚举类型（不与 slides 冲突）
+  ContentComplexity,
+  ContentCategory,
+  DataDensity,
+  TemporalDimension,
+  // 服务
+  ContentAnalysisService,
+  TemplateSelectionService,
+  ImageMatchingService,
+  ReadingExperienceService,
+  // 服务相关类型
+  type SlidePlanItem,
+  type DocsSectionPlanItem,
+  type PlanningResult,
+  type ImagePrompt,
+  type ImageMatchingResult,
+  type OptimizedParagraph,
+  type OptimizedSection,
+} from "./common";
 
 // Designer
 export * from "./designer";

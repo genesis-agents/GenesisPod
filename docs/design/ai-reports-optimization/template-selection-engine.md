@@ -704,7 +704,7 @@ function adjustLayoutParams(
 ### 8.1 服务接口定义
 
 ```typescript
-// backend/src/modules/ai/ai-studio/services/template-selector.service.ts
+// backend/src/modules/ai/ai-office/services/template-selector.service.ts
 
 @Injectable()
 export class TemplateSelectorService {

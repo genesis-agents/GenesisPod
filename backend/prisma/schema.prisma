@@ -126,6 +126,9 @@ model User {
   // 积分系统
   creditAccount CreditAccount?
 
+  // Slides v3.0 会话
+  slidesSessions SlidesSession[]
+
   @@map("users")
 }
 
@@ -4631,4 +4634,69 @@ model DailyCheckin {
   @@index([accountId, checkinDate(sort: Desc)])
   @@index([ipAddress, checkinDate])
   @@map("daily_checkins")
+}
+
+// ============================================================================
+// Slides Engine v3.0 - 检查点系统
+// ============================================================================
+
+// Slides 会话状态枚举
+enum SlidesSessionStatus {
+  ACTIVE    // 进行中
+  COMPLETED // 已完成
+  ARCHIVED  // 已归档
+}
+
+// Slides 会话表
+model SlidesSession {
+  id              String              @id @default(uuid())
+  userId          String              @map("user_id")
+  title           String              @db.VarChar(200)
+  status          SlidesSessionStatus @default(ACTIVE)
+  currentStateId  String?             @map("current_state_id") // 当前检查点ID
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关联
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkpoints SlidesCheckpoint[]
+
+  @@index([userId, updatedAt(sort: Desc)])
+  @@index([status])
+  @@map("slides_sessions")
+}
+
+// 检查点类型枚举
+enum SlidesCheckpointType {
+  TASK_DECOMPOSITION // 任务分解完成
+  OUTLINE_CONFIRMED  // 大纲确认
+  PAGE_RENDERED      // 单页渲染完成
+  BATCH_RENDERED     // 批量渲染完成
+  USER_MODIFIED      // 用户手动修改
+  AUTO_SAVE          // 自动保存
+}
+
+// Slides 检查点表
+model SlidesCheckpoint {
+  id        String               @id @default(uuid())
+  sessionId String               @map("session_id")
+  name      String               @db.VarChar(200) // 用户友好名称
+  type      SlidesCheckpointType
+  version   String               @db.VarChar(20) // 语义版本号 (1.0.0)
+
+  // 状态快照 (JSON)
+  stateJson Json @map("state_json") // CheckpointState 序列化
+
+  // 元数据 (JSON)
+  metadata Json @default("{}") // CheckpointMetadata 序列化
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // 关联
+  session SlidesSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt(sort: Desc)])
+  @@index([type])
+  @@map("slides_checkpoints")
 }
