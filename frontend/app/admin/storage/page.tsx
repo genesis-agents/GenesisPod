@@ -23,6 +23,9 @@ import {
   BarChart3,
   Sparkles,
   Presentation,
+  Cpu,
+  Server,
+  Play,
 } from 'lucide-react';
 
 interface StorageCategory {
@@ -65,6 +68,32 @@ interface DatabaseAnalysis {
   tables: TableSize[];
   largestTables: TableSize[];
   recommendations: string[];
+}
+
+interface NodeMemoryStats {
+  heapUsed: number;
+  heapTotal: number;
+  heapUsedPercent: number;
+  rss: number;
+  external: number;
+  arrayBuffers: number;
+  uptime: number;
+  pid: number;
+  nodeVersion: string;
+  status: 'healthy' | 'warning' | 'critical';
+  warnings: string[];
+}
+
+interface SystemMemoryStats {
+  totalMemory: number;
+  freeMemory: number;
+  usedMemory: number;
+  usedPercent: number;
+  platform: string;
+  cpuCount: number;
+  loadAverage: number[];
+  hostname: string;
+  status: 'healthy' | 'warning' | 'critical';
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';

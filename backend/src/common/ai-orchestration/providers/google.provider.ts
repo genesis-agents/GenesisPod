@@ -148,21 +148,36 @@ export class ImagenProvider extends BaseImageProvider {
     options: ImageGenerationOptions,
   ): Promise<ImageGenerationResult> {
     const modelId = model.modelId || "imagen-3.0-generate-001";
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateImages?key=${model.apiKey}`;
+    const isImagen4 = modelId.includes("imagen-4");
 
-    this.logger.log(`[ImagenProvider] Generating image with model: ${modelId}`);
+    // Imagen 4.0 使用 :predict 端点，旧版使用 :generateImages
+    const action = isImagen4 ? "predict" : "generateImages";
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:${action}?key=${model.apiKey}`;
+
+    this.logger.log(
+      `[ImagenProvider] Generating image with model: ${modelId}, action: ${action}`,
+    );
     this.logger.debug(
       `[ImagenProvider] Prompt: ${prompt.substring(0, 100)}...`,
     );
 
-    const requestBody = {
-      prompt,
-      config: {
-        numberOfImages: options.numberOfImages || 1,
-        aspectRatio: options.aspectRatio || "16:9",
-        outputOptions: { mimeType: "image/png" },
-      },
-    };
+    // Imagen 4.0 使用不同的请求体格式
+    const requestBody = isImagen4
+      ? {
+          instances: [{ prompt }],
+          parameters: {
+            sampleCount: options.numberOfImages || 1,
+            aspectRatio: options.aspectRatio || "16:9",
+          },
+        }
+      : {
+          prompt,
+          config: {
+            numberOfImages: options.numberOfImages || 1,
+            aspectRatio: options.aspectRatio || "16:9",
+            outputOptions: { mimeType: "image/png" },
+          },
+        };
 
     const response = await this.post<ImagenResponse>(
       url,
@@ -175,14 +190,18 @@ export class ImagenProvider extends BaseImageProvider {
       `[ImagenProvider] Response received, keys: ${Object.keys(response || {}).join(", ")}`,
     );
 
-    // 处理两种响应格式
+    // 处理多种响应格式
     let imageBytes: string | undefined;
-    if (response.generatedImages?.[0]?.image?.imageBytes) {
-      imageBytes = response.generatedImages[0].image.imageBytes;
-      this.logger.log("[ImagenProvider] Found imageBytes in generatedImages");
-    } else if (response.predictions?.[0]?.bytesBase64Encoded) {
+
+    // Imagen 4.0 格式: predictions[].bytesBase64Encoded
+    if (response.predictions?.[0]?.bytesBase64Encoded) {
       imageBytes = response.predictions[0].bytesBase64Encoded;
       this.logger.log("[ImagenProvider] Found imageBytes in predictions");
+    }
+    // Imagen 3.0 格式: generatedImages[].image.imageBytes
+    else if (response.generatedImages?.[0]?.image?.imageBytes) {
+      imageBytes = response.generatedImages[0].image.imageBytes;
+      this.logger.log("[ImagenProvider] Found imageBytes in generatedImages");
     }
 
     if (!imageBytes) {

@@ -12,6 +12,8 @@ import {
   StorageStats,
   CleanupResult,
   DatabaseAnalysis,
+  NodeMemoryStats,
+  SystemMemoryStats,
 } from "./storage.service";
 
 @Controller("storage")
@@ -300,5 +302,25 @@ export class StorageController {
     this.validateKey(key);
     this.logger.log("Getting full disk usage breakdown");
     return this.storageService.getFullDiskUsage();
+  }
+
+  /**
+   * Get Node.js process memory statistics
+   */
+  @Get("node-memory")
+  getNodeMemoryStats(@Query("key") key: string): NodeMemoryStats {
+    this.validateKey(key);
+    this.logger.log("Getting Node.js memory stats");
+    return this.storageService.getNodeMemoryStats();
+  }
+
+  /**
+   * Get system (OS) memory statistics
+   */
+  @Get("system-memory")
+  getSystemMemoryStats(@Query("key") key: string): SystemMemoryStats {
+    this.validateKey(key);
+    this.logger.log("Getting system memory stats");
+    return this.storageService.getSystemMemoryStats();
   }
 }

@@ -1,5 +1,34 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+import * as os from "os";
+
+// Node.js 内存统计接口
+export interface NodeMemoryStats {
+  heapUsed: number; // MB
+  heapTotal: number; // MB
+  heapUsedPercent: number;
+  rss: number; // MB - 常驻内存
+  external: number; // MB - C++ 对象内存
+  arrayBuffers: number; // MB
+  uptime: number; // 秒
+  pid: number;
+  nodeVersion: string;
+  status: "healthy" | "warning" | "critical";
+  warnings: string[];
+}
+
+// 系统内存统计接口
+export interface SystemMemoryStats {
+  totalMemory: number; // GB
+  freeMemory: number; // GB
+  usedMemory: number; // GB
+  usedPercent: number;
+  platform: string;
+  cpuCount: number;
+  loadAverage: number[];
+  hostname: string;
+  status: "healthy" | "warning" | "critical";
+}
 
 export interface StorageCategory {
   name: string;
@@ -1651,6 +1680,79 @@ export class StorageService {
       results,
       totalDeleted,
       totalFreedMB: Math.round(totalFreedMB * 100) / 100,
+    };
+  }
+
+  /**
+   * Get Node.js process memory statistics
+   */
+  getNodeMemoryStats(): NodeMemoryStats {
+    const memUsage = process.memoryUsage();
+    const heapUsedMB = memUsage.heapUsed / (1024 * 1024);
+    const heapTotalMB = memUsage.heapTotal / (1024 * 1024);
+    const heapUsedPercent = (heapUsedMB / heapTotalMB) * 100;
+
+    const warnings: string[] = [];
+    let status: "healthy" | "warning" | "critical" = "healthy";
+
+    if (heapUsedPercent > 90) {
+      status = "critical";
+      warnings.push("Heap usage exceeds 90%, consider restarting the service");
+    } else if (heapUsedPercent > 75) {
+      status = "warning";
+      warnings.push("Heap usage exceeds 75%, monitor closely");
+    }
+
+    const rssMB = memUsage.rss / (1024 * 1024);
+    if (rssMB > 512) {
+      if (status === "healthy") status = "warning";
+      warnings.push(
+        `RSS memory is ${Math.round(rssMB)}MB, may indicate memory leak`,
+      );
+    }
+
+    return {
+      heapUsed: Math.round(heapUsedMB * 100) / 100,
+      heapTotal: Math.round(heapTotalMB * 100) / 100,
+      heapUsedPercent: Math.round(heapUsedPercent * 100) / 100,
+      rss: Math.round(rssMB * 100) / 100,
+      external: Math.round((memUsage.external / (1024 * 1024)) * 100) / 100,
+      arrayBuffers:
+        Math.round((memUsage.arrayBuffers / (1024 * 1024)) * 100) / 100,
+      uptime: Math.round(process.uptime()),
+      pid: process.pid,
+      nodeVersion: process.version,
+      status,
+      warnings,
+    };
+  }
+
+  /**
+   * Get system (OS) memory statistics
+   */
+  getSystemMemoryStats(): SystemMemoryStats {
+    const totalMem = os.totalmem() / (1024 * 1024 * 1024); // GB
+    const freeMem = os.freemem() / (1024 * 1024 * 1024);
+    const usedMem = totalMem - freeMem;
+    const usedPercent = (usedMem / totalMem) * 100;
+
+    let status: "healthy" | "warning" | "critical" = "healthy";
+    if (usedPercent > 90) {
+      status = "critical";
+    } else if (usedPercent > 80) {
+      status = "warning";
+    }
+
+    return {
+      totalMemory: Math.round(totalMem * 100) / 100,
+      freeMemory: Math.round(freeMem * 100) / 100,
+      usedMemory: Math.round(usedMem * 100) / 100,
+      usedPercent: Math.round(usedPercent * 100) / 100,
+      platform: os.platform(),
+      cpuCount: os.cpus().length,
+      loadAverage: os.loadavg().map((l) => Math.round(l * 100) / 100),
+      hostname: os.hostname(),
+      status,
     };
   }
 }
