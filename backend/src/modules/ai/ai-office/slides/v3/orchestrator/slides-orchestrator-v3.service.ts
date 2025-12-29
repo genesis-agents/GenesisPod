@@ -362,18 +362,20 @@ export class SlidesOrchestratorV3Service {
         });
 
         // Step 3: 四步设计和 HTML 生成
+        // Step 3.5: 先生成图像（背景图等），以便在 HTML 中使用
+        const imageResult = await this.imageGenerator.generateForPage({
+          pageOutline,
+          globalStyles,
+          sessionId,
+        });
+
+        // Step 4: 渲染 HTML，传入生成的图片
         const renderResult = await this.renderer.renderPage({
           pageOutline,
           pageContent,
           globalStyles,
           sessionId,
-        });
-
-        // Step 4: 生成图像（如果需要）
-        const imageResult = await this.imageGenerator.generateForPage({
-          pageOutline,
-          globalStyles,
-          sessionId,
+          images: imageResult.images, // 传入图片供 HTML 渲染使用
         });
 
         const pageState: PageState = {
@@ -508,19 +510,20 @@ export class SlidesOrchestratorV3Service {
       sessionId,
     });
 
-    // 重新渲染
+    // 先生成图像（背景图等），以便在 HTML 中使用
+    const imageResult = await this.imageGenerator.generateForPage({
+      pageOutline,
+      globalStyles,
+      sessionId,
+    });
+
+    // 渲染 HTML，传入生成的图片
     const renderResult = await this.renderer.renderPage({
       pageOutline,
       pageContent,
       globalStyles,
       sessionId,
-    });
-
-    // 重新生成图像
-    const imageResult = await this.imageGenerator.generateForPage({
-      pageOutline,
-      globalStyles,
-      sessionId,
+      images: imageResult.images, // 传入图片供 HTML 渲染使用
     });
 
     const newPageState: PageState = {

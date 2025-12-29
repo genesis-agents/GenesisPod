@@ -20,6 +20,8 @@ import {
   GENSPARK_DESIGN_SYSTEM,
 } from "../checkpoint/checkpoint.types";
 
+import { GeneratedImage } from "../checkpoint/checkpoint.types";
+
 /**
  * 页面渲染输入
  */
@@ -28,6 +30,8 @@ export interface PageRenderInput {
   pageContent: PageContent;
   globalStyles?: GlobalStyles;
   sessionId?: string;
+  /** 预生成的图片（背景图等） */
+  images?: GeneratedImage[];
 }
 
 /**
@@ -66,9 +70,11 @@ export class RendererService {
    * 渲染单页
    */
   async renderPage(input: PageRenderInput): Promise<PageRenderResult> {
-    const { pageOutline, pageContent, globalStyles, sessionId } = input;
+    const { pageOutline, pageContent, globalStyles, sessionId, images } = input;
 
-    this.logger.log(`[renderPage] Rendering page ${pageOutline.pageNumber}`);
+    this.logger.log(
+      `[renderPage] Rendering page ${pageOutline.pageNumber} with ${images?.length || 0} images`,
+    );
 
     // 确保模板类型已选择
     const templateType =
@@ -80,6 +86,7 @@ export class RendererService {
       pageContent,
       globalStyles: globalStyles || GENSPARK_DESIGN_SYSTEM,
       sessionId,
+      images, // 传入预生成的图片
     };
 
     const result = await this.fourStepDesignSkill.execute(designInput);
