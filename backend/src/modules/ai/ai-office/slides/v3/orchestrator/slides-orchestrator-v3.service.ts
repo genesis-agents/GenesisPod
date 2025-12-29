@@ -412,6 +412,7 @@ export class SlidesOrchestratorV3Service {
             html: pageState.html,
             content: pageState.content,
             design: pageState.design,
+            images: pageState.images, // 添加图片信息到事件
           }),
         );
 

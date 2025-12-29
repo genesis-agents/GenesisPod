@@ -150,29 +150,45 @@ export class ImagenProvider extends BaseImageProvider {
     const modelId = model.modelId || "imagen-3.0-generate-001";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateImages?key=${model.apiKey}`;
 
+    this.logger.log(`[ImagenProvider] Generating image with model: ${modelId}`);
+    this.logger.debug(
+      `[ImagenProvider] Prompt: ${prompt.substring(0, 100)}...`,
+    );
+
+    const requestBody = {
+      prompt,
+      config: {
+        numberOfImages: options.numberOfImages || 1,
+        aspectRatio: options.aspectRatio || "16:9",
+        outputOptions: { mimeType: "image/png" },
+      },
+    };
+
     const response = await this.post<ImagenResponse>(
       url,
-      {
-        prompt,
-        config: {
-          numberOfImages: options.numberOfImages || 1,
-          aspectRatio: options.aspectRatio || "16:9",
-          outputOptions: { mimeType: "image/png" },
-        },
-      },
+      requestBody,
       {}, // API key 已在 URL 中
       options.timeoutMs,
+    );
+
+    this.logger.log(
+      `[ImagenProvider] Response received, keys: ${Object.keys(response || {}).join(", ")}`,
     );
 
     // 处理两种响应格式
     let imageBytes: string | undefined;
     if (response.generatedImages?.[0]?.image?.imageBytes) {
       imageBytes = response.generatedImages[0].image.imageBytes;
+      this.logger.log("[ImagenProvider] Found imageBytes in generatedImages");
     } else if (response.predictions?.[0]?.bytesBase64Encoded) {
       imageBytes = response.predictions[0].bytesBase64Encoded;
+      this.logger.log("[ImagenProvider] Found imageBytes in predictions");
     }
 
     if (!imageBytes) {
+      this.logger.error(
+        `[ImagenProvider] No image data in response: ${JSON.stringify(response).substring(0, 500)}`,
+      );
       throw new AIError(
         AIErrorType.INVALID_RESPONSE,
         "No image data in Imagen response",
@@ -180,6 +196,9 @@ export class ImagenProvider extends BaseImageProvider {
     }
 
     const cleanBase64 = imageBytes.replace(/\s/g, "");
+    this.logger.log(
+      `[ImagenProvider] Image generated successfully, base64 length: ${cleanBase64.length}`,
+    );
 
     return {
       images: [

@@ -90,12 +90,20 @@ export class ModelSelectorService {
       excludeModels,
     );
 
+    this.logger.log(
+      `[selectModel] Found ${availableModels.length} models for type: ${requiredModelType}`,
+    );
+
     if (availableModels.length === 0) {
       this.logger.error(
         `[selectModel] No available models for type: ${requiredModelType}`,
       );
       return null;
     }
+
+    this.logger.debug(
+      `[selectModel] Available models: ${availableModels.map((m) => `${m.name}(${m.modelId})`).join(", ")}`,
+    );
 
     // 4. 根据策略选择模型
     const selected = this.applySelectionStrategy(availableModels, strategy);
