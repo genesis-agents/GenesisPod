@@ -12,6 +12,7 @@ import {
   useSlidesV3Store,
   calculateOverallProgress,
 } from '@/stores/slidesV3Store';
+import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
 import type {
   GenerateV3Request,
@@ -38,6 +39,7 @@ export function useSlideGenerationV3(
   options: UseSlideGenerationV3Options = {}
 ) {
   const abortControllerRef = useRef<AbortController | null>(null);
+  const { user } = useAuth();
 
   const {
     session,
@@ -84,7 +86,7 @@ export function useSlideGenerationV3(
       try {
         // 构建 SSE URL
         const params = new URLSearchParams({
-          userId: 'user', // TODO: 从认证上下文获取
+          userId: user?.id || 'anonymous',
           title: request.title,
           sourceText: request.sourceText,
         });
@@ -161,7 +163,7 @@ export function useSlideGenerationV3(
           };
           setSession({
             id: sessionData.session.id,
-            userId: 'user',
+            userId: user?.id || 'anonymous',
             title: sessionData.session.title,
             status: 'active',
             createdAt: new Date(),
