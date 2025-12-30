@@ -44,6 +44,7 @@ export * from "./task-decomposition.skill";
 export * from "./outline-planning.skill";
 export * from "./four-step-design.skill";
 export * from "./content-compression.skill";
+export * from "./template-rendering.skill";
 
 // Layer 5 - Consistency
 export * from "./terminology-unifier.skill";

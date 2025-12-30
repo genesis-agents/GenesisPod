@@ -58,6 +58,7 @@ import {
   PageTypeSelectionSkill,
   FourStepDesignSkill,
   ContentCompressionSkill,
+  TemplateRenderingSkill,
   // Roles
   ArchitectService,
   WriterService,
@@ -141,6 +142,7 @@ import { AIOfficeCommonModule } from "./common";
     PageTypeSelectionSkill,
     FourStepDesignSkill,
     ContentCompressionSkill,
+    TemplateRenderingSkill,
     ArchitectService,
     WriterService,
     RendererService,

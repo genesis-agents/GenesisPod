@@ -2,7 +2,7 @@
  * Slides Engine v3.0 - Renderer Service
  *
  * 渲染器角色：负责四步设计、HTML 生成
- * 使用 CHAT 模型 + QUALITY_FIRST 策略
+ * 优先使用确定性模板渲染，保证输出稳定可控
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -11,6 +11,10 @@ import {
   FourStepDesignInput,
 } from "../skills/four-step-design.skill";
 import { PageTypeSelectionSkill } from "../skills/page-type-selection.skill";
+import {
+  TemplateRenderingSkill,
+  TemplateRenderingInput,
+} from "../skills/template-rendering.skill";
 import {
   PageOutline,
   PageContent,
@@ -60,17 +64,21 @@ export interface BatchRenderInput {
 @Injectable()
 export class RendererService {
   private readonly logger = new Logger(RendererService.name);
+  /** 用于追踪已使用的数据值，防止重复（如多个页面都显示75%） */
+  private usedDataValues: Set<string> = new Set();
 
   constructor(
     private readonly fourStepDesignSkill: FourStepDesignSkill,
     private readonly pageTypeSelectionSkill: PageTypeSelectionSkill,
+    private readonly templateRenderingSkill: TemplateRenderingSkill,
   ) {}
 
   /**
-   * 渲染单页
+   * 渲染单页 - 优先使用确定性模板渲染
    */
   async renderPage(input: PageRenderInput): Promise<PageRenderResult> {
     const { pageOutline, pageContent, globalStyles, sessionId, images } = input;
+    const startTime = Date.now();
 
     this.logger.log(
       `[renderPage] Rendering page ${pageOutline.pageNumber} with ${images?.length || 0} images`,
@@ -81,22 +89,85 @@ export class RendererService {
       pageOutline.templateType ||
       this.pageTypeSelectionSkill.selectTemplateType(pageOutline);
 
-    const designInput: FourStepDesignInput = {
-      pageOutline: { ...pageOutline, templateType },
-      pageContent,
-      globalStyles: globalStyles || GENSPARK_DESIGN_SYSTEM,
-      sessionId,
-      images, // 传入预生成的图片
-    };
+    const updatedOutline = { ...pageOutline, templateType };
 
-    const result = await this.fourStepDesignSkill.execute(designInput);
+    // 🎯 优先使用确定性模板渲染（保证布局稳定）
+    try {
+      const templateInput: TemplateRenderingInput = {
+        pageOutline: updatedOutline,
+        pageContent,
+        usedValues: this.usedDataValues,
+      };
 
-    return {
-      pageNumber: pageOutline.pageNumber,
-      design: result.design,
-      html: result.html,
-      durationMs: result.durationMs,
-    };
+      const templateResult = this.templateRenderingSkill.render(templateInput);
+      const durationMs = Date.now() - startTime;
+
+      this.logger.log(
+        `[renderPage] Page ${pageOutline.pageNumber} rendered with template ${templateResult.templateId} in ${durationMs}ms`,
+      );
+
+      // 创建设计记录（用于兼容现有接口）
+      const design: PageDesign = {
+        step1_drafting: {
+          style: "template-driven",
+          coreElements: Object.keys(templateResult.variables),
+          mood: "professional",
+        },
+        step2_refiningLayout: {
+          alignment: "template-defined",
+          graphicsPosition: "template-defined",
+          spacing: "template-defined",
+        },
+        step3_planningVisuals: {
+          backgroundColor: (globalStyles || GENSPARK_DESIGN_SYSTEM)
+            .backgroundColor,
+          accentColors: ["#D4AF37", "#3B82F6", "#10B981"],
+          decorations: [],
+        },
+        step4_formulatingHTML: {
+          html: templateResult.html,
+          externalDependencies: [],
+        },
+      };
+
+      return {
+        pageNumber: pageOutline.pageNumber,
+        design,
+        html: templateResult.html,
+        durationMs,
+      };
+    } catch (templateError) {
+      // 模板渲染失败时，回退到 AI 生成
+      this.logger.warn(
+        `[renderPage] Template rendering failed for page ${pageOutline.pageNumber}, falling back to AI:`,
+        templateError,
+      );
+
+      const designInput: FourStepDesignInput = {
+        pageOutline: updatedOutline,
+        pageContent,
+        globalStyles: globalStyles || GENSPARK_DESIGN_SYSTEM,
+        sessionId,
+        images,
+      };
+
+      const result = await this.fourStepDesignSkill.execute(designInput);
+
+      return {
+        pageNumber: pageOutline.pageNumber,
+        design: result.design,
+        html: result.html,
+        durationMs: result.durationMs,
+      };
+    }
+  }
+
+  /**
+   * 重置已使用的数据值（新的演示文稿生成时调用）
+   */
+  resetUsedDataValues(): void {
+    this.usedDataValues.clear();
+    this.logger.log("[resetUsedDataValues] Cleared used data values");
   }
 
   /**

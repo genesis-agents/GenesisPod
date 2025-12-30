@@ -599,40 +599,60 @@ function PresentationMode({
   const [currentIndex, setCurrentIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // 键盘导航
+  // 确保容器获得焦点（防止 iframe 抢占焦点导致键盘事件失效）
+  useEffect(() => {
+    // 短暂延迟后聚焦容器，确保 DOM 已渲染
+    const focusTimer = setTimeout(() => {
+      containerRef.current?.focus();
+    }, 100);
+    return () => clearTimeout(focusTimer);
+  }, []);
+
+  // 键盘导航 - 使用 capture 模式确保优先处理
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // 确保容器保持焦点
+      if (document.activeElement !== containerRef.current) {
+        containerRef.current?.focus();
+      }
+
       switch (e.key) {
         case 'ArrowRight':
         case 'ArrowDown':
         case ' ':
         case 'PageDown':
           e.preventDefault();
+          e.stopPropagation();
           setCurrentIndex((prev) => Math.min(prev + 1, pages.length - 1));
           break;
         case 'ArrowLeft':
         case 'ArrowUp':
         case 'PageUp':
           e.preventDefault();
+          e.stopPropagation();
           setCurrentIndex((prev) => Math.max(prev - 1, 0));
           break;
         case 'Home':
           e.preventDefault();
+          e.stopPropagation();
           setCurrentIndex(0);
           break;
         case 'End':
           e.preventDefault();
+          e.stopPropagation();
           setCurrentIndex(pages.length - 1);
           break;
         case 'Escape':
           e.preventDefault();
+          e.stopPropagation();
           onClose();
           break;
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    // 使用 capture 模式优先捕获键盘事件
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [pages.length, onClose]);
 
   // 进入/退出全屏
@@ -704,12 +724,17 @@ function PresentationMode({
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-50 flex flex-col bg-black"
+      tabIndex={0}
+      className="fixed inset-0 z-50 flex flex-col bg-black outline-none"
       onClick={(e) => {
         // 点击空白区域下一页
         if (e.target === e.currentTarget) {
           setCurrentIndex((prev) => Math.min(prev + 1, pages.length - 1));
         }
+      }}
+      onMouseMove={() => {
+        // 鼠标移动时确保容器获得焦点
+        containerRef.current?.focus();
       }}
     >
       {/* 幻灯片内容 */}
@@ -723,7 +748,9 @@ function PresentationMode({
               border: 'none',
               display: 'block',
               backgroundColor: '#0f172a',
+              pointerEvents: 'none', // 防止 iframe 截获交互
             }}
+            tabIndex={-1} // 防止 iframe 获得焦点
             sandbox="allow-scripts"
           />
         ) : (
