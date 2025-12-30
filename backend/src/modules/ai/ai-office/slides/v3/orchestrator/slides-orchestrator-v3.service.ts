@@ -480,8 +480,15 @@ export class SlidesOrchestratorV3Service {
 
   /**
    * 从检查点恢复
+   * @returns 包含 state, sessionId, checkpointId 的对象
    */
-  async restoreFromCheckpoint(checkpointId: string): Promise<CheckpointState> {
+  async restoreFromCheckpoint(
+    checkpointId: string,
+  ): Promise<{
+    state: CheckpointState;
+    sessionId: string;
+    checkpointId: string;
+  }> {
     return this.checkpoint.restore(checkpointId);
   }
 

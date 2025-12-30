@@ -250,11 +250,14 @@ export class SlidesV3Controller {
     this.logger.log(`[getCheckpoint] Checkpoint: ${checkpointId}`);
 
     try {
-      const state = await this.orchestrator.restoreFromCheckpoint(checkpointId);
+      const result =
+        await this.orchestrator.restoreFromCheckpoint(checkpointId);
 
       return {
         success: true,
-        state,
+        sessionId: result.sessionId,
+        checkpointId: result.checkpointId,
+        state: result.state,
       };
     } catch (error: any) {
       this.logger.error(`[getCheckpoint] Error: ${error.message}`);
@@ -275,15 +278,18 @@ export class SlidesV3Controller {
     this.logger.log(`[restoreCheckpoint] Restoring to: ${checkpointId}`);
 
     try {
-      const state = await this.orchestrator.restoreFromCheckpoint(checkpointId);
+      const result =
+        await this.orchestrator.restoreFromCheckpoint(checkpointId);
 
       return {
         success: true,
         message: "Checkpoint restored successfully",
+        sessionId: result.sessionId,
+        checkpointId: result.checkpointId,
         state: {
-          pagesCount: state.pages?.length || 0,
-          hasOutline: !!state.outlinePlan,
-          hasTaskDecomposition: !!state.taskDecomposition,
+          pagesCount: result.state.pages?.length || 0,
+          hasOutline: !!result.state.outlinePlan,
+          hasTaskDecomposition: !!result.state.taskDecomposition,
         },
       };
     } catch (error: any) {

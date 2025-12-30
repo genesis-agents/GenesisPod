@@ -101,22 +101,32 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
           throw new Error('Failed to restore checkpoint');
         }
 
+        // 获取恢复 API 返回的 sessionId
+        const restoreData = await restoreResponse.json();
+        const restoredSessionId = restoreData.sessionId || checkpointId;
+
         // 更新本地状态
         restoreFromCheckpointState(checkpointState);
         setCurrentCheckpointId(checkpointId);
 
-        // 设置 session - 用于显示恢复后的内容
+        // 设置 session - 使用正确的 sessionId（从 API 返回）
         const { setSession } = useSlidesV3Store.getState();
         setSession({
-          id: checkpointId, // 使用 checkpointId 作为临时 session id
+          id: restoredSessionId, // 使用真正的 sessionId
           userId: 'user',
           title: checkpointState.outlinePlan?.title || '已恢复的演示文稿',
           status: 'active',
+          currentCheckpointId: checkpointId,
           createdAt: new Date(),
           updatedAt: new Date(),
         });
 
-        console.log('[restoreCheckpoint] Restored pages:', checkpointState.pages?.length, 'with html:', checkpointState.pages?.filter(p => p.html).length);
+        console.log(
+          '[restoreCheckpoint] Restored pages:',
+          checkpointState.pages?.length,
+          'with html:',
+          checkpointState.pages?.filter((p) => p.html).length
+        );
 
         options.onRestoreSuccess?.(checkpointId);
       } catch (err) {

@@ -378,8 +378,15 @@ export class CheckpointService {
 
   /**
    * 恢复到指定检查点
+   * @returns 包含 state, sessionId, checkpointId 的对象
    */
-  async restore(checkpointId: string): Promise<CheckpointState> {
+  async restore(
+    checkpointId: string,
+  ): Promise<{
+    state: CheckpointState;
+    sessionId: string;
+    checkpointId: string;
+  }> {
     this.logger.log(`[restore] Restoring to checkpoint: ${checkpointId}`);
 
     const checkpoint = await this.get(checkpointId);
@@ -402,7 +409,11 @@ export class CheckpointService {
       },
     });
 
-    return checkpoint.state;
+    return {
+      state: checkpoint.state,
+      sessionId: checkpoint.sessionId,
+      checkpointId: checkpoint.id,
+    };
   }
 
   /**

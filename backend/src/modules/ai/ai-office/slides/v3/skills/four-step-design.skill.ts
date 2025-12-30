@@ -326,8 +326,11 @@ export class FourStepDesignSkill {
 
     const { design, html: rawHtml } = this.parseResponse(result.content, input);
 
+    // 修复误用的图片占位符（AI 可能将占位符作为文本输出）
+    const fixedHtml = this.fixMisusedImagePlaceholders(rawHtml);
+
     // 替换图片占位符为真实 URL
-    const html = this.replaceImagePlaceholders(rawHtml, input.images);
+    const html = this.replaceImagePlaceholders(fixedHtml, input.images);
 
     const durationMs = Date.now() - startTime;
 
@@ -448,8 +451,23 @@ background-image: url('{{BACKGROUND_IMAGE}}');
 
 ${
   inlineImages.length > 0
-    ? `### 内联图片
-${inlineImages.map((img, i) => `- 图片${i + 1}: 使用占位符 \`{{INLINE_IMAGE_${i + 1}}}\` (语义: ${img.semanticContext || "无"})`).join("\n")}
+    ? `### 内联图片（必须正确使用！）
+
+⚠️ **重要**：内联图片占位符必须放在 \`<img>\` 标签的 \`src\` 属性中，**绝对不要作为文本内容输出**！
+
+${inlineImages.map((img, i) => `- 图片${i + 1}: 占位符 \`{{INLINE_IMAGE_${i + 1}}}\` (语义: ${img.semanticContext || "无"})`).join("\n")}
+
+**正确使用方式**：
+\`\`\`html
+<img src="{{INLINE_IMAGE_1}}" style="width: 100%; height: auto; border-radius: 8px;" alt="描述" />
+\`\`\`
+
+**错误用法（禁止！）**：
+\`\`\`html
+<!-- 禁止！这会导致图片 URL 显示为文本 -->
+<p>{{INLINE_IMAGE_1}}</p>
+<span>图片：{{INLINE_IMAGE_1}}</span>
+\`\`\`
 `
     : ""
 }
@@ -863,5 +881,39 @@ ${this.getTemplateReference(pageOutline.templateType)}
       valid: issues.length === 0,
       issues,
     };
+  }
+
+  /**
+   * 修复 HTML 中误用的图片占位符
+   * 当 AI 将图片占位符作为文本输出时，尝试将其转换为 img 标签
+   */
+  private fixMisusedImagePlaceholders(html: string): string {
+    let result = html;
+
+    // 检测并修复被作为文本输出的内联图片占位符
+    // 匹配 >{{INLINE_IMAGE_N}}< 或 纯文本 {{INLINE_IMAGE_N}}
+    const inlinePlaceholderPattern =
+      /(?<=>|\s)(\{\{INLINE_IMAGE_(\d+)\}\})(?=<|[^"']|\s|$)/g;
+
+    result = result.replace(inlinePlaceholderPattern, (_match, placeholder) => {
+      this.logger.warn(
+        `[fixMisusedImagePlaceholders] Found misused placeholder: ${placeholder}, converting to img tag`,
+      );
+      return `<img src="${placeholder}" style="max-width: 100%; height: auto; border-radius: 8px;" alt="图片" />`;
+    });
+
+    // 检测并修复被作为文本输出的背景图占位符
+    const bgPlaceholderPattern =
+      /(?<=>|\s)(\{\{BACKGROUND_IMAGE\}\})(?=<|[^"']|\s|$)/g;
+
+    result = result.replace(bgPlaceholderPattern, (_match, placeholder) => {
+      this.logger.warn(
+        `[fixMisusedImagePlaceholders] Found misused background placeholder: ${placeholder}`,
+      );
+      // 对于背景图，我们不能简单转换，只记录警告
+      return "";
+    });
+
+    return result;
   }
 }
