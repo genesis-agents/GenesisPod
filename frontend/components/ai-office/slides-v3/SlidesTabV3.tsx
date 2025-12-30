@@ -1065,7 +1065,7 @@ function ExportDropdown({ onClose }: { onClose: () => void }) {
       setExporting(format);
       try {
         const response = await fetch(
-          `${config.apiBaseUrl}/ai-office/slides-v3/sessions/${session.id}/export`,
+          `${config.apiUrl}/ai-office/slides-v3/sessions/${session.id}/export`,
           {
             method: 'POST',
             headers: {
