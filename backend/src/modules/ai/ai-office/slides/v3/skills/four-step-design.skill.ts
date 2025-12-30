@@ -1271,33 +1271,49 @@ ${this.getTemplateReference(pageOutline.templateType)}
       },
     );
 
-    // 7. 移除独立显示的颜色代码文本（如 #0F172A, #D4AF37, #051）
-    // 匹配：作为独立内容显示的十六进制颜色代码（3位或6位）
+    // 7. 移除独立显示的颜色代码文本（如 #0F172A, #D4AF37, #051, #D4F37）
+    // 这是最常见的 AI 输出错误 - 将设计规范中的颜色代码作为文本输出
     const originalForColorCheck = result;
-    // 匹配 6 位颜色代码（独立在标签之间）
+
+    // 7a. 移除标签之间独立的颜色代码
     result = result.replace(/>(\s*#[0-9A-Fa-f]{6}\s*)</g, "><");
-    // 匹配 3 位颜色代码（如 #051, #FFF）
-    result = result.replace(/>(\s*#[0-9A-Fa-f]{3}\s*)</g, "><");
-    // 匹配文本末尾的颜色代码（如 "some text #D4AF37"）
-    result = result.replace(/([^#\s])(\s*)#[0-9A-Fa-f]{6}(\s*)</g, "$1$2$3");
-    result = result.replace(/([^#\s])(\s*)#[0-9A-Fa-f]{3}(\s*)</g, "$1$2$3");
-    // 匹配文本中间的颜色代码
-    result = result.replace(
-      /([^a-zA-Z0-9])#[0-9A-Fa-f]{3,6}([^a-zA-Z0-9])/g,
-      "$1$2",
+    result = result.replace(/>(\s*#[0-9A-Fa-f]{3,5}\s*)</g, "><");
+
+    // 7b. 移除文本内容中的颜色代码（保留 style 属性中的）
+    // 先保护 style 属性中的颜色代码
+    const styleProtected = result.replace(/style="([^"]*)"/g, (match) =>
+      match.replace(/#/g, "___HASH___"),
     );
-    // 移除颜色代码后跟着色块的模式（如 "#D4AF37" + 小方块）
-    result = result.replace(
-      /#[0-9A-Fa-f]{6}\s*<(?:div|span)[^>]*style="[^"]*(?:background|background-color)[^"]*"[^>]*>[\s\S]*?<\/(?:div|span)>/gi,
+    // 移除文本中的颜色代码
+    let cleaned = styleProtected.replace(
+      /#[0-9A-Fa-f]{3,6}(?![0-9A-Fa-f])/g,
       "",
     );
+    // 恢复 style 中的颜色代码
+    result = cleaned.replace(/___HASH___/g, "#");
+
+    // 7c. 移除颜色代码后跟着色块的模式（如 "#D4AF37" + 小方块）
+    result = result.replace(
+      /#[0-9A-Fa-f]{3,6}\s*<(?:div|span)[^>]*style="[^"]*(?:background|background-color)[^"]*"[^>]*>[\s\S]*?<\/(?:div|span)>/gi,
+      "",
+    );
+
+    // 7d. 移除常见的错误颜色代码变体
+    const colorPatterns = [
+      /#D4F37/gi, // 缺少一位的金色
+      /#D44F37/gi, // 多了一位的变体
+      /#0F172/gi, // 缺少一位的背景色
+    ];
+    for (const pattern of colorPatterns) {
+      result = result.replace(pattern, "");
+    }
+
     if (result !== originalForColorCheck) {
       this.logger.warn("[postProcessHtml] Removing standalone color code text");
       fixes.push("移除颜色代码文本");
     }
 
-    // 7b. 移除包含颜色代码的调试信息 div（如图片占位符调试信息）
-    // 匹配：主要内容是颜色代码的 div/span
+    // 7e. 移除包含颜色代码的调试信息 div（如图片占位符调试信息）
     const originalForDebugCheck = result;
     result = result.replace(
       /<(?:div|span)[^>]*>(?:\s*#[0-9A-Fa-f]{3,6}\s*)+<\/(?:div|span)>/gi,
@@ -1305,12 +1321,17 @@ ${this.getTemplateReference(pageOutline.templateType)}
     );
     // 移除包含颜色代码+色块的容器
     result = result.replace(
-      /<(?:div|span)[^>]*>\s*#[0-9A-Fa-f]{6}\s*<(?:div|span)[^>]*>[\s\S]*?<\/(?:div|span)>\s*<\/(?:div|span)>/gi,
+      /<(?:div|span)[^>]*>\s*#[0-9A-Fa-f]{3,6}\s*<(?:div|span)[^>]*>[\s\S]*?<\/(?:div|span)>\s*<\/(?:div|span)>/gi,
       "",
     );
-    // 移除纯色块元素（小尺寸背景色方块）
+    // 移除纯色块元素（小尺寸背景色方块，10-30px）
     result = result.replace(
-      /<(?:div|span)[^>]*style="[^"]*(?:width|height):\s*(?:1[0-9]|2[0-4])px[^"]*background(?:-color)?:\s*#[0-9A-Fa-f]{3,6}[^"]*"[^>]*>[\s\S]*?<\/(?:div|span)>/gi,
+      /<(?:div|span)[^>]*style="[^"]*(?:width|height):\s*(?:[1-2][0-9]|30)px[^"]*background(?:-color)?:\s*#[0-9A-Fa-f]{3,6}[^"]*"[^>]*>[\s\S]*?<\/(?:div|span)>/gi,
+      "",
+    );
+    // 移除空的或只包含空白的 flex 子元素（可能是色块残留）
+    result = result.replace(
+      /<(?:div|span)[^>]*style="[^"]*(?:flex-shrink|width:\s*(?:1[5-9]|2[0-9])px)[^"]*"[^>]*>\s*<\/(?:div|span)>/gi,
       "",
     );
     if (result !== originalForDebugCheck) {
