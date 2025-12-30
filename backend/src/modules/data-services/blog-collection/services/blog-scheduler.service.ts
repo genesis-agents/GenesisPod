@@ -73,10 +73,19 @@ export class BlogSchedulerService implements OnModuleInit, OnModuleDestroy {
       try {
         // @ts-ignore - Dynamic import of optional dependency
         const module = await import("node-cron");
-        cron = module.default;
+        // Handle both ESM default export and CommonJS module.exports
+        cron = module.default || module;
       } catch (error) {
         this.logger.warn(
           "node-cron not available, scheduler disabled. Please install: npm install node-cron",
+        );
+        return;
+      }
+
+      // Check if cron.schedule is available
+      if (!cron || typeof cron.schedule !== "function") {
+        this.logger.warn(
+          "node-cron module loaded but schedule function not available. Scheduler disabled.",
         );
         return;
       }
