@@ -1233,10 +1233,56 @@ ${this.getTemplateReference(pageOutline.templateType)}
       fixes.push("移除交互表单元素");
     }
 
-    // 7. 移除独立显示的颜色代码文本（如 #0F172A, #D4AF37）
-    // 匹配：作为独立内容显示的十六进制颜色代码
+    // 6b. 移除误生成的菜单图标（hamburger menu icon）
+    const originalForMenuCheck = result;
+    // 移除三条横线的 hamburger 图标 SVG
+    result = result.replace(
+      /<svg[^>]*>[\s\S]*?(?:<line[^>]*\/>[\s\S]*?){2,3}<\/svg>/gi,
+      (match) => {
+        // 检测是否是 hamburger menu 模式（3条平行线）
+        if ((match.match(/<line/gi) || []).length >= 3) {
+          this.logger.warn("[postProcessHtml] Removing hamburger menu icon");
+          return "";
+        }
+        return match;
+      },
+    );
+    // 移除包含 menu/hamburger class 的元素
+    result = result.replace(
+      /<(?:div|span|button)[^>]*class\s*=\s*["'][^"']*(?:hamburger|menu-icon|menu-btn)[^"']*["'][^>]*>[\s\S]*?<\/(?:div|span|button)>/gi,
+      "",
+    );
+    if (result !== originalForMenuCheck) {
+      fixes.push("移除菜单图标");
+    }
+
+    // 6c. 确保图标容器不被截断
+    // 为图标/emoji 添加 flex-shrink: 0 防止被压缩
+    result = result.replace(
+      /(<(?:span|div)[^>]*style="[^"]*font-size:\s*(?:2[4-9]|[3-9]\d|\d{3,})px[^"]*")([^>]*>[\s\S]*?(?:🏥|💼|📈|🎮|📚|🏭|🔬|💡|⚠️|✅|❌|🎯|📊|🌐|🤖|💻|🔧|⚙️|📱|🎨))/gi,
+      (match, prefix, suffix) => {
+        if (prefix.includes("flex-shrink")) {
+          return match;
+        }
+        return (
+          prefix.replace(/style="([^"]*)"/, 'style="$1; flex-shrink: 0"') +
+          suffix
+        );
+      },
+    );
+
+    // 7. 移除独立显示的颜色代码文本（如 #0F172A, #D4AF37, #051）
+    // 匹配：作为独立内容显示的十六进制颜色代码（3位或6位）
     const originalForColorCheck = result;
+    // 匹配 6 位颜色代码
     result = result.replace(/>(\s*#[0-9A-Fa-f]{6}\s*)</g, "><");
+    // 匹配 3 位颜色代码（如 #051, #FFF）
+    result = result.replace(/>(\s*#[0-9A-Fa-f]{3}\s*)</g, "><");
+    // 匹配文本中间的颜色代码
+    result = result.replace(
+      /([^a-zA-Z0-9])#[0-9A-Fa-f]{3,6}([^a-zA-Z0-9])/g,
+      "$1$2",
+    );
     if (result !== originalForColorCheck) {
       this.logger.warn("[postProcessHtml] Removing standalone color code text");
       fixes.push("移除颜色代码文本");
@@ -1246,12 +1292,29 @@ ${this.getTemplateReference(pageOutline.templateType)}
     // 匹配：主要内容是颜色代码的 div/span
     const originalForDebugCheck = result;
     result = result.replace(
-      /<(?:div|span)[^>]*>(?:\s*#[0-9A-Fa-f]{6}\s*)+<\/(?:div|span)>/gi,
+      /<(?:div|span)[^>]*>(?:\s*#[0-9A-Fa-f]{3,6}\s*)+<\/(?:div|span)>/gi,
       "",
     );
     if (result !== originalForDebugCheck) {
       this.logger.warn("[postProcessHtml] Removing color code debug elements");
       fixes.push("移除颜色调试元素");
+    }
+
+    // 7c. 修复常见拼写错误和乱码
+    const originalForTypoCheck = result;
+    // 修复 ABBSERTATION -> PRESENTATION 或移除
+    result = result.replace(/ABBSERTATION/gi, "PRESENTATION");
+    // 修复 PRESNETATION -> PRESENTATION
+    result = result.replace(/PRESNETATION/gi, "PRESENTATION");
+    // 移除看起来像调试占位符的文本
+    result = result.replace(/>(\s*PRESENTATION\s*)</gi, "><");
+    // 移除乱码字符（非标准 ASCII 控制字符）
+    result = result.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
+    if (result !== originalForTypoCheck) {
+      this.logger.warn(
+        "[postProcessHtml] Fixed typos and removed garbled text",
+      );
+      fixes.push("修复拼写错误和乱码");
     }
 
     // 8. 移除 label 包裹的 toggle/switch 样式元素
@@ -1290,6 +1353,45 @@ ${this.getTemplateReference(pageOutline.templateType)}
         `[postProcessHtml] Removed ${emptyDivCount} empty div containers`,
       );
       fixes.push(`移除 ${emptyDivCount} 个空容器`);
+    }
+
+    // 10. 为 flex/grid 容器添加溢出保护
+    // 检测 flex 布局容器并添加 min-height: 0 防止子元素溢出
+    const originalForFlexCheck = result;
+    result = result.replace(
+      /(<div[^>]*style="[^"]*display:\s*flex[^"]*")([^>]*>)/gi,
+      (match, prefix, suffix) => {
+        // 如果已有 min-height，不重复添加
+        if (prefix.includes("min-height")) {
+          return match;
+        }
+        // 在 style 末尾添加 min-height: 0
+        const newPrefix = prefix.replace(
+          /style="([^"]*)"/,
+          'style="$1; min-height: 0; overflow: hidden"',
+        );
+        return newPrefix + suffix;
+      },
+    );
+    if (result !== originalForFlexCheck) {
+      fixes.push("为 flex 容器添加溢出保护");
+    }
+
+    // 11. 修复可能导致文字重叠的绝对定位元素
+    // 将 position: absolute 元素的容器设置为 relative 并添加 overflow 控制
+    const originalForPositionCheck = result;
+    result = result.replace(
+      /<div([^>]*style="[^"]*position:\s*absolute[^"]*"[^>]*)>/gi,
+      (match, attrs) => {
+        // 如果已有 overflow，不重复添加
+        if (attrs.includes("overflow")) {
+          return match;
+        }
+        return match.replace(/style="([^"]*)"/, 'style="$1; overflow: hidden"');
+      },
+    );
+    if (result !== originalForPositionCheck) {
+      fixes.push("为绝对定位元素添加溢出保护");
     }
 
     return { html: result, fixes };

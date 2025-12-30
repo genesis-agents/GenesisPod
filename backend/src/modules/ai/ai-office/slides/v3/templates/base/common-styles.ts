@@ -29,6 +29,8 @@ export const CARD_STYLE = `
   border: 1px solid #334155;
   border-radius: 12px;
   padding: 24px;
+  overflow: hidden;
+  min-height: 0;
 `;
 
 export const CARD_STYLE_HIGHLIGHT = `
@@ -36,6 +38,8 @@ export const CARD_STYLE_HIGHLIGHT = `
   border: 1px solid #D4AF37;
   border-radius: 12px;
   padding: 24px;
+  overflow: hidden;
+  min-height: 0;
 `;
 
 // ============================================================================
@@ -111,3 +115,60 @@ export const GRADIENTS = {
   blue: "linear-gradient(135deg, #3B82F6, #2563EB)",
   green: "linear-gradient(135deg, #10B981, #059669)",
 };
+
+// ============================================================================
+// Text Overflow Styles (防止文字溢出)
+// ============================================================================
+
+export const TEXT_TRUNCATE = `
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+export const TEXT_CLAMP_2 = `
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+`;
+
+export const TEXT_CLAMP_3 = `
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+`;
+
+export const TEXT_CLAMP_4 = `
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+`;
+
+// ============================================================================
+// Content Container Styles (内容容器样式)
+// ============================================================================
+
+export const CONTENT_CONTAINER = `
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  flex: 1;
+`;
+
+export const FLEX_ROW_CONTAINER = `
+  display: flex;
+  gap: 24px;
+  overflow: hidden;
+  min-height: 0;
+`;
+
+export const GRID_CONTAINER = `
+  display: grid;
+  gap: 24px;
+  overflow: hidden;
+  min-height: 0;
+`;
