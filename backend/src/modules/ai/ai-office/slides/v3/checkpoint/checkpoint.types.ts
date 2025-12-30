@@ -538,3 +538,142 @@ export const CDN_RESOURCES = {
   notoSansSC:
     "https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap",
 };
+
+// ============================================================================
+// Intent Analysis Types (Layer 1 - 意图理解层)
+// ============================================================================
+
+/**
+ * 演示目的类型
+ */
+export type PresentationPurpose =
+  | "inform" // 信息传达
+  | "persuade" // 说服影响
+  | "instruct" // 教学指导
+  | "inspire" // 激励鼓舞
+  | "report"; // 汇报总结
+
+/**
+ * 演示语调类型
+ */
+export type PresentationTone =
+  | "formal" // 正式
+  | "professional" // 专业
+  | "casual" // 休闲
+  | "inspiring" // 激励
+  | "analytical"; // 分析性
+
+/**
+ * 受众信息
+ */
+export interface AudienceInfo {
+  /** 受众类型 (investor/customer/internal/public/executive/technical) */
+  type: string;
+  /** 专业程度 (expert/general/novice) */
+  expertise: "expert" | "general" | "novice";
+  /** 期望和关注点 */
+  expectations: string[];
+}
+
+/**
+ * 演示约束条件
+ */
+export interface PresentationConstraints {
+  /** 时间限制 (分钟) */
+  timeLimit?: number;
+  /** 页数限制 */
+  pageLimit?: number;
+  /** 品牌指南 */
+  brandGuidelines?: string;
+}
+
+/**
+ * 意图分析结果 (Layer 1 输出)
+ */
+export interface IntentAnalysis {
+  /** 演示目的 */
+  purpose: PresentationPurpose;
+  /** 目标受众 */
+  audience: AudienceInfo;
+  /** 演示语调 */
+  tone: PresentationTone;
+  /** 核心信息 (一句话总结) */
+  keyMessage: string;
+  /** 预期成果 */
+  expectedOutcome: string;
+  /** 约束条件 */
+  constraints: PresentationConstraints;
+  /** 置信度 (0-1) */
+  confidence: number;
+  /** 分析时间戳 */
+  analyzedAt: Date;
+}
+
+// ============================================================================
+// Narrative Planning Types (Layer 2 - 叙事规划层)
+// ============================================================================
+
+/**
+ * 叙事模式
+ */
+export type NarrativePattern =
+  | "problem-solution" // 问题 -> 方案 -> 证据 -> 行动
+  | "journey" // 过去 -> 现在 -> 未来
+  | "pyramid" // 结论 -> 支撑1/2/3 -> 总结
+  | "comparison" // A vs B -> 分析 -> 建议
+  | "teaching"; // 概念 -> 原理 -> 示例 -> 练习
+
+/**
+ * 故事情节结构
+ */
+export interface Storyline {
+  /** 开场钩子 - 抓住注意力 */
+  hook: string[];
+  /** 背景铺垫 - 设置场景 */
+  context: string[];
+  /** 问题/挑战 - 制造紧张感 */
+  tension: string[];
+  /** 解决方案 - 核心内容 */
+  resolution: string[];
+  /** 证据/数据 - 支撑论点 */
+  proof: string[];
+  /** 行动号召 - 促进行动 */
+  callToAction: string[];
+}
+
+/**
+ * 情感节点
+ */
+export interface EmotionalNode {
+  /** 页码 */
+  page: number;
+  /** 情感类型 */
+  emotion: "curiosity" | "concern" | "hope" | "confidence" | "urgency";
+}
+
+/**
+ * 信息密度等级
+ */
+export type DensityLevel = "high" | "medium" | "low";
+
+/**
+ * 叙事规划结果 (Layer 2 输出)
+ */
+export interface NarrativePlan {
+  /** 故事情节结构 */
+  storyline: Storyline;
+  /** 信息密度节奏 (每页的密度) */
+  rhythmPattern: DensityLevel[];
+  /** 情感曲线 */
+  emotionalArc: EmotionalNode[];
+  /** 叙事模式 */
+  narrativePattern: NarrativePattern;
+  /** 高潮页码 (信息最密集的页) */
+  climaxPage?: number;
+  /** 页面分配 (章节 -> 页码范围) */
+  pageAllocation: {
+    section: string;
+    pageRange: [number, number];
+    purpose: string;
+  }[];
+}
