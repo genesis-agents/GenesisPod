@@ -224,29 +224,33 @@ ${input.style || "formal"}
 
   /**
    * 计算最大字符数
+   * v3.1: 大幅增加字符限制，确保每页内容充实
    */
   private calculateMaxCharacters(pageOutline: PageOutline): number {
     // 根据模板类型调整最大字符数
     // 封面页只需要标题+副标题，保持极简
+    // 其他页面需要足够的内容填充 3-4 个卡片
     const templateLimits: Record<string, number> = {
-      cover: 100, // 封面只需要标题+副标题，极简设计
-      toc: 300,
-      questions: 300,
-      pillars: 400,
-      framework: 400,
-      timeline: 400,
-      evolutionRoadmap: 400,
-      dashboard: 400, // 数据仪表板需要多个数据点
-      comparison: 450,
-      splitLayout: 450,
-      caseStudy: 500,
-      multiColumn: 450,
-      recommendations: 400,
-      maturityModel: 400,
-      riskOpportunity: 450,
+      cover: 150, // 封面只需要标题+副标题，极简设计
+      toc: 400, // 目录需要列出章节
+      questions: 500, // 问题页需要多个问题和说明
+      pillars: 600, // 支柱页需要多个要点和说明
+      framework: 600, // 框架页需要详细说明
+      timeline: 700, // 时间线需要多个时间节点+详情
+      evolutionRoadmap: 700, // 演进路线图需要详细阶段说明
+      dashboard: 700, // 数据仪表板需要多个数据点+说明
+      comparison: 800, // 对比页需要两侧各多个要点
+      splitLayout: 700, // 分栏布局需要两侧内容
+      caseStudy: 800, // 案例研究需要详细背景和分析
+      multiColumn: 700, // 多列布局需要多个独立内容块
+      recommendations: 600, // 建议页需要多个可执行建议
+      maturityModel: 700, // 成熟度模型需要多个级别说明
+      riskOpportunity: 800, // 风险机会需要详细的双向分析
+      bullet_points: 600, // 要点列表需要 4-6 个详细要点
+      content: 600, // 内容页需要充实内容
     };
 
-    return templateLimits[pageOutline.templateType] || 400;
+    return templateLimits[pageOutline.templateType] || 600;
   }
 
   /**
