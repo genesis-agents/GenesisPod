@@ -11,17 +11,6 @@
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "npm run test:quick",
-            "timeout": 180000
-          }
-        ]
-      }
     ]
   }
 }
