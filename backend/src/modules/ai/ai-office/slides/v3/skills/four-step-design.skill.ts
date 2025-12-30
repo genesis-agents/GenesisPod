@@ -25,6 +25,7 @@ import {
   CDN_RESOURCES,
   PageTemplateType,
   GeneratedImage,
+  ContentSection,
 } from "../checkpoint/checkpoint.types";
 import { getTemplate } from "../templates";
 
@@ -856,8 +857,9 @@ ${pageContent.title}
 ### 副标题
 ${pageContent.subtitle || "无"}
 
-### 内容区块
-${JSON.stringify(pageContent.sections, null, 2)}
+### 内容区块（⚠️ 必须使用以下数据填充 HTML！）
+
+${this.formatSectionsForTemplate(pageOutline.templateType, pageContent.sections)}
 
 ### 脚注
 ${pageContent.footer || "无"}
@@ -946,6 +948,237 @@ ${this.getTemplateReference(pageOutline.templateType)}
       return html.substring(0, 3000) + "\n<!-- 模板已截断，请参考结构 -->";
     }
     return html;
+  }
+
+  /**
+   * 根据模板类型格式化 sections 数据为明确的插槽指令
+   * 这样 AI 就知道哪个数据应该放在 HTML 的哪个位置
+   */
+  private formatSectionsForTemplate(
+    templateType: string,
+    sections: ContentSection[],
+  ): string {
+    if (!sections || sections.length === 0) {
+      return "⚠️ 无内容区块数据，请根据页面标题和简述生成合理内容";
+    }
+
+    // 通用 JSON 格式
+    const jsonData = JSON.stringify(sections, null, 2);
+
+    // 根据模板类型提供具体的映射指令
+    switch (templateType) {
+      case "pillars":
+        return this.formatPillarsData(sections, jsonData);
+      case "dashboard":
+        return this.formatDashboardData(sections, jsonData);
+      case "timeline":
+      case "evolutionRoadmap":
+        return this.formatTimelineData(sections, jsonData);
+      case "riskOpportunity":
+        return this.formatRiskOpportunityData(sections, jsonData);
+      case "comparison":
+        return this.formatComparisonData(sections, jsonData);
+      default:
+        return `原始数据：\n${jsonData}\n\n请根据数据类型（stat/list/text/chart）合理布局到页面中。`;
+    }
+  }
+
+  /**
+   * 格式化 pillars 模板数据
+   */
+  private formatPillarsData(
+    sections: ContentSection[],
+    jsonData: string,
+  ): string {
+    const pillars = sections.slice(0, 3);
+    let result = `**Pillars 三列布局 - 每列必须填充以下内容：**\n\n`;
+
+    pillars.forEach((section, index) => {
+      const colors = ["#D4AF37（金色）", "#3B82F6（蓝色）", "#10B981（绿色）"];
+      result += `**第${index + 1}列卡片** (颜色: ${colors[index]}):\n`;
+
+      if (
+        section.type === "stat" &&
+        typeof section.content === "object" &&
+        "value" in section.content
+      ) {
+        const stat = section.content as {
+          value: string;
+          label: string;
+          change?: string;
+        };
+        result += `- 大数字: ${stat.value}\n`;
+        result += `- 标签: ${stat.label}\n`;
+        if (stat.change) result += `- 变化: ${stat.change}\n`;
+      } else if (section.type === "list" && Array.isArray(section.content)) {
+        result += `- 标题: ${section.content[0] || "无"}\n`;
+        result += `- 要点列表:\n`;
+        section.content.slice(1).forEach((item) => {
+          result += `  • ${item}\n`;
+        });
+      } else if (
+        section.type === "text" &&
+        typeof section.content === "string"
+      ) {
+        result += `- 内容: ${section.content}\n`;
+      }
+      result += "\n";
+    });
+
+    result += `\n原始 JSON（备用）：\n${jsonData}`;
+    return result;
+  }
+
+  /**
+   * 格式化 dashboard 模板数据
+   */
+  private formatDashboardData(
+    sections: ContentSection[],
+    jsonData: string,
+  ): string {
+    const stats = sections.filter(
+      (s) =>
+        s.type === "stat" &&
+        typeof s.content === "object" &&
+        "value" in s.content,
+    );
+    const lists = sections.filter((s) => s.type === "list");
+
+    let result = `**Dashboard 布局 - 左侧数据卡片 + 右侧列表：**\n\n`;
+
+    result += `**左侧数据卡片区（需要 ${stats.length} 个数据卡）：**\n`;
+    stats.forEach((stat, index) => {
+      const content = stat.content as {
+        value: string;
+        label: string;
+        trend?: string;
+      };
+      result += `卡片${index + 1}: 数字="${content.value}" 标签="${content.label}"`;
+      if (content.trend) result += ` 趋势="${content.trend}"`;
+      result += "\n";
+    });
+
+    if (lists.length > 0) {
+      result += `\n**右侧列表区：**\n`;
+      lists.forEach((list) => {
+        if (Array.isArray(list.content)) {
+          list.content.forEach((item) => {
+            result += `• ${item}\n`;
+          });
+        }
+      });
+    }
+
+    result += `\n原始 JSON（备用）：\n${jsonData}`;
+    return result;
+  }
+
+  /**
+   * 格式化 timeline 模板数据
+   */
+  private formatTimelineData(
+    sections: ContentSection[],
+    jsonData: string,
+  ): string {
+    let result = `**Timeline 布局 - 横向时间线 + 下方卡片：**\n\n`;
+    result += `**时间线节点（从左到右）：**\n`;
+
+    sections.forEach((section, index) => {
+      const colors = ["#D4AF37", "#3B82F6", "#10B981", "#8B5CF6"];
+      result += `\n**节点${index + 1}** (颜色: ${colors[index % 4]}):\n`;
+
+      if (
+        section.type === "stat" &&
+        typeof section.content === "object" &&
+        "value" in section.content
+      ) {
+        const stat = section.content as { value: string; label: string };
+        result += `- 阶段名: ${stat.label}\n- 时间/数据: ${stat.value}\n`;
+      } else if (
+        section.type === "text" &&
+        typeof section.content === "string"
+      ) {
+        result += `- 内容: ${section.content}\n`;
+      } else if (section.type === "list" && Array.isArray(section.content)) {
+        result += `- 阶段: ${section.content[0] || "阶段" + (index + 1)}\n`;
+        if (section.content.length > 1) {
+          result += `- 描述: ${section.content.slice(1).join("; ")}\n`;
+        }
+      }
+    });
+
+    result += `\n原始 JSON（备用）：\n${jsonData}`;
+    return result;
+  }
+
+  /**
+   * 格式化 riskOpportunity 模板数据
+   */
+  private formatRiskOpportunityData(
+    sections: ContentSection[],
+    jsonData: string,
+  ): string {
+    const half = Math.ceil(sections.length / 2);
+    const risks = sections.slice(0, half);
+    const opportunities = sections.slice(half);
+
+    let result = `**RiskOpportunity 布局 - 左右双列对比：**\n\n`;
+
+    result += `**左侧风险区（红色系）：**\n`;
+    risks.forEach((section) => {
+      if (section.type === "list" && Array.isArray(section.content)) {
+        section.content.forEach((item) => {
+          result += `• ${item}\n`;
+        });
+      } else if (typeof section.content === "string") {
+        result += `• ${section.content}\n`;
+      }
+    });
+
+    result += `\n**右侧机遇区（绿色系）：**\n`;
+    opportunities.forEach((section) => {
+      if (section.type === "list" && Array.isArray(section.content)) {
+        section.content.forEach((item) => {
+          result += `• ${item}\n`;
+        });
+      } else if (typeof section.content === "string") {
+        result += `• ${section.content}\n`;
+      }
+    });
+
+    result += `\n原始 JSON（备用）：\n${jsonData}`;
+    return result;
+  }
+
+  /**
+   * 格式化 comparison 模板数据
+   */
+  private formatComparisonData(
+    sections: ContentSection[],
+    jsonData: string,
+  ): string {
+    let result = `**Comparison 布局 - 左右对比：**\n\n`;
+
+    if (sections.length >= 2) {
+      result += `**左列（方案A）：**\n`;
+      const left = sections[0];
+      if (left.type === "list" && Array.isArray(left.content)) {
+        left.content.forEach((item) => {
+          result += `• ${item}\n`;
+        });
+      }
+
+      result += `\n**右列（方案B）：**\n`;
+      const right = sections[1];
+      if (right.type === "list" && Array.isArray(right.content)) {
+        right.content.forEach((item) => {
+          result += `• ${item}\n`;
+        });
+      }
+    }
+
+    result += `\n原始 JSON（备用）：\n${jsonData}`;
+    return result;
   }
 
   /**
