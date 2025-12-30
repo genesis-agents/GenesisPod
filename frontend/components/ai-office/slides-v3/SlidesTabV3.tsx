@@ -1567,8 +1567,11 @@ function PreviewPanel() {
   const thumbnailStripRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [viewMode, setViewMode] = useState<ViewMode>('preview');
+  const lastWheelTime = useRef<number>(0);
+  const accumulatedDelta = useRef<number>(0);
 
   // 鼠标滚轮切换页面（仅垂直滚动时，允许水平滚动正常工作）
+  // 添加防抖和阈值控制，防止滚动太快
   const handleThumbnailWheel = useCallback(
     (e: React.WheelEvent) => {
       if (pages.length <= 1) return;
@@ -1581,14 +1584,35 @@ function PreviewPanel() {
       // 垂直滚动时切换页面
       e.preventDefault();
 
-      // deltaY > 0 表示向下滚动（切换到下一页）
-      // deltaY < 0 表示向上滚动（切换到上一页）
-      if (e.deltaY > 0) {
-        // 下一页
-        setSelectedPageIndex(Math.min(selectedPageIndex + 1, pages.length - 1));
-      } else if (e.deltaY < 0) {
-        // 上一页
-        setSelectedPageIndex(Math.max(selectedPageIndex - 1, 0));
+      const now = Date.now();
+      const timeSinceLastWheel = now - lastWheelTime.current;
+
+      // 如果距离上次滚动超过 150ms，重置累积值
+      if (timeSinceLastWheel > 150) {
+        accumulatedDelta.current = 0;
+      }
+
+      // 累积滚动量
+      accumulatedDelta.current += e.deltaY;
+
+      // 需要累积足够的滚动量才触发翻页（阈值 50）
+      // 并且距离上次翻页至少 200ms（防抖）
+      if (
+        Math.abs(accumulatedDelta.current) >= 50 &&
+        timeSinceLastWheel >= 200
+      ) {
+        if (accumulatedDelta.current > 0) {
+          // 下一页
+          setSelectedPageIndex(
+            Math.min(selectedPageIndex + 1, pages.length - 1)
+          );
+        } else {
+          // 上一页
+          setSelectedPageIndex(Math.max(selectedPageIndex - 1, 0));
+        }
+        // 重置
+        accumulatedDelta.current = 0;
+        lastWheelTime.current = now;
       }
     },
     [pages.length, selectedPageIndex, setSelectedPageIndex]
@@ -2556,11 +2580,25 @@ function BackendSessionCard({
   };
 
   const handleDelete = async () => {
-    if (!onDelete) return;
+    if (!onDelete) {
+      console.warn('[SessionCard] onDelete is not provided');
+      return;
+    }
     if (!confirm('确定要删除这个演示文稿吗？此操作不可撤销。')) return;
     setIsDeleting(true);
-    await onDelete(session.id);
-    setIsDeleting(false);
+    try {
+      const success = await onDelete(session.id);
+      if (!success) {
+        alert('删除失败，请重试');
+      }
+    } catch (error) {
+      console.error('[SessionCard] Delete error:', error);
+      alert(
+        '删除失败: ' + (error instanceof Error ? error.message : '未知错误')
+      );
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -2711,11 +2749,25 @@ function BackendSessionListItem({
   };
 
   const handleDelete = async () => {
-    if (!onDelete) return;
+    if (!onDelete) {
+      console.warn('[SessionCard] onDelete is not provided');
+      return;
+    }
     if (!confirm('确定要删除这个演示文稿吗？此操作不可撤销。')) return;
     setIsDeleting(true);
-    await onDelete(session.id);
-    setIsDeleting(false);
+    try {
+      const success = await onDelete(session.id);
+      if (!success) {
+        alert('删除失败，请重试');
+      }
+    } catch (error) {
+      console.error('[SessionCard] Delete error:', error);
+      alert(
+        '删除失败: ' + (error instanceof Error ? error.message : '未知错误')
+      );
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
