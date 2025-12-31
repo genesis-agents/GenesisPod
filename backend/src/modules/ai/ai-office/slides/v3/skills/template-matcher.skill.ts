@@ -103,34 +103,98 @@ const DEFAULT_POSITION_FIT: Record<
  * 内容关键词到模板的映射
  */
 const KEYWORD_TO_TEMPLATE: Record<string, PageTemplateType[]> = {
+  // 封面/标题
   封面: ["cover"],
   标题: ["cover"],
+  // 目录/大纲
   目录: ["toc"],
   大纲: ["toc"],
+  概览: ["toc", "multiColumn"],
+  // 问题/挑战
   问题: ["questions", "riskOpportunity"],
   挑战: ["questions", "riskOpportunity"],
+  痛点: ["questions", "riskOpportunity"],
+  // 核心/支柱/要素
   支柱: ["pillars"],
-  核心: ["pillars", "framework"],
+  核心: ["pillars", "multiColumn"],
+  要素: ["pillars", "multiColumn"],
+  关键: ["pillars", "multiColumn"],
+  // 影响/效果/作用/价值
+  影响: ["pillars", "multiColumn", "splitLayout"],
+  影响力: ["pillars", "multiColumn"],
+  效果: ["pillars", "multiColumn"],
+  作用: ["pillars", "multiColumn"],
+  价值: ["pillars", "multiColumn", "splitLayout"],
+  贡献: ["pillars", "multiColumn"],
+  意义: ["pillars", "splitLayout"],
+  // 分布/占比/构成
+  分布: ["comparison", "multiColumn", "dashboard"],
+  占比: ["comparison", "dashboard"],
+  比例: ["comparison", "dashboard"],
+  构成: ["comparison", "multiColumn"],
+  组成: ["comparison", "multiColumn"],
+  // 框架/架构
   框架: ["framework", "pillars"],
   架构: ["framework"],
+  模型: ["framework", "maturityModel"],
+  体系: ["framework", "pillars"],
+  // 流程/步骤
+  流程: ["framework", "timeline"],
+  步骤: ["framework"],
+  过程: ["framework", "timeline"],
+  // 时间/发展/演进
   时间: ["timeline", "evolutionRoadmap"],
   演进: ["evolutionRoadmap", "timeline"],
   发展: ["evolutionRoadmap", "timeline"],
+  历程: ["timeline", "evolutionRoadmap"],
+  路线: ["evolutionRoadmap", "timeline"],
+  规划: ["timeline", "evolutionRoadmap"],
+  // 数据/指标
   数据: ["dashboard"],
   指标: ["dashboard"],
   KPI: ["dashboard"],
+  统计: ["dashboard"],
+  趋势: ["dashboard"],
+  // 对比/比较
   对比: ["comparison"],
   比较: ["comparison"],
+  差异: ["comparison"],
+  优劣: ["comparison", "riskOpportunity"],
+  // 案例/示例
   案例: ["caseStudy", "splitLayout"],
   示例: ["caseStudy"],
+  实践: ["caseStudy", "splitLayout"],
+  成功: ["caseStudy"],
+  // 特点/优势/功能
+  特点: ["multiColumn", "pillars"],
+  优势: ["multiColumn", "pillars"],
+  功能: ["multiColumn", "splitLayout"],
+  特性: ["multiColumn"],
+  亮点: ["multiColumn", "pillars"],
+  // 建议/行动
   建议: ["recommendations"],
   行动: ["recommendations"],
   下一步: ["recommendations"],
+  措施: ["recommendations"],
+  方案: ["recommendations", "multiColumn"],
+  // 成熟度/阶段
   成熟度: ["maturityModel"],
   阶段: ["maturityModel", "timeline"],
+  等级: ["maturityModel"],
+  层次: ["maturityModel", "pillars"],
+  // 风险/机遇
   风险: ["riskOpportunity"],
   机遇: ["riskOpportunity"],
   机会: ["riskOpportunity"],
+  威胁: ["riskOpportunity"],
+  // 总结/结论
+  总结: ["recommendations", "multiColumn"],
+  结论: ["recommendations", "pillars"],
+  要点: ["multiColumn", "pillars"],
+  // 感谢/结束
+  感谢: ["closing"],
+  谢谢: ["closing"],
+  结束: ["closing"],
 };
 
 @Injectable()
