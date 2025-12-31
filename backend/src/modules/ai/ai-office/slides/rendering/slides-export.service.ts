@@ -187,8 +187,13 @@ export class SlidesExportService {
           const slideHtml = this.wrapV3HtmlForScreenshot(slideData.html);
 
           await page.setContent(slideHtml, {
-            waitUntil: "networkidle0",
+            waitUntil: "domcontentloaded",
+            timeout: 15000,
           });
+          // 等待一小段时间确保渲染完成
+          await page.evaluate(
+            () => new Promise((resolve) => setTimeout(resolve, 300)),
+          );
 
           const screenshot = await page.screenshot({
             type: "png",
@@ -260,7 +265,8 @@ export class SlidesExportService {
         const combinedHtml = this.combineV3SlidesForPdf(document);
 
         await page.setContent(combinedHtml, {
-          waitUntil: "networkidle0",
+          waitUntil: "domcontentloaded",
+          timeout: 15000,
         });
       } else {
         // 降级: 使用传统方式生成 HTML
@@ -268,7 +274,8 @@ export class SlidesExportService {
         const slidesHtml = this.generateSlidesHtml(document);
 
         await page.setContent(slidesHtml, {
-          waitUntil: "networkidle0",
+          waitUntil: "domcontentloaded",
+          timeout: 15000,
         });
       }
 
@@ -333,12 +340,12 @@ export class SlidesExportService {
       })
       .join("\n");
 
+    // 注意：不使用 Google Fonts 外部链接，避免网络超时
     return `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -352,6 +359,7 @@ export class SlidesExportService {
       padding: 0;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Hiragino Sans GB", sans-serif;
     }
 
     .slide-page {
@@ -418,12 +426,13 @@ export class SlidesExportService {
     }
 
     // 否则包装在完整的 HTML 结构中
+    // 注意：不使用 Google Fonts 外部链接，避免网络超时
+    // 使用系统字体作为后备
     return `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
@@ -431,6 +440,7 @@ export class SlidesExportService {
       height: 720px;
       overflow: hidden;
       background: #0F172A;
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Hiragino Sans GB", sans-serif;
     }
   </style>
 </head>
@@ -491,7 +501,8 @@ export class SlidesExportService {
         }
 
         await page.setContent(slideHtml, {
-          waitUntil: "networkidle0",
+          waitUntil: "domcontentloaded",
+          timeout: 15000,
         });
 
         const screenshot = await page.screenshot({
