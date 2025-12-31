@@ -127,7 +127,8 @@ model User {
   creditAccount CreditAccount?
 
   // Slides v3.0 会话
-  slidesSessions SlidesSession[]
+  slidesSessions     SlidesSession[]
+  slidesTeamExecutions SlidesTeamExecution[]
 
   @@map("users")
 }
@@ -4659,8 +4660,9 @@ model SlidesSession {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // 关联
-  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  checkpoints SlidesCheckpoint[]
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkpoints    SlidesCheckpoint[]
+  teamExecutions SlidesTeamExecution[]
 
   @@index([userId, updatedAt(sort: Desc)])
   @@index([status])
@@ -4699,4 +4701,84 @@ model SlidesCheckpoint {
   @@index([sessionId, createdAt(sort: Desc)])
   @@index([type])
   @@map("slides_checkpoints")
+}
+
+// ============ AI Office - Slides Team ============
+
+// Slides Team 执行状态
+enum SlidesTeamStatus {
+  PENDING     // 等待开始
+  ANALYZING   // 内容分析中
+  PLANNING    // 结构规划中
+  GENERATING  // 内容生成中
+  RENDERING   // 渲染中
+  REVIEWING   // 质量审核中
+  COMPLETED   // 完成
+  FAILED      // 失败
+}
+
+// Slides Team 执行记录
+model SlidesTeamExecution {
+  id        String           @id @default(uuid())
+  sessionId String           @map("session_id")
+  userId    String           @map("user_id")
+
+  // 执行状态
+  status          SlidesTeamStatus @default(PENDING)
+  currentPhase    String?          @map("current_phase") @db.VarChar(50)
+  progressPercent Int              @default(0) @map("progress_percent")
+
+  // 输入
+  sourceContent String  @map("source_content") @db.Text
+  targetPages   Int?    @map("target_pages")
+  stylePreset   String? @map("style_preset") @db.VarChar(50)
+  audience      String? @db.VarChar(200)
+
+  // Agent 执行结果（JSON）
+  analysisResult  Json? @map("analysis_result")  // ContentAnalyst 输出
+  planningResult  Json? @map("planning_result")  // VisualStrategist 输出
+  generationResult Json? @map("generation_result") // ContentWriter 输出
+  reviewResult    Json? @map("review_result")    // QualityReviewer 输出
+
+  // 错误信息
+  errorMessage String? @map("error_message") @db.Text
+  errorPhase   String? @map("error_phase") @db.VarChar(50)
+
+  // 时间戳
+  createdAt   DateTime  @default(now()) @map("created_at")
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+
+  // 关联
+  session SlidesSession          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs    SlidesTeamLog[]
+
+  @@index([sessionId])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status])
+  @@map("slides_team_executions")
+}
+
+// Slides Team 执行日志
+model SlidesTeamLog {
+  id          String @id @default(uuid())
+  executionId String @map("execution_id")
+
+  // 日志信息
+  phase     String  @db.VarChar(50) // analyzing, planning, generating, rendering, reviewing
+  agentName String  @map("agent_name") @db.VarChar(50) // ContentAnalyst, VisualStrategist, etc.
+  level     String  @db.VarChar(10) // INFO, WARN, ERROR
+  message   String  @db.Text
+  metadata  Json?   // 额外数据
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // 关联
+  execution SlidesTeamExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([executionId, createdAt(sort: Desc)])
+  @@index([phase])
+  @@index([level])
+  @@map("slides_team_logs")
 }

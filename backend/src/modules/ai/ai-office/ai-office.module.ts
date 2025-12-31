@@ -52,6 +52,9 @@ import {
   MultiModelService,
   SlidesOrchestratorV3Service,
   SlidesV3Controller,
+  // Team 协作
+  SlidesTeamOrchestratorService,
+  SlidesTeamAgent,
   // Skills
   TaskDecompositionSkill,
   OutlinePlanningSkill,
@@ -139,6 +142,10 @@ import { AIOfficeCommonModule } from "./common";
     CheckpointService,
     MultiModelService,
     SlidesOrchestratorV3Service,
+    // Team 协作
+    SlidesTeamOrchestratorService,
+    SlidesTeamAgent,
+    // Skills
     TaskDecompositionSkill,
     OutlinePlanningSkill,
     PageTypeSelectionSkill,

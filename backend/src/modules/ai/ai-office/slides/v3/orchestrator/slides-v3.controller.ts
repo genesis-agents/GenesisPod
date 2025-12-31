@@ -35,6 +35,7 @@ import {
 import { CheckpointService } from "../checkpoint/checkpoint.service";
 import { SlidesExportService } from "../../rendering/slides-export.service";
 import { GlobalStyles } from "../checkpoint/checkpoint.types";
+import { SlidesTeamAgent } from "./slides-team.agent";
 import {
   IsString,
   IsOptional,
@@ -87,6 +88,36 @@ class RerenderPageDto {
   sourceText?: string;
 }
 
+/**
+ * Team 协作生成 DTO
+ */
+class GenerateTeamDto {
+  @IsString()
+  sourceText!: string;
+
+  @IsOptional()
+  @IsString()
+  userRequirement?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(3)
+  @Max(30)
+  targetPages?: number;
+
+  @IsOptional()
+  @IsIn(["dark", "light", "custom"])
+  stylePreference?: "dark" | "light" | "custom";
+
+  @IsOptional()
+  @IsString()
+  targetAudience?: string;
+
+  @IsOptional()
+  @IsString()
+  themeId?: string;
+}
+
 class ExportV3Dto {
   @IsIn(["pptx", "pdf", "png", "html"])
   format!: "pptx" | "pdf" | "png" | "html";
@@ -112,7 +143,95 @@ export class SlidesV3Controller {
     private readonly orchestrator: SlidesOrchestratorV3Service,
     private readonly checkpointService: CheckpointService,
     private readonly exportService: SlidesExportService,
+    private readonly teamAgent: SlidesTeamAgent,
   ) {}
+
+  // ============================================
+  // Team 协作生成 API
+  // ============================================
+
+  /**
+   * Team 协作生成幻灯片 (SSE)
+   *
+   * 展示完整的 5 Agent 协作过程：
+   * - Leader: 任务分配和审核
+   * - Analyst: 内容分析
+   * - Strategist: 结构规划
+   * - Writer: 内容生成（3 个并发）
+   * - Reviewer: 质量审核
+   */
+  @Post("team/generate")
+  @Sse()
+  generateTeam(
+    @Body() dto: GenerateTeamDto,
+    @Query("userId") userId?: string,
+  ): Observable<MessageEvent> {
+    this.logger.log(
+      `[generateTeam] Starting Team generation with ${dto.sourceText?.length || 0} chars`,
+    );
+
+    // 创建会话
+    const sessionId = `team-${Date.now()}`;
+
+    return this.teamAgent
+      .executeStream(
+        {
+          sourceText: dto.sourceText,
+          userRequirement: dto.userRequirement,
+          targetPages: dto.targetPages,
+          stylePreference: dto.stylePreference,
+          targetAudience: dto.targetAudience,
+          themeId: dto.themeId,
+        },
+        {
+          sessionId,
+          userId: userId || "anonymous",
+        },
+      )
+      .pipe(
+        map((event) => {
+          this.logger.debug(`[generateTeam] SSE event: ${event.type}`);
+          return {
+            data: JSON.stringify(event),
+          };
+        }),
+        catchError((error) => {
+          this.logger.error("[generateTeam] Error:", error);
+          return of({
+            data: JSON.stringify({
+              type: "execution:failed",
+              timestamp: new Date().toISOString(),
+              executionId: sessionId,
+              data: {
+                error: error.message || "Team generation failed",
+                phase: "failed",
+                recoverable: false,
+              },
+            }),
+          });
+        }),
+      );
+  }
+
+  /**
+   * 获取 Team Agent 能力描述
+   */
+  @Get("team/capabilities")
+  getTeamCapabilities(): object {
+    return {
+      success: true,
+      agent: {
+        name: this.teamAgent.name,
+        description: this.teamAgent.description,
+        team: this.teamAgent.team,
+        capabilities: this.teamAgent.getCapabilities(),
+      },
+    };
+  }
+
+  // ============================================
+  // 原有 API
+  // ============================================
 
   /**
    * 流式生成幻灯片 (SSE)
