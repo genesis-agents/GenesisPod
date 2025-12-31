@@ -181,12 +181,26 @@ export function CitedMarkdown({
       span: ({ children, ...props }: any) => {
         return <span {...props}>{processChildren(children, sources)}</span>;
       },
-      code: ({ children, inline, ...props }: any) => {
+      code: ({ children, className, ...props }: any) => {
+        // Detect inline code: no language class and no newlines
+        const codeString = String(children).replace(/\n$/, '');
+        const hasLanguage = /language-(\w+)/.test(className || '');
+        const hasNewlines = codeString.includes('\n');
+        const isInline = !hasLanguage && !hasNewlines;
+
         // Don't process citations in code blocks
-        if (!inline) {
-          return <code {...props}>{children}</code>;
+        if (!isInline) {
+          return (
+            <code className={className} {...props}>
+              {children}
+            </code>
+          );
         }
-        return <code {...props}>{processChildren(children, sources)}</code>;
+        return (
+          <code className={className} {...props}>
+            {processChildren(children, sources)}
+          </code>
+        );
       },
     }),
     [sources]

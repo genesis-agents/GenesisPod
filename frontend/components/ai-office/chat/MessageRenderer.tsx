@@ -202,19 +202,21 @@ export default function MessageRenderer({
           ),
 
           // 代码块 - 语法高亮
-          code: ({ node, inline, className, children, ...props }: any) => {
+          // Note: react-markdown v9+ no longer passes 'inline' prop
+          code: ({ node, className, children, ...props }: any) => {
+            const codeString = String(children).replace(/\n$/, '');
             const match = /language-(\w+)/.exec(className || '');
             const language = match ? match[1] : '';
+            const hasNewlines = codeString.includes('\n');
+            const isInline = !match && !hasNewlines;
 
-            return !inline ? (
+            return !isInline ? (
               <div className="my-4 overflow-hidden rounded-lg shadow-md">
-                <div className="flex items-center justify-between bg-gray-800 px-4 py-2 font-mono text-xs text-gray-300">
+                <div className="font-mono flex items-center justify-between bg-gray-800 px-4 py-2 text-xs text-gray-300">
                   <span>{language || 'code'}</span>
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(
-                        String(children).replace(/\n$/, '')
-                      );
+                      navigator.clipboard.writeText(codeString);
                     }}
                     className="text-gray-400 transition-colors hover:text-white"
                   >
@@ -228,12 +230,12 @@ export default function MessageRenderer({
                   className="!mb-0 !mt-0"
                   {...props}
                 >
-                  {String(children).replace(/\n$/, '')}
+                  {codeString}
                 </SyntaxHighlighter>
               </div>
             ) : (
               <code
-                className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-sm text-red-600"
+                className="font-mono rounded bg-gray-100 px-1.5 py-0.5 text-sm text-red-600"
                 {...props}
               >
                 {children}

@@ -140,12 +140,17 @@ export default function AIMessageRenderer({
           ),
 
           // 代码块
+          // Note: react-markdown v9+ no longer passes 'inline' prop
           code: ({ className, children, ...props }) => {
-            const isInline = !className;
+            const codeString = String(children).replace(/\n$/, '');
+            const hasLanguage = /language-(\w+)/.test(className || '');
+            const hasNewlines = codeString.includes('\n');
+            const isInline = !hasLanguage && !hasNewlines;
+
             if (isInline) {
               return (
                 <code
-                  className={`rounded px-1.5 py-0.5 font-mono text-xs ${
+                  className={`font-mono rounded px-1.5 py-0.5 text-xs ${
                     isDark
                       ? 'bg-white/20 text-white'
                       : 'bg-gray-100 text-red-600'
@@ -158,7 +163,7 @@ export default function AIMessageRenderer({
             }
             return (
               <code
-                className={`block overflow-x-auto rounded-lg p-3 font-mono text-xs ${
+                className={`font-mono block overflow-x-auto rounded-lg p-3 text-xs ${
                   isDark
                     ? 'bg-black/30 text-white/90'
                     : 'bg-gray-900 text-gray-100'

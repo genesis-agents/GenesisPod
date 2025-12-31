@@ -711,27 +711,43 @@ function SvgRenderer({ svgCode }: { svgCode: string }) {
 }
 
 // Custom code renderer for ReactMarkdown that supports Mermaid and SVG
-function CodeBlock({ inline, className, children, ...props }: any) {
+// Note: react-markdown v9+ no longer passes 'inline' prop, need to detect differently
+function CodeBlock({ className, children, node, ...props }: any) {
   const match = /language-(\w+)/.exec(className || '');
   const language = match ? match[1] : '';
   const codeString = String(children).replace(/\n$/, '');
 
+  // Detect if this is inline code:
+  // - Block code has className with language-* OR contains newlines OR is wrapped in <pre>
+  // - In react-markdown v9+, block code's parent is <pre>, inline code has no <pre> parent
+  const hasLanguage = !!match;
+  const hasNewlines = codeString.includes('\n');
+  const isInline = !hasLanguage && !hasNewlines;
+
   // Check if this is a Mermaid diagram
-  if (!inline && isMermaidDiagram(codeString, language)) {
+  if (!isInline && isMermaidDiagram(codeString, language)) {
     return <MermaidDiagram chart={codeString} className="my-4" />;
   }
 
   // Check if this is SVG code
-  if (!inline && isSvgCode(codeString, language)) {
+  if (!isInline && isSvgCode(codeString, language)) {
     return <SvgRenderer svgCode={codeString} />;
   }
 
-  // Default code block rendering
-  return inline ? (
-    <code className={className} {...props}>
-      {children}
-    </code>
-  ) : (
+  // Inline code rendering
+  if (isInline) {
+    return (
+      <code
+        className="font-mono rounded bg-gray-100 px-1.5 py-0.5 text-sm text-red-600"
+        {...props}
+      >
+        {children}
+      </code>
+    );
+  }
+
+  // Block code rendering
+  return (
     <pre className="overflow-x-auto rounded-lg bg-gray-900 p-4">
       <code className={className} {...props}>
         {children}
