@@ -98,3 +98,10 @@ infra/oci/terraform/terraform.tfstate.backup
 infra/oci/terraform/.terraform/
 infra/oci/terraform/tfplan
 infra/oci/terraform/*.tfplan
+
+# Tencent Cloud EdgeOne
+.env
+.edgeone/*
+!.edgeone/project.json
+.tef_dist/*
+  

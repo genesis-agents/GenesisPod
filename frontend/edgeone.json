@@ -2,23 +2,9 @@
   "$schema": "https://pages.edgeone.ai/schemas/edgeone.json",
   "name": "deepdive-frontend",
   "version": 1,
-  "routes": [
-    {
-      "src": "/api/v1/(.*)",
-      "dest": "${NEXT_PUBLIC_API_BASE_URL}/api/v1/$1",
-      "headers": {
-        "X-Forwarded-Host": "$host",
-        "X-Forwarded-Proto": "https"
-      }
-    },
-    {
-      "src": "/health",
-      "dest": "/api/health"
-    }
-  ],
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/**/*",
       "headers": [
         {
           "key": "X-Frame-Options",
@@ -35,7 +21,7 @@
       ]
     },
     {
-      "source": "/_next/static/(.*)",
+      "source": "/_next/static/**/*",
       "headers": [
         {
           "key": "Cache-Control",
@@ -43,7 +29,5 @@
         }
       ]
     }
-  ],
-  "cleanUrls": true,
-  "trailingSlash": false
+  ]
 }
