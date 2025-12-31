@@ -162,10 +162,28 @@ export class TemplateRenderingSkill {
           ...baseVars,
           ...this.extractMultiColumnVariables(pageContent),
         };
+      case "splitLayout":
+        // splitLayout 使用与 multiColumn 相同的变量
+        return {
+          ...baseVars,
+          ...this.extractMultiColumnVariables(pageContent),
+        };
       case "caseStudy":
         return {
           ...baseVars,
           ...this.extractCaseStudyVariables(pageContent),
+        };
+      case "questions":
+        // questions 类型使用基础变量 + 列表提取
+        return {
+          ...baseVars,
+          ...this.extractQuestionsVariables(pageContent),
+        };
+      case "maturityModel":
+        // maturityModel 类型使用层级变量
+        return {
+          ...baseVars,
+          ...this.extractMaturityModelVariables(pageContent),
         };
       default:
         return { ...baseVars, ...this.extractDefaultVariables(pageContent) };
@@ -174,6 +192,7 @@ export class TemplateRenderingSkill {
 
   /**
    * 提取 Pillars 模板变量
+   * 同时生成 PILLAR{N} 和 P{N} 两套变量名，兼容 S-003/S-004 和 S-005 模板
    */
   private extractPillarsVariables(
     pageContent: PageContent,
@@ -209,55 +228,53 @@ export class TemplateRenderingSkill {
       const section = sections[i];
       const pillarNum = i + 1;
 
+      let title = `支柱 ${pillarNum}`;
+      let desc = pageContent.citations?.[i] || `核心支柱 ${pillarNum}`;
+      let stat = diverseStats[i] || `${85 + i * 3}%`;
+      let label = diverseLabels[i] || "关键数据";
+
       if (section) {
         if (section.type === "stat" && this.isStatContent(section.content)) {
-          const stat = section.content as StatContent;
-          vars[`PILLAR${pillarNum}_TITLE`] = stat.label || `支柱 ${pillarNum}`;
-          vars[`PILLAR${pillarNum}_DESC`] = this.getDescriptionFromSections(
-            sections,
-            i,
-          );
-          vars[`PILLAR${pillarNum}_STAT`] = this.ensureUniqueValue(
-            stat.value,
+          const statContent = section.content as StatContent;
+          title = statContent.label || title;
+          desc = this.getDescriptionFromSections(sections, i);
+          stat = this.ensureUniqueValue(
+            statContent.value,
             usedValues,
             diverseStats,
           );
-          vars[`PILLAR${pillarNum}_LABEL`] = diverseLabels[i] || "关键数据";
+          label = diverseLabels[i] || "关键数据";
         } else if (section.type === "list" && Array.isArray(section.content)) {
-          vars[`PILLAR${pillarNum}_TITLE`] =
-            section.content[0] || `支柱 ${pillarNum}`;
-          vars[`PILLAR${pillarNum}_DESC`] =
-            section.content.slice(1, 3).join("；") || "核心能力描述";
-          vars[`PILLAR${pillarNum}_STAT`] = this.ensureUniqueValue(
+          title = section.content[0] || title;
+          desc = section.content.slice(1, 3).join("；") || "核心能力描述";
+          stat = this.ensureUniqueValue(
             diverseStats[i],
             usedValues,
             diverseStats,
           );
-          vars[`PILLAR${pillarNum}_LABEL`] = diverseLabels[i] || "关键数据";
         } else if (
           section.type === "text" &&
           typeof section.content === "string"
         ) {
-          vars[`PILLAR${pillarNum}_TITLE`] =
-            section.content.slice(0, 20) || `支柱 ${pillarNum}`;
-          vars[`PILLAR${pillarNum}_DESC`] =
-            section.content.slice(0, 100) || "核心能力描述";
-          vars[`PILLAR${pillarNum}_STAT`] = this.ensureUniqueValue(
+          title = section.content.slice(0, 20) || title;
+          desc = section.content.slice(0, 100) || "核心能力描述";
+          stat = this.ensureUniqueValue(
             diverseStats[i],
             usedValues,
             diverseStats,
           );
-          vars[`PILLAR${pillarNum}_LABEL`] = diverseLabels[i] || "关键数据";
         }
-      } else {
-        // 使用默认值作为备用
-        const keyElement =
-          pageContent.citations?.[i] || `核心支柱 ${pillarNum}`;
-        vars[`PILLAR${pillarNum}_TITLE`] = `支柱 ${pillarNum}`;
-        vars[`PILLAR${pillarNum}_DESC`] = keyElement;
-        vars[`PILLAR${pillarNum}_STAT`] = diverseStats[i] || `${85 + i * 3}%`;
-        vars[`PILLAR${pillarNum}_LABEL`] = diverseLabels[i] || "关键数据";
       }
+
+      // PILLAR{N} 格式 (用于 S-003, S-004)
+      vars[`PILLAR${pillarNum}_TITLE`] = title;
+      vars[`PILLAR${pillarNum}_DESC`] = desc;
+      vars[`PILLAR${pillarNum}_STAT`] = stat;
+      vars[`PILLAR${pillarNum}_LABEL`] = label;
+
+      // P{N} 格式 (用于 S-005 五支柱模板)
+      vars[`P${pillarNum}_TITLE`] = title;
+      vars[`P${pillarNum}_DESC`] = desc;
     }
 
     return vars;
@@ -477,10 +494,15 @@ export class TemplateRenderingSkill {
       SUB_TITLE: pageContent.subtitle || "",
       AUTHOR: "DeepDive Research",
       DATE: new Date().toLocaleDateString("zh-CN"),
-      // 感谢聆听页面额外变量
+      // 感谢聆听页面额外变量 (N-005 closing 模板)
       PRESENTER: "演讲者",
       EMAIL: "contact@deepdive.com",
       COMPANY: "DeepDive Research",
+      // N-005 模板专用变量
+      MESSAGE: pageContent.subtitle || "期待与您进一步交流",
+      CONTACT_NAME: "DeepDive Research",
+      CONTACT_EMAIL: "contact@deepdive.com",
+      CONTACT_PHONE: "+86 400-xxx-xxxx",
     };
   }
 
@@ -510,7 +532,26 @@ export class TemplateRenderingSkill {
       `;
     });
 
-    return { CHAPTERS: chaptersHtml };
+    // 生成 OVERVIEW 变量
+    const overview =
+      pageContent.subtitle ||
+      sections
+        .slice(0, 3)
+        .map((s) =>
+          Array.isArray(s.content)
+            ? s.content[0]
+            : typeof s.content === "string"
+              ? s.content.slice(0, 30)
+              : "",
+        )
+        .filter(Boolean)
+        .join("、") ||
+      "本报告涵盖多个关键主题的深度分析";
+
+    return {
+      CHAPTERS: chaptersHtml,
+      OVERVIEW: overview,
+    };
   }
 
   /**
@@ -691,6 +732,7 @@ export class TemplateRenderingSkill {
 
   /**
    * 提取 MultiColumn 模板变量
+   * 同时生成 POINT{N} 和 CARD{N} 两套变量名，兼容多种模板
    */
   private extractMultiColumnVariables(
     pageContent: PageContent,
@@ -715,44 +757,156 @@ export class TemplateRenderingSkill {
       "覆盖全球主要市场",
       "构建完善合作生态",
     ];
+    const defaultIcons = ["🎯", "⚡", "🛡️", "💡", "🌐", "🤝"];
+    const defaultStats = ["95%", "120+", "24/7", "3.5x", "50+", "200+"];
+    const defaultLabels = [
+      "满意度",
+      "项目数",
+      "服务",
+      "增长",
+      "市场",
+      "合作伙伴",
+    ];
 
     // 支持最多6个要点（2列、3列、4列、6列布局）
     for (let i = 0; i < 6; i++) {
       const section = sections[i];
-      const pointNum = i + 1;
+      const num = i + 1;
+
+      let title = defaultTitles[i] || `要点 ${num}`;
+      let desc = defaultDescs[i] || `详细描述 ${num}`;
+      let stat = defaultStats[i] || `${85 + i * 5}%`;
 
       if (section) {
         if (section.type === "list" && Array.isArray(section.content)) {
-          vars[`POINT${pointNum}_TITLE`] =
-            section.content[0] || defaultTitles[i];
-          vars[`POINT${pointNum}_DESC`] =
-            section.content.slice(1).join("；") || defaultDescs[i];
+          title = section.content[0] || title;
+          desc = section.content.slice(1).join("；") || desc;
         } else if (
           section.type === "text" &&
           typeof section.content === "string"
         ) {
           const parts = section.content.split(/[：:]/);
-          vars[`POINT${pointNum}_TITLE`] =
-            parts[0]?.slice(0, 20) || defaultTitles[i];
-          vars[`POINT${pointNum}_DESC`] =
-            parts[1] || section.content.slice(0, 80) || defaultDescs[i];
+          title = parts[0]?.slice(0, 20) || title;
+          desc = parts[1] || section.content.slice(0, 80) || desc;
         } else if (
           section.type === "stat" &&
           this.isStatContent(section.content)
         ) {
-          const stat = section.content as StatContent;
-          vars[`POINT${pointNum}_TITLE`] = stat.label || defaultTitles[i];
-          vars[`POINT${pointNum}_DESC`] = stat.value || defaultDescs[i];
+          const statContent = section.content as StatContent;
+          title = statContent.label || title;
+          desc = statContent.value || desc;
+          stat = statContent.value || stat;
         }
-      } else {
-        vars[`POINT${pointNum}_TITLE`] = defaultTitles[i] || `要点 ${pointNum}`;
-        vars[`POINT${pointNum}_DESC`] =
-          defaultDescs[i] || `详细描述 ${pointNum}`;
       }
+
+      // POINT{N} 格式 (用于 C-001, C-002, C-003)
+      vars[`POINT${num}_TITLE`] = title;
+      vars[`POINT${num}_DESC`] = desc;
+
+      // CARD{N} 格式 (用于 C-004, C-005, C-006)
+      vars[`CARD${num}_TITLE`] = title;
+      vars[`CARD${num}_DESC`] = desc;
+      vars[`CARD${num}_ICON`] = defaultIcons[i] || "📌";
+      vars[`CARD${num}_STAT`] = stat;
+      vars[`CARD${num}_LABEL`] = defaultLabels[i] || "指标";
     }
 
     // 图片占位符
     vars["IMAGE_PLACEHOLDER"] = "📊";
+
+    return vars;
+  }
+
+  /**
+   * 提取 Questions 模板变量
+   */
+  private extractQuestionsVariables(
+    pageContent: PageContent,
+  ): Record<string, string> {
+    const sections = pageContent.sections || [];
+    const vars: Record<string, string> = {};
+
+    const defaultQuestions = [
+      "如何实现业务目标？",
+      "关键成功因素是什么？",
+      "如何衡量进展？",
+      "下一步行动计划？",
+    ];
+
+    // 从 sections 中提取问题列表
+    let questionsHtml = "";
+    const listSection = sections.find(
+      (s) => s.type === "list" && Array.isArray(s.content),
+    );
+    const questions =
+      listSection && Array.isArray(listSection.content)
+        ? listSection.content
+        : defaultQuestions;
+
+    questions.slice(0, 6).forEach((q, index) => {
+      questionsHtml += `
+        <div style="display: flex; align-items: flex-start; gap: 16px; margin-bottom: 16px;">
+          <div style="width: 32px; height: 32px; background: ${COLORS.primary}; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 700;">${index + 1}</div>
+          <div style="font-size: 16px; line-height: 1.6;">${q}</div>
+        </div>
+      `;
+      vars[`Q${index + 1}`] = String(q);
+    });
+
+    vars["QUESTIONS"] = questionsHtml;
+    vars["QUESTIONS_COUNT"] = String(questions.length);
+
+    return vars;
+  }
+
+  /**
+   * 提取 MaturityModel 模板变量
+   */
+  private extractMaturityModelVariables(
+    pageContent: PageContent,
+  ): Record<string, string> {
+    const sections = pageContent.sections || [];
+    const vars: Record<string, string> = {};
+
+    const defaultLevels = [
+      { title: "初始级", desc: "流程不规范，结果不可预测" },
+      { title: "管理级", desc: "基本流程建立，可重复执行" },
+      { title: "定义级", desc: "标准流程定义，组织级实施" },
+      { title: "量化级", desc: "数据驱动，量化管理" },
+      { title: "优化级", desc: "持续改进，创新驱动" },
+    ];
+
+    // 生成5个成熟度等级的变量
+    for (let i = 0; i < 5; i++) {
+      const section = sections[i];
+      const levelNum = i + 1;
+
+      let title = defaultLevels[i]?.title || `等级 ${levelNum}`;
+      let desc = defaultLevels[i]?.desc || `成熟度等级 ${levelNum} 描述`;
+
+      if (section) {
+        if (section.type === "list" && Array.isArray(section.content)) {
+          title = section.content[0] || title;
+          desc = section.content.slice(1).join("；") || desc;
+        } else if (
+          section.type === "text" &&
+          typeof section.content === "string"
+        ) {
+          const parts = section.content.split(/[：:]/);
+          title = parts[0]?.slice(0, 15) || title;
+          desc = parts[1] || section.content.slice(0, 60) || desc;
+        }
+      }
+
+      vars[`LEVEL${levelNum}_TITLE`] = title;
+      vars[`LEVEL${levelNum}_DESC`] = desc;
+      vars[`L${levelNum}_TITLE`] = title;
+      vars[`L${levelNum}_DESC`] = desc;
+    }
+
+    // 当前等级（默认为3）
+    vars["CURRENT_LEVEL"] = "3";
+    vars["TARGET_LEVEL"] = "5";
 
     return vars;
   }
@@ -812,9 +966,14 @@ export class TemplateRenderingSkill {
 
     // 客户评价
     const firstListContent = listSections[0]?.content;
-    vars["TESTIMONIAL"] =
+    const testimonial =
       (Array.isArray(firstListContent) ? firstListContent[0] : null) ||
       "这是一次非常成功的合作，帮助我们实现了业务目标";
+
+    vars["TESTIMONIAL"] = testimonial;
+    // C-007 模板使用 QUOTE 和 AUTHOR
+    vars["QUOTE"] = testimonial;
+    vars["AUTHOR"] = pageContent.subtitle || "客户代表";
 
     return vars;
   }

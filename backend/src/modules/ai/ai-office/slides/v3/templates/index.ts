@@ -42,6 +42,7 @@ import { STRUCTURAL_TEMPLATES } from "./categories/structural.templates";
 import { DATA_TEMPLATES } from "./categories/data.templates";
 import { CONTENT_TEMPLATES } from "./categories/content.templates";
 import { ACTION_TEMPLATES } from "./categories/action.templates";
+import { NARRATIVE_TEMPLATES } from "./categories/narrative.templates";
 import { templateRegistry, SlideTemplate } from "./base/template-registry";
 
 // ============================================================================
@@ -50,6 +51,7 @@ import { templateRegistry, SlideTemplate } from "./base/template-registry";
 
 // Combine all templates
 const ALL_TEMPLATES: SlideTemplate[] = [
+  ...NARRATIVE_TEMPLATES, // cover/closing/toc 等核心叙事模板
   ...STRUCTURAL_TEMPLATES,
   ...DATA_TEMPLATES,
   ...CONTENT_TEMPLATES,
@@ -65,6 +67,7 @@ for (const template of ALL_TEMPLATES) {
 // Re-export Template Arrays for Direct Access
 // ============================================================================
 
+export { NARRATIVE_TEMPLATES } from "./categories/narrative.templates";
 export { STRUCTURAL_TEMPLATES } from "./categories/structural.templates";
 export { DATA_TEMPLATES } from "./categories/data.templates";
 export { CONTENT_TEMPLATES } from "./categories/content.templates";
@@ -152,18 +155,20 @@ export const TEMPLATE_LIBRARY_INFO = {
   version: "3.0.0",
   totalTemplates: ALL_TEMPLATES.length,
   categories: {
+    narrative: NARRATIVE_TEMPLATES.length,
     structural: STRUCTURAL_TEMPLATES.length,
     data: DATA_TEMPLATES.length,
     content: CONTENT_TEMPLATES.length,
     action: ACTION_TEMPLATES.length,
   },
-  lastUpdated: "2024-12-29",
+  lastUpdated: "2024-12-30",
 };
 
 // Log registration summary in development
 if (process.env.NODE_ENV !== "production") {
   console.log(
     `[TemplateLibrary] Registered ${ALL_TEMPLATES.length} templates:`,
+    `Narrative(${NARRATIVE_TEMPLATES.length})`,
     `Structural(${STRUCTURAL_TEMPLATES.length})`,
     `Data(${DATA_TEMPLATES.length})`,
     `Content(${CONTENT_TEMPLATES.length})`,
