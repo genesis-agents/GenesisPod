@@ -55,7 +55,7 @@ import {
   selectOverallProgress,
 } from '@/stores/slidesV3Store';
 import {
-  useSlideGenerationV3,
+  useSlideGenerationTeam,
   useCheckpoints,
   useSessions,
   SessionWithCheckpoint,
@@ -67,6 +67,8 @@ import type {
   GenerationProgress,
   OutlinePlan,
 } from '@/types/slides-v3';
+import type { GenerateTeamRequest } from '@/types/slides-v3-team';
+import { AgentTeamPanel } from './AgentTeamPanel';
 import {
   useSlidesHistoryStore,
   formatRelativeTime,
@@ -110,7 +112,7 @@ interface ToolCallItem {
 export function SlidesTabV3() {
   const { session, pages, generating, streamEvents, progress, outlinePlan } =
     useSlidesV3Store();
-  const { generate, cancel } = useSlideGenerationV3();
+  const { generateWithTeam, cancel, teamState } = useSlideGenerationTeam();
   const { createCheckpoint, checkpoints } = useCheckpoints();
   const { history, addHistory, updateHistory, removeHistory, clearHistory } =
     useSlidesHistoryStore();
@@ -410,9 +412,17 @@ export function SlidesTabV3() {
         status: 'pending',
       });
       currentHistoryIdRef.current = historyId;
-      generate(request);
+      // 转换为 Team 请求格式
+      const teamRequest: GenerateTeamRequest = {
+        sourceText: request.sourceText,
+        userRequirement: request.title, // 使用标题作为用户需求
+        targetPages: request.targetPages,
+        stylePreference: request.stylePreference,
+        themeId: request.themeId,
+      };
+      generateWithTeam(teamRequest);
     },
-    [generate, addHistory]
+    [generateWithTeam, addHistory]
   );
 
   // 监听 session 创建和完成事件，更新历史记录
@@ -572,6 +582,7 @@ export function SlidesTabV3() {
           generating={generating}
           progress={progress}
           outlinePlan={outlinePlan}
+          teamState={teamState}
         />
         <PreviewPanel />
       </div>
@@ -1191,6 +1202,7 @@ function ConversationPanel({
   generating,
   progress,
   outlinePlan,
+  teamState,
 }: {
   onSendMessage: (message: string) => void;
   onCancel: () => void;
@@ -1198,6 +1210,7 @@ function ConversationPanel({
   generating: boolean;
   progress: GenerationProgress | null;
   outlinePlan: OutlinePlan | null;
+  teamState: import('@/types/slides-v3-team').TeamExecutionState | null;
 }) {
   const [inputValue, setInputValue] = useState('');
   const [outlineExpanded, setOutlineExpanded] = useState(true);
@@ -1279,9 +1292,16 @@ function ConversationPanel({
 
       {/* 滚动区域 */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3">
+        {/* AI 团队协作面板 */}
+        {(generating || teamState) && (
+          <div className="mb-4">
+            <AgentTeamPanel teamState={teamState} compact />
+          </div>
+        )}
+
         {/* 工具调用展示 */}
         <div className="space-y-2">
-          {toolCalls.length === 0 && !generating ? (
+          {toolCalls.length === 0 && !generating && !teamState ? (
             <div className="py-3 text-center text-sm text-gray-400">
               开始生成后将显示过程信息
             </div>
