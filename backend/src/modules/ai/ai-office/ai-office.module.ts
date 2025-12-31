@@ -59,6 +59,8 @@ import {
   FourStepDesignSkill,
   ContentCompressionSkill,
   TemplateRenderingSkill,
+  ChartRendererSkill,
+  ImageFetcherSkill,
   // Roles
   ArchitectService,
   WriterService,
@@ -143,6 +145,8 @@ import { AIOfficeCommonModule } from "./common";
     FourStepDesignSkill,
     ContentCompressionSkill,
     TemplateRenderingSkill,
+    ChartRendererSkill,
+    ImageFetcherSkill,
     ArchitectService,
     WriterService,
     RendererService,

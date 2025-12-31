@@ -74,6 +74,11 @@ import {
 } from '@/stores/slidesHistoryStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
+import {
+  ThemeSelector,
+  SLIDE_THEMES,
+  type SlideThemeId,
+} from './ThemeSelector';
 
 // ============================================================================
 // 类型定义
@@ -1198,7 +1203,8 @@ function ConversationPanel({
   const [outlineExpanded, setOutlineExpanded] = useState(true);
   const [copied, setCopied] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { streamEvents } = useSlidesV3Store();
+  const { streamEvents, selectedPageIndex, setSelectedPageIndex } =
+    useSlidesV3Store();
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -1338,7 +1344,13 @@ function ConversationPanel({
                   <div className="mt-2 space-y-1">
                     {outlinePlan.pages.map(
                       (page: PageOutline, index: number) => (
-                        <OutlineItem key={index} page={page} index={index} />
+                        <OutlineItem
+                          key={index}
+                          page={page}
+                          index={index}
+                          isSelected={selectedPageIndex === index}
+                          onClick={() => setSelectedPageIndex(index)}
+                        />
                       )
                     )}
                   </div>
@@ -1565,19 +1577,51 @@ function ToolCallCard({ call }: { call: ToolCallItem }) {
 // 大纲项
 // ============================================================================
 
-function OutlineItem({ page, index }: { page: PageOutline; index: number }) {
+function OutlineItem({
+  page,
+  index,
+  isSelected,
+  onClick,
+}: {
+  page: PageOutline;
+  index: number;
+  isSelected: boolean;
+  onClick: () => void;
+}) {
   return (
-    <div className="flex items-center gap-2 rounded bg-slate-50 px-2 py-1.5 text-xs">
-      <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded bg-orange-100 text-[10px] font-medium text-orange-600">
+    <button
+      onClick={onClick}
+      className={cn(
+        'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs transition-colors',
+        isSelected
+          ? 'bg-orange-100 ring-1 ring-orange-300'
+          : 'bg-slate-50 hover:bg-slate-100'
+      )}
+    >
+      <span
+        className={cn(
+          'flex h-4 w-4 flex-shrink-0 items-center justify-center rounded text-[10px] font-medium',
+          isSelected
+            ? 'bg-orange-500 text-white'
+            : 'bg-orange-100 text-orange-600'
+        )}
+      >
         {index + 1}
       </span>
       <div className="min-w-0 flex-1">
-        <div className="truncate font-medium text-slate-700">{page.title}</div>
+        <div
+          className={cn(
+            'truncate font-medium',
+            isSelected ? 'text-orange-700' : 'text-slate-700'
+          )}
+        >
+          {page.title}
+        </div>
         <div className="truncate text-[10px] text-slate-400">
           {page.templateType}
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -2253,7 +2297,7 @@ function ThumbnailCard({
     >
       {page.html ? (
         <div
-          className="h-full w-full bg-slate-900"
+          className="pointer-events-none h-full w-full bg-slate-900"
           style={{
             transform: 'scale(0.1)',
             transformOrigin: 'top left',
@@ -2345,6 +2389,7 @@ function InitialInputForm({
   const [title, setTitle] = useState('');
   const [sourceText, setSourceText] = useState('');
   const [targetPages, setTargetPages] = useState(10);
+  const [themeId, setThemeId] = useState<SlideThemeId>('genspark-dark');
   const { generating } = useSlidesV3Store();
 
   const handleSubmit = useCallback(() => {
@@ -2354,8 +2399,9 @@ function InitialInputForm({
       sourceText: sourceText.trim(),
       targetPages,
       stylePreference: 'dark',
+      themeId,
     });
-  }, [title, sourceText, targetPages, onGenerate]);
+  }, [title, sourceText, targetPages, themeId, onGenerate]);
 
   return (
     <main className="flex min-h-0 flex-1 flex-col bg-gray-50">
@@ -2419,6 +2465,18 @@ function InitialInputForm({
                   <span>5 页</span>
                   <span>30 页</span>
                 </div>
+              </div>
+
+              {/* 主题选择 */}
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  主题风格
+                </label>
+                <ThemeSelector
+                  value={themeId}
+                  onChange={setThemeId}
+                  className="rounded-lg border border-gray-200 bg-gray-50 p-3"
+                />
               </div>
             </div>
           </div>

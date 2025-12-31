@@ -53,6 +53,8 @@ export interface GenerateInput {
   targetAudience?: string;
   /** 自定义样式 */
   customStyles?: Partial<GlobalStyles>;
+  /** 主题ID，默认 'genspark-dark' */
+  themeId?: string;
 }
 
 /**
@@ -251,6 +253,7 @@ export class SlidesOrchestratorV3Service {
         globalStyles,
         sessionId,
         subject,
+        input.themeId,
       );
 
       subject.next(
@@ -331,6 +334,7 @@ export class SlidesOrchestratorV3Service {
     globalStyles: GlobalStyles,
     sessionId: string,
     subject: Subject<StreamEvent>,
+    themeId?: string,
   ): Promise<PageState[]> {
     const pages: PageState[] = [];
     const totalPages = outlinePlan.pages.length;
@@ -391,6 +395,7 @@ export class SlidesOrchestratorV3Service {
           globalStyles,
           sessionId,
           images: imageResult.images, // 传入图片供 HTML 渲染使用
+          themeId,
         });
 
         const pageState: PageState = {
@@ -482,9 +487,7 @@ export class SlidesOrchestratorV3Service {
    * 从检查点恢复
    * @returns 包含 state, sessionId, checkpointId 的对象
    */
-  async restoreFromCheckpoint(
-    checkpointId: string,
-  ): Promise<{
+  async restoreFromCheckpoint(checkpointId: string): Promise<{
     state: CheckpointState;
     sessionId: string;
     checkpointId: string;
@@ -506,6 +509,7 @@ export class SlidesOrchestratorV3Service {
     sessionId: string,
     pageNumber: number,
     sourceText: string,
+    themeId?: string,
   ): Promise<PageState> {
     const latestCheckpoint =
       await this.checkpoint.getLatestCheckpoint(sessionId);
@@ -547,6 +551,7 @@ export class SlidesOrchestratorV3Service {
       globalStyles,
       sessionId,
       images: imageResult.images, // 传入图片供 HTML 渲染使用
+      themeId,
     });
 
     const newPageState: PageState = {

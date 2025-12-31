@@ -36,6 +36,8 @@ export interface PageRenderInput {
   sessionId?: string;
   /** 预生成的图片（背景图等） */
   images?: GeneratedImage[];
+  /** 主题ID */
+  themeId?: string;
 }
 
 /**
@@ -77,11 +79,18 @@ export class RendererService {
    * 渲染单页 - 优先使用确定性模板渲染
    */
   async renderPage(input: PageRenderInput): Promise<PageRenderResult> {
-    const { pageOutline, pageContent, globalStyles, sessionId, images } = input;
+    const {
+      pageOutline,
+      pageContent,
+      globalStyles,
+      sessionId,
+      images,
+      themeId,
+    } = input;
     const startTime = Date.now();
 
     this.logger.log(
-      `[renderPage] Rendering page ${pageOutline.pageNumber} with ${images?.length || 0} images`,
+      `[renderPage] Rendering page ${pageOutline.pageNumber} with ${images?.length || 0} images, theme: ${themeId || "default"}`,
     );
 
     // 确保模板类型已选择
@@ -97,6 +106,7 @@ export class RendererService {
         pageOutline: updatedOutline,
         pageContent,
         usedValues: this.usedDataValues,
+        themeId: themeId || "genspark-dark",
       };
 
       const templateResult = this.templateRenderingSkill.render(templateInput);

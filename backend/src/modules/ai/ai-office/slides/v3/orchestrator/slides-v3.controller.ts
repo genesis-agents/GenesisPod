@@ -75,6 +75,10 @@ class GenerateV3Dto {
 
   @IsOptional()
   customStyles?: Partial<GlobalStyles>;
+
+  @IsOptional()
+  @IsString()
+  themeId?: string;
 }
 
 class RerenderPageDto {
@@ -182,6 +186,7 @@ export class SlidesV3Controller {
       stylePreference: dto.stylePreference,
       targetAudience: dto.targetAudience,
       customStyles: dto.customStyles,
+      themeId: dto.themeId,
     };
 
     return this.orchestrator.generateSlides(input).pipe(

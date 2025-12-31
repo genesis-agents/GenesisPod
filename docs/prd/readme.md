@@ -1,6 +1,6 @@
 # PRD 文档目录
 
-> **最后更新**: 2025-12-27
+> **最后更新**: 2025-12-31
 > **文档规范**: `[模块]-[类型]-v[版本].md`
 
 ---
@@ -36,6 +36,15 @@
 | 文件                                             | 版本 | 状态     | 说明                    |
 | ------------------------------------------------ | ---- | -------- | ----------------------- |
 | [ai-office-prd-v2.0.md](./ai-office-prd-v2.0.md) | v2.0 | **最新** | Multi-Agent报告生成系统 |
+
+### AI Slides (智能幻灯片生成)
+
+| 文件                                                                     | 版本 | 状态     | 说明                             |
+| ------------------------------------------------------------------------ | ---- | -------- | -------------------------------- |
+| [ai-slides-v3.1-visual-upgrade.md](./ai-slides-v3.1-visual-upgrade.md)   | v1.0 | **最新** | 视觉升级PRD，2周追赶Genspark方案 |
+| [ai-slides-v3-optimization-plan.md](./ai-slides-v3-optimization-plan.md) | v1.0 | 参考     | 完整8周优化方案                  |
+| [ai-slides-genspark-gap-closure.md](./ai-slides-genspark-gap-closure.md) | v1.0 | 参考     | 原始差距分析方案                 |
+| [ai-office-slides-upgrade-v1.0.md](./ai-office-slides-upgrade-v1.0.md)   | v1.0 | 参考     | Genspark竞品对标分析             |
 
 ### AI Group (多AI协作社区)
 
@@ -113,6 +122,7 @@
 | --------------- | ------- | -------- | ---------- |
 | AI Studio       | v4.0    | 开发中   | 90%        |
 | AI Office       | v2.0    | 已完成   | 95%        |
+| AI Slides       | v3.1    | 待开发   | 95%        |
 | AI Group        | v1.0    | 开发中   | 85%        |
 | AI Coding       | v1.0    | 开发中   | 95%        |
 | 数据采集        | v3.0    | 已修复   | 90%        |

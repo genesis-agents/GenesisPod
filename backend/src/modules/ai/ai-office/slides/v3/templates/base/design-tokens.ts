@@ -3,7 +3,13 @@
  *
  * 设计系统常量，遵循 Genspark 设计规范
  * 所有模板应使用这些 token 以保持一致性
+ *
+ * v3.1: 增强排版、动画系统、主题集成
  */
+
+// Re-export theme and decoration systems
+export * from "./themes";
+export * from "./decorations";
 
 // ============================================================================
 // Canvas Dimensions
@@ -281,3 +287,327 @@ export const ACCENT_COLORS = [
 ] as const;
 
 export type AccentColor = (typeof ACCENT_COLORS)[number];
+
+// ============================================================================
+// Enhanced Typography v3.1
+// ============================================================================
+
+export const TYPOGRAPHY_ENHANCED = {
+  heading: {
+    h1: {
+      fontSize: "52px",
+      fontWeight: 900,
+      lineHeight: 1.1,
+      letterSpacing: "-0.02em",
+      textShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+    },
+    h2: {
+      fontSize: "36px",
+      fontWeight: 800,
+      lineHeight: 1.2,
+      letterSpacing: "-0.01em",
+    },
+    h3: {
+      fontSize: "24px",
+      fontWeight: 700,
+      lineHeight: 1.3,
+      letterSpacing: "0em",
+    },
+    h4: {
+      fontSize: "18px",
+      fontWeight: 600,
+      lineHeight: 1.4,
+      letterSpacing: "0.01em",
+    },
+  },
+
+  body: {
+    large: {
+      fontSize: "18px",
+      fontWeight: 400,
+      lineHeight: 1.75,
+      letterSpacing: "0.01em",
+    },
+    base: {
+      fontSize: "16px",
+      fontWeight: 400,
+      lineHeight: 1.7,
+      letterSpacing: "0.02em",
+    },
+    small: {
+      fontSize: "14px",
+      fontWeight: 400,
+      lineHeight: 1.6,
+      letterSpacing: "0.02em",
+    },
+  },
+
+  stat: {
+    huge: {
+      fontSize: "72px",
+      fontWeight: 900,
+      lineHeight: 1,
+      letterSpacing: "-0.03em",
+      textShadow: "0 0 20px var(--accent-glow, rgba(212, 175, 55, 0.3))",
+    },
+    large: {
+      fontSize: "56px",
+      fontWeight: 900,
+      lineHeight: 1,
+      letterSpacing: "-0.02em",
+    },
+    medium: {
+      fontSize: "32px",
+      fontWeight: 800,
+      lineHeight: 1.2,
+      letterSpacing: "-0.01em",
+    },
+  },
+
+  label: {
+    uppercase: {
+      fontSize: "12px",
+      fontWeight: 600,
+      lineHeight: 1.4,
+      letterSpacing: "0.1em",
+      textTransform: "uppercase",
+    },
+    caption: {
+      fontSize: "12px",
+      fontWeight: 400,
+      lineHeight: 1.5,
+      letterSpacing: "0.02em",
+    },
+  },
+} as const;
+
+// ============================================================================
+// CSS Animation System
+// ============================================================================
+
+export const ANIMATIONS = {
+  // Keyframe definitions
+  keyframes: `
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes slideInLeft {
+      from {
+        opacity: 0;
+        transform: translateX(-30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes slideInRight {
+      from {
+        opacity: 0;
+        transform: translateX(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes scaleIn {
+      from {
+        opacity: 0;
+        transform: scale(0.9);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    @keyframes bounceIn {
+      0% {
+        opacity: 0;
+        transform: scale(0.3);
+      }
+      50% {
+        opacity: 1;
+        transform: scale(1.05);
+      }
+      70% {
+        transform: scale(0.9);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    @keyframes countUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes glowPulse {
+      0%, 100% {
+        box-shadow: 0 0 20px var(--glow-color, rgba(212, 175, 55, 0.2));
+      }
+      50% {
+        box-shadow: 0 0 40px var(--glow-color, rgba(212, 175, 55, 0.4));
+      }
+    }
+
+    @keyframes shimmer {
+      0% {
+        background-position: -200% 0;
+      }
+      100% {
+        background-position: 200% 0;
+      }
+    }
+  `,
+
+  // Animation class definitions
+  classes: `
+    .animate-fade-in {
+      animation: fadeIn 0.6s ease-out forwards;
+    }
+
+    .animate-slide-up {
+      animation: slideInUp 0.6s ease-out forwards;
+    }
+
+    .animate-slide-left {
+      animation: slideInLeft 0.6s ease-out forwards;
+    }
+
+    .animate-slide-right {
+      animation: slideInRight 0.6s ease-out forwards;
+    }
+
+    .animate-scale-in {
+      animation: scaleIn 0.5s ease-out forwards;
+    }
+
+    .animate-bounce-in {
+      animation: bounceIn 0.8s ease-out forwards;
+    }
+
+    .animate-count-up {
+      animation: countUp 0.8s ease-out forwards;
+    }
+
+    .animate-glow-pulse {
+      animation: glowPulse 2s ease-in-out infinite;
+    }
+
+    /* Delay utilities */
+    .delay-100 { animation-delay: 0.1s; }
+    .delay-200 { animation-delay: 0.2s; }
+    .delay-300 { animation-delay: 0.3s; }
+    .delay-400 { animation-delay: 0.4s; }
+    .delay-500 { animation-delay: 0.5s; }
+    .delay-600 { animation-delay: 0.6s; }
+    .delay-700 { animation-delay: 0.7s; }
+    .delay-800 { animation-delay: 0.8s; }
+
+    /* Stagger animation for child elements */
+    .stagger-children > * {
+      opacity: 0;
+      animation: slideInUp 0.5s ease-out forwards;
+    }
+    .stagger-children > *:nth-child(1) { animation-delay: 0.1s; }
+    .stagger-children > *:nth-child(2) { animation-delay: 0.2s; }
+    .stagger-children > *:nth-child(3) { animation-delay: 0.3s; }
+    .stagger-children > *:nth-child(4) { animation-delay: 0.4s; }
+    .stagger-children > *:nth-child(5) { animation-delay: 0.5s; }
+    .stagger-children > *:nth-child(6) { animation-delay: 0.6s; }
+
+    /* Duration utilities */
+    .duration-300 { animation-duration: 0.3s; }
+    .duration-500 { animation-duration: 0.5s; }
+    .duration-700 { animation-duration: 0.7s; }
+    .duration-1000 { animation-duration: 1s; }
+  `,
+} as const;
+
+/**
+ * Get full animation CSS (keyframes + classes)
+ */
+export function getAnimationCSS(): string {
+  return `${ANIMATIONS.keyframes}\n${ANIMATIONS.classes}`;
+}
+
+// ============================================================================
+// Grid System
+// ============================================================================
+
+export const GRID = {
+  // Auto-select columns based on item count
+  auto: {
+    2: "grid-template-columns: repeat(2, 1fr);",
+    3: "grid-template-columns: repeat(3, 1fr);",
+    4: "grid-template-columns: repeat(4, 1fr);",
+    5: "grid-template-columns: repeat(5, 1fr);",
+    6: "grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr);",
+  },
+
+  // Golden ratio
+  golden: {
+    left: "61.8%",
+    right: "38.2%",
+  },
+
+  // Rule of thirds
+  thirds: {
+    one: "33.33%",
+    two: "66.67%",
+  },
+} as const;
+
+/**
+ * Select optimal grid layout based on item count
+ */
+export function selectGridLayout(itemCount: number): string {
+  if (itemCount <= 2) return GRID.auto[2];
+  if (itemCount <= 3) return GRID.auto[3];
+  if (itemCount <= 4) return GRID.auto[4];
+  if (itemCount <= 6) return GRID.auto[6];
+  return GRID.auto[4];
+}
+
+// ============================================================================
+// Responsive Layout Helpers
+// ============================================================================
+
+export const LAYOUT = {
+  // Content area (excluding page padding)
+  contentWidth: CANVAS.width - SPACING.pageLeft - SPACING.pageRight, // 1120px
+  contentHeight: CANVAS.height - SPACING.pageTop - SPACING.pageBottom, // 590px
+
+  // Header area (title + subtitle)
+  headerHeight: 100,
+
+  // Available content height after header
+  mainContentHeight: 590 - 100, // 490px
+
+  // Footer safe area
+  footerHeight: 40,
+} as const;

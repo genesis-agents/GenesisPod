@@ -715,4 +715,225 @@ ${sourceText}
       compressionRatio: compressedLength / input.sourceText.length,
     };
   }
+
+  // ============================================================================
+  // 溢出检测和内容拆分 (M5: 内容溢出处理)
+  // ============================================================================
+
+  /**
+   * 模板内容容量配置
+   * 基于模板类型估算可容纳的最大 section 数量和字符数
+   */
+  private readonly TEMPLATE_CAPACITY: Record<
+    string,
+    { maxSections: number; maxCharsPerSection: number; maxTotalChars: number }
+  > = {
+    cover: { maxSections: 0, maxCharsPerSection: 0, maxTotalChars: 100 },
+    toc: { maxSections: 10, maxCharsPerSection: 50, maxTotalChars: 500 },
+    dashboard: { maxSections: 4, maxCharsPerSection: 80, maxTotalChars: 400 },
+    comparison: { maxSections: 6, maxCharsPerSection: 60, maxTotalChars: 500 },
+    timeline: { maxSections: 5, maxCharsPerSection: 100, maxTotalChars: 600 },
+    pillars: { maxSections: 5, maxCharsPerSection: 80, maxTotalChars: 500 },
+    multiColumn: {
+      maxSections: 4,
+      maxCharsPerSection: 150,
+      maxTotalChars: 700,
+    },
+    splitLayout: {
+      maxSections: 4,
+      maxCharsPerSection: 120,
+      maxTotalChars: 600,
+    },
+    recommendations: {
+      maxSections: 4,
+      maxCharsPerSection: 100,
+      maxTotalChars: 500,
+    },
+    caseStudy: { maxSections: 5, maxCharsPerSection: 100, maxTotalChars: 600 },
+    framework: { maxSections: 4, maxCharsPerSection: 100, maxTotalChars: 500 },
+    default: { maxSections: 5, maxCharsPerSection: 100, maxTotalChars: 600 },
+  };
+
+  /**
+   * 检测内容是否会溢出
+   */
+  willOverflow(
+    content: PageContent,
+    templateType: string,
+  ): { overflow: boolean; reason?: string; excessAmount?: number } {
+    const capacity =
+      this.TEMPLATE_CAPACITY[templateType] || this.TEMPLATE_CAPACITY.default;
+    const sections = content.sections || [];
+    const totalChars = this.calculateContentLength(content);
+
+    // 检查 section 数量
+    if (sections.length > capacity.maxSections) {
+      return {
+        overflow: true,
+        reason: "sections_exceeded",
+        excessAmount: sections.length - capacity.maxSections,
+      };
+    }
+
+    // 检查总字符数
+    if (totalChars > capacity.maxTotalChars) {
+      return {
+        overflow: true,
+        reason: "chars_exceeded",
+        excessAmount: totalChars - capacity.maxTotalChars,
+      };
+    }
+
+    // 检查单个 section 字符数
+    for (const section of sections) {
+      const sectionLength = this.getSectionLength(section);
+      if (sectionLength > capacity.maxCharsPerSection) {
+        return {
+          overflow: true,
+          reason: "section_too_long",
+          excessAmount: sectionLength - capacity.maxCharsPerSection,
+        };
+      }
+    }
+
+    return { overflow: false };
+  }
+
+  /**
+   * 获取单个 section 的字符长度
+   */
+  private getSectionLength(section: ContentSection): number {
+    if (typeof section.content === "string") {
+      return section.content.length;
+    }
+    if (Array.isArray(section.content)) {
+      return section.content.join("").length;
+    }
+    if ("value" in section.content && "label" in section.content) {
+      return (
+        (section.content.value?.length || 0) +
+        (section.content.label?.length || 0)
+      );
+    }
+    return 0;
+  }
+
+  /**
+   * 压缩单个 section 的内容
+   */
+  compressSection(
+    section: ContentSection,
+    targetLength: number,
+  ): ContentSection {
+    if (typeof section.content === "string") {
+      if (section.content.length > targetLength) {
+        return {
+          ...section,
+          content: section.content.slice(0, targetLength - 3) + "...",
+        };
+      }
+    } else if (Array.isArray(section.content)) {
+      const compressed: string[] = [];
+      let remaining = targetLength;
+      for (const item of section.content) {
+        if (remaining <= 0) break;
+        if (item.length <= remaining) {
+          compressed.push(item);
+          remaining -= item.length;
+        } else {
+          compressed.push(item.slice(0, remaining - 3) + "...");
+          break;
+        }
+      }
+      return { ...section, content: compressed };
+    }
+    return section;
+  }
+
+  /**
+   * 自动压缩内容以适应模板
+   */
+  autoCompress(content: PageContent, templateType: string): PageContent {
+    const capacity =
+      this.TEMPLATE_CAPACITY[templateType] || this.TEMPLATE_CAPACITY.default;
+    let sections = [...(content.sections || [])];
+
+    // 1. 裁剪超出的 sections
+    if (sections.length > capacity.maxSections) {
+      sections = sections.slice(0, capacity.maxSections);
+      this.logger.log(
+        `[autoCompress] Trimmed sections from ${content.sections?.length} to ${capacity.maxSections}`,
+      );
+    }
+
+    // 2. 压缩过长的 sections
+    sections = sections.map((section) => {
+      const length = this.getSectionLength(section);
+      if (length > capacity.maxCharsPerSection) {
+        return this.compressSection(section, capacity.maxCharsPerSection);
+      }
+      return section;
+    });
+
+    // 3. 压缩标题/副标题
+    let title = content.title || "";
+    let subtitle = content.subtitle || "";
+    if (title.length > 50) {
+      title = title.slice(0, 47) + "...";
+    }
+    if (subtitle.length > 80) {
+      subtitle = subtitle.slice(0, 77) + "...";
+    }
+
+    return {
+      ...content,
+      title,
+      subtitle,
+      sections,
+    };
+  }
+
+  /**
+   * 将内容拆分为多页
+   * 当内容过多无法通过压缩解决时使用
+   */
+  splitIntoPages(
+    content: PageContent,
+    templateType: string,
+    _pageOutline?: PageOutline,
+  ): PageContent[] {
+    const capacity =
+      this.TEMPLATE_CAPACITY[templateType] || this.TEMPLATE_CAPACITY.default;
+    const sections = content.sections || [];
+
+    if (sections.length <= capacity.maxSections) {
+      return [content];
+    }
+
+    const pages: PageContent[] = [];
+    const chunkedSections: ContentSection[][] = [];
+
+    // 按容量分组 sections
+    for (let i = 0; i < sections.length; i += capacity.maxSections) {
+      chunkedSections.push(sections.slice(i, i + capacity.maxSections));
+    }
+
+    // 创建多个页面
+    chunkedSections.forEach((chunk, index) => {
+      const isFirst = index === 0;
+      pages.push({
+        title: isFirst ? content.title : `${content.title} (续${index})`,
+        subtitle: isFirst
+          ? content.subtitle
+          : `第 ${index + 1}/${chunkedSections.length} 部分`,
+        sections: chunk,
+        footer: content.footer,
+      });
+    });
+
+    this.logger.log(
+      `[splitIntoPages] Split content into ${pages.length} pages`,
+    );
+    return pages;
+  }
 }

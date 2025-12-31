@@ -100,6 +100,11 @@ export class SlidesExportService {
 
   /**
    * 导出 PPT 文档为 PPTX
+   *
+   * 同源导出策略:
+   * - 如果有 v3 HTML，使用 Puppeteer 截图作为幻灯片背景图
+   * - 这确保 PPTX 与预览/PDF/PNG 视觉完全一致
+   * - 降级: 如果没有 v3 HTML，使用传统的 pptxgenjs 渲染
    */
   async exportToPPTX(document: PPTDocument): Promise<PPTXExportResult> {
     this.logger.log(
@@ -108,21 +113,31 @@ export class SlidesExportService {
 
     const startTime = Date.now();
 
+    // 检查是否有 v3 HTML (同源导出)
+    const hasV3Html = document.slides.some((slide) => slide.html);
+
     // 使用静态导入的 PptxGenJS
     const pptx = new PptxGenJS();
 
     // 1. 设置文档属性
     this.setDocumentProperties(pptx, document);
 
-    // 2. 获取主题配置
-    const themeConfig = this.getThemePPTXConfig(document.theme);
-
-    // 3. 遍历每页幻灯片
-    for (const slideData of document.slides) {
-      await this.renderSlide(pptx, slideData, document.theme, themeConfig);
+    if (hasV3Html) {
+      // 同源导出: 使用 v3 HTML 截图
+      this.logger.log(
+        `[exportToPPTX] Using v3 HTML screenshots for same-source export`,
+      );
+      await this.renderSlidesFromV3Html(pptx, document);
+    } else {
+      // 降级: 使用传统 pptxgenjs 渲染
+      this.logger.log(`[exportToPPTX] Fallback to legacy pptxgenjs rendering`);
+      const themeConfig = this.getThemePPTXConfig(document.theme);
+      for (const slideData of document.slides) {
+        await this.renderSlide(pptx, slideData, document.theme, themeConfig);
+      }
     }
 
-    // 4. 生成文件
+    // 生成文件
     const buffer = (await pptx.write({ outputType: "nodebuffer" })) as Buffer;
 
     const duration = Date.now() - startTime;
@@ -141,8 +156,77 @@ export class SlidesExportService {
   }
 
   /**
+   * 使用 v3 HTML 截图渲染 PPTX 幻灯片
+   * 每页幻灯片截图后作为背景图嵌入
+   */
+  private async renderSlidesFromV3Html(
+    pptx: PptxInstance,
+    document: PPTDocument,
+  ): Promise<void> {
+    // 使用 Puppeteer 截图
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+
+    try {
+      const page = await browser.newPage();
+
+      // 设置页面大小为 16:9 比例 (1280x720)
+      await page.setViewport({
+        width: 1280,
+        height: 720,
+        deviceScaleFactor: 2, // 高清截图
+      });
+
+      for (const slideData of document.slides) {
+        const slide = pptx.addSlide();
+
+        if (slideData.html) {
+          // 使用 v3 HTML 截图
+          const slideHtml = this.wrapV3HtmlForScreenshot(slideData.html);
+
+          await page.setContent(slideHtml, {
+            waitUntil: "networkidle0",
+          });
+
+          const screenshot = await page.screenshot({
+            type: "png",
+            fullPage: false,
+            encoding: "base64",
+          });
+
+          // 将截图作为背景图
+          slide.background = {
+            data: `data:image/png;base64,${screenshot}`,
+          };
+        } else {
+          // 降级: 使用传统渲染
+          const themeConfig = this.getThemePPTXConfig(document.theme);
+          await this.applyBackground(
+            slide,
+            slideData,
+            document.theme,
+            themeConfig,
+          );
+          await this.renderByLayout(
+            slide,
+            slideData,
+            document.theme,
+            themeConfig,
+          );
+        }
+      }
+    } finally {
+      await browser.close();
+    }
+  }
+
+  /**
    * 导出 PPT 文档为 PDF
    * 使用 Puppeteer 将幻灯片渲染为 PDF
+   *
+   * 同源导出: 优先使用 v3 生成的 HTML，确保与预览一致
    */
   async exportToPDF(document: PPTDocument): Promise<PDFExportResult> {
     this.logger.log(
@@ -151,8 +235,8 @@ export class SlidesExportService {
 
     const startTime = Date.now();
 
-    // 生成幻灯片的 HTML
-    const slidesHtml = this.generateSlidesHtml(document);
+    // 检查是否有 v3 HTML (同源导出)
+    const hasV3Html = document.slides.some((slide) => slide.html);
 
     // 使用 Puppeteer 渲染 PDF
     const browser = await puppeteer.launch({
@@ -170,14 +254,28 @@ export class SlidesExportService {
         deviceScaleFactor: 2, // 高清
       });
 
-      // 加载 HTML
-      await page.setContent(slidesHtml, {
-        waitUntil: "networkidle0",
-      });
+      if (hasV3Html) {
+        // 同源导出: 使用 v3 生成的 HTML
+        this.logger.log(`[exportToPDF] Using v3 HTML for same-source export`);
+        const combinedHtml = this.combineV3SlidesForPdf(document);
+
+        await page.setContent(combinedHtml, {
+          waitUntil: "networkidle0",
+        });
+      } else {
+        // 降级: 使用传统方式生成 HTML
+        this.logger.log(`[exportToPDF] Fallback to legacy HTML generation`);
+        const slidesHtml = this.generateSlidesHtml(document);
+
+        await page.setContent(slidesHtml, {
+          waitUntil: "networkidle0",
+        });
+      }
 
       // 生成 PDF
       const buffer = await page.pdf({
-        format: "A4",
+        width: "1280px",
+        height: "720px",
         landscape: true, // 横向
         printBackground: true, // 打印背景
         margin: {
@@ -207,7 +305,146 @@ export class SlidesExportService {
   }
 
   /**
+   * 组合 v3 HTML 幻灯片为 PDF 格式
+   * 每页幻灯片一页 PDF
+   */
+  private combineV3SlidesForPdf(document: PPTDocument): string {
+    const slides = document.slides;
+
+    // 为每页幻灯片创建一个页面
+    const slidesContent = slides
+      .map((slide, index) => {
+        if (slide.html) {
+          // 使用 v3 生成的 HTML，包装在 page 容器中
+          // 需要提取 body 内容（去除 html/head/body 标签）
+          const htmlContent = this.extractBodyContent(slide.html);
+          return `
+            <div class="slide-page" data-slide="${index + 1}">
+              ${htmlContent}
+            </div>
+          `;
+        }
+        // 降级到传统渲染
+        return `
+          <div class="slide-page" data-slide="${index + 1}">
+            ${this.generateSlideHtmlContent(slide, document.theme, index)}
+          </div>
+        `;
+      })
+      .join("\n");
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    @page {
+      size: 1280px 720px;
+      margin: 0;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .slide-page {
+      width: 1280px;
+      height: 720px;
+      page-break-after: always;
+      page-break-inside: avoid;
+      position: relative;
+      overflow: hidden;
+      background: #0F172A;
+    }
+
+    .slide-page:last-child {
+      page-break-after: auto;
+    }
+
+    /* 确保 v3 HTML 样式正确应用 */
+    .slide-page > div,
+    .slide-page > section {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  ${slidesContent}
+</body>
+</html>
+    `;
+  }
+
+  /**
+   * 从完整 HTML 中提取 body 内容
+   */
+  private extractBodyContent(html: string): string {
+    // 匹配 <body> 和 </body> 之间的内容
+    const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    if (bodyMatch) {
+      return bodyMatch[1];
+    }
+
+    // 如果没有 body 标签，尝试提取 style 和 body 内容
+    // 移除 html, head, doctype 等标签
+    let content = html
+      .replace(/<!DOCTYPE[^>]*>/gi, "")
+      .replace(/<html[^>]*>/gi, "")
+      .replace(/<\/html>/gi, "")
+      .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, "")
+      .replace(/<body[^>]*>/gi, "")
+      .replace(/<\/body>/gi, "");
+
+    // 保留 style 标签（如果有的话，在 head 中已被移除，这里是处理内联的情况）
+    return content.trim();
+  }
+
+  /**
+   * 包装 v3 HTML 用于截图
+   * 确保完整的 HTML 结构和样式
+   */
+  private wrapV3HtmlForScreenshot(html: string): string {
+    // 如果已经是完整的 HTML 文档，直接返回
+    if (html.includes("<!DOCTYPE") || html.includes("<html")) {
+      return html;
+    }
+
+    // 否则包装在完整的 HTML 结构中
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 1280px;
+      height: 720px;
+      overflow: hidden;
+      background: #0F172A;
+    }
+  </style>
+</head>
+<body>
+  ${html}
+</body>
+</html>
+    `;
+  }
+
+  /**
    * 导出 PPT 文档为 PNG 图片（ZIP 压缩包）
+   *
+   * 同源导出: 优先使用 v3 生成的 HTML，确保与预览一致
    */
   async exportToPNG(document: PPTDocument): Promise<PNGExportResult> {
     this.logger.log(
@@ -216,6 +453,12 @@ export class SlidesExportService {
 
     const startTime = Date.now();
     const archiver = await import("archiver");
+
+    // 检查是否有 v3 HTML (同源导出)
+    const hasV3Html = document.slides.some((slide) => slide.html);
+    if (hasV3Html) {
+      this.logger.log(`[exportToPNG] Using v3 HTML for same-source export`);
+    }
 
     // 使用 Puppeteer 渲染每页幻灯片
     const browser = await puppeteer.launch({
@@ -226,18 +469,26 @@ export class SlidesExportService {
     try {
       const page = await browser.newPage();
 
-      // 设置页面大小为 16:9 比例 (1920x1080)
+      // 设置页面大小为 16:9 比例 (1280x720 与 v3 预览一致)
       await page.setViewport({
-        width: 1920,
-        height: 1080,
-        deviceScaleFactor: 1,
+        width: 1280,
+        height: 720,
+        deviceScaleFactor: 2, // 高清导出
       });
 
       // 收集所有截图
       const screenshots: { name: string; data: Buffer }[] = [];
 
       for (let i = 0; i < document.slides.length; i++) {
-        const slideHtml = this.generateSingleSlideHtml(document, i);
+        const slide = document.slides[i];
+
+        // 同源导出: 优先使用 v3 HTML
+        let slideHtml: string;
+        if (slide.html) {
+          slideHtml = this.wrapV3HtmlForScreenshot(slide.html);
+        } else {
+          slideHtml = this.generateSingleSlideHtml(document, i);
+        }
 
         await page.setContent(slideHtml, {
           waitUntil: "networkidle0",

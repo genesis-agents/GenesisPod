@@ -35,6 +35,53 @@ export {
 } from "./base/common-styles";
 
 // ============================================================================
+// Theme and Decoration Systems (v3.1)
+// ============================================================================
+
+export {
+  // Theme system
+  THEMES,
+  getTheme,
+  getAllThemes,
+  getThemeIds,
+  generateThemeCSS,
+  generateThemeCSSVariables,
+  getThemeContainerStyle,
+  getThemeCardStyle,
+  getThemeDecorationHtml,
+  getHeadingStyle,
+  getBodyStyle,
+  getStatStyle,
+  getAccentColors,
+  getAccentColorByIndex,
+  type ThemeConfig,
+  type ThemeColors,
+  type ThemeTypography,
+  // Decoration system
+  DECORATION_PRESETS,
+  generateDecorationCSS,
+  generateDecorationHtml,
+  getDecorationPreset,
+  getCornerAccentInlineStyle,
+  getGradientBarInlineStyle,
+  getStatGlowInlineStyle,
+  getCardGlowInlineStyle,
+  type DecorationConfig,
+  type CornerAccentConfig,
+  type GlowEffectConfig,
+  type GradientBarConfig,
+  type GeometricShapeConfig,
+  // Animation system
+  ANIMATIONS,
+  getAnimationCSS,
+  // Layout helpers
+  TYPOGRAPHY_ENHANCED,
+  GRID,
+  LAYOUT,
+  selectGridLayout,
+} from "./base/design-tokens";
+
+// ============================================================================
 // Import All Template Categories
 // ============================================================================
 

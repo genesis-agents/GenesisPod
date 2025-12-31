@@ -380,6 +380,8 @@ export interface GenerateV3Request {
   stylePreference?: 'dark' | 'light' | 'custom';
   targetAudience?: string;
   customStyles?: Partial<GlobalStyles>;
+  /** 主题ID，默认 'genspark-dark' */
+  themeId?: string;
 }
 
 export interface SessionResponse {
