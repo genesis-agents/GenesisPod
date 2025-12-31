@@ -16,6 +16,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import * as puppeteer from "puppeteer";
+import PptxGenJS from "pptxgenjs";
 import { PptxSlidesRenderer } from "../../../../export/renderers/pptx-slides.renderer";
 import {
   PPTDocument,
@@ -25,8 +26,7 @@ import {
 } from "../types/slides.types";
 
 // pptxgenjs 类型
-type PptxGenJS = typeof import("pptxgenjs").default;
-type Slide = ReturnType<InstanceType<PptxGenJS>["addSlide"]>;
+type Slide = ReturnType<InstanceType<typeof PptxGenJS>["addSlide"]>;
 
 // 导出结果
 export interface PPTXExportResult {
@@ -105,8 +105,7 @@ export class SlidesExportService {
 
     const startTime = Date.now();
 
-    // 动态导入 pptxgenjs
-    const PptxGenJS = (await import("pptxgenjs")).default;
+    // 使用静态导入的 PptxGenJS
     const pptx = new PptxGenJS();
 
     // 1. 设置文档属性
@@ -577,7 +576,7 @@ export class SlidesExportService {
    * 设置文档属性
    */
   private setDocumentProperties(
-    pptx: InstanceType<PptxGenJS>,
+    pptx: InstanceType<typeof PptxGenJS>,
     document: PPTDocument,
   ): void {
     pptx.title = document.title;
@@ -674,7 +673,7 @@ export class SlidesExportService {
    * 渲染单页幻灯片
    */
   private async renderSlide(
-    pptx: InstanceType<PptxGenJS>,
+    pptx: InstanceType<typeof PptxGenJS>,
     slideData: GeneratedSlide,
     theme: PPTTheme,
     config: ThemePPTXConfig,
