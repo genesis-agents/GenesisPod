@@ -268,9 +268,9 @@ export class TemplateMatcherSkill {
     // 2. 容量匹配分数
     const capacityScore = this.calculateCapacityScore(pageOutline, metadata);
 
-    // 3. 位置匹配分数
+    // 3. 位置匹配分数 - 使用模板自己的 positionFit（如果有）
     const positionScore = this.calculatePositionScore(
-      metadata.type,
+      template,
       positionInStory,
     );
 
@@ -363,14 +363,17 @@ export class TemplateMatcherSkill {
   }
 
   /**
-   * 计算位置匹配分数
+   * 计算位置匹配分数 - 优先使用模板自己定义的 positionFit
    */
   private calculatePositionScore(
-    templateType: PageTemplateType,
+    template: SlideTemplate,
     position: "opening" | "middle" | "closing",
   ): number {
+    // 优先使用模板自己的 positionFit，否则使用默认值
     const positionFit =
-      DEFAULT_POSITION_FIT[templateType] || DEFAULT_POSITION_FIT.splitLayout;
+      template.metadata.positionFit ||
+      DEFAULT_POSITION_FIT[template.metadata.type] ||
+      DEFAULT_POSITION_FIT.splitLayout;
     return positionFit[position];
   }
 
