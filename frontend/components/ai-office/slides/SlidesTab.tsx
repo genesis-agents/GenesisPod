@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Slides Engine v3.0 - 主页面组件
+ * Slides Engine - 主页面组件
  *
  * 根据设计文档 Section 7 实现：
  * - 浅色主题，与项目整体风格一致
@@ -50,24 +50,21 @@ import {
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils/common';
-import {
-  useSlidesV3Store,
-  selectOverallProgress,
-} from '@/stores/slidesV3Store';
+import { useSlidesStore, selectOverallProgress } from '@/stores/slidesStore';
 import {
   useSlideGenerationTeam,
   useCheckpoints,
   useSessions,
   SessionWithCheckpoint,
-} from '@/hooks/features/slides-v3';
+} from '@/hooks/features/slides';
 import type {
-  GenerateV3Request,
+  GenerateRequest,
   PageState,
   PageOutline,
   GenerationProgress,
   OutlinePlan,
-} from '@/types/slides-v3';
-import type { GenerateTeamRequest } from '@/types/slides-v3-team';
+} from '@/types/slides';
+import type { GenerateTeamRequest } from '@/types/slides-team';
 import { AgentTeamPanel } from './AgentTeamPanel';
 import {
   useSlidesHistoryStore,
@@ -109,9 +106,9 @@ interface ToolCallItem {
 // 主组件
 // ============================================================================
 
-export function SlidesTabV3() {
+export function SlidesTab() {
   const { session, pages, generating, streamEvents, progress, outlinePlan } =
-    useSlidesV3Store();
+    useSlidesStore();
   const { generateWithTeam, cancel, teamState } = useSlideGenerationTeam();
   const { createCheckpoint, checkpoints } = useCheckpoints();
   const { history, addHistory, updateHistory, removeHistory, clearHistory } =
@@ -135,7 +132,7 @@ export function SlidesTabV3() {
 
   // 重置回到历史记录画廊
   const handleBackToGallery = useCallback(() => {
-    const { reset } = useSlidesV3Store.getState();
+    const { reset } = useSlidesStore.getState();
     reset();
     setShowNewForm(false);
     refreshSessions();
@@ -365,7 +362,7 @@ export function SlidesTabV3() {
   const handleSendMessage = useCallback((message: string) => {
     // 添加用户消息到 streamEvents
     const { addStreamEvent, pages, selectedPageIndex } =
-      useSlidesV3Store.getState();
+      useSlidesStore.getState();
 
     // 添加用户消息事件
     addStreamEvent({
@@ -404,7 +401,7 @@ export function SlidesTabV3() {
   }, [createCheckpoint]);
 
   const handleGenerate = useCallback(
-    (request: GenerateV3Request) => {
+    (request: GenerateRequest) => {
       const historyId = addHistory({
         title: request.title,
         sourceText: request.sourceText.slice(0, 200),
@@ -1082,7 +1079,7 @@ function HistoryPanel({
 
 function ExportDropdown({ onClose }: { onClose: () => void }) {
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { session } = useSlidesV3Store();
+  const { session } = useSlidesStore();
   const [exporting, setExporting] = useState<'pptx' | 'pdf' | null>(null);
 
   useEffect(() => {
@@ -1108,7 +1105,7 @@ function ExportDropdown({ onClose }: { onClose: () => void }) {
       setExporting(format);
       try {
         const response = await fetch(
-          `${config.apiUrl}/ai-office/slides-v3/sessions/${session.id}/export`,
+          `${config.apiUrl}/ai-office/slides/sessions/${session.id}/export`,
           {
             method: 'POST',
             headers: {
@@ -1210,14 +1207,14 @@ function ConversationPanel({
   generating: boolean;
   progress: GenerationProgress | null;
   outlinePlan: OutlinePlan | null;
-  teamState: import('@/types/slides-v3-team').TeamExecutionState | null;
+  teamState: import('@/types/slides-team').TeamExecutionState | null;
 }) {
   const [inputValue, setInputValue] = useState('');
   const [outlineExpanded, setOutlineExpanded] = useState(true);
   const [copied, setCopied] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { streamEvents, selectedPageIndex, setSelectedPageIndex } =
-    useSlidesV3Store();
+    useSlidesStore();
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -1652,7 +1649,7 @@ function OutlineItem({
 type ViewMode = 'preview' | 'code' | 'thinking';
 
 function PreviewPanel() {
-  const { pages, selectedPageIndex, setSelectedPageIndex } = useSlidesV3Store();
+  const { pages, selectedPageIndex, setSelectedPageIndex } = useSlidesStore();
   const currentPage = pages[selectedPageIndex];
   const containerRef = useRef<HTMLDivElement>(null);
   const thumbnailStripRef = useRef<HTMLDivElement>(null);
@@ -2352,8 +2349,8 @@ function ThumbnailCard({
 // ============================================================================
 
 function ProgressBar() {
-  const overallProgress = useSlidesV3Store(selectOverallProgress);
-  const { progress, pages, generating } = useSlidesV3Store();
+  const overallProgress = useSlidesStore(selectOverallProgress);
+  const { progress, pages, generating } = useSlidesStore();
   const { checkpoints } = useCheckpoints();
 
   if (!generating && pages.length === 0) {
@@ -2403,14 +2400,14 @@ function InitialInputForm({
   onGenerate,
   onCancel,
 }: {
-  onGenerate: (request: GenerateV3Request) => void;
+  onGenerate: (request: GenerateRequest) => void;
   onCancel?: () => void;
 }) {
   const [title, setTitle] = useState('');
   const [sourceText, setSourceText] = useState('');
   const [targetPages, setTargetPages] = useState(10);
   const [themeId, setThemeId] = useState<SlideThemeId>('genspark-dark');
-  const { generating } = useSlidesV3Store();
+  const { generating } = useSlidesStore();
 
   const handleSubmit = useCallback(() => {
     if (!title.trim() || !sourceText.trim()) return;
@@ -3100,4 +3097,4 @@ function formatHtmlCode(html: string): string {
   }
 }
 
-export default SlidesTabV3;
+export default SlidesTab;

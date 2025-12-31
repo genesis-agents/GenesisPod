@@ -1,12 +1,15 @@
 /**
- * AI Slides - 主入口导出
+ * Slides Engine - Components
  */
 
-// 主渲染器
-export { SlideRenderer, type SlideRendererProps } from './SlideRenderer';
+// Main components
+export { SlidesTab } from './SlidesTab';
+export { AgentTeamPanel } from './AgentTeamPanel';
+export { ThemeSelector, SLIDE_THEMES } from './ThemeSelector';
+export type { SlideThemeId } from './ThemeSelector';
 
-// 基础组件
-export * from './base';
+// Rendering
+export { SlideRenderer } from './SlideRenderer';
 
-// 模板组件
-export * from './templates';
+// Default export
+export { SlidesTab as default } from './SlidesTab';

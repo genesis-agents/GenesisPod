@@ -1,5 +1,5 @@
 /**
- * Slides Engine v3.0 - Zustand Store
+ * Slides Engine - Zustand Store
  *
  * 管理幻灯片生成的状态，包括：
  * - 会话管理
@@ -22,13 +22,13 @@ import type {
   QualityReport,
   GlobalStyles,
   GENSPARK_DESIGN_SYSTEM,
-} from '@/types/slides-v3';
+} from '@/types/slides';
 
 // ============================================================================
 // Store State
 // ============================================================================
 
-interface SlidesV3State {
+interface SlidesState {
   // 会话
   session: SlidesSession | null;
   sessionLoading: boolean;
@@ -70,7 +70,7 @@ interface SlidesV3State {
 // Store Actions
 // ============================================================================
 
-interface SlidesV3Actions {
+interface SlidesActions {
   // 会话操作
   setSession: (session: SlidesSession | null) => void;
   setSessionLoading: (loading: boolean) => void;
@@ -137,7 +137,7 @@ const DEFAULT_GLOBAL_STYLES: GlobalStyles = {
   bottomSafeZone: 80,
 };
 
-const initialState: SlidesV3State = {
+const initialState: SlidesState = {
   session: null,
   sessionLoading: false,
   checkpoints: [],
@@ -162,7 +162,7 @@ const initialState: SlidesV3State = {
 // Store
 // ============================================================================
 
-export const useSlidesV3Store = create<SlidesV3State & SlidesV3Actions>()(
+export const useSlidesStore = create<SlidesState & SlidesActions>()(
   devtools(
     persist(
       (set, get) => ({
@@ -341,7 +341,7 @@ export const useSlidesV3Store = create<SlidesV3State & SlidesV3Actions>()(
         reset: () => set(initialState),
       }),
       {
-        name: 'slides-v3-storage',
+        name: 'slides-storage',
         partialize: (state) => ({
           // 只持久化部分状态
           globalStyles: state.globalStyles,
@@ -351,7 +351,7 @@ export const useSlidesV3Store = create<SlidesV3State & SlidesV3Actions>()(
         }),
       }
     ),
-    { name: 'SlidesV3Store' }
+    { name: 'SlidesStore' }
   )
 );
 
@@ -359,24 +359,24 @@ export const useSlidesV3Store = create<SlidesV3State & SlidesV3Actions>()(
 // Selectors
 // ============================================================================
 
-export const selectCurrentPage = (state: SlidesV3State): PageState | null => {
+export const selectCurrentPage = (state: SlidesState): PageState | null => {
   const { pages, selectedPageIndex } = state;
   return pages[selectedPageIndex] || null;
 };
 
-export const selectCompletedPages = (state: SlidesV3State): PageState[] => {
+export const selectCompletedPages = (state: SlidesState): PageState[] => {
   return state.pages.filter((p) => p.status === 'completed');
 };
 
-export const selectPendingPages = (state: SlidesV3State): PageState[] => {
+export const selectPendingPages = (state: SlidesState): PageState[] => {
   return state.pages.filter((p) => p.status === 'pending');
 };
 
-export const selectGeneratingPages = (state: SlidesV3State): PageState[] => {
+export const selectGeneratingPages = (state: SlidesState): PageState[] => {
   return state.pages.filter((p) => p.status === 'generating');
 };
 
-export const selectOverallProgress = (state: SlidesV3State): number => {
+export const selectOverallProgress = (state: SlidesState): number => {
   const { pages } = state;
   if (pages.length === 0) return 0;
   const completed = pages.filter((p) => p.status === 'completed').length;
@@ -384,7 +384,7 @@ export const selectOverallProgress = (state: SlidesV3State): number => {
 };
 
 export const selectLatestCheckpoint = (
-  state: SlidesV3State
+  state: SlidesState
 ): Checkpoint | null => {
   const { checkpoints } = state;
   return checkpoints.length > 0 ? checkpoints[0] : null;

@@ -10,7 +10,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import {
-  SlidesOrchestratorV3Service,
+  SlidesOrchestratorService,
   GenerateInput,
   StreamEvent,
 } from "./slides";
@@ -84,13 +84,13 @@ export class AiOfficeIntegrationService {
   private readonly logger = new Logger(AiOfficeIntegrationService.name);
 
   constructor(
-    private readonly slidesOrchestrator: SlidesOrchestratorV3Service,
+    private readonly slidesOrchestrator: SlidesOrchestratorService,
     private readonly generationService: GenerationService,
   ) {}
 
   /**
    * 生成幻灯片
-   * 通过 SlidesOrchestratorV3Service 生成演示文稿
+   * 通过 SlidesOrchestratorService 生成演示文稿
    */
   async *generatePPT(
     options: PPTGenerationOptions,
@@ -100,7 +100,7 @@ export class AiOfficeIntegrationService {
     );
 
     try {
-      // 使用 V3 generateSlides 获取 Observable 并转换为 AsyncGenerator
+      // 使用 generateSlides 获取 Observable 并转换为 AsyncGenerator
       const input: GenerateInput = {
         userId: options.userId,
         title: options.prompt.slice(0, 50),
@@ -112,9 +112,9 @@ export class AiOfficeIntegrationService {
 
       const observable = this.slidesOrchestrator.generateSlides(input);
 
-      // 转换 V3 事件为旧格式
+      // 转换事件为旧格式
       for await (const event of this.observableToAsyncGenerator(observable)) {
-        yield this.convertV3EventToPPTEvent(event as StreamEvent);
+        yield this.convertEventToPPTEvent(event as StreamEvent);
       }
     } catch (error) {
       this.logger.error(`[generatePPT] Error: ${error}`);
@@ -126,9 +126,9 @@ export class AiOfficeIntegrationService {
   }
 
   /**
-   * 转换 V3 事件为旧 PPT 事件格式
+   * 转换事件为旧 PPT 事件格式
    */
-  private convertV3EventToPPTEvent(event: StreamEvent): PPTStreamEvent {
+  private convertEventToPPTEvent(event: StreamEvent): PPTStreamEvent {
     const eventData = event.data as Record<string, any> | undefined;
 
     switch (event.type) {

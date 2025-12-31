@@ -12,7 +12,7 @@ import { Presentation, FileText, Palette } from 'lucide-react';
 import CommandPalette, {
   useCommandPalette,
 } from '@/components/ai-studio/CommandPalette';
-import { SlidesTabV3 } from '../slides-v3/SlidesTabV3';
+import { SlidesTab } from '../slides';
 import DocsTab from '../tabs/DocsTab';
 import DesignerTab from '../tabs/DesignerTab';
 import { useTranslation } from '@/lib/i18n';
@@ -101,7 +101,7 @@ export default function WorkspaceLayout({
         {activeTab === 'slides' && (
           /* AI Slides - PPT 生成器 */
           <div className="flex-1 overflow-hidden">
-            <SlidesTabV3 />
+            <SlidesTab />
           </div>
         )}
 

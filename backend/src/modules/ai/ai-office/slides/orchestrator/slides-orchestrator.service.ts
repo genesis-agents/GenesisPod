@@ -1,5 +1,5 @@
 /**
- * Slides Engine v3.0 - Main Orchestrator Service
+ * Slides Engine - Main Orchestrator Service
  *
  * 核心编排服务，协调所有角色和技能完成 PPT 生成
  *
@@ -85,8 +85,8 @@ export interface GenerationProgress {
 }
 
 @Injectable()
-export class SlidesOrchestratorV3Service {
-  private readonly logger = new Logger(SlidesOrchestratorV3Service.name);
+export class SlidesOrchestratorService {
+  private readonly logger = new Logger(SlidesOrchestratorService.name);
 
   constructor(
     private readonly checkpoint: CheckpointService,

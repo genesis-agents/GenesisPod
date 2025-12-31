@@ -1,5 +1,5 @@
 /**
- * Slides Engine v3.0 - Team SSE 类型定义
+ * Slides Engine - Team SSE 类型定义
  *
  * 对应后端 slides-team.types.ts
  */

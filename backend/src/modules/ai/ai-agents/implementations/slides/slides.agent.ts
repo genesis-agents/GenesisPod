@@ -24,7 +24,7 @@ import {
   AIModelType,
 } from "../../core";
 import {
-  SlidesOrchestratorV3Service,
+  SlidesOrchestratorService,
   GenerateInput,
   StreamEvent,
 } from "../../../ai-office/slides";
@@ -119,9 +119,7 @@ export class SlidesAgent extends BaseAgent {
     },
   ];
 
-  constructor(
-    private readonly slidesOrchestrator: SlidesOrchestratorV3Service,
-  ) {
+  constructor(private readonly slidesOrchestrator: SlidesOrchestratorService) {
     super();
   }
 
@@ -228,7 +226,7 @@ export class SlidesAgent extends BaseAgent {
       return;
     }
 
-    // 调用 V3 PPT 生成流
+    // 调用 PPT 生成流
     const generateInput: GenerateInput = {
       userId: (input.options?.userId as string) || "anonymous",
       title: input.prompt?.slice(0, 50) || "演示文稿",
@@ -302,7 +300,7 @@ export class SlidesAgent extends BaseAgent {
   }
 
   /**
-   * 将 PPT 事件映射为 Agent 事件 (V3 StreamEvent)
+   * 将 PPT 事件映射为 Agent 事件 (StreamEvent)
    */
   private mapPPTEventToAgentEvent(
     event: StreamEvent,
@@ -355,7 +353,7 @@ export class SlidesAgent extends BaseAgent {
                 mimeType:
                   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
                 size: 0,
-                url: `/api/ai-office/slides-v3/sessions/${event.sessionId}`,
+                url: `/api/ai-office/slides/sessions/${event.sessionId}`,
               },
             ],
             summary: `成功生成 ${eventData?.totalPages || 0} 页 PPT`,

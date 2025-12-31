@@ -22,7 +22,7 @@ import { DocumentsController, DocumentsService } from "./document-management";
 // Generation
 import { GenerationController, GenerationService } from "./generation";
 
-// Slides V3 (幻灯片生成 - 已清理旧版，仅保留 V3)
+// Slides (幻灯片生成)
 import {
   // Rendering (导出服务)
   SlidesExportService,
@@ -30,8 +30,8 @@ import {
   CheckpointService,
   // Orchestrator
   MultiModelService,
-  SlidesOrchestratorV3Service,
-  SlidesV3Controller,
+  SlidesOrchestratorService,
+  SlidesController,
   // Team 协作
   SlidesTeamOrchestratorService,
   SlidesTeamAgent,
@@ -90,7 +90,7 @@ import { AIOfficeCommonModule } from "./common";
     IntentParserController,
     DocumentsController,
     GenerationController,
-    SlidesV3Controller, // V3 Controller (唯一的 Slides 控制器)
+    SlidesController,
     CodeExecutionController,
     AgentsController,
   ],
@@ -99,11 +99,11 @@ import { AIOfficeCommonModule } from "./common";
     IntentParserService,
     DocumentsService,
     GenerationService,
-    // Slides V3 Services
+    // Slides Services
     SlidesExportService,
     CheckpointService,
     MultiModelService,
-    SlidesOrchestratorV3Service,
+    SlidesOrchestratorService,
     // Team 协作
     SlidesTeamOrchestratorService,
     SlidesTeamAgent,
@@ -135,11 +135,11 @@ import { AIOfficeCommonModule } from "./common";
     IntentParserService,
     DocumentsService,
     GenerationService,
-    // Slides V3 Services
+    // Slides Services
     SlidesExportService,
     CheckpointService,
     MultiModelService,
-    SlidesOrchestratorV3Service,
+    SlidesOrchestratorService,
     // Roles
     ArchitectService,
     WriterService,

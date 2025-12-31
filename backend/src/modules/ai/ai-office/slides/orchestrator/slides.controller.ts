@@ -1,13 +1,13 @@
 /**
- * Slides Engine v3.0 - Controller
+ * Slides Engine - Controller
  *
- * v3 版本 API 控制器
+ * 幻灯片生成 API 控制器
  *
  * API 端点：
- * - POST /ai-office/slides-v3/generate (SSE) - 流式生成
- * - GET /ai-office/slides-v3/sessions/:sessionId/checkpoints - 获取检查点列表
- * - POST /ai-office/slides-v3/restore/:checkpointId - 恢复检查点
- * - POST /ai-office/slides-v3/sessions/:sessionId/rerender/:pageNumber - 重新渲染页面
+ * - POST /ai-office/slides/generate (SSE) - 流式生成
+ * - GET /ai-office/slides/sessions/:sessionId/checkpoints - 获取检查点列表
+ * - POST /ai-office/slides/restore/:checkpointId - 恢复检查点
+ * - POST /ai-office/slides/sessions/:sessionId/rerender/:pageNumber - 重新渲染页面
  */
 
 import {
@@ -29,9 +29,9 @@ import {
 import { Response } from "express";
 import { Observable, map, catchError, of } from "rxjs";
 import {
-  SlidesOrchestratorV3Service,
+  SlidesOrchestratorService,
   GenerateInput,
-} from "./slides-orchestrator-v3.service";
+} from "./slides-orchestrator.service";
 import { CheckpointService } from "../checkpoint/checkpoint.service";
 import { SlidesExportService } from "../rendering/slides-export.service";
 import { GlobalStyles } from "../checkpoint/checkpoint.types";
@@ -49,7 +49,7 @@ import {
 // DTOs
 // ============================================
 
-class GenerateV3Dto {
+class GenerateDto {
   @IsString()
   title!: string;
 
@@ -118,7 +118,7 @@ class GenerateTeamDto {
   themeId?: string;
 }
 
-class ExportV3Dto {
+class ExportDto {
   @IsIn(["pptx", "pdf", "png", "html"])
   format!: "pptx" | "pdf" | "png" | "html";
 
@@ -135,12 +135,12 @@ class UpdateSessionDto {
   title!: string;
 }
 
-@Controller("ai-office/slides-v3")
-export class SlidesV3Controller {
-  private readonly logger = new Logger(SlidesV3Controller.name);
+@Controller("ai-office/slides")
+export class SlidesController {
+  private readonly logger = new Logger(SlidesController.name);
 
   constructor(
-    private readonly orchestrator: SlidesOrchestratorV3Service,
+    private readonly orchestrator: SlidesOrchestratorService,
     private readonly checkpointService: CheckpointService,
     private readonly exportService: SlidesExportService,
     private readonly teamAgent: SlidesTeamAgent,
@@ -249,7 +249,7 @@ export class SlidesV3Controller {
     @Query("targetAudience") targetAudience?: string,
   ): Observable<MessageEvent> {
     this.logger.log(
-      `[generateSlides] Starting v3 generation: ${title?.slice(0, 50)}...`,
+      `[generateSlides] Starting generation: ${title?.slice(0, 50)}...`,
     );
 
     const input: GenerateInput = {
@@ -291,9 +291,9 @@ export class SlidesV3Controller {
    */
   @Post("generate")
   @Sse()
-  generateSlidesPost(@Body() dto: GenerateV3Dto): Observable<MessageEvent> {
+  generateSlidesPost(@Body() dto: GenerateDto): Observable<MessageEvent> {
     this.logger.log(
-      `[generateSlidesPost] Starting v3 generation: ${dto.title?.slice(0, 50)}...`,
+      `[generateSlidesPost] Starting generation: ${dto.title?.slice(0, 50)}...`,
     );
 
     const input: GenerateInput = {
@@ -565,7 +565,7 @@ export class SlidesV3Controller {
   @Post("sessions/:sessionId/export")
   async exportSlides(
     @Param("sessionId") sessionId: string,
-    @Body() dto: ExportV3Dto,
+    @Body() dto: ExportDto,
     @Res() res: Response,
   ): Promise<void> {
     this.logger.log(

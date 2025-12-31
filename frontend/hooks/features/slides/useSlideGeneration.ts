@@ -1,5 +1,5 @@
 /**
- * Slides Engine v3.0 - 生成 Hook
+ * Slides Engine - 生成 Hook
  *
  * 处理幻灯片生成流程，包括：
  * - SSE 流式生成
@@ -8,14 +8,11 @@
  */
 
 import { useCallback, useRef } from 'react';
-import {
-  useSlidesV3Store,
-  calculateOverallProgress,
-} from '@/stores/slidesV3Store';
+import { useSlidesStore, calculateOverallProgress } from '@/stores/slidesStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
 import type {
-  GenerateV3Request,
+  GenerateRequest,
   StreamEvent,
   GenerationProgress,
   PageState,
@@ -24,11 +21,11 @@ import type {
   TaskDecomposition,
   OutlinePlan,
   QualityReport,
-} from '@/types/slides-v3';
+} from '@/types/slides';
 
 const API_BASE = config.apiUrl || '';
 
-interface UseSlideGenerationV3Options {
+interface UseSlideGenerationOptions {
   onSessionCreated?: (sessionId: string) => void;
   onPhaseStarted?: (phase: string) => void;
   onPhaseCompleted?: (phase: string, data: unknown) => void;
@@ -37,9 +34,7 @@ interface UseSlideGenerationV3Options {
   onError?: (error: string) => void;
 }
 
-export function useSlideGenerationV3(
-  options: UseSlideGenerationV3Options = {}
-) {
+export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
   const abortControllerRef = useRef<AbortController | null>(null);
   const { user } = useAuth();
 
@@ -64,7 +59,7 @@ export function useSlideGenerationV3(
     clearStreamEvents,
     setError,
     addCheckpoint,
-  } = useSlidesV3Store();
+  } = useSlidesStore();
 
   /**
    * 处理阶段完成
@@ -154,7 +149,10 @@ export function useSlideGenerationV3(
             name?: string;
             pageNumber?: number;
           };
-          console.log('[SSE] Checkpoint created:', checkpointData.name || checkpointData.type);
+          console.log(
+            '[SSE] Checkpoint created:',
+            checkpointData.name || checkpointData.type
+          );
           break;
 
         case 'page_started':
@@ -163,7 +161,7 @@ export function useSlideGenerationV3(
             totalPages: number;
           };
           console.log('[SSE] Page started:', pageStartData.pageNumber);
-          const currentProgress = useSlidesV3Store.getState().progress;
+          const currentProgress = useSlidesStore.getState().progress;
           setProgress({
             phase: currentProgress?.phase || 'page_rendering',
             phaseProgress: currentProgress?.phaseProgress || 0,
@@ -183,7 +181,12 @@ export function useSlideGenerationV3(
             content?: PageContent;
             design?: PageDesign;
           };
-          console.log('[SSE] Page completed:', pageCompleteData.pageNumber, 'hasHtml:', !!pageCompleteData.html);
+          console.log(
+            '[SSE] Page completed:',
+            pageCompleteData.pageNumber,
+            'hasHtml:',
+            !!pageCompleteData.html
+          );
           updatePage(pageCompleteData.pageNumber, {
             status: 'completed',
             html: pageCompleteData.html,
@@ -265,7 +268,7 @@ export function useSlideGenerationV3(
    * 开始生成幻灯片
    */
   const generate = useCallback(
-    async (request: GenerateV3Request) => {
+    async (request: GenerateRequest) => {
       console.log('[SSE] Starting generation:', request.title);
 
       // 清理之前的状态
@@ -303,7 +306,7 @@ export function useSlideGenerationV3(
           params.append('targetAudience', request.targetAudience);
         }
 
-        const url = `${API_BASE}/ai-office/slides-v3/generate?${params.toString()}`;
+        const url = `${API_BASE}/ai-office/slides/generate?${params.toString()}`;
         console.log('[SSE] Connecting to:', url);
 
         // 创建 EventSource
@@ -437,4 +440,4 @@ function getPhaseMessage(
   return messages[phase]?.[status] || `${phase} ${status}`;
 }
 
-export default useSlideGenerationV3;
+export default useSlideGeneration;

@@ -33,7 +33,7 @@ import type {
   TeamExecutionState,
   AgentHandoffData,
   ReviewIssueData,
-} from '@/types/slides-v3-team';
+} from '@/types/slides-team';
 
 // ============================================================================
 // Agent 配置

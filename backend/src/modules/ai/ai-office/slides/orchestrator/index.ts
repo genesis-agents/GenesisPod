@@ -1,10 +1,10 @@
 /**
- * Slides Engine v3.0 - Orchestrator Module
+ * Slides Engine - Orchestrator Module
  */
 
 export * from "./multi-model.service";
-export * from "./slides-orchestrator-v3.service";
-export * from "./slides-v3.controller";
+export * from "./slides-orchestrator.service";
+export * from "./slides.controller";
 
 // Team 协作架构
 export * from "./slides-team.types";

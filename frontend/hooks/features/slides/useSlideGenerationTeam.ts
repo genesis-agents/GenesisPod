@@ -1,5 +1,5 @@
 /**
- * Slides Engine v3.0 - Team SSE 生成 Hook
+ * Slides Engine - Team SSE 生成 Hook
  *
  * 处理 Team 协作模式的幻灯片生成流程：
  * - POST-based SSE 流式生成
@@ -8,10 +8,7 @@
  */
 
 import { useCallback, useRef, useState } from 'react';
-import {
-  useSlidesV3Store,
-  calculateOverallProgress,
-} from '@/stores/slidesV3Store';
+import { useSlidesStore, calculateOverallProgress } from '@/stores/slidesStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
 import type {
@@ -36,8 +33,8 @@ import type {
   ReviewIssueData,
   ReviewFixedData,
   SLIDES_TEAM_AGENTS,
-} from '@/types/slides-v3-team';
-import type { PageState, GenerationProgress } from '@/types/slides-v3';
+} from '@/types/slides-team';
+import type { PageState, GenerationProgress } from '@/types/slides';
 
 const API_BASE = config.apiUrl || '';
 
@@ -107,7 +104,7 @@ export function useSlideGenerationTeam(
     updatePage,
     setError,
     clearStreamEvents,
-  } = useSlidesV3Store();
+  } = useSlidesStore();
 
   // ============================================================================
   // 更新 Agent 状态
@@ -207,7 +204,7 @@ export function useSlideGenerationTeam(
             return { ...prev, phaseProgress: data.progress };
           });
 
-          const currentProgress = useSlidesV3Store.getState().progress;
+          const currentProgress = useSlidesStore.getState().progress;
           setProgress({
             phase: currentProgress?.phase || mapPhaseToProgress(data.phase),
             phaseProgress: data.progress,
@@ -318,7 +315,7 @@ export function useSlideGenerationTeam(
 
           updatePage(data.pageNumber, { status: 'generating' });
 
-          const currentProgress = useSlidesV3Store.getState().progress;
+          const currentProgress = useSlidesStore.getState().progress;
           setProgress({
             phase: currentProgress?.phase || 'page_rendering',
             phaseProgress: currentProgress?.phaseProgress || 0,
@@ -470,7 +467,7 @@ export function useSlideGenerationTeam(
       abortControllerRef.current = new AbortController();
 
       try {
-        const url = `${API_BASE}/ai-office/slides-v3/team/generate?userId=${user?.id || 'anonymous'}`;
+        const url = `${API_BASE}/ai-office/slides/team/generate?userId=${user?.id || 'anonymous'}`;
         console.log('[Team SSE] Connecting to:', url);
 
         // 使用 fetch 发送 POST 请求并处理 SSE 流
@@ -566,7 +563,7 @@ export function useSlideGenerationTeam(
   // ============================================================================
 
   return {
-    // V3 Store 状态
+    // Store 状态
     session,
     generating,
     progress,

@@ -158,7 +158,7 @@ export class MultiModelService {
         maxTokens: maxTokens || this.getDefaultMaxTokens(role),
         temperature: temperature || this.getDefaultTemperature(role),
         metadata: {
-          source: "slides-v3",
+          source: "slides",
           role,
           ...metadata,
         },
@@ -282,7 +282,7 @@ export class MultiModelService {
           negativePrompt,
         },
         metadata: {
-          source: "slides-v3",
+          source: "slides",
           role: "image",
           ...metadata,
         },

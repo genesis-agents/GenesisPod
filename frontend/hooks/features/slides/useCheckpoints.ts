@@ -1,5 +1,5 @@
 /**
- * Slides Engine v3.0 - 检查点 Hook
+ * Slides Engine - 检查点 Hook
  *
  * 管理检查点操作，包括：
  * - 获取检查点列表
@@ -8,9 +8,9 @@
  */
 
 import { useCallback, useState } from 'react';
-import { useSlidesV3Store } from '@/stores/slidesV3Store';
+import { useSlidesStore } from '@/stores/slidesStore';
 import { config } from '@/lib/utils/config';
-import type { Checkpoint, CheckpointState } from '@/types/slides-v3';
+import type { Checkpoint, CheckpointState } from '@/types/slides';
 
 const API_BASE = config.apiUrl || '';
 
@@ -32,7 +32,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
     setCheckpointsLoading,
     restoreFromCheckpointState,
     setError,
-  } = useSlidesV3Store();
+  } = useSlidesStore();
 
   /**
    * 获取会话的检查点列表
@@ -50,7 +50,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
 
       try {
         const response = await fetch(
-          `${API_BASE}/ai-office/slides-v3/sessions/${targetSessionId}/checkpoints`
+          `${API_BASE}/ai-office/slides/sessions/${targetSessionId}/checkpoints`
         );
 
         if (!response.ok) {
@@ -81,7 +81,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
       try {
         // 先获取检查点详情
         const detailResponse = await fetch(
-          `${API_BASE}/ai-office/slides-v3/checkpoints/${checkpointId}`
+          `${API_BASE}/ai-office/slides/checkpoints/${checkpointId}`
         );
 
         if (!detailResponse.ok) {
@@ -93,7 +93,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
 
         // 调用恢复 API
         const restoreResponse = await fetch(
-          `${API_BASE}/ai-office/slides-v3/restore/${checkpointId}`,
+          `${API_BASE}/ai-office/slides/restore/${checkpointId}`,
           { method: 'POST' }
         );
 
@@ -110,7 +110,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
         setCurrentCheckpointId(checkpointId);
 
         // 设置 session - 使用正确的 sessionId（从 API 返回）
-        const { setSession } = useSlidesV3Store.getState();
+        const { setSession } = useSlidesStore.getState();
         setSession({
           id: restoredSessionId, // 使用真正的 sessionId
           userId: 'user',
@@ -152,7 +152,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
       try {
         // 获取会话详情
         const sessionResponse = await fetch(
-          `${API_BASE}/ai-office/slides-v3/sessions/${sessionId}`
+          `${API_BASE}/ai-office/slides/sessions/${sessionId}`
         );
 
         if (!sessionResponse.ok) {
@@ -167,7 +167,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
 
         // 获取检查点详情
         const detailResponse = await fetch(
-          `${API_BASE}/ai-office/slides-v3/checkpoints/${sessionData.latestCheckpoint.id}`
+          `${API_BASE}/ai-office/slides/checkpoints/${sessionData.latestCheckpoint.id}`
         );
 
         if (!detailResponse.ok) {
@@ -179,7 +179,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
 
         // 调用恢复 API
         const restoreResponse = await fetch(
-          `${API_BASE}/ai-office/slides-v3/restore/${sessionData.latestCheckpoint.id}`,
+          `${API_BASE}/ai-office/slides/restore/${sessionData.latestCheckpoint.id}`,
           { method: 'POST' }
         );
 
@@ -192,7 +192,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
         setCurrentCheckpointId(sessionData.latestCheckpoint.id);
 
         // 更新会话信息 - 转换日期
-        const { setSession } = useSlidesV3Store.getState();
+        const { setSession } = useSlidesStore.getState();
         setSession({
           id: sessionData.session.id,
           userId: sessionData.session.userId,
@@ -228,7 +228,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
 
       try {
         const response = await fetch(
-          `${API_BASE}/ai-office/slides-v3/sessions/${session.id}/prune?keepCount=${keepCount}`,
+          `${API_BASE}/ai-office/slides/sessions/${session.id}/prune?keepCount=${keepCount}`,
           { method: 'POST' }
         );
 
@@ -284,7 +284,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
 
       try {
         const response = await fetch(
-          `${API_BASE}/ai-office/slides-v3/sessions/${session.id}/checkpoints`,
+          `${API_BASE}/ai-office/slides/sessions/${session.id}/checkpoints`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

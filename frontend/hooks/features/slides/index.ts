@@ -1,8 +1,8 @@
 /**
- * Slides Engine v3.0 - Hooks
+ * Slides Engine - Hooks
  */
 
-export { useSlideGenerationV3 } from './useSlideGenerationV3';
+export { useSlideGeneration } from './useSlideGeneration';
 export { useSlideGenerationTeam } from './useSlideGenerationTeam';
 export { useCheckpoints } from './useCheckpoints';
 export { useSessions } from './useSessions';

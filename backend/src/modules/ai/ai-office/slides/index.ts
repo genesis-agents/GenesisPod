@@ -1,8 +1,6 @@
 /**
  * Slides Module Exports
- * AI Office - 幻灯片生成模块 (V3 架构)
- *
- * 已清理旧版代码，仅保留 V3 实现
+ * AI Office - 幻灯片生成模块
  */
 
 // Types (保留用于导出的类型)

@@ -404,7 +404,7 @@ export interface GeneratedSlide {
   // 渲染后的 HTML（用于预览）
   renderedHtml?: string;
 
-  // v3 同源导出 HTML（完整的幻灯片 HTML，包含样式）
+  // 同源导出 HTML（完整的幻灯片 HTML，包含样式）
   html?: string;
 
   // 编辑状态

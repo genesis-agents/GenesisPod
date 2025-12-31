@@ -23,7 +23,7 @@ import { AgentType, AgentTask, taskStore } from "./agents.types";
 import { DocsOrchestratorService } from "../docs";
 import { DesignerOrchestratorService } from "../designer";
 import {
-  SlidesOrchestratorV3Service,
+  SlidesOrchestratorService,
   GenerateInput,
   StreamEvent,
 } from "../slides";
@@ -45,7 +45,7 @@ export class AgentsController {
   constructor(
     private readonly docsOrchestrator: DocsOrchestratorService,
     private readonly designerOrchestrator: DesignerOrchestratorService,
-    private readonly slidesOrchestrator: SlidesOrchestratorV3Service,
+    private readonly slidesOrchestrator: SlidesOrchestratorService,
   ) {}
 
   /**
@@ -377,7 +377,7 @@ export class AgentsController {
     const input = task.input;
     const options = input.options || {};
 
-    // 使用 V3 API
+    // 使用 Slides API
     const generateInput: GenerateInput = {
       userId: options.userId || "anonymous",
       title: input.title || input.prompt?.slice(0, 50) || "演示文稿",
@@ -404,7 +404,7 @@ export class AgentsController {
                   id: eventData.sessionId || event.sessionId,
                   type: "pptx",
                   name: input.title || "演示文稿",
-                  url: `/api/ai-office/slides-v3/sessions/${eventData.sessionId || event.sessionId}`,
+                  url: `/api/ai-office/slides/sessions/${eventData.sessionId || event.sessionId}`,
                 },
               ],
               summary: `生成了 ${eventData.totalPages || 0} 页幻灯片`,
@@ -515,7 +515,7 @@ export class AgentsController {
   }
 
   /**
-   * 转换 PPT 事件 (V3 StreamEvent)
+   * 转换 PPT 事件 (StreamEvent)
    */
   private convertPPTEvent(taskId: string, event: StreamEvent): any {
     const base = {

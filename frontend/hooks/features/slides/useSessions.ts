@@ -1,5 +1,5 @@
 /**
- * Slides Engine v3.0 - Sessions Hook
+ * Slides Engine - Sessions Hook
  *
  * 从后端加载、管理用户的会话列表
  */
@@ -7,10 +7,10 @@
 import { useCallback, useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
-import type { SlidesSession } from '@/types/slides-v3';
+import type { SlidesSession } from '@/types/slides';
 
 const API_BASE = config.apiUrl || '';
-const API_OFFICE_BASE = `${API_BASE}/ai-office/slides-v3`;
+const API_OFFICE_BASE = `${API_BASE}/ai-office/slides`;
 
 export interface SessionWithCheckpoint extends SlidesSession {
   latestCheckpoint?: {
@@ -58,7 +58,7 @@ export function useSessions(options: UseSessionsOptions = {}) {
       }
 
       const response = await fetch(
-        `${API_BASE}/ai-office/slides-v3/sessions?${params.toString()}`
+        `${API_BASE}/ai-office/slides/sessions?${params.toString()}`
       );
 
       if (!response.ok) {

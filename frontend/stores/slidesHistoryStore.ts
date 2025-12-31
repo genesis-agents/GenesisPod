@@ -17,18 +17,16 @@ export interface SlidesArtifact {
 }
 
 /**
- * 历史记录项 - 兼容 v2 和 v3 格式
- * v2 使用: prompt, slideCount
- * v3 使用: title, sourceText, targetPages
+ * 历史记录项
  */
 export interface SlidesHistoryItem {
   id: string;
   timestamp: Date;
-  // v3 字段 (可选，用于新版本)
+  // 主要字段
   title?: string;
   sourceText?: string;
   targetPages?: number;
-  // v2 字段 (可选，用于旧版本)
+  // 兼容字段
   prompt?: string;
   slideCount?: number;
   templateId?: string;

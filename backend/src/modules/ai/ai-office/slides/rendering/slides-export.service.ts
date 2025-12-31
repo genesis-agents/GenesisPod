@@ -102,9 +102,9 @@ export class SlidesExportService {
    * 导出 PPT 文档为 PPTX
    *
    * 同源导出策略:
-   * - 如果有 v3 HTML，使用 Puppeteer 截图作为幻灯片背景图
+   * - 如果有 HTML，使用 Puppeteer 截图作为幻灯片背景图
    * - 这确保 PPTX 与预览/PDF/PNG 视觉完全一致
-   * - 降级: 如果没有 v3 HTML，使用传统的 pptxgenjs 渲染
+   * - 降级: 如果没有 HTML，使用传统的 pptxgenjs 渲染
    */
   async exportToPPTX(document: PPTDocument): Promise<PPTXExportResult> {
     this.logger.log(
@@ -113,8 +113,8 @@ export class SlidesExportService {
 
     const startTime = Date.now();
 
-    // 检查是否有 v3 HTML (同源导出)
-    const hasV3Html = document.slides.some((slide) => slide.html);
+    // 检查是否有 HTML (同源导出)
+    const hasHtml = document.slides.some((slide) => slide.html);
 
     // 使用静态导入的 PptxGenJS
     const pptx = new PptxGenJS();
@@ -122,12 +122,12 @@ export class SlidesExportService {
     // 1. 设置文档属性
     this.setDocumentProperties(pptx, document);
 
-    if (hasV3Html) {
-      // 同源导出: 使用 v3 HTML 截图
+    if (hasHtml) {
+      // 同源导出: 使用 HTML 截图
       this.logger.log(
-        `[exportToPPTX] Using v3 HTML screenshots for same-source export`,
+        `[exportToPPTX] Using HTML screenshots for same-source export`,
       );
-      await this.renderSlidesFromV3Html(pptx, document);
+      await this.renderSlidesFromHtml(pptx, document);
     } else {
       // 降级: 使用传统 pptxgenjs 渲染
       this.logger.log(`[exportToPPTX] Fallback to legacy pptxgenjs rendering`);
@@ -156,10 +156,10 @@ export class SlidesExportService {
   }
 
   /**
-   * 使用 v3 HTML 截图渲染 PPTX 幻灯片
+   * 使用 HTML 截图渲染 PPTX 幻灯片
    * 每页幻灯片截图后作为背景图嵌入
    */
-  private async renderSlidesFromV3Html(
+  private async renderSlidesFromHtml(
     pptx: PptxInstance,
     document: PPTDocument,
   ): Promise<void> {
@@ -183,7 +183,7 @@ export class SlidesExportService {
         const slide = pptx.addSlide();
 
         if (slideData.html) {
-          // 使用 v3 HTML 截图
+          // 使用 HTML 截图
           const slideHtml = this.wrapV3HtmlForScreenshot(slideData.html);
 
           await page.setContent(slideHtml, {
@@ -231,7 +231,7 @@ export class SlidesExportService {
    * 导出 PPT 文档为 PDF
    * 使用 Puppeteer 将幻灯片渲染为 PDF
    *
-   * 同源导出: 优先使用 v3 生成的 HTML，确保与预览一致
+   * 同源导出: 优先使用 生成的 HTML，确保与预览一致
    */
   async exportToPDF(document: PPTDocument): Promise<PDFExportResult> {
     this.logger.log(
@@ -240,7 +240,7 @@ export class SlidesExportService {
 
     const startTime = Date.now();
 
-    // 检查是否有 v3 HTML (同源导出)
+    // 检查是否有 HTML (同源导出)
     const hasV3Html = document.slides.some((slide) => slide.html);
 
     // 使用 Puppeteer 渲染 PDF
@@ -260,8 +260,8 @@ export class SlidesExportService {
       });
 
       if (hasV3Html) {
-        // 同源导出: 使用 v3 生成的 HTML
-        this.logger.log(`[exportToPDF] Using v3 HTML for same-source export`);
+        // 同源导出: 使用 生成的 HTML
+        this.logger.log(`[exportToPDF] Using HTML for same-source export`);
         const combinedHtml = this.combineV3SlidesForPdf(document);
 
         await page.setContent(combinedHtml, {
@@ -312,7 +312,7 @@ export class SlidesExportService {
   }
 
   /**
-   * 组合 v3 HTML 幻灯片为 PDF 格式
+   * 组合 HTML 幻灯片为 PDF 格式
    * 每页幻灯片一页 PDF
    */
   private combineV3SlidesForPdf(document: PPTDocument): string {
@@ -322,7 +322,7 @@ export class SlidesExportService {
     const slidesContent = slides
       .map((slide, index) => {
         if (slide.html) {
-          // 使用 v3 生成的 HTML，包装在 page 容器中
+          // 使用 生成的 HTML，包装在 page 容器中
           // 需要提取 body 内容（去除 html/head/body 标签）
           const htmlContent = this.extractBodyContent(slide.html);
           return `
@@ -376,7 +376,7 @@ export class SlidesExportService {
       page-break-after: auto;
     }
 
-    /* 确保 v3 HTML 样式正确应用 */
+    /* 确保 HTML 样式正确应用 */
     .slide-page > div,
     .slide-page > section {
       width: 100%;
@@ -416,7 +416,7 @@ export class SlidesExportService {
   }
 
   /**
-   * 包装 v3 HTML 用于截图
+   * 包装 HTML 用于截图
    * 确保完整的 HTML 结构和样式
    */
   private wrapV3HtmlForScreenshot(html: string): string {
@@ -454,7 +454,7 @@ export class SlidesExportService {
   /**
    * 导出 PPT 文档为 PNG 图片（ZIP 压缩包）
    *
-   * 同源导出: 优先使用 v3 生成的 HTML，确保与预览一致
+   * 同源导出: 优先使用 生成的 HTML，确保与预览一致
    */
   async exportToPNG(document: PPTDocument): Promise<PNGExportResult> {
     this.logger.log(
@@ -464,10 +464,10 @@ export class SlidesExportService {
     const startTime = Date.now();
     const archiver = await import("archiver");
 
-    // 检查是否有 v3 HTML (同源导出)
+    // 检查是否有 HTML (同源导出)
     const hasV3Html = document.slides.some((slide) => slide.html);
     if (hasV3Html) {
-      this.logger.log(`[exportToPNG] Using v3 HTML for same-source export`);
+      this.logger.log(`[exportToPNG] Using HTML for same-source export`);
     }
 
     // 使用 Puppeteer 渲染每页幻灯片
@@ -479,7 +479,7 @@ export class SlidesExportService {
     try {
       const page = await browser.newPage();
 
-      // 设置页面大小为 16:9 比例 (1280x720 与 v3 预览一致)
+      // 设置页面大小为 16:9 比例 (1280x720 与预览一致)
       await page.setViewport({
         width: 1280,
         height: 720,
@@ -492,7 +492,7 @@ export class SlidesExportService {
       for (let i = 0; i < document.slides.length; i++) {
         const slide = document.slides[i];
 
-        // 同源导出: 优先使用 v3 HTML
+        // 同源导出: 优先使用 HTML
         let slideHtml: string;
         if (slide.html) {
           slideHtml = this.wrapV3HtmlForScreenshot(slide.html);
