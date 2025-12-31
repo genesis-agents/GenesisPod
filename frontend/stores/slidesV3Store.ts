@@ -205,8 +205,11 @@ export const useSlidesV3Store = create<SlidesV3State & SlidesV3Actions>()(
           })),
         clearStreamEvents: () => set({ streamEvents: [] }),
 
-        // 页面操作
-        setPages: (pages) => set({ pages }),
+        // 页面操作 - 始终按 pageNumber 排序
+        setPages: (pages) =>
+          set({
+            pages: [...pages].sort((a, b) => a.pageNumber - b.pageNumber),
+          }),
         updatePage: (pageNumber, updates) =>
           set((state) => ({
             pages: state.pages.map((p) =>
@@ -245,13 +248,16 @@ export const useSlidesV3Store = create<SlidesV3State & SlidesV3Actions>()(
         // 从检查点恢复状态
         restoreFromCheckpointState: (checkpointState) => {
           // 确保页面状态正确：如果有 HTML，则状态应该是 completed
-          const restoredPages = (checkpointState.pages || []).map((page) => ({
-            ...page,
-            // 如果页面有 HTML，确保状态是 completed
-            status: page.html
-              ? ('completed' as const)
-              : page.status || ('pending' as const),
-          }));
+          // 并按 pageNumber 排序，确保页面顺序正确
+          const restoredPages = (checkpointState.pages || [])
+            .map((page) => ({
+              ...page,
+              // 如果页面有 HTML，确保状态是 completed
+              status: page.html
+                ? ('completed' as const)
+                : page.status || ('pending' as const),
+            }))
+            .sort((a, b) => a.pageNumber - b.pageNumber);
 
           // 重建 streamEvents 用于显示生成过程
           const reconstructedEvents: StreamEvent[] = [];
