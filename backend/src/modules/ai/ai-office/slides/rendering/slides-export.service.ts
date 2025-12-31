@@ -16,7 +16,8 @@ import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import * as puppeteer from "puppeteer";
-import PptxGenJS from "pptxgenjs";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const PptxGenJS = require("pptxgenjs");
 import { PptxSlidesRenderer } from "../../../../export/renderers/pptx-slides.renderer";
 import {
   PPTDocument,
@@ -26,7 +27,9 @@ import {
 } from "../types/slides.types";
 
 // pptxgenjs 类型
-type Slide = ReturnType<InstanceType<typeof PptxGenJS>["addSlide"]>;
+import type PptxGenJSType from "pptxgenjs";
+type PptxInstance = InstanceType<typeof PptxGenJSType>;
+type Slide = ReturnType<PptxInstance["addSlide"]>;
 
 // 导出结果
 export interface PPTXExportResult {
@@ -576,7 +579,7 @@ export class SlidesExportService {
    * 设置文档属性
    */
   private setDocumentProperties(
-    pptx: InstanceType<typeof PptxGenJS>,
+    pptx: PptxInstance,
     document: PPTDocument,
   ): void {
     pptx.title = document.title;
@@ -673,7 +676,7 @@ export class SlidesExportService {
    * 渲染单页幻灯片
    */
   private async renderSlide(
-    pptx: InstanceType<typeof PptxGenJS>,
+    pptx: PptxInstance,
     slideData: GeneratedSlide,
     theme: PPTTheme,
     config: ThemePPTXConfig,
