@@ -143,6 +143,13 @@ export class TemplateRenderingSkill {
         return { ...baseVars, ...this.extractFrameworkVariables(pageContent) };
       case "cover":
         return { ...baseVars, ...this.extractCoverVariables(pageContent) };
+      case "closing":
+        // closing 模板使用与 cover 类似的变量，但 TITLE 默认为"感谢聆听"
+        return {
+          ...baseVars,
+          ...this.extractCoverVariables(pageContent),
+          TITLE: pageContent.title || "感谢聆听",
+        };
       case "toc":
         return { ...baseVars, ...this.extractTocVariables(pageContent) };
       case "recommendations":

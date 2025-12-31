@@ -413,7 +413,7 @@ export const NEXT_STEPS_TEMPLATE: SlideTemplate = {
 export const THANK_YOU_TEMPLATE: SlideTemplate = {
   metadata: {
     id: "A-005",
-    type: "cover",
+    type: "closing", // 修复：使用 closing 类型而不是 cover
     name: "感谢页",
     description: "演示结尾的感谢页",
     useCases: ["结尾", "感谢", "联系方式"],
@@ -421,7 +421,14 @@ export const THANK_YOU_TEMPLATE: SlideTemplate = {
     visualStyle: "professional",
     recommendedFor: ["演示结尾", "致谢"],
     maxContentBlocks: 3,
-    variables: ["{{TITLE}}", "{{CONTACT}}"],
+    variables: [
+      "{{TITLE}}",
+      "{{SUBTITLE}}",
+      "{{PRESENTER}}",
+      "{{EMAIL}}",
+      "{{DATE}}",
+      "{{COMPANY}}",
+    ],
     keywords: ["感谢", "谢谢", "Thank", "结尾", "联系"],
     positionFit: { opening: 0.0, middle: 0.0, closing: 1.0 },
     compatibility: {
@@ -439,7 +446,7 @@ export const THANK_YOU_TEMPLATE: SlideTemplate = {
   <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; position: relative; z-index: 1;">
     <div style="width: 80px; height: 4px; background: linear-gradient(90deg, ${COLORS.primary} 0%, ${COLORS.secondary} 100%); margin-bottom: 32px;"></div>
 
-    <h1 style="font-size: 64px; font-weight: 900; margin: 0 0 16px 0;">感谢聆听</h1>
+    <h1 style="font-size: 64px; font-weight: 900; margin: 0 0 16px 0;">{{TITLE}}</h1>
     <p style="font-size: 24px; color: #94A3B8; margin: 0 0 48px 0;">{{SUBTITLE}}</p>
 
     <div style="${CARD_STYLE} display: inline-flex; gap: 48px; padding: 32px 48px;">

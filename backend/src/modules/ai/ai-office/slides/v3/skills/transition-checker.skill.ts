@@ -114,6 +114,10 @@ const TEMPLATE_TRANSITIONS: Record<
     goodAfter: ["dashboard", "comparison", "caseStudy"],
     badAfter: ["cover", "toc"],
   },
+  closing: {
+    goodAfter: ["recommendations", "riskOpportunity", "dashboard"],
+    badAfter: ["cover", "toc", "questions"],
+  },
 };
 
 /**
@@ -491,6 +495,7 @@ ${ruleBasedTransitions.map((t) => `- 第${t.fromPage}→${t.toPage}页: ${t.qual
       recommendations: "建议页",
       maturityModel: "成熟度模型",
       riskOpportunity: "风险机遇页",
+      closing: "感谢/结尾页",
     };
     return names[type] || type;
   }

@@ -29,6 +29,8 @@ export interface TemplateMatchingContext {
   narrativePlan?: NarrativePlan;
   /** 已使用的模板 ID 列表 */
   usedTemplates: string[];
+  /** 强制使用的模板类型（硬性规则） */
+  forcedTemplateType?: PageTemplateType | null;
 }
 
 /**
@@ -94,6 +96,7 @@ const DEFAULT_POSITION_FIT: Record<
   recommendations: { opening: 0.2, middle: 0.6, closing: 0.95 },
   maturityModel: { opening: 0.3, middle: 0.9, closing: 0.5 },
   riskOpportunity: { opening: 0.3, middle: 0.8, closing: 0.7 },
+  closing: { opening: 0.0, middle: 0.0, closing: 1.0 }, // 结尾/感谢页只能放在最后
 };
 
 /**
@@ -138,15 +141,31 @@ export class TemplateMatcherSkill {
    * 匹配最佳模板
    */
   match(context: TemplateMatchingContext): TemplateMatchResult {
-    const { pageOutline, previousPages, positionInStory, usedTemplates } =
-      context;
+    const {
+      pageOutline,
+      previousPages,
+      positionInStory,
+      usedTemplates,
+      forcedTemplateType,
+    } = context;
 
     this.logger.log(
       `[match] Matching template for page ${pageOutline.pageNumber}: "${pageOutline.title}"`,
     );
 
     // 获取所有可用模板
-    const allTemplates = templateRegistry.getAll();
+    let allTemplates = templateRegistry.getAll();
+
+    // 【硬性规则】如果指定了强制模板类型，只考虑该类型的模板
+    if (forcedTemplateType) {
+      allTemplates = allTemplates.filter(
+        (t) => t.metadata.type === forcedTemplateType,
+      );
+      this.logger.log(
+        `[match] 强制使用 ${forcedTemplateType} 类型，筛选后剩余 ${allTemplates.length} 个模板`,
+      );
+    }
+
     const scores: {
       template: SlideTemplate;
       score: number;
@@ -217,6 +236,8 @@ export class TemplateMatcherSkill {
 
     for (let i = 0; i < pageOutlines.length; i++) {
       const outline = pageOutlines[i];
+      const isFirstPage = i === 0;
+      const isLastPage = i === pageOutlines.length - 1;
 
       // 确定叙事位置
       let positionInStory: "opening" | "middle" | "closing" = "middle";
@@ -226,6 +247,16 @@ export class TemplateMatcherSkill {
         positionInStory = "closing";
       }
 
+      // 【硬性规则】第一页必须是 cover，最后一页必须是 closing
+      let forcedTemplateType: PageTemplateType | null = null;
+      if (isFirstPage) {
+        forcedTemplateType = "cover";
+        this.logger.log(`[matchAll] 硬性规则：第一页强制使用 cover 模板`);
+      } else if (isLastPage) {
+        forcedTemplateType = "closing";
+        this.logger.log(`[matchAll] 硬性规则：最后一页强制使用 closing 模板`);
+      }
+
       const context: TemplateMatchingContext = {
         pageOutline: outline,
         previousPages: [...previousPages],
@@ -233,6 +264,7 @@ export class TemplateMatcherSkill {
         narrativePlan,
         usedTemplates: [...usedTemplates],
         nextPageHint: pageOutlines[i + 1]?.title,
+        forcedTemplateType, // 传递强制模板类型
       };
 
       const result = this.match(context);

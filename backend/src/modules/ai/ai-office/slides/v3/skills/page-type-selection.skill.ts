@@ -476,6 +476,7 @@ export class PageTypeSelectionSkill {
       questions: "pillars",
       cover: "cover",
       toc: "toc",
+      closing: "cover", // 感谢页的替代是封面页
     };
 
     return alternatives[currentType] || "splitLayout";

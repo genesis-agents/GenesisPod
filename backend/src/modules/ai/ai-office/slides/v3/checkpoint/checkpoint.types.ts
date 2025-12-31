@@ -159,7 +159,7 @@ export interface PageOutline {
 }
 
 /**
- * 15种页面模板类型
+ * 16种页面模板类型
  */
 export type PageTemplateType =
   | "cover"
@@ -176,7 +176,8 @@ export type PageTemplateType =
   | "multiColumn"
   | "recommendations"
   | "maturityModel"
-  | "riskOpportunity";
+  | "riskOpportunity"
+  | "closing"; // 结尾/感谢页
 
 /**
  * 布局提示

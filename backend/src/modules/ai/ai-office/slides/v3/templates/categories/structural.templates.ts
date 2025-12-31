@@ -40,7 +40,7 @@ export const TOC_DUAL_TEMPLATE: SlideTemplate = {
   },
   html: `
 <div style="${COMMON_CONTAINER}">
-  <h1 style="font-size: 64px; font-weight: 900; margin: 0 0 4px 0;">目录</h1>
+  <h1 style="font-size: 64px; font-weight: 900; margin: 0 0 4px 0;">{{TITLE}}</h1>
   <p style="font-size: 20px; color: ${COLORS.primary}; font-weight: 500; letter-spacing: 4px; margin: 0 0 48px 0;">TABLE OF CONTENTS</p>
 
   <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap-x: 80px; gap-y: 32px; margin-bottom: 48px;">

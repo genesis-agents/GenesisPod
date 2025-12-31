@@ -303,7 +303,7 @@ const N004_TOC: SlideTemplate = {
   position: relative;
 ">
   <!-- 大标题 -->
-  <h1 style="font-size: 64px; font-weight: 900; margin: 0 0 4px 0;">目录</h1>
+  <h1 style="font-size: 64px; font-weight: 900; margin: 0 0 4px 0;">{{TITLE}}目录{{/TITLE}}</h1>
   <p style="font-size: 20px; color: ${COLORS.accentGold}; font-weight: 500; letter-spacing: 4px; margin: 0 0 48px 0;">TABLE OF CONTENTS</p>
 
   <!-- 双列章节列表 -->
