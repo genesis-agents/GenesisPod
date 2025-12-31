@@ -150,6 +150,16 @@ export class TemplateRenderingSkill {
           ...baseVars,
           ...this.extractRecommendationsVariables(pageContent),
         };
+      case "multiColumn":
+        return {
+          ...baseVars,
+          ...this.extractMultiColumnVariables(pageContent),
+        };
+      case "caseStudy":
+        return {
+          ...baseVars,
+          ...this.extractCaseStudyVariables(pageContent),
+        };
       default:
         return { ...baseVars, ...this.extractDefaultVariables(pageContent) };
     }
@@ -278,6 +288,32 @@ export class TemplateRenderingSkill {
         vars[`KPI${kpiNum}_CHANGE`] = diverseChanges[i];
       }
     }
+
+    // 趋势图表额外变量（D-003 模板）
+    const statSections = sections.filter(
+      (s) => s.type === "stat" && this.isStatContent(s.content),
+    );
+    if (statSections.length > 0) {
+      const firstStat = statSections[0].content as StatContent;
+      vars["CURRENT_VALUE"] = firstStat.value || diverseValues[0];
+      vars["MOM_CHANGE"] = firstStat.change || "+12%";
+      vars["YOY_CHANGE"] = statSections[1]
+        ? (statSections[1].content as StatContent).change || "+25%"
+        : "+25%";
+    } else {
+      vars["CURRENT_VALUE"] = diverseValues[0];
+      vars["MOM_CHANGE"] = "+12%";
+      vars["YOY_CHANGE"] = "+25%";
+    }
+
+    // 洞察和周期
+    const textSection = sections.find(
+      (s) => s.type === "text" && typeof s.content === "string",
+    );
+    vars["INSIGHT"] =
+      (textSection?.content as string)?.slice(0, 100) ||
+      "数据显示持续增长趋势，预计下季度将保持稳定发展";
+    vars["PERIOD"] = "2024年Q4";
 
     return vars;
   }
@@ -423,7 +459,7 @@ export class TemplateRenderingSkill {
   }
 
   /**
-   * 提取 Cover 模板变量
+   * 提取 Cover 模板变量（也用于感谢聆听页面）
    */
   private extractCoverVariables(
     pageContent: PageContent,
@@ -433,6 +469,10 @@ export class TemplateRenderingSkill {
       SUB_TITLE: pageContent.subtitle || "",
       AUTHOR: "DeepDive Research",
       DATE: new Date().toLocaleDateString("zh-CN"),
+      // 感谢聆听页面额外变量
+      PRESENTER: "演讲者",
+      EMAIL: "contact@deepdive.com",
+      COMPANY: "DeepDive Research",
     };
   }
 
@@ -639,5 +679,123 @@ export class TemplateRenderingSkill {
     }
 
     return value;
+  }
+
+  /**
+   * 提取 MultiColumn 模板变量
+   */
+  private extractMultiColumnVariables(
+    pageContent: PageContent,
+  ): Record<string, string> {
+    const sections = pageContent.sections || [];
+    const vars: Record<string, string> = {};
+
+    const defaultTitles = ["核心优势", "技术能力", "服务保障", "创新驱动"];
+    const defaultDescs = [
+      "提供行业领先的解决方案",
+      "拥有先进的技术储备",
+      "7x24小时专业支持",
+      "持续创新迭代升级",
+    ];
+
+    for (let i = 0; i < 4; i++) {
+      const section = sections[i];
+      const pointNum = i + 1;
+
+      if (section) {
+        if (section.type === "list" && Array.isArray(section.content)) {
+          vars[`POINT${pointNum}_TITLE`] =
+            section.content[0] || defaultTitles[i];
+          vars[`POINT${pointNum}_DESC`] =
+            section.content.slice(1).join("；") || defaultDescs[i];
+        } else if (
+          section.type === "text" &&
+          typeof section.content === "string"
+        ) {
+          const parts = section.content.split(/[：:]/);
+          vars[`POINT${pointNum}_TITLE`] =
+            parts[0]?.slice(0, 20) || defaultTitles[i];
+          vars[`POINT${pointNum}_DESC`] =
+            parts[1] || section.content.slice(0, 80) || defaultDescs[i];
+        } else if (
+          section.type === "stat" &&
+          this.isStatContent(section.content)
+        ) {
+          const stat = section.content as StatContent;
+          vars[`POINT${pointNum}_TITLE`] = stat.label || defaultTitles[i];
+          vars[`POINT${pointNum}_DESC`] = stat.value || defaultDescs[i];
+        }
+      } else {
+        vars[`POINT${pointNum}_TITLE`] = defaultTitles[i];
+        vars[`POINT${pointNum}_DESC`] = defaultDescs[i];
+      }
+    }
+
+    // 图片占位符
+    vars["IMAGE_PLACEHOLDER"] = "📊";
+
+    return vars;
+  }
+
+  /**
+   * 提取 CaseStudy 模板变量
+   */
+  private extractCaseStudyVariables(
+    pageContent: PageContent,
+  ): Record<string, string> {
+    const sections = pageContent.sections || [];
+    const vars: Record<string, string> = {};
+
+    // 基础信息
+    vars["INDUSTRY"] = "科技行业";
+    vars["CLIENT_NAME"] = pageContent.title?.split(/[：:]/)[0] || "客户案例";
+
+    // 从 sections 提取挑战、解决方案、成果
+    const textSections = sections.filter(
+      (s) => s.type === "text" && typeof s.content === "string",
+    );
+    const listSections = sections.filter(
+      (s) => s.type === "list" && Array.isArray(s.content),
+    );
+
+    vars["CHALLENGE"] =
+      textSections[0]?.content?.toString().slice(0, 150) ||
+      "面临数字化转型的关键挑战，需要提升运营效率";
+    vars["SOLUTION"] =
+      textSections[1]?.content?.toString().slice(0, 150) ||
+      "采用创新解决方案，实现全流程数字化升级";
+    vars["RESULT"] =
+      textSections[2]?.content?.toString().slice(0, 150) ||
+      "显著提升业务效率，实现降本增效目标";
+
+    // 统计数据
+    const statSections = sections.filter(
+      (s) => s.type === "stat" && this.isStatContent(s.content),
+    );
+    const defaultStats = [
+      { value: "85%", label: "效率提升" },
+      { value: "50%", label: "成本降低" },
+      { value: "3x", label: "产出增长" },
+    ];
+
+    for (let i = 0; i < 3; i++) {
+      const stat = statSections[i];
+      if (stat && this.isStatContent(stat.content)) {
+        const s = stat.content as StatContent;
+        vars[`STAT${i + 1}_VALUE`] = s.value || defaultStats[i].value;
+        vars[`STAT${i + 1}_LABEL`] = s.label || defaultStats[i].label;
+      } else {
+        vars[`STAT${i + 1}_VALUE`] = defaultStats[i].value;
+        vars[`STAT${i + 1}_LABEL`] = defaultStats[i].label;
+      }
+    }
+
+    // 客户评价
+    const firstListContent = listSections[0]?.content;
+    vars["TESTIMONIAL"] =
+      (Array.isArray(firstListContent) ? firstListContent[0] : null) ||
+      "这是一次非常成功的合作，帮助我们实现了业务目标";
+
+    return vars;
   }
 }
