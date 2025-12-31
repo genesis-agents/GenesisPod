@@ -15,7 +15,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Observable, Subject } from "rxjs";
-import { PrismaService } from "../../../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 
 // 导入现有 Skills
 import { TaskDecompositionSkill } from "../skills/task-decomposition.skill";

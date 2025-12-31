@@ -22,30 +22,10 @@ import { DocumentsController, DocumentsService } from "./document-management";
 // Generation
 import { GenerationController, GenerationService } from "./generation";
 
-// Slides (幻灯片生成)
+// Slides V3 (幻灯片生成 - 已清理旧版，仅保留 V3)
 import {
-  SlidesController,
-  SlidesOrchestratorService,
-  SlidePlanningService,
-  SlideContentService,
-  SlideContentGeneratorService,
-  SlideImageService,
-  SlideRendererService,
+  // Rendering (导出服务)
   SlidesExportService,
-  NaturalEditService,
-  SlidesVersionService,
-  TemplateMatcher,
-  QualityCheckService,
-  SourceAnalysisService,
-  BatchOperationService,
-  // 🆕 Phase 5 Services
-  ContentAnalyzerService,
-  TemplateSelectorService,
-  LayoutAdjusterService,
-} from "./slides";
-
-// Slides v3.0 (新一代幻灯片引擎)
-import {
   // Checkpoint
   CheckpointService,
   // Orchestrator
@@ -70,7 +50,7 @@ import {
   RendererService,
   ImageGeneratorService,
   ReviewerService,
-} from "./slides/v3";
+} from "./slides";
 
 // Integration
 import { AiOfficeIntegrationService } from "./ai-office-integration.service";
@@ -110,8 +90,7 @@ import { AIOfficeCommonModule } from "./common";
     IntentParserController,
     DocumentsController,
     GenerationController,
-    SlidesController,
-    SlidesV3Controller, // 🆕 v3.0 Controller
+    SlidesV3Controller, // V3 Controller (唯一的 Slides 控制器)
     CodeExecutionController,
     AgentsController,
   ],
@@ -120,25 +99,8 @@ import { AIOfficeCommonModule } from "./common";
     IntentParserService,
     DocumentsService,
     GenerationService,
-    // Slides
-    SlidesOrchestratorService,
-    SlidePlanningService,
-    SlideContentService,
-    SlideContentGeneratorService,
-    SlideImageService,
-    SlideRendererService,
+    // Slides V3 Services
     SlidesExportService,
-    NaturalEditService,
-    SlidesVersionService,
-    TemplateMatcher,
-    QualityCheckService,
-    SourceAnalysisService,
-    BatchOperationService,
-    // 🆕 Phase 5 Services
-    ContentAnalyzerService,
-    TemplateSelectorService,
-    LayoutAdjusterService,
-    // 🆕 Slides v3.0 Services
     CheckpointService,
     MultiModelService,
     SlidesOrchestratorV3Service,
@@ -154,6 +116,7 @@ import { AIOfficeCommonModule } from "./common";
     TemplateRenderingSkill,
     ChartRendererSkill,
     ImageFetcherSkill,
+    // Roles
     ArchitectService,
     WriterService,
     RendererService,
@@ -172,28 +135,12 @@ import { AIOfficeCommonModule } from "./common";
     IntentParserService,
     DocumentsService,
     GenerationService,
-    // Slides
-    SlidesOrchestratorService,
-    SlidePlanningService,
-    SlideContentService,
-    SlideContentGeneratorService,
-    SlideImageService,
-    SlideRendererService,
+    // Slides V3 Services
     SlidesExportService,
-    NaturalEditService,
-    SlidesVersionService,
-    TemplateMatcher,
-    QualityCheckService,
-    SourceAnalysisService,
-    BatchOperationService,
-    // 🆕 Phase 5 Services
-    ContentAnalyzerService,
-    TemplateSelectorService,
-    LayoutAdjusterService,
-    // 🆕 Slides v3.0 Services
     CheckpointService,
     MultiModelService,
     SlidesOrchestratorV3Service,
+    // Roles
     ArchitectService,
     WriterService,
     RendererService,

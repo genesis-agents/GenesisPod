@@ -6,7 +6,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { ImageGenerationService } from "../../../../ai-image/generation/image-generation.service";
+import { ImageGenerationService } from "../../../ai-image/generation/image-generation.service";
 import {
   GeneratedImage,
   ImageRequirement,

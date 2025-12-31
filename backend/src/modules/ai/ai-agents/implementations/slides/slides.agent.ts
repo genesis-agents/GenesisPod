@@ -24,9 +24,9 @@ import {
   AIModelType,
 } from "../../core";
 import {
-  SlidesOrchestratorService,
-  PPTStreamEvent,
-  PPT_THEMES,
+  SlidesOrchestratorV3Service,
+  GenerateInput,
+  StreamEvent,
 } from "../../../ai-office/slides";
 
 @Injectable()
@@ -119,7 +119,9 @@ export class SlidesAgent extends BaseAgent {
     },
   ];
 
-  constructor(private readonly slidesOrchestrator: SlidesOrchestratorService) {
+  constructor(
+    private readonly slidesOrchestrator: SlidesOrchestratorV3Service,
+  ) {
     super();
   }
 
@@ -226,11 +228,17 @@ export class SlidesAgent extends BaseAgent {
       return;
     }
 
-    // 准备 PPT 生成输入
-    const pptInput = this.convertToPPTInput(input);
+    // 调用 V3 PPT 生成流
+    const generateInput: GenerateInput = {
+      userId: (input.options?.userId as string) || "anonymous",
+      title: input.prompt?.slice(0, 50) || "演示文稿",
+      sourceText: input.prompt || "",
+      targetPages: (input.options?.slideCount as number) || 10,
+      stylePreference: "dark",
+      themeId: (input.options?.themeId as string) || "genspark-dark",
+    };
 
-    // 调用现有的 PPT 生成流
-    const pptStream = this.slidesOrchestrator.generatePPTStream(pptInput);
+    const pptStream = this.slidesOrchestrator.generateSlides(generateInput);
 
     // 转换事件流
     const currentStepIndex = 0;
@@ -243,47 +251,16 @@ export class SlidesAgent extends BaseAgent {
   }
 
   /**
-   * 将 AgentInput 转换为 PPTGenerationInput
-   */
-  private convertToPPTInput(input: AgentInput): any {
-    return {
-      prompt: input.prompt,
-      urls: input.urls,
-      files: input.files?.map((f) => ({
-        buffer: Buffer.from(""), // 实际实现需要获取文件内容
-        mimeType: f.mimeType,
-        filename: f.name,
-      })),
-      slideCount: input.options?.slideCount as number | undefined,
-      themeId: input.options?.themeId as string | undefined,
-      aspectRatio: (input.options?.aspectRatio as "16:9" | "4:3") || "16:9",
-      language: (input.options?.language as "zh" | "en" | "auto") || "auto",
-      textModelId: input.options?.textModelId as string | undefined,
-      imageModelId: input.options?.imageModelId as string | undefined,
-      includeImages: input.options?.includeImages !== false,
-      includeSpeakerNotes: input.options?.includeSpeakerNotes !== false,
-      targetAudience: input.options?.targetAudience as string | undefined,
-      presentationStyle: input.options?.presentationStyle as
-        | "formal"
-        | "casual"
-        | "educational"
-        | "persuasive"
-        | undefined,
-      userId: input.options?.userId as string | undefined,
-    };
-  }
-
-  /**
    * 将 PPT 事件流转换为 Agent 事件流
    */
   private async *convertPPTStreamToAgentEvents(
-    pptStream: import("rxjs").Observable<PPTStreamEvent>,
+    pptStream: import("rxjs").Observable<StreamEvent>,
     plan: AgentPlan,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _currentStepIndex: number,
   ): AsyncGenerator<AgentEvent> {
     // 将 Observable 转换为 AsyncIterator
-    const events: PPTStreamEvent[] = [];
+    const events: StreamEvent[] = [];
     let completed = false;
     let streamError: Error | null = null;
 
@@ -325,58 +302,44 @@ export class SlidesAgent extends BaseAgent {
   }
 
   /**
-   * 将 PPT 事件映射为 Agent 事件
+   * 将 PPT 事件映射为 Agent 事件 (V3 StreamEvent)
    */
   private mapPPTEventToAgentEvent(
-    event: PPTStreamEvent,
+    event: StreamEvent,
     plan: AgentPlan,
   ): AgentEvent | null {
+    const eventData = event.data as Record<string, any> | undefined;
+
     switch (event.type) {
-      case "progress":
+      case "progress_update":
         return {
           type: "step_progress",
-          stepId: this.getStepIdByPhase(event.progress?.phase || "", plan),
-          progress: event.progress?.percentage || 0,
-          message: event.progress?.message || "",
+          stepId: this.getStepIdByPhase(eventData?.phase || "", plan),
+          progress: eventData?.overallProgress || 0,
+          message: eventData?.message || "",
         };
 
-      case "outline_complete":
+      case "phase_completed":
         return {
           type: "step_complete",
-          stepId: plan.steps[1]?.id || "", // 大纲生成步骤
-          result: event.outline,
+          stepId: plan.steps[1]?.id || "",
+          result: eventData,
         };
 
-      case "slide_planned":
+      case "page_started":
         return {
           type: "step_progress",
-          stepId: plan.steps[2]?.id || "", // 页面规划步骤
-          progress: ((event.slide?.index || 0) / 10) * 100,
-          message: `规划第 ${(event.slide?.index || 0) + 1} 页`,
+          stepId: plan.steps[2]?.id || "",
+          progress: ((eventData?.pageNumber || 0) / 10) * 100,
+          message: `规划第 ${(eventData?.pageNumber || 0) + 1} 页`,
         };
 
-      case "slide_content_complete":
-        return {
-          type: "step_progress",
-          stepId: plan.steps[3]?.id || "", // 内容生成步骤
-          progress: ((event.slide?.index || 0) / 10) * 100,
-          message: `内容生成：第 ${(event.slide?.index || 0) + 1} 页`,
-        };
-
-      case "slide_image_complete":
-        return {
-          type: "tool_result",
-          tool: ToolType.IMAGE_GENERATION,
-          output: event.slide?.images,
-          duration: 0,
-        };
-
-      case "slide_complete":
+      case "page_completed":
         return {
           type: "step_progress",
           stepId: plan.steps[3]?.id || "",
-          progress: ((event.slide?.index || 0) / 10) * 100,
-          message: `第 ${(event.slide?.index || 0) + 1} 页完成`,
+          progress: ((eventData?.pageNumber || 0) / 10) * 100,
+          message: `第 ${(eventData?.pageNumber || 0) + 1} 页完成`,
         };
 
       case "complete":
@@ -386,26 +349,26 @@ export class SlidesAgent extends BaseAgent {
             success: true,
             artifacts: [
               {
-                id: event.result?.pptId || "",
+                id: event.sessionId || "",
                 type: ArtifactType.PPTX,
                 name: "presentation.pptx",
                 mimeType:
                   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
                 size: 0,
-                url: `/api/agents/slides/${event.result?.pptId}/download`,
+                url: `/api/ai-office/slides-v3/sessions/${event.sessionId}`,
               },
             ],
-            summary: `成功生成 ${event.result?.totalSlides || 0} 页 PPT`,
+            summary: `成功生成 ${eventData?.totalPages || 0} 页 PPT`,
             tokensUsed: 0,
-            duration: event.result?.duration || 0,
+            duration: eventData?.totalDuration || 0,
           },
         };
 
       case "error":
         return {
           type: "error",
-          error: event.error?.message || "Unknown error",
-          stepId: event.error?.slideIndex?.toString(),
+          error: eventData?.message || "Unknown error",
+          stepId: eventData?.pageNumber?.toString(),
         };
 
       default:
@@ -432,7 +395,14 @@ export class SlidesAgent extends BaseAgent {
   /**
    * 获取可用主题列表
    */
-  getAvailableThemes(): typeof PPT_THEMES {
-    return PPT_THEMES;
+  getAvailableThemes(): Record<string, { name: string; description: string }> {
+    return {
+      "genspark-dark": { name: "Genspark Dark", description: "深色专业主题" },
+      "genspark-light": { name: "Genspark Light", description: "浅色专业主题" },
+      professional: { name: "Professional", description: "商务专业主题" },
+      modern: { name: "Modern", description: "现代简约主题" },
+      creative: { name: "Creative", description: "创意主题" },
+      minimal: { name: "Minimal", description: "极简主题" },
+    };
   }
 }

@@ -9,8 +9,13 @@ export * from "./core";
 // Document Management (CRUD)
 export * from "./document-management";
 
-// Generation
-export * from "./generation";
+// Generation (排除与 slides 冲突的类型)
+export {
+  GenerationController,
+  GenerationService,
+  type GenerationConfig,
+  // GenerationResult 由 slides 导出，此处跳过
+} from "./generation";
 
 // Slides (幻灯片生成) - 优先导出，包含主要类型定义
 export * from "./slides";

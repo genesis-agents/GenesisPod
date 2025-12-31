@@ -802,7 +802,7 @@ export class PptxSlidesRenderer {
       });
 
       // 阶段标签
-      slide.addText(stage.phase, {
+      slide.addText(stage.phase || stage.name || "", {
         x,
         y: startY + 0.2,
         w: cardWidth,
@@ -815,7 +815,7 @@ export class PptxSlidesRenderer {
       });
 
       // 标题
-      slide.addText(stage.title, {
+      slide.addText(stage.title || stage.name || "", {
         x,
         y: startY + 0.7,
         w: cardWidth,
@@ -828,7 +828,7 @@ export class PptxSlidesRenderer {
       });
 
       // 描述
-      slide.addText(stage.description, {
+      slide.addText(stage.description || "", {
         x: x + 0.1,
         y: startY + 1.6,
         w: cardWidth - 0.2,
@@ -907,79 +907,86 @@ export class PptxSlidesRenderer {
     }
 
     // 栏目
-    const columnCount = Math.min(content.columnCount, 4);
+    const columnCount = Math.min(
+      content.columnCount || content.columns.length,
+      4,
+    );
     const gap = 0.3;
     const totalGap = gap * (columnCount - 1);
     const columnWidth = (12.33 - totalGap) / columnCount;
     const startY = 2;
 
-    content.columns.slice(0, columnCount).forEach((column, index) => {
-      const x = 0.5 + index * (columnWidth + gap);
+    content.columns
+      .slice(0, columnCount)
+      .forEach((column: any, index: number) => {
+        const x = 0.5 + index * (columnWidth + gap);
 
-      // 栏目背景
-      slide.addShape("roundRect", {
-        x,
-        y: startY,
-        w: columnWidth,
-        h: 4.5,
-        fill: { color: column.highlight ? colors.secondary : colors.primary },
-        line: {
-          color: column.highlight ? colors.accent : colors.secondary,
-          width: 2,
-        },
-      });
-
-      // 图标
-      if (column.icon) {
-        slide.addText(column.icon, {
+        // 栏目背景
+        slide.addShape("roundRect", {
           x,
-          y: startY + 0.3,
+          y: startY,
           w: columnWidth,
+          h: 4.5,
+          fill: { color: column.highlight ? colors.secondary : colors.primary },
+          line: {
+            color: column.highlight ? colors.accent : colors.secondary,
+            width: 2,
+          },
+        });
+
+        // 图标
+        if (column.icon) {
+          slide.addText(column.icon, {
+            x,
+            y: startY + 0.3,
+            w: columnWidth,
+            h: 0.6,
+            fontSize: 36,
+            align: "center",
+          });
+        }
+
+        // 标题
+        slide.addText(column.title, {
+          x: x + 0.1,
+          y: startY + (column.icon ? 1 : 0.3),
+          w: columnWidth - 0.2,
           h: 0.6,
-          fontSize: 36,
+          fontSize: 18,
+          fontFace: "Microsoft YaHei",
+          color: colors.text,
+          bold: true,
           align: "center",
         });
-      }
 
-      // 标题
-      slide.addText(column.title, {
-        x: x + 0.1,
-        y: startY + (column.icon ? 1 : 0.3),
-        w: columnWidth - 0.2,
-        h: 0.6,
-        fontSize: 18,
-        fontFace: "Microsoft YaHei",
-        color: colors.text,
-        bold: true,
-        align: "center",
-      });
-
-      // 内容
-      slide.addText(column.content, {
-        x: x + 0.1,
-        y: startY + (column.icon ? 1.7 : 1),
-        w: columnWidth - 0.2,
-        h: 2,
-        fontSize: 14,
-        fontFace: "Microsoft YaHei",
-        color: colors.textLight,
-        align: "left",
-      });
-
-      // 列表项
-      if (column.items && column.items.length > 0) {
-        const itemsText = column.items.map((item) => `• ${item}`).join("\n");
-        slide.addText(itemsText, {
-          x: x + 0.2,
-          y: startY + (column.icon ? 3.7 : 3),
-          w: columnWidth - 0.3,
-          h: 0.7,
-          fontSize: 12,
+        // 内容
+        slide.addText(column.content, {
+          x: x + 0.1,
+          y: startY + (column.icon ? 1.7 : 1),
+          w: columnWidth - 0.2,
+          h: 2,
+          fontSize: 14,
           fontFace: "Microsoft YaHei",
-          color: colors.textMuted,
+          color: colors.textLight,
+          align: "left",
         });
-      }
-    });
+
+        // 列表项
+        if (column.items && column.items.length > 0) {
+          const itemsText = column.items
+            .map((item: any) => `• ${item}`)
+            .join("\n");
+          slide.addText(itemsText, {
+            x: x + 0.2,
+            y: startY + (column.icon ? 3.7 : 3),
+            w: columnWidth - 0.3,
+            h: 0.7,
+            fontSize: 12,
+            fontFace: "Microsoft YaHei",
+            color: colors.textMuted,
+          });
+        }
+      });
   }
 
   /**
@@ -1012,36 +1019,44 @@ export class PptxSlidesRenderer {
       "70-30": [8.631, 3.699],
       "30-70": [3.699, 8.631],
     };
-    const [leftWidth, rightWidth] = ratios[content.ratio];
+    const ratio = content.ratio || "50-50";
+    const [leftWidth, rightWidth] =
+      ratios[ratio as keyof typeof ratios] || ratios["50-50"];
 
     const startY = 1.5;
     const height = 5.5;
 
     // 左侧内容
-    this.renderSplitSection(
-      slide,
-      content.left,
-      {
-        x: 0.5,
-        y: startY,
-        w: leftWidth,
-        h: height,
-      },
-      colors,
-    );
+    const leftSection = content.left || content.leftContent;
+    if (leftSection) {
+      this.renderSplitSection(
+        slide,
+        leftSection,
+        {
+          x: 0.5,
+          y: startY,
+          w: leftWidth,
+          h: height,
+        },
+        colors,
+      );
+    }
 
     // 右侧内容
-    this.renderSplitSection(
-      slide,
-      content.right,
-      {
-        x: 0.5 + leftWidth,
-        y: startY,
-        w: rightWidth,
-        h: height,
-      },
-      colors,
-    );
+    const rightSection = content.right || content.rightContent;
+    if (rightSection) {
+      this.renderSplitSection(
+        slide,
+        rightSection,
+        {
+          x: 0.5 + leftWidth,
+          y: startY,
+          w: rightWidth,
+          h: height,
+        },
+        colors,
+      );
+    }
 
     // 分隔线
     if (content.dividerStyle === "line") {
@@ -1060,10 +1075,11 @@ export class PptxSlidesRenderer {
    */
   private renderSplitSection(
     slide: Slide,
-    section: SplitLayoutSlideContent["left"],
+    section: any,
     pos: { x: number; y: number; w: number; h: number },
     colors: ColorScheme,
   ): void {
+    if (!section) return;
     const { x, y, w, h } = pos;
 
     switch (section.type) {
@@ -1096,7 +1112,7 @@ export class PptxSlidesRenderer {
       case "list":
         if (section.items) {
           const itemsText = section.items
-            .map((item, idx) => `${idx + 1}. ${item}`)
+            .map((item: any, idx: number) => `${idx + 1}. ${item}`)
             .join("\n\n");
           slide.addText(itemsText, {
             x: x + 0.2,
@@ -1141,7 +1157,7 @@ export class PptxSlidesRenderer {
 
       case "stats":
         if (section.stats) {
-          section.stats.forEach((stat, index) => {
+          section.stats.forEach((stat: any, index: number) => {
             const statY = y + 0.5 + index * 1.5;
             slide.addText(stat.value, {
               x: x + 0.2,
@@ -1409,9 +1425,9 @@ export class PptxSlidesRenderer {
 
     content.recommendations
       .slice(0, maxRecommendations)
-      .forEach((rec, index) => {
+      .forEach((rec: any, index: number) => {
         const y = startY + index * itemHeight;
-        const priorityColors = {
+        const priorityColors: Record<string, string> = {
           critical: "FF5630",
           high: "FF8B00",
           medium: colors.accent,
@@ -1424,7 +1440,7 @@ export class PptxSlidesRenderer {
           y: y + 0.1,
           w: 0.8,
           h: 0.4,
-          fill: { color: priorityColors[rec.priority] },
+          fill: { color: priorityColors[rec.priority] || colors.textMuted },
         });
 
         slide.addText(rec.priority.toUpperCase(), {

@@ -22,7 +22,11 @@ import { randomUUID } from "crypto";
 import { AgentType, AgentTask, taskStore } from "./agents.types";
 import { DocsOrchestratorService } from "../docs";
 import { DesignerOrchestratorService } from "../designer";
-import { SlidesOrchestratorService } from "../slides";
+import {
+  SlidesOrchestratorV3Service,
+  GenerateInput,
+  StreamEvent,
+} from "../slides";
 
 interface ExecuteAgentDto {
   prompt: string;
@@ -41,7 +45,7 @@ export class AgentsController {
   constructor(
     private readonly docsOrchestrator: DocsOrchestratorService,
     private readonly designerOrchestrator: DesignerOrchestratorService,
-    private readonly slidesOrchestrator: SlidesOrchestratorService,
+    private readonly slidesOrchestrator: SlidesOrchestratorV3Service,
   ) {}
 
   /**
@@ -373,39 +377,42 @@ export class AgentsController {
     const input = task.input;
     const options = input.options || {};
 
-    const stream = this.slidesOrchestrator.generatePPTStream({
-      prompt: input.prompt,
-      urls: input.urls,
-      slideCount: options.slideCount || 8,
-      language: options.language || "auto",
-      themeId: options.themeId || "professional",
-      includeImages: options.includeImages !== false,
-      includeSpeakerNotes: options.includeSpeakerNotes !== false,
-    });
+    // 使用 V3 API
+    const generateInput: GenerateInput = {
+      userId: options.userId || "anonymous",
+      title: input.title || input.prompt?.slice(0, 50) || "演示文稿",
+      sourceText: input.prompt || "",
+      targetPages: options.slideCount || 8,
+      stylePreference: "dark",
+      themeId: options.themeId || "genspark-dark",
+    };
+
+    const stream = this.slidesOrchestrator.generateSlides(generateInput);
 
     return new Promise((resolve, reject) => {
       stream.subscribe({
-        next: (event) => {
+        next: (event: StreamEvent) => {
           const agentEvent = this.convertPPTEvent(taskId, event);
           this.emitEvent(taskId, agentEvent);
 
-          if (event.type === "complete" && event.result) {
+          if (event.type === "complete" && event.data) {
+            const eventData = event.data as Record<string, any>;
             task.result = {
-              documentId: event.result.pptId,
+              documentId: eventData.sessionId || event.sessionId,
               artifacts: [
                 {
-                  id: event.result.pptId,
+                  id: eventData.sessionId || event.sessionId,
                   type: "pptx",
                   name: input.title || "演示文稿",
-                  url: `/api/ai-office/ppt/${event.result.pptId}`,
+                  url: `/api/ai-office/slides-v3/sessions/${eventData.sessionId || event.sessionId}`,
                 },
               ],
-              summary: `生成了 ${event.result.totalSlides} 页幻灯片`,
-              duration: event.result.duration,
+              summary: `生成了 ${eventData.totalPages || 0} 页幻灯片`,
+              duration: eventData.totalDuration || 0,
             };
           }
         },
-        error: (err) => reject(err),
+        error: (err: Error) => reject(err),
         complete: () => resolve(),
       });
     });
@@ -508,47 +515,55 @@ export class AgentsController {
   }
 
   /**
-   * 转换 PPT 事件
+   * 转换 PPT 事件 (V3 StreamEvent)
    */
-  private convertPPTEvent(taskId: string, event: any): any {
+  private convertPPTEvent(taskId: string, event: StreamEvent): any {
     const base = {
-      timestamp: event.timestamp,
+      timestamp: event.timestamp || new Date().toISOString(),
       taskId,
     };
+    const eventData = event.data as Record<string, any> | undefined;
 
     switch (event.type) {
-      case "progress":
+      case "progress_update":
         return {
           ...base,
           type: "progress",
-          data: event.progress,
+          data: {
+            phase: eventData?.phase,
+            percentage: eventData?.overallProgress || 0,
+            message: eventData?.message,
+          },
         };
-      case "outline_complete":
+      case "phase_completed":
         return {
           ...base,
           type: "plan_ready",
-          data: { outline: event.outline },
+          data: { outline: eventData },
         };
-      case "slide_complete":
+      case "page_completed":
         return {
           ...base,
           type: "step_complete",
-          data: event.slide,
+          data: {
+            pageNumber: eventData?.pageNumber,
+            html: eventData?.html,
+          },
         };
       case "complete":
         return {
           ...base,
           type: "complete",
-          data: event.result,
+          data: eventData,
         };
       case "error":
         return {
           ...base,
           type: "error",
-          data: event.error,
+          data: { message: eventData?.message || "Unknown error" },
         };
       default:
-        return { ...base, type: event.type, data: event };
+        return { ...base, type: event.type, data: eventData };
     }
   }
 

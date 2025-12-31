@@ -9,7 +9,11 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { SlidesOrchestratorService } from "./slides";
+import {
+  SlidesOrchestratorV3Service,
+  GenerateInput,
+  StreamEvent,
+} from "./slides";
 import { GenerationService, GenerationConfig } from "./generation";
 
 // 导出格式类型
@@ -80,13 +84,13 @@ export class AiOfficeIntegrationService {
   private readonly logger = new Logger(AiOfficeIntegrationService.name);
 
   constructor(
-    private readonly slidesOrchestrator: SlidesOrchestratorService,
+    private readonly slidesOrchestrator: SlidesOrchestratorV3Service,
     private readonly generationService: GenerationService,
   ) {}
 
   /**
    * 生成幻灯片
-   * 通过 SlidesOrchestratorService 生成演示文稿
+   * 通过 SlidesOrchestratorV3Service 生成演示文稿
    */
   async *generatePPT(
     options: PPTGenerationOptions,
@@ -96,24 +100,71 @@ export class AiOfficeIntegrationService {
     );
 
     try {
-      // 使用 generatePPTStream 获取 Observable 并转换为 AsyncGenerator
-      const observable = this.slidesOrchestrator.generatePPTStream({
-        prompt: options.prompt,
-        themeId: options.themeId || "professional",
-        slideCount: options.slideCount || 10,
-        language: options.language === "en-US" ? "en" : "zh",
-        textModelId: options.textModelId,
-        imageModelId: options.imageModelId,
-      });
+      // 使用 V3 generateSlides 获取 Observable 并转换为 AsyncGenerator
+      const input: GenerateInput = {
+        userId: options.userId,
+        title: options.prompt.slice(0, 50),
+        sourceText: options.prompt,
+        targetPages: options.slideCount || 10,
+        stylePreference: "dark",
+        themeId: options.themeId || "genspark-dark",
+      };
 
-      // 使用 Promise 将 Observable 转换为事件
-      yield* this.observableToAsyncGenerator(observable);
+      const observable = this.slidesOrchestrator.generateSlides(input);
+
+      // 转换 V3 事件为旧格式
+      for await (const event of this.observableToAsyncGenerator(observable)) {
+        yield this.convertV3EventToPPTEvent(event as StreamEvent);
+      }
     } catch (error) {
       this.logger.error(`[generatePPT] Error: ${error}`);
       yield {
         type: "error",
         error: error instanceof Error ? error.message : "PPT 生成失败",
       };
+    }
+  }
+
+  /**
+   * 转换 V3 事件为旧 PPT 事件格式
+   */
+  private convertV3EventToPPTEvent(event: StreamEvent): PPTStreamEvent {
+    const eventData = event.data as Record<string, any> | undefined;
+
+    switch (event.type) {
+      case "progress_update":
+        return {
+          type: "progress",
+          progress: {
+            phase: eventData?.phase || "generating",
+            percentage: eventData?.overallProgress || 0,
+            message: eventData?.message || "",
+          },
+        };
+      case "page_completed":
+        return {
+          type: "slide_complete",
+          slide: {
+            index: eventData?.pageNumber || 0,
+            html: eventData?.html || "",
+          },
+        };
+      case "complete":
+        return {
+          type: "complete",
+          result: {
+            pptId: eventData?.sessionId || event.sessionId || "",
+            totalSlides: eventData?.totalPages || 0,
+            duration: eventData?.totalDuration || 0,
+          },
+        };
+      case "error":
+        return {
+          type: "error",
+          error: eventData?.message || "Unknown error",
+        };
+      default:
+        return { type: event.type, ...(eventData || {}) };
     }
   }
 

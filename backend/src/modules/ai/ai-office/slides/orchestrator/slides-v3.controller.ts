@@ -33,7 +33,7 @@ import {
   GenerateInput,
 } from "./slides-orchestrator-v3.service";
 import { CheckpointService } from "../checkpoint/checkpoint.service";
-import { SlidesExportService } from "../../rendering/slides-export.service";
+import { SlidesExportService } from "../rendering/slides-export.service";
 import { GlobalStyles } from "../checkpoint/checkpoint.types";
 import { SlidesTeamAgent } from "./slides-team.agent";
 import {

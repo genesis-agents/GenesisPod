@@ -1,32 +1,27 @@
 /**
  * Slides Module Exports
- * AI Office - 幻灯片生成模块
+ * AI Office - 幻灯片生成模块 (V3 架构)
+ *
+ * 已清理旧版代码，仅保留 V3 实现
  */
 
-// Types
+// Types (保留用于导出的类型)
 export * from "./types";
 
-// Core
-export * from "./core";
-
-// Planning
-export * from "./planning";
-
-// Generation
-export * from "./generation";
-
-// Rendering
+// Rendering (导出服务)
 export * from "./rendering";
 
-// Quality
-export * from "./quality";
+// Checkpoint
+export * from "./checkpoint";
 
-// Editing
-export * from "./editing";
+// Orchestrator
+export * from "./orchestrator";
 
-// Services (Phase 5 完整版服务)
-export * from "./services";
+// Skills
+export * from "./skills";
 
-// Template Selection (Phase 5 简化版内容分析器)
-// 注意: 为避免重复导出，只从 template-selection 导入 ContentAnalyzerService
-export { ContentAnalyzerService } from "./template-selection/content-analyzer.service";
+// Roles
+export * from "./roles";
+
+// Templates (不直接导出，通过 skills 使用)
+// export * from "./templates";
