@@ -204,7 +204,8 @@ export class TemplateRenderingSkill {
       "ROI",
     ];
 
-    for (let i = 0; i < 3; i++) {
+    // 支持最多5个支柱（三支柱、四支柱、五支柱模板）
+    for (let i = 0; i < 5; i++) {
       const section = sections[i];
       const pillarNum = i + 1;
 
@@ -249,13 +250,13 @@ export class TemplateRenderingSkill {
           vars[`PILLAR${pillarNum}_LABEL`] = diverseLabels[i] || "关键数据";
         }
       } else {
-        // 使用 keyElements 作为备用
+        // 使用默认值作为备用
         const keyElement =
           pageContent.citations?.[i] || `核心支柱 ${pillarNum}`;
         vars[`PILLAR${pillarNum}_TITLE`] = `支柱 ${pillarNum}`;
         vars[`PILLAR${pillarNum}_DESC`] = keyElement;
-        vars[`PILLAR${pillarNum}_STAT`] = diverseStats[i];
-        vars[`PILLAR${pillarNum}_LABEL`] = diverseLabels[i];
+        vars[`PILLAR${pillarNum}_STAT`] = diverseStats[i] || `${85 + i * 3}%`;
+        vars[`PILLAR${pillarNum}_LABEL`] = diverseLabels[i] || "关键数据";
       }
     }
 
@@ -697,15 +698,26 @@ export class TemplateRenderingSkill {
     const sections = pageContent.sections || [];
     const vars: Record<string, string> = {};
 
-    const defaultTitles = ["核心优势", "技术能力", "服务保障", "创新驱动"];
+    // 扩展到6个，支持各种多列布局
+    const defaultTitles = [
+      "核心优势",
+      "技术能力",
+      "服务保障",
+      "创新驱动",
+      "全球布局",
+      "生态合作",
+    ];
     const defaultDescs = [
       "提供行业领先的解决方案",
       "拥有先进的技术储备",
       "7x24小时专业支持",
       "持续创新迭代升级",
+      "覆盖全球主要市场",
+      "构建完善合作生态",
     ];
 
-    for (let i = 0; i < 4; i++) {
+    // 支持最多6个要点（2列、3列、4列、6列布局）
+    for (let i = 0; i < 6; i++) {
       const section = sections[i];
       const pointNum = i + 1;
 
@@ -733,8 +745,9 @@ export class TemplateRenderingSkill {
           vars[`POINT${pointNum}_DESC`] = stat.value || defaultDescs[i];
         }
       } else {
-        vars[`POINT${pointNum}_TITLE`] = defaultTitles[i];
-        vars[`POINT${pointNum}_DESC`] = defaultDescs[i];
+        vars[`POINT${pointNum}_TITLE`] = defaultTitles[i] || `要点 ${pointNum}`;
+        vars[`POINT${pointNum}_DESC`] =
+          defaultDescs[i] || `详细描述 ${pointNum}`;
       }
     }
 

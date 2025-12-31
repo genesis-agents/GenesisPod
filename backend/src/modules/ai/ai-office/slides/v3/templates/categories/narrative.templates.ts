@@ -332,7 +332,7 @@ const N004_TOC: SlideTemplate = {
 const N005_CLOSING: SlideTemplate = {
   metadata: {
     id: "N-005",
-    type: "cover" as PageTemplateType,
+    type: "closing" as PageTemplateType, // 修复：使用正确的 closing 类型
     name: "结束页",
     description: "演示文稿的结束页，包含感谢语、联系方式和品牌信息",
     useCases: ["演示结束", "感谢致辞", "联系方式"],
