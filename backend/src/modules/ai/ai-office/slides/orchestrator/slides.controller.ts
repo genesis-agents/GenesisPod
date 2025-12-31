@@ -36,6 +36,7 @@ import { CheckpointService } from "../checkpoint/checkpoint.service";
 import { SlidesExportService } from "../rendering/slides-export.service";
 import { GlobalStyles } from "../checkpoint/checkpoint.types";
 import { SlidesTeamAgent } from "./slides-team.agent";
+import { getAllThemes } from "../templates/base/themes";
 import {
   IsString,
   IsOptional,
@@ -145,6 +146,33 @@ export class SlidesController {
     private readonly exportService: SlidesExportService,
     private readonly teamAgent: SlidesTeamAgent,
   ) {}
+
+  // ============================================
+  // Themes API
+  // ============================================
+
+  /**
+   * 获取可用主题列表
+   */
+  @Get("themes/list")
+  async getThemesList() {
+    this.logger.log("[getThemesList] Fetching available themes");
+    const themes = getAllThemes();
+    return {
+      success: true,
+      themes: themes.map((theme) => ({
+        id: theme.id,
+        name: theme.name,
+        description: theme.description,
+        preview: theme.preview,
+        colors: {
+          primary: theme.colors.background.primary,
+          accent: theme.colors.accent.primary,
+          text: theme.colors.text.primary,
+        },
+      })),
+    };
+  }
 
   // ============================================
   // Team 协作生成 API
