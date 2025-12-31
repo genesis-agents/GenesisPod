@@ -149,7 +149,7 @@ ${input.style || "formal"}
         },
       ],
       maxTokens: 2048,
-      temperature: 0.5,
+      temperature: 0.3,
       metadata: {
         sessionId: input.sessionId,
         phase: "content_polish",

@@ -266,16 +266,87 @@ export const templateRegistry = new TemplateRegistry();
 
 /**
  * 替换模板变量
+ * 增强版：处理未提供的变量，防止 {{VAR}} 直接暴露给用户
  */
 export function applyVariables(
   template: SlideTemplate,
   variables: Record<string, string>,
 ): string {
   let html = template.html;
+
+  // 1. 替换所有提供的变量
   for (const [key, value] of Object.entries(variables)) {
     html = html.replace(new RegExp(`{{${key}}}`, "g"), value);
   }
+
+  // 2. 检测并处理未替换的变量（防止 {{VAR}} 暴露给用户）
+  const unreplacedPattern = /\{\{(\w+)\}\}/g;
+  const unreplacedVars: string[] = [];
+  let match;
+  while ((match = unreplacedPattern.exec(html)) !== null) {
+    unreplacedVars.push(match[1]);
+  }
+
+  if (unreplacedVars.length > 0) {
+    // 使用智能降级策略替换未匹配的变量
+    html = html.replace(unreplacedPattern, (_match, varName: string) => {
+      return getFallbackValue(varName);
+    });
+  }
+
   return html;
+}
+
+/**
+ * 获取变量的降级值
+ * 根据变量名模式推断合理的默认值
+ */
+function getFallbackValue(varName: string): string {
+  // TITLE 类变量
+  if (varName.includes("TITLE")) {
+    const numMatch = varName.match(/(\d+)/);
+    if (numMatch) {
+      return `要点 ${numMatch[1]}`;
+    }
+    return "核心要点";
+  }
+
+  // DESC/DESCRIPTION 类变量
+  if (varName.includes("DESC")) {
+    return "详细说明请参考源文档";
+  }
+
+  // VALUE/STAT/NUMBER 类变量
+  if (
+    varName.includes("VALUE") ||
+    varName.includes("STAT") ||
+    varName.includes("NUMBER")
+  ) {
+    return "—";
+  }
+
+  // LABEL 类变量
+  if (varName.includes("LABEL")) {
+    return "指标";
+  }
+
+  // CHANGE 类变量
+  if (varName.includes("CHANGE")) {
+    return "—";
+  }
+
+  // DATE 类变量
+  if (varName.includes("DATE")) {
+    return new Date().toLocaleDateString("zh-CN");
+  }
+
+  // ICON 类变量
+  if (varName.includes("ICON")) {
+    return "●";
+  }
+
+  // 默认：返回短划线，表示数据待补充
+  return "—";
 }
 
 /**
