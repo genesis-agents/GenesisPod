@@ -22,6 +22,7 @@ import { TaskDecompositionSkill } from "../skills/task-decomposition.skill";
 import { OutlinePlanningSkill } from "../skills/outline-planning.skill";
 import { ContentCompressionSkill } from "../skills/content-compression.skill";
 import { TemplateRenderingSkill } from "../skills/template-rendering.skill";
+import { ImageFetcherSkill, ImageResult } from "../skills/image-fetcher.skill";
 import { CheckpointService } from "../checkpoint/checkpoint.service";
 
 // 导入类型
@@ -100,6 +101,7 @@ export class SlidesTeamOrchestratorService {
     private readonly outlinePlanning: OutlinePlanningSkill,
     private readonly contentCompression: ContentCompressionSkill,
     private readonly templateRendering: TemplateRenderingSkill,
+    private readonly imageFetcher: ImageFetcherSkill,
     private readonly checkpoint: CheckpointService,
   ) {}
 
@@ -1104,6 +1106,12 @@ export class SlidesTeamOrchestratorService {
             retryContext: retryContext, // 传递重试上下文，包含审核反馈
           });
 
+          // 并行获取配图（不阻塞渲染流程）
+          const imagePromise = this.imageFetcher.fetchImageForSlide(
+            pageOutline.title,
+            pageOutline.subtitle,
+          );
+
           // 调用 template-rendering skill
           const renderResult = this.templateRendering.render({
             pageOutline: pageOutline,
@@ -1111,12 +1119,20 @@ export class SlidesTeamOrchestratorService {
             themeId,
           });
 
+          // 等待图片获取完成并注入到 HTML
+          const image = await imagePromise;
+          let finalHtml = renderResult.html;
+          if (image) {
+            finalHtml = this.injectImageToHtml(finalHtml, image, pageOutline);
+          }
+
           return {
             pageNumber: pageOutline.pageNumber,
             title: pageOutline.title,
             content: contentResult.pageContent,
-            html: renderResult.html,
+            html: finalHtml,
             compressedLength: contentResult.compressedLength,
+            imageUrl: image?.url,
           };
         }),
       );
@@ -1414,5 +1430,100 @@ export class SlidesTeamOrchestratorService {
     });
 
     return state.sessionId; // 返回 session ID 作为 checkpoint 引用
+  }
+
+  /**
+   * 将图片注入到渲染后的 HTML 中
+   * 根据页面模板类型决定图片的显示方式：
+   * - cover: 作为背景图片
+   * - splitLayout: 作为右侧图片区域
+   * - 其他: 作为装饰性背景（低透明度）
+   */
+  private injectImageToHtml(
+    html: string,
+    image: ImageResult,
+    pageOutline: PageOutline,
+  ): string {
+    const templateType = pageOutline.templateType;
+
+    // 封面页：全屏背景图
+    if (templateType === "cover") {
+      return this.injectCoverBackgroundImage(html, image);
+    }
+
+    // 分栏布局页：右侧图片区域
+    if (
+      templateType === "splitLayout" ||
+      templateType === "caseStudy" ||
+      templateType === "comparison"
+    ) {
+      return this.injectSplitLayoutImage(html, image);
+    }
+
+    // 其他页面：添加装饰性背景图（低透明度）
+    return this.injectDecorativeImage(html, image);
+  }
+
+  /**
+   * 封面页背景图注入
+   */
+  private injectCoverBackgroundImage(html: string, image: ImageResult): string {
+    // 查找 slide-container 并添加背景图
+    const backgroundStyle = `
+      background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.7)), url('${image.url}');
+      background-size: cover;
+      background-position: center;
+    `.trim();
+
+    // 在 slide-container 的 style 中注入背景图
+    return html.replace(
+      /(<div class="slide-container"[^>]*style=")([^"]*)/,
+      `$1$2 ${backgroundStyle}`,
+    );
+  }
+
+  /**
+   * 分栏布局图片注入
+   */
+  private injectSplitLayoutImage(html: string, image: ImageResult): string {
+    // 创建图片 HTML
+    const imageHtml = `
+      <div class="slide-image" style="
+        position: absolute;
+        right: 0;
+        top: 0;
+        width: 40%;
+        height: 100%;
+        overflow: hidden;
+      ">
+        <img src="${image.url}" alt="${image.description || "配图"}" style="
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          opacity: 0.9;
+        " loading="lazy" />
+      </div>
+    `.trim();
+
+    // 在 slide-content 结束前插入图片
+    return html.replace(/(<\/div>\s*<\/div>\s*$)/, `${imageHtml}$1`);
+  }
+
+  /**
+   * 装饰性背景图注入（低透明度）
+   */
+  private injectDecorativeImage(html: string, image: ImageResult): string {
+    // 添加一个装饰性的背景图层
+    const decorativeStyle = `
+      background-image: linear-gradient(rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.95)), url('${image.url}');
+      background-size: cover;
+      background-position: center;
+    `.trim();
+
+    // 在 slide-container 的 style 中注入背景图
+    return html.replace(
+      /(<div class="slide-container"[^>]*style=")([^"]*)/,
+      `$1$2 ${decorativeStyle}`,
+    );
   }
 }

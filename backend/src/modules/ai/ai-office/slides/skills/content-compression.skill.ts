@@ -2,7 +2,7 @@
  * Slides Engine v3.0 - Content Compression Skill
  *
  * 内容压缩技能：将长文本压缩为适合幻灯片展示的简洁内容
- * 使用 Writer 角色 (CHAT_FAST + COST_OPTIMIZED)
+ * 使用 Writer 角色 (CHAT + QUALITY_FIRST) - 使用高质量模型确保内容丰富度
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -276,8 +276,8 @@ export class ContentCompressionSkill {
         { role: "system", content: CONTENT_COMPRESSION_SYSTEM_PROMPT },
         { role: "user", content: userMessage },
       ],
-      maxTokens: 2048,
-      temperature: 0.3,
+      maxTokens: 4096, // 增加 token 上限以获取更丰富的内容
+      temperature: 0.5, // 提高温度以获得更丰富创意的内容
       metadata: {
         sessionId,
         pageNumber: pageOutline.pageNumber,

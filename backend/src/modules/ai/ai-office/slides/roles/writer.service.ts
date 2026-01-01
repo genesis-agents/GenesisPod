@@ -2,7 +2,7 @@
  * Slides Engine v3.0 - Writer Service
  *
  * 作者角色：负责内容填充、文案润色
- * 使用 CHAT_FAST 模型 + COST_OPTIMIZED 策略
+ * 使用 CHAT 模型 + QUALITY_FIRST 策略（确保高质量内容输出）
  */
 
 import { Injectable, Logger } from "@nestjs/common";

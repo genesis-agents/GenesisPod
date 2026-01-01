@@ -423,9 +423,9 @@ export const ROLE_CONFIGS: Record<SlidesRole, RoleConfig> = {
   },
   writer: {
     role: "writer",
-    modelType: "CHAT_FAST" as AIModelType,
-    strategy: "COST_OPTIMIZED",
-    description: "内容填充、文案润色",
+    modelType: "CHAT" as AIModelType,
+    strategy: "QUALITY_FIRST",
+    description: "内容填充、文案润色（使用高质量模型确保内容丰富）",
   },
   renderer: {
     role: "renderer",

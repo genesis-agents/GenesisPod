@@ -118,15 +118,51 @@ export class TemplateRenderingSkill {
 
   /**
    * 包装HTML内容到主题容器，添加装饰元素
+   * 增强：添加全局溢出保护样式
    */
   private wrapWithTheme(contentHtml: string, theme: ThemeConfig): string {
     const containerStyle = getThemeContainerStyle(theme);
     const decorationHtml = getThemeDecorationHtml(theme);
 
+    // 全局溢出保护 CSS
+    const overflowProtectionStyles = `
+<style>
+  .slide-container * {
+    box-sizing: border-box;
+  }
+  .slide-container h1, .slide-container h2, .slide-container h3, .slide-container h4 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .slide-container p {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    line-height: 1.5;
+  }
+  .slide-container ul, .slide-container ol {
+    overflow: hidden;
+    margin: 0;
+    padding-left: 20px;
+  }
+  .slide-container li {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-bottom: 4px;
+  }
+  .slide-content > div {
+    overflow: hidden;
+  }
+</style>`;
+
     return `
+${overflowProtectionStyles}
 <div class="slide-container" style="${containerStyle.replace(/\n/g, " ").trim()}">
   ${decorationHtml}
-  <div class="slide-content" style="position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column;">
+  <div class="slide-content" style="position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; overflow: hidden;">
     ${contentHtml}
   </div>
 </div>

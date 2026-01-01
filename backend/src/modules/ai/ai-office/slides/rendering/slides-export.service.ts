@@ -101,10 +101,8 @@ export class SlidesExportService {
   /**
    * 导出 PPT 文档为 PPTX
    *
-   * 同源导出策略:
-   * - 如果有 HTML，使用 Puppeteer 截图作为幻灯片背景图
-   * - 这确保 PPTX 与预览/PDF/PNG 视觉完全一致
-   * - 降级: 如果没有 HTML，使用传统的 pptxgenjs 渲染
+   * 使用原生 pptxgenjs 渲染，确保文本可编辑
+   * 不再使用 HTML 截图方式（截图会导致内容变成图片不可编辑）
    */
   async exportToPPTX(document: PPTDocument): Promise<PPTXExportResult> {
     this.logger.log(
@@ -113,28 +111,19 @@ export class SlidesExportService {
 
     const startTime = Date.now();
 
-    // 检查是否有 HTML (同源导出)
-    const hasHtml = document.slides.some((slide) => slide.html);
-
     // 使用静态导入的 PptxGenJS
     const pptx = new PptxGenJS();
 
     // 1. 设置文档属性
     this.setDocumentProperties(pptx, document);
 
-    if (hasHtml) {
-      // 同源导出: 使用 HTML 截图
-      this.logger.log(
-        `[exportToPPTX] Using HTML screenshots for same-source export`,
-      );
-      await this.renderSlidesFromHtml(pptx, document);
-    } else {
-      // 降级: 使用传统 pptxgenjs 渲染
-      this.logger.log(`[exportToPPTX] Fallback to legacy pptxgenjs rendering`);
-      const themeConfig = this.getThemePPTXConfig(document.theme);
-      for (const slideData of document.slides) {
-        await this.renderSlide(pptx, slideData, document.theme, themeConfig);
-      }
+    // 2. 使用原生 pptxgenjs 渲染（确保文本可编辑）
+    this.logger.log(
+      `[exportToPPTX] Using native pptxgenjs rendering for editable text`,
+    );
+    const themeConfig = this.getThemePPTXConfig(document.theme);
+    for (const slideData of document.slides) {
+      await this.renderSlide(pptx, slideData, document.theme, themeConfig);
     }
 
     // 生成文件
@@ -153,78 +142,6 @@ export class SlidesExportService {
       slideCount: document.slides.length,
       fileSize: buffer.length,
     };
-  }
-
-  /**
-   * 使用 HTML 截图渲染 PPTX 幻灯片
-   * 每页幻灯片截图后作为背景图嵌入
-   */
-  private async renderSlidesFromHtml(
-    pptx: PptxInstance,
-    document: PPTDocument,
-  ): Promise<void> {
-    // 使用 Puppeteer 截图
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
-
-    try {
-      const page = await browser.newPage();
-
-      // 设置页面大小为 16:9 比例 (1280x720)
-      await page.setViewport({
-        width: 1280,
-        height: 720,
-        deviceScaleFactor: 2, // 高清截图
-      });
-
-      for (const slideData of document.slides) {
-        const slide = pptx.addSlide();
-
-        if (slideData.html) {
-          // 使用 HTML 截图
-          const slideHtml = this.wrapV3HtmlForScreenshot(slideData.html);
-
-          await page.setContent(slideHtml, {
-            waitUntil: "domcontentloaded",
-            timeout: 15000,
-          });
-          // 等待一小段时间确保渲染完成
-          await page.evaluate(
-            () => new Promise((resolve) => setTimeout(resolve, 300)),
-          );
-
-          const screenshot = await page.screenshot({
-            type: "png",
-            fullPage: false,
-            encoding: "base64",
-          });
-
-          // 将截图作为背景图
-          slide.background = {
-            data: `data:image/png;base64,${screenshot}`,
-          };
-        } else {
-          // 降级: 使用传统渲染
-          const themeConfig = this.getThemePPTXConfig(document.theme);
-          await this.applyBackground(
-            slide,
-            slideData,
-            document.theme,
-            themeConfig,
-          );
-          await this.renderByLayout(
-            slide,
-            slideData,
-            document.theme,
-            themeConfig,
-          );
-        }
-      }
-    } finally {
-      await browser.close();
-    }
   }
 
   /**

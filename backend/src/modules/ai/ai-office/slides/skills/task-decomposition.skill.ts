@@ -18,6 +18,7 @@ import {
   SourceAnalysis,
   DataPoint,
 } from "../checkpoint/checkpoint.types";
+import { SearchService } from "../../../ai-core/search.service";
 
 /**
  * 任务分解输入
@@ -195,7 +196,10 @@ const TASK_DECOMPOSITION_SYSTEM_PROMPT = `你是一位专业的 PPT 架构师，
 export class TaskDecompositionSkill {
   private readonly logger = new Logger(TaskDecompositionSkill.name);
 
-  constructor(private readonly multiModel: MultiModelService) {}
+  constructor(
+    private readonly multiModel: MultiModelService,
+    private readonly searchService: SearchService,
+  ) {}
 
   /**
    * 执行任务分解
@@ -205,7 +209,22 @@ export class TaskDecompositionSkill {
       `[execute] Starting task decomposition, source length: ${input.sourceText.length}`,
     );
 
-    const userMessage = this.buildUserMessage(input);
+    // 第一步：尝试从源文本中搜索补充数据（如果源文本较短）
+    let enrichedSourceText = input.sourceText;
+    if (input.sourceText.length < 2000) {
+      const searchEnrichment = await this.enrichWithSearch(input.sourceText);
+      if (searchEnrichment) {
+        enrichedSourceText = `${input.sourceText}\n\n## 补充资料（来自网络搜索）\n\n${searchEnrichment}`;
+        this.logger.log(
+          `[execute] Enriched source text with ${searchEnrichment.length} chars from search`,
+        );
+      }
+    }
+
+    const userMessage = this.buildUserMessage({
+      ...input,
+      sourceText: enrichedSourceText,
+    });
 
     const roleCall: RoleCallInput = {
       role: "architect",
@@ -232,10 +251,74 @@ export class TaskDecompositionSkill {
     const decomposition = this.parseResponse(result.content);
 
     this.logger.log(
-      `[execute] Task decomposition complete: ${decomposition.totalPages} pages, ${decomposition.chapters.length} chapters`,
+      `[execute] Task decomposition complete: ${decomposition.totalPages} pages, ${decomposition.chapters.length} chapters, ${decomposition.sourceAnalysis?.dataPoints?.length || 0} data points`,
     );
 
     return decomposition;
+  }
+
+  /**
+   * 使用搜索服务补充数据
+   * 当源文本较短时，尝试搜索相关信息补充数据点
+   */
+  private async enrichWithSearch(sourceText: string): Promise<string | null> {
+    try {
+      // 提取源文本中的关键词作为搜索查询
+      const keywords = this.extractKeywords(sourceText);
+      if (!keywords) {
+        this.logger.debug("[enrichWithSearch] No keywords extracted");
+        return null;
+      }
+
+      this.logger.log(`[enrichWithSearch] Searching for: ${keywords}`);
+
+      const searchResult = await this.searchService.search(keywords, 3);
+
+      if (!searchResult.success || searchResult.results.length === 0) {
+        this.logger.debug("[enrichWithSearch] No search results found");
+        return null;
+      }
+
+      // 组合搜索结果
+      const enrichment = searchResult.results
+        .map(
+          (r, i) =>
+            `### 资料${i + 1}: ${r.title}\n${r.content}\n来源: ${r.url}`,
+        )
+        .join("\n\n");
+
+      return enrichment;
+    } catch (error) {
+      this.logger.warn(`[enrichWithSearch] Search failed: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * 从文本中提取关键词用于搜索
+   */
+  private extractKeywords(text: string): string | null {
+    // 简单的关键词提取：取前200字符中的名词短语
+    const sample = text.slice(0, 500);
+
+    // 匹配中文词组、英文词组、数字+单位
+    const patterns = [
+      /[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*/g, // 英文专有名词
+      /[\u4e00-\u9fa5]{2,8}/g, // 中文词组
+      /\d+(?:亿|万|%|美元|人民币)/g, // 数字+单位
+    ];
+
+    const keywords: string[] = [];
+    for (const pattern of patterns) {
+      const matches = sample.match(pattern) || [];
+      keywords.push(...matches.slice(0, 3));
+    }
+
+    if (keywords.length === 0) return null;
+
+    // 去重并取前5个
+    const unique = [...new Set(keywords)].slice(0, 5);
+    return unique.join(" ");
   }
 
   /**
