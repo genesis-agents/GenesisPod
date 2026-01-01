@@ -1,9 +1,37 @@
--- Add WECHAT to UserDataSourceType enum
-ALTER TYPE "UserDataSourceType" ADD VALUE IF NOT EXISTS 'WECHAT';
+-- Create UserDataSourceType enum if it doesn't exist (for new databases)
+DO $$ BEGIN
+    CREATE TYPE "UserDataSourceType" AS ENUM (
+        'GOOGLE_DRIVE',
+        'NOTION',
+        'BOOKMARK',
+        'NOTE',
+        'UPLOAD',
+        'URL',
+        'IMAGE',
+        'WECHAT'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN
+        -- Enum exists, try to add WECHAT value
+        BEGIN
+            ALTER TYPE "UserDataSourceType" ADD VALUE IF NOT EXISTS 'WECHAT';
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END;
+END $$;
 
 -- Add WECHAT_ARTICLE and WECHAT_VIDEO to KnowledgeBaseSourceType (if not already exist)
-ALTER TYPE "KnowledgeBaseSourceType" ADD VALUE IF NOT EXISTS 'WECHAT_ARTICLE';
-ALTER TYPE "KnowledgeBaseSourceType" ADD VALUE IF NOT EXISTS 'WECHAT_VIDEO';
+DO $$ BEGIN
+    ALTER TYPE "KnowledgeBaseSourceType" ADD VALUE IF NOT EXISTS 'WECHAT_ARTICLE';
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    ALTER TYPE "KnowledgeBaseSourceType" ADD VALUE IF NOT EXISTS 'WECHAT_VIDEO';
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- Create WechatItemType enum
 DO $$ BEGIN
@@ -54,5 +82,10 @@ CREATE INDEX IF NOT EXISTS "wechat_items_user_id_type_idx" ON "wechat_items"("us
 CREATE INDEX IF NOT EXISTS "wechat_items_user_id_created_at_idx" ON "wechat_items"("user_id", "created_at" DESC);
 CREATE INDEX IF NOT EXISTS "wechat_items_synced_to_rag_idx" ON "wechat_items"("synced_to_rag");
 
--- Add foreign key to users table
-ALTER TABLE "wechat_items" ADD CONSTRAINT "wechat_items_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- Add foreign key to users table (only if table exists and constraint doesn't)
+DO $$ BEGIN
+    ALTER TABLE "wechat_items" ADD CONSTRAINT "wechat_items_user_id_fkey"
+        FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
