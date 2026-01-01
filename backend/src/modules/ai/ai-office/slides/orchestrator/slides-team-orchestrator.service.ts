@@ -926,6 +926,12 @@ export class SlidesTeamOrchestratorService {
       result: {
         totalPages: result.totalPages,
         chapters: result.chapters.length,
+        // 发送 pageOutlines 给前端初始化页面列表
+        pageOutlines: result.pageOutlines.map((p) => ({
+          pageNumber: p.pageNumber,
+          title: p.title,
+          templateType: p.templateType,
+        })),
       },
     });
 
