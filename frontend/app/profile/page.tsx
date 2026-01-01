@@ -19,6 +19,7 @@ import {
   NotionConnection,
 } from '@/lib/api/notion';
 import { GoogleDriveConnectionCard } from '@/components/google-drive/GoogleDriveConnectionCard';
+import { WechatWorkBindingCard } from '@/components/wechat/WechatWorkBindingCard';
 
 interface UserStats {
   userId: string;

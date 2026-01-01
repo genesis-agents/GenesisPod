@@ -8,6 +8,7 @@ import {
   Get,
   Post,
   Delete,
+  Patch,
   Body,
   Param,
   Query,
@@ -29,6 +30,7 @@ import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { WechatDataSourceService } from "./wechat-data-source.service";
 import { WechatWorkCryptoService } from "./wechat-work-crypto.service";
 import { WechatItemType } from "@prisma/client";
+import { PrismaService } from "../../../common/prisma/prisma.service";
 
 interface AuthenticatedRequest extends Request {
   user?: { id: string };
@@ -43,6 +45,7 @@ export class WechatDataSourceController {
   constructor(
     private readonly wechatDataSourceService: WechatDataSourceService,
     private readonly wechatCryptoService: WechatWorkCryptoService,
+    private readonly prisma: PrismaService,
   ) {}
 
   private getUserId(req: AuthenticatedRequest): string {
@@ -274,6 +277,143 @@ export class WechatDataSourceController {
       success: true,
       message: "Sync to RAG not yet implemented",
       item,
+    };
+  }
+
+  // =========================================================================
+  // WeChat Work Binding Endpoints
+  // =========================================================================
+
+  /**
+   * Get current WeChat Work binding status
+   */
+  @Get("binding")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "Get WeChat Work binding status" })
+  @ApiResponse({ status: 200, description: "Returns binding status" })
+  async getBinding(@Req() req: AuthenticatedRequest) {
+    const userId = this.getUserId(req);
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { preferences: true },
+    });
+
+    const preferences = user?.preferences as Record<string, unknown> | null;
+    const wechatWorkUserId = preferences?.wechatWorkUserId as
+      | string
+      | undefined;
+
+    return {
+      isBound: !!wechatWorkUserId,
+      wechatWorkUserId: wechatWorkUserId || null,
+    };
+  }
+
+  /**
+   * Bind WeChat Work user ID
+   */
+  @Patch("binding")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "Bind WeChat Work user ID" })
+  @ApiResponse({ status: 200, description: "Binding successful" })
+  @ApiResponse({ status: 400, description: "Invalid WeChat Work user ID" })
+  async bindWechatWork(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: { wechatWorkUserId: string },
+  ) {
+    const userId = this.getUserId(req);
+
+    if (!body.wechatWorkUserId || body.wechatWorkUserId.trim() === "") {
+      throw new HttpException(
+        "WeChat Work user ID is required",
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const wechatWorkUserId = body.wechatWorkUserId.trim();
+
+    // Check if this WeChat Work ID is already bound to another user
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        preferences: {
+          path: ["wechatWorkUserId"],
+          equals: wechatWorkUserId,
+        },
+        NOT: { id: userId },
+      },
+    });
+
+    if (existingUser) {
+      throw new HttpException(
+        "This WeChat Work ID is already bound to another account",
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    // Get current preferences
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { preferences: true },
+    });
+
+    const currentPreferences =
+      (user?.preferences as Record<string, unknown>) || {};
+
+    // Update preferences with WeChat Work ID
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        preferences: {
+          ...currentPreferences,
+          wechatWorkUserId,
+        },
+      },
+    });
+
+    this.logger.log(`User ${userId} bound WeChat Work ID: ${wechatWorkUserId}`);
+
+    return {
+      success: true,
+      message: "WeChat Work ID bound successfully",
+      wechatWorkUserId,
+    };
+  }
+
+  /**
+   * Unbind WeChat Work user ID
+   */
+  @Delete("binding")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "Unbind WeChat Work user ID" })
+  @ApiResponse({ status: 200, description: "Unbinding successful" })
+  async unbindWechatWork(@Req() req: AuthenticatedRequest) {
+    const userId = this.getUserId(req);
+
+    // Get current preferences
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { preferences: true },
+    });
+
+    const currentPreferences =
+      (user?.preferences as Record<string, unknown>) || {};
+
+    // Remove wechatWorkUserId from preferences
+    const { wechatWorkUserId, ...remainingPreferences } = currentPreferences;
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        preferences: remainingPreferences as object,
+      },
+    });
+
+    this.logger.log(`User ${userId} unbound WeChat Work ID`);
+
+    return {
+      success: true,
+      message: "WeChat Work ID unbound successfully",
     };
   }
 }

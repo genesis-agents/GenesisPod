@@ -1081,7 +1081,34 @@
       "connecting": "Connecting...",
       "privacyNote": "DeepDive only accesses pages you explicitly share. Your data is stored securely and never shared with third parties.",
       "moreIntegrations": "More Integrations",
-      "comingSoon": "Coming soon"
+      "comingSoon": "Coming soon",
+      "wechat": {
+        "title": "WeChat Work Integration",
+        "description": "Sync WeChat articles and videos to your data sources",
+        "connected": "Connected",
+        "notConnected": "Not connected",
+        "boundTo": "Bound to",
+        "bind": "Bind Account",
+        "binding": "Binding...",
+        "unbind": "Unbind",
+        "enterUserId": "Please enter your WeChat Work user ID",
+        "bindSuccess": "WeChat Work account bound successfully",
+        "bindFailed": "Failed to bind WeChat Work account",
+        "unbindSuccess": "WeChat Work account unbound successfully",
+        "unbindFailed": "Failed to unbind WeChat Work account",
+        "confirmUnbind": "Are you sure you want to unbind your WeChat Work account?",
+        "userIdLabel": "WeChat Work User ID",
+        "userIdPlaceholder": "Enter your WeChat Work user ID",
+        "userIdHelp": "This is your user ID in WeChat Work, used to identify you when syncing content",
+        "howToUse": "How to use",
+        "step1": "Forward WeChat articles/videos to your WeChat Work group",
+        "step2": "The bot will automatically process and sync the content",
+        "step3": "View synced content in Library → WeChat",
+        "findUserId": "How to find your WeChat Work User ID",
+        "findStep1": "Open WeChat Work app",
+        "findStep2": "Go to Me → Personal Info",
+        "findStep3": "Your user ID is shown at the bottom"
+      }
     }
   },
   "aiAsk": {
