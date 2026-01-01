@@ -959,6 +959,7 @@ export class SlidesTeamOrchestratorService {
 
     // 并发生成页面（使用批次处理）
     const pages: GenerationResult["pages"] = [];
+    let accumulatedContentLength = 0; // 累积内容长度
     const totalPages = outline.pages.length;
 
     // 分批并发处理
@@ -1029,6 +1030,9 @@ export class SlidesTeamOrchestratorService {
           html: result.html,
         });
 
+        // 累积内容长度（使用 content compression 计算的实际长度）
+        accumulatedContentLength += result.compressedLength;
+
         this.emitEvent(subject, state.executionId, "slide:generated", {
           pageNumber: result.pageNumber,
           title: result.title,
@@ -1044,11 +1048,7 @@ export class SlidesTeamOrchestratorService {
 
     const result: GenerationResult = {
       pages,
-      totalContentLength: pages.reduce(
-        (sum, p) =>
-          sum + (typeof p.content === "string" ? p.content.length : 0),
-        0,
-      ),
+      totalContentLength: accumulatedContentLength,
     };
 
     const duration = Date.now() - state.phaseStartTime.getTime();
