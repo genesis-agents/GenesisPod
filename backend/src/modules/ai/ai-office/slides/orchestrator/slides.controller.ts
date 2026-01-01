@@ -653,7 +653,10 @@ export class SlidesController {
       const latestCheckpoint =
         await this.checkpointService.getLatestCheckpoint(sessionId);
 
-      if (!latestCheckpoint?.state?.pages) {
+      if (
+        !latestCheckpoint?.state?.pages ||
+        latestCheckpoint.state.pages.length === 0
+      ) {
         throw new HttpException("No pages to export", HttpStatus.BAD_REQUEST);
       }
 

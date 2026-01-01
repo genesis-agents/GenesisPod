@@ -73,9 +73,9 @@ const MAX_REVISION_ATTEMPTS = 3;
  * 各阶段通过阈值
  */
 const PHASE_THRESHOLDS: Record<string, number> = {
-  analysis: 55, // 降低阈值：分析阶段对数据稀疏的文本应更宽容
-  planning: 70,
-  generation: 75,
+  analysis: 60, // 分析阶段：需要提取有效信息
+  planning: 70, // 规划阶段：需要合理的结构设计
+  generation: 70, // 生成阶段：需要基本完整的内容
 };
 
 /**
@@ -1289,14 +1289,23 @@ export class SlidesTeamOrchestratorService {
 
   private async saveCheckpoint(state: SlidesTeamState): Promise<string> {
     // 保存到 checkpoint 系统
+    // 使用 pages 字段（而非 renderedPages）以匹配 CheckpointState 类型
     const checkpointState = {
       taskDecomposition: null, // 简化
-      pageOutline: state.planningResult,
-      renderedPages: state.generationResult?.pages.map((p) => ({
-        pageNumber: p.pageNumber,
-        html: p.html,
-        pageContent: p.content,
-      })),
+      outlinePlan: state.planningResult,
+      pages:
+        state.generationResult?.pages.map((p) => ({
+          pageNumber: p.pageNumber,
+          html: p.html,
+          content: p.content,
+          outline: {
+            pageNumber: p.pageNumber,
+            title: p.title,
+            templateType: "content",
+          },
+          status: "completed" as const,
+        })) || [],
+      conversation: [],
       currentPageIndex: state.generationResult?.pages.length || 0,
       completedPages:
         state.generationResult?.pages.map((p) => p.pageNumber) || [],
