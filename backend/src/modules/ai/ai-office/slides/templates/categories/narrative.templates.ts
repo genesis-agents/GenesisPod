@@ -45,7 +45,7 @@ const N001_COVER: SlideTemplate = {
 <div style="
   width: ${CANVAS.width}px;
   height: ${CANVAS.height}px;
-  background: linear-gradient(135deg, ${COLORS.bgPrimary} 0%, ${COLORS.bgSecondary} 100%);
+  background: linear-gradient(135deg, ${COLORS.bgPrimary} 0%, ${COLORS.bgSecondary} 50%, #0c1222 100%);
   font-family: ${TYPOGRAPHY.fontFamily};
   color: ${COLORS.textPrimary};
   padding: ${SPACING.pageTop}px ${SPACING.pageRight}px ${SPACING.pageBottom}px ${SPACING.pageLeft}px;
@@ -53,36 +53,79 @@ const N001_COVER: SlideTemplate = {
   position: relative;
   overflow: hidden;
 ">
-  <!-- 装饰元素 -->
-  <div style="position: absolute; top: -100px; right: -100px; width: 400px; height: 400px; background: radial-gradient(circle, rgba(212, 175, 55, 0.1) 0%, transparent 70%); border-radius: 50%;"></div>
-  <div style="position: absolute; bottom: -50px; left: -50px; width: 300px; height: 300px; background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%); border-radius: 50%;"></div>
+  <!-- 增强装饰元素 - 多层渐变光晕 -->
+  <div style="position: absolute; top: -150px; right: -100px; width: 500px; height: 500px; background: radial-gradient(circle, rgba(212, 175, 55, 0.15) 0%, rgba(212, 175, 55, 0.05) 40%, transparent 70%); border-radius: 50%;"></div>
+  <div style="position: absolute; top: 100px; right: 200px; width: 300px; height: 300px; background: radial-gradient(circle, rgba(59, 130, 246, 0.12) 0%, transparent 60%); border-radius: 50%;"></div>
+  <div style="position: absolute; bottom: -100px; left: -100px; width: 400px; height: 400px; background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%); border-radius: 50%;"></div>
+  <div style="position: absolute; bottom: 150px; left: 300px; width: 200px; height: 200px; background: radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, transparent 60%); border-radius: 50%;"></div>
+
+  <!-- 右侧几何装饰图案 -->
+  <div style="position: absolute; top: 80px; right: 80px; width: 180px; height: 180px;">
+    <div style="position: absolute; top: 0; right: 0; width: 120px; height: 120px; border: 2px solid rgba(212, 175, 55, 0.3); border-radius: 12px; transform: rotate(15deg);"></div>
+    <div style="position: absolute; top: 30px; right: 30px; width: 80px; height: 80px; border: 2px solid rgba(59, 130, 246, 0.25); border-radius: 8px; transform: rotate(-10deg);"></div>
+    <div style="position: absolute; top: 50px; right: 50px; width: 40px; height: 40px; background: linear-gradient(135deg, ${COLORS.accentGold}, ${COLORS.accentBlue}); border-radius: 6px; opacity: 0.8;"></div>
+  </div>
+
+  <!-- 左侧竖线装饰 -->
+  <div style="position: absolute; left: 40px; top: 100px; width: 3px; height: 150px; background: linear-gradient(180deg, ${COLORS.accentGold}, transparent);"></div>
 
   <!-- 主内容区 -->
-  <div style="display: flex; flex-direction: column; justify-content: center; height: 100%; position: relative; z-index: 1;">
-    <!-- 顶部装饰线 -->
-    <div style="width: 80px; height: 4px; background: linear-gradient(90deg, ${COLORS.accentGold} 0%, ${COLORS.accentBlue} 100%); margin-bottom: 32px;"></div>
+  <div style="display: flex; flex-direction: column; justify-content: center; height: 100%; position: relative; z-index: 1; max-width: 75%;">
+    <!-- 顶部装饰线组 -->
+    <div style="display: flex; gap: 8px; margin-bottom: 40px;">
+      <div style="width: 60px; height: 4px; background: ${COLORS.accentGold}; border-radius: 2px;"></div>
+      <div style="width: 30px; height: 4px; background: ${COLORS.accentBlue}; border-radius: 2px;"></div>
+      <div style="width: 15px; height: 4px; background: ${COLORS.accentGreen}; border-radius: 2px;"></div>
+    </div>
 
-    <!-- 标题 -->
-    <h1 style="font-size: ${TYPOGRAPHY.title.h1.size}; font-weight: ${TYPOGRAPHY.title.h1.weight}; margin: 0 0 16px 0; line-height: ${TYPOGRAPHY.title.h1.lineHeight};">{{TITLE}}</h1>
+    <!-- 标签 -->
+    <div style="display: inline-flex; background: rgba(212, 175, 55, 0.15); border: 1px solid rgba(212, 175, 55, 0.3); padding: 6px 16px; border-radius: 20px; font-size: 12px; color: ${COLORS.accentGold}; font-weight: 600; margin-bottom: 24px; width: fit-content; letter-spacing: 2px;">
+      专业报告
+    </div>
+
+    <!-- 标题 - 增大字号 -->
+    <h1 style="font-size: 52px; font-weight: ${TYPOGRAPHY.title.h1.weight}; margin: 0 0 20px 0; line-height: 1.2; background: linear-gradient(90deg, ${COLORS.textPrimary} 0%, ${COLORS.textMuted} 100%); -webkit-background-clip: text; background-clip: text;">{{TITLE}}</h1>
 
     <!-- 副标题 -->
-    <p style="font-size: 24px; color: ${COLORS.textMuted}; margin: 0 0 48px 0; max-width: 70%;">{{SUBTITLE}}</p>
+    <p style="font-size: 22px; color: ${COLORS.textMuted}; margin: 0 0 48px 0; line-height: 1.6;">{{SUBTITLE}}</p>
 
-    <!-- 元信息 -->
-    <div style="display: flex; gap: 32px; margin-top: auto;">
-      <div>
-        <div style="font-size: 12px; color: ${COLORS.textSubtle}; margin-bottom: 4px;">演示者</div>
-        <div style="font-size: 16px; font-weight: 500;">{{AUTHOR}}</div>
+    <!-- 分隔线 -->
+    <div style="width: 100%; height: 1px; background: linear-gradient(90deg, rgba(100, 116, 139, 0.3), transparent); margin-bottom: 32px;"></div>
+
+    <!-- 元信息 - 增强样式 -->
+    <div style="display: flex; gap: 48px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="width: 40px; height: 40px; background: rgba(212, 175, 55, 0.1); border: 1px solid rgba(212, 175, 55, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${COLORS.accentGold}" stroke-width="2">
+            <circle cx="12" cy="8" r="4"/>
+            <path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/>
+          </svg>
+        </div>
+        <div>
+          <div style="font-size: 11px; color: ${COLORS.textSubtle}; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 1px;">演示者</div>
+          <div style="font-size: 15px; font-weight: 600;">{{AUTHOR}}</div>
+        </div>
       </div>
-      <div>
-        <div style="font-size: 12px; color: ${COLORS.textSubtle}; margin-bottom: 4px;">日期</div>
-        <div style="font-size: 16px; font-weight: 500;">{{DATE}}</div>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="width: 40px; height: 40px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${COLORS.accentBlue}" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+        <div>
+          <div style="font-size: 11px; color: ${COLORS.textSubtle}; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 1px;">日期</div>
+          <div style="font-size: 15px; font-weight: 600;">{{DATE}}</div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- 底部装饰 -->
-  <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, ${COLORS.accentGold}, ${COLORS.accentBlue}, ${COLORS.accentGreen});"></div>
+  <!-- 底部增强装饰 -->
+  <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 6px; background: linear-gradient(90deg, ${COLORS.accentGold} 0%, ${COLORS.accentBlue} 50%, ${COLORS.accentGreen} 100%);"></div>
+  <div style="position: absolute; bottom: 6px; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, rgba(212, 175, 55, 0.3) 0%, rgba(59, 130, 246, 0.3) 50%, rgba(16, 185, 129, 0.3) 100%);"></div>
 </div>
   `.trim(),
 };

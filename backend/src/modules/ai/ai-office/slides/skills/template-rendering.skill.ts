@@ -673,12 +673,18 @@ ${overflowProtectionStyles}
       if (section && this.isStatContent(section.content)) {
         const stat = section.content as StatContent;
         vars[`KPI${kpiNum}_VALUE`] = this.ensureUniqueValue(
-          stat.value,
+          this.sanitizeValue(stat.value, diverseValues[i]),
           usedValues,
           diverseValues,
         );
-        vars[`KPI${kpiNum}_LABEL`] = stat.label || diverseLabels[i];
-        vars[`KPI${kpiNum}_CHANGE`] = stat.change || diverseChanges[i];
+        vars[`KPI${kpiNum}_LABEL`] = this.sanitizeValue(
+          stat.label,
+          diverseLabels[i],
+        );
+        vars[`KPI${kpiNum}_CHANGE`] = this.sanitizeValue(
+          stat.change,
+          diverseChanges[i],
+        );
       } else {
         vars[`KPI${kpiNum}_VALUE`] = diverseValues[i];
         vars[`KPI${kpiNum}_LABEL`] = diverseLabels[i];
@@ -692,10 +698,16 @@ ${overflowProtectionStyles}
     );
     if (statSections.length > 0) {
       const firstStat = statSections[0].content as StatContent;
-      vars["CURRENT_VALUE"] = firstStat.value || diverseValues[0];
-      vars["MOM_CHANGE"] = firstStat.change || "+12%";
+      vars["CURRENT_VALUE"] = this.sanitizeValue(
+        firstStat.value,
+        diverseValues[0],
+      );
+      vars["MOM_CHANGE"] = this.sanitizeValue(firstStat.change, "+12%");
       vars["YOY_CHANGE"] = statSections[1]
-        ? (statSections[1].content as StatContent).change || "+25%"
+        ? this.sanitizeValue(
+            (statSections[1].content as StatContent).change,
+            "+25%",
+          )
         : "+25%";
     } else {
       vars["CURRENT_VALUE"] = diverseValues[0];
@@ -1288,6 +1300,34 @@ ${overflowProtectionStyles}
   }
 
   /**
+   * 辅助：清理 N/A 值，返回默认值
+   * 当值为 N/A、空、null 等时返回默认值
+   */
+  private sanitizeValue(
+    value: string | undefined,
+    defaultValue: string,
+  ): string {
+    if (!value) return defaultValue;
+    const trimmed = value.trim();
+    // 检查常见的无效值模式
+    if (
+      trimmed === "" ||
+      trimmed.toLowerCase() === "n/a" ||
+      trimmed === "N/A" ||
+      trimmed === "-" ||
+      trimmed === "--" ||
+      trimmed === "null" ||
+      trimmed === "undefined" ||
+      trimmed === "暂无" ||
+      trimmed === "无" ||
+      trimmed === "待定"
+    ) {
+      return defaultValue;
+    }
+    return trimmed;
+  }
+
+  /**
    * 辅助：从 sections 获取描述文本
    */
   private getDescriptionFromSections(
@@ -1637,10 +1677,13 @@ ${overflowProtectionStyles}
 
     if (statSections.length > 0) {
       const firstStat = statSections[0].content as StatContent;
-      vars["CURRENT_VALUE"] = firstStat.value || "$2.5M";
-      vars["MOM_CHANGE"] = firstStat.change || "+12%";
+      vars["CURRENT_VALUE"] = this.sanitizeValue(firstStat.value, "$2.5M");
+      vars["MOM_CHANGE"] = this.sanitizeValue(firstStat.change, "+12%");
       vars["YOY_CHANGE"] = statSections[1]
-        ? (statSections[1].content as StatContent).change || "+25%"
+        ? this.sanitizeValue(
+            (statSections[1].content as StatContent).change,
+            "+25%",
+          )
         : "+25%";
     } else {
       vars["CURRENT_VALUE"] = "$2.5M";
@@ -1652,9 +1695,10 @@ ${overflowProtectionStyles}
     const textSection = sections.find(
       (s) => s.type === "text" && typeof s.content === "string",
     );
-    vars["INSIGHT"] =
-      (textSection?.content as string)?.slice(0, 100) ||
-      "数据显示持续增长趋势，预计下季度将保持稳定发展";
+    vars["INSIGHT"] = this.sanitizeValue(
+      (textSection?.content as string)?.slice(0, 100),
+      "数据显示持续增长趋势，预计下季度将保持稳定发展",
+    );
     vars["PERIOD"] = "2024年Q4";
 
     // 图表数据 (默认值)

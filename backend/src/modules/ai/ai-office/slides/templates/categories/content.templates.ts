@@ -45,11 +45,13 @@ export const IMAGE_LEFT_TEXT_RIGHT_TEMPLATE: SlideTemplate = {
 
   <div style="display: flex; gap: 40px; height: calc(100% - 120px);">
     <div style="flex: 0 0 45%; ${CARD_STYLE} display: flex; align-items: center; justify-content: center; overflow: hidden;">
-      <div style="width: 100%; height: 100%; background: linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(59, 130, 246, 0.1)); display: flex; align-items: center; justify-content: center;">
-        <div style="text-align: center; color: #64748B;">
-          <div style="font-size: 48px; margin-bottom: 12px;">🖼️</div>
-          <div style="font-size: 14px;">{{IMAGE_PLACEHOLDER}}</div>
-        </div>
+      <div style="width: 100%; height: 100%; background: linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(59, 130, 246, 0.15) 50%, rgba(16, 185, 129, 0.1) 100%); display: flex; align-items: center; justify-content: center; border-radius: 8px;">
+        <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="10" y="20" width="100" height="70" rx="8" stroke="#D4AF37" stroke-width="2" fill="rgba(212, 175, 55, 0.1)"/>
+          <circle cx="35" cy="45" r="10" fill="#D4AF37" opacity="0.6"/>
+          <path d="M20 75 L45 55 L65 70 L90 45 L100 55 L100 80 L20 80 Z" fill="#3B82F6" opacity="0.4"/>
+          <text x="60" y="105" text-anchor="middle" fill="#64748B" font-size="12" font-family="sans-serif">配图区域</text>
+        </svg>
       </div>
     </div>
 
@@ -125,11 +127,13 @@ export const TEXT_LEFT_IMAGE_RIGHT_TEMPLATE: SlideTemplate = {
     </div>
 
     <div style="flex: 0 0 45%; ${CARD_STYLE} display: flex; align-items: center; justify-content: center; overflow: hidden;">
-      <div style="width: 100%; height: 100%; background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(16, 185, 129, 0.1)); display: flex; align-items: center; justify-content: center;">
-        <div style="text-align: center; color: #64748B;">
-          <div style="font-size: 48px; margin-bottom: 12px;">🖼️</div>
-          <div style="font-size: 14px;">{{IMAGE_PLACEHOLDER}}</div>
-        </div>
+      <div style="width: 100%; height: 100%; background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(16, 185, 129, 0.15) 50%, rgba(212, 175, 55, 0.1) 100%); display: flex; align-items: center; justify-content: center; border-radius: 8px;">
+        <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="10" y="20" width="100" height="70" rx="8" stroke="#3B82F6" stroke-width="2" fill="rgba(59, 130, 246, 0.1)"/>
+          <circle cx="35" cy="45" r="10" fill="#10B981" opacity="0.6"/>
+          <path d="M20 75 L45 55 L65 70 L90 45 L100 55 L100 80 L20 80 Z" fill="#D4AF37" opacity="0.4"/>
+          <text x="60" y="105" text-anchor="middle" fill="#64748B" font-size="12" font-family="sans-serif">配图区域</text>
+        </svg>
       </div>
     </div>
   </div>
