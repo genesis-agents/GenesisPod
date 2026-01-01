@@ -136,7 +136,7 @@ export class MultiModelService {
   }
 
   /**
-   * 根据角色调用 AI（带超时）
+   * 根据角色调用 AI（带超时和重试）
    */
   async callByRole(input: RoleCallInput): Promise<RoleCallResult> {
     const { role, messages, maxTokens, temperature, metadata } = input;
@@ -148,53 +148,112 @@ export class MultiModelService {
 
     const startTime = Date.now();
     const timeoutMs = this.getTimeoutForRole(role);
+    const maxRetries = this.getMaxRetriesForRole(role);
 
-    try {
-      // 构建 AI 调用输入
-      const aiInput: AiCallInput = {
-        taskType: this.getTaskTypeForRole(role),
-        messages,
-        strategy: this.mapStrategy(roleConfig.strategy),
-        maxTokens: maxTokens || this.getDefaultMaxTokens(role),
-        temperature: temperature || this.getDefaultTemperature(role),
-        metadata: {
-          source: "slides",
-          role,
-          ...metadata,
-        },
-      };
+    let lastError: Error | null = null;
 
-      // 调用 AI（带超时）
-      const result = await this.callWithTimeout(
-        this.aiOrchestration.call(aiInput),
-        timeoutMs,
-        `AI call for role ${role} timed out after ${timeoutMs}ms`,
-      );
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // 构建 AI 调用输入
+        const aiInput: AiCallInput = {
+          taskType: this.getTaskTypeForRole(role),
+          messages,
+          strategy: this.mapStrategy(roleConfig.strategy),
+          maxTokens: maxTokens || this.getDefaultMaxTokens(role),
+          temperature: temperature || this.getDefaultTemperature(role),
+          metadata: {
+            source: "slides",
+            role,
+            attempt,
+            ...metadata,
+          },
+        };
 
-      return {
-        success: result.success,
-        content: result.content,
-        role,
-        modelUsed: result.model,
-        provider: result.provider,
-        tokensUsed: result.tokensUsed,
-        latencyMs: Date.now() - startTime,
-        error: result.error,
-        fallbackUsed: result.fallbackUsed,
-      };
-    } catch (error) {
-      this.logger.error(`[callByRole] Failed for role ${role}:`, error);
+        // 调用 AI（带超时）
+        const result = await this.callWithTimeout(
+          this.aiOrchestration.call(aiInput),
+          timeoutMs,
+          `AI call for role ${role} timed out after ${timeoutMs}ms`,
+        );
 
-      return {
-        success: false,
-        role,
-        modelUsed: "unknown",
-        provider: "unknown",
-        tokensUsed: 0,
-        latencyMs: Date.now() - startTime,
-        error: error instanceof Error ? error.message : String(error),
-      };
+        // 检查结果是否有效
+        if (result.success && result.content) {
+          return {
+            success: result.success,
+            content: result.content,
+            role,
+            modelUsed: result.model,
+            provider: result.provider,
+            tokensUsed: result.tokensUsed,
+            latencyMs: Date.now() - startTime,
+            error: result.error,
+            fallbackUsed: result.fallbackUsed || attempt > 1,
+          };
+        }
+
+        // 结果不成功，记录错误并重试
+        lastError = new Error(result.error || "AI returned empty content");
+        this.logger.warn(
+          `[callByRole] Attempt ${attempt}/${maxRetries} failed for role ${role}: ${lastError.message}`,
+        );
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        this.logger.warn(
+          `[callByRole] Attempt ${attempt}/${maxRetries} failed for role ${role}: ${lastError.message}`,
+        );
+      }
+
+      // 如果不是最后一次尝试，等待后重试
+      if (attempt < maxRetries) {
+        const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // 指数退避，最大10秒
+        this.logger.log(
+          `[callByRole] Retrying in ${backoffMs}ms... (attempt ${attempt + 1}/${maxRetries})`,
+        );
+        await this.sleep(backoffMs);
+      }
     }
+
+    // 所有重试都失败
+    this.logger.error(
+      `[callByRole] All ${maxRetries} attempts failed for role ${role}`,
+    );
+
+    return {
+      success: false,
+      role,
+      modelUsed: "unknown",
+      provider: "unknown",
+      tokensUsed: 0,
+      latencyMs: Date.now() - startTime,
+      error: lastError?.message || "All retry attempts failed",
+    };
+  }
+
+  /**
+   * 获取角色的最大重试次数
+   */
+  private getMaxRetriesForRole(role: SlidesRole): number {
+    switch (role) {
+      case "architect":
+        return 3; // 架构角色重要，多重试几次
+      case "writer":
+        return 2;
+      case "renderer":
+        return 2;
+      case "reviewer":
+        return 2;
+      case "image":
+        return 3; // 图像生成容易失败，多重试
+      default:
+        return 2;
+    }
+  }
+
+  /**
+   * 休眠指定毫秒数
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
@@ -229,17 +288,17 @@ export class MultiModelService {
   private getTimeoutForRole(role: SlidesRole): number {
     switch (role) {
       case "architect":
-        return 60000; // 60s - 任务分解和大纲需要更多时间
+        return 120000; // 120s - 任务分解和大纲需要更多时间（大文档可能很慢）
       case "writer":
-        return 30000; // 30s - 内容填充
+        return 60000; // 60s - 内容填充（增加容错）
       case "renderer":
         return 90000; // 90s - HTML 生成可能较慢
       case "reviewer":
-        return 30000; // 30s - 质量审核
+        return 45000; // 45s - 质量审核
       case "image":
-        return 60000; // 60s - 图像生成
+        return 90000; // 90s - 图像生成（网络延迟可能较大）
       default:
-        return 30000; // 默认 30s
+        return 45000; // 默认 45s
     }
   }
 
