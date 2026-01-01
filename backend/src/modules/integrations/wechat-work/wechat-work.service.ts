@@ -103,6 +103,21 @@ export class WechatWorkService {
       `Text message from ${fromUser}: ${content.substring(0, 50)}...`,
     );
 
+    // 检测是否是 URL（自动同步到知识库）
+    const urlMatch = content.match(/https?:\/\/[^\s]+/);
+    if (urlMatch) {
+      const url = urlMatch[0];
+      // 检测是否是微信相关链接
+      if (
+        url.includes("mp.weixin.qq.com") ||
+        url.includes("weixin.qq.com") ||
+        url.includes("channels.weixin.qq.com")
+      ) {
+        await this.handleUrlImport(fromUser, url);
+        return;
+      }
+    }
+
     // 检查是否触发 AI 分析
     const aiTrigger = this.AI_TRIGGER_PREFIXES.find((prefix) =>
       content.startsWith(prefix),
@@ -118,8 +133,8 @@ export class WechatWorkService {
       }
 
       // 提取 URL（如果有）
-      const urlMatch = query.match(/https?:\/\/[^\s]+/);
-      const url = urlMatch ? urlMatch[0] : null;
+      const urlInQuery = content.match(/https?:\/\/[^\s]+/);
+      const url = urlInQuery ? urlInQuery[0] : null;
 
       // 调用 AI 分析
       await this.sendTextMessage(fromUser, "正在分析中，请稍候...");
@@ -137,6 +152,51 @@ export class WechatWorkService {
     } else {
       // 非 AI 触发消息，返回帮助信息
       await this.sendTextMessage(fromUser, this.getHelpMessage());
+    }
+  }
+
+  /**
+   * 处理 URL 导入到知识库
+   */
+  private async handleUrlImport(fromUser: string, url: string): Promise<void> {
+    this.logger.log(`Importing URL to RAG: ${url}`);
+
+    await this.sendTextMessage(fromUser, "正在同步到知识库，请稍候...");
+
+    try {
+      // 获取平台用户 ID
+      const platformUserId = await this.getUserIdFromWechatWork(fromUser);
+
+      if (!platformUserId) {
+        await this.sendTextMessage(
+          fromUser,
+          "无法识别您的用户身份，请先在平台设置中绑定企业微信。",
+        );
+        return;
+      }
+
+      // 调用导入服务
+      const result = await this.wechatImportService.importWechatUrl({
+        url,
+        userId: platformUserId,
+      });
+
+      // 发送成功消息
+      await this.sendMarkdownMessage(
+        fromUser,
+        `✅ **已同步到知识库**\n\n` +
+          `📄 **标题**: ${result.title}\n` +
+          `📚 **知识库**: ${result.knowledgeBaseName}\n` +
+          `🔗 **类型**: ${result.linkType === "article" ? "公众号文章" : result.linkType === "video" ? "视频号" : "外部链接"}\n\n` +
+          `[查看详情](${result.detailUrl})`,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to import URL: ${error}`);
+      const errorMessage = error instanceof Error ? error.message : "未知错误";
+      await this.sendTextMessage(
+        fromUser,
+        `同步失败: ${errorMessage}\n\n如需帮助，请发送 /help`,
+      );
     }
   }
 
