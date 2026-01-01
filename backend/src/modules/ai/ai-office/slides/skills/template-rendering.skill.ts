@@ -410,8 +410,12 @@ ${overflowProtectionStyles}
           ...baseVars,
           ...this.extractTocVariables(pageContent, pageOutline),
         };
-      case "S-002": // Section Divider
-        return { ...baseVars, ...this.extractFrameworkVariables(pageContent) };
+      case "S-002": // Section Divider (章节分隔页)
+        // v3.5.3: 使用专门的章节变量提取，修复章节号总是1的问题
+        return {
+          ...baseVars,
+          ...this.extractChapterTitleVariables(pageOutline, pageContent),
+        };
       case "S-003": // 3-Pillar
       case "S-004": // 4-Pillar
       case "S-005": // 5-Pillar
