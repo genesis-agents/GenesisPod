@@ -46,11 +46,40 @@ export interface GeometricShapeConfig {
   }[];
 }
 
+/**
+ * 金色装饰竖条配置
+ * 用于标题旁的视觉标记，提升专业感
+ */
+export interface AccentBarConfig {
+  enabled: boolean;
+  position: "title-left" | "card-left" | "section-top";
+  color: string;
+  width: number; // px, 默认 4-5
+  height: number | "auto"; // px 或 "auto" 自适应
+  borderRadius?: number;
+  glow?: boolean; // 是否添加发光效果
+}
+
+/**
+ * 透明边框装饰框配置
+ * 用于章节页角落装饰
+ */
+export interface TransparentBorderConfig {
+  enabled: boolean;
+  positions: ("top-left" | "top-right" | "bottom-left" | "bottom-right")[];
+  color: string;
+  size: number; // 正方形边长
+  borderWidth: number;
+  opacity: number; // 0-1
+}
+
 export interface DecorationConfig {
   cornerAccent: CornerAccentConfig;
   glowEffect: GlowEffectConfig;
   gradientBar: GradientBarConfig;
   geometricShapes: GeometricShapeConfig;
+  accentBar?: AccentBarConfig;
+  transparentBorder?: TransparentBorderConfig;
 }
 
 // ============================================================================
@@ -122,6 +151,23 @@ export const DECORATION_PRESETS: Record<string, DecorationConfig> = {
           opacity: 0.15,
         },
       ],
+    },
+    accentBar: {
+      enabled: true,
+      position: "title-left",
+      color: "#D4AF37",
+      width: 5,
+      height: 35,
+      borderRadius: 2,
+      glow: true,
+    },
+    transparentBorder: {
+      enabled: true,
+      positions: ["top-right", "bottom-left"],
+      color: "#D4AF37",
+      size: 80,
+      borderWidth: 2.5,
+      opacity: 0.3,
     },
   },
 
@@ -742,3 +788,198 @@ export function getCardGlowInlineStyle(
       0 0 ${config.spread} ${color}15;
   `;
 }
+
+// ============================================================================
+// Accent Bar Helpers (金色装饰竖条)
+// ============================================================================
+
+/**
+ * Generate inline style for accent bar
+ */
+export function getAccentBarInlineStyle(
+  color: string = "#D4AF37",
+  width: number = 5,
+  height: number | "auto" = 35,
+  borderRadius: number = 2,
+  glow: boolean = false,
+): string {
+  const baseStyle = `
+    width: ${width}px;
+    height: ${height === "auto" ? "100%" : `${height}px`};
+    background: ${color};
+    border-radius: ${borderRadius}px;
+  `;
+
+  if (glow) {
+    return `${baseStyle}
+    box-shadow: 0 0 10px ${color}60, 0 0 20px ${color}30;`;
+  }
+
+  return baseStyle;
+}
+
+/**
+ * Generate CSS for accent bar
+ */
+export function generateAccentBarCSS(config: AccentBarConfig): string {
+  if (!config.enabled) return "";
+
+  const positionClass =
+    config.position === "title-left"
+      ? "accent-bar-title"
+      : config.position === "card-left"
+        ? "accent-bar-card"
+        : "accent-bar-section";
+
+  const glowStyle = config.glow
+    ? `box-shadow: 0 0 10px ${config.color}60, 0 0 20px ${config.color}30;`
+    : "";
+
+  return `
+    .${positionClass} {
+      width: ${config.width}px;
+      height: ${config.height === "auto" ? "100%" : `${config.height}px`};
+      background: ${config.color};
+      border-radius: ${config.borderRadius || 0}px;
+      ${glowStyle}
+    }
+  `;
+}
+
+// ============================================================================
+// Transparent Border Helpers (透明边框装饰框)
+// ============================================================================
+
+/**
+ * Generate inline style for transparent border box
+ */
+export function getTransparentBorderInlineStyle(
+  position: "top-left" | "top-right" | "bottom-left" | "bottom-right",
+  color: string = "#D4AF37",
+  size: number = 80,
+  borderWidth: number = 2.5,
+  opacity: number = 0.3,
+): string {
+  const positionMap = {
+    "top-left": "top: 0; left: 0;",
+    "top-right": "top: 0; right: 0;",
+    "bottom-left": "bottom: 0; left: 0;",
+    "bottom-right": "bottom: 0; right: 0;",
+  };
+
+  const opacityHex = Math.round(opacity * 255)
+    .toString(16)
+    .padStart(2, "0");
+
+  return `
+    position: absolute;
+    ${positionMap[position]}
+    width: ${size}px;
+    height: ${size}px;
+    border: ${borderWidth}px solid ${color}${opacityHex};
+    background: transparent;
+    pointer-events: none;
+    z-index: 1;
+  `;
+}
+
+/**
+ * Generate CSS for transparent border decorations
+ */
+export function generateTransparentBorderCSS(
+  config: TransparentBorderConfig,
+): string {
+  if (!config.enabled || config.positions.length === 0) return "";
+
+  const opacityHex = Math.round(config.opacity * 255)
+    .toString(16)
+    .padStart(2, "0");
+
+  const styles: string[] = [];
+
+  config.positions.forEach((pos) => {
+    const positionMap = {
+      "top-left": "top: 0; left: 0;",
+      "top-right": "top: 0; right: 0;",
+      "bottom-left": "bottom: 0; left: 0;",
+      "bottom-right": "bottom: 0; right: 0;",
+    };
+
+    styles.push(`
+      .transparent-border-${pos} {
+        position: absolute;
+        ${positionMap[pos]}
+        width: ${config.size}px;
+        height: ${config.size}px;
+        border: ${config.borderWidth}px solid ${config.color}${opacityHex};
+        background: transparent;
+        pointer-events: none;
+        z-index: 1;
+      }
+    `);
+  });
+
+  return styles.join("\n");
+}
+
+// ============================================================================
+// PPTX-specific Decoration Helpers
+// ============================================================================
+
+/**
+ * PPTX装饰配置常量
+ * 用于PPTX渲染器的装饰元素配置
+ */
+export const PPTX_DECORATION_CONSTANTS = {
+  // 金色装饰竖条 (标题旁)
+  accentBar: {
+    color: "D4AF37",
+    width: 0.05, // 英寸
+    height: 0.35, // 英寸
+    offsetX: 0.35, // 标题左侧偏移
+    offsetY: 0.1, // 标题顶部偏移
+  },
+
+  // 章节页金色装饰条 (居中)
+  chapterGoldBar: {
+    color: "D4AF37",
+    width: 1.2, // 英寸
+    height: 0.08, // 英寸
+  },
+
+  // 透明边框装饰框
+  transparentBorder: {
+    color: "D4AF37",
+    size: 2, // 英寸
+    borderWidth: 2.5, // pt
+    transparency: 70, // 30% 不透明度
+  },
+
+  // 底部洞察框
+  insightBox: {
+    height: 0.5, // 英寸
+    marginX: 0.5, // 左右边距
+    marginBottom: 0.5, // 底部边距
+    barWidth: 0.04, // 左侧竖条宽度
+    colors: {
+      insight: { bg: "10B981", bar: "10B981", text: "D1FAE5" },
+      warning: { bg: "F59E0B", bar: "F59E0B", text: "FEF3C7" },
+      tip: { bg: "3B82F6", bar: "3B82F6", text: "DBEAFE" },
+      summary: { bg: "D4AF37", bar: "D4AF37", text: "FEF9C3" },
+    },
+    icons: {
+      insight: "\u{1F4A1}", // 💡
+      warning: "\u26A0\uFE0F", // ⚠️
+      tip: "\u{1F4AD}", // 💭
+      summary: "\u{1F4CC}", // 📌
+    },
+  },
+
+  // 页脚
+  footer: {
+    y: 6.6, // 英寸
+    height: 0.25, // 英寸
+    fontSize: 10,
+    color: "94A3B8",
+  },
+} as const;

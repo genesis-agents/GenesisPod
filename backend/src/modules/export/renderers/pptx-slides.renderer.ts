@@ -74,11 +74,13 @@ export class PptxSlidesRenderer {
 
   /**
    * 渲染单个幻灯片
+   * 支持洞察框、演讲备注、页脚等增强功能
    */
   async renderSlide(
     pptx: InstanceType<typeof PptxGenJS>,
     slideContent: SlideTemplateContent,
     colors: ColorScheme = this.defaultColors,
+    options?: { pageNumber?: number; brand?: string },
   ): Promise<void> {
     const slide = pptx.addSlide();
 
@@ -133,6 +135,25 @@ export class PptxSlidesRenderer {
         this.logger.warn(
           `Unknown template type: ${(slideContent as any).templateType}`,
         );
+    }
+
+    // 添加底部洞察框 (如果有)
+    if (slideContent.insight) {
+      this.renderInsightBox(slide, slideContent.insight, colors);
+    }
+
+    // 添加演讲备注 (如果有)
+    if (slideContent.speakerNotes) {
+      slide.addNotes(slideContent.speakerNotes);
+    }
+
+    // 添加页脚 (除封面和结论页)
+    if (
+      slideContent.templateType !== "cover" &&
+      slideContent.templateType !== "conclusion" &&
+      options?.pageNumber
+    ) {
+      this.renderFooter(slide, options.pageNumber, options.brand, colors);
     }
   }
 
@@ -234,21 +255,24 @@ export class PptxSlidesRenderer {
   ): Promise<void> {
     slide.background = { color: colors.background };
 
+    // 金色装饰竖条
+    this.renderAccentBar(slide, 0.5);
+
     // 标题
     slide.addText(content.title, {
-      x: 0.5,
+      x: 0.55,
       y: 0.5,
-      w: 12.33,
+      w: 12.28,
       h: 0.8,
       fontSize: 36,
-      fontFace: "Microsoft YaHei",
+      fontFace: "Noto Sans SC",
       color: colors.text,
       bold: true,
     });
 
     // 分隔线
     slide.addShape("line", {
-      x: 0.5,
+      x: 0.55,
       y: 1.2,
       w: 2,
       h: 0,
@@ -316,7 +340,8 @@ export class PptxSlidesRenderer {
   }
 
   /**
-   * 章节标题页模板
+   * 章节标题页模板 (增强版)
+   * 包含：巨大编号(135pt)、金色装饰条、透明边框装饰框
    */
   private async renderChapterTitleSlide(
     slide: Slide,
@@ -325,54 +350,107 @@ export class PptxSlidesRenderer {
   ): Promise<void> {
     slide.background = { color: colors.background };
 
-    // 章节编号装饰
+    // 1. 巨大章节编号 (135pt) - 左上角
     slide.addText(String(content.chapterNumber).padStart(2, "0"), {
-      x: 0.5,
-      y: 1.5,
-      w: 3,
+      x: 0.6,
+      y: 0.2,
+      w: 3.5,
+      h: 2.5,
+      fontSize: 135,
+      fontFace: "Noto Sans SC",
+      color: "FFFFFF",
+      bold: true,
+    });
+
+    // 2. 金色装饰条 (居中横线)
+    slide.addShape("rect", {
+      x: 4.5,
+      y: 1.2,
+      w: 1.2,
+      h: 0.08,
+      fill: { color: "D4AF37" },
+    });
+
+    // 3. 透明边框装饰框 (右上角)
+    slide.addShape("rect", {
+      x: 10.2,
+      y: 0.4,
+      w: 2,
       h: 2,
-      fontSize: 120,
-      fontFace: "Microsoft YaHei",
-      color: colors.accent,
-      bold: true,
-      transparency: 20,
+      fill: { type: "none" },
+      line: { color: "D4AF37", width: 2.5, transparency: 70 },
     });
 
-    // 章节标题
+    // 4. 透明边框装饰框 (左下角)
+    slide.addShape("rect", {
+      x: 0.4,
+      y: 4.8,
+      w: 2,
+      h: 2,
+      fill: { type: "none" },
+      line: { color: "D4AF37", width: 2.5, transparency: 70 },
+    });
+
+    // 5. CHAPTER 标签
+    const chapterLabel = `CHAPTER ${content.chapterNumber > 9 ? "" : "0"}${content.chapterNumber}`;
+    slide.addText(chapterLabel, {
+      x: 4.2,
+      y: 1.6,
+      w: 4,
+      h: 0.4,
+      fontSize: 18,
+      fontFace: "Noto Sans SC",
+      color: "94A3B8",
+      align: "center",
+    });
+
+    // 6. 章节标题 (居中)
     slide.addText(content.title, {
-      x: 0.5,
-      y: 3,
-      w: 12.33,
-      h: 1.5,
+      x: 1,
+      y: 2.5,
+      w: 11.33,
+      h: 1,
       fontSize: 48,
-      fontFace: "Microsoft YaHei",
-      color: colors.text,
+      fontFace: "Noto Sans SC",
+      color: "F8FAFC",
       bold: true,
+      align: "center",
     });
 
-    // 副标题
+    // 7. 副标题
     if (content.subtitle) {
       slide.addText(content.subtitle, {
-        x: 0.5,
-        y: 4.7,
-        w: 12.33,
-        h: 0.8,
-        fontSize: 24,
-        fontFace: "Microsoft YaHei",
-        color: colors.textLight,
+        x: 2,
+        y: 3.6,
+        w: 9.33,
+        h: 0.5,
+        fontSize: 18,
+        fontFace: "Noto Sans SC",
+        color: "CBD5E1",
+        align: "center",
       });
     }
 
-    // 描述
+    // 8. 分隔线 (淡白色)
+    slide.addShape("rect", {
+      x: 3,
+      y: 4.2,
+      w: 7.33,
+      h: 0.01,
+      fill: { color: "FFFFFF", transparency: 85 },
+    });
+
+    // 9. 描述
     if (content.description) {
       slide.addText(content.description, {
-        x: 0.5,
-        y: 5.8,
-        w: 12.33,
-        h: 1,
-        fontSize: 16,
-        fontFace: "Microsoft YaHei",
-        color: colors.textMuted,
+        x: 2.5,
+        y: 4.5,
+        w: 8.33,
+        h: 0.8,
+        fontSize: 15,
+        fontFace: "Noto Sans SC",
+        color: "94A3B8",
+        align: "center",
       });
     }
   }
@@ -387,14 +465,17 @@ export class PptxSlidesRenderer {
   ): Promise<void> {
     slide.background = { color: colors.background };
 
+    // 金色装饰竖条
+    this.renderAccentBar(slide, 0.5);
+
     // 标题
     slide.addText(content.title, {
-      x: 0.5,
+      x: 0.55,
       y: 0.5,
-      w: 12.33,
+      w: 12.28,
       h: 0.8,
       fontSize: 32,
-      fontFace: "Microsoft YaHei",
+      fontFace: "Noto Sans SC",
       color: colors.text,
       bold: true,
     });
@@ -583,14 +664,17 @@ export class PptxSlidesRenderer {
   ): Promise<void> {
     slide.background = { color: colors.background };
 
+    // 金色装饰竖条
+    this.renderAccentBar(slide, 0.5);
+
     // 标题
     slide.addText(content.title, {
-      x: 0.5,
+      x: 0.55,
       y: 0.5,
-      w: 12.33,
+      w: 12.28,
       h: 0.8,
       fontSize: 32,
-      fontFace: "Microsoft YaHei",
+      fontFace: "Noto Sans SC",
       color: colors.text,
       bold: true,
     });
@@ -764,14 +848,17 @@ export class PptxSlidesRenderer {
   ): Promise<void> {
     slide.background = { color: colors.background };
 
+    // 金色装饰竖条
+    this.renderAccentBar(slide, 0.5);
+
     // 标题
     slide.addText(content.title, {
-      x: 0.5,
+      x: 0.55,
       y: 0.5,
-      w: 12.33,
+      w: 12.28,
       h: 0.8,
       fontSize: 32,
-      fontFace: "Microsoft YaHei",
+      fontFace: "Noto Sans SC",
       color: colors.text,
       bold: true,
     });
@@ -872,7 +959,8 @@ export class PptxSlidesRenderer {
   // ============================================================================
 
   /**
-   * 多栏布局页模板
+   * 多栏布局页模板 (增强版)
+   * 支持品牌颜色头部和KPI统计
    */
   private async renderMultiColumnSlide(
     slide: Slide,
@@ -881,14 +969,17 @@ export class PptxSlidesRenderer {
   ): Promise<void> {
     slide.background = { color: colors.background };
 
+    // 金色装饰竖条
+    this.renderAccentBar(slide, 0.5);
+
     // 标题
     slide.addText(content.title, {
-      x: 0.5,
+      x: 0.55,
       y: 0.5,
-      w: 12.33,
+      w: 12.28,
       h: 0.8,
       fontSize: 32,
-      fontFace: "Microsoft YaHei",
+      fontFace: "Noto Sans SC",
       color: colors.text,
       bold: true,
     });
@@ -920,13 +1011,28 @@ export class PptxSlidesRenderer {
       .slice(0, columnCount)
       .forEach((column: any, index: number) => {
         const x = 0.5 + index * (columnWidth + gap);
+        const hasBrandHeader = !!column.brandColor;
+        const hasKpis = column.kpis && column.kpis.length > 0;
+
+        // 品牌颜色头部 (如果有)
+        if (hasBrandHeader) {
+          this.renderBrandHeader(
+            slide,
+            x,
+            startY,
+            columnWidth,
+            column.brandColor,
+            column.title,
+            column.subtitle,
+          );
+        }
 
         // 栏目背景
         slide.addShape("roundRect", {
           x,
-          y: startY,
+          y: hasBrandHeader ? startY + 0.8 : startY,
           w: columnWidth,
-          h: 4.5,
+          h: hasBrandHeader ? 3.7 : 4.5,
           fill: { color: column.highlight ? colors.secondary : colors.primary },
           line: {
             color: column.highlight ? colors.accent : colors.secondary,
@@ -934,8 +1040,8 @@ export class PptxSlidesRenderer {
           },
         });
 
-        // 图标
-        if (column.icon) {
+        // 图标 (仅当没有品牌头部时显示)
+        if (column.icon && !hasBrandHeader) {
           slide.addText(column.icon, {
             x,
             y: startY + 0.3,
@@ -946,45 +1052,68 @@ export class PptxSlidesRenderer {
           });
         }
 
-        // 标题
-        slide.addText(column.title, {
-          x: x + 0.1,
-          y: startY + (column.icon ? 1 : 0.3),
-          w: columnWidth - 0.2,
-          h: 0.6,
-          fontSize: 18,
-          fontFace: "Microsoft YaHei",
-          color: colors.text,
-          bold: true,
-          align: "center",
-        });
+        // 标题 (仅当没有品牌头部时显示，因为品牌头部已包含标题)
+        const contentStartY = hasBrandHeader ? startY + 0.9 : startY;
+        if (!hasBrandHeader) {
+          slide.addText(column.title, {
+            x: x + 0.1,
+            y: contentStartY + (column.icon ? 1 : 0.3),
+            w: columnWidth - 0.2,
+            h: 0.6,
+            fontSize: 18,
+            fontFace: "Noto Sans SC",
+            color: colors.text,
+            bold: true,
+            align: "center",
+          });
+        }
 
         // 内容
         slide.addText(column.content, {
           x: x + 0.1,
-          y: startY + (column.icon ? 1.7 : 1),
+          y: hasBrandHeader
+            ? contentStartY + 0.2
+            : contentStartY + (column.icon ? 1.7 : 1),
           w: columnWidth - 0.2,
-          h: 2,
+          h: hasKpis ? 1.5 : 2,
           fontSize: 14,
-          fontFace: "Microsoft YaHei",
+          fontFace: "Noto Sans SC",
           color: colors.textLight,
           align: "left",
         });
 
-        // 列表项
+        // 列表项 (带金色圆点)
         if (column.items && column.items.length > 0) {
-          const itemsText = column.items
-            .map((item: any) => `• ${item}`)
-            .join("\n");
-          slide.addText(itemsText, {
-            x: x + 0.2,
-            y: startY + (column.icon ? 3.7 : 3),
-            w: columnWidth - 0.3,
-            h: 0.7,
-            fontSize: 12,
-            fontFace: "Microsoft YaHei",
-            color: colors.textMuted,
+          const itemsStartY = hasBrandHeader
+            ? contentStartY + 1.8
+            : contentStartY + (column.icon ? 3.7 : 3);
+          column.items.slice(0, 5).forEach((item: any, itemIndex: number) => {
+            const itemY = itemsStartY + itemIndex * 0.35;
+            // 金色圆点
+            slide.addShape("ellipse", {
+              x: x + 0.15,
+              y: itemY + 0.08,
+              w: 0.1,
+              h: 0.1,
+              fill: { color: "D4AF37" },
+            });
+            // 文字
+            slide.addText(String(item), {
+              x: x + 0.3,
+              y: itemY,
+              w: columnWidth - 0.4,
+              h: 0.35,
+              fontSize: 11,
+              fontFace: "Noto Sans SC",
+              color: colors.textMuted,
+            });
           });
+        }
+
+        // 底部KPI展示 (如果有)
+        if (hasKpis) {
+          const kpiY = startY + (hasBrandHeader ? 3.5 : 3.8);
+          this.renderKpiStats(slide, column.kpis, x, kpiY, columnWidth, colors);
         }
       });
   }
@@ -999,11 +1128,14 @@ export class PptxSlidesRenderer {
   ): Promise<void> {
     slide.background = { color: colors.background };
 
+    // 金色装饰竖条
+    this.renderAccentBar(slide, 0.5);
+
     // 标题
     slide.addText(content.title, {
-      x: 0.5,
+      x: 0.55,
       y: 0.5,
-      w: 12.33,
+      w: 12.28,
       h: 0.8,
       fontSize: 32,
       fontFace: "Microsoft YaHei",
@@ -1200,14 +1332,17 @@ export class PptxSlidesRenderer {
   ): Promise<void> {
     slide.background = { color: colors.background };
 
+    // 金色装饰竖条
+    this.renderAccentBar(slide, 0.5);
+
     // 标题
     slide.addText(content.title, {
-      x: 0.5,
+      x: 0.55,
       y: 0.5,
-      w: 12.33,
+      w: 12.28,
       h: 0.8,
       fontSize: 32,
-      fontFace: "Microsoft YaHei",
+      fontFace: "Noto Sans SC",
       color: colors.text,
       bold: true,
     });
@@ -1406,14 +1541,17 @@ export class PptxSlidesRenderer {
   ): Promise<void> {
     slide.background = { color: colors.background };
 
+    // 金色装饰竖条
+    this.renderAccentBar(slide, 0.5);
+
     // 标题
     slide.addText(content.title, {
-      x: 0.5,
+      x: 0.55,
       y: 0.5,
-      w: 12.33,
+      w: 12.28,
       h: 0.8,
       fontSize: 32,
-      fontFace: "Microsoft YaHei",
+      fontFace: "Noto Sans SC",
       color: colors.text,
       bold: true,
     });
@@ -1490,5 +1628,225 @@ export class PptxSlidesRenderer {
    */
   private hexToColor(hex: string): string {
     return hex.replace("#", "").toUpperCase();
+  }
+
+  // ============================================================================
+  // 增强组件辅助方法
+  // ============================================================================
+
+  /**
+   * 渲染金色装饰竖条（标题旁）
+   */
+  private renderAccentBar(
+    slide: Slide,
+    titleY: number,
+    color: string = "D4AF37",
+  ): void {
+    slide.addShape("rect", {
+      x: 0.35,
+      y: titleY + 0.1,
+      w: 0.05,
+      h: 0.35,
+      fill: { color },
+    });
+  }
+
+  /**
+   * 渲染底部洞察框
+   */
+  private renderInsightBox(
+    slide: Slide,
+    insight: { type: string; text: string; icon?: string },
+    _colors: ColorScheme,
+    y: number = 5.9,
+  ): void {
+    const typeColors: Record<
+      string,
+      { bg: string; bar: string; text: string }
+    > = {
+      insight: { bg: "10B981", bar: "10B981", text: "D1FAE5" },
+      warning: { bg: "F59E0B", bar: "F59E0B", text: "FEF3C7" },
+      tip: { bg: "3B82F6", bar: "3B82F6", text: "DBEAFE" },
+      summary: { bg: "D4AF37", bar: "D4AF37", text: "FEF9C3" },
+    };
+
+    const color = typeColors[insight.type] || typeColors.insight;
+
+    // 背景框
+    slide.addShape("rect", {
+      x: 0.5,
+      y,
+      w: 12.33,
+      h: 0.5,
+      fill: { color: color.bg, transparency: 90 },
+    });
+
+    // 左侧竖条
+    slide.addShape("rect", {
+      x: 0.5,
+      y,
+      w: 0.04,
+      h: 0.5,
+      fill: { color: color.bar },
+    });
+
+    // 图标
+    const icon =
+      insight.icon ||
+      (insight.type === "insight"
+        ? "💡"
+        : insight.type === "warning"
+          ? "⚠️"
+          : insight.type === "tip"
+            ? "💭"
+            : "📌");
+    slide.addText(icon, {
+      x: 0.7,
+      y: y + 0.12,
+      w: 0.3,
+      h: 0.26,
+      fontSize: 14,
+    });
+
+    // 文字
+    slide.addText(insight.text, {
+      x: 1.1,
+      y: y + 0.12,
+      w: 11.5,
+      h: 0.26,
+      fontSize: 11,
+      fontFace: "Noto Sans SC",
+      color: color.text,
+    });
+  }
+
+  /**
+   * 渲染页脚
+   */
+  private renderFooter(
+    slide: Slide,
+    pageNumber: number,
+    brand?: string,
+    _colors: ColorScheme = this.defaultColors,
+  ): void {
+    const footerY = 6.6;
+    const footerText = brand
+      ? `第${pageNumber}页 | 🔷 ${brand}`
+      : `第${pageNumber}页`;
+
+    slide.addText(footerText, {
+      x: 9.5,
+      y: footerY,
+      w: 3.33,
+      h: 0.25,
+      fontSize: 10,
+      fontFace: "Noto Sans SC",
+      color: "94A3B8", // 使用固定的页脚颜色
+      align: "right",
+    });
+  }
+
+  /**
+   * 渲染KPI统计展示
+   */
+  private renderKpiStats(
+    slide: Slide,
+    kpis: Array<{ value: string; label: string }>,
+    x: number,
+    y: number,
+    width: number,
+    colors: ColorScheme,
+  ): void {
+    if (!kpis || kpis.length === 0) return;
+
+    const kpiWidth = (width - 0.2) / kpis.length;
+
+    // 分隔线
+    slide.addShape("rect", {
+      x: x + 0.1,
+      y: y - 0.1,
+      w: width - 0.2,
+      h: 0.01,
+      fill: { color: colors.secondary },
+    });
+
+    kpis.forEach((kpi, kpiIndex) => {
+      const kpiX = x + 0.1 + kpiIndex * kpiWidth;
+
+      // KPI值
+      slide.addText(kpi.value, {
+        x: kpiX,
+        y: y + 0.1,
+        w: kpiWidth,
+        h: 0.4,
+        fontSize: 18,
+        fontFace: "Noto Sans SC",
+        color: colors.text,
+        bold: true,
+        align: "center",
+      });
+
+      // KPI标签
+      slide.addText(kpi.label, {
+        x: kpiX,
+        y: y + 0.5,
+        w: kpiWidth,
+        h: 0.25,
+        fontSize: 10,
+        fontFace: "Noto Sans SC",
+        color: colors.textMuted,
+        align: "center",
+      });
+    });
+  }
+
+  /**
+   * 渲染品牌颜色头部
+   */
+  private renderBrandHeader(
+    slide: Slide,
+    x: number,
+    y: number,
+    width: number,
+    brandColor: string,
+    title: string,
+    subtitle?: string,
+  ): void {
+    // 头部背景
+    slide.addShape("roundRect", {
+      x,
+      y,
+      w: width,
+      h: 0.8,
+      fill: { color: this.hexToColor(brandColor) },
+    });
+
+    // 标题
+    slide.addText(title, {
+      x: x + 0.1,
+      y: y + 0.1,
+      w: width - 0.2,
+      h: 0.4,
+      fontSize: 14,
+      fontFace: "Noto Sans SC",
+      color: "FFFFFF",
+      bold: true,
+      align: "center",
+    });
+
+    // 副标题
+    if (subtitle) {
+      slide.addText(subtitle, {
+        x: x + 0.1,
+        y: y + 0.45,
+        w: width - 0.2,
+        h: 0.25,
+        fontSize: 10,
+        fontFace: "Noto Sans SC",
+        color: "FFFFFF",
+        transparency: 20,
+        align: "center",
+      });
+    }
   }
 }

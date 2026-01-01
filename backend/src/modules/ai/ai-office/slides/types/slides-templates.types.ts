@@ -5,6 +5,35 @@
  * 注意：这些类型支持额外的属性以兼容渲染器的各种使用场景
  */
 
+// ============================================================================
+// Insight & Speaker Notes Types (洞察框和演讲备注)
+// ============================================================================
+
+/**
+ * 洞察类型
+ */
+export type InsightType = "insight" | "warning" | "tip" | "summary";
+
+/**
+ * 洞察框配置
+ */
+export interface InsightConfig {
+  type: InsightType;
+  text: string;
+  icon?: string;
+}
+
+/**
+ * KPI项配置
+ */
+export interface KpiItem {
+  value: string;
+  label: string;
+  unit?: string;
+  trend?: "up" | "down" | "flat";
+  trendValue?: string;
+}
+
 /**
  * 基础幻灯片内容
  */
@@ -12,6 +41,10 @@ export interface BaseSlideContent {
   templateType: string;
   title?: string;
   subtitle?: string;
+  /** 底部洞察框 */
+  insight?: InsightConfig;
+  /** 演讲备注 */
+  speakerNotes?: string;
   [key: string]: any; // 允许额外属性
 }
 
@@ -136,6 +169,12 @@ export interface ColumnContent {
   icon?: string;
   highlight?: boolean;
   items?: any[];
+  /** 品牌颜色头部 */
+  brandColor?: string;
+  /** 品牌Logo (base64或URL) */
+  logo?: string;
+  /** 底部KPI统计 */
+  kpis?: KpiItem[];
   [key: string]: any;
 }
 
