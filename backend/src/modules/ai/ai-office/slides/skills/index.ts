@@ -44,6 +44,7 @@ export * from "./task-decomposition.skill";
 export * from "./outline-planning.skill";
 export * from "./four-step-design.skill";
 export * from "./content-compression.skill";
+export * from "./data-supplement.skill"; // v3.6 新增：数据补全
 export * from "./template-rendering.skill";
 export * from "./chart-renderer.skill";
 export * from "./image-fetcher.skill";

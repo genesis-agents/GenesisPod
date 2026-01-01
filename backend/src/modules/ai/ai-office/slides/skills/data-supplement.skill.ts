@@ -1,0 +1,434 @@
+/**
+ * Slides Engine v3.6 - Data Supplement Skill
+ *
+ * 数据补全技能：当内容缺失时，主动使用搜索工具查找补充数据
+ * 确保 PPT 内容完整、数据真实
+ */
+
+import { Injectable, Logger } from "@nestjs/common";
+import { SearchService, SearchResult } from "../../../ai-core/search.service";
+import {
+  MultiModelService,
+  RoleCallInput,
+} from "../orchestrator/multi-model.service";
+import { PageContent, StatContent } from "../checkpoint/checkpoint.types";
+import {
+  MISSING_PLACEHOLDER,
+  MISSING_NUMBER_PLACEHOLDER,
+} from "../templates/base/template-requirements";
+
+/**
+ * 数据补全输入
+ */
+export interface DataSupplementInput {
+  /** 页面内容（可能有缺失） */
+  pageContent: PageContent;
+  /** 页面主题/标题 */
+  topic: string;
+  /** 源文本（用于上下文） */
+  sourceText?: string;
+  /** 会话 ID */
+  sessionId?: string;
+}
+
+/**
+ * 数据补全结果
+ */
+export interface DataSupplementResult {
+  /** 补全后的页面内容 */
+  pageContent: PageContent;
+  /** 是否进行了补全 */
+  wasSupplemented: boolean;
+  /** 补全的字段列表 */
+  supplementedFields: string[];
+  /** 搜索查询记录 */
+  searchQueries: string[];
+}
+
+/**
+ * 缺失数据项
+ */
+interface MissingDataItem {
+  /** 字段路径 (如 "sections[0].content.value") */
+  path: string;
+  /** 字段类型 */
+  type: "stat" | "text" | "label" | "title" | "subtitle";
+  /** 上下文提示（用于生成搜索查询） */
+  context: string;
+}
+
+/**
+ * 数据提取系统提示词
+ */
+const DATA_EXTRACTION_PROMPT = `你是一位数据提取专家，擅长从搜索结果中提取结构化数据。
+
+## 任务
+根据搜索结果，提取与主题相关的具体数据填充到 PPT 中。
+
+## 输出格式
+返回 JSON 对象，键为字段路径，值为提取的数据：
+{
+  "sections[0].content.value": "85%",
+  "sections[0].content.label": "市场占有率",
+  "subtitle": "2024年Q4数据报告"
+}
+
+## 提取原则
+1. 优先使用具体数字、百分比、金额
+2. 数据必须来自搜索结果，不要编造
+3. 如果找不到精确数据，使用"约"、"超过"等修饰词
+4. 保持数据的时效性标注（如"2024年"）`;
+
+@Injectable()
+export class DataSupplementSkill {
+  private readonly logger = new Logger(DataSupplementSkill.name);
+
+  constructor(
+    private readonly searchService: SearchService,
+    private readonly multiModel: MultiModelService,
+  ) {}
+
+  /**
+   * 执行数据补全
+   */
+  async execute(input: DataSupplementInput): Promise<DataSupplementResult> {
+    const { pageContent, topic } = input;
+
+    this.logger.log(`[execute] Checking data completeness for "${topic}"`);
+
+    // 1. 检测缺失数据
+    const missingItems = this.detectMissingData(pageContent);
+
+    if (missingItems.length === 0) {
+      this.logger.log("[execute] No missing data detected");
+      return {
+        pageContent,
+        wasSupplemented: false,
+        supplementedFields: [],
+        searchQueries: [],
+      };
+    }
+
+    this.logger.log(
+      `[execute] Found ${missingItems.length} missing items: ${missingItems.map((m) => m.path).join(", ")}`,
+    );
+
+    // 2. 生成搜索查询
+    const searchQueries = this.generateSearchQueries(topic, missingItems);
+
+    // 3. 执行搜索
+    const searchResults = await this.performSearches(searchQueries);
+
+    if (searchResults.length === 0) {
+      this.logger.warn("[execute] No search results found");
+      return {
+        pageContent,
+        wasSupplemented: false,
+        supplementedFields: [],
+        searchQueries,
+      };
+    }
+
+    // 4. 使用 AI 从搜索结果中提取数据
+    const extractedData = await this.extractDataFromResults(
+      topic,
+      missingItems,
+      searchResults,
+      input.sessionId,
+    );
+
+    // 5. 应用补全数据
+    const supplementedContent = this.applySupplementedData(
+      pageContent,
+      extractedData,
+    );
+
+    const supplementedFields = Object.keys(extractedData);
+    this.logger.log(
+      `[execute] Supplemented ${supplementedFields.length} fields`,
+    );
+
+    return {
+      pageContent: supplementedContent,
+      wasSupplemented: supplementedFields.length > 0,
+      supplementedFields,
+      searchQueries,
+    };
+  }
+
+  /**
+   * 检测缺失数据
+   */
+  private detectMissingData(pageContent: PageContent): MissingDataItem[] {
+    const missing: MissingDataItem[] = [];
+
+    // 检查标题
+    if (this.isMissing(pageContent.title)) {
+      missing.push({
+        path: "title",
+        type: "title",
+        context: "页面主标题",
+      });
+    }
+
+    // 检查副标题
+    if (this.isMissing(pageContent.subtitle)) {
+      missing.push({
+        path: "subtitle",
+        type: "subtitle",
+        context: "页面副标题或描述",
+      });
+    }
+
+    // 检查 sections
+    pageContent.sections?.forEach((section, index) => {
+      if (section.type === "stat" && this.isStatContent(section.content)) {
+        const stat = section.content as StatContent;
+        if (this.isMissing(stat.value)) {
+          missing.push({
+            path: `sections[${index}].content.value`,
+            type: "stat",
+            context: stat.label || `第${index + 1}个统计数据的值`,
+          });
+        }
+        if (this.isMissing(stat.label)) {
+          missing.push({
+            path: `sections[${index}].content.label`,
+            type: "label",
+            context: `第${index + 1}个统计数据的标签`,
+          });
+        }
+      } else if (
+        section.type === "text" &&
+        this.isMissing(section.content as string)
+      ) {
+        missing.push({
+          path: `sections[${index}].content`,
+          type: "text",
+          context: `第${index + 1}段文本内容`,
+        });
+      } else if (section.type === "list" && Array.isArray(section.content)) {
+        section.content.forEach((item, itemIndex) => {
+          if (this.isMissing(item)) {
+            missing.push({
+              path: `sections[${index}].content[${itemIndex}]`,
+              type: "text",
+              context: `列表第${itemIndex + 1}项`,
+            });
+          }
+        });
+      }
+    });
+
+    return missing;
+  }
+
+  /**
+   * 判断值是否为缺失状态
+   */
+  private isMissing(value: unknown): boolean {
+    if (value === undefined || value === null) return true;
+    if (typeof value !== "string") return false;
+    const trimmed = value.trim();
+    return (
+      trimmed === "" ||
+      trimmed === MISSING_PLACEHOLDER ||
+      trimmed === MISSING_NUMBER_PLACEHOLDER ||
+      trimmed === "[内容缺失]" ||
+      trimmed === "[--]"
+    );
+  }
+
+  /**
+   * 类型守卫：检查是否为 StatContent
+   */
+  private isStatContent(content: unknown): content is StatContent {
+    return (
+      typeof content === "object" &&
+      content !== null &&
+      "value" in content &&
+      "label" in content
+    );
+  }
+
+  /**
+   * 生成搜索查询
+   */
+  private generateSearchQueries(
+    topic: string,
+    missingItems: MissingDataItem[],
+  ): string[] {
+    const queries: string[] = [];
+
+    // 主查询：主题 + 统计数据
+    const hasStatMissing = missingItems.some((m) => m.type === "stat");
+    if (hasStatMissing) {
+      queries.push(`${topic} 统计数据 数字 百分比`);
+      queries.push(`${topic} 市场规模 增长率 2024`);
+    }
+
+    // 针对特定缺失项的查询
+    for (const item of missingItems) {
+      if (item.type === "stat" && item.context) {
+        queries.push(`${topic} ${item.context} 数据`);
+      }
+    }
+
+    // 去重并限制数量
+    const uniqueQueries = [...new Set(queries)].slice(0, 3);
+    this.logger.debug(
+      `[generateSearchQueries] Generated: ${uniqueQueries.join(" | ")}`,
+    );
+
+    return uniqueQueries;
+  }
+
+  /**
+   * 执行搜索
+   */
+  private async performSearches(queries: string[]): Promise<SearchResult[]> {
+    const allResults: SearchResult[] = [];
+
+    for (const query of queries) {
+      try {
+        const response = await this.searchService.search(query, 3);
+        if (response.success && response.results.length > 0) {
+          allResults.push(...response.results);
+        }
+      } catch (error) {
+        this.logger.warn(
+          `[performSearches] Search failed for "${query}": ${error}`,
+        );
+      }
+    }
+
+    // 去重（基于 URL）
+    const seen = new Set<string>();
+    return allResults.filter((r) => {
+      if (seen.has(r.url)) return false;
+      seen.add(r.url);
+      return true;
+    });
+  }
+
+  /**
+   * 从搜索结果中提取数据
+   */
+  private async extractDataFromResults(
+    topic: string,
+    missingItems: MissingDataItem[],
+    searchResults: SearchResult[],
+    sessionId?: string,
+  ): Promise<Record<string, string>> {
+    // 构建搜索结果摘要
+    const resultsSummary = searchResults
+      .slice(0, 5)
+      .map((r, i) => `[${i + 1}] ${r.title}\n${r.content}`)
+      .join("\n\n");
+
+    // 构建缺失字段描述
+    const missingDesc = missingItems
+      .map((m) => `- ${m.path}: ${m.context} (${m.type})`)
+      .join("\n");
+
+    const userMessage = `## 主题
+${topic}
+
+## 需要填充的字段
+${missingDesc}
+
+## 搜索结果
+${resultsSummary}
+
+## 请求
+从搜索结果中提取数据，填充上述缺失字段。返回 JSON 格式。`;
+
+    const roleCall: RoleCallInput = {
+      role: "architect",
+      messages: [
+        { role: "system", content: DATA_EXTRACTION_PROMPT },
+        { role: "user", content: userMessage },
+      ],
+      maxTokens: 1024,
+      temperature: 0.2,
+      metadata: {
+        sessionId,
+        phase: "data_extraction",
+      },
+    };
+
+    try {
+      const result = await this.multiModel.callByRole(roleCall);
+
+      if (!result.success || !result.content) {
+        this.logger.warn("[extractDataFromResults] AI extraction failed");
+        return {};
+      }
+
+      // 解析 JSON 响应
+      const jsonMatch = result.content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        this.logger.warn("[extractDataFromResults] No JSON found in response");
+        return {};
+      }
+
+      const extracted = JSON.parse(jsonMatch[0]);
+      return extracted as Record<string, string>;
+    } catch (error) {
+      this.logger.error(`[extractDataFromResults] Error: ${error}`);
+      return {};
+    }
+  }
+
+  /**
+   * 应用补全数据到 PageContent
+   */
+  private applySupplementedData(
+    pageContent: PageContent,
+    data: Record<string, string>,
+  ): PageContent {
+    // 深拷贝
+    const result = JSON.parse(JSON.stringify(pageContent)) as PageContent;
+
+    for (const [path, value] of Object.entries(data)) {
+      if (!value || this.isMissing(value)) continue;
+
+      try {
+        this.setValueByPath(
+          result as unknown as Record<string, unknown>,
+          path,
+          value,
+        );
+        this.logger.debug(`[applySupplementedData] Set ${path} = "${value}"`);
+      } catch (error) {
+        this.logger.warn(
+          `[applySupplementedData] Failed to set ${path}: ${error}`,
+        );
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * 按路径设置值 (支持 "sections[0].content.value" 格式)
+   */
+  private setValueByPath(
+    obj: Record<string, unknown>,
+    path: string,
+    value: unknown,
+  ): void {
+    const parts = path.replace(/\[(\d+)\]/g, ".$1").split(".");
+    let current: Record<string, unknown> = obj;
+
+    for (let i = 0; i < parts.length - 1; i++) {
+      const key = parts[i];
+      if (current[key] === undefined) {
+        current[key] = /^\d+$/.test(parts[i + 1]) ? [] : {};
+      }
+      current = current[key] as Record<string, unknown>;
+    }
+
+    current[parts[parts.length - 1]] = value;
+  }
+}
