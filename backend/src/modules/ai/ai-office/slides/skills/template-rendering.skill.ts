@@ -730,6 +730,7 @@ ${overflowProtectionStyles}
 
   /**
    * 提取 Dashboard 模板变量
+   * v3.5.1: 根据页面标题生成上下文相关的KPI
    */
   private extractDashboardVariables(
     pageContent: PageContent,
@@ -737,10 +738,13 @@ ${overflowProtectionStyles}
   ): Record<string, string> {
     const sections = pageContent.sections || [];
     const vars: Record<string, string> = {};
+    const pageTitle = pageContent.title || "";
 
-    const diverseValues = ["$2.5M", "85%", "520+", "92%"];
-    const diverseLabels = ["年度营收", "客户满意度", "活跃用户", "目标达成率"];
-    const diverseChanges = ["+15%", "+8%", "+120", "+5%"];
+    // v3.5.1: 根据主题生成上下文相关的KPI
+    const contextKpis = this.generateContextualKpis(pageTitle);
+    const diverseValues = contextKpis.values;
+    const diverseLabels = contextKpis.labels;
+    const diverseChanges = contextKpis.changes;
 
     for (let i = 0; i < 4; i++) {
       const section = sections.find((s, idx) => s.type === "stat" && idx >= i);
@@ -805,21 +809,20 @@ ${overflowProtectionStyles}
 
   /**
    * 提取 Timeline 模板变量
+   * v3.5.1: 使用上下文相关的时间线阶段
    */
   private extractTimelineVariables(
     pageContent: PageContent,
   ): Record<string, string> {
     const sections = pageContent.sections || [];
     const vars: Record<string, string> = {};
+    const pageTitle = pageContent.title || "";
 
-    const defaultDates = ["Q1 2024", "Q2 2024", "Q3 2024", "Q4 2024"];
-    const defaultTitles = ["规划阶段", "开发阶段", "测试阶段", "上线阶段"];
-    const defaultDescs = [
-      "需求分析与架构设计",
-      "核心功能开发",
-      "系统测试与优化",
-      "正式上线运营",
-    ];
+    // v3.5.1: 根据主题生成上下文相关的时间线
+    const contextTimeline = this.generateContextualTimeline(pageTitle);
+    const defaultDates = contextTimeline.dates;
+    const defaultTitles = contextTimeline.titles;
+    const defaultDescs = contextTimeline.descs;
 
     for (let i = 0; i < 4; i++) {
       const section = sections[i];
@@ -2072,5 +2075,235 @@ ${overflowProtectionStyles}
   private generateContextualPillarDescs(_pageTitle: string): string[] {
     // 返回空数组，让调用方使用 section 数据或 citations
     return [];
+  }
+
+  /**
+   * v3.5.1: 根据页面标题生成上下文相关的KPI
+   * 通过关键词匹配选择合适的KPI主题
+   */
+  private generateContextualKpis(pageTitle: string): {
+    values: string[];
+    labels: string[];
+    changes: string[];
+  } {
+    const title = pageTitle.toLowerCase();
+
+    // 天气/气候相关
+    if (
+      title.includes("天气") ||
+      title.includes("气候") ||
+      title.includes("weather") ||
+      title.includes("climate")
+    ) {
+      return {
+        values: ["-15°C", "45%", "120mm", "280天"],
+        labels: ["平均气温", "相对湿度", "年降水量", "晴天天数"],
+        changes: ["-2°C", "+5%", "+10mm", "+15天"],
+      };
+    }
+
+    // 旅游相关
+    if (
+      title.includes("旅游") ||
+      title.includes("景点") ||
+      title.includes("travel") ||
+      title.includes("tourism")
+    ) {
+      return {
+        values: ["850万", "4.8分", "120+", "92%"],
+        labels: ["年游客量", "游客评分", "景点数量", "满意度"],
+        changes: ["+15%", "+0.2", "+8个", "+3%"],
+      };
+    }
+
+    // 城市/地理相关
+    if (
+      title.includes("城市") ||
+      title.includes("地理") ||
+      title.includes("首都") ||
+      title.includes("city")
+    ) {
+      return {
+        values: ["98万", "2,778km²", "4季", "Top10"],
+        labels: ["城市人口", "城市面积", "气候类型", "宜居排名"],
+        changes: ["+2.5%", "-", "分明", "↑2位"],
+      };
+    }
+
+    // 购物/消费相关
+    if (
+      title.includes("购物") ||
+      title.includes("超市") ||
+      title.includes("消费") ||
+      title.includes("shopping")
+    ) {
+      return {
+        values: ["500+", "24h", "15km", "95%"],
+        labels: ["商店数量", "营业时长", "平均距离", "便利指数"],
+        changes: ["+50家", "部分", "-2km", "+3%"],
+      };
+    }
+
+    // 网络/通信相关
+    if (
+      title.includes("网络") ||
+      title.includes("通信") ||
+      title.includes("5G") ||
+      title.includes("network")
+    ) {
+      return {
+        values: ["99.5%", "500Mbps", "4G/5G", "85%"],
+        labels: ["网络覆盖", "平均速度", "网络类型", "用户满意度"],
+        changes: ["+0.5%", "+50Mbps", "升级中", "+5%"],
+      };
+    }
+
+    // 教育相关
+    if (
+      title.includes("教育") ||
+      title.includes("学校") ||
+      title.includes("大学") ||
+      title.includes("education")
+    ) {
+      return {
+        values: ["12所", "95%", "Top50", "8.5万"],
+        labels: ["高校数量", "入学率", "世界排名", "在校学生"],
+        changes: ["+2所", "+2%", "↑5位", "+1.2万"],
+      };
+    }
+
+    // 医疗健康相关
+    if (
+      title.includes("医疗") ||
+      title.includes("健康") ||
+      title.includes("医院") ||
+      title.includes("health")
+    ) {
+      return {
+        values: ["45所", "98%", "3.5:1000", "92%"],
+        labels: ["医院数量", "医保覆盖", "医生比例", "就医满意度"],
+        changes: ["+5所", "+1%", "+0.3", "+4%"],
+      };
+    }
+
+    // 科技/创新相关
+    if (
+      title.includes("科技") ||
+      title.includes("创新") ||
+      title.includes("AI") ||
+      title.includes("tech")
+    ) {
+      return {
+        values: ["2,500+", "45%", "$12B", "Top3"],
+        labels: ["科技企业", "研发投入占比", "行业规模", "创新指数"],
+        changes: ["+300家", "+5%", "+$2B", "稳定"],
+      };
+    }
+
+    // 默认：通用商业KPI
+    return {
+      values: ["$2.5M", "85%", "520+", "92%"],
+      labels: ["年度营收", "客户满意度", "活跃用户", "目标达成率"],
+      changes: ["+15%", "+8%", "+120", "+5%"],
+    };
+  }
+
+  /**
+   * v3.5.1: 根据页面标题生成上下文相关的时间线阶段
+   */
+  private generateContextualTimeline(pageTitle: string): {
+    dates: string[];
+    titles: string[];
+    descs: string[];
+  } {
+    const title = pageTitle.toLowerCase();
+
+    // 历史/发展相关
+    if (
+      title.includes("历史") ||
+      title.includes("发展") ||
+      title.includes("history") ||
+      title.includes("发展历程")
+    ) {
+      return {
+        dates: ["早期", "发展期", "成熟期", "现代"],
+        titles: ["起源阶段", "快速发展", "稳定增长", "创新突破"],
+        descs: [
+          "奠定基础与初步探索",
+          "规模扩张与体系建设",
+          "深度优化与品质提升",
+          "数字化转型与创新",
+        ],
+      };
+    }
+
+    // 季节/年度相关
+    if (
+      title.includes("季节") ||
+      title.includes("四季") ||
+      title.includes("年度") ||
+      title.includes("season")
+    ) {
+      return {
+        dates: ["春季", "夏季", "秋季", "冬季"],
+        titles: ["春暖花开", "盛夏时节", "金秋收获", "冬日静谧"],
+        descs: [
+          "万物复苏，气温回升",
+          "阳光充沛，活动丰富",
+          "景色宜人，硕果累累",
+          "银装素裹，别有风情",
+        ],
+      };
+    }
+
+    // 规划/战略相关
+    if (
+      title.includes("规划") ||
+      title.includes("战略") ||
+      title.includes("plan") ||
+      title.includes("strategy")
+    ) {
+      return {
+        dates: ["第一阶段", "第二阶段", "第三阶段", "第四阶段"],
+        titles: ["调研分析", "方案制定", "落地执行", "评估优化"],
+        descs: [
+          "深入调研现状与需求",
+          "制定切实可行的方案",
+          "有序推进各项措施",
+          "持续改进与完善",
+        ],
+      };
+    }
+
+    // 旅游行程相关
+    if (
+      title.includes("行程") ||
+      title.includes("游览") ||
+      title.includes("旅游") ||
+      title.includes("tour")
+    ) {
+      return {
+        dates: ["Day 1", "Day 2", "Day 3", "Day 4"],
+        titles: ["抵达与探索", "深度游览", "文化体验", "返程总结"],
+        descs: [
+          "到达目的地，初步探索",
+          "深入游览主要景点",
+          "体验当地文化特色",
+          "整理行囊，满载而归",
+        ],
+      };
+    }
+
+    // 默认：项目阶段
+    return {
+      dates: ["Q1 2024", "Q2 2024", "Q3 2024", "Q4 2024"],
+      titles: ["启动阶段", "推进阶段", "深化阶段", "收官阶段"],
+      descs: [
+        "项目启动与资源准备",
+        "核心工作稳步推进",
+        "深入实施与优化调整",
+        "成果总结与未来规划",
+      ],
+    };
   }
 }
