@@ -219,7 +219,8 @@
       "overview": "Overview",
       "bookmarks": "Bookmarks",
       "notes": "Notes",
-      "images": "Images"
+      "images": "Images",
+      "wechat": "WeChat"
     },
     "placeholder": {
       "bookmarks": "Bookmarks content",
@@ -261,6 +262,10 @@
       "URL": {
         "name": "URL Crawl",
         "description": "Import via \"Add Content\" in knowledge base"
+      },
+      "WECHAT": {
+        "name": "WeChat",
+        "description": "Sync WeChat articles and video channel content"
       }
     }
   },

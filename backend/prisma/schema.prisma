@@ -123,6 +123,9 @@ model User {
   // 用户数据源连接 (用于知识库)
   userDataSources UserDataSource[]
 
+  // 微信同步项目
+  wechatItems WechatItem[]
+
   // 积分系统
   creditAccount CreditAccount?
 
@@ -4296,6 +4299,7 @@ enum UserDataSourceType {
   UPLOAD // 手动上传文件
   URL // URL 抓取
   IMAGE // 图片 (OCR)
+  WECHAT // 微信同步 (公众号文章、视频号)
 }
 
 // 搜索优先级 (用于 AI Studio 等模块)
@@ -4986,4 +4990,53 @@ model WebhookDelivery {
   @@index([status, nextRetryAt])
   @@index([eventType, createdAt(sort: Desc)])
   @@map("webhook_deliveries")
+}
+
+// ============ 微信数据源 ============
+
+enum WechatItemType {
+  ARTICLE // 公众号文章
+  VIDEO // 视频号
+  EXTERNAL // 外部链接
+}
+
+/// 微信同步项目
+model WechatItem {
+  id     String         @id @default(uuid())
+  userId String         @map("user_id")
+  type   WechatItemType
+
+  // 内容信息
+  title       String  @db.VarChar(500)
+  description String? @db.Text
+  sourceUrl   String  @map("source_url") @db.VarChar(2000)
+  thumbnail   String? @db.VarChar(2000)
+
+  // 元数据
+  author      String? @db.VarChar(200)
+  source      String? @db.VarChar(200) // 公众号名称等
+  publishedAt DateTime? @map("published_at")
+
+  // 同步信息
+  syncedAt       DateTime @default(now()) @map("synced_at")
+  syncSource     String   @default("wechat_work") @map("sync_source") // wechat_work, manual, etc.
+  wechatWorkUser String?  @map("wechat_work_user") // 发送消息的企业微信用户
+
+  // 是否已同步到知识库
+  syncedToRag    Boolean  @default(false) @map("synced_to_rag")
+  ragDocumentId  String?  @map("rag_document_id")
+  ragKnowledgeBaseId String? @map("rag_knowledge_base_id")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sourceUrl])
+  @@index([userId, type])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([syncedToRag])
+  @@map("wechat_items")
 }

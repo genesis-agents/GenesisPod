@@ -219,7 +219,8 @@
       "overview": "概览",
       "bookmarks": "书签",
       "notes": "笔记",
-      "images": "图片"
+      "images": "图片",
+      "wechat": "微信"
     },
     "placeholder": {
       "bookmarks": "书签内容",
@@ -261,6 +262,10 @@
       "URL": {
         "name": "URL 抓取",
         "description": "通过知识库「添加内容」导入"
+      },
+      "WECHAT": {
+        "name": "微信",
+        "description": "同步公众号文章和视频号内容"
       }
     }
   },

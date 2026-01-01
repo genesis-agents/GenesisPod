@@ -712,6 +712,7 @@ function SvgRenderer({ svgCode }: { svgCode: string }) {
 
 // Custom code renderer for ReactMarkdown that supports Mermaid and SVG
 // Note: react-markdown v9+ no longer passes 'inline' prop, need to detect differently
+// Code block component for assistant messages (light theme)
 function CodeBlock({ className, children, node, ...props }: any) {
   const match = /language-(\w+)/.exec(className || '');
   const language = match ? match[1] : '';
@@ -2111,16 +2112,8 @@ export default function AskPage() {
                             </div>
                           </CollapsibleMessage>
                         ) : (
-                          <div className="prose prose-sm prose-invert max-w-none">
-                            <ReactMarkdown
-                              remarkPlugins={[remarkGfm]}
-                              components={{
-                                blockquote: CollapsibleBlockquote,
-                                code: CodeBlock,
-                              }}
-                            >
-                              {message.content}
-                            </ReactMarkdown>
+                          <div className="whitespace-pre-wrap break-words">
+                            {message.content}
                           </div>
                         )}
                         {/* RAG Sources - 可折叠组件 */}

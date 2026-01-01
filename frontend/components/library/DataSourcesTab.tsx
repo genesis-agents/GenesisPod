@@ -17,8 +17,10 @@ import {
   Loader2,
   ChevronRight,
   FolderOpen,
+  MessageCircle,
 } from 'lucide-react';
 import RAGStatusIndicator, { RAGServiceStatus } from './RAGStatusIndicator';
+import WechatDataSourcePanel from './WechatDataSourcePanel';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { useTranslation } from '@/lib/i18n';
@@ -30,7 +32,8 @@ type DataSourceSubTab =
   | 'notes'
   | 'images'
   | 'notion'
-  | 'google-drive';
+  | 'google-drive'
+  | 'wechat';
 
 interface DataSourcesTabProps {
   /** Initial sub-tab to show */
@@ -47,6 +50,8 @@ interface DataSourcesTabProps {
   renderNotion?: () => React.ReactNode;
   /** Render function for Google Drive content */
   renderGoogleDrive?: () => React.ReactNode;
+  /** Render function for WeChat content */
+  renderWechat?: () => React.ReactNode;
 }
 
 // 数据源配置类型
@@ -79,6 +84,14 @@ const DATA_SOURCE_CONFIGS: DataSourceConfig[] = [
     settingsUrl: '/profile?tab=integrations',
     isInternal: false,
     subTab: 'notion',
+  },
+  {
+    type: 'WECHAT',
+    icon: MessageCircle,
+    color: 'bg-green-50 text-green-600 border-green-200',
+    connectedColor: 'bg-green-100 text-green-700',
+    isInternal: false,
+    subTab: 'wechat',
   },
   {
     type: 'BOOKMARK',
@@ -143,6 +156,7 @@ export default function DataSourcesTab({
   renderImages,
   renderNotion,
   renderGoogleDrive,
+  renderWechat,
 }: DataSourcesTabProps) {
   const { t } = useTranslation();
   const [activeSubTab, setActiveSubTab] =
@@ -342,6 +356,7 @@ export default function DataSourcesTab({
     { id: 'images' as const, name: t('dataSources.tabs.images'), icon: Image },
     { id: 'notion' as const, name: 'Notion', icon: FileText },
     { id: 'google-drive' as const, name: 'Google Drive', icon: HardDrive },
+    { id: 'wechat' as const, name: 'WeChat', icon: MessageCircle },
   ];
 
   // Render sub-tab content
@@ -387,6 +402,8 @@ export default function DataSourcesTab({
             {t('dataSources.placeholder.googleDrive')}
           </div>
         );
+      case 'wechat':
+        return renderWechat ? renderWechat() : <WechatDataSourcePanel />;
       default:
         return renderOverview();
     }

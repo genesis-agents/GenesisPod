@@ -4,7 +4,8 @@ import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { AiChatService, ChatMessage } from "../../ai/ai-core/ai-chat.service";
-import { WechatImportService } from "../../ai/rag/services/wechat-import.service";
+import { WechatDataSourceService } from "./wechat-data-source.service";
+import { UrlFetchService } from "../../ai/rag/services/url-fetch.service";
 
 /**
  * 企业微信消息类型
@@ -58,7 +59,8 @@ export class WechatWorkService {
     private httpService: HttpService,
     private prisma: PrismaService,
     private aiChatService: AiChatService,
-    private wechatImportService: WechatImportService,
+    private wechatDataSourceService: WechatDataSourceService,
+    private urlFetchService: UrlFetchService,
   ) {
     this.corpId = this.configService.get("WECHAT_WORK_CORP_ID", "");
     this.agentId = this.configService.get("WECHAT_WORK_AGENT_ID", "");
@@ -156,12 +158,12 @@ export class WechatWorkService {
   }
 
   /**
-   * 处理 URL 导入到知识库
+   * 处理 URL 导入到数据源
    */
   private async handleUrlImport(fromUser: string, url: string): Promise<void> {
-    this.logger.log(`Importing URL to RAG: ${url}`);
+    this.logger.log(`Importing URL to data source: ${url}`);
 
-    await this.sendTextMessage(fromUser, "正在同步到知识库，请稍候...");
+    await this.sendTextMessage(fromUser, "正在同步到数据源，请稍候...");
 
     try {
       // 获取平台用户 ID
@@ -175,20 +177,59 @@ export class WechatWorkService {
         return;
       }
 
-      // 调用导入服务
-      const result = await this.wechatImportService.importWechatUrl({
+      // 检查是否已存在
+      const exists = await this.wechatDataSourceService.urlExists(
+        platformUserId,
         url,
+      );
+      if (exists) {
+        await this.sendTextMessage(fromUser, "该内容已存在于数据源中。");
+        return;
+      }
+
+      // 提取元数据
+      const linkType = this.wechatDataSourceService.identifyLinkType(url);
+      let metadata: { title: string; description?: string; author?: string } = {
+        title: url,
+      };
+
+      try {
+        const fetchResult = await this.urlFetchService.fetchUrl(url);
+        metadata = {
+          title: fetchResult.title || url,
+          description: fetchResult.metadata.description,
+          author: fetchResult.metadata.author,
+        };
+      } catch (fetchError) {
+        this.logger.warn(`Failed to fetch metadata: ${fetchError}`);
+      }
+
+      // 保存到数据源
+      const item = await this.wechatDataSourceService.createItem({
         userId: platformUserId,
+        type: linkType,
+        title: metadata.title,
+        sourceUrl: url,
+        description: metadata.description,
+        author: metadata.author,
+        syncSource: "wechat_work",
+        wechatWorkUser: fromUser,
       });
 
       // 发送成功消息
+      const typeLabel =
+        linkType === "ARTICLE"
+          ? "公众号文章"
+          : linkType === "VIDEO"
+            ? "视频号"
+            : "外部链接";
+
       await this.sendMarkdownMessage(
         fromUser,
-        `✅ **已同步到知识库**\n\n` +
-          `📄 **标题**: ${result.title}\n` +
-          `📚 **知识库**: ${result.knowledgeBaseName}\n` +
-          `🔗 **类型**: ${result.linkType === "article" ? "公众号文章" : result.linkType === "video" ? "视频号" : "外部链接"}\n\n` +
-          `[查看详情](${result.detailUrl})`,
+        `✅ **已同步到数据源**\n\n` +
+          `📄 **标题**: ${item.title}\n` +
+          `🔗 **类型**: ${typeLabel}\n\n` +
+          `您可以在 DeepDive 的"数据源 → 微信"中查看和管理同步的内容。`,
       );
     } catch (error) {
       this.logger.error(`Failed to import URL: ${error}`);
@@ -202,7 +243,7 @@ export class WechatWorkService {
 
   /**
    * 处理链接消息
-   * 自动同步到 RAG 知识库，并提供 AI 分析
+   * 自动同步到数据源
    */
   private async handleLinkMessage(message: WechatWorkMessage): Promise<void> {
     const fromUser = message.FromUserName;
@@ -223,44 +264,58 @@ export class WechatWorkService {
       `正在同步: ${title || url}\n请稍候...`,
     );
 
-    // 1. 同步到 RAG 知识库
     try {
       // 获取用户映射（企业微信 UserID -> 平台 UserID）
       const platformUserId = await this.getUserIdFromWechatWork(fromUser);
 
       if (platformUserId) {
-        const importResult = await this.wechatImportService.importWechatUrl({
+        // 检查是否已存在
+        const exists = await this.wechatDataSourceService.urlExists(
+          platformUserId,
           url,
-          title,
-          description,
+        );
+        if (exists) {
+          await this.sendTextMessage(fromUser, "该内容已存在于数据源中。");
+          return;
+        }
+
+        // 识别链接类型
+        const linkType = this.wechatDataSourceService.identifyLinkType(url);
+
+        // 保存到数据源
+        const item = await this.wechatDataSourceService.createItem({
           userId: platformUserId,
+          type: linkType,
+          title: title || url,
+          sourceUrl: url,
+          description: description,
+          syncSource: "wechat_work",
+          wechatWorkUser: fromUser,
         });
 
         // 发送成功消息
-        const linkType = this.wechatImportService.identifyLinkType(url);
         const typeLabel =
-          linkType === "article"
+          linkType === "ARTICLE"
             ? "公众号文章"
-            : linkType === "video"
+            : linkType === "VIDEO"
               ? "视频号视频"
               : "链接";
 
         await this.sendMarkdownMessage(
           fromUser,
-          `**已同步到知识库**\n\n` +
-            `**${importResult.title}**\n` +
-            `类型: ${typeLabel}\n` +
-            `知识库: ${importResult.knowledgeBaseName}\n\n` +
-            `[查看详情](${this.getWebUrl()}${importResult.detailUrl})`,
+          `✅ **已同步到数据源**\n\n` +
+            `**${item.title}**\n` +
+            `类型: ${typeLabel}\n\n` +
+            `您可以在 DeepDive 的"数据源 → 微信"中查看和管理同步的内容。`,
         );
       } else {
         // 用户未绑定，仅进行 AI 分析
         this.logger.warn(
-          `User ${fromUser} not mapped to platform user, skipping RAG import`,
+          `User ${fromUser} not mapped to platform user, skipping import`,
         );
         await this.sendTextMessage(
           fromUser,
-          `提示: 您尚未绑定平台账号，内容暂未同步到知识库。\n正在进行 AI 分析...`,
+          `提示: 您尚未绑定平台账号，内容暂未同步。\n正在进行 AI 分析...`,
         );
 
         // Fallback to AI analysis
@@ -333,13 +388,6 @@ export class WechatWorkService {
     }
 
     return null;
-  }
-
-  /**
-   * 获取 Web 应用 URL
-   */
-  private getWebUrl(): string {
-    return this.configService.get("FRONTEND_URL", "https://deepdive.app");
   }
 
   /**
@@ -576,7 +624,8 @@ export class WechatWorkService {
     return `DeepDive AI 助手使用指南
 
 **内容同步功能**
-直接转发公众号文章、视频号视频或网页链接到本群，将自动同步到您的 RAG 知识库。
+直接转发公众号文章、视频号视频或网页链接，将自动同步到您的数据源。
+您可以在 DeepDive 的"数据源 → 微信"中查看和管理同步的内容。
 
 **AI 分析功能**
 - @AI + 问题：AI 将回答你的问题
@@ -586,7 +635,7 @@ export class WechatWorkService {
 - /翻译 + 内容：翻译指定内容
 
 **使用示例**
-- 转发任意链接：自动同步到知识库
+- 转发任意链接：自动同步到数据源
 - @AI 什么是人工智能？
 - /分析 这篇文章的主要观点是什么？`;
   }
