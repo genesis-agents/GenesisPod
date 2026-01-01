@@ -915,8 +915,8 @@ export function AgentTeamPanel({
   if (compact) {
     return (
       <div className={cn('flex flex-col', className)}>
-        {/* Scrollable Compact Agent List */}
-        <div className="scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent max-h-[400px] space-y-1.5 overflow-y-auto pr-1">
+        {/* Compact Agent List - 不需要内部滚动，由父容器处理 */}
+        <div className="space-y-1.5">
           {agentOrder.map((role) => (
             <AgentCard
               key={role}
