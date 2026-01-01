@@ -62,6 +62,11 @@ const TEMPLATE_TRANSITIONS: Record<
     goodAfter: ["cover"],
     badAfter: ["recommendations", "dashboard"],
   },
+  chapterTitle: {
+    // v3.5: 章节分隔页
+    goodAfter: ["toc", "pillars", "framework", "dashboard", "splitLayout"],
+    badAfter: ["cover"],
+  },
   questions: {
     goodAfter: ["toc", "cover", "framework"],
     badAfter: ["recommendations"],
@@ -482,6 +487,7 @@ ${ruleBasedTransitions.map((t) => `- 第${t.fromPage}→${t.toPage}页: ${t.qual
     const names: Record<PageTemplateType, string> = {
       cover: "封面页",
       toc: "目录页",
+      chapterTitle: "章节分隔页", // v3.5
       questions: "问题页",
       pillars: "支柱页",
       framework: "框架页",

@@ -11,6 +11,7 @@ import {
   CARD_STYLE,
   FOOTER_STYLE,
   COLORS,
+  FONT_STACK,
 } from "../base/common-styles";
 
 // ============================================================================
@@ -269,7 +270,7 @@ export const CARD_GRID_2_TEMPLATE: SlideTemplate = {
   <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 32px; height: calc(100% - 160px);">
     <div style="${CARD_STYLE} display: flex; flex-direction: column; border-top: 4px solid ${COLORS.primary};">
       <div style="width: 64px; height: 64px; background: rgba(212, 175, 55, 0.15); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
-        <span style="font-size: 28px;">{{CARD1_ICON}}</span>
+        <span style="font-size: 28px; font-family: ${FONT_STACK};">{{CARD1_ICON}}</span>
       </div>
       <h3 style="font-size: 22px; font-weight: 700; margin: 0 0 16px 0; color: ${COLORS.primary};">{{CARD1_TITLE}}</h3>
       <p style="font-size: 15px; color: #94A3B8; margin: 0; line-height: 1.7; flex: 1;">{{CARD1_DESC}}</p>
@@ -281,7 +282,7 @@ export const CARD_GRID_2_TEMPLATE: SlideTemplate = {
 
     <div style="${CARD_STYLE} display: flex; flex-direction: column; border-top: 4px solid ${COLORS.secondary};">
       <div style="width: 64px; height: 64px; background: rgba(59, 130, 246, 0.15); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
-        <span style="font-size: 28px;">{{CARD2_ICON}}</span>
+        <span style="font-size: 28px; font-family: ${FONT_STACK};">{{CARD2_ICON}}</span>
       </div>
       <h3 style="font-size: 22px; font-weight: 700; margin: 0 0 16px 0; color: ${COLORS.secondary};">{{CARD2_TITLE}}</h3>
       <p style="font-size: 15px; color: #94A3B8; margin: 0; line-height: 1.7; flex: 1;">{{CARD2_DESC}}</p>
@@ -324,36 +325,52 @@ export const CARD_GRID_3_TEMPLATE: SlideTemplate = {
   },
   html: `
 <div style="${COMMON_CONTAINER}">
-  <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
-  <p style="font-size: 18px; color: #94A3B8; margin: 0 0 36px 0;">{{SUBTITLE}}</p>
+  <!-- 标题区域 + 金色装饰竖条 -->
+  <div style="position: relative; margin-bottom: 28px;">
+    <div style="position: absolute; left: -20px; top: 8px; width: 5px; height: 36px; background: linear-gradient(180deg, ${COLORS.primary}, #B8962E); border-radius: 3px;"></div>
+    <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
+    <p style="font-size: 16px; color: #94A3B8; margin: 0;">{{SUBTITLE}}</p>
+  </div>
 
   <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; height: calc(100% - 150px);">
     <div style="${CARD_STYLE} display: flex; flex-direction: column; border-top: 4px solid ${COLORS.primary};">
       <div style="width: 56px; height: 56px; background: rgba(212, 175, 55, 0.15); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-        <span style="font-size: 24px;">{{CARD1_ICON}}</span>
+        <span style="font-size: 24px; font-family: ${FONT_STACK};">{{CARD1_ICON}}</span>
       </div>
-      <h3 style="font-size: 18px; font-weight: 700; margin: 0 0 12px 0; color: ${COLORS.primary};">{{CARD1_TITLE}}</h3>
-      <p style="font-size: 14px; color: #94A3B8; margin: 0; line-height: 1.6; flex: 1;">{{CARD1_DESC}}</p>
+      <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 10px 0; color: ${COLORS.primary}; line-height: 1.3; min-height: 42px;">{{CARD1_TITLE}}</h3>
+      <p style="font-size: 13px; color: #94A3B8; margin: 0; line-height: 1.6; flex: 1;">{{CARD1_DESC}}</p>
+      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #334155;">
+        <div style="font-size: 24px; font-weight: 900; color: ${COLORS.primary};">{{CARD1_STAT}}</div>
+        <div style="font-size: 12px; color: #64748B;">{{CARD1_LABEL}}</div>
+      </div>
     </div>
 
     <div style="${CARD_STYLE} display: flex; flex-direction: column; border-top: 4px solid ${COLORS.secondary};">
       <div style="width: 56px; height: 56px; background: rgba(59, 130, 246, 0.15); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-        <span style="font-size: 24px;">{{CARD2_ICON}}</span>
+        <span style="font-size: 24px; font-family: ${FONT_STACK};">{{CARD2_ICON}}</span>
       </div>
-      <h3 style="font-size: 18px; font-weight: 700; margin: 0 0 12px 0; color: ${COLORS.secondary};">{{CARD2_TITLE}}</h3>
-      <p style="font-size: 14px; color: #94A3B8; margin: 0; line-height: 1.6; flex: 1;">{{CARD2_DESC}}</p>
+      <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 10px 0; color: ${COLORS.secondary}; line-height: 1.3; min-height: 42px;">{{CARD2_TITLE}}</h3>
+      <p style="font-size: 13px; color: #94A3B8; margin: 0; line-height: 1.6; flex: 1;">{{CARD2_DESC}}</p>
+      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #334155;">
+        <div style="font-size: 24px; font-weight: 900; color: ${COLORS.secondary};">{{CARD2_STAT}}</div>
+        <div style="font-size: 12px; color: #64748B;">{{CARD2_LABEL}}</div>
+      </div>
     </div>
 
     <div style="${CARD_STYLE} display: flex; flex-direction: column; border-top: 4px solid ${COLORS.success};">
       <div style="width: 56px; height: 56px; background: rgba(16, 185, 129, 0.15); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-        <span style="font-size: 24px;">{{CARD3_ICON}}</span>
+        <span style="font-size: 24px; font-family: ${FONT_STACK};">{{CARD3_ICON}}</span>
       </div>
-      <h3 style="font-size: 18px; font-weight: 700; margin: 0 0 12px 0; color: ${COLORS.success};">{{CARD3_TITLE}}</h3>
-      <p style="font-size: 14px; color: #94A3B8; margin: 0; line-height: 1.6; flex: 1;">{{CARD3_DESC}}</p>
+      <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 10px 0; color: ${COLORS.success}; line-height: 1.3; min-height: 42px;">{{CARD3_TITLE}}</h3>
+      <p style="font-size: 13px; color: #94A3B8; margin: 0; line-height: 1.6; flex: 1;">{{CARD3_DESC}}</p>
+      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #334155;">
+        <div style="font-size: 24px; font-weight: 900; color: ${COLORS.success};">{{CARD3_STAT}}</div>
+        <div style="font-size: 12px; color: #64748B;">{{CARD3_LABEL}}</div>
+      </div>
     </div>
   </div>
 
-  <div style="${FOOTER_STYLE}">{{TITLE}}</div>
+  <div style="${FOOTER_STYLE}"><span style="color: ${COLORS.primary};">◆</span> 战略规划 | {{TITLE}}</div>
 </div>
   `.trim(),
 };
@@ -390,25 +407,25 @@ export const CARD_GRID_4_TEMPLATE: SlideTemplate = {
 
   <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; height: calc(100% - 140px);">
     <div style="${CARD_STYLE} display: flex; flex-direction: column; border-top: 3px solid ${COLORS.primary}; padding: 20px;">
-      <div style="font-size: 32px; margin-bottom: 12px;">{{CARD1_ICON}}</div>
+      <div style="font-size: 32px; margin-bottom: 12px; font-family: ${FONT_STACK};">{{CARD1_ICON}}</div>
       <h3 style="font-size: 15px; font-weight: 700; margin: 0 0 8px 0; color: ${COLORS.primary};">{{CARD1_TITLE}}</h3>
       <p style="font-size: 13px; color: #94A3B8; margin: 0; line-height: 1.5;">{{CARD1_DESC}}</p>
     </div>
 
     <div style="${CARD_STYLE} display: flex; flex-direction: column; border-top: 3px solid ${COLORS.secondary}; padding: 20px;">
-      <div style="font-size: 32px; margin-bottom: 12px;">{{CARD2_ICON}}</div>
+      <div style="font-size: 32px; margin-bottom: 12px; font-family: ${FONT_STACK};">{{CARD2_ICON}}</div>
       <h3 style="font-size: 15px; font-weight: 700; margin: 0 0 8px 0; color: ${COLORS.secondary};">{{CARD2_TITLE}}</h3>
       <p style="font-size: 13px; color: #94A3B8; margin: 0; line-height: 1.5;">{{CARD2_DESC}}</p>
     </div>
 
     <div style="${CARD_STYLE} display: flex; flex-direction: column; border-top: 3px solid ${COLORS.success}; padding: 20px;">
-      <div style="font-size: 32px; margin-bottom: 12px;">{{CARD3_ICON}}</div>
+      <div style="font-size: 32px; margin-bottom: 12px; font-family: ${FONT_STACK};">{{CARD3_ICON}}</div>
       <h3 style="font-size: 15px; font-weight: 700; margin: 0 0 8px 0; color: ${COLORS.success};">{{CARD3_TITLE}}</h3>
       <p style="font-size: 13px; color: #94A3B8; margin: 0; line-height: 1.5;">{{CARD3_DESC}}</p>
     </div>
 
     <div style="${CARD_STYLE} display: flex; flex-direction: column; border-top: 3px solid ${COLORS.purple}; padding: 20px;">
-      <div style="font-size: 32px; margin-bottom: 12px;">{{CARD4_ICON}}</div>
+      <div style="font-size: 32px; margin-bottom: 12px; font-family: ${FONT_STACK};">{{CARD4_ICON}}</div>
       <h3 style="font-size: 15px; font-weight: 700; margin: 0 0 8px 0; color: ${COLORS.purple};">{{CARD4_TITLE}}</h3>
       <p style="font-size: 13px; color: #94A3B8; margin: 0; line-height: 1.5;">{{CARD4_DESC}}</p>
     </div>

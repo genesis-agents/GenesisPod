@@ -83,6 +83,7 @@ const DEFAULT_POSITION_FIT: Record<
 > = {
   cover: { opening: 1.0, middle: 0.0, closing: 0.3 },
   toc: { opening: 0.9, middle: 0.2, closing: 0.1 },
+  chapterTitle: { opening: 0.6, middle: 0.8, closing: 0.2 }, // v3.5: 章节分隔页
   questions: { opening: 0.7, middle: 0.5, closing: 0.3 },
   pillars: { opening: 0.5, middle: 0.9, closing: 0.6 },
   framework: { opening: 0.6, middle: 0.9, closing: 0.5 },

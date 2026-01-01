@@ -534,13 +534,131 @@ ${sourceText.substring(0, 10000)}${sourceText.length > 10000 ? "\n\n[内容已�
       `[ensureRequiredPages] Final page count: ${result.length} (cover: ${hasCover ? "existed" : "injected"}, toc: ${hasToc ? "existed" : "injected"}, closing: ${hasClosing ? "existed" : "injected"})`,
     );
 
+    // v3.5: 注入章节分隔页
+    let pagesWithChapters = this.ensureChapterSeparators(
+      result,
+      taskDecomposition,
+    );
+
     // v3.2 增强验证管线
-    let validatedPages = this.ensureTemplateDiversity(result);
+    let validatedPages = this.ensureTemplateDiversity(pagesWithChapters);
     validatedPages = this.validateViewpointTitles(validatedPages);
     validatedPages = this.validateLogicDataMatch(validatedPages);
     validatedPages = this.validateLogicCoherence(validatedPages);
 
     return validatedPages;
+  }
+
+  /**
+   * 确保章节分隔页存在 (v3.5 新增)
+   *
+   * 规则：
+   * 1. 如果有多个章节（>=2），在每个章节开始前插入 chapterTitle 页
+   * 2. 跳过第一章（封面后直接进入目录，然后是第一章内容）
+   * 3. 章节分隔页根据 taskDecomposition.chapters 信息生成
+   */
+  private ensureChapterSeparators(
+    pages: PageOutline[],
+    taskDecomposition: TaskDecomposition,
+  ): PageOutline[] {
+    const chapters = taskDecomposition.chapters || [];
+
+    // 如果章节数少于 2，不需要分隔页
+    if (chapters.length < 2) {
+      this.logger.log(
+        `[ensureChapterSeparators] Only ${chapters.length} chapter(s), skipping separators`,
+      );
+      return pages;
+    }
+
+    // 检查是否已经有足够的 chapterTitle 页
+    const existingChapterTitles = pages.filter(
+      (p) => p.templateType === "chapterTitle",
+    );
+    if (existingChapterTitles.length >= chapters.length - 1) {
+      this.logger.log(
+        `[ensureChapterSeparators] Already has ${existingChapterTitles.length} chapter separators`,
+      );
+      return pages;
+    }
+
+    const result: PageOutline[] = [];
+    let currentChapterIndex = 0;
+    let contentPageCount = 0; // 统计内容页数量（不包括封面、目录、章节分隔、结尾）
+
+    for (let i = 0; i < pages.length; i++) {
+      const page = pages[i];
+
+      // 跳过封面、目录、章节分隔页、结尾页
+      const isStructuralPage =
+        page.templateType === "cover" ||
+        page.templateType === "toc" ||
+        page.templateType === "chapterTitle" ||
+        page.templateType === "closing" ||
+        page.templateType === "recommendations";
+
+      if (!isStructuralPage) {
+        // 计算每章应有的页数
+        const pagesPerChapter = Math.ceil(
+          (pages.length - 3) / chapters.length, // -3 是封面、目录、结尾
+        );
+
+        // 检查是否应该在这里插入新章节分隔页
+        const shouldInsertChapter =
+          currentChapterIndex > 0 && // 跳过第一章
+          contentPageCount > 0 &&
+          contentPageCount % pagesPerChapter === 0 &&
+          currentChapterIndex < chapters.length;
+
+        if (shouldInsertChapter) {
+          const chapter = chapters[currentChapterIndex];
+          const chapterPage: PageOutline = {
+            pageNumber: result.length + 1,
+            title: chapter.title,
+            subtitle: `CHAPTER ${String(currentChapterIndex + 1).padStart(2, "0")}`,
+            logicType: "narrative",
+            templateType: "chapterTitle",
+            contentBrief: `章节分隔页 - ${chapter.title}`,
+            keyElements: chapter.keyPoints || [],
+            layoutHints: [{ type: "alignment", value: "center" }],
+            imageRequirements: [
+              {
+                position: "background",
+                semanticContext: "专业章节分隔背景，深色主题",
+                style: "abstract dark professional",
+                optional: true,
+              },
+            ],
+          };
+
+          result.push(chapterPage);
+          this.logger.log(
+            `[ensureChapterSeparators] Injected chapter separator for: ${chapter.title}`,
+          );
+          currentChapterIndex++;
+        }
+
+        contentPageCount++;
+      }
+
+      // 如果当前页是第一个内容页，初始化章节索引
+      if (!isStructuralPage && contentPageCount === 1) {
+        currentChapterIndex = 1; // 第一章已经开始，下一个分隔页是第二章
+      }
+
+      result.push(page);
+    }
+
+    // 重新编号
+    result.forEach((page, index) => {
+      page.pageNumber = index + 1;
+    });
+
+    this.logger.log(
+      `[ensureChapterSeparators] Final count: ${result.length} pages (${result.filter((p) => p.templateType === "chapterTitle").length} chapter separators)`,
+    );
+
+    return result;
   }
 
   /**
@@ -570,6 +688,7 @@ ${sourceText.substring(0, 10000)}${sourceText.length > 10000 ? "\n\n[内容已�
       caseStudy: ["splitLayout", "multiColumn", "pillars"],
       cover: ["cover"],
       toc: ["toc"],
+      chapterTitle: ["chapterTitle"], // v3.5: 章节分隔页不替换
       closing: ["recommendations"],
       questions: ["pillars", "multiColumn"],
       recommendations: ["pillars", "multiColumn", "splitLayout"],
@@ -588,8 +707,12 @@ ${sourceText.substring(0, 10000)}${sourceText.length > 10000 ? "\n\n[内容已�
       const page = result[i];
       const currentTemplate = page.templateType;
 
-      // 跳过封面、目录
-      if (currentTemplate === "cover" || currentTemplate === "toc") {
+      // 跳过封面、目录、章节分隔页
+      if (
+        currentTemplate === "cover" ||
+        currentTemplate === "toc" ||
+        currentTemplate === "chapterTitle"
+      ) {
         lastTemplate = currentTemplate;
         consecutiveCount = 1;
         continue;
@@ -650,7 +773,11 @@ ${sourceText.substring(0, 10000)}${sourceText.length > 10000 ? "\n\n[内容已�
       const page = result[i];
       const currentTemplate = page.templateType;
 
-      if (currentTemplate === "cover" || currentTemplate === "toc") {
+      if (
+        currentTemplate === "cover" ||
+        currentTemplate === "toc" ||
+        currentTemplate === "chapterTitle"
+      ) {
         continue;
       }
 
@@ -726,6 +853,7 @@ ${sourceText.substring(0, 10000)}${sourceText.length > 10000 ? "\n\n[内容已�
     const mapping: Record<PageTemplateType, PageLogicType> = {
       cover: "narrative",
       toc: "narrative",
+      chapterTitle: "narrative", // v3.5: 章节分隔页
       closing: "narrative",
       questions: "parallel",
       pillars: "parallel",
@@ -768,7 +896,7 @@ ${sourceText.substring(0, 10000)}${sourceText.length > 10000 ? "\n\n[内容已�
     ];
 
     // 跳过的页面类型
-    const skipTypes: PageTemplateType[] = ["cover", "toc"];
+    const skipTypes: PageTemplateType[] = ["cover", "toc", "chapterTitle"];
 
     for (let i = 0; i < result.length; i++) {
       const page = result[i];
@@ -1185,6 +1313,7 @@ ${sourceText.substring(0, 10000)}${sourceText.length > 10000 ? "\n\n[内容已�
     const templateToLogic: Record<PageTemplateType, PageLogicType> = {
       cover: "narrative",
       toc: "narrative",
+      chapterTitle: "narrative", // v3.5: 章节分隔页
       closing: "narrative",
       questions: "parallel",
       pillars: "parallel",
@@ -1211,6 +1340,7 @@ ${sourceText.substring(0, 10000)}${sourceText.length > 10000 ? "\n\n[内容已�
     const validTypes: PageTemplateType[] = [
       "cover",
       "toc",
+      "chapterTitle", // v3.5: 章节分隔页
       "questions",
       "pillars",
       "framework",

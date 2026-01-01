@@ -476,6 +476,7 @@ export class PageTypeSelectionSkill {
       questions: "pillars",
       cover: "cover",
       toc: "toc",
+      chapterTitle: "chapterTitle", // v3.5: 章节分隔页不替换
       closing: "cover", // 感谢页的替代是封面页
     };
 

@@ -40,6 +40,7 @@ export interface ImageSearchOptions {
 
 /**
  * 本地备选图片库（当 API 不可用时使用）
+ * v3.4: 扩展更多主题分类
  */
 const FALLBACK_IMAGES: Record<string, string[]> = {
   business: [
@@ -66,6 +67,31 @@ const FALLBACK_IMAGES: Record<string, string[]> = {
     "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=800",
     "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800",
   ],
+  // v3.4: 新增主题分类
+  weather: [
+    "https://images.unsplash.com/photo-1504608524841-42fe6f032b4b?w=800",
+    "https://images.unsplash.com/photo-1534088568595-a066f410bcda?w=800",
+  ],
+  city: [
+    "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=800",
+    "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=800",
+  ],
+  shopping: [
+    "https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=800",
+    "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800",
+  ],
+  lifestyle: [
+    "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=800",
+    "https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=800",
+  ],
+  network: [
+    "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800",
+    "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=800",
+  ],
+  nature: [
+    "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800",
+    "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?w=800",
+  ],
   default: [
     "https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=800",
     "https://images.unsplash.com/photo-1497032628192-86f99bcd76bc?w=800",
@@ -74,6 +100,7 @@ const FALLBACK_IMAGES: Record<string, string[]> = {
 
 /**
  * 关键词到类别映射
+ * v3.4: 大幅扩展关键词覆盖
  */
 const KEYWORD_CATEGORY_MAP: Record<string, string> = {
   // 商业
@@ -81,20 +108,31 @@ const KEYWORD_CATEGORY_MAP: Record<string, string> = {
   公司: "business",
   企业: "business",
   市场: "business",
+  经济: "business",
+  投资: "business",
+  金融: "business",
   business: "business",
   company: "business",
   market: "business",
+  economy: "business",
   // 技术
   技术: "technology",
   科技: "technology",
   数字化: "technology",
+  互联网: "technology",
+  通信: "technology",
+  基础设施: "technology",
   tech: "technology",
   digital: "technology",
   software: "technology",
+  internet: "technology",
   // 数据
   数据: "data",
   分析: "data",
   图表: "data",
+  统计: "data",
+  指标: "data",
+  评价: "data",
   data: "data",
   analytics: "data",
   chart: "data",
@@ -102,6 +140,7 @@ const KEYWORD_CATEGORY_MAP: Record<string, string> = {
   团队: "team",
   协作: "team",
   人员: "team",
+  员工: "team",
   team: "team",
   collaboration: "team",
   people: "team",
@@ -109,6 +148,7 @@ const KEYWORD_CATEGORY_MAP: Record<string, string> = {
   增长: "growth",
   发展: "growth",
   提升: "growth",
+  前景: "growth",
   growth: "growth",
   development: "growth",
   progress: "growth",
@@ -120,6 +160,57 @@ const KEYWORD_CATEGORY_MAP: Record<string, string> = {
   innovation: "innovation",
   future: "innovation",
   ai: "innovation",
+  // v3.4: 新增主题映射
+  // 天气/气候
+  气候: "weather",
+  天气: "weather",
+  气温: "weather",
+  季节: "weather",
+  冬季: "weather",
+  夏季: "weather",
+  降雪: "weather",
+  weather: "weather",
+  climate: "weather",
+  // 城市
+  城市: "city",
+  首都: "city",
+  渥太华: "city",
+  多伦多: "city",
+  温哥华: "city",
+  地理: "city",
+  位置: "city",
+  city: "city",
+  urban: "city",
+  // 购物/超市
+  购物: "shopping",
+  超市: "shopping",
+  商店: "shopping",
+  零售: "shopping",
+  消费: "shopping",
+  shopping: "shopping",
+  retail: "shopping",
+  store: "shopping",
+  // 生活方式
+  生活: "lifestyle",
+  居民: "lifestyle",
+  便利: "lifestyle",
+  质量: "lifestyle",
+  lifestyle: "lifestyle",
+  living: "lifestyle",
+  // 网络
+  网络: "network",
+  覆盖: "network",
+  信号: "network",
+  宽带: "network",
+  network: "network",
+  coverage: "network",
+  // 自然
+  自然: "nature",
+  环境: "nature",
+  植物: "nature",
+  公园: "nature",
+  nature: "nature",
+  environment: "nature",
 };
 
 @Injectable()

@@ -188,11 +188,12 @@ export interface PageOutline {
 }
 
 /**
- * 16种页面模板类型
+ * 17种页面模板类型
  */
 export type PageTemplateType =
   | "cover"
   | "toc"
+  | "chapterTitle" // v3.5: 章节分隔页
   | "questions"
   | "pillars"
   | "framework"
