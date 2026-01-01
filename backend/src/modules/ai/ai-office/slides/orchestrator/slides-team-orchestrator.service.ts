@@ -1355,33 +1355,59 @@ export class SlidesTeamOrchestratorService {
 
   private async saveCheckpoint(state: SlidesTeamState): Promise<string> {
     // 保存到 checkpoint 系统
-    // 使用 pages 字段（而非 renderedPages）以匹配 CheckpointState 类型
+    const generatedPages = state.generationResult?.pages || [];
+    const pageOutlines = state.planningResult?.pageOutlines || [];
+
+    this.logger.log(
+      `[saveCheckpoint] Saving checkpoint for session ${state.sessionId}: ${generatedPages.length} pages`,
+    );
+
+    if (generatedPages.length === 0) {
+      this.logger.warn(
+        `[saveCheckpoint] No pages to save! generationResult: ${!!state.generationResult}`,
+      );
+    }
+
+    // 构建完整的页面状态，使用 planningResult 中的 pageOutlines
+    const pages = generatedPages.map((p) => {
+      // 从 pageOutlines 中找到对应的大纲
+      const outline = pageOutlines.find((o) => o.pageNumber === p.pageNumber);
+
+      return {
+        pageNumber: p.pageNumber,
+        html: p.html,
+        content: p.content,
+        // 使用完整的 outline，包含所有必需字段
+        outline: outline || {
+          pageNumber: p.pageNumber,
+          title: p.title,
+          templateType: "content" as const,
+          contentBrief: p.title,
+          keyElements: [],
+          layoutHints: [],
+        },
+        status: "completed" as const,
+      };
+    });
+
     const checkpointState = {
       taskDecomposition: null, // 简化
       outlinePlan: state.planningResult,
-      pages:
-        state.generationResult?.pages.map((p) => ({
-          pageNumber: p.pageNumber,
-          html: p.html,
-          content: p.content,
-          outline: {
-            pageNumber: p.pageNumber,
-            title: p.title,
-            templateType: "content",
-          },
-          status: "completed" as const,
-        })) || [],
+      pages,
       conversation: [],
-      currentPageIndex: state.generationResult?.pages.length || 0,
-      completedPages:
-        state.generationResult?.pages.map((p) => p.pageNumber) || [],
+      currentPageIndex: generatedPages.length,
+      completedPages: generatedPages.map((p) => p.pageNumber),
     };
+
+    this.logger.log(
+      `[saveCheckpoint] Creating checkpoint with ${pages.length} pages`,
+    );
 
     await this.checkpoint.create({
       sessionId: state.sessionId,
       type: "batch_rendered",
       state: checkpointState as never,
-      name: `Team 协作完成 - ${state.generationResult?.pages.length || 0} 页`,
+      name: `Team 协作完成 - ${pages.length} 页`,
     });
 
     return state.sessionId; // 返回 session ID 作为 checkpoint 引用
