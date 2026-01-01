@@ -14,6 +14,7 @@ import {
   QualityIssue,
   GENSPARK_DESIGN_SYSTEM,
 } from "../checkpoint/checkpoint.types";
+import { QualityAuditSkill } from "../skills/quality-audit.skill";
 
 /**
  * 布局检查输入
@@ -75,7 +76,7 @@ export interface CompletenessCheckResult {
 export class ReviewerService {
   private readonly logger = new Logger(ReviewerService.name);
 
-  constructor() {}
+  constructor(private readonly qualityAudit: QualityAuditSkill) {}
 
   /**
    * 执行完整的质量审核
@@ -97,11 +98,34 @@ export class ReviewerService {
         this.checkCompleteness({ pages, outlinePlan }),
       ]);
 
+    // 执行语义级质量审核（模板-内容匹配、图表类型等）
+    const semanticAuditResult = this.qualityAudit.auditPresentation(
+      pages
+        .filter((p) => p.content && p.html)
+        .map((p) => ({
+          outline: p.outline,
+          content: p.content!,
+          html: p.html!,
+        })),
+    );
+
+    // 转换 QualityAuditSkill 的问题格式到 ReviewerService 格式
+    const semanticIssues: QualityIssue[] = semanticAuditResult.issues.map(
+      (issue) => ({
+        type: this.mapAuditIssueType(issue.type),
+        severity: issue.severity,
+        pageNumber: issue.pageNumber,
+        description: issue.message,
+        suggestion: issue.suggestion,
+      }),
+    );
+
     // 汇总所有问题
     const allIssues: QualityIssue[] = [
       ...layoutResults.flatMap((r) => r.issues),
       ...consistencyResult.issues,
       ...completenessResult.issues,
+      ...semanticIssues,
     ];
 
     // 计算总体评分
@@ -532,6 +556,27 @@ export class ReviewerService {
     }
 
     return "pass";
+  }
+
+  /**
+   * 映射语义审核问题类型到 ReviewerService 格式
+   */
+  private mapAuditIssueType(
+    auditType: string,
+  ): "layout" | "content" | "consistency" {
+    switch (auditType) {
+      case "template_mismatch":
+      case "chart_type_wrong":
+      case "content_logic":
+        return "content";
+      case "layout_issue":
+        return "layout";
+      case "visual_issue":
+      case "data_inconsistency":
+        return "consistency";
+      default:
+        return "content";
+    }
   }
 
   /**

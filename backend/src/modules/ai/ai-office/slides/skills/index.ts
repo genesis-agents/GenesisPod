@@ -52,5 +52,8 @@ export * from "./image-fetcher.skill";
 export * from "./terminology-unifier.skill";
 export * from "./transition-checker.skill";
 
+// Layer 6 - Quality Assurance
+export * from "./quality-audit.skill";
+
 // Templates
 export * from "../templates";

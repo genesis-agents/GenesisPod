@@ -44,6 +44,7 @@ import {
   TemplateRenderingSkill,
   ChartRendererSkill,
   ImageFetcherSkill,
+  QualityAuditSkill,
   // Roles
   ArchitectService,
   WriterService,
@@ -116,6 +117,7 @@ import { AIOfficeCommonModule } from "./common";
     TemplateRenderingSkill,
     ChartRendererSkill,
     ImageFetcherSkill,
+    QualityAuditSkill,
     // Roles
     ArchitectService,
     WriterService,

@@ -92,6 +92,79 @@ export class ChartRendererSkill {
   }
 
   /**
+   * 智能推断图表类型
+   * 根据数据特性自动选择最合适的图表类型，防止 AI 选错
+   */
+  inferChartType(
+    labels: string[],
+    requestedType: ChartData["type"],
+  ): ChartData["type"] {
+    // 检测是否为时间序列数据
+    const timePatterns = [
+      /^\d{4}年?$/,
+      /^Q[1-4]$/i,
+      /^[一二三四]季度$/,
+      /^\d{1,2}月$/,
+      /^20\d{2}/,
+      /第[一二三四五六七八九十]+阶段/,
+    ];
+
+    const isTimeSeries = labels.every((label) =>
+      timePatterns.some((pattern) => pattern.test(label)),
+    );
+
+    // 检测是否为分类数据（不同类别的对比）
+    const categoryPatterns = [
+      /人口$/,
+      /面积$/,
+      /数量$/,
+      /规模$/,
+      /产品[A-Z]?$/,
+      /部门$/,
+      /区域$/,
+      /市区/,
+      /首都/,
+      /城市/,
+    ];
+
+    const isCategoryData =
+      labels.length <= 6 &&
+      !isTimeSeries &&
+      labels.some((label) =>
+        categoryPatterns.some((pattern) => pattern.test(label)),
+      );
+
+    // 检测是否为占比数据
+    const isPercentageData =
+      labels.some((l) => l.includes("占比") || l.includes("比例")) ||
+      requestedType === "pie";
+
+    // 智能修正
+    if (isCategoryData && requestedType === "line") {
+      this.logger.warn(
+        `[inferChartType] 检测到分类数据但请求了折线图，自动修正为柱状图。Labels: ${labels.join(", ")}`,
+      );
+      return "bar";
+    }
+
+    if (isTimeSeries && requestedType === "bar") {
+      this.logger.log(
+        `[inferChartType] 检测到时间序列数据，建议使用折线图。Labels: ${labels.join(", ")}`,
+      );
+      return "line";
+    }
+
+    if (isPercentageData && requestedType !== "pie") {
+      this.logger.log(
+        `[inferChartType] 检测到占比数据，建议使用饼图。Labels: ${labels.join(", ")}`,
+      );
+      return "pie";
+    }
+
+    return requestedType;
+  }
+
+  /**
    * 从 ContentSection 提取图表数据
    */
   extractChartData(
@@ -126,8 +199,11 @@ export class ChartRendererSkill {
       values.push(numValue);
     });
 
+    // 智能推断并修正图表类型
+    const inferredType = this.inferChartType(labels, chartType);
+
     return {
-      type: chartType,
+      type: inferredType,
       labels,
       datasets: [
         {
