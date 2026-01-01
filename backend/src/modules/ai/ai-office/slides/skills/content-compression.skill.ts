@@ -19,6 +19,26 @@ import {
 } from "../checkpoint/checkpoint.types";
 
 /**
+ * 重试上下文 - 用于传递之前的审核反馈
+ */
+export interface RetryContext {
+  /** 当前尝试次数 */
+  attempt: number;
+  /** 上一次的审核反馈 */
+  feedback?: string;
+  /** 改进建议 */
+  suggestions?: string[];
+  /** 各维度评分 */
+  dimensions?: Array<{
+    name: string;
+    score: number;
+    comment?: string;
+  }>;
+  /** 使用的策略变体 */
+  strategy?: "default" | "detailed" | "creative" | "conservative";
+}
+
+/**
  * 内容压缩输入
  */
 export interface ContentCompressionInput {
@@ -30,6 +50,8 @@ export interface ContentCompressionInput {
   maxCharacters?: number;
   /** 会话 ID */
   sessionId?: string;
+  /** 重试上下文 - 包含之前的审核反馈 */
+  retryContext?: RetryContext;
 }
 
 /**
@@ -332,9 +354,9 @@ export class ContentCompressionSkill {
    * 构建用户消息
    */
   private buildUserMessage(input: ContentCompressionInput): string {
-    const { pageOutline, sourceText, maxCharacters } = input;
+    const { pageOutline, sourceText, maxCharacters, retryContext } = input;
 
-    return `## 页面信息
+    let message = `## 页面信息
 
 ### 页码
 ${pageOutline.pageNumber}
@@ -364,6 +386,66 @@ ${sourceText}
 2. 总字数控制在 ${maxCharacters} 字以内
 3. 保留所有关键数据和核心观点
 4. 输出 JSON 格式的 PageContent`;
+
+    // 如果是重试，添加审核反馈
+    if (retryContext && retryContext.attempt > 1) {
+      message += `
+
+## ⚠️ 重要：这是第 ${retryContext.attempt} 次尝试
+
+上一次的结果未通过质量审核，必须按照以下反馈进行改进：
+
+### 审核反馈
+${retryContext.feedback || "内容质量不达标"}
+
+### 需要改进的维度
+${
+  retryContext.dimensions
+    ?.filter((d) => d.score < 70)
+    .map((d) => `- **${d.name}** (${d.score}分): ${d.comment || "需要提升"}`)
+    .join("\n") || "- 整体内容丰富度不足"
+}
+
+### 改进建议
+${retryContext.suggestions?.map((s) => `- ${s}`).join("\n") || "- 增加更多数据点和具体事实\n- 使用 stat 和 chart 类型展示关键指标\n- 确保每页有 3-5 个内容区块"}
+
+### 策略调整
+${this.getStrategyGuidance(retryContext.strategy)}
+
+**请务必针对上述问题进行具体改进！不要重复生成相同的低质量内容！**`;
+    }
+
+    return message;
+  }
+
+  /**
+   * 获取策略指导
+   */
+  private getStrategyGuidance(
+    strategy?: "default" | "detailed" | "creative" | "conservative",
+  ): string {
+    switch (strategy) {
+      case "detailed":
+        return `使用【详细策略】：
+- 每个要点必须有具体数据或事实支撑
+- 列表项必须达到 6-8 个
+- 增加更多的 stat 类型展示数据
+- 内容总字数目标：400-600 字`;
+      case "creative":
+        return `使用【创意策略】：
+- 尝试不同的内容组织方式
+- 使用更多可视化元素（chart、stat）
+- 从不同角度解读源文本
+- 挖掘隐藏的数据和洞察`;
+      case "conservative":
+        return `使用【稳健策略】：
+- 严格遵循模板结构要求
+- 优先使用源文本的原始数据
+- 确保每个 section 都有实质内容
+- 宁可简洁也不要空洞`;
+      default:
+        return `使用【标准策略】：确保内容完整、数据丰富、结构清晰`;
+    }
   }
 
   /**

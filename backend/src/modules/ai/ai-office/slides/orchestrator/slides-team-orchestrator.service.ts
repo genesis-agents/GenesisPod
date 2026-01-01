@@ -40,6 +40,7 @@ import {
 } from "./slides-team.types";
 
 import { OutlinePlan, PageOutline } from "../checkpoint/checkpoint.types";
+import { RetryContext } from "../skills/content-compression.skill";
 
 /**
  * 审核评分维度
@@ -166,7 +167,8 @@ export class SlidesTeamOrchestratorService {
         executionId,
         "analysis",
         "analyst",
-        async () => this.runAnalysisPhase(input, state, subject),
+        async (retryContext) =>
+          this.runAnalysisPhase(input, state, subject, retryContext),
       );
 
       // ========== Phase 2: 规划 (Strategist) → Leader 审核（带重试） ==========
@@ -177,7 +179,8 @@ export class SlidesTeamOrchestratorService {
         executionId,
         "planning",
         "strategist",
-        async () => this.runPlanningPhase(input, state, subject),
+        async (retryContext) =>
+          this.runPlanningPhase(input, state, subject, retryContext),
       );
 
       // ========== Phase 3: 生成 (Writer) → Leader 审核（带重试） ==========
@@ -188,7 +191,8 @@ export class SlidesTeamOrchestratorService {
         executionId,
         "generation",
         "writer",
-        async () => this.runGenerationPhase(input, state, subject),
+        async (retryContext) =>
+          this.runGenerationPhase(input, state, subject, retryContext),
       );
 
       // ========== Phase 4: 审核 (Reviewer) → Leader 最终确认 ==========
@@ -450,22 +454,57 @@ export class SlidesTeamOrchestratorService {
             emptyPages > 0 ? `${emptyPages} 页内容过短` : "所有页面内容完整",
         });
 
-        // 维度2：内容丰富度（权重 30%）
-        // PPT 每页 200-400 字符是正常的，调整公式使 300 字符 = 100 分
+        // 维度2：内容丰富度（权重 25%）
+        // 检查每页内容的实际丰富度，不只是字符数
         const avgLength =
           generation.pages.length > 0
             ? generation.totalContentLength / generation.pages.length
             : 0;
-        const richnessScore = Math.min(100, Math.round(avgLength / 3));
+        // 更严格的字符数要求：400 字符 = 100 分
+        const charScore = Math.min(100, Math.round(avgLength / 4));
         dimensions.push({
           name: "内容丰富度",
-          score: richnessScore,
-          weight: 0.3,
+          score: charScore,
+          weight: 0.25,
           comment: `平均每页 ${Math.round(avgLength)} 字符`,
         });
 
-        // 维度3：格式规范（权重 30%）
-        // 检查未替换的模板变量，但不过度惩罚（某些情况下可能是误判）
+        // 维度3：内容结构多样性（权重 20%）- 新增！
+        // 检查是否有多种内容类型（stat/list/chart/text）
+        let totalStructureScore = 0;
+        let structureComment = "";
+        for (const page of generation.pages) {
+          const content = page.content as Record<string, unknown>;
+          const sections = (content?.sections as Array<{ type: string }>) || [];
+          const hasStats = sections.some((s) => s.type === "stat");
+          const hasLists = sections.some((s) => s.type === "list");
+          const hasCharts = sections.some((s) => s.type === "chart");
+          const hasText = sections.some((s) => s.type === "text");
+          const typeCount = [hasStats, hasLists, hasCharts, hasText].filter(
+            Boolean,
+          ).length;
+          // 每种类型 25 分，最多 100 分
+          totalStructureScore += typeCount * 25;
+        }
+        const avgStructureScore =
+          generation.pages.length > 0
+            ? Math.round(totalStructureScore / generation.pages.length)
+            : 0;
+        structureComment =
+          avgStructureScore >= 75
+            ? "内容结构丰富"
+            : avgStructureScore >= 50
+              ? "内容结构一般"
+              : "内容结构单一，缺少数据和图表";
+        dimensions.push({
+          name: "内容结构",
+          score: avgStructureScore,
+          weight: 0.2,
+          comment: structureComment,
+        });
+
+        // 维度4：格式规范（权重 15%）
+        // 检查未替换的模板变量
         const unreplacedVarPages = generation.pages.filter(
           (p) => p.html.includes("{{") && p.html.includes("}}"),
         );
@@ -473,16 +512,15 @@ export class SlidesTeamOrchestratorService {
           generation.pages.length > 0
             ? unreplacedVarPages.length / generation.pages.length
             : 0;
-        // 根据未替换变量的页面比例评分：全部有问题=50分，部分有问题=70分，无问题=100分
         const formatScore =
-          unreplacedRatio === 0 ? 100 : unreplacedRatio > 0.5 ? 50 : 70;
+          unreplacedRatio === 0 ? 100 : unreplacedRatio > 0.5 ? 40 : 60;
         dimensions.push({
           name: "格式规范",
           score: formatScore,
-          weight: 0.3,
+          weight: 0.15,
           comment:
             unreplacedRatio > 0
-              ? `${unreplacedVarPages.length}/${generation.pages.length} 页有模板变量`
+              ? `${unreplacedVarPages.length}/${generation.pages.length} 页有未替换变量`
               : "格式规范",
         });
         break;
@@ -630,6 +668,7 @@ export class SlidesTeamOrchestratorService {
    * 执行阶段并进行 Leader 审核（带重试和 Agent 切换机制）
    * - 同一 Agent 最多重试 MAX_REVISION_ATTEMPTS 次
    * - 3 次失败后切换到不同策略的 Agent
+   * - 重试时会传递审核反馈给执行器
    */
   private async runPhaseWithReview<T>(
     _input: SlidesTeamInput,
@@ -638,7 +677,7 @@ export class SlidesTeamOrchestratorService {
     executionId: string,
     phaseType: string,
     agentRole: SlidesAgentRole,
-    phaseExecutor: () => Promise<T>,
+    phaseExecutor: (retryContext?: RetryContext) => Promise<T>,
   ): Promise<T> {
     let attempts = 0;
     let result: T;
@@ -646,11 +685,12 @@ export class SlidesTeamOrchestratorService {
     let currentVariant = this.getAlternativeAgent(agentRole, 0);
     let agentSwitchCount = 0;
     const maxAgentSwitches = 2; // 最多切换 2 次（共 3 个 Agent 变体）
+    let retryContext: RetryContext | undefined = undefined;
 
     do {
       attempts++;
 
-      // 如果是重试，发送重试事件
+      // 如果是重试，发送重试事件并构建重试上下文
       if (attempts > 1) {
         this.emitEvent(subject, executionId, "phase:retry", {
           phase: phaseType,
@@ -663,12 +703,25 @@ export class SlidesTeamOrchestratorService {
           subject,
           executionId,
           "thinking",
-          `第 ${attempts} 次尝试（${currentVariant.name}）：根据反馈重新执行 ${phaseType} 阶段...`,
+          `第 ${attempts} 次尝试（${currentVariant.name}）：根据审核反馈改进 ${phaseType} 阶段...`,
         );
+
+        // 构建重试上下文，传递审核反馈给执行器
+        retryContext = {
+          attempt: attempts,
+          feedback: reviewResult!.feedback,
+          suggestions: reviewResult!.suggestions,
+          dimensions: reviewResult!.dimensions?.map((d) => ({
+            name: d.name,
+            score: d.score,
+            comment: d.comment,
+          })),
+          strategy: currentVariant.strategy,
+        };
       }
 
-      // 执行阶段
-      result = await phaseExecutor();
+      // 执行阶段（传递重试上下文）
+      result = await phaseExecutor(retryContext);
 
       // Leader 审核
       reviewResult = await this.leaderReviewPhase(
@@ -766,6 +819,7 @@ export class SlidesTeamOrchestratorService {
     input: SlidesTeamInput,
     state: SlidesTeamState,
     subject: Subject<SlidesTeamEvent>,
+    _retryContext?: RetryContext,
   ): Promise<AnalysisResult> {
     state.phase = "analyzing";
     state.phaseStartTime = new Date();
@@ -850,6 +904,7 @@ export class SlidesTeamOrchestratorService {
     input: SlidesTeamInput,
     state: SlidesTeamState,
     subject: Subject<SlidesTeamEvent>,
+    _retryContext?: RetryContext,
   ): Promise<PlanningResult> {
     state.phase = "planning";
     state.phaseStartTime = new Date();
@@ -952,16 +1007,22 @@ export class SlidesTeamOrchestratorService {
     input: SlidesTeamInput,
     state: SlidesTeamState,
     subject: Subject<SlidesTeamEvent>,
+    retryContext?: RetryContext,
   ): Promise<GenerationResult> {
     state.phase = "generating";
     state.phaseStartTime = new Date();
     const agent = SLIDES_TEAM_AGENTS.find((a) => a.role === "writer")!;
     const planningResult = state.planningResult!;
 
+    const isRetry = retryContext && retryContext.attempt > 1;
+    const retryInfo = isRetry
+      ? ` (第 ${retryContext.attempt} 次尝试，${retryContext.strategy || "default"} 策略)`
+      : "";
+
     this.emitEvent(subject, state.executionId, "phase:started", {
       phase: "generating",
       agent: "writer",
-      description: `生成 ${planningResult.totalPages} 页内容（${this.WRITER_CONCURRENCY} 个写手并发）`,
+      description: `生成 ${planningResult.totalPages} 页内容${retryInfo}`,
     });
 
     // 获取主题配置
@@ -984,10 +1045,14 @@ export class SlidesTeamOrchestratorService {
     });
 
     // 通知开始并发生成
+    const thinkingMessage = isRetry
+      ? `根据审核反馈（${retryContext.feedback}），使用 ${retryContext.strategy || "default"} 策略重新生成 ${outline.pages.length} 页内容...`
+      : `分配 ${this.WRITER_CONCURRENCY} 个写手并发生成 ${outline.pages.length} 页内容...`;
+
     this.emitEvent(subject, state.executionId, "agent:thinking", {
       agent: "writer",
       agentName: agent.name,
-      thought: `分配 ${this.WRITER_CONCURRENCY} 个写手并发生成 ${outline.pages.length} 页内容...`,
+      thought: thinkingMessage,
     });
 
     // 并发生成页面（使用批次处理）
@@ -1011,7 +1076,7 @@ export class SlidesTeamOrchestratorService {
       this.emitEvent(subject, state.executionId, "agent:working", {
         agent: "writer",
         agentName: agent.name,
-        task: `并发生成第 ${batchStart + 1}-${batchEnd} 页（共 ${totalPages} 页）`,
+        task: `并发生成第 ${batchStart + 1}-${batchEnd} 页（共 ${totalPages} 页）${retryInfo}`,
         progress: 35 + Math.floor((batchStart / totalPages) * 40),
       });
 
@@ -1025,14 +1090,15 @@ export class SlidesTeamOrchestratorService {
         });
       }
 
-      // 并发生成当前批次的所有页面
+      // 并发生成当前批次的所有页面（传递重试上下文）
       const batchResults = await Promise.all(
         batchPages.map(async (pageOutline) => {
-          // 调用 content-compression skill
+          // 调用 content-compression skill（传递重试上下文）
           const contentResult = await this.contentCompression.execute({
             pageOutline: pageOutline,
             sourceText: input.sourceText,
             sessionId: input.sessionId,
+            retryContext: retryContext, // 传递重试上下文，包含审核反馈
           });
 
           // 调用 template-rendering skill
@@ -1090,7 +1156,7 @@ export class SlidesTeamOrchestratorService {
     this.emitEvent(subject, state.executionId, "agent:completed", {
       agent: "writer",
       agentName: agent.name,
-      result: `${this.WRITER_CONCURRENCY} 个写手并发生成了 ${pages.length} 页内容`,
+      result: `${this.WRITER_CONCURRENCY} 个写手并发生成了 ${pages.length} 页内容${retryInfo}`,
       duration,
     });
 
