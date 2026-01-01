@@ -406,7 +406,10 @@ ${overflowProtectionStyles}
 
       // ========== Structural Templates (S-001 ~ S-009) ==========
       case "S-001": // TOC Dual
-        return { ...baseVars, ...this.extractTocVariables(pageContent) };
+        return {
+          ...baseVars,
+          ...this.extractTocVariables(pageContent, pageOutline),
+        };
       case "S-002": // Section Divider
         return { ...baseVars, ...this.extractFrameworkVariables(pageContent) };
       case "S-003": // 3-Pillar
@@ -463,7 +466,10 @@ ${overflowProtectionStyles}
           CHAPTER_EN: "CHAPTER ONE",
         };
       case "N-004": // Table of Contents
-        return { ...baseVars, ...this.extractTocVariables(pageContent) };
+        return {
+          ...baseVars,
+          ...this.extractTocVariables(pageContent, pageOutline),
+        };
       case "N-005": // Closing with Contact
         return {
           ...baseVars,
@@ -562,7 +568,10 @@ ${overflowProtectionStyles}
           TITLE: pageContent.title || "感谢聆听",
         };
       case "toc":
-        return { ...baseVars, ...this.extractTocVariables(pageContent) };
+        return {
+          ...baseVars,
+          ...this.extractTocVariables(pageContent, pageOutline),
+        };
       case "recommendations":
         return {
           ...baseVars,
@@ -907,20 +916,48 @@ ${overflowProtectionStyles}
 
   /**
    * 提取 TOC 模板变量
+   * 优先使用 sections，如果为空或不足则回退到 keyElements
    */
   private extractTocVariables(
     pageContent: PageContent,
+    pageOutline?: PageOutline,
   ): Record<string, string> {
     const sections = pageContent.sections || [];
-    let chaptersHtml = "";
 
-    sections.forEach((section, index) => {
-      const title = Array.isArray(section.content)
-        ? section.content[0]
-        : typeof section.content === "string"
+    // 获取章节标题列表：优先使用 sections，不足时回退到 keyElements
+    let chapterTitles: string[] = [];
+
+    if (sections.length >= 2) {
+      // 从 sections 提取章节标题
+      chapterTitles = sections.map((section, index) => {
+        if (Array.isArray(section.content)) {
+          return section.content[0] || `章节 ${index + 1}`;
+        }
+        return typeof section.content === "string"
           ? section.content
           : `章节 ${index + 1}`;
+      });
+    } else if (
+      pageOutline?.keyElements &&
+      pageOutline.keyElements.length >= 2
+    ) {
+      // 回退到 keyElements（通常包含所有章节标题）
+      chapterTitles = pageOutline.keyElements;
+    } else if (sections.length === 1) {
+      // 只有 1 个 section，使用它
+      const section = sections[0];
+      chapterTitles = [
+        Array.isArray(section.content)
+          ? section.content[0]
+          : typeof section.content === "string"
+            ? section.content
+            : "章节 1",
+      ];
+    }
 
+    // 生成 chaptersHtml
+    let chaptersHtml = "";
+    chapterTitles.forEach((title, index) => {
       chaptersHtml += `
         <div style="display: flex; align-items: center; gap: 16px;">
           <div style="width: 40px; height: 40px; background: linear-gradient(135deg, ${COLORS.primary}, rgba(212, 175, 55, 0.7)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px;">${String(index + 1).padStart(2, "0")}</div>
@@ -934,17 +971,7 @@ ${overflowProtectionStyles}
     // 生成 OVERVIEW 变量
     const overview =
       pageContent.subtitle ||
-      sections
-        .slice(0, 3)
-        .map((s) =>
-          Array.isArray(s.content)
-            ? s.content[0]
-            : typeof s.content === "string"
-              ? s.content.slice(0, 30)
-              : "",
-        )
-        .filter(Boolean)
-        .join("、") ||
+      chapterTitles.slice(0, 3).join("、") ||
       "本报告涵盖多个关键主题的深度分析";
 
     return {

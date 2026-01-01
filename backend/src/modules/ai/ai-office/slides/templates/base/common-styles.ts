@@ -9,12 +9,16 @@
 // Container Styles - 差异化背景
 // ============================================================================
 
+/** 通用字体栈 (包含 emoji 支持) */
+export const FONT_STACK =
+  "'Noto Sans SC', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif";
+
 /** 标准内容页容器 - 深蓝渐变 (含安全边距) */
 export const COMMON_CONTAINER = `
   width: 100%;
   height: 100%;
   background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: ${FONT_STACK};
   color: #F8FAFC;
   padding: 50px 80px 80px 80px;
   box-sizing: border-box;
@@ -27,7 +31,7 @@ export const COVER_CONTAINER = `
   width: 100%;
   height: 100%;
   background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: ${FONT_STACK};
   color: #F8FAFC;
   padding: 60px 80px 80px 80px;
   box-sizing: border-box;
@@ -40,7 +44,7 @@ export const DATA_CONTAINER = `
   width: 100%;
   height: 100%;
   background: linear-gradient(180deg, #111827 0%, #1F2937 100%);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: ${FONT_STACK};
   color: #F8FAFC;
   padding: 50px 80px 80px 80px;
   box-sizing: border-box;
@@ -53,7 +57,7 @@ export const COMPARISON_CONTAINER = `
   width: 100%;
   height: 100%;
   background: #0F172A;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: ${FONT_STACK};
   color: #F8FAFC;
   padding: 50px 80px 80px 80px;
   box-sizing: border-box;
@@ -66,7 +70,7 @@ export const CONCLUSION_CONTAINER = `
   width: 100%;
   height: 100%;
   background: linear-gradient(135deg, #1E3A5F 0%, #0F172A 50%, #1E293B 100%);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: ${FONT_STACK};
   color: #F8FAFC;
   padding: 50px 80px 80px 80px;
   box-sizing: border-box;

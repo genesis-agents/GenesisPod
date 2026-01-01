@@ -1561,10 +1561,34 @@ export class SlidesTeamOrchestratorService {
 
   /**
    * 分栏布局图片注入
+   * 替换 SVG 占位符（配图区域）为真实图片
    */
   private injectSplitLayoutImage(html: string, image: ImageResult): string {
-    // 创建图片 HTML
+    // 创建替换用的图片 HTML
     const imageHtml = `
+      <img src="${image.url}" alt="${image.description || "配图"}" style="
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 8px;
+      " loading="lazy" />
+    `.trim();
+
+    // 1. 尝试替换 SVG 占位符（包含 "配图区域" 文字的 SVG）
+    const svgPlaceholderPattern = /<svg[^>]*>[\s\S]*?配图区域[\s\S]*?<\/svg>/gi;
+    if (svgPlaceholderPattern.test(html)) {
+      return html.replace(svgPlaceholderPattern, imageHtml);
+    }
+
+    // 2. 尝试替换整个图片容器（包含渐变背景和 SVG 的 div）
+    const containerWithSvgPattern =
+      /<div[^>]*style="[^"]*display:\s*flex[^"]*align-items:\s*center[^"]*justify-content:\s*center[^"]*"[^>]*>\s*<svg[\s\S]*?<\/svg>\s*<\/div>/gi;
+    if (containerWithSvgPattern.test(html)) {
+      return html.replace(containerWithSvgPattern, imageHtml);
+    }
+
+    // 3. 兜底：在 slide-content 结束前插入图片覆盖层
+    const overlayHtml = `
       <div class="slide-image" style="
         position: absolute;
         right: 0;
@@ -1582,8 +1606,7 @@ export class SlidesTeamOrchestratorService {
       </div>
     `.trim();
 
-    // 在 slide-content 结束前插入图片
-    return html.replace(/(<\/div>\s*<\/div>\s*$)/, `${imageHtml}$1`);
+    return html.replace(/(<\/div>\s*<\/div>\s*$)/, `${overlayHtml}$1`);
   }
 
   /**
