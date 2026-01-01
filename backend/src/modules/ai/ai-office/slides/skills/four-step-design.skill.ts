@@ -737,6 +737,12 @@ export class FourStepDesignSkill {
 
     const { design, html: rawHtml } = this.parseResponse(result.content, input);
 
+    // 记录完整的 Prompt 和 AI 响应到 design 对象
+    // 这样前端 Thinking 视图可以展示完整的思考过程
+    design.systemPrompt = FOUR_STEP_DESIGN_SYSTEM_PROMPT;
+    design.userPrompt = userMessage;
+    design.rawResponse = result.content;
+
     // 修复误用的图片占位符（AI 可能将占位符作为文本输出）
     const fixedHtml = this.fixMisusedImagePlaceholders(rawHtml);
 
@@ -1394,29 +1400,42 @@ ${this.getTemplateReference(pageOutline.templateType)}
 
   /**
    * 用容器包装 HTML
+   * 注意：使用 100% 尺寸以适应 iframe 容器，由 iframe 的 body 控制实际尺寸
    */
   private wrapHtmlWithContainer(
     html: string,
     globalStyles: GlobalStyles,
   ): string {
-    // 如果 HTML 已经包含容器，直接返回
-    if (html.includes("width: 1280px") || html.includes("width:1280px")) {
-      return html;
+    let processedHtml = html;
+
+    // 将固定尺寸替换为 100%，让 HTML 填满 iframe body（1280x720）
+    // AI 生成的 HTML 通常包含固定的 1280x720 尺寸，需要转换为相对尺寸
+    processedHtml = processedHtml
+      .replace(/width:\s*1280px/gi, "width: 100%")
+      .replace(/height:\s*720px/gi, "height: 100%");
+
+    // 如果 HTML 已经包含容器样式，直接返回处理后的 HTML
+    if (
+      processedHtml.includes("width: 100%") ||
+      processedHtml.includes("width:100%")
+    ) {
+      return processedHtml;
     }
 
+    // 否则用容器包装
     return `
 <div style="
-  width: ${globalStyles.canvasWidth}px;
-  height: ${globalStyles.canvasHeight}px;
+  width: 100%;
+  height: 100%;
   background-color: ${globalStyles.backgroundColor};
   font-family: ${globalStyles.fontFamily};
   color: ${globalStyles.textPrimary};
-  padding: ${globalStyles.pagePadding};
+  padding: 50px 80px;
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
 ">
-  ${html}
+  ${processedHtml}
 </div>`.trim();
   }
 
@@ -1449,20 +1468,22 @@ ${this.getTemplateReference(pageOutline.templateType)}
 
   /**
    * 创建降级 HTML
+   * 注意：使用 100% 尺寸以适应 iframe 容器
    */
   private createFallbackHtml(input: FourStepDesignInput): string {
     const { pageContent, globalStyles } = input;
 
     return `
 <div style="
-  width: ${globalStyles.canvasWidth}px;
-  height: ${globalStyles.canvasHeight}px;
+  width: 100%;
+  height: 100%;
   background-color: ${globalStyles.backgroundColor};
   font-family: ${globalStyles.fontFamily};
   color: ${globalStyles.textPrimary};
-  padding: ${globalStyles.pagePadding};
+  padding: 50px 80px;
   box-sizing: border-box;
   position: relative;
+  overflow: hidden;
 ">
   <h1 style="
     font-size: 36px;

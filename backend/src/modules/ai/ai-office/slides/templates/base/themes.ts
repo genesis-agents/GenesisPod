@@ -695,15 +695,17 @@ export function generateThemeCSS(theme: ThemeConfig): string {
 
 /**
  * Generate inline container style for a theme
+ * 注意：使用 100% 尺寸以适应 iframe 容器，不再使用固定尺寸和 padding
+ * 模板内层自己处理边距和布局
  */
 export function getThemeContainerStyle(theme: ThemeConfig): string {
   return `
-    width: 1280px;
-    height: 720px;
+    width: 100%;
+    height: 100%;
     background: ${theme.colors.background.gradient};
     font-family: ${theme.typography.fontFamily};
     color: ${theme.colors.text.primary};
-    padding: 50px 80px 80px 80px;
+    padding: 0;
     box-sizing: border-box;
     position: relative;
     overflow: hidden;

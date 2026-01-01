@@ -319,6 +319,12 @@ export interface PageDesign {
     css?: string;
     externalDependencies: string[];
   };
+  /** AI 调用的系统提示词 */
+  systemPrompt?: string;
+  /** AI 调用的用户提示词（完整的输入上下文） */
+  userPrompt?: string;
+  /** AI 的原始响应（完整的思考过程） */
+  rawResponse?: string;
 }
 
 /**
