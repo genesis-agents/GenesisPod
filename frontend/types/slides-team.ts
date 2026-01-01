@@ -83,17 +83,22 @@ export type SlidesTeamEventType =
   | 'phase:started'
   | 'phase:progress'
   | 'phase:completed'
+  | 'phase:retry'
   // Agent 活动
   | 'agent:thinking'
   | 'agent:working'
   | 'agent:completed'
   | 'agent:handoff' // Agent 交接
+  | 'agent:switched' // Agent 被替换
   // 内容生成
   | 'slide:generating'
   | 'slide:generated'
   // 质量检查
   | 'review:issue_found'
   | 'review:auto_fixed'
+  | 'review:scoring' // Leader 评分
+  | 'review:rejected' // 审核驳回
+  | 'review:max_retries_reached'
   // 心跳
   | 'heartbeat';
 
@@ -115,14 +120,19 @@ export type SlidesTeamEventData =
   | PhaseStartedData
   | PhaseProgressData
   | PhaseCompletedData
+  | PhaseRetryData
   | AgentThinkingData
   | AgentWorkingData
   | AgentCompletedData
   | AgentHandoffData
+  | AgentSwitchedData
   | SlideGeneratingData
   | SlideGeneratedData
   | ReviewIssueData
   | ReviewFixedData
+  | ReviewScoringData
+  | ReviewRejectedData
+  | ReviewMaxRetriesData
   | HeartbeatData;
 
 export interface ExecutionStartedData {
@@ -215,6 +225,58 @@ export interface ReviewFixedData {
   fixDescription: string;
 }
 
+export interface ReviewDimension {
+  name: string;
+  score: number;
+  weight: number;
+  comment?: string;
+}
+
+export interface ReviewScoringData {
+  phase: string;
+  agent: SlidesAgentRole;
+  score: number;
+  threshold: number;
+  passed: boolean;
+  dimensions: ReviewDimension[];
+  summary: string;
+}
+
+export interface ReviewRejectedData {
+  phase: string;
+  attempt: number;
+  score: number;
+  threshold: number;
+  feedback?: string;
+  suggestions?: string[];
+  dimensions?: ReviewDimension[];
+  willRetry: boolean;
+}
+
+export interface ReviewMaxRetriesData {
+  phase: string;
+  attempts: number;
+  lastScore: number;
+  lastFeedback?: string;
+  action: 'switching_agent' | 'escalating' | 'proceeding_with_best_effort';
+  newAgent?: string;
+}
+
+export interface PhaseRetryData {
+  phase: string;
+  attempt: number;
+  maxAttempts: number;
+  reason: string;
+}
+
+export interface AgentSwitchedData {
+  phase: string;
+  originalAgent: SlidesAgentRole;
+  newAgent: string;
+  reason: string;
+  previousScore: number;
+}
+
 export interface HeartbeatData {
   phase: SlidesTeamPhase;
   progress: number;
@@ -234,6 +296,11 @@ export interface AgentState {
   progress?: number;
   duration?: number;
   result?: string;
+  // 评分相关
+  lastScore?: number;
+  scoreDimensions?: ReviewDimension[];
+  retryCount?: number;
+  variant?: string; // 当前 Agent 变体
 }
 
 export interface TeamExecutionState {
@@ -247,6 +314,10 @@ export interface TeamExecutionState {
   handoffs: AgentHandoffData[];
   issues: ReviewIssueData[];
   fixes: ReviewFixedData[];
+  // 评分记录
+  scoringHistory: ReviewScoringData[];
+  rejections: ReviewRejectedData[];
+  agentSwitches: AgentSwitchedData[];
 }
 
 // ============================================================================

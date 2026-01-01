@@ -24,14 +24,19 @@ import type {
   PhaseStartedData,
   PhaseProgressData,
   PhaseCompletedData,
+  PhaseRetryData,
   AgentThinkingData,
   AgentWorkingData,
   AgentCompletedData,
   AgentHandoffData,
+  AgentSwitchedData,
   SlideGeneratingData,
   SlideGeneratedData,
   ReviewIssueData,
   ReviewFixedData,
+  ReviewScoringData,
+  ReviewRejectedData,
+  ReviewMaxRetriesData,
   SLIDES_TEAM_AGENTS,
 } from '@/types/slides-team';
 import type { PageState, GenerationProgress } from '@/types/slides';
@@ -151,6 +156,9 @@ export function useSlideGenerationTeam(
             handoffs: [],
             issues: [],
             fixes: [],
+            scoringHistory: [],
+            rejections: [],
+            agentSwitches: [],
           });
 
           setSession({
@@ -368,6 +376,111 @@ export function useSlideGenerationTeam(
           setTeamState((prev) => {
             if (!prev) return prev;
             return { ...prev, fixes: [...prev.fixes, data] };
+          });
+          break;
+        }
+
+        case 'review:scoring': {
+          const data = event.data as ReviewScoringData;
+          console.log(
+            '[Team SSE] Review scoring:',
+            data.phase,
+            data.score,
+            '/',
+            data.threshold,
+            data.passed ? '✓' : '✗'
+          );
+
+          setTeamState((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              scoringHistory: [...prev.scoringHistory, data],
+            };
+          });
+
+          // 更新对应 Agent 的评分
+          updateAgentState(data.agent, {
+            lastScore: data.score,
+            scoreDimensions: data.dimensions,
+          });
+          break;
+        }
+
+        case 'review:rejected': {
+          const data = event.data as ReviewRejectedData;
+          console.log(
+            '[Team SSE] Review rejected:',
+            data.phase,
+            'attempt',
+            data.attempt,
+            'score',
+            data.score
+          );
+
+          setTeamState((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              rejections: [...prev.rejections, data],
+            };
+          });
+          break;
+        }
+
+        case 'review:max_retries_reached': {
+          const data = event.data as ReviewMaxRetriesData;
+          console.log(
+            '[Team SSE] Max retries reached:',
+            data.phase,
+            'action:',
+            data.action
+          );
+          break;
+        }
+
+        case 'phase:retry': {
+          const data = event.data as PhaseRetryData;
+          console.log(
+            '[Team SSE] Phase retry:',
+            data.phase,
+            'attempt',
+            data.attempt,
+            '/',
+            data.maxAttempts
+          );
+
+          // 更新当前 Agent 的重试次数
+          const currentAgent = teamState?.currentAgent;
+          if (currentAgent) {
+            updateAgentState(currentAgent, {
+              retryCount: data.attempt,
+            });
+          }
+          break;
+        }
+
+        case 'agent:switched': {
+          const data = event.data as AgentSwitchedData;
+          console.log(
+            '[Team SSE] Agent switched:',
+            data.originalAgent,
+            '->',
+            data.newAgent
+          );
+
+          setTeamState((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              agentSwitches: [...prev.agentSwitches, data],
+            };
+          });
+
+          // 更新 Agent 变体信息
+          updateAgentState(data.originalAgent, {
+            variant: data.newAgent,
+            retryCount: 0, // 重置重试次数
           });
           break;
         }
