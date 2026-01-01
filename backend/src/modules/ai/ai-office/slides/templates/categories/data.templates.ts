@@ -7,10 +7,11 @@
 
 import { SlideTemplate } from "../base/template-registry";
 import {
-  COMMON_CONTAINER,
-  CARD_STYLE,
+  DATA_CONTAINER,
+  COMPARISON_CONTAINER,
   FOOTER_STYLE,
   COLORS,
+  GRADIENTS,
 } from "../base/common-styles";
 
 // ============================================================================
@@ -39,18 +40,34 @@ export const BIG_NUMBER_TEMPLATE: SlideTemplate = {
     tone: "positive",
   },
   html: `
-<div style="${COMMON_CONTAINER}">
-  <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
-  <p style="font-size: 18px; color: #94A3B8; margin: 0 0 32px 0;">核心业务指标</p>
+<div style="${DATA_CONTAINER}">
+  <!-- 背景装饰：大数字强调 -->
+  <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 400px; font-weight: 900; color: rgba(212, 175, 55, 0.03); line-height: 1; pointer-events: none;">{{NUMBER}}</div>
 
-  <div style="display: flex; align-items: center; justify-content: center; height: calc(100% - 160px);">
+  <!-- 顶部指示线 -->
+  <div style="position: absolute; top: 0; left: 0; right: 0; height: 4px; background: ${GRADIENTS.primary};"></div>
+
+  <h1 style="font-size: 32px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
+  <p style="font-size: 16px; color: #94A3B8; margin: 0 0 24px 0;">核心业务指标</p>
+
+  <div style="display: flex; align-items: center; justify-content: center; height: calc(100% - 160px); position: relative; z-index: 1;">
     <div style="text-align: center;">
-      <div style="font-size: 120px; font-weight: 900; color: ${COLORS.primary}; line-height: 1; margin-bottom: 16px;">{{NUMBER}}</div>
-      <div style="font-size: 28px; color: #94A3B8; margin-bottom: 24px;">{{LABEL}}</div>
-      <div style="display: inline-flex; align-items: center; gap: 12px; padding: 12px 24px; background: rgba(16, 185, 129, 0.15); border-radius: 8px;">
-        <span style="color: ${COLORS.success}; font-size: 20px;">↑</span>
-        <span style="color: ${COLORS.success}; font-size: 18px; font-weight: 600;">{{CHANGE}}</span>
-        <span style="color: #94A3B8; font-size: 14px;">较上期</span>
+      <!-- 数字光晕效果 -->
+      <div style="position: relative;">
+        <div style="position: absolute; inset: -40px; background: radial-gradient(circle, rgba(212, 175, 55, 0.15) 0%, transparent 70%); border-radius: 50%;"></div>
+        <div style="font-size: 140px; font-weight: 900; background: ${GRADIENTS.gold}; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1; margin-bottom: 16px; position: relative;">{{NUMBER}}</div>
+      </div>
+      <div style="font-size: 28px; color: #F8FAFC; margin-bottom: 32px; font-weight: 600;">{{LABEL}}</div>
+
+      <!-- 变化指示器 -->
+      <div style="display: inline-flex; align-items: center; gap: 16px; padding: 16px 32px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px;">
+        <div style="width: 48px; height: 48px; background: ${COLORS.success}; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+          <span style="font-size: 24px;">↑</span>
+        </div>
+        <div style="text-align: left;">
+          <div style="font-size: 24px; font-weight: 900; color: ${COLORS.success};">{{CHANGE}}</div>
+          <div style="font-size: 14px; color: #94A3B8;">较上期增长</div>
+        </div>
       </div>
     </div>
   </div>
@@ -86,43 +103,70 @@ export const DASHBOARD_4KPI_TEMPLATE: SlideTemplate = {
     tone: "analytical",
   },
   html: `
-<div style="${COMMON_CONTAINER}">
-  <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
-  <p style="font-size: 18px; color: #94A3B8; margin: 0 0 32px 0;">关键业务指标一览</p>
+<div style="${DATA_CONTAINER}">
+  <!-- 网格背景装饰 -->
+  <div style="position: absolute; inset: 0; background-image: radial-gradient(circle at 1px 1px, rgba(100, 116, 139, 0.1) 1px, transparent 0); background-size: 40px 40px; pointer-events: none;"></div>
 
-  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; height: calc(100% - 140px);">
-    <div style="${CARD_STYLE} display: flex; flex-direction: column; justify-content: center; border-left: 4px solid ${COLORS.primary};">
-      <div style="font-size: 48px; font-weight: 900; color: ${COLORS.primary}; margin-bottom: 8px;">{{KPI1_VALUE}}</div>
-      <div style="font-size: 16px; color: #94A3B8; margin-bottom: 12px;">{{KPI1_LABEL}}</div>
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <span style="color: ${COLORS.success}; font-size: 14px;">↑ {{KPI1_CHANGE}}</span>
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; position: relative; z-index: 1;">
+    <div>
+      <h1 style="font-size: 32px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
+      <p style="font-size: 16px; color: #94A3B8; margin: 0;">关键业务指标实时监控</p>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px;">
+      <div style="width: 8px; height: 8px; background: ${COLORS.success}; border-radius: 50%; animation: pulse 2s infinite;"></div>
+      <span style="font-size: 12px; color: ${COLORS.success};">实时更新</span>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; height: calc(100% - 140px); position: relative; z-index: 1;">
+    <!-- KPI 1 - 金色主题 -->
+    <div style="background: linear-gradient(135deg, rgba(212, 175, 55, 0.1) 0%, rgba(30, 41, 59, 0.8) 100%); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 16px; padding: 24px; display: flex; flex-direction: column; justify-content: center;">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+        <div style="width: 8px; height: 8px; background: ${COLORS.primary}; border-radius: 50%;"></div>
+        <span style="font-size: 14px; color: #94A3B8;">{{KPI1_LABEL}}</span>
+      </div>
+      <div style="font-size: 56px; font-weight: 900; color: ${COLORS.primary}; margin-bottom: 8px;">{{KPI1_VALUE}}</div>
+      <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; width: fit-content;">
+        <span style="color: ${COLORS.success}; font-size: 16px; font-weight: 700;">↑ {{KPI1_CHANGE}}</span>
         <span style="color: #64748B; font-size: 12px;">较上月</span>
       </div>
     </div>
 
-    <div style="${CARD_STYLE} display: flex; flex-direction: column; justify-content: center; border-left: 4px solid ${COLORS.secondary};">
-      <div style="font-size: 48px; font-weight: 900; color: ${COLORS.secondary}; margin-bottom: 8px;">{{KPI2_VALUE}}</div>
-      <div style="font-size: 16px; color: #94A3B8; margin-bottom: 12px;">{{KPI2_LABEL}}</div>
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <span style="color: ${COLORS.success}; font-size: 14px;">↑ {{KPI2_CHANGE}}</span>
+    <!-- KPI 2 - 蓝色主题 -->
+    <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(30, 41, 59, 0.8) 100%); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 16px; padding: 24px; display: flex; flex-direction: column; justify-content: center;">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+        <div style="width: 8px; height: 8px; background: ${COLORS.secondary}; border-radius: 50%;"></div>
+        <span style="font-size: 14px; color: #94A3B8;">{{KPI2_LABEL}}</span>
+      </div>
+      <div style="font-size: 56px; font-weight: 900; color: ${COLORS.secondary}; margin-bottom: 8px;">{{KPI2_VALUE}}</div>
+      <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; width: fit-content;">
+        <span style="color: ${COLORS.success}; font-size: 16px; font-weight: 700;">↑ {{KPI2_CHANGE}}</span>
         <span style="color: #64748B; font-size: 12px;">较上月</span>
       </div>
     </div>
 
-    <div style="${CARD_STYLE} display: flex; flex-direction: column; justify-content: center; border-left: 4px solid ${COLORS.success};">
-      <div style="font-size: 48px; font-weight: 900; color: ${COLORS.success}; margin-bottom: 8px;">{{KPI3_VALUE}}</div>
-      <div style="font-size: 16px; color: #94A3B8; margin-bottom: 12px;">{{KPI3_LABEL}}</div>
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <span style="color: ${COLORS.success}; font-size: 14px;">↑ {{KPI3_CHANGE}}</span>
+    <!-- KPI 3 - 绿色主题 -->
+    <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(30, 41, 59, 0.8) 100%); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 16px; padding: 24px; display: flex; flex-direction: column; justify-content: center;">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+        <div style="width: 8px; height: 8px; background: ${COLORS.success}; border-radius: 50%;"></div>
+        <span style="font-size: 14px; color: #94A3B8;">{{KPI3_LABEL}}</span>
+      </div>
+      <div style="font-size: 56px; font-weight: 900; color: ${COLORS.success}; margin-bottom: 8px;">{{KPI3_VALUE}}</div>
+      <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; width: fit-content;">
+        <span style="color: ${COLORS.success}; font-size: 16px; font-weight: 700;">↑ {{KPI3_CHANGE}}</span>
         <span style="color: #64748B; font-size: 12px;">较上月</span>
       </div>
     </div>
 
-    <div style="${CARD_STYLE} display: flex; flex-direction: column; justify-content: center; border-left: 4px solid ${COLORS.purple};">
-      <div style="font-size: 48px; font-weight: 900; color: ${COLORS.purple}; margin-bottom: 8px;">{{KPI4_VALUE}}</div>
-      <div style="font-size: 16px; color: #94A3B8; margin-bottom: 12px;">{{KPI4_LABEL}}</div>
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <span style="color: ${COLORS.success}; font-size: 14px;">↑ {{KPI4_CHANGE}}</span>
+    <!-- KPI 4 - 紫色主题 -->
+    <div style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(30, 41, 59, 0.8) 100%); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 16px; padding: 24px; display: flex; flex-direction: column; justify-content: center;">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+        <div style="width: 8px; height: 8px; background: ${COLORS.purple}; border-radius: 50%;"></div>
+        <span style="font-size: 14px; color: #94A3B8;">{{KPI4_LABEL}}</span>
+      </div>
+      <div style="font-size: 56px; font-weight: 900; color: ${COLORS.purple}; margin-bottom: 8px;">{{KPI4_VALUE}}</div>
+      <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; width: fit-content;">
+        <span style="color: ${COLORS.success}; font-size: 16px; font-weight: 700;">↑ {{KPI4_CHANGE}}</span>
         <span style="color: #64748B; font-size: 12px;">较上月</span>
       </div>
     </div>
@@ -159,32 +203,65 @@ export const TREND_CHART_TEMPLATE: SlideTemplate = {
     tone: "analytical",
   },
   html: `
-<div style="${COMMON_CONTAINER}">
-  <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
-  <p style="font-size: 18px; color: #94A3B8; margin: 0 0 32px 0;">数据趋势分析</p>
+<div style="${DATA_CONTAINER}">
+  <!-- 图表区域背景装饰 -->
+  <div style="position: absolute; top: 120px; left: 60px; right: 340px; bottom: 80px; background: linear-gradient(180deg, rgba(212, 175, 55, 0.02) 0%, transparent 100%); border-radius: 16px;"></div>
 
-  <div style="display: flex; gap: 32px; height: calc(100% - 120px);">
-    <div style="flex: 1; ${CARD_STYLE}">
-      <div style="font-size: 14px; font-weight: 600; margin-bottom: 16px; color: #94A3B8;">趋势走势</div>
-      <div id="chart-trend" style="width: 100%; height: calc(100% - 40px);"></div>
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
+    <div>
+      <h1 style="font-size: 32px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
+      <p style="font-size: 16px; color: #94A3B8; margin: 0;">数据趋势分析 · {{PERIOD}}</p>
+    </div>
+    <div style="display: flex; gap: 12px;">
+      <div style="padding: 6px 12px; background: rgba(212, 175, 55, 0.1); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 6px; font-size: 12px; color: ${COLORS.primary};">日视图</div>
+      <div style="padding: 6px 12px; background: rgba(30, 41, 59, 0.5); border: 1px solid #334155; border-radius: 6px; font-size: 12px; color: #94A3B8;">周视图</div>
+      <div style="padding: 6px 12px; background: rgba(30, 41, 59, 0.5); border: 1px solid #334155; border-radius: 6px; font-size: 12px; color: #94A3B8;">月视图</div>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 24px; height: calc(100% - 120px); position: relative; z-index: 1;">
+    <!-- 图表区域 -->
+    <div style="flex: 1; background: rgba(30, 41, 59, 0.4); border: 1px solid #334155; border-radius: 16px; padding: 24px; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <div style="width: 12px; height: 3px; background: ${COLORS.primary}; border-radius: 2px;"></div>
+          <span style="font-size: 12px; color: #94A3B8;">当前趋势</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <div style="width: 12px; height: 3px; background: ${COLORS.secondary}; border-radius: 2px; opacity: 0.5;"></div>
+          <span style="font-size: 12px; color: #64748B;">历史同期</span>
+        </div>
+      </div>
+      <div id="chart-trend" style="width: 100%; flex: 1;"></div>
     </div>
 
-    <div style="flex: 0 0 280px; display: flex; flex-direction: column; gap: 16px;">
-      <div style="${CARD_STYLE} border-left: 3px solid ${COLORS.primary};">
-        <div style="font-size: 12px; color: #64748B; margin-bottom: 4px;">当前值</div>
-        <div style="font-size: 32px; font-weight: 900; color: ${COLORS.primary};">{{CURRENT_VALUE}}</div>
+    <!-- 指标侧边栏 -->
+    <div style="flex: 0 0 260px; display: flex; flex-direction: column; gap: 16px;">
+      <!-- 当前值 - 突出显示 -->
+      <div style="background: linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(30, 41, 59, 0.8) 100%); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 12px; padding: 20px;">
+        <div style="font-size: 12px; color: ${COLORS.primary}; font-weight: 600; margin-bottom: 8px;">当前值</div>
+        <div style="font-size: 40px; font-weight: 900; color: ${COLORS.primary};">{{CURRENT_VALUE}}</div>
       </div>
-      <div style="${CARD_STYLE} border-left: 3px solid ${COLORS.success};">
-        <div style="font-size: 12px; color: #64748B; margin-bottom: 4px;">环比增长</div>
-        <div style="font-size: 24px; font-weight: 700; color: ${COLORS.success};">{{MOM_CHANGE}}</div>
+
+      <!-- 环比/同比指标 -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid #334155; border-radius: 12px; padding: 16px; text-align: center;">
+          <div style="font-size: 11px; color: #64748B; margin-bottom: 6px;">环比</div>
+          <div style="font-size: 20px; font-weight: 900; color: ${COLORS.success};">{{MOM_CHANGE}}</div>
+        </div>
+        <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid #334155; border-radius: 12px; padding: 16px; text-align: center;">
+          <div style="font-size: 11px; color: #64748B; margin-bottom: 6px;">同比</div>
+          <div style="font-size: 20px; font-weight: 900; color: ${COLORS.secondary};">{{YOY_CHANGE}}</div>
+        </div>
       </div>
-      <div style="${CARD_STYLE} border-left: 3px solid ${COLORS.secondary};">
-        <div style="font-size: 12px; color: #64748B; margin-bottom: 4px;">同比增长</div>
-        <div style="font-size: 24px; font-weight: 700; color: ${COLORS.secondary};">{{YOY_CHANGE}}</div>
-      </div>
-      <div style="${CARD_STYLE} flex: 1;">
-        <div style="font-size: 12px; color: #64748B; margin-bottom: 8px;">关键洞察</div>
-        <p style="font-size: 13px; color: #94A3B8; margin: 0; line-height: 1.6;">{{INSIGHT}}</p>
+
+      <!-- 关键洞察 -->
+      <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid #334155; border-radius: 12px; padding: 16px; flex: 1;">
+        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 12px;">
+          <span style="font-size: 14px;">💡</span>
+          <span style="font-size: 12px; color: ${COLORS.warning}; font-weight: 600;">关键洞察</span>
+        </div>
+        <p style="font-size: 13px; color: #F8FAFC; margin: 0; line-height: 1.7;">{{INSIGHT}}</p>
       </div>
     </div>
   </div>
@@ -240,67 +317,89 @@ export const COMPARISON_DUAL_TEMPLATE: SlideTemplate = {
     tone: "analytical",
   },
   html: `
-<div style="${COMMON_CONTAINER}">
-  <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
-  <p style="font-size: 18px; color: #94A3B8; margin: 0 0 32px 0;">方案对比分析</p>
+<div style="${COMPARISON_CONTAINER}">
+  <!-- 分割式背景 - 左金右蓝 -->
+  <div style="position: absolute; top: 0; left: 0; width: 50%; height: 100%; background: linear-gradient(135deg, rgba(212, 175, 55, 0.05) 0%, rgba(15, 23, 42, 1) 100%);"></div>
+  <div style="position: absolute; top: 0; right: 0; width: 50%; height: 100%; background: linear-gradient(225deg, rgba(59, 130, 246, 0.05) 0%, rgba(15, 23, 42, 1) 100%);"></div>
 
-  <div style="display: flex; gap: 32px; height: calc(100% - 120px);">
-    <div style="flex: 1; ${CARD_STYLE} border-color: ${COLORS.primary}; display: flex; flex-direction: column;">
-      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
-        <div style="width: 40px; height: 40px; background: ${COLORS.primary}; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900;">A</div>
-        <h3 style="font-size: 20px; font-weight: 700; margin: 0;">{{OPTION_A_TITLE}}</h3>
+  <!-- 中央分割线 -->
+  <div style="position: absolute; top: 100px; bottom: 60px; left: 50%; width: 2px; background: linear-gradient(180deg, ${COLORS.primary}, #334155, ${COLORS.secondary}); transform: translateX(-50%);"></div>
+  <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 60px; height: 60px; background: #0F172A; border: 2px solid #334155; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 900; color: #94A3B8; z-index: 10;">VS</div>
+
+  <!-- 标题区 -->
+  <div style="position: relative; z-index: 1; padding: 40px 60px 0;">
+    <div style="text-align: center;">
+      <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
+      <p style="font-size: 16px; color: #94A3B8; margin: 0;">方案对比分析 · 决策依据</p>
+    </div>
+  </div>
+
+  <!-- 对比内容 -->
+  <div style="display: flex; gap: 80px; height: calc(100% - 140px); padding: 24px 60px 60px; position: relative; z-index: 1;">
+    <!-- 方案 A -->
+    <div style="flex: 1; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px;">
+        <div style="width: 56px; height: 56px; background: linear-gradient(135deg, ${COLORS.primary}, #B8962E); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 900;">A</div>
+        <div>
+          <div style="font-size: 12px; color: ${COLORS.primary}; font-weight: 600;">方案 A</div>
+          <h3 style="font-size: 22px; font-weight: 700; margin: 0;">{{OPTION_A_TITLE}}</h3>
+        </div>
       </div>
 
       <div style="flex: 1; display: flex; flex-direction: column; gap: 12px;">
-        <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px;">
-          <span style="color: ${COLORS.success};">✓</span>
-          <span style="font-size: 14px;">{{A_PRO1}}</span>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 16px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 12px;">
+          <div style="width: 28px; height: 28px; background: ${COLORS.success}; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px;">✓</div>
+          <span style="font-size: 14px; color: #F8FAFC;">{{A_PRO1}}</span>
         </div>
-        <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px;">
-          <span style="color: ${COLORS.success};">✓</span>
-          <span style="font-size: 14px;">{{A_PRO2}}</span>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 16px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 12px;">
+          <div style="width: 28px; height: 28px; background: ${COLORS.success}; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px;">✓</div>
+          <span style="font-size: 14px; color: #F8FAFC;">{{A_PRO2}}</span>
         </div>
-        <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(239, 68, 68, 0.1); border-radius: 8px;">
-          <span style="color: ${COLORS.danger};">✗</span>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 16px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px;">
+          <div style="width: 28px; height: 28px; background: rgba(239, 68, 68, 0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; color: ${COLORS.danger};">✗</div>
           <span style="font-size: 14px; color: #94A3B8;">{{A_CON1}}</span>
         </div>
       </div>
 
-      <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #334155;">
-        <div style="font-size: 14px; color: #64748B;">预估投入</div>
-        <div style="font-size: 28px; font-weight: 900; color: ${COLORS.primary};">{{A_COST}}</div>
+      <div style="margin-top: 20px; padding: 20px; background: rgba(212, 175, 55, 0.1); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 12px;">
+        <div style="font-size: 12px; color: #94A3B8; margin-bottom: 4px;">预估投入</div>
+        <div style="font-size: 36px; font-weight: 900; color: ${COLORS.primary};">{{A_COST}}</div>
       </div>
     </div>
 
-    <div style="flex: 1; ${CARD_STYLE} border-color: ${COLORS.secondary}; display: flex; flex-direction: column;">
-      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
-        <div style="width: 40px; height: 40px; background: ${COLORS.secondary}; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900;">B</div>
-        <h3 style="font-size: 20px; font-weight: 700; margin: 0;">{{OPTION_B_TITLE}}</h3>
+    <!-- 方案 B -->
+    <div style="flex: 1; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px;">
+        <div style="width: 56px; height: 56px; background: linear-gradient(135deg, ${COLORS.secondary}, #2563EB); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 900;">B</div>
+        <div>
+          <div style="font-size: 12px; color: ${COLORS.secondary}; font-weight: 600;">方案 B</div>
+          <h3 style="font-size: 22px; font-weight: 700; margin: 0;">{{OPTION_B_TITLE}}</h3>
+        </div>
       </div>
 
       <div style="flex: 1; display: flex; flex-direction: column; gap: 12px;">
-        <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px;">
-          <span style="color: ${COLORS.success};">✓</span>
-          <span style="font-size: 14px;">{{B_PRO1}}</span>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 16px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 12px;">
+          <div style="width: 28px; height: 28px; background: ${COLORS.success}; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px;">✓</div>
+          <span style="font-size: 14px; color: #F8FAFC;">{{B_PRO1}}</span>
         </div>
-        <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px;">
-          <span style="color: ${COLORS.success};">✓</span>
-          <span style="font-size: 14px;">{{B_PRO2}}</span>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 16px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 12px;">
+          <div style="width: 28px; height: 28px; background: ${COLORS.success}; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px;">✓</div>
+          <span style="font-size: 14px; color: #F8FAFC;">{{B_PRO2}}</span>
         </div>
-        <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(239, 68, 68, 0.1); border-radius: 8px;">
-          <span style="color: ${COLORS.danger};">✗</span>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 16px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px;">
+          <div style="width: 28px; height: 28px; background: rgba(239, 68, 68, 0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; color: ${COLORS.danger};">✗</div>
           <span style="font-size: 14px; color: #94A3B8;">{{B_CON1}}</span>
         </div>
       </div>
 
-      <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #334155;">
-        <div style="font-size: 14px; color: #64748B;">预估投入</div>
-        <div style="font-size: 28px; font-weight: 900; color: ${COLORS.secondary};">{{B_COST}}</div>
+      <div style="margin-top: 20px; padding: 20px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px;">
+        <div style="font-size: 12px; color: #94A3B8; margin-bottom: 4px;">预估投入</div>
+        <div style="font-size: 36px; font-weight: 900; color: ${COLORS.secondary};">{{B_COST}}</div>
       </div>
     </div>
   </div>
 
-  <div style="${FOOTER_STYLE}">数据来源: 市场调研报告 | {{TITLE}}</div>
+  <div style="position: absolute; bottom: 20px; left: 60px; right: 60px; font-size: 12px; color: #64748B;">数据来源: 市场调研报告 | {{TITLE}}</div>
 </div>
   `.trim(),
 };
@@ -331,53 +430,81 @@ export const COMPARISON_TABLE_TEMPLATE: SlideTemplate = {
     tone: "analytical",
   },
   html: `
-<div style="${COMMON_CONTAINER}">
-  <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
-  <p style="font-size: 18px; color: #94A3B8; margin: 0 0 32px 0;">特性对比分析</p>
+<div style="${DATA_CONTAINER}">
+  <!-- 表头渐变装饰 -->
+  <div style="position: absolute; top: 0; left: 0; right: 0; height: 140px; background: linear-gradient(180deg, rgba(30, 41, 59, 0.8) 0%, transparent 100%);"></div>
 
-  <div style="height: calc(100% - 140px); overflow: hidden;">
-    <table style="width: 100%; border-collapse: collapse;">
-      <thead>
-        <tr>
-          <th style="padding: 16px; text-align: left; font-size: 14px; font-weight: 700; color: #94A3B8; border-bottom: 2px solid #334155;">特性</th>
-          <th style="padding: 16px; text-align: center; font-size: 14px; font-weight: 700; color: ${COLORS.primary}; border-bottom: 2px solid #334155;">{{COL1_HEADER}}</th>
-          <th style="padding: 16px; text-align: center; font-size: 14px; font-weight: 700; color: ${COLORS.secondary}; border-bottom: 2px solid #334155;">{{COL2_HEADER}}</th>
-          <th style="padding: 16px; text-align: center; font-size: 14px; font-weight: 700; color: ${COLORS.success}; border-bottom: 2px solid #334155;">{{COL3_HEADER}}</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td style="padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #334155;">{{ROW1_LABEL}}</td>
-          <td style="padding: 14px 16px; text-align: center; font-size: 14px; border-bottom: 1px solid #334155;">{{ROW1_COL1}}</td>
-          <td style="padding: 14px 16px; text-align: center; font-size: 14px; border-bottom: 1px solid #334155;">{{ROW1_COL2}}</td>
-          <td style="padding: 14px 16px; text-align: center; font-size: 14px; border-bottom: 1px solid #334155;">{{ROW1_COL3}}</td>
-        </tr>
-        <tr style="background: rgba(30, 41, 59, 0.5);">
-          <td style="padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #334155;">{{ROW2_LABEL}}</td>
-          <td style="padding: 14px 16px; text-align: center; font-size: 14px; border-bottom: 1px solid #334155;">{{ROW2_COL1}}</td>
-          <td style="padding: 14px 16px; text-align: center; font-size: 14px; border-bottom: 1px solid #334155;">{{ROW2_COL2}}</td>
-          <td style="padding: 14px 16px; text-align: center; font-size: 14px; border-bottom: 1px solid #334155;">{{ROW2_COL3}}</td>
-        </tr>
-        <tr>
-          <td style="padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #334155;">{{ROW3_LABEL}}</td>
-          <td style="padding: 14px 16px; text-align: center; font-size: 14px; border-bottom: 1px solid #334155;">{{ROW3_COL1}}</td>
-          <td style="padding: 14px 16px; text-align: center; font-size: 14px; border-bottom: 1px solid #334155;">{{ROW3_COL2}}</td>
-          <td style="padding: 14px 16px; text-align: center; font-size: 14px; border-bottom: 1px solid #334155;">{{ROW3_COL3}}</td>
-        </tr>
-        <tr style="background: rgba(30, 41, 59, 0.5);">
-          <td style="padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #334155;">{{ROW4_LABEL}}</td>
-          <td style="padding: 14px 16px; text-align: center; font-size: 14px; border-bottom: 1px solid #334155;">{{ROW4_COL1}}</td>
-          <td style="padding: 14px 16px; text-align: center; font-size: 14px; border-bottom: 1px solid #334155;">{{ROW4_COL2}}</td>
-          <td style="padding: 14px 16px; text-align: center; font-size: 14px; border-bottom: 1px solid #334155;">{{ROW4_COL3}}</td>
-        </tr>
-        <tr>
-          <td style="padding: 14px 16px; font-size: 14px; font-weight: 700;">{{ROW5_LABEL}}</td>
-          <td style="padding: 14px 16px; text-align: center; font-size: 16px; font-weight: 700; color: ${COLORS.primary};">{{ROW5_COL1}}</td>
-          <td style="padding: 14px 16px; text-align: center; font-size: 16px; font-weight: 700; color: ${COLORS.secondary};">{{ROW5_COL2}}</td>
-          <td style="padding: 14px 16px; text-align: center; font-size: 16px; font-weight: 700; color: ${COLORS.success};">{{ROW5_COL3}}</td>
-        </tr>
-      </tbody>
-    </table>
+  <div style="position: relative; z-index: 1;">
+    <h1 style="font-size: 32px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
+    <p style="font-size: 16px; color: #94A3B8; margin: 0 0 24px 0;">多维度特性对比分析</p>
+  </div>
+
+  <div style="height: calc(100% - 130px); overflow: hidden; position: relative; z-index: 1;">
+    <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid #334155; border-radius: 16px; overflow: hidden;">
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background: linear-gradient(90deg, rgba(212, 175, 55, 0.1), rgba(59, 130, 246, 0.1), rgba(16, 185, 129, 0.1));">
+            <th style="padding: 20px 24px; text-align: left; font-size: 14px; font-weight: 700; color: #94A3B8; border-bottom: 2px solid #334155; width: 25%;">特性维度</th>
+            <th style="padding: 20px 24px; text-align: center; font-size: 14px; font-weight: 700; border-bottom: 2px solid #334155;">
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                <div style="width: 8px; height: 8px; background: ${COLORS.primary}; border-radius: 50%;"></div>
+                <span style="color: ${COLORS.primary};">{{COL1_HEADER}}</span>
+              </div>
+            </th>
+            <th style="padding: 20px 24px; text-align: center; font-size: 14px; font-weight: 700; border-bottom: 2px solid #334155;">
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                <div style="width: 8px; height: 8px; background: ${COLORS.secondary}; border-radius: 50%;"></div>
+                <span style="color: ${COLORS.secondary};">{{COL2_HEADER}}</span>
+              </div>
+            </th>
+            <th style="padding: 20px 24px; text-align: center; font-size: 14px; font-weight: 700; border-bottom: 2px solid #334155;">
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                <div style="width: 8px; height: 8px; background: ${COLORS.success}; border-radius: 50%;"></div>
+                <span style="color: ${COLORS.success};">{{COL3_HEADER}}</span>
+              </div>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding: 16px 24px; font-size: 14px; font-weight: 600; border-bottom: 1px solid rgba(51, 65, 85, 0.5);">{{ROW1_LABEL}}</td>
+            <td style="padding: 16px 24px; text-align: center; font-size: 14px; border-bottom: 1px solid rgba(51, 65, 85, 0.5);">{{ROW1_COL1}}</td>
+            <td style="padding: 16px 24px; text-align: center; font-size: 14px; border-bottom: 1px solid rgba(51, 65, 85, 0.5);">{{ROW1_COL2}}</td>
+            <td style="padding: 16px 24px; text-align: center; font-size: 14px; border-bottom: 1px solid rgba(51, 65, 85, 0.5);">{{ROW1_COL3}}</td>
+          </tr>
+          <tr style="background: rgba(15, 23, 42, 0.3);">
+            <td style="padding: 16px 24px; font-size: 14px; font-weight: 600; border-bottom: 1px solid rgba(51, 65, 85, 0.5);">{{ROW2_LABEL}}</td>
+            <td style="padding: 16px 24px; text-align: center; font-size: 14px; border-bottom: 1px solid rgba(51, 65, 85, 0.5);">{{ROW2_COL1}}</td>
+            <td style="padding: 16px 24px; text-align: center; font-size: 14px; border-bottom: 1px solid rgba(51, 65, 85, 0.5);">{{ROW2_COL2}}</td>
+            <td style="padding: 16px 24px; text-align: center; font-size: 14px; border-bottom: 1px solid rgba(51, 65, 85, 0.5);">{{ROW2_COL3}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 16px 24px; font-size: 14px; font-weight: 600; border-bottom: 1px solid rgba(51, 65, 85, 0.5);">{{ROW3_LABEL}}</td>
+            <td style="padding: 16px 24px; text-align: center; font-size: 14px; border-bottom: 1px solid rgba(51, 65, 85, 0.5);">{{ROW3_COL1}}</td>
+            <td style="padding: 16px 24px; text-align: center; font-size: 14px; border-bottom: 1px solid rgba(51, 65, 85, 0.5);">{{ROW3_COL2}}</td>
+            <td style="padding: 16px 24px; text-align: center; font-size: 14px; border-bottom: 1px solid rgba(51, 65, 85, 0.5);">{{ROW3_COL3}}</td>
+          </tr>
+          <tr style="background: rgba(15, 23, 42, 0.3);">
+            <td style="padding: 16px 24px; font-size: 14px; font-weight: 600; border-bottom: 1px solid rgba(51, 65, 85, 0.5);">{{ROW4_LABEL}}</td>
+            <td style="padding: 16px 24px; text-align: center; font-size: 14px; border-bottom: 1px solid rgba(51, 65, 85, 0.5);">{{ROW4_COL1}}</td>
+            <td style="padding: 16px 24px; text-align: center; font-size: 14px; border-bottom: 1px solid rgba(51, 65, 85, 0.5);">{{ROW4_COL2}}</td>
+            <td style="padding: 16px 24px; text-align: center; font-size: 14px; border-bottom: 1px solid rgba(51, 65, 85, 0.5);">{{ROW4_COL3}}</td>
+          </tr>
+          <tr style="background: linear-gradient(90deg, rgba(212, 175, 55, 0.05), rgba(59, 130, 246, 0.05), rgba(16, 185, 129, 0.05));">
+            <td style="padding: 18px 24px; font-size: 15px; font-weight: 700;">{{ROW5_LABEL}}</td>
+            <td style="padding: 18px 24px; text-align: center;">
+              <div style="font-size: 20px; font-weight: 900; color: ${COLORS.primary};">{{ROW5_COL1}}</div>
+            </td>
+            <td style="padding: 18px 24px; text-align: center;">
+              <div style="font-size: 20px; font-weight: 900; color: ${COLORS.secondary};">{{ROW5_COL2}}</div>
+            </td>
+            <td style="padding: 18px 24px; text-align: center;">
+              <div style="font-size: 20px; font-weight: 900; color: ${COLORS.success};">{{ROW5_COL3}}</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <div style="${FOOTER_STYLE}">{{TITLE}} | 特性对比</div>
@@ -411,64 +538,88 @@ export const RANKING_LIST_TEMPLATE: SlideTemplate = {
     tone: "analytical",
   },
   html: `
-<div style="${COMMON_CONTAINER}">
-  <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
-  <p style="font-size: 18px; color: #94A3B8; margin: 0 0 32px 0;">排名数据一览</p>
+<div style="${DATA_CONTAINER}">
+  <!-- 冠军装饰 -->
+  <div style="position: absolute; top: 60px; right: 60px; font-size: 120px; color: rgba(212, 175, 55, 0.08);">🏆</div>
 
-  <div style="display: flex; gap: 32px; height: calc(100% - 120px);">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
+    <div>
+      <h1 style="font-size: 32px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
+      <p style="font-size: 16px; color: #94A3B8; margin: 0;">竞争力排名分析</p>
+    </div>
+    <div style="display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: rgba(212, 175, 55, 0.1); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 8px;">
+      <span style="font-size: 14px;">📊</span>
+      <span style="font-size: 12px; color: ${COLORS.primary};">TOP 5</span>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 24px; height: calc(100% - 120px);">
+    <!-- 排名列表 -->
     <div style="flex: 1; display: flex; flex-direction: column; gap: 12px;">
-      <div style="${CARD_STYLE} display: flex; align-items: center; gap: 16px; border-left: 4px solid ${COLORS.primary};">
-        <div style="width: 40px; height: 40px; background: ${COLORS.primary}; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 900;">1</div>
+      <!-- 第1名 - 金色冠军 -->
+      <div style="background: linear-gradient(90deg, rgba(212, 175, 55, 0.15) 0%, rgba(30, 41, 59, 0.8) 100%); border: 1px solid rgba(212, 175, 55, 0.4); border-radius: 16px; padding: 20px; display: flex; align-items: center; gap: 20px;">
+        <div style="width: 56px; height: 56px; background: linear-gradient(135deg, ${COLORS.primary}, #B8962E); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 900; box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);">1</div>
         <div style="flex: 1;">
-          <div style="font-size: 16px; font-weight: 700;">{{RANK1_NAME}}</div>
+          <div style="font-size: 18px; font-weight: 700; margin-bottom: 4px;">{{RANK1_NAME}}</div>
           <div style="font-size: 13px; color: #94A3B8;">{{RANK1_DESC}}</div>
         </div>
-        <div style="font-size: 24px; font-weight: 900; color: ${COLORS.primary};">{{RANK1_VALUE}}</div>
+        <div style="text-align: right;">
+          <div style="font-size: 32px; font-weight: 900; color: ${COLORS.primary};">{{RANK1_VALUE}}</div>
+        </div>
       </div>
 
-      <div style="${CARD_STYLE} display: flex; align-items: center; gap: 16px; border-left: 4px solid ${COLORS.secondary};">
-        <div style="width: 40px; height: 40px; background: ${COLORS.secondary}; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 900;">2</div>
+      <!-- 第2名 - 银色 -->
+      <div style="background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, rgba(30, 41, 59, 0.8) 100%); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 14px; padding: 18px; display: flex; align-items: center; gap: 18px;">
+        <div style="width: 48px; height: 48px; background: ${COLORS.secondary}; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 900;">2</div>
         <div style="flex: 1;">
-          <div style="font-size: 16px; font-weight: 700;">{{RANK2_NAME}}</div>
-          <div style="font-size: 13px; color: #94A3B8;">{{RANK2_DESC}}</div>
+          <div style="font-size: 16px; font-weight: 700; margin-bottom: 2px;">{{RANK2_NAME}}</div>
+          <div style="font-size: 12px; color: #94A3B8;">{{RANK2_DESC}}</div>
         </div>
-        <div style="font-size: 24px; font-weight: 900; color: ${COLORS.secondary};">{{RANK2_VALUE}}</div>
+        <div style="font-size: 26px; font-weight: 900; color: ${COLORS.secondary};">{{RANK2_VALUE}}</div>
       </div>
 
-      <div style="${CARD_STYLE} display: flex; align-items: center; gap: 16px; border-left: 4px solid ${COLORS.success};">
-        <div style="width: 40px; height: 40px; background: ${COLORS.success}; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 900;">3</div>
+      <!-- 第3名 - 铜色 -->
+      <div style="background: linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, rgba(30, 41, 59, 0.8) 100%); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 14px; padding: 18px; display: flex; align-items: center; gap: 18px;">
+        <div style="width: 48px; height: 48px; background: ${COLORS.success}; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 900;">3</div>
         <div style="flex: 1;">
-          <div style="font-size: 16px; font-weight: 700;">{{RANK3_NAME}}</div>
-          <div style="font-size: 13px; color: #94A3B8;">{{RANK3_DESC}}</div>
+          <div style="font-size: 16px; font-weight: 700; margin-bottom: 2px;">{{RANK3_NAME}}</div>
+          <div style="font-size: 12px; color: #94A3B8;">{{RANK3_DESC}}</div>
         </div>
-        <div style="font-size: 24px; font-weight: 900; color: ${COLORS.success};">{{RANK3_VALUE}}</div>
+        <div style="font-size: 26px; font-weight: 900; color: ${COLORS.success};">{{RANK3_VALUE}}</div>
       </div>
 
-      <div style="${CARD_STYLE} display: flex; align-items: center; gap: 16px; border-left: 4px solid #64748B;">
-        <div style="width: 40px; height: 40px; background: #475569; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 900;">4</div>
-        <div style="flex: 1;">
-          <div style="font-size: 16px; font-weight: 700;">{{RANK4_NAME}}</div>
-          <div style="font-size: 13px; color: #94A3B8;">{{RANK4_DESC}}</div>
+      <!-- 第4、5名 - 常规 -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid #334155; border-radius: 12px; padding: 16px; display: flex; align-items: center; gap: 12px;">
+          <div style="width: 36px; height: 36px; background: #475569; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 900;">4</div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{RANK4_NAME}}</div>
+          </div>
+          <div style="font-size: 18px; font-weight: 900; color: #94A3B8;">{{RANK4_VALUE}}</div>
         </div>
-        <div style="font-size: 24px; font-weight: 900; color: #94A3B8;">{{RANK4_VALUE}}</div>
-      </div>
-
-      <div style="${CARD_STYLE} display: flex; align-items: center; gap: 16px; border-left: 4px solid #64748B;">
-        <div style="width: 40px; height: 40px; background: #475569; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 900;">5</div>
-        <div style="flex: 1;">
-          <div style="font-size: 16px; font-weight: 700;">{{RANK5_NAME}}</div>
-          <div style="font-size: 13px; color: #94A3B8;">{{RANK5_DESC}}</div>
+        <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid #334155; border-radius: 12px; padding: 16px; display: flex; align-items: center; gap: 12px;">
+          <div style="width: 36px; height: 36px; background: #475569; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 900;">5</div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{RANK5_NAME}}</div>
+          </div>
+          <div style="font-size: 18px; font-weight: 900; color: #94A3B8;">{{RANK5_VALUE}}</div>
         </div>
-        <div style="font-size: 24px; font-weight: 900; color: #94A3B8;">{{RANK5_VALUE}}</div>
       </div>
     </div>
 
-    <div style="flex: 0 0 280px; ${CARD_STYLE} display: flex; flex-direction: column; justify-content: center; background: rgba(212, 175, 55, 0.1); border-color: rgba(212, 175, 55, 0.3);">
-      <div style="font-size: 14px; color: ${COLORS.primary}; font-weight: 600; margin-bottom: 16px;">榜单洞察</div>
-      <p style="font-size: 14px; color: #F8FAFC; margin: 0 0 16px 0; line-height: 1.6;">{{INSIGHT}}</p>
-      <div style="padding-top: 16px; border-top: 1px solid rgba(212, 175, 55, 0.3);">
-        <div style="font-size: 12px; color: #64748B; margin-bottom: 4px;">数据截止</div>
-        <div style="font-size: 14px; font-weight: 600;">{{DATE}}</div>
+    <!-- 洞察侧边栏 -->
+    <div style="flex: 0 0 280px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="background: linear-gradient(135deg, rgba(212, 175, 55, 0.1) 0%, rgba(30, 41, 59, 0.8) 100%); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 16px; padding: 24px; flex: 1;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+          <span style="font-size: 18px;">💡</span>
+          <span style="font-size: 16px; font-weight: 700; color: ${COLORS.primary};">榜单洞察</span>
+        </div>
+        <p style="font-size: 14px; color: #F8FAFC; margin: 0; line-height: 1.7;">{{INSIGHT}}</p>
+      </div>
+
+      <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid #334155; border-radius: 12px; padding: 16px;">
+        <div style="font-size: 12px; color: #64748B; margin-bottom: 6px;">数据截止日期</div>
+        <div style="font-size: 16px; font-weight: 600;">{{DATE}}</div>
       </div>
     </div>
   </div>

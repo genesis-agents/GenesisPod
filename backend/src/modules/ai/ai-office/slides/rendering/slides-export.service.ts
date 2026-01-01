@@ -101,29 +101,47 @@ export class SlidesExportService {
   /**
    * 导出 PPT 文档为 PPTX
    *
-   * 使用原生 pptxgenjs 渲染，确保文本可编辑
-   * 不再使用 HTML 截图方式（截图会导致内容变成图片不可编辑）
+   * 支持两种模式：
+   * 1. 同源模式（默认）：使用 HTML 截图，确保与预览 100% 一致
+   * 2. 可编辑模式：使用 pptxgenjs 原生渲染，文本可编辑但视觉可能有差异
+   *
+   * @param document PPT 文档
+   * @param options.editable 是否导出可编辑版本（默认 false）
    */
-  async exportToPPTX(document: PPTDocument): Promise<PPTXExportResult> {
+  async exportToPPTX(
+    document: PPTDocument,
+    options?: { editable?: boolean },
+  ): Promise<PPTXExportResult> {
+    const editable = options?.editable ?? false;
+
     this.logger.log(
-      `[exportToPPTX] Starting export for: ${document.title}, ${document.slides.length} slides`,
+      `[exportToPPTX] Starting export for: ${document.title}, ${document.slides.length} slides, editable=${editable}`,
     );
 
     const startTime = Date.now();
-
-    // 使用静态导入的 PptxGenJS
     const pptx = new PptxGenJS();
 
     // 1. 设置文档属性
     this.setDocumentProperties(pptx, document);
 
-    // 2. 使用原生 pptxgenjs 渲染（确保文本可编辑）
-    this.logger.log(
-      `[exportToPPTX] Using native pptxgenjs rendering for editable text`,
-    );
-    const themeConfig = this.getThemePPTXConfig(document.theme);
-    for (const slideData of document.slides) {
-      await this.renderSlide(pptx, slideData, document.theme, themeConfig);
+    // 检查是否有 HTML（同源导出的前提）
+    const hasHtml = document.slides.some((slide) => slide.html);
+
+    if (!editable && hasHtml) {
+      // 同源导出：使用 HTML 截图作为每页背景，确保与预览 100% 一致
+      this.logger.log(
+        `[exportToPPTX] Using HTML screenshots for same-source export`,
+      );
+      await this.renderSlidesFromHtml(pptx, document);
+    } else {
+      // 可编辑导出：使用 pptxgenjs 原生渲染
+      this.logger.log(
+        `[exportToPPTX] Using native pptxgenjs rendering for editable text`,
+      );
+      const themeConfig = this.getThemePPTXConfig(document.theme);
+      for (const slideData of document.slides) {
+        await this.renderSlide(pptx, slideData, document.theme, themeConfig);
+      }
     }
 
     // 生成文件
@@ -134,14 +152,87 @@ export class SlidesExportService {
       `[exportToPPTX] Completed in ${duration}ms, size: ${buffer.length} bytes`,
     );
 
+    const suffix = editable ? "_editable" : "";
     return {
       buffer,
-      filename: `${document.title}.pptx`,
+      filename: `${document.title}${suffix}.pptx`,
       mimeType:
         "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       slideCount: document.slides.length,
       fileSize: buffer.length,
     };
+  }
+
+  /**
+   * 使用 HTML 截图渲染 PPTX 幻灯片（同源导出）
+   * 每页幻灯片截图后作为背景图嵌入，确保与预览 100% 一致
+   */
+  private async renderSlidesFromHtml(
+    pptx: PptxInstance,
+    document: PPTDocument,
+  ): Promise<void> {
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+
+    try {
+      const page = await browser.newPage();
+
+      // 设置页面大小为 16:9 比例 (1280x720)
+      await page.setViewport({
+        width: 1280,
+        height: 720,
+        deviceScaleFactor: 2, // 高清截图
+      });
+
+      for (const slideData of document.slides) {
+        const slide = pptx.addSlide();
+
+        if (slideData.html) {
+          // 使用 HTML 截图
+          const slideHtml = this.wrapV3HtmlForScreenshot(slideData.html);
+
+          await page.setContent(slideHtml, {
+            waitUntil: "domcontentloaded",
+            timeout: 15000,
+          });
+
+          // 等待渲染完成
+          await page.evaluate(
+            () => new Promise((resolve) => setTimeout(resolve, 300)),
+          );
+
+          const screenshot = await page.screenshot({
+            type: "png",
+            fullPage: false,
+            encoding: "base64",
+          });
+
+          // 将截图作为背景图
+          slide.background = {
+            data: `data:image/png;base64,${screenshot}`,
+          };
+        } else {
+          // 降级：使用传统渲染
+          const themeConfig = this.getThemePPTXConfig(document.theme);
+          await this.applyBackground(
+            slide,
+            slideData,
+            document.theme,
+            themeConfig,
+          );
+          await this.renderByLayout(
+            slide,
+            slideData,
+            document.theme,
+            themeConfig,
+          );
+        }
+      }
+    } finally {
+      await browser.close();
+    }
   }
 
   /**

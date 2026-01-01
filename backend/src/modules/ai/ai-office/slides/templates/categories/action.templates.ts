@@ -8,9 +8,12 @@
 import { SlideTemplate } from "../base/template-registry";
 import {
   COMMON_CONTAINER,
+  CONCLUSION_CONTAINER,
+  COVER_CONTAINER,
   CARD_STYLE,
   FOOTER_STYLE,
   COLORS,
+  GRADIENTS,
 } from "../base/common-styles";
 
 // ============================================================================
@@ -39,87 +42,116 @@ export const RECOMMENDATIONS_3COL_TEMPLATE: SlideTemplate = {
     tone: "inspiring",
   },
   html: `
-<div style="${COMMON_CONTAINER}">
-  <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
-  <p style="font-size: 18px; color: #94A3B8; margin: 0 0 32px 0;">基于分析的核心建议与行动计划</p>
+<div style="${CONCLUSION_CONTAINER}">
+  <!-- 渐变背景装饰 -->
+  <div style="position: absolute; top: 0; left: 0; right: 0; height: 200px; background: linear-gradient(180deg, rgba(30, 58, 95, 0.5) 0%, transparent 100%);"></div>
+  <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 4px; background: ${GRADIENTS.rainbow};"></div>
 
-  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; height: calc(100% - 120px);">
-    <div style="${CARD_STYLE} border-left: 4px solid ${COLORS.danger}; display: flex; flex-direction: column;">
-      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
-        <div style="width: 40px; height: 40px; background: rgba(239, 68, 68, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-          <span style="color: ${COLORS.danger}; font-size: 20px;">🔥</span>
+  <!-- 头部区域 -->
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; position: relative; z-index: 1;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+        <div style="width: 40px; height: 40px; background: ${GRADIENTS.gold}; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+          <span style="font-size: 20px;">📋</span>
         </div>
-        <div>
-          <div style="font-size: 12px; color: ${COLORS.danger}; font-weight: 600;">紧急</div>
-          <div style="font-size: 16px; font-weight: 700;">立即行动</div>
-        </div>
+        <span style="font-size: 14px; color: ${COLORS.primary}; font-weight: 600;">行动建议</span>
       </div>
-      <div style="display: flex; flex-direction: column; gap: 12px; flex: 1;">
-        <div style="padding: 12px; background: rgba(239, 68, 68, 0.1); border-radius: 8px; font-size: 14px;">
-          <div style="font-weight: 600; margin-bottom: 4px;">{{URGENT1_TITLE}}</div>
-          <div style="color: #94A3B8; font-size: 12px;">{{URGENT1_DESC}}</div>
-        </div>
-        <div style="padding: 12px; background: rgba(239, 68, 68, 0.1); border-radius: 8px; font-size: 14px;">
-          <div style="font-weight: 600; margin-bottom: 4px;">{{URGENT2_TITLE}}</div>
-          <div style="color: #94A3B8; font-size: 12px;">{{URGENT2_DESC}}</div>
-        </div>
-      </div>
+      <h1 style="font-size: 36px; font-weight: 900; margin: 0;">{{TITLE}}</h1>
     </div>
-
-    <div style="${CARD_STYLE} border-left: 4px solid ${COLORS.warning}; display: flex; flex-direction: column;">
-      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
-        <div style="width: 40px; height: 40px; background: rgba(245, 158, 11, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-          <span style="color: ${COLORS.warning}; font-size: 20px;">📋</span>
-        </div>
-        <div>
-          <div style="font-size: 12px; color: ${COLORS.warning}; font-weight: 600;">1-3 个月</div>
-          <div style="font-size: 16px; font-weight: 700;">短期规划</div>
-        </div>
-      </div>
-      <div style="display: flex; flex-direction: column; gap: 12px; flex: 1;">
-        <div style="padding: 12px; background: rgba(245, 158, 11, 0.1); border-radius: 8px; font-size: 14px;">
-          <div style="font-weight: 600; margin-bottom: 4px;">{{SHORT1_TITLE}}</div>
-          <div style="color: #94A3B8; font-size: 12px;">{{SHORT1_DESC}}</div>
-        </div>
-        <div style="padding: 12px; background: rgba(245, 158, 11, 0.1); border-radius: 8px; font-size: 14px;">
-          <div style="font-weight: 600; margin-bottom: 4px;">{{SHORT2_TITLE}}</div>
-          <div style="color: #94A3B8; font-size: 12px;">{{SHORT2_DESC}}</div>
-        </div>
-        <div style="padding: 12px; background: rgba(245, 158, 11, 0.1); border-radius: 8px; font-size: 14px;">
-          <div style="font-weight: 600; margin-bottom: 4px;">{{SHORT3_TITLE}}</div>
-          <div style="color: #94A3B8; font-size: 12px;">{{SHORT3_DESC}}</div>
-        </div>
-      </div>
-    </div>
-
-    <div style="${CARD_STYLE} border-left: 4px solid ${COLORS.success}; display: flex; flex-direction: column;">
-      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
-        <div style="width: 40px; height: 40px; background: rgba(16, 185, 129, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-          <span style="color: ${COLORS.success}; font-size: 20px;">🎯</span>
-        </div>
-        <div>
-          <div style="font-size: 12px; color: ${COLORS.success}; font-weight: 600;">6-12 个月</div>
-          <div style="font-size: 16px; font-weight: 700;">长期战略</div>
-        </div>
-      </div>
-      <div style="display: flex; flex-direction: column; gap: 12px; flex: 1;">
-        <div style="padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; font-size: 14px;">
-          <div style="font-weight: 600; margin-bottom: 4px;">{{LONG1_TITLE}}</div>
-          <div style="color: #94A3B8; font-size: 12px;">{{LONG1_DESC}}</div>
-        </div>
-        <div style="padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; font-size: 14px;">
-          <div style="font-weight: 600; margin-bottom: 4px;">{{LONG2_TITLE}}</div>
-          <div style="color: #94A3B8; font-size: 12px;">{{LONG2_DESC}}</div>
-        </div>
-        <div style="padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; font-size: 14px;">
-          <div style="font-weight: 600; margin-bottom: 4px;">{{LONG3_TITLE}}</div>
-          <div style="color: #94A3B8; font-size: 12px;">{{LONG3_DESC}}</div>
-        </div>
-      </div>
+    <div style="padding: 12px 20px; background: rgba(212, 175, 55, 0.1); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 12px;">
+      <div style="font-size: 12px; color: #94A3B8;">执行负责人</div>
+      <div style="font-size: 16px; font-weight: 700; color: ${COLORS.primary};">{{OWNER}}</div>
     </div>
   </div>
 
-  <div style="${FOOTER_STYLE}">战略规划 | 执行负责人: {{OWNER}}</div>
+  <!-- 三列行动卡片 -->
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; height: calc(100% - 140px); position: relative; z-index: 1;">
+    <!-- 紧急行动 -->
+    <div style="background: linear-gradient(180deg, rgba(239, 68, 68, 0.1) 0%, rgba(30, 41, 59, 0.8) 100%); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 16px; padding: 24px; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+        <div style="width: 48px; height: 48px; background: ${COLORS.danger}; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+          <span style="font-size: 24px;">🔥</span>
+        </div>
+        <div>
+          <div style="font-size: 11px; color: ${COLORS.danger}; font-weight: 700; letter-spacing: 1px;">紧急</div>
+          <div style="font-size: 18px; font-weight: 700;">立即行动</div>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px; flex: 1;">
+        <div style="padding: 16px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px;">
+          <div style="font-size: 15px; font-weight: 600; margin-bottom: 6px; color: #F8FAFC;">{{URGENT1_TITLE}}</div>
+          <div style="font-size: 13px; color: #94A3B8; line-height: 1.5;">{{URGENT1_DESC}}</div>
+        </div>
+        <div style="padding: 16px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px;">
+          <div style="font-size: 15px; font-weight: 600; margin-bottom: 6px; color: #F8FAFC;">{{URGENT2_TITLE}}</div>
+          <div style="font-size: 13px; color: #94A3B8; line-height: 1.5;">{{URGENT2_DESC}}</div>
+        </div>
+      </div>
+      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(239, 68, 68, 0.2); text-align: center;">
+        <div style="font-size: 12px; color: ${COLORS.danger}; font-weight: 600;">⏰ 本周完成</div>
+      </div>
+    </div>
+
+    <!-- 短期规划 -->
+    <div style="background: linear-gradient(180deg, rgba(245, 158, 11, 0.1) 0%, rgba(30, 41, 59, 0.8) 100%); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 16px; padding: 24px; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+        <div style="width: 48px; height: 48px; background: ${COLORS.warning}; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+          <span style="font-size: 24px;">📋</span>
+        </div>
+        <div>
+          <div style="font-size: 11px; color: ${COLORS.warning}; font-weight: 700; letter-spacing: 1px;">1-3 个月</div>
+          <div style="font-size: 18px; font-weight: 700;">短期规划</div>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; flex: 1;">
+        <div style="padding: 14px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 12px;">
+          <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px; color: #F8FAFC;">{{SHORT1_TITLE}}</div>
+          <div style="font-size: 12px; color: #94A3B8; line-height: 1.4;">{{SHORT1_DESC}}</div>
+        </div>
+        <div style="padding: 14px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 12px;">
+          <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px; color: #F8FAFC;">{{SHORT2_TITLE}}</div>
+          <div style="font-size: 12px; color: #94A3B8; line-height: 1.4;">{{SHORT2_DESC}}</div>
+        </div>
+        <div style="padding: 14px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 12px;">
+          <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px; color: #F8FAFC;">{{SHORT3_TITLE}}</div>
+          <div style="font-size: 12px; color: #94A3B8; line-height: 1.4;">{{SHORT3_DESC}}</div>
+        </div>
+      </div>
+      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(245, 158, 11, 0.2); text-align: center;">
+        <div style="font-size: 12px; color: ${COLORS.warning}; font-weight: 600;">📅 季度目标</div>
+      </div>
+    </div>
+
+    <!-- 长期战略 -->
+    <div style="background: linear-gradient(180deg, rgba(16, 185, 129, 0.1) 0%, rgba(30, 41, 59, 0.8) 100%); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 16px; padding: 24px; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+        <div style="width: 48px; height: 48px; background: ${COLORS.success}; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+          <span style="font-size: 24px;">🎯</span>
+        </div>
+        <div>
+          <div style="font-size: 11px; color: ${COLORS.success}; font-weight: 700; letter-spacing: 1px;">6-12 个月</div>
+          <div style="font-size: 18px; font-weight: 700;">长期战略</div>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; flex: 1;">
+        <div style="padding: 14px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 12px;">
+          <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px; color: #F8FAFC;">{{LONG1_TITLE}}</div>
+          <div style="font-size: 12px; color: #94A3B8; line-height: 1.4;">{{LONG1_DESC}}</div>
+        </div>
+        <div style="padding: 14px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 12px;">
+          <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px; color: #F8FAFC;">{{LONG2_TITLE}}</div>
+          <div style="font-size: 12px; color: #94A3B8; line-height: 1.4;">{{LONG2_DESC}}</div>
+        </div>
+        <div style="padding: 14px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 12px;">
+          <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px; color: #F8FAFC;">{{LONG3_TITLE}}</div>
+          <div style="font-size: 12px; color: #94A3B8; line-height: 1.4;">{{LONG3_DESC}}</div>
+        </div>
+      </div>
+      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(16, 185, 129, 0.2); text-align: center;">
+        <div style="font-size: 12px; color: ${COLORS.success}; font-weight: 600;">🚀 年度愿景</div>
+      </div>
+    </div>
+  </div>
 </div>
   `.trim(),
 };
@@ -259,55 +291,69 @@ export const KEY_CONCLUSIONS_TEMPLATE: SlideTemplate = {
     tone: "analytical",
   },
   html: `
-<div style="${COMMON_CONTAINER}">
-  <div style="text-align: center; margin-bottom: 48px;">
-    <div style="font-size: 14px; color: ${COLORS.primary}; font-weight: 600; margin-bottom: 8px;">核心洞察</div>
-    <h1 style="font-size: 42px; font-weight: 900; margin: 0;">{{TITLE}}</h1>
+<div style="${CONCLUSION_CONTAINER}">
+  <!-- 装饰性背景 -->
+  <div style="position: absolute; top: -100px; right: -100px; width: 400px; height: 400px; background: radial-gradient(circle, rgba(212, 175, 55, 0.08) 0%, transparent 70%); border-radius: 50%;"></div>
+  <div style="position: absolute; bottom: -100px; left: -100px; width: 400px; height: 400px; background: radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, transparent 70%); border-radius: 50%;"></div>
+
+  <!-- 标题区域 -->
+  <div style="text-align: center; margin-bottom: 40px; position: relative; z-index: 1;">
+    <div style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 20px; background: rgba(212, 175, 55, 0.1); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 24px; margin-bottom: 16px;">
+      <span style="font-size: 16px;">💡</span>
+      <span style="font-size: 14px; color: ${COLORS.primary}; font-weight: 600;">核心洞察</span>
+    </div>
+    <h1 style="font-size: 40px; font-weight: 900; margin: 0;">{{TITLE}}</h1>
   </div>
 
-  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; max-width: 1000px; margin: 0 auto;">
-    <div style="${CARD_STYLE} display: flex; align-items: flex-start; gap: 16px; border-top: 4px solid ${COLORS.primary};">
-      <div style="width: 48px; height: 48px; background: linear-gradient(135deg, ${COLORS.primary}, #B8962E); border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-        <span style="font-size: 20px; font-weight: 900;">1</span>
+  <!-- 四大结论 -->
+  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 1050px; margin: 0 auto; position: relative; z-index: 1;">
+    <!-- 结论 1 -->
+    <div style="background: linear-gradient(135deg, rgba(212, 175, 55, 0.1) 0%, rgba(30, 41, 59, 0.8) 100%); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 16px; padding: 24px; display: flex; align-items: flex-start; gap: 20px;">
+      <div style="width: 56px; height: 56px; background: ${GRADIENTS.gold}; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);">
+        <span style="font-size: 24px; font-weight: 900;">1</span>
       </div>
-      <div>
-        <h4 style="font-size: 18px; font-weight: 700; margin: 0 0 8px 0;">{{CONCLUSION1_TITLE}}</h4>
-        <p style="font-size: 14px; color: #94A3B8; margin: 0; line-height: 1.6;">{{CONCLUSION1_DESC}}</p>
-      </div>
-    </div>
-
-    <div style="${CARD_STYLE} display: flex; align-items: flex-start; gap: 16px; border-top: 4px solid ${COLORS.secondary};">
-      <div style="width: 48px; height: 48px; background: linear-gradient(135deg, ${COLORS.secondary}, #2563EB); border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-        <span style="font-size: 20px; font-weight: 900;">2</span>
-      </div>
-      <div>
-        <h4 style="font-size: 18px; font-weight: 700; margin: 0 0 8px 0;">{{CONCLUSION2_TITLE}}</h4>
-        <p style="font-size: 14px; color: #94A3B8; margin: 0; line-height: 1.6;">{{CONCLUSION2_DESC}}</p>
+      <div style="flex: 1;">
+        <h4 style="font-size: 18px; font-weight: 700; margin: 0 0 10px 0; color: ${COLORS.primary};">{{CONCLUSION1_TITLE}}</h4>
+        <p style="font-size: 14px; color: #94A3B8; margin: 0; line-height: 1.7;">{{CONCLUSION1_DESC}}</p>
       </div>
     </div>
 
-    <div style="${CARD_STYLE} display: flex; align-items: flex-start; gap: 16px; border-top: 4px solid ${COLORS.success};">
-      <div style="width: 48px; height: 48px; background: linear-gradient(135deg, ${COLORS.success}, #059669); border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-        <span style="font-size: 20px; font-weight: 900;">3</span>
+    <!-- 结论 2 -->
+    <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(30, 41, 59, 0.8) 100%); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 16px; padding: 24px; display: flex; align-items: flex-start; gap: 20px;">
+      <div style="width: 56px; height: 56px; background: ${GRADIENTS.blue}; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);">
+        <span style="font-size: 24px; font-weight: 900;">2</span>
       </div>
-      <div>
-        <h4 style="font-size: 18px; font-weight: 700; margin: 0 0 8px 0;">{{CONCLUSION3_TITLE}}</h4>
-        <p style="font-size: 14px; color: #94A3B8; margin: 0; line-height: 1.6;">{{CONCLUSION3_DESC}}</p>
+      <div style="flex: 1;">
+        <h4 style="font-size: 18px; font-weight: 700; margin: 0 0 10px 0; color: ${COLORS.secondary};">{{CONCLUSION2_TITLE}}</h4>
+        <p style="font-size: 14px; color: #94A3B8; margin: 0; line-height: 1.7;">{{CONCLUSION2_DESC}}</p>
       </div>
     </div>
 
-    <div style="${CARD_STYLE} display: flex; align-items: flex-start; gap: 16px; border-top: 4px solid ${COLORS.purple};">
-      <div style="width: 48px; height: 48px; background: linear-gradient(135deg, ${COLORS.purple}, #7C3AED); border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-        <span style="font-size: 20px; font-weight: 900;">4</span>
+    <!-- 结论 3 -->
+    <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(30, 41, 59, 0.8) 100%); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 16px; padding: 24px; display: flex; align-items: flex-start; gap: 20px;">
+      <div style="width: 56px; height: 56px; background: ${GRADIENTS.green}; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);">
+        <span style="font-size: 24px; font-weight: 900;">3</span>
       </div>
-      <div>
-        <h4 style="font-size: 18px; font-weight: 700; margin: 0 0 8px 0;">{{CONCLUSION4_TITLE}}</h4>
-        <p style="font-size: 14px; color: #94A3B8; margin: 0; line-height: 1.6;">{{CONCLUSION4_DESC}}</p>
+      <div style="flex: 1;">
+        <h4 style="font-size: 18px; font-weight: 700; margin: 0 0 10px 0; color: ${COLORS.success};">{{CONCLUSION3_TITLE}}</h4>
+        <p style="font-size: 14px; color: #94A3B8; margin: 0; line-height: 1.7;">{{CONCLUSION3_DESC}}</p>
+      </div>
+    </div>
+
+    <!-- 结论 4 -->
+    <div style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(30, 41, 59, 0.8) 100%); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 16px; padding: 24px; display: flex; align-items: flex-start; gap: 20px;">
+      <div style="width: 56px; height: 56px; background: linear-gradient(135deg, ${COLORS.purple}, #7C3AED); border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);">
+        <span style="font-size: 24px; font-weight: 900;">4</span>
+      </div>
+      <div style="flex: 1;">
+        <h4 style="font-size: 18px; font-weight: 700; margin: 0 0 10px 0; color: ${COLORS.purple};">{{CONCLUSION4_TITLE}}</h4>
+        <p style="font-size: 14px; color: #94A3B8; margin: 0; line-height: 1.7;">{{CONCLUSION4_DESC}}</p>
       </div>
     </div>
   </div>
 
-  <div style="${FOOTER_STYLE}">关键结论 | {{TITLE}}</div>
+  <!-- 底部装饰线 -->
+  <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 4px; background: ${GRADIENTS.rainbow};"></div>
 </div>
   `.trim(),
 };
@@ -439,39 +485,54 @@ export const THANK_YOU_TEMPLATE: SlideTemplate = {
     tone: "positive",
   },
   html: `
-<div style="${COMMON_CONTAINER}">
-  <div style="position: absolute; top: -100px; right: -100px; width: 400px; height: 400px; background: radial-gradient(circle, rgba(212, 175, 55, 0.1) 0%, transparent 70%); border-radius: 50%;"></div>
-  <div style="position: absolute; bottom: -50px; left: -50px; width: 300px; height: 300px; background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%); border-radius: 50%;"></div>
+<div style="${COVER_CONTAINER}">
+  <!-- 背景装饰元素 -->
+  <div style="position: absolute; top: -150px; right: -150px; width: 500px; height: 500px; background: radial-gradient(circle, rgba(212, 175, 55, 0.12) 0%, transparent 60%); border-radius: 50%;"></div>
+  <div style="position: absolute; bottom: -100px; left: -100px; width: 400px; height: 400px; background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 60%); border-radius: 50%;"></div>
+  <div style="position: absolute; top: 50%; left: 20%; width: 300px; height: 300px; background: radial-gradient(circle, rgba(16, 185, 129, 0.05) 0%, transparent 60%); border-radius: 50%; transform: translateY(-50%);"></div>
 
-  <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; position: relative; z-index: 1;">
-    <div style="width: 80px; height: 4px; background: linear-gradient(90deg, ${COLORS.primary} 0%, ${COLORS.secondary} 100%); margin-bottom: 32px;"></div>
+  <!-- 顶部装饰线 -->
+  <div style="position: absolute; top: 0; left: 0; right: 0; height: 4px; background: ${GRADIENTS.rainbow};"></div>
 
-    <h1 style="font-size: 64px; font-weight: 900; margin: 0 0 16px 0;">{{TITLE}}</h1>
-    <p style="font-size: 24px; color: #94A3B8; margin: 0 0 48px 0;">{{SUBTITLE}}</p>
+  <!-- 主内容区 -->
+  <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; position: relative; z-index: 1; padding: 60px;">
+    <!-- 装饰图标 -->
+    <div style="width: 80px; height: 80px; background: ${GRADIENTS.gold}; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin-bottom: 32px; box-shadow: 0 8px 32px rgba(212, 175, 55, 0.3);">
+      <span style="font-size: 40px;">🙏</span>
+    </div>
 
-    <div style="${CARD_STYLE} display: inline-flex; gap: 48px; padding: 32px 48px;">
+    <!-- 主标题 -->
+    <h1 style="font-size: 72px; font-weight: 900; margin: 0 0 16px 0; background: ${GRADIENTS.primary}; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{TITLE}}</h1>
+    <p style="font-size: 24px; color: #94A3B8; margin: 0 0 48px 0; max-width: 600px;">{{SUBTITLE}}</p>
+
+    <!-- 联系信息卡片 -->
+    <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 20px; padding: 28px 48px; display: inline-flex; gap: 40px; backdrop-filter: blur(10px);">
       <div style="text-align: center;">
-        <div style="font-size: 12px; color: #64748B; margin-bottom: 8px;">演示者</div>
-        <div style="font-size: 18px; font-weight: 600;">{{PRESENTER}}</div>
+        <div style="font-size: 11px; color: #64748B; margin-bottom: 8px; letter-spacing: 1px;">演示者</div>
+        <div style="font-size: 18px; font-weight: 700; color: #F8FAFC;">{{PRESENTER}}</div>
       </div>
-      <div style="width: 1px; background: #334155;"></div>
+      <div style="width: 1px; background: linear-gradient(180deg, transparent, #334155, transparent);"></div>
       <div style="text-align: center;">
-        <div style="font-size: 12px; color: #64748B; margin-bottom: 8px;">邮箱</div>
-        <div style="font-size: 18px; font-weight: 600; color: ${COLORS.primary};">{{EMAIL}}</div>
+        <div style="font-size: 11px; color: #64748B; margin-bottom: 8px; letter-spacing: 1px;">邮箱</div>
+        <div style="font-size: 18px; font-weight: 700; color: ${COLORS.primary};">{{EMAIL}}</div>
       </div>
-      <div style="width: 1px; background: #334155;"></div>
+      <div style="width: 1px; background: linear-gradient(180deg, transparent, #334155, transparent);"></div>
       <div style="text-align: center;">
-        <div style="font-size: 12px; color: #64748B; margin-bottom: 8px;">日期</div>
-        <div style="font-size: 18px; font-weight: 600;">{{DATE}}</div>
+        <div style="font-size: 11px; color: #64748B; margin-bottom: 8px; letter-spacing: 1px;">日期</div>
+        <div style="font-size: 18px; font-weight: 700; color: #F8FAFC;">{{DATE}}</div>
       </div>
     </div>
 
-    <div style="margin-top: 48px;">
-      <p style="font-size: 14px; color: #64748B;">{{COMPANY}}</p>
+    <!-- 公司信息 -->
+    <div style="margin-top: 48px; display: flex; align-items: center; gap: 12px;">
+      <div style="width: 40px; height: 1px; background: linear-gradient(90deg, transparent, #64748B);"></div>
+      <p style="font-size: 14px; color: #64748B; margin: 0;">{{COMPANY}}</p>
+      <div style="width: 40px; height: 1px; background: linear-gradient(90deg, #64748B, transparent);"></div>
     </div>
   </div>
 
-  <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, ${COLORS.primary}, ${COLORS.secondary}, ${COLORS.success});"></div>
+  <!-- 底部装饰线 -->
+  <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 4px; background: ${GRADIENTS.rainbow};"></div>
 </div>
   `.trim(),
 };
