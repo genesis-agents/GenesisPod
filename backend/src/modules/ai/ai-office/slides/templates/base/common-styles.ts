@@ -9,66 +9,66 @@
 // Container Styles - 差异化背景
 // ============================================================================
 
-/** 标准内容页容器 - 深蓝渐变 */
+/** 标准内容页容器 - 深蓝渐变 (含安全边距) */
 export const COMMON_CONTAINER = `
   width: 100%;
   height: 100%;
   background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
   font-family: 'Noto Sans SC', sans-serif;
   color: #F8FAFC;
-  padding: 0;
+  padding: 50px 80px 80px 80px;
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
 `;
 
-/** 封面页容器 - 深色 + 金色装饰 */
+/** 封面页容器 - 深色 + 金色装饰 (含安全边距) */
 export const COVER_CONTAINER = `
   width: 100%;
   height: 100%;
   background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
   font-family: 'Noto Sans SC', sans-serif;
   color: #F8FAFC;
-  padding: 0;
+  padding: 60px 80px 80px 80px;
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
 `;
 
-/** 数据页容器 - 深灰专业风 */
+/** 数据页容器 - 深灰专业风 (含安全边距) */
 export const DATA_CONTAINER = `
   width: 100%;
   height: 100%;
   background: linear-gradient(180deg, #111827 0%, #1F2937 100%);
   font-family: 'Noto Sans SC', sans-serif;
   color: #F8FAFC;
-  padding: 0;
+  padding: 50px 80px 80px 80px;
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
 `;
 
-/** 对比页容器 - 分割式设计 */
+/** 对比页容器 - 分割式设计 (含安全边距) */
 export const COMPARISON_CONTAINER = `
   width: 100%;
   height: 100%;
   background: #0F172A;
   font-family: 'Noto Sans SC', sans-serif;
   color: #F8FAFC;
-  padding: 0;
+  padding: 50px 80px 80px 80px;
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
 `;
 
-/** 结论页容器 - 渐变强调 */
+/** 结论页容器 - 渐变强调 (含安全边距) */
 export const CONCLUSION_CONTAINER = `
   width: 100%;
   height: 100%;
   background: linear-gradient(135deg, #1E3A5F 0%, #0F172A 50%, #1E293B 100%);
   font-family: 'Noto Sans SC', sans-serif;
   color: #F8FAFC;
-  padding: 0;
+  padding: 50px 80px 80px 80px;
   box-sizing: border-box;
   position: relative;
   overflow: hidden;

@@ -361,6 +361,26 @@ export class QualityAuditSkill {
   }
 
   /**
+   * 常见的无关填充内容模式
+   */
+  private readonly FILLER_PATTERNS = [
+    /^创新驱动$/,
+    /^持续创新迭代升级$/,
+    /^创新驱动[：:]/,
+    /^数字化转型$/,
+    /^智能化升级$/,
+    /^高效协同$/,
+    /^战略布局$/,
+    /^生态构建$/,
+    /^价值创造$/,
+    /^赋能[^，。]+$/,
+    /^助力[^，。]+$/,
+    /商务简约/,
+    /设计风格/,
+    /视觉设计/,
+  ];
+
+  /**
    * 检查内容逻辑
    */
   private checkContentLogic(
@@ -368,6 +388,10 @@ export class QualityAuditSkill {
     pageContent: PageContent,
   ): SemanticIssue[] {
     const issues: SemanticIssue[] = [];
+
+    // 检查是否包含无关填充内容
+    const fillerIssues = this.checkFillerContent(pageOutline, pageContent);
+    issues.push(...fillerIssues);
 
     // 检查 framework 模板的步骤是否与内容相关
     if (pageOutline.templateType === "framework") {
@@ -417,6 +441,93 @@ export class QualityAuditSkill {
     }
 
     return issues;
+  }
+
+  /**
+   * 检查无关填充内容
+   */
+  private checkFillerContent(
+    pageOutline: PageOutline,
+    pageContent: PageContent,
+  ): SemanticIssue[] {
+    const issues: SemanticIssue[] = [];
+    const pageTitle = pageOutline.title.toLowerCase();
+    const fillerFound: string[] = [];
+
+    // 检查每个 section 的内容
+    for (const section of pageContent.sections) {
+      const texts = this.extractTextsFromSection(section);
+      for (const text of texts) {
+        const trimmed = text.trim();
+        for (const pattern of this.FILLER_PATTERNS) {
+          if (pattern.test(trimmed)) {
+            // 检查是否与页面主题相关
+            const isRelated = this.isContentRelatedToTitle(trimmed, pageTitle);
+            if (!isRelated) {
+              fillerFound.push(trimmed);
+            }
+          }
+        }
+      }
+    }
+
+    if (fillerFound.length > 0) {
+      issues.push({
+        type: "content_logic",
+        severity: "error",
+        message: `检测到与主题"${pageOutline.title}"无关的填充内容：${fillerFound.slice(0, 3).join("、")}`,
+        pageNumber: pageOutline.pageNumber,
+        suggestion: "移除无关的通用商务套话，使用与页面主题相关的具体内容",
+      });
+    }
+
+    return issues;
+  }
+
+  /**
+   * 从 Section 中提取所有文本
+   */
+  private extractTextsFromSection(section: ContentSection): string[] {
+    if (typeof section.content === "string") {
+      return [section.content];
+    }
+    if (Array.isArray(section.content)) {
+      return section.content;
+    }
+    if (typeof section.content === "object" && section.content !== null) {
+      const obj = section.content as unknown as Record<string, unknown>;
+      return Object.values(obj)
+        .filter((v) => typeof v === "string")
+        .map((v) => v as string);
+    }
+    return [];
+  }
+
+  /**
+   * 检查内容是否与标题相关
+   */
+  private isContentRelatedToTitle(content: string, title: string): boolean {
+    // 如果标题包含创新、技术、战略等词，则相关内容可能是合理的
+    const innovationKeywords = [
+      "创新",
+      "技术",
+      "研发",
+      "科技",
+      "战略",
+      "发展",
+      "转型",
+      "升级",
+    ];
+    const hasInnovationContext = innovationKeywords.some((kw) =>
+      title.includes(kw),
+    );
+
+    // 如果标题有创新相关上下文，内容可能是相关的
+    if (hasInnovationContext && content.includes("创新")) {
+      return true;
+    }
+
+    return false;
   }
 
   /**

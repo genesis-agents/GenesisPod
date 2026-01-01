@@ -522,6 +522,7 @@ ${this.getStrategyGuidance(retryContext.strategy)}
    */
   private isPlaceholderText(text: string): boolean {
     const placeholderPatterns = [
+      // 通用占位符
       /^核心能力/,
       /^关键优势/,
       /^核心支柱/,
@@ -531,6 +532,7 @@ ${this.getStrategyGuidance(retryContext.strategy)}
       /^详细描述/,
       /^待办事项/,
       /^内容\s*\d+$/,
+      // 设计相关占位符
       /商务简约/,
       /设计风格/,
       /视觉设计/,
@@ -539,6 +541,23 @@ ${this.getStrategyGuidance(retryContext.strategy)}
       /演示文稿/,
       /专业视觉呈现/,
       /高效信息传达/,
+      // 常见无关填充内容
+      /^创新驱动$/,
+      /^持续创新迭代升级$/,
+      /^创新驱动[：:]/,
+      /^数字化转型$/,
+      /^智能化升级$/,
+      /^高效协同$/,
+      /^战略布局$/,
+      /^生态构建$/,
+      /^价值创造$/,
+      // 空洞的商务套话
+      /^赋能/,
+      /^助力/,
+      /^打造/,
+      /^构建/,
+      /^引领/,
+      /^深耕/,
     ];
 
     const trimmed = text.trim();

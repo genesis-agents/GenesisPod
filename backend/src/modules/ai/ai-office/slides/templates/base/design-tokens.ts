@@ -237,7 +237,7 @@ export const STYLES = {
     background: linear-gradient(135deg, ${COLORS.bgPrimary} 0%, ${COLORS.bgSecondary} 100%);
     font-family: ${TYPOGRAPHY.fontFamily};
     color: ${COLORS.textPrimary};
-    padding: 0;
+    padding: ${SPACING.pageTop}px ${SPACING.pageRight}px ${SPACING.pageBottom}px ${SPACING.pageLeft}px;
     box-sizing: border-box;
     position: relative;
     overflow: hidden;
