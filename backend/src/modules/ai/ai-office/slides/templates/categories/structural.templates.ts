@@ -11,6 +11,7 @@ import {
   CARD_STYLE,
   FOOTER_STYLE,
   COLORS,
+  FONT_STACK, // v3.5: 用于emoji图标显示
 } from "../base/common-styles";
 
 // ============================================================================
@@ -70,7 +71,7 @@ export const TOC_DUAL_TEMPLATE: SlideTemplate = {
 export const SECTION_DIVIDER_TEMPLATE: SlideTemplate = {
   metadata: {
     id: "S-002",
-    type: "framework",
+    type: "chapterTitle", // v3.5: 修复类型映射
     name: "章节分隔页",
     description: "章节过渡页，巨大章节编号+居中标题+金色装饰",
     useCases: ["章节分隔", "过渡页", "新章节开始"],
@@ -167,7 +168,7 @@ export const THREE_PILLAR_TEMPLATE: SlideTemplate = {
     <div style="flex: 1; ${CARD_STYLE} display: flex; flex-direction: column; border-top: 4px solid ${COLORS.primary}; position: relative;">
       <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: linear-gradient(180deg, ${COLORS.primary}, transparent); border-radius: 0 0 0 12px;"></div>
       <div style="width: 56px; height: 56px; background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(212, 175, 55, 0.1)); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
-        <span style="font-size: 24px;">🎯</span>
+        <span style="font-size: 24px; font-family: ${FONT_STACK};">{{PILLAR1_ICON}}</span>
       </div>
       <h3 style="font-size: 20px; font-weight: 700; margin: 0 0 12px 0; color: ${COLORS.primary};">{{PILLAR1_TITLE}}</h3>
       <p style="font-size: 14px; color: #94A3B8; margin: 0; flex: 1; line-height: 1.6;">{{PILLAR1_DESC}}</p>
@@ -181,7 +182,7 @@ export const THREE_PILLAR_TEMPLATE: SlideTemplate = {
     <div style="flex: 1; ${CARD_STYLE} display: flex; flex-direction: column; border-top: 4px solid ${COLORS.secondary}; position: relative;">
       <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: linear-gradient(180deg, ${COLORS.secondary}, transparent); border-radius: 0 0 0 12px;"></div>
       <div style="width: 56px; height: 56px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.1)); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
-        <span style="font-size: 24px;">⚡</span>
+        <span style="font-size: 24px; font-family: ${FONT_STACK};">{{PILLAR2_ICON}}</span>
       </div>
       <h3 style="font-size: 20px; font-weight: 700; margin: 0 0 12px 0; color: ${COLORS.secondary};">{{PILLAR2_TITLE}}</h3>
       <p style="font-size: 14px; color: #94A3B8; margin: 0; flex: 1; line-height: 1.6;">{{PILLAR2_DESC}}</p>
@@ -195,7 +196,7 @@ export const THREE_PILLAR_TEMPLATE: SlideTemplate = {
     <div style="flex: 1; ${CARD_STYLE} display: flex; flex-direction: column; border-top: 4px solid ${COLORS.success}; position: relative;">
       <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: linear-gradient(180deg, ${COLORS.success}, transparent); border-radius: 0 0 0 12px;"></div>
       <div style="width: 56px; height: 56px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1)); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
-        <span style="font-size: 24px;">👥</span>
+        <span style="font-size: 24px; font-family: ${FONT_STACK};">{{PILLAR3_ICON}}</span>
       </div>
       <h3 style="font-size: 20px; font-weight: 700; margin: 0 0 12px 0; color: ${COLORS.success};">{{PILLAR3_TITLE}}</h3>
       <p style="font-size: 14px; color: #94A3B8; margin: 0; flex: 1; line-height: 1.6;">{{PILLAR3_DESC}}</p>
@@ -246,7 +247,7 @@ export const FOUR_PILLAR_TEMPLATE: SlideTemplate = {
   <div style="display: flex; gap: 20px; height: calc(100% - 160px);">
     <div style="flex: 1; ${CARD_STYLE} display: flex; flex-direction: column; border-top: 4px solid ${COLORS.primary};">
       <div style="width: 48px; height: 48px; background: rgba(212, 175, 55, 0.15); border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-        <span style="font-size: 20px;">🎯</span>
+        <span style="font-size: 20px; font-family: ${FONT_STACK};">{{PILLAR1_ICON}}</span>
       </div>
       <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 10px 0; color: ${COLORS.primary};">{{PILLAR1_TITLE}}</h3>
       <p style="font-size: 13px; color: #94A3B8; margin: 0; flex: 1; line-height: 1.5;">{{PILLAR1_DESC}}</p>
@@ -254,7 +255,7 @@ export const FOUR_PILLAR_TEMPLATE: SlideTemplate = {
 
     <div style="flex: 1; ${CARD_STYLE} display: flex; flex-direction: column; border-top: 4px solid ${COLORS.secondary};">
       <div style="width: 48px; height: 48px; background: rgba(59, 130, 246, 0.15); border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-        <span style="font-size: 20px;">⚡</span>
+        <span style="font-size: 20px; font-family: ${FONT_STACK};">{{PILLAR2_ICON}}</span>
       </div>
       <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 10px 0; color: ${COLORS.secondary};">{{PILLAR2_TITLE}}</h3>
       <p style="font-size: 13px; color: #94A3B8; margin: 0; flex: 1; line-height: 1.5;">{{PILLAR2_DESC}}</p>
@@ -262,7 +263,7 @@ export const FOUR_PILLAR_TEMPLATE: SlideTemplate = {
 
     <div style="flex: 1; ${CARD_STYLE} display: flex; flex-direction: column; border-top: 4px solid ${COLORS.success};">
       <div style="width: 48px; height: 48px; background: rgba(16, 185, 129, 0.15); border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-        <span style="font-size: 20px;">👥</span>
+        <span style="font-size: 20px; font-family: ${FONT_STACK};">{{PILLAR3_ICON}}</span>
       </div>
       <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 10px 0; color: ${COLORS.success};">{{PILLAR3_TITLE}}</h3>
       <p style="font-size: 13px; color: #94A3B8; margin: 0; flex: 1; line-height: 1.5;">{{PILLAR3_DESC}}</p>
@@ -270,7 +271,7 @@ export const FOUR_PILLAR_TEMPLATE: SlideTemplate = {
 
     <div style="flex: 1; ${CARD_STYLE} display: flex; flex-direction: column; border-top: 4px solid ${COLORS.purple};">
       <div style="width: 48px; height: 48px; background: rgba(139, 92, 246, 0.15); border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-        <span style="font-size: 20px;">🌐</span>
+        <span style="font-size: 20px; font-family: ${FONT_STACK};">{{PILLAR4_ICON}}</span>
       </div>
       <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 10px 0; color: ${COLORS.purple};">{{PILLAR4_TITLE}}</h3>
       <p style="font-size: 13px; color: #94A3B8; margin: 0; flex: 1; line-height: 1.5;">{{PILLAR4_DESC}}</p>
@@ -316,27 +317,27 @@ export const FIVE_PILLAR_TEMPLATE: SlideTemplate = {
 
   <div style="display: flex; gap: 16px; height: calc(100% - 140px);">
     <div style="flex: 1; ${CARD_STYLE} display: flex; flex-direction: column; border-top: 3px solid ${COLORS.primary}; padding: 16px;">
-      <div style="font-size: 28px; margin-bottom: 12px;">🎯</div>
+      <div style="font-size: 28px; margin-bottom: 12px; font-family: ${FONT_STACK};">{{P1_ICON}}</div>
       <h3 style="font-size: 14px; font-weight: 700; margin: 0 0 8px 0; color: ${COLORS.primary};">{{P1_TITLE}}</h3>
       <p style="font-size: 12px; color: #94A3B8; margin: 0; line-height: 1.5;">{{P1_DESC}}</p>
     </div>
     <div style="flex: 1; ${CARD_STYLE} display: flex; flex-direction: column; border-top: 3px solid ${COLORS.secondary}; padding: 16px;">
-      <div style="font-size: 28px; margin-bottom: 12px;">⚡</div>
+      <div style="font-size: 28px; margin-bottom: 12px; font-family: ${FONT_STACK};">{{P2_ICON}}</div>
       <h3 style="font-size: 14px; font-weight: 700; margin: 0 0 8px 0; color: ${COLORS.secondary};">{{P2_TITLE}}</h3>
       <p style="font-size: 12px; color: #94A3B8; margin: 0; line-height: 1.5;">{{P2_DESC}}</p>
     </div>
     <div style="flex: 1; ${CARD_STYLE} display: flex; flex-direction: column; border-top: 3px solid ${COLORS.success}; padding: 16px;">
-      <div style="font-size: 28px; margin-bottom: 12px;">👥</div>
+      <div style="font-size: 28px; margin-bottom: 12px; font-family: ${FONT_STACK};">{{P3_ICON}}</div>
       <h3 style="font-size: 14px; font-weight: 700; margin: 0 0 8px 0; color: ${COLORS.success};">{{P3_TITLE}}</h3>
       <p style="font-size: 12px; color: #94A3B8; margin: 0; line-height: 1.5;">{{P3_DESC}}</p>
     </div>
     <div style="flex: 1; ${CARD_STYLE} display: flex; flex-direction: column; border-top: 3px solid ${COLORS.purple}; padding: 16px;">
-      <div style="font-size: 28px; margin-bottom: 12px;">🌐</div>
+      <div style="font-size: 28px; margin-bottom: 12px; font-family: ${FONT_STACK};">{{P4_ICON}}</div>
       <h3 style="font-size: 14px; font-weight: 700; margin: 0 0 8px 0; color: ${COLORS.purple};">{{P4_TITLE}}</h3>
       <p style="font-size: 12px; color: #94A3B8; margin: 0; line-height: 1.5;">{{P4_DESC}}</p>
     </div>
     <div style="flex: 1; ${CARD_STYLE} display: flex; flex-direction: column; border-top: 3px solid ${COLORS.warning}; padding: 16px;">
-      <div style="font-size: 28px; margin-bottom: 12px;">💡</div>
+      <div style="font-size: 28px; margin-bottom: 12px; font-family: ${FONT_STACK};">{{P5_ICON}}</div>
       <h3 style="font-size: 14px; font-weight: 700; margin: 0 0 8px 0; color: ${COLORS.warning};">{{P5_TITLE}}</h3>
       <p style="font-size: 12px; color: #94A3B8; margin: 0; line-height: 1.5;">{{P5_DESC}}</p>
     </div>

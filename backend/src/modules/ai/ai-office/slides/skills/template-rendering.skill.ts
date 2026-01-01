@@ -556,6 +556,12 @@ ${overflowProtectionStyles}
           ...baseVars,
           ...this.extractComparisonDualVariables(pageContent),
         };
+      case "chapterTitle":
+        // v3.5: 章节分隔页特殊处理
+        return {
+          ...baseVars,
+          ...this.extractChapterTitleVariables(pageOutline, pageContent),
+        };
       case "framework":
         return { ...baseVars, ...this.extractFrameworkVariables(pageContent) };
       case "cover":
@@ -667,7 +673,8 @@ ${overflowProtectionStyles}
         if (section.type === "stat" && this.isStatContent(section.content)) {
           const statContent = section.content as StatContent;
           title = statContent.label || title;
-          desc = this.getDescriptionFromSections(sections, i);
+          // v3.5: 传入pageTitle以生成有意义的描述
+          desc = this.getDescriptionFromSections(sections, i, pageTitle);
           stat = this.ensureUniqueValue(
             statContent.value,
             usedValues,
@@ -676,7 +683,9 @@ ${overflowProtectionStyles}
           label = diverseLabels[i] || "关键数据";
         } else if (section.type === "list" && Array.isArray(section.content)) {
           title = section.content[0] || title;
-          desc = section.content.slice(1, 3).join("；") || "核心能力描述";
+          desc =
+            section.content.slice(1, 3).join("；") ||
+            `${pageTitle || "核心能力"}的关键要素`;
           stat = this.ensureUniqueValue(
             diverseStats[i],
             usedValues,
@@ -687,7 +696,10 @@ ${overflowProtectionStyles}
           typeof section.content === "string"
         ) {
           title = section.content.slice(0, 20) || title;
-          desc = section.content.slice(0, 100) || "核心能力描述";
+          // v3.5: 使用pageTitle生成有意义的描述
+          desc =
+            section.content.slice(0, 100) ||
+            `${pageTitle || "战略"}的核心支撑能力`;
           stat = this.ensureUniqueValue(
             diverseStats[i],
             usedValues,
@@ -696,15 +708,21 @@ ${overflowProtectionStyles}
         }
       }
 
+      // v3.5: 默认图标列表（基于内容主题匹配）
+      const defaultIcons = ["🎯", "⚡", "👥", "🌐", "💡"];
+      const icon = defaultIcons[i] || "📌";
+
       // PILLAR{N} 格式 (用于 S-003, S-004)
       vars[`PILLAR${pillarNum}_TITLE`] = title;
       vars[`PILLAR${pillarNum}_DESC`] = desc;
       vars[`PILLAR${pillarNum}_STAT`] = stat;
       vars[`PILLAR${pillarNum}_LABEL`] = label;
+      vars[`PILLAR${pillarNum}_ICON`] = icon; // v3.5: 添加图标变量
 
       // P{N} 格式 (用于 S-005 五支柱模板)
       vars[`P${pillarNum}_TITLE`] = title;
       vars[`P${pillarNum}_DESC`] = desc;
+      vars[`P${pillarNum}_ICON`] = icon; // v3.5: 添加图标变量
     }
 
     return vars;
@@ -889,6 +907,57 @@ ${overflowProtectionStyles}
     }
 
     return vars;
+  }
+
+  /**
+   * 提取章节分隔页变量 (v3.5 新增)
+   * 正确提取章节编号，避免总是显示"1"
+   */
+  private extractChapterTitleVariables(
+    pageOutline: PageOutline,
+    pageContent: PageContent,
+  ): Record<string, string> {
+    // 从 subtitle 提取章节编号（格式：CHAPTER 02）
+    const subtitleMatch = pageContent.subtitle?.match(/CHAPTER\s*(\d+)/i);
+    const outlineMatch = pageOutline.subtitle?.match(/CHAPTER\s*(\d+)/i);
+
+    // 尝试从页面编号推断（如果是第3页之后的chapterTitle，计算实际章节号）
+    let chapterNum = "01";
+
+    if (subtitleMatch) {
+      chapterNum = subtitleMatch[1].padStart(2, "0");
+    } else if (outlineMatch) {
+      chapterNum = outlineMatch[1].padStart(2, "0");
+    } else {
+      // 从 keyElements 或内容推断
+      const firstSection = pageContent.sections?.[0];
+      if (
+        firstSection?.type === "text" &&
+        typeof firstSection.content === "string"
+      ) {
+        const numMatch = firstSection.content.match(
+          /第(\d+)章|Chapter\s*(\d+)/i,
+        );
+        if (numMatch) {
+          chapterNum = (numMatch[1] || numMatch[2]).padStart(2, "0");
+        }
+      }
+    }
+
+    return {
+      CHAPTER_NUM: chapterNum,
+      // 确保标题不重复包含 CHAPTER 信息
+      TITLE:
+        pageContent.title?.replace(/CHAPTER\s*\d+\s*[:：]?\s*/gi, "").trim() ||
+        pageOutline.title?.replace(/CHAPTER\s*\d+\s*[:：]?\s*/gi, "").trim() ||
+        "章节标题",
+      SUBTITLE:
+        pageContent.subtitle
+          ?.replace(/CHAPTER\s*\d+\s*[:：]?\s*/gi, "")
+          .trim() ||
+        pageOutline.contentBrief ||
+        "",
+    };
   }
 
   /**
@@ -1405,13 +1474,21 @@ ${overflowProtectionStyles}
 
   /**
    * 辅助：从 sections 获取描述文本
+   * v3.5: 改进默认值生成，避免通用占位符
    */
   private getDescriptionFromSections(
     sections: ContentSection[],
     index: number,
+    pageTitle?: string,
   ): string {
     const section = sections[index];
-    if (!section) return "核心能力和关键优势描述";
+
+    // 如果没有section，尝试使用页面标题生成有意义的描述
+    if (!section) {
+      return pageTitle
+        ? `${pageTitle}的核心组成部分与关键价值`
+        : "驱动业务发展的关键要素";
+    }
 
     if (section.type === "text" && typeof section.content === "string") {
       return section.content.slice(0, 100);
@@ -1419,7 +1496,19 @@ ${overflowProtectionStyles}
     if (section.type === "list" && Array.isArray(section.content)) {
       return section.content.slice(0, 2).join("；");
     }
-    return "核心能力和关键优势描述";
+
+    // v3.5: 对于 stat 类型，尝试从 label 生成描述
+    if (section.type === "stat" && this.isStatContent(section.content)) {
+      const statContent = section.content as StatContent;
+      if (statContent.label) {
+        return `${statContent.label}相关的核心能力与战略价值`;
+      }
+    }
+
+    // 使用页面标题生成有意义的描述
+    return pageTitle
+      ? `${pageTitle}的关键能力与竞争优势`
+      : "持续创造价值的核心能力";
   }
 
   /**
