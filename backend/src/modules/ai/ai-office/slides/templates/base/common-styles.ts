@@ -226,3 +226,118 @@ export const GRID_CONTAINER = `
   overflow: hidden;
   min-height: 0;
 `;
+
+// ============================================================================
+// Visual Enhancement Styles v3.1 (视觉增强样式)
+// ============================================================================
+
+/** 金色装饰竖条 - 用于标题左侧 */
+export const ACCENT_BAR_TITLE = `
+  position: absolute;
+  left: 60px;
+  width: 5px;
+  height: 40px;
+  background: linear-gradient(180deg, #D4AF37 0%, #B8962E 100%);
+  border-radius: 3px;
+`;
+
+/** 金色装饰竖条 - 用于卡片左侧 */
+export const ACCENT_BAR_CARD = `
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, #D4AF37 0%, #B8962E 100%);
+  border-radius: 4px 0 0 4px;
+`;
+
+/** 透明边框装饰框 */
+export const TRANSPARENT_BORDER_BOX = `
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border: 2px solid rgba(212, 175, 55, 0.3);
+  pointer-events: none;
+`;
+
+/** 章节分隔页大号数字样式 */
+export const CHAPTER_NUMBER_GIANT = `
+  font-size: 180px;
+  font-weight: 900;
+  color: rgba(100, 116, 139, 0.15);
+  line-height: 1;
+  position: absolute;
+`;
+
+/** 章节分隔页居中数字样式 (更突出) */
+export const CHAPTER_NUMBER_CENTERED = `
+  font-size: 135px;
+  font-weight: 900;
+  background: linear-gradient(180deg, #F8FAFC 0%, #64748B 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+`;
+
+/** 洞察框样式 - 底部位置 */
+export const INSIGHT_BOX_STYLE = `
+  position: absolute;
+  bottom: 60px;
+  left: 80px;
+  right: 80px;
+  padding: 12px 20px 12px 24px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`;
+
+/** 洞察框类型颜色配置 */
+export const INSIGHT_COLORS = {
+  insight: { bg: "rgba(16, 185, 129, 0.1)", bar: "#10B981", text: "#D1FAE5" },
+  warning: { bg: "rgba(245, 158, 11, 0.1)", bar: "#F59E0B", text: "#FEF3C7" },
+  tip: { bg: "rgba(59, 130, 246, 0.1)", bar: "#3B82F6", text: "#DBEAFE" },
+  summary: { bg: "rgba(212, 175, 55, 0.1)", bar: "#D4AF37", text: "#FEF9C3" },
+};
+
+/** 生成洞察框HTML */
+export function generateInsightBoxHTML(
+  type: "insight" | "warning" | "tip" | "summary",
+  text: string,
+  icon?: string,
+): string {
+  const colors = INSIGHT_COLORS[type];
+  const defaultIcons = {
+    insight: "💡",
+    warning: "⚠️",
+    tip: "💭",
+    summary: "📌",
+  };
+  const finalIcon = icon || defaultIcons[type];
+
+  return `
+    <div style="${INSIGHT_BOX_STYLE} background: ${colors.bg};">
+      <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: ${colors.bar}; border-radius: 8px 0 0 8px;"></div>
+      <span style="font-size: 16px;">${finalIcon}</span>
+      <span style="font-size: 13px; color: ${colors.text}; line-height: 1.4;">${text}</span>
+    </div>
+  `;
+}
+
+/** 生成金色装饰竖条HTML (用于标题左侧) */
+export function generateAccentBarHTML(topOffset: number = 0): string {
+  return `<div style="${ACCENT_BAR_TITLE} top: ${50 + topOffset}px;"></div>`;
+}
+
+/** 生成透明边框装饰框HTML */
+export function generateTransparentBorderHTML(
+  position: "top-right" | "bottom-left",
+): string {
+  const positionStyle =
+    position === "top-right"
+      ? "top: 50px; right: 80px;"
+      : "bottom: 80px; left: 80px;";
+  return `<div style="${TRANSPARENT_BORDER_BOX} ${positionStyle}"></div>`;
+}

@@ -14,7 +14,7 @@ import {
 } from "../base/common-styles";
 
 // ============================================================================
-// C-001: Image-Left-Text-Right (左图右文)
+// C-001: Image-Left-Text-Right (左图右文) - v3.1 增强版
 // ============================================================================
 
 export const IMAGE_LEFT_TEXT_RIGHT_TEMPLATE: SlideTemplate = {
@@ -40,11 +40,16 @@ export const IMAGE_LEFT_TEXT_RIGHT_TEMPLATE: SlideTemplate = {
   },
   html: `
 <div style="${COMMON_CONTAINER}">
-  <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
-  <p style="font-size: 18px; color: #94A3B8; margin: 0 0 32px 0;">{{SUBTITLE}}</p>
+  <!-- 标题区域 + 金色装饰竖条 -->
+  <div style="position: relative; margin-bottom: 28px;">
+    <div style="position: absolute; left: -20px; top: 8px; width: 5px; height: 36px; background: linear-gradient(180deg, ${COLORS.primary}, #B8962E); border-radius: 3px;"></div>
+    <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
+    <p style="font-size: 16px; color: #94A3B8; margin: 0;">{{SUBTITLE}}</p>
+  </div>
 
-  <div style="display: flex; gap: 40px; height: calc(100% - 120px);">
-    <div style="flex: 0 0 45%; ${CARD_STYLE} display: flex; align-items: center; justify-content: center; overflow: hidden;">
+  <div style="display: flex; gap: 36px; height: calc(100% - 130px);">
+    <!-- 左侧图片区域 -->
+    <div style="flex: 0 0 44%; ${CARD_STYLE} display: flex; align-items: center; justify-content: center; overflow: hidden; border-left: 3px solid ${COLORS.primary};">
       <div style="width: 100%; height: 100%; background: linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(59, 130, 246, 0.15) 50%, rgba(16, 185, 129, 0.1) 100%); display: flex; align-items: center; justify-content: center; border-radius: 8px;">
         <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="10" y="20" width="100" height="70" rx="8" stroke="#D4AF37" stroke-width="2" fill="rgba(212, 175, 55, 0.1)"/>
@@ -55,31 +60,32 @@ export const IMAGE_LEFT_TEXT_RIGHT_TEMPLATE: SlideTemplate = {
       </div>
     </div>
 
-    <div style="flex: 1; display: flex; flex-direction: column; gap: 20px;">
-      <div style="${CARD_STYLE} border-left: 3px solid ${COLORS.primary};">
+    <!-- 右侧内容区域 -->
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 18px;">
+      <div style="${CARD_STYLE} border-left: 4px solid ${COLORS.primary}; position: relative;">
         <h4 style="font-size: 16px; font-weight: 700; color: ${COLORS.primary}; margin: 0 0 8px 0;">{{POINT1_TITLE}}</h4>
         <p style="font-size: 14px; color: #94A3B8; margin: 0; line-height: 1.6;">{{POINT1_DESC}}</p>
       </div>
 
-      <div style="${CARD_STYLE} border-left: 3px solid ${COLORS.secondary};">
+      <div style="${CARD_STYLE} border-left: 4px solid ${COLORS.secondary}; position: relative;">
         <h4 style="font-size: 16px; font-weight: 700; color: ${COLORS.secondary}; margin: 0 0 8px 0;">{{POINT2_TITLE}}</h4>
         <p style="font-size: 14px; color: #94A3B8; margin: 0; line-height: 1.6;">{{POINT2_DESC}}</p>
       </div>
 
-      <div style="${CARD_STYLE} border-left: 3px solid ${COLORS.success};">
+      <div style="${CARD_STYLE} border-left: 4px solid ${COLORS.success}; position: relative;">
         <h4 style="font-size: 16px; font-weight: 700; color: ${COLORS.success}; margin: 0 0 8px 0;">{{POINT3_TITLE}}</h4>
         <p style="font-size: 14px; color: #94A3B8; margin: 0; line-height: 1.6;">{{POINT3_DESC}}</p>
       </div>
     </div>
   </div>
 
-  <div style="${FOOTER_STYLE}">{{TITLE}}</div>
+  <div style="${FOOTER_STYLE}"><span style="color: ${COLORS.primary};">◆</span> {{TITLE}}</div>
 </div>
   `.trim(),
 };
 
 // ============================================================================
-// C-002: Text-Left-Image-Right (左文右图)
+// C-002: Text-Left-Image-Right (左文右图) - v3.1 增强版
 // ============================================================================
 
 export const TEXT_LEFT_IMAGE_RIGHT_TEMPLATE: SlideTemplate = {
@@ -105,28 +111,34 @@ export const TEXT_LEFT_IMAGE_RIGHT_TEMPLATE: SlideTemplate = {
   },
   html: `
 <div style="${COMMON_CONTAINER}">
-  <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
-  <p style="font-size: 18px; color: #94A3B8; margin: 0 0 32px 0;">{{SUBTITLE}}</p>
+  <!-- 标题区域 + 金色装饰竖条 -->
+  <div style="position: relative; margin-bottom: 28px;">
+    <div style="position: absolute; left: -20px; top: 8px; width: 5px; height: 36px; background: linear-gradient(180deg, ${COLORS.primary}, #B8962E); border-radius: 3px;"></div>
+    <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
+    <p style="font-size: 16px; color: #94A3B8; margin: 0;">{{SUBTITLE}}</p>
+  </div>
 
-  <div style="display: flex; gap: 40px; height: calc(100% - 120px);">
-    <div style="flex: 1; display: flex; flex-direction: column; gap: 20px;">
-      <div style="${CARD_STYLE} border-left: 3px solid ${COLORS.primary};">
+  <div style="display: flex; gap: 36px; height: calc(100% - 130px);">
+    <!-- 左侧内容区域 -->
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 18px;">
+      <div style="${CARD_STYLE} border-left: 4px solid ${COLORS.primary}; position: relative;">
         <h4 style="font-size: 16px; font-weight: 700; color: ${COLORS.primary}; margin: 0 0 8px 0;">{{POINT1_TITLE}}</h4>
         <p style="font-size: 14px; color: #94A3B8; margin: 0; line-height: 1.6;">{{POINT1_DESC}}</p>
       </div>
 
-      <div style="${CARD_STYLE} border-left: 3px solid ${COLORS.secondary};">
+      <div style="${CARD_STYLE} border-left: 4px solid ${COLORS.secondary}; position: relative;">
         <h4 style="font-size: 16px; font-weight: 700; color: ${COLORS.secondary}; margin: 0 0 8px 0;">{{POINT2_TITLE}}</h4>
         <p style="font-size: 14px; color: #94A3B8; margin: 0; line-height: 1.6;">{{POINT2_DESC}}</p>
       </div>
 
-      <div style="${CARD_STYLE} border-left: 3px solid ${COLORS.success};">
+      <div style="${CARD_STYLE} border-left: 4px solid ${COLORS.success}; position: relative;">
         <h4 style="font-size: 16px; font-weight: 700; color: ${COLORS.success}; margin: 0 0 8px 0;">{{POINT3_TITLE}}</h4>
         <p style="font-size: 14px; color: #94A3B8; margin: 0; line-height: 1.6;">{{POINT3_DESC}}</p>
       </div>
     </div>
 
-    <div style="flex: 0 0 45%; ${CARD_STYLE} display: flex; align-items: center; justify-content: center; overflow: hidden;">
+    <!-- 右侧图片区域 -->
+    <div style="flex: 0 0 44%; ${CARD_STYLE} display: flex; align-items: center; justify-content: center; overflow: hidden; border-left: 3px solid ${COLORS.secondary};">
       <div style="width: 100%; height: 100%; background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(16, 185, 129, 0.15) 50%, rgba(212, 175, 55, 0.1) 100%); display: flex; align-items: center; justify-content: center; border-radius: 8px;">
         <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="10" y="20" width="100" height="70" rx="8" stroke="#3B82F6" stroke-width="2" fill="rgba(59, 130, 246, 0.1)"/>
@@ -138,13 +150,13 @@ export const TEXT_LEFT_IMAGE_RIGHT_TEMPLATE: SlideTemplate = {
     </div>
   </div>
 
-  <div style="${FOOTER_STYLE}">{{TITLE}}</div>
+  <div style="${FOOTER_STYLE}"><span style="color: ${COLORS.primary};">◆</span> {{TITLE}}</div>
 </div>
   `.trim(),
 };
 
 // ============================================================================
-// C-003: Bullet-List (要点列表)
+// C-003: Bullet-List (要点列表) - v3.1 增强版
 // ============================================================================
 
 export const BULLET_LIST_TEMPLATE: SlideTemplate = {
@@ -170,52 +182,56 @@ export const BULLET_LIST_TEMPLATE: SlideTemplate = {
   },
   html: `
 <div style="${COMMON_CONTAINER}">
-  <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
-  <p style="font-size: 18px; color: #94A3B8; margin: 0 0 40px 0;">{{SUBTITLE}}</p>
+  <!-- 标题区域 + 金色装饰竖条 -->
+  <div style="position: relative; margin-bottom: 36px;">
+    <div style="position: absolute; left: -20px; top: 8px; width: 5px; height: 36px; background: linear-gradient(180deg, ${COLORS.primary}, #B8962E); border-radius: 3px;"></div>
+    <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
+    <p style="font-size: 16px; color: #94A3B8; margin: 0;">{{SUBTITLE}}</p>
+  </div>
 
-  <div style="display: flex; flex-direction: column; gap: 20px; max-width: 900px;">
-    <div style="${CARD_STYLE} display: flex; align-items: flex-start; gap: 16px;">
-      <div style="width: 32px; height: 32px; background: ${COLORS.primary}; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-        <span style="font-size: 14px; font-weight: 900;">1</span>
+  <div style="display: flex; flex-direction: column; gap: 18px; max-width: 920px;">
+    <div style="${CARD_STYLE} display: flex; align-items: flex-start; gap: 16px; border-left: 4px solid ${COLORS.primary};">
+      <div style="width: 36px; height: 36px; background: ${COLORS.primary}; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3);">
+        <span style="font-size: 15px; font-weight: 900;">1</span>
       </div>
-      <div>
-        <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 8px 0;">{{POINT1_TITLE}}</h4>
-        <p style="font-size: 14px; color: #94A3B8; margin: 0;">{{POINT1_DESC}}</p>
+      <div style="flex: 1;">
+        <h4 style="font-size: 17px; font-weight: 700; margin: 0 0 8px 0;">{{POINT1_TITLE}}</h4>
+        <p style="font-size: 14px; color: #94A3B8; margin: 0; line-height: 1.6;">{{POINT1_DESC}}</p>
       </div>
     </div>
 
-    <div style="${CARD_STYLE} display: flex; align-items: flex-start; gap: 16px;">
-      <div style="width: 32px; height: 32px; background: ${COLORS.secondary}; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-        <span style="font-size: 14px; font-weight: 900;">2</span>
+    <div style="${CARD_STYLE} display: flex; align-items: flex-start; gap: 16px; border-left: 4px solid ${COLORS.secondary};">
+      <div style="width: 36px; height: 36px; background: ${COLORS.secondary}; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);">
+        <span style="font-size: 15px; font-weight: 900;">2</span>
       </div>
-      <div>
-        <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 8px 0;">{{POINT2_TITLE}}</h4>
-        <p style="font-size: 14px; color: #94A3B8; margin: 0;">{{POINT2_DESC}}</p>
-      </div>
-    </div>
-
-    <div style="${CARD_STYLE} display: flex; align-items: flex-start; gap: 16px;">
-      <div style="width: 32px; height: 32px; background: ${COLORS.success}; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-        <span style="font-size: 14px; font-weight: 900;">3</span>
-      </div>
-      <div>
-        <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 8px 0;">{{POINT3_TITLE}}</h4>
-        <p style="font-size: 14px; color: #94A3B8; margin: 0;">{{POINT3_DESC}}</p>
+      <div style="flex: 1;">
+        <h4 style="font-size: 17px; font-weight: 700; margin: 0 0 8px 0;">{{POINT2_TITLE}}</h4>
+        <p style="font-size: 14px; color: #94A3B8; margin: 0; line-height: 1.6;">{{POINT2_DESC}}</p>
       </div>
     </div>
 
-    <div style="${CARD_STYLE} display: flex; align-items: flex-start; gap: 16px;">
-      <div style="width: 32px; height: 32px; background: ${COLORS.purple}; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-        <span style="font-size: 14px; font-weight: 900;">4</span>
+    <div style="${CARD_STYLE} display: flex; align-items: flex-start; gap: 16px; border-left: 4px solid ${COLORS.success};">
+      <div style="width: 36px; height: 36px; background: ${COLORS.success}; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);">
+        <span style="font-size: 15px; font-weight: 900;">3</span>
       </div>
-      <div>
-        <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 8px 0;">{{POINT4_TITLE}}</h4>
-        <p style="font-size: 14px; color: #94A3B8; margin: 0;">{{POINT4_DESC}}</p>
+      <div style="flex: 1;">
+        <h4 style="font-size: 17px; font-weight: 700; margin: 0 0 8px 0;">{{POINT3_TITLE}}</h4>
+        <p style="font-size: 14px; color: #94A3B8; margin: 0; line-height: 1.6;">{{POINT3_DESC}}</p>
+      </div>
+    </div>
+
+    <div style="${CARD_STYLE} display: flex; align-items: flex-start; gap: 16px; border-left: 4px solid ${COLORS.purple};">
+      <div style="width: 36px; height: 36px; background: ${COLORS.purple}; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);">
+        <span style="font-size: 15px; font-weight: 900;">4</span>
+      </div>
+      <div style="flex: 1;">
+        <h4 style="font-size: 17px; font-weight: 700; margin: 0 0 8px 0;">{{POINT4_TITLE}}</h4>
+        <p style="font-size: 14px; color: #94A3B8; margin: 0; line-height: 1.6;">{{POINT4_DESC}}</p>
       </div>
     </div>
   </div>
 
-  <div style="${FOOTER_STYLE}">{{TITLE}}</div>
+  <div style="${FOOTER_STYLE}"><span style="color: ${COLORS.primary};">◆</span> {{TITLE}}</div>
 </div>
   `.trim(),
 };

@@ -14,7 +14,7 @@ import {
 } from "../base/common-styles";
 
 // ============================================================================
-// S-001: TOC-Dual (双列目录)
+// S-001: TOC-Dual (双列目录) - v3.1 增强版
 // ============================================================================
 
 export const TOC_DUAL_TEMPLATE: SlideTemplate = {
@@ -40,20 +40,31 @@ export const TOC_DUAL_TEMPLATE: SlideTemplate = {
   },
   html: `
 <div style="${COMMON_CONTAINER}">
-  <h1 style="font-size: 64px; font-weight: 900; margin: 0 0 4px 0;">{{TITLE}}</h1>
-  <p style="font-size: 20px; color: ${COLORS.primary}; font-weight: 500; letter-spacing: 4px; margin: 0 0 48px 0;">TABLE OF CONTENTS</p>
+  <!-- 右上角透明边框装饰 -->
+  <div style="position: absolute; top: 40px; right: 60px; width: 100px; height: 100px; border: 2px solid rgba(212, 175, 55, 0.25); pointer-events: none;"></div>
 
-  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap-x: 80px; gap-y: 32px; margin-bottom: 48px;">
+  <!-- 标题区域 + 金色装饰竖条 -->
+  <div style="position: relative; margin-bottom: 48px;">
+    <div style="position: absolute; left: -20px; top: 12px; width: 5px; height: 52px; background: linear-gradient(180deg, ${COLORS.primary}, #B8962E); border-radius: 3px;"></div>
+    <h1 style="font-size: 56px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
+    <p style="font-size: 18px; color: ${COLORS.primary}; font-weight: 500; letter-spacing: 6px; margin: 0;">TABLE OF CONTENTS</p>
+  </div>
+
+  <!-- 章节列表 -->
+  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap-x: 60px; gap-y: 28px; margin-bottom: 48px;">
     {{CHAPTERS}}
   </div>
 
-  <div style="${FOOTER_STYLE}">{{TITLE}} | 内容概览</div>
+  <!-- 底部分隔线装饰 -->
+  <div style="position: absolute; bottom: 70px; left: 80px; right: 80px; height: 1px; background: linear-gradient(90deg, ${COLORS.primary}, transparent);"></div>
+
+  <div style="${FOOTER_STYLE}"><span style="color: ${COLORS.primary};">◆</span> {{TITLE}} | 内容概览</div>
 </div>
   `.trim(),
 };
 
 // ============================================================================
-// S-002: Section Divider (章节分隔)
+// S-002: Section Divider (章节分隔) - v3.1 增强版
 // ============================================================================
 
 export const SECTION_DIVIDER_TEMPLATE: SlideTemplate = {
@@ -61,7 +72,7 @@ export const SECTION_DIVIDER_TEMPLATE: SlideTemplate = {
     id: "S-002",
     type: "framework",
     name: "章节分隔页",
-    description: "章节过渡页，大号章节编号+居中标题",
+    description: "章节过渡页，巨大章节编号+居中标题+金色装饰",
     useCases: ["章节分隔", "过渡页", "新章节开始"],
     contentDensity: "low",
     visualStyle: "professional",
@@ -79,26 +90,46 @@ export const SECTION_DIVIDER_TEMPLATE: SlideTemplate = {
   },
   html: `
 <div style="${COMMON_CONTAINER}">
-  <div style="position: absolute; top: 50px; left: 80px; font-size: 14px; color: #64748B;">I</div>
-  <div style="position: absolute; top: 120px; left: 80px; font-size: 180px; font-weight: 900; color: rgba(100, 116, 139, 0.15); line-height: 1;">{{CHAPTER_NUM}}</div>
-  <div style="position: absolute; top: 50px; right: 80px; width: 120px; height: 120px; border-top: 2px solid ${COLORS.primary}; border-right: 2px solid ${COLORS.primary};"></div>
+  <!-- 左上角巨大章节编号 (135pt) -->
+  <div style="position: absolute; top: 30px; left: 60px; font-size: 135px; font-weight: 900; background: linear-gradient(180deg, #F8FAFC 0%, #64748B 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1;">{{CHAPTER_NUM}}</div>
 
-  <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center;">
-    <div style="font-size: 14px; color: #94A3B8; letter-spacing: 4px; margin-bottom: 16px;">CHAPTER {{CHAPTER_NUM}}</div>
-    <div style="width: 80px; height: 4px; background: ${COLORS.primary}; margin-bottom: 24px;"></div>
-    <h1 style="font-size: 52px; font-weight: 900; margin: 0 0 16px 0; line-height: 1.3;">{{TITLE}}</h1>
-    <div style="width: 600px; height: 1px; background: linear-gradient(90deg, transparent, #334155, transparent); margin: 24px 0;"></div>
-    <p style="font-size: 18px; color: #94A3B8; margin: 0;">{{SUBTITLE}}</p>
+  <!-- 中央金色装饰条 -->
+  <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -180px); width: 100px; height: 5px; background: linear-gradient(90deg, ${COLORS.primary}, #B8962E); border-radius: 3px;"></div>
+
+  <!-- 右上角透明边框装饰 -->
+  <div style="position: absolute; top: 40px; right: 60px; width: 140px; height: 140px; border: 2.5px solid rgba(212, 175, 55, 0.3); pointer-events: none;"></div>
+
+  <!-- 左下角透明边框装饰 -->
+  <div style="position: absolute; bottom: 60px; left: 60px; width: 140px; height: 140px; border: 2.5px solid rgba(212, 175, 55, 0.3); pointer-events: none;"></div>
+
+  <!-- 中央内容区 -->
+  <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding-top: 60px;">
+    <!-- CHAPTER 标签 -->
+    <div style="font-size: 16px; color: #94A3B8; letter-spacing: 6px; margin-bottom: 20px; font-weight: 500;">CHAPTER {{CHAPTER_NUM}}</div>
+
+    <!-- 金色分隔条 -->
+    <div style="width: 100px; height: 4px; background: linear-gradient(90deg, ${COLORS.primary}, #B8962E); margin-bottom: 28px; border-radius: 2px;"></div>
+
+    <!-- 章节标题 (48pt) -->
+    <h1 style="font-size: 48px; font-weight: 900; margin: 0 0 20px 0; line-height: 1.2; max-width: 900px;">{{TITLE}}</h1>
+
+    <!-- 渐变分隔线 -->
+    <div style="width: 500px; height: 1px; background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.4), transparent); margin: 24px 0;"></div>
+
+    <!-- 副标题 -->
+    <p style="font-size: 18px; color: #94A3B8; margin: 0; max-width: 700px; line-height: 1.5;">{{SUBTITLE}}</p>
   </div>
 
-  <div style="position: absolute; bottom: 80px; left: 80px; width: 120px; height: 120px; border-bottom: 2px solid #334155; border-left: 2px solid #334155;"></div>
-  <div style="${FOOTER_STYLE}">第{{CHAPTER_NUM}}章</div>
+  <!-- 页脚 -->
+  <div style="${FOOTER_STYLE}">
+    <span style="color: ${COLORS.primary};">◆</span> 第{{CHAPTER_NUM}}章
+  </div>
 </div>
   `.trim(),
 };
 
 // ============================================================================
-// S-003: 3-Pillar (三支柱)
+// S-003: 3-Pillar (三支柱) - v3.1 增强版
 // ============================================================================
 
 export const THREE_PILLAR_TEMPLATE: SlideTemplate = {
@@ -124,50 +155,58 @@ export const THREE_PILLAR_TEMPLATE: SlideTemplate = {
   },
   html: `
 <div style="${COMMON_CONTAINER}">
-  <div style="text-align: center; margin-bottom: 40px;">
+  <!-- 标题区域 + 金色装饰竖条 -->
+  <div style="position: relative; margin-bottom: 36px;">
+    <div style="position: absolute; left: -20px; top: 8px; width: 5px; height: 36px; background: linear-gradient(180deg, ${COLORS.primary}, #B8962E); border-radius: 3px;"></div>
     <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
-    <p style="font-size: 18px; color: #94A3B8; margin: 0;">驱动业务增长的三大核心支柱</p>
+    <p style="font-size: 16px; color: #94A3B8; margin: 0;">驱动业务增长的三大核心支柱</p>
   </div>
 
   <div style="display: flex; gap: 24px; height: calc(100% - 180px);">
-    <div style="flex: 1; ${CARD_STYLE} display: flex; flex-direction: column; border-top: 4px solid ${COLORS.primary};">
+    <!-- 支柱1 -->
+    <div style="flex: 1; ${CARD_STYLE} display: flex; flex-direction: column; border-top: 4px solid ${COLORS.primary}; position: relative;">
+      <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: linear-gradient(180deg, ${COLORS.primary}, transparent); border-radius: 0 0 0 12px;"></div>
       <div style="width: 56px; height: 56px; background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(212, 175, 55, 0.1)); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
         <span style="font-size: 24px;">🎯</span>
       </div>
       <h3 style="font-size: 20px; font-weight: 700; margin: 0 0 12px 0; color: ${COLORS.primary};">{{PILLAR1_TITLE}}</h3>
-      <p style="font-size: 14px; color: #94A3B8; margin: 0; flex: 1;">{{PILLAR1_DESC}}</p>
+      <p style="font-size: 14px; color: #94A3B8; margin: 0; flex: 1; line-height: 1.6;">{{PILLAR1_DESC}}</p>
       <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #334155;">
-        <div style="font-size: 24px; font-weight: 900; color: ${COLORS.primary};">{{PILLAR1_STAT}}</div>
+        <div style="font-size: 28px; font-weight: 900; color: ${COLORS.primary};">{{PILLAR1_STAT}}</div>
         <div style="font-size: 12px; color: #64748B;">{{PILLAR1_LABEL}}</div>
       </div>
     </div>
 
-    <div style="flex: 1; ${CARD_STYLE} display: flex; flex-direction: column; border-top: 4px solid ${COLORS.secondary};">
+    <!-- 支柱2 -->
+    <div style="flex: 1; ${CARD_STYLE} display: flex; flex-direction: column; border-top: 4px solid ${COLORS.secondary}; position: relative;">
+      <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: linear-gradient(180deg, ${COLORS.secondary}, transparent); border-radius: 0 0 0 12px;"></div>
       <div style="width: 56px; height: 56px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.1)); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
         <span style="font-size: 24px;">⚡</span>
       </div>
       <h3 style="font-size: 20px; font-weight: 700; margin: 0 0 12px 0; color: ${COLORS.secondary};">{{PILLAR2_TITLE}}</h3>
-      <p style="font-size: 14px; color: #94A3B8; margin: 0; flex: 1;">{{PILLAR2_DESC}}</p>
+      <p style="font-size: 14px; color: #94A3B8; margin: 0; flex: 1; line-height: 1.6;">{{PILLAR2_DESC}}</p>
       <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #334155;">
-        <div style="font-size: 24px; font-weight: 900; color: ${COLORS.secondary};">{{PILLAR2_STAT}}</div>
+        <div style="font-size: 28px; font-weight: 900; color: ${COLORS.secondary};">{{PILLAR2_STAT}}</div>
         <div style="font-size: 12px; color: #64748B;">{{PILLAR2_LABEL}}</div>
       </div>
     </div>
 
-    <div style="flex: 1; ${CARD_STYLE} display: flex; flex-direction: column; border-top: 4px solid ${COLORS.success};">
+    <!-- 支柱3 -->
+    <div style="flex: 1; ${CARD_STYLE} display: flex; flex-direction: column; border-top: 4px solid ${COLORS.success}; position: relative;">
+      <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: linear-gradient(180deg, ${COLORS.success}, transparent); border-radius: 0 0 0 12px;"></div>
       <div style="width: 56px; height: 56px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1)); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
         <span style="font-size: 24px;">👥</span>
       </div>
       <h3 style="font-size: 20px; font-weight: 700; margin: 0 0 12px 0; color: ${COLORS.success};">{{PILLAR3_TITLE}}</h3>
-      <p style="font-size: 14px; color: #94A3B8; margin: 0; flex: 1;">{{PILLAR3_DESC}}</p>
+      <p style="font-size: 14px; color: #94A3B8; margin: 0; flex: 1; line-height: 1.6;">{{PILLAR3_DESC}}</p>
       <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #334155;">
-        <div style="font-size: 24px; font-weight: 900; color: ${COLORS.success};">{{PILLAR3_STAT}}</div>
+        <div style="font-size: 28px; font-weight: 900; color: ${COLORS.success};">{{PILLAR3_STAT}}</div>
         <div style="font-size: 12px; color: #64748B;">{{PILLAR3_LABEL}}</div>
       </div>
     </div>
   </div>
 
-  <div style="${FOOTER_STYLE}">战略规划 | {{TITLE}}</div>
+  <div style="${FOOTER_STYLE}"><span style="color: ${COLORS.primary};">◆</span> 战略规划 | {{TITLE}}</div>
 </div>
   `.trim(),
 };
@@ -309,7 +348,7 @@ export const FIVE_PILLAR_TEMPLATE: SlideTemplate = {
 };
 
 // ============================================================================
-// S-006: Timeline-Horizontal (横向时间线)
+// S-006: Timeline-Horizontal (横向时间线) - v3.1 增强版
 // ============================================================================
 
 export const TIMELINE_HORIZONTAL_TEMPLATE: SlideTemplate = {
@@ -335,49 +374,58 @@ export const TIMELINE_HORIZONTAL_TEMPLATE: SlideTemplate = {
   },
   html: `
 <div style="${COMMON_CONTAINER}">
-  <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
-  <p style="font-size: 18px; color: #94A3B8; margin: 0 0 48px 0;">项目实施路线图</p>
+  <!-- 标题区域 + 金色装饰竖条 -->
+  <div style="position: relative; margin-bottom: 40px;">
+    <div style="position: absolute; left: -20px; top: 8px; width: 5px; height: 36px; background: linear-gradient(180deg, ${COLORS.primary}, #B8962E); border-radius: 3px;"></div>
+    <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
+    <p style="font-size: 16px; color: #94A3B8; margin: 0;">项目实施路线图</p>
+  </div>
 
   <div style="position: relative; padding-top: 40px;">
-    <div style="position: absolute; top: 60px; left: 80px; right: 80px; height: 4px; background: linear-gradient(90deg, ${COLORS.primary}, ${COLORS.secondary}, ${COLORS.success}, ${COLORS.purple});"></div>
+    <!-- 渐变时间线 -->
+    <div style="position: absolute; top: 60px; left: 80px; right: 80px; height: 5px; background: linear-gradient(90deg, ${COLORS.primary}, ${COLORS.secondary}, ${COLORS.success}, ${COLORS.purple}); border-radius: 3px;"></div>
 
     <div style="display: flex; justify-content: space-between; position: relative;">
+      <!-- 里程碑1 -->
       <div style="flex: 1; text-align: center;">
-        <div style="width: 24px; height: 24px; background: ${COLORS.primary}; border-radius: 50%; margin: 0 auto 16px; position: relative; z-index: 1;"></div>
-        <div style="${CARD_STYLE} margin: 0 8px;">
+        <div style="width: 28px; height: 28px; background: ${COLORS.primary}; border-radius: 50%; margin: 0 auto 16px; position: relative; z-index: 1; box-shadow: 0 0 12px rgba(212, 175, 55, 0.5);"></div>
+        <div style="${CARD_STYLE} margin: 0 8px; border-left: 3px solid ${COLORS.primary};">
           <div style="font-size: 14px; font-weight: 700; color: ${COLORS.primary}; margin-bottom: 8px;">{{M1_DATE}}</div>
           <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">{{M1_TITLE}}</div>
-          <p style="font-size: 12px; color: #94A3B8; margin: 0;">{{M1_DESC}}</p>
+          <p style="font-size: 12px; color: #94A3B8; margin: 0; line-height: 1.5;">{{M1_DESC}}</p>
         </div>
       </div>
+      <!-- 里程碑2 -->
       <div style="flex: 1; text-align: center;">
-        <div style="width: 24px; height: 24px; background: ${COLORS.secondary}; border-radius: 50%; margin: 0 auto 16px; position: relative; z-index: 1;"></div>
-        <div style="${CARD_STYLE} margin: 0 8px;">
+        <div style="width: 28px; height: 28px; background: ${COLORS.secondary}; border-radius: 50%; margin: 0 auto 16px; position: relative; z-index: 1; box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);"></div>
+        <div style="${CARD_STYLE} margin: 0 8px; border-left: 3px solid ${COLORS.secondary};">
           <div style="font-size: 14px; font-weight: 700; color: ${COLORS.secondary}; margin-bottom: 8px;">{{M2_DATE}}</div>
           <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">{{M2_TITLE}}</div>
-          <p style="font-size: 12px; color: #94A3B8; margin: 0;">{{M2_DESC}}</p>
+          <p style="font-size: 12px; color: #94A3B8; margin: 0; line-height: 1.5;">{{M2_DESC}}</p>
         </div>
       </div>
+      <!-- 里程碑3 -->
       <div style="flex: 1; text-align: center;">
-        <div style="width: 24px; height: 24px; background: ${COLORS.success}; border-radius: 50%; margin: 0 auto 16px; position: relative; z-index: 1;"></div>
-        <div style="${CARD_STYLE} margin: 0 8px;">
+        <div style="width: 28px; height: 28px; background: ${COLORS.success}; border-radius: 50%; margin: 0 auto 16px; position: relative; z-index: 1; box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);"></div>
+        <div style="${CARD_STYLE} margin: 0 8px; border-left: 3px solid ${COLORS.success};">
           <div style="font-size: 14px; font-weight: 700; color: ${COLORS.success}; margin-bottom: 8px;">{{M3_DATE}}</div>
           <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">{{M3_TITLE}}</div>
-          <p style="font-size: 12px; color: #94A3B8; margin: 0;">{{M3_DESC}}</p>
+          <p style="font-size: 12px; color: #94A3B8; margin: 0; line-height: 1.5;">{{M3_DESC}}</p>
         </div>
       </div>
+      <!-- 里程碑4 -->
       <div style="flex: 1; text-align: center;">
-        <div style="width: 24px; height: 24px; background: ${COLORS.purple}; border-radius: 50%; margin: 0 auto 16px; position: relative; z-index: 1;"></div>
-        <div style="${CARD_STYLE} margin: 0 8px;">
+        <div style="width: 28px; height: 28px; background: ${COLORS.purple}; border-radius: 50%; margin: 0 auto 16px; position: relative; z-index: 1; box-shadow: 0 0 12px rgba(139, 92, 246, 0.5);"></div>
+        <div style="${CARD_STYLE} margin: 0 8px; border-left: 3px solid ${COLORS.purple};">
           <div style="font-size: 14px; font-weight: 700; color: ${COLORS.purple}; margin-bottom: 8px;">{{M4_DATE}}</div>
           <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">{{M4_TITLE}}</div>
-          <p style="font-size: 12px; color: #94A3B8; margin: 0;">{{M4_DESC}}</p>
+          <p style="font-size: 12px; color: #94A3B8; margin: 0; line-height: 1.5;">{{M4_DESC}}</p>
         </div>
       </div>
     </div>
   </div>
 
-  <div style="${FOOTER_STYLE}">项目周期 | {{TITLE}}</div>
+  <div style="${FOOTER_STYLE}"><span style="color: ${COLORS.primary};">◆</span> 项目周期 | {{TITLE}}</div>
 </div>
   `.trim(),
 };
