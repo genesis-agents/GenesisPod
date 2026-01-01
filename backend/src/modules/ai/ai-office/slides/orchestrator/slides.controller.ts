@@ -27,7 +27,7 @@ import {
   MessageEvent,
 } from "@nestjs/common";
 import { Response } from "express";
-import { Observable, map, catchError, of } from "rxjs";
+import { Observable, map, catchError, of, Subscriber } from "rxjs";
 import {
   SlidesOrchestratorService,
   GenerateInput,
@@ -198,10 +198,53 @@ export class SlidesController {
       `[generateTeam] Starting Team generation with ${dto.sourceText?.length || 0} chars`,
     );
 
-    // 创建会话
-    const sessionId = `team-${Date.now()}`;
+    const effectiveUserId = userId || "anonymous";
 
-    return this.teamAgent
+    // 创建真实会话（返回 Observable 以保持 SSE 流）
+    return new Observable<MessageEvent>((subscriber) => {
+      this.createSessionAndExecuteTeam(dto, effectiveUserId, subscriber);
+    });
+  }
+
+  /**
+   * 创建会话并执行 Team 生成
+   */
+  private async createSessionAndExecuteTeam(
+    dto: GenerateTeamDto,
+    userId: string,
+    subscriber: Subscriber<MessageEvent>,
+  ): Promise<void> {
+    let sessionId: string;
+
+    try {
+      // 创建真实的数据库会话，以便 checkpoint 可以关联
+      const title = dto.sourceText?.slice(0, 50) || "Team Generated Slides";
+      const session = await this.checkpointService.createSession(userId, title);
+      sessionId = session.id;
+      this.logger.log(`[generateTeam] Created real session: ${sessionId}`);
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to create session";
+      this.logger.error(
+        `[generateTeam] Failed to create session: ${errorMessage}`,
+      );
+      subscriber.next({
+        data: JSON.stringify({
+          type: "execution:failed",
+          timestamp: new Date().toISOString(),
+          data: {
+            error: errorMessage,
+            phase: "initialization",
+            recoverable: false,
+          },
+        }),
+      });
+      subscriber.complete();
+      return;
+    }
+
+    // 执行 Team 生成
+    this.teamAgent
       .executeStream(
         {
           sourceText: dto.sourceText,
@@ -213,7 +256,7 @@ export class SlidesController {
         },
         {
           sessionId,
-          userId: userId || "anonymous",
+          userId,
         },
       )
       .pipe(
@@ -238,7 +281,12 @@ export class SlidesController {
             }),
           });
         }),
-      );
+      )
+      .subscribe({
+        next: (event) => subscriber.next(event),
+        error: (err) => subscriber.error(err),
+        complete: () => subscriber.complete(),
+      });
   }
 
   /**
