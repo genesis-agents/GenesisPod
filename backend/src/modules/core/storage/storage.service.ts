@@ -101,6 +101,10 @@ export class StorageService {
     reports: 10, // 10KB per report
     debateSessions: 5, // 5KB per debate
     brandKits: 20, // 20KB per brand kit
+    slidesSessions: 5, // 5KB per session
+    slidesCheckpoints: 200, // 200KB per checkpoint (contains full JSON state)
+    slidesTeamExecutions: 50, // 50KB per execution
+    slidesTeamLogs: 1, // 1KB per log entry
   };
 
   constructor(private readonly prisma: PrismaService) {}
@@ -249,6 +253,13 @@ export class StorageService {
     // 21. Brand Kits
     const brandKitStats = await this.getBrandKitStats();
     categories.push(brandKitStats);
+
+    // 22. AI Slides
+    const slidesStats = await this.getSlidesStats();
+    categories.push(slidesStats);
+    if (slidesStats.cleanupRecommendation) {
+      recommendations.push(slidesStats.cleanupRecommendation);
+    }
 
     // Calculate totals
     const totalRecords = categories.reduce((sum, cat) => sum + cat.count, 0);
@@ -761,6 +772,50 @@ export class StorageService {
     };
   }
 
+  private async getSlidesStats(): Promise<StorageCategory> {
+    const totalSessions = await this.prisma.slidesSession.count();
+    const totalCheckpoints = await this.prisma.slidesCheckpoint.count();
+
+    // Try to get team execution count (table may not exist yet)
+    let totalTeamExecutions = 0;
+    let totalTeamLogs = 0;
+    try {
+      totalTeamExecutions = await this.prisma.slidesTeamExecution.count();
+      totalTeamLogs = await this.prisma.slidesTeamLog.count();
+    } catch {
+      // Tables may not exist yet
+    }
+
+    const estimatedSizeMB =
+      (totalSessions * this.SIZE_ESTIMATES.slidesSessions +
+        totalCheckpoints * this.SIZE_ESTIMATES.slidesCheckpoints +
+        totalTeamExecutions * this.SIZE_ESTIMATES.slidesTeamExecutions +
+        totalTeamLogs * this.SIZE_ESTIMATES.slidesTeamLogs) /
+      1024;
+
+    // Old sessions (>7 days) can be cleaned
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const oldSessions = await this.prisma.slidesSession.count({
+      where: { updatedAt: { lt: sevenDaysAgo } },
+    });
+
+    let cleanupRecommendation: string | undefined;
+    if (oldSessions > 5 || totalCheckpoints > 100) {
+      cleanupRecommendation = `${oldSessions} sessions older than 7 days, ${totalCheckpoints} checkpoints can be cleaned`;
+    }
+
+    return {
+      name: "slides",
+      displayName: "AI Slides",
+      count: totalSessions,
+      estimatedSizeMB: Math.round(estimatedSizeMB * 100) / 100,
+      description: `${totalSessions} sessions, ${totalCheckpoints} checkpoints, ${totalTeamExecutions} executions`,
+      cleanupRecommendation,
+      canCleanup: totalSessions > 0 || totalCheckpoints > 0,
+    };
+  }
+
   // ========== Cleanup Methods ==========
 
   /**
@@ -1222,6 +1277,134 @@ export class StorageService {
   }
 
   /**
+   * Cleanup old slides sessions and checkpoints
+   */
+  async cleanupOldSlides(daysOld: number = 7): Promise<CleanupResult> {
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+      // Get counts before deletion
+      const sessionsToDelete = await this.prisma.slidesSession.count({
+        where: { updatedAt: { lt: cutoffDate } },
+      });
+
+      const checkpointsToDelete = await this.prisma.slidesCheckpoint.count({
+        where: {
+          session: { updatedAt: { lt: cutoffDate } },
+        },
+      });
+
+      // Try to delete team data (tables may not exist)
+      let teamExecutionsDeleted = 0;
+      let teamLogsDeleted = 0;
+      try {
+        const logsResult = await this.prisma.slidesTeamLog.deleteMany({
+          where: {
+            execution: {
+              session: { updatedAt: { lt: cutoffDate } },
+            },
+          },
+        });
+        teamLogsDeleted = logsResult.count;
+
+        const execResult = await this.prisma.slidesTeamExecution.deleteMany({
+          where: {
+            session: { updatedAt: { lt: cutoffDate } },
+          },
+        });
+        teamExecutionsDeleted = execResult.count;
+      } catch {
+        // Tables may not exist
+      }
+
+      // Delete checkpoints first (due to foreign key)
+      await this.prisma.slidesCheckpoint.deleteMany({
+        where: {
+          session: { updatedAt: { lt: cutoffDate } },
+        },
+      });
+
+      // Delete sessions
+      await this.prisma.slidesSession.deleteMany({
+        where: { updatedAt: { lt: cutoffDate } },
+      });
+
+      const freedKB =
+        sessionsToDelete * this.SIZE_ESTIMATES.slidesSessions +
+        checkpointsToDelete * this.SIZE_ESTIMATES.slidesCheckpoints +
+        teamExecutionsDeleted * this.SIZE_ESTIMATES.slidesTeamExecutions +
+        teamLogsDeleted * this.SIZE_ESTIMATES.slidesTeamLogs;
+
+      return {
+        success: true,
+        category: "slides",
+        deletedCount: sessionsToDelete,
+        freedSizeMB: Math.round((freedKB / 1024) * 100) / 100,
+        message: `Cleaned up ${sessionsToDelete} sessions, ${checkpointsToDelete} checkpoints, ${teamExecutionsDeleted} executions older than ${daysOld} days`,
+      };
+    } catch (error) {
+      this.logger.error("Failed to cleanup slides:", error);
+      return {
+        success: false,
+        category: "slides",
+        deletedCount: 0,
+        freedSizeMB: 0,
+        message: `Cleanup failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      };
+    }
+  }
+
+  /**
+   * Delete ALL slides data (sessions, checkpoints, team executions)
+   */
+  async deleteAllSlides(): Promise<CleanupResult> {
+    try {
+      const sessionsCount = await this.prisma.slidesSession.count();
+      const checkpointsCount = await this.prisma.slidesCheckpoint.count();
+
+      // Try to delete team data first (tables may not exist)
+      let teamExecutionsCount = 0;
+      let teamLogsCount = 0;
+      try {
+        teamLogsCount = await this.prisma.slidesTeamLog.count();
+        teamExecutionsCount = await this.prisma.slidesTeamExecution.count();
+        await this.prisma.slidesTeamLog.deleteMany();
+        await this.prisma.slidesTeamExecution.deleteMany();
+      } catch {
+        // Tables may not exist
+      }
+
+      // Delete in correct order due to foreign keys
+      await this.prisma.slidesCheckpoint.deleteMany();
+      await this.prisma.slidesSession.deleteMany();
+
+      const freedKB =
+        sessionsCount * this.SIZE_ESTIMATES.slidesSessions +
+        checkpointsCount * this.SIZE_ESTIMATES.slidesCheckpoints +
+        teamExecutionsCount * this.SIZE_ESTIMATES.slidesTeamExecutions +
+        teamLogsCount * this.SIZE_ESTIMATES.slidesTeamLogs;
+
+      return {
+        success: true,
+        category: "slides",
+        deletedCount: sessionsCount,
+        freedSizeMB: Math.round((freedKB / 1024) * 100) / 100,
+        message: `Deleted all ${sessionsCount} sessions, ${checkpointsCount} checkpoints, ${teamExecutionsCount} executions, ${teamLogsCount} logs`,
+      };
+    } catch (error) {
+      this.logger.error("Failed to delete all slides:", error);
+      return {
+        success: false,
+        category: "slides",
+        deletedCount: 0,
+        freedSizeMB: 0,
+        message: `Delete failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      };
+    }
+  }
+
+  /**
    * Get REAL database table sizes using PostgreSQL system views
    * This shows actual disk usage, not estimates
    */
@@ -1387,6 +1570,10 @@ export class StorageService {
         "office_documents",
         "office_document_versions",
         "office_document_resource_refs",
+        "slides_sessions",
+        "slides_checkpoints",
+        "slides_team_executions",
+        "slides_team_logs",
       ];
 
       if (!validTables.includes(tableName)) {
@@ -1453,6 +1640,8 @@ export class StorageService {
       "resources",
       "debate_messages",
       "user_activities",
+      "slides_sessions",
+      "slides_checkpoints",
     ];
 
     const results: Array<{
@@ -1671,6 +1860,7 @@ export class StorageService {
     results.push(await this.cleanupOldUserActivities(30));
     results.push(await this.cleanupOldAskSessions(30));
     results.push(await this.cleanupOldOfficeDocuments(7));
+    results.push(await this.cleanupOldSlides(7));
 
     const totalDeleted = results.reduce((sum, r) => sum + r.deletedCount, 0);
     const totalFreedMB = results.reduce((sum, r) => sum + r.freedSizeMB, 0);

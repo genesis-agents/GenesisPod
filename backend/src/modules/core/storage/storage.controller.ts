@@ -191,6 +191,30 @@ export class StorageController {
   }
 
   /**
+   * Cleanup old slides (sessions, checkpoints, team data)
+   */
+  @Post("cleanup/slides")
+  async cleanupSlides(
+    @Query("key") key: string,
+    @Query("daysOld") daysOld?: string,
+  ): Promise<CleanupResult> {
+    this.validateKey(key);
+    const days = daysOld ? parseInt(daysOld, 10) : 7;
+    this.logger.log(`Cleaning up slides older than ${days} days`);
+    return this.storageService.cleanupOldSlides(days);
+  }
+
+  /**
+   * Delete ALL slides data (sessions, checkpoints, team executions)
+   */
+  @Delete("slides/all")
+  async deleteAllSlides(@Query("key") key: string): Promise<CleanupResult> {
+    this.validateKey(key);
+    this.logger.log("Deleting all slides data");
+    return this.storageService.deleteAllSlides();
+  }
+
+  /**
    * Run full cleanup (all categories)
    */
   @Post("cleanup/all")
