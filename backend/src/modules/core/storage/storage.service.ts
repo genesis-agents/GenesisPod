@@ -1898,19 +1898,38 @@ export class StorageService {
   }> {
     try {
       // Validate table name to prevent SQL injection
+      // This whitelist includes all tables that can be safely vacuumed
       const validTables = [
+        // Core tables
         "topic_messages",
         "generated_images",
         "resources",
         "raw_data",
+        "users",
+        "workspaces",
+        "notes",
+        "comments",
+        // AI features
         "debate_agents",
         "debate_messages",
+        "debate_sessions",
+        "ask_sessions",
+        "ask_messages",
+        "topics",
+        "agent_tasks",
+        // Data collection
         "collection_tasks",
         "import_tasks",
+        "parsed_metadata_cache",
+        "deduplication_records",
+        "data_quality_metrics",
+        // User activity
         "user_activities",
+        // Office documents
         "office_documents",
         "office_document_versions",
         "office_document_resource_refs",
+        // Slides
         "slides_sessions",
         "slides_checkpoints",
         "slides_team_executions",
@@ -1921,6 +1940,17 @@ export class StorageService {
         "parent_chunks",
         "knowledge_base_documents",
         "knowledge_bases",
+        "knowledge_base_members",
+        "knowledge_base_sources",
+        // Research
+        "research_project_sources",
+        "research_projects",
+        "reports",
+        // Simulation
+        "simulation_sessions",
+        "simulation_turns",
+        // Brand
+        "brand_kits",
       ];
 
       if (!validTables.includes(tableName)) {

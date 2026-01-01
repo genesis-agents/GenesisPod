@@ -1,15 +1,18 @@
 /**
- * PPT Export Service - 高质量 PPTX 导出
+ * PPT Export Service - 统一导出服务
  *
- * AI Office 3.0 - PPTX 导出增强（Phase 7 升级）
+ * 渲染架构 v3.1 (归一重构)
  *
- * 功能:
- * 1. 15种专业模板支持 - 使用新的 PptxSlidesRenderer
- * 2. 主题系统映射 - 将 PPTTheme 转换为 pptxgenjs 配置
- * 3. 复杂布局支持 - 20种布局类型全面支持
- * 4. 图片嵌入 - AI 生成的图片正确导出
- * 5. 图表主题化 - 图表颜色与主题一致
- * 6. 渐变背景 - 支持渐变和图片背景
+ * 核心原则：
+ * - 单一渲染路径：HTML 模板 → Puppeteer 截图 → PPTX/PDF/PNG
+ * - 确保与预览 100% 一致
+ *
+ * 功能：
+ * 1. PPTX 导出 - HTML 截图嵌入
+ * 2. PDF 导出 - Puppeteer 渲染
+ * 3. PNG 导出 - 逐页截图 + ZIP
+ *
+ * @see slides/ARCHITECTURE.md 统一架构文档
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -18,7 +21,6 @@ import { firstValueFrom } from "rxjs";
 import * as puppeteer from "puppeteer";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const PptxGenJS = require("pptxgenjs");
-import { PptxSlidesRenderer } from "../../../../export/renderers/pptx-slides.renderer";
 import {
   PPTDocument,
   PPTTheme,
@@ -88,14 +90,8 @@ interface TextStyle {
 export class SlidesExportService {
   private readonly logger = new Logger(SlidesExportService.name);
 
-  constructor(
-    private readonly httpService: HttpService,
-    private readonly pptxSlidesRenderer: PptxSlidesRenderer,
-  ) {
-    // 确保 PPTX 渲染器可用
-    this.logger.debug(
-      `[SlidesExport] PPTX renderer initialized: ${!!this.pptxSlidesRenderer}`,
-    );
+  constructor(private readonly httpService: HttpService) {
+    this.logger.debug(`[SlidesExport] Service initialized`);
   }
 
   /**

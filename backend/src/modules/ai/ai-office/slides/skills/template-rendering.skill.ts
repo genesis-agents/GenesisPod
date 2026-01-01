@@ -124,17 +124,22 @@ export class TemplateRenderingSkill {
     const containerStyle = getThemeContainerStyle(theme);
     const decorationHtml = getThemeDecorationHtml(theme);
 
-    // 全局溢出保护 CSS
+    // 全局溢出保护 CSS（增强版 v3.2）
     const overflowProtectionStyles = `
 <style>
+  /* 基础盒模型 */
   .slide-container * {
     box-sizing: border-box;
   }
+
+  /* 标题溢出保护 */
   .slide-container h1, .slide-container h2, .slide-container h3, .slide-container h4 {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+
+  /* 段落文字限制行数 */
   .slide-container p {
     overflow: hidden;
     display: -webkit-box;
@@ -142,6 +147,8 @@ export class TemplateRenderingSkill {
     -webkit-box-orient: vertical;
     line-height: 1.5;
   }
+
+  /* 列表溢出保护 */
   .slide-container ul, .slide-container ol {
     overflow: hidden;
     margin: 0;
@@ -153,7 +160,49 @@ export class TemplateRenderingSkill {
     white-space: nowrap;
     margin-bottom: 4px;
   }
+
+  /* 内容区域溢出保护 */
   .slide-content > div {
+    overflow: hidden;
+  }
+
+  /* ⭐ 图片溢出保护（v3.2 新增） */
+  .slide-container img {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+  }
+
+  /* 图片容器强制限制 */
+  .slide-container [class*="image"],
+  .slide-container [style*="background-image"] {
+    overflow: hidden;
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  /* SVG 溢出保护 */
+  .slide-container svg {
+    max-width: 100%;
+    max-height: 100%;
+    overflow: hidden;
+  }
+
+  /* Flex 子元素防溢出 */
+  .slide-container [style*="display: flex"] > * {
+    min-width: 0;
+    min-height: 0;
+    flex-shrink: 1;
+  }
+
+  /* Grid 子元素防溢出 */
+  .slide-container [style*="display: grid"] > * {
+    min-width: 0;
+    min-height: 0;
     overflow: hidden;
   }
 </style>`;

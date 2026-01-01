@@ -143,17 +143,46 @@ export interface OutlinePlan {
 }
 
 /**
+ * 页面逻辑类型
+ *
+ * 模板是应对逻辑的，逻辑来源于目标，目标来源于意图理解。
+ * 每一页应该有观点（标题），逻辑和数据，数据包括了描述数据的文字，数字和图片，支撑逻辑的。
+ */
+export type PageLogicType =
+  | "parallel" // 并列论证：N个并列的支撑点 → pillars, multiColumn
+  | "temporal" // 时序论证：按时间顺序展开 → timeline, evolutionRoadmap
+  | "comparison" // 对比论证：通过对比突显差异 → comparison
+  | "data" // 数据论证：用数字说明问题 → dashboard
+  | "causal" // 因果论证：展示原因和结果 → framework
+  | "hierarchical" // 层级论证：展示优先级或层次 → maturityModel
+  | "case" // 案例论证：用实例佐证 → caseStudy, splitLayout
+  | "narrative"; // 叙事型：封面、目录、结尾等特殊页面
+
+/**
  * 页面大纲
+ *
+ * 三要素结构：
+ * - 观点 (Viewpoint)：title 字段，必须是判断句，表达核心观点
+ * - 逻辑 (Logic)：logicType + templateType，决定如何论证观点
+ * - 数据 (Data)：keyElements + dataRequirements + imageRequirements，支撑逻辑的具体内容
  */
 export interface PageOutline {
   pageNumber: number;
+  /** 观点性标题：必须是判断句，表达明确观点，不是描述性标题 */
   title: string;
   subtitle?: string;
+  /** 逻辑类型：决定使用什么论证结构 */
+  logicType?: PageLogicType;
+  /** 模板类型：由逻辑类型决定 */
   templateType: PageTemplateType;
+  /** 内容简述：描述如何用数据支撑逻辑 */
   contentBrief: string;
+  /** 关键元素：支撑观点的数据内容（文字描述） */
   keyElements: string[];
   layoutHints: LayoutHint[];
+  /** 数据需求：需要的数字数据 */
   dataRequirements?: DataRequirement[];
+  /** 图像需求：需要的视觉素材 */
   imageRequirements?: ImageRequirement[];
   sourceRef?: string;
 }

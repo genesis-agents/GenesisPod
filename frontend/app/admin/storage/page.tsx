@@ -261,6 +261,7 @@ export default function StoragePage() {
   const [diagnosing, setDiagnosing] = useState(false);
   const [showAIDiagnosis, setShowAIDiagnosis] = useState(false);
   const [executingAction, setExecutingAction] = useState<string | null>(null);
+  const [vacuumingTable, setVacuumingTable] = useState<string | null>(null);
 
   // Load storage statistics and memory info
   const loadStats = useCallback(async () => {
@@ -523,6 +524,43 @@ Provide detailed analysis with executable actions for each issue.`,
       setMessage({ type: 'error', text: 'Failed to run VACUUM' });
     } finally {
       setVacuuming(false);
+    }
+  };
+
+  // Run VACUUM FULL on a single table
+  const handleVacuumTable = async (tableName: string) => {
+    if (
+      !confirm(
+        `Run VACUUM FULL on "${tableName}"? This will LOCK the table during operation and may take a while. Continue?`
+      )
+    ) {
+      return;
+    }
+    setVacuumingTable(tableName);
+    setMessage(null);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/v1/storage/vacuum-full?key=${ADMIN_KEY}&table=${tableName}`,
+        { method: 'POST' }
+      );
+      const result = await res.json();
+      if (result.success) {
+        const savedMB = result.beforeMB - result.afterMB;
+        setMessage({
+          type: 'success',
+          text: `VACUUM FULL completed on "${tableName}": ${result.beforeMB}MB → ${result.afterMB}MB (saved ${savedMB.toFixed(2)}MB)`,
+        });
+        void loadDbAnalysis();
+      } else {
+        setMessage({
+          type: 'error',
+          text: result.message || `Failed to vacuum ${tableName}`,
+        });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: `Failed to vacuum ${tableName}` });
+    } finally {
+      setVacuumingTable(null);
     }
   };
 
@@ -1251,13 +1289,14 @@ Provide detailed analysis with executable actions for each issue.`,
                       <th className="pb-2 text-right font-medium">Data</th>
                       <th className="pb-2 text-right font-medium">Index</th>
                       <th className="pb-2 text-right font-medium">TOAST</th>
+                      <th className="pb-2 text-center font-medium">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {dbAnalysis.tables.map((table) => (
                       <tr
                         key={table.tableName}
-                        className="border-b border-gray-100"
+                        className="border-b border-gray-100 hover:bg-gray-50"
                       >
                         <td className="py-2 font-medium text-gray-900">
                           {table.tableName}
@@ -1278,6 +1317,29 @@ Provide detailed analysis with executable actions for each issue.`,
                           {table.toastSizeMB > 0
                             ? formatSize(table.toastSizeMB)
                             : '-'}
+                        </td>
+                        <td className="py-2 text-center">
+                          <button
+                            onClick={() =>
+                              void handleVacuumTable(table.tableName)
+                            }
+                            disabled={
+                              vacuumingTable !== null ||
+                              vacuuming ||
+                              deepCleaning
+                            }
+                            title={`VACUUM FULL ${table.tableName}`}
+                            className="inline-flex items-center gap-1 rounded bg-purple-100 px-2 py-1 text-xs font-medium text-purple-700 transition-all hover:bg-purple-200 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {vacuumingTable === table.tableName ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Sparkles className="h-3 w-3" />
+                            )}
+                            {vacuumingTable === table.tableName
+                              ? 'Cleaning...'
+                              : 'Clean'}
+                          </button>
                         </td>
                       </tr>
                     ))}
