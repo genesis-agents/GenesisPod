@@ -215,6 +215,46 @@ export class StorageController {
   }
 
   /**
+   * Cleanup a specific knowledge base and all its associated data
+   */
+  @Post("cleanup/knowledge-base")
+  async cleanupKnowledgeBase(
+    @Query("key") key: string,
+    @Query("id") knowledgeBaseId: string,
+  ): Promise<CleanupResult> {
+    this.validateKey(key);
+    if (!knowledgeBaseId) {
+      throw new BadRequestException("Knowledge base ID is required");
+    }
+    this.logger.log(`Cleaning up knowledge base: ${knowledgeBaseId}`);
+    return this.storageService.cleanupKnowledgeBase(knowledgeBaseId);
+  }
+
+  /**
+   * Cleanup orphaned RAG data (embeddings, chunks without valid parents)
+   */
+  @Post("cleanup/orphaned-rag")
+  async cleanupOrphanedRagData(
+    @Query("key") key: string,
+  ): Promise<CleanupResult> {
+    this.validateKey(key);
+    this.logger.log("Cleaning up orphaned RAG data");
+    return this.storageService.cleanupOrphanedRagData();
+  }
+
+  /**
+   * Delete ALL knowledge base data (use with caution!)
+   */
+  @Delete("knowledge-base/all")
+  async deleteAllKnowledgeBaseData(
+    @Query("key") key: string,
+  ): Promise<CleanupResult> {
+    this.validateKey(key);
+    this.logger.log("Deleting all knowledge base data");
+    return this.storageService.deleteAllKnowledgeBaseData();
+  }
+
+  /**
    * Run full cleanup (all categories)
    */
   @Post("cleanup/all")

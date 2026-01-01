@@ -105,6 +105,12 @@ export class StorageService {
     slidesCheckpoints: 200, // 200KB per checkpoint (contains full JSON state)
     slidesTeamExecutions: 50, // 50KB per execution
     slidesTeamLogs: 1, // 1KB per log entry
+    // RAG/Knowledge Base related tables (these were missing and caused storage discrepancy!)
+    knowledgeBases: 2, // 2KB per knowledge base
+    knowledgeBaseDocuments: 50, // 50KB per document (contains rawContent text)
+    parentChunks: 5, // 5KB per parent chunk (text content)
+    childChunks: 2, // 2KB per child chunk (smaller text segments)
+    childEmbeddings: 8, // 8KB per embedding (1536D float array in JSONB = ~6KB + overhead)
   };
 
   constructor(private readonly prisma: PrismaService) {}
@@ -259,6 +265,14 @@ export class StorageService {
     categories.push(slidesStats);
     if (slidesStats.cleanupRecommendation) {
       recommendations.push(slidesStats.cleanupRecommendation);
+    }
+
+    // 23. Knowledge Base (RAG) - CRITICAL: This was missing and caused storage discrepancy!
+    // child_embeddings table stores vector data which can consume significant space
+    const knowledgeBaseStats = await this.getKnowledgeBaseStats();
+    categories.push(knowledgeBaseStats);
+    if (knowledgeBaseStats.cleanupRecommendation) {
+      recommendations.push(knowledgeBaseStats.cleanupRecommendation);
     }
 
     // Calculate totals
@@ -814,6 +828,92 @@ export class StorageService {
       cleanupRecommendation,
       canCleanup: totalSessions > 0 || totalCheckpoints > 0,
     };
+  }
+
+  /**
+   * Get Knowledge Base (RAG) storage statistics
+   * This includes embeddings which can be a major storage consumer!
+   */
+  private async getKnowledgeBaseStats(): Promise<StorageCategory> {
+    try {
+      // Count all RAG-related records
+      const totalKnowledgeBases = await this.prisma.knowledgeBase.count();
+      const totalDocuments = await this.prisma.knowledgeBaseDocument.count();
+      const totalParentChunks = await this.prisma.parentChunk.count();
+      const totalChildChunks = await this.prisma.childChunk.count();
+      const totalEmbeddings = await this.prisma.childEmbedding.count();
+
+      // Get embedding dimensions breakdown for accurate size calculation
+      let embeddingSizeMB = 0;
+      try {
+        const dimensionGroups = await this.prisma.childEmbedding.groupBy({
+          by: ["dimensions"],
+          _count: true,
+        });
+
+        for (const group of dimensionGroups) {
+          // Each dimension is 4 bytes (float32), plus ~20% JSONB overhead
+          const bytesPerEmbedding = group.dimensions * 4 * 1.2;
+          embeddingSizeMB += (group._count * bytesPerEmbedding) / (1024 * 1024);
+        }
+      } catch {
+        // Fallback to estimate if groupBy fails
+        embeddingSizeMB =
+          (totalEmbeddings * this.SIZE_ESTIMATES.childEmbeddings) / 1024;
+      }
+
+      // Calculate total estimated size
+      const documentSizeMB =
+        (totalDocuments * this.SIZE_ESTIMATES.knowledgeBaseDocuments) / 1024;
+      const parentChunkSizeMB =
+        (totalParentChunks * this.SIZE_ESTIMATES.parentChunks) / 1024;
+      const childChunkSizeMB =
+        (totalChildChunks * this.SIZE_ESTIMATES.childChunks) / 1024;
+      const kbSizeMB =
+        (totalKnowledgeBases * this.SIZE_ESTIMATES.knowledgeBases) / 1024;
+
+      const totalEstimatedSizeMB =
+        kbSizeMB +
+        documentSizeMB +
+        parentChunkSizeMB +
+        childChunkSizeMB +
+        embeddingSizeMB;
+
+      // Build description
+      const description = [
+        `${totalKnowledgeBases} knowledge bases`,
+        `${totalDocuments} documents`,
+        `${totalParentChunks} parent chunks`,
+        `${totalChildChunks} child chunks`,
+        `${totalEmbeddings} embeddings (~${Math.round(embeddingSizeMB)}MB)`,
+      ].join(", ");
+
+      // Cleanup recommendation for orphaned data
+      let cleanupRecommendation: string | undefined;
+      if (totalEmbeddings > 10000) {
+        cleanupRecommendation = `Large embedding storage detected (~${Math.round(embeddingSizeMB)}MB). Consider archiving unused knowledge bases.`;
+      }
+
+      return {
+        name: "knowledgeBase",
+        displayName: "Knowledge Base (RAG)",
+        count: totalDocuments,
+        estimatedSizeMB: Math.round(totalEstimatedSizeMB * 100) / 100,
+        description,
+        cleanupRecommendation,
+        canCleanup: totalKnowledgeBases > 0,
+      };
+    } catch (error) {
+      this.logger.warn("Failed to get knowledge base stats:", error);
+      return {
+        name: "knowledgeBase",
+        displayName: "Knowledge Base (RAG)",
+        count: 0,
+        estimatedSizeMB: 0,
+        description: "Unable to fetch stats",
+        canCleanup: false,
+      };
+    }
   }
 
   // ========== Cleanup Methods ==========
@@ -1405,6 +1505,237 @@ export class StorageService {
   }
 
   /**
+   * Cleanup a specific knowledge base and all its associated data
+   * This removes documents, chunks, and embeddings
+   */
+  async cleanupKnowledgeBase(knowledgeBaseId: string): Promise<CleanupResult> {
+    try {
+      // Get counts before deletion for reporting
+      const kb = await this.prisma.knowledgeBase.findUnique({
+        where: { id: knowledgeBaseId },
+        include: {
+          _count: {
+            select: {
+              documents: true,
+            },
+          },
+        },
+      });
+
+      if (!kb) {
+        return {
+          success: false,
+          category: "knowledgeBase",
+          deletedCount: 0,
+          freedSizeMB: 0,
+          message: `Knowledge base not found: ${knowledgeBaseId}`,
+        };
+      }
+
+      // Count related data for size estimation
+      const documentIds = await this.prisma.knowledgeBaseDocument.findMany({
+        where: { knowledgeBaseId },
+        select: { id: true },
+      });
+
+      const parentChunkCount = await this.prisma.parentChunk.count({
+        where: { documentId: { in: documentIds.map((d) => d.id) } },
+      });
+
+      const childChunkCount = await this.prisma.childChunk.count({
+        where: {
+          parentChunk: { documentId: { in: documentIds.map((d) => d.id) } },
+        },
+      });
+
+      const embeddingCount = await this.prisma.childEmbedding.count({
+        where: {
+          childChunk: {
+            parentChunk: { documentId: { in: documentIds.map((d) => d.id) } },
+          },
+        },
+      });
+
+      // Delete knowledge base (cascade will handle related data)
+      await this.prisma.knowledgeBase.delete({
+        where: { id: knowledgeBaseId },
+      });
+
+      // Calculate freed size
+      const freedKB =
+        kb._count.documents * this.SIZE_ESTIMATES.knowledgeBaseDocuments +
+        parentChunkCount * this.SIZE_ESTIMATES.parentChunks +
+        childChunkCount * this.SIZE_ESTIMATES.childChunks +
+        embeddingCount * this.SIZE_ESTIMATES.childEmbeddings;
+
+      return {
+        success: true,
+        category: "knowledgeBase",
+        deletedCount: kb._count.documents,
+        freedSizeMB: Math.round((freedKB / 1024) * 100) / 100,
+        message: `Deleted knowledge base "${kb.name}" with ${kb._count.documents} documents, ${parentChunkCount} parent chunks, ${childChunkCount} child chunks, ${embeddingCount} embeddings`,
+      };
+    } catch (error) {
+      this.logger.error("Failed to cleanup knowledge base:", error);
+      return {
+        success: false,
+        category: "knowledgeBase",
+        deletedCount: 0,
+        freedSizeMB: 0,
+        message: `Cleanup failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      };
+    }
+  }
+
+  /**
+   * Cleanup orphaned RAG data (embeddings without valid child chunks, etc.)
+   */
+  async cleanupOrphanedRagData(): Promise<CleanupResult> {
+    try {
+      let totalDeleted = 0;
+      let totalFreedKB = 0;
+
+      // 1. Delete orphaned embeddings (where childChunk doesn't exist)
+      // Using raw query for efficiency
+      const orphanedEmbeddings = await this.prisma.$queryRawUnsafe<
+        Array<{ count: string }>
+      >(`
+        SELECT COUNT(*)::text as count FROM child_embeddings ce
+        WHERE NOT EXISTS (
+          SELECT 1 FROM child_chunks cc WHERE cc.id = ce.child_chunk_id
+        )
+      `);
+      const orphanedEmbeddingCount = parseInt(
+        orphanedEmbeddings[0]?.count || "0",
+        10,
+      );
+
+      if (orphanedEmbeddingCount > 0) {
+        await this.prisma.$executeRawUnsafe(`
+          DELETE FROM child_embeddings
+          WHERE child_chunk_id NOT IN (SELECT id FROM child_chunks)
+        `);
+        totalDeleted += orphanedEmbeddingCount;
+        totalFreedKB +=
+          orphanedEmbeddingCount * this.SIZE_ESTIMATES.childEmbeddings;
+      }
+
+      // 2. Delete orphaned child chunks (where parentChunk doesn't exist)
+      const orphanedChildChunks = await this.prisma.$queryRawUnsafe<
+        Array<{ count: string }>
+      >(`
+        SELECT COUNT(*)::text as count FROM child_chunks cc
+        WHERE NOT EXISTS (
+          SELECT 1 FROM parent_chunks pc WHERE pc.id = cc.parent_chunk_id
+        )
+      `);
+      const orphanedChildChunkCount = parseInt(
+        orphanedChildChunks[0]?.count || "0",
+        10,
+      );
+
+      if (orphanedChildChunkCount > 0) {
+        await this.prisma.$executeRawUnsafe(`
+          DELETE FROM child_chunks
+          WHERE parent_chunk_id NOT IN (SELECT id FROM parent_chunks)
+        `);
+        totalDeleted += orphanedChildChunkCount;
+        totalFreedKB +=
+          orphanedChildChunkCount * this.SIZE_ESTIMATES.childChunks;
+      }
+
+      // 3. Delete orphaned parent chunks (where document doesn't exist)
+      const orphanedParentChunks = await this.prisma.$queryRawUnsafe<
+        Array<{ count: string }>
+      >(`
+        SELECT COUNT(*)::text as count FROM parent_chunks pc
+        WHERE NOT EXISTS (
+          SELECT 1 FROM knowledge_base_documents d WHERE d.id = pc.document_id
+        )
+      `);
+      const orphanedParentChunkCount = parseInt(
+        orphanedParentChunks[0]?.count || "0",
+        10,
+      );
+
+      if (orphanedParentChunkCount > 0) {
+        await this.prisma.$executeRawUnsafe(`
+          DELETE FROM parent_chunks
+          WHERE document_id NOT IN (SELECT id FROM knowledge_base_documents)
+        `);
+        totalDeleted += orphanedParentChunkCount;
+        totalFreedKB +=
+          orphanedParentChunkCount * this.SIZE_ESTIMATES.parentChunks;
+      }
+
+      return {
+        success: true,
+        category: "knowledgeBase",
+        deletedCount: totalDeleted,
+        freedSizeMB: Math.round((totalFreedKB / 1024) * 100) / 100,
+        message: `Cleaned up orphaned RAG data: ${orphanedEmbeddingCount} embeddings, ${orphanedChildChunkCount} child chunks, ${orphanedParentChunkCount} parent chunks`,
+      };
+    } catch (error) {
+      this.logger.error("Failed to cleanup orphaned RAG data:", error);
+      return {
+        success: false,
+        category: "knowledgeBase",
+        deletedCount: 0,
+        freedSizeMB: 0,
+        message: `Cleanup failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      };
+    }
+  }
+
+  /**
+   * Delete ALL knowledge base data (use with caution!)
+   */
+  async deleteAllKnowledgeBaseData(): Promise<CleanupResult> {
+    try {
+      // Get counts before deletion
+      const embeddingCount = await this.prisma.childEmbedding.count();
+      const childChunkCount = await this.prisma.childChunk.count();
+      const parentChunkCount = await this.prisma.parentChunk.count();
+      const documentCount = await this.prisma.knowledgeBaseDocument.count();
+      const kbCount = await this.prisma.knowledgeBase.count();
+
+      // Delete in correct order due to foreign keys
+      await this.prisma.childEmbedding.deleteMany();
+      await this.prisma.childChunk.deleteMany();
+      await this.prisma.parentChunk.deleteMany();
+      await this.prisma.knowledgeBaseDocument.deleteMany();
+      // Also clean up related tables
+      await this.prisma.knowledgeBaseMember.deleteMany();
+      await this.prisma.knowledgeBaseSource.deleteMany();
+      await this.prisma.knowledgeBase.deleteMany();
+
+      const freedKB =
+        embeddingCount * this.SIZE_ESTIMATES.childEmbeddings +
+        childChunkCount * this.SIZE_ESTIMATES.childChunks +
+        parentChunkCount * this.SIZE_ESTIMATES.parentChunks +
+        documentCount * this.SIZE_ESTIMATES.knowledgeBaseDocuments +
+        kbCount * this.SIZE_ESTIMATES.knowledgeBases;
+
+      return {
+        success: true,
+        category: "knowledgeBase",
+        deletedCount: kbCount,
+        freedSizeMB: Math.round((freedKB / 1024) * 100) / 100,
+        message: `Deleted all knowledge base data: ${kbCount} knowledge bases, ${documentCount} documents, ${parentChunkCount} parent chunks, ${childChunkCount} child chunks, ${embeddingCount} embeddings`,
+      };
+    } catch (error) {
+      this.logger.error("Failed to delete all knowledge base data:", error);
+      return {
+        success: false,
+        category: "knowledgeBase",
+        deletedCount: 0,
+        freedSizeMB: 0,
+        message: `Delete failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      };
+    }
+  }
+
+  /**
    * Get REAL database table sizes using PostgreSQL system views
    * This shows actual disk usage, not estimates
    */
@@ -1503,6 +1834,16 @@ export class StorageService {
         );
       }
 
+      // Check child_embeddings - this is often the largest table (vector storage)
+      const embeddingsTable = tables.find(
+        (t) => t.tableName === "child_embeddings",
+      );
+      if (embeddingsTable && embeddingsTable.totalSizeMB > 50) {
+        recommendations.push(
+          `child_embeddings table is ${embeddingsTable.totalSizeMB}MB (vector storage) - consider archiving unused knowledge bases`,
+        );
+      }
+
       // Check if VACUUM is needed (bloat detection)
       const potentialBloat = tables.filter(
         (t) => t.dataSizeMB > 10 && t.rowCount < 1000,
@@ -1574,6 +1915,12 @@ export class StorageService {
         "slides_checkpoints",
         "slides_team_executions",
         "slides_team_logs",
+        // RAG/Knowledge Base tables (can be major storage consumers!)
+        "child_embeddings",
+        "child_chunks",
+        "parent_chunks",
+        "knowledge_base_documents",
+        "knowledge_bases",
       ];
 
       if (!validTables.includes(tableName)) {
@@ -1642,6 +1989,11 @@ export class StorageService {
       "user_activities",
       "slides_sessions",
       "slides_checkpoints",
+      // RAG/Knowledge Base tables (major storage consumers!)
+      "child_embeddings",
+      "child_chunks",
+      "parent_chunks",
+      "knowledge_base_documents",
     ];
 
     const results: Array<{
