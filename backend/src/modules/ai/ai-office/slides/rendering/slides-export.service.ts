@@ -98,17 +98,18 @@ export class SlidesExportService {
    * 导出 PPT 文档为 PPTX
    *
    * 支持两种模式：
-   * 1. 同源模式（默认）：使用 HTML 截图，确保与预览 100% 一致
-   * 2. 可编辑模式：使用 pptxgenjs 原生渲染，文本可编辑但视觉可能有差异
+   * 1. 可编辑模式（默认）：使用 pptxgenjs 原生渲染，文本可编辑
+   * 2. 同源模式：使用 HTML 截图，确保与预览 100% 一致但不可编辑
    *
    * @param document PPT 文档
-   * @param options.editable 是否导出可编辑版本（默认 false）
+   * @param options.editable 是否导出可编辑版本（默认 true）
    */
   async exportToPPTX(
     document: PPTDocument,
     options?: { editable?: boolean },
   ): Promise<PPTXExportResult> {
-    const editable = options?.editable ?? false;
+    // v3.7: 默认改为可编辑模式，让用户可以编辑文字内容
+    const editable = options?.editable ?? true;
 
     this.logger.log(
       `[exportToPPTX] Starting export for: ${document.title}, ${document.slides.length} slides, editable=${editable}`,

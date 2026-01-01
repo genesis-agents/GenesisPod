@@ -225,18 +225,85 @@ export class DataSupplementSkill {
 
   /**
    * 判断值是否为缺失状态
+   * v3.7: 增强检测 - 识别通用填充内容
    */
   private isMissing(value: unknown): boolean {
     if (value === undefined || value === null) return true;
     if (typeof value !== "string") return false;
     const trimmed = value.trim();
-    return (
+
+    // 1. 显式占位符检测
+    if (
       trimmed === "" ||
       trimmed === MISSING_PLACEHOLDER ||
       trimmed === MISSING_NUMBER_PLACEHOLDER ||
       trimmed === "[内容缺失]" ||
       trimmed === "[--]"
-    );
+    ) {
+      return true;
+    }
+
+    // 2. 通用填充内容检测 - 这些内容表示 AI 无法从源文本提取有效数据
+    if (this.isGenericFiller(trimmed)) {
+      this.logger.debug(`[isMissing] Detected generic filler: "${trimmed}"`);
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * 检测是否为通用填充内容（无实际信息量）
+   */
+  private isGenericFiller(text: string): boolean {
+    // 精确匹配的无效内容
+    const exactFillers = [
+      "核心能力",
+      "关键优势",
+      "核心支柱",
+      "创新驱动",
+      "数字化转型",
+      "智能化升级",
+      "高效协同",
+      "战略布局",
+      "生态构建",
+      "价值创造",
+      "商务简约",
+      "专业视觉",
+      "设计风格",
+      "视觉设计",
+      "专业呈现",
+      "高效传达",
+      "详细描述",
+      "待补充",
+      "待完善",
+      "暂无数据",
+    ];
+
+    if (exactFillers.includes(text)) {
+      return true;
+    }
+
+    // 模式匹配的无效内容
+    const fillerPatterns = [
+      /^支柱\s*\d+$/,
+      /^要点\s*\d+$/,
+      /^章节\s*\d+$/,
+      /^内容\s*\d+$/,
+      /^项目\s*\d+$/,
+      /^核心\d+$/,
+      /^商务简约/,
+      /^专业视觉呈现/,
+      /^高效信息传达/,
+      /^持续创新迭代/,
+      /创新驱动[：:]/,
+      /^赋能.*发展$/,
+      /^助力.*升级$/,
+      /^打造.*体系$/,
+      /^构建.*生态$/,
+    ];
+
+    return fillerPatterns.some((pattern) => pattern.test(text));
   }
 
   /**
