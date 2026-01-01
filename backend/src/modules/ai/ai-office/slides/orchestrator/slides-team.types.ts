@@ -104,7 +104,10 @@ export type SlidesTeamEventType =
   | "review:issue_found"
   | "review:auto_fixed"
   | "review:rejected" // Leader 驳回
+  | "review:scoring" // Leader 评分
   | "review:max_retries_reached" // 达到最大重试次数
+  // Agent 管理
+  | "agent:switched" // Agent 被替换
   // 心跳
   | "heartbeat";
 
@@ -127,11 +130,13 @@ export type SlidesTeamEventData =
   | AgentWorkingData
   | AgentCompletedData
   | AgentHandoffData
+  | AgentSwitchedData
   | SlideGeneratingData
   | SlideGeneratedData
   | ReviewIssueData
   | ReviewFixedData
   | ReviewRejectedData
+  | ReviewScoringData
   | ReviewMaxRetriesData
   | HeartbeatData;
 
@@ -231,19 +236,58 @@ export interface ReviewFixedData {
   fixDescription: string;
 }
 
+/**
+ * Leader 评分数据
+ */
+export interface ReviewScoringData {
+  phase: string;
+  agent: SlidesAgentRole;
+  score: number; // 综合分数 0-100
+  threshold: number; // 通过阈值
+  passed: boolean;
+  dimensions: ReviewDimension[];
+  summary: string; // 评价摘要
+}
+
 export interface ReviewRejectedData {
   phase: string;
   attempt: number;
+  score: number; // 0-100 分数
+  threshold: number; // 通过阈值
   feedback?: string;
   suggestions?: string[];
+  dimensions?: ReviewDimension[]; // 各维度评分
   willRetry: boolean;
 }
 
 export interface ReviewMaxRetriesData {
   phase: string;
   attempts: number;
+  lastScore: number;
   lastFeedback?: string;
-  action: string; // "proceeding_with_best_effort" | "escalating" | "failed"
+  action: "switching_agent" | "escalating" | "proceeding_with_best_effort";
+  newAgent?: string; // 切换到的新 Agent
+}
+
+/**
+ * 审核评分维度
+ */
+export interface ReviewDimension {
+  name: string; // 维度名称
+  score: number; // 0-100
+  weight: number; // 权重 0-1
+  comment?: string; // 评价
+}
+
+/**
+ * Agent 切换事件数据
+ */
+export interface AgentSwitchedData {
+  phase: string;
+  originalAgent: SlidesAgentRole;
+  newAgent: string; // 新 Agent 标识（如 "analyst-v2", "analyst-enhanced"）
+  reason: string;
+  previousScore: number;
 }
 
 export interface HeartbeatData {
