@@ -4662,7 +4662,6 @@ model SlidesSession {
   // 关联
   user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   checkpoints    SlidesCheckpoint[]
-  teamExecutions SlidesTeamExecution[]
 
   @@index([userId, updatedAt(sort: Desc)])
   @@index([status])
@@ -4749,8 +4748,7 @@ model SlidesTeamExecution {
   startedAt   DateTime? @map("started_at")
   completedAt DateTime? @map("completed_at")
 
-  // 关联
-  session SlidesSession          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  // 关联 - sessionId 只是普通字符串，不关联 SlidesSession（因为 team 模式使用临时 session ID）
   user    User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   logs    SlidesTeamLog[]
 
