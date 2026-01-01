@@ -451,11 +451,12 @@ export class SlidesTeamOrchestratorService {
         });
 
         // 维度2：内容丰富度（权重 30%）
+        // PPT 每页 200-400 字符是正常的，调整公式使 300 字符 = 100 分
         const avgLength =
           generation.pages.length > 0
             ? generation.totalContentLength / generation.pages.length
             : 0;
-        const richnessScore = Math.min(100, Math.round(avgLength / 10));
+        const richnessScore = Math.min(100, Math.round(avgLength / 3));
         dimensions.push({
           name: "内容丰富度",
           score: richnessScore,
@@ -464,15 +465,25 @@ export class SlidesTeamOrchestratorService {
         });
 
         // 维度3：格式规范（权重 30%）
-        const hasUnreplacedVars = generation.pages.some(
+        // 检查未替换的模板变量，但不过度惩罚（某些情况下可能是误判）
+        const unreplacedVarPages = generation.pages.filter(
           (p) => p.html.includes("{{") && p.html.includes("}}"),
         );
-        const formatScore = hasUnreplacedVars ? 30 : 100;
+        const unreplacedRatio =
+          generation.pages.length > 0
+            ? unreplacedVarPages.length / generation.pages.length
+            : 0;
+        // 根据未替换变量的页面比例评分：全部有问题=50分，部分有问题=70分，无问题=100分
+        const formatScore =
+          unreplacedRatio === 0 ? 100 : unreplacedRatio > 0.5 ? 50 : 70;
         dimensions.push({
           name: "格式规范",
           score: formatScore,
           weight: 0.3,
-          comment: hasUnreplacedVars ? "存在未替换的模板变量" : "格式规范",
+          comment:
+            unreplacedRatio > 0
+              ? `${unreplacedVarPages.length}/${generation.pages.length} 页有模板变量`
+              : "格式规范",
         });
         break;
       }
