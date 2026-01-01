@@ -324,7 +324,7 @@ export default function StoragePage() {
               role: 'system',
               content: `You are a database storage optimization expert. Analyze the provided storage data and provide actionable recommendations in JSON format.
 
-IMPORTANT: For each issue, include an "action" field that maps to available cleanup operations:
+IMPORTANT: For each issue, you MUST include an "action" field that maps to EXACTLY one of these available operations (no other action types are supported):
 - cleanup_images: Clean unbookmarked images (keeps 20 per user)
 - cleanup_raw_data: Clean processed raw data (>30 days)
 - cleanup_office_documents: Clean old PPT documents (>7 days)
@@ -333,8 +333,14 @@ IMPORTANT: For each issue, include an "action" field that maps to available clea
 - cleanup_metadata: Clean expired metadata cache
 - cleanup_collection_tasks: Clean completed collection tasks (>7 days)
 - cleanup_import_tasks: Clean completed import tasks (>7 days)
-- vacuum: Run VACUUM ANALYZE (reclaim space)
-- vacuum_full: Run VACUUM FULL (deep clean, locks tables)
+- vacuum: Run VACUUM ANALYZE (reclaim space, fast)
+- vacuum_full: Run VACUUM FULL (deep clean, reclaims TOAST space, locks tables)
+
+CRITICAL RULES:
+1. ONLY use action types from the list above. Any other action type will fail.
+2. For TOAST data issues (large embedded data, embeddings, etc.), use "vacuum_full" as it's the only way to reclaim TOAST space.
+3. For general dead tuple issues, use "vacuum".
+4. Always provide an actionable solution - never suggest actions that don't exist.
 
 Return a JSON object with this exact structure:
 {

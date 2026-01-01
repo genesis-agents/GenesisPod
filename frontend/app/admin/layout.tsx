@@ -13,17 +13,6 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import AIAssistant from '@/components/admin/AIAssistant';
-
-type AIAssistantContext =
-  | 'whitelist'
-  | 'ai-models'
-  | 'dashboard'
-  | 'users'
-  | 'collection'
-  | 'external-api'
-  | 'storage'
-  | 'settings';
 
 export default function AdminLayout({
   children,
@@ -169,21 +158,6 @@ export default function AdminLayout({
           <div className="flex-1 overflow-auto">{children}</div>
         </div>
       </div>
-
-      {/* AI Assistant */}
-      <AIAssistant context={getAIContext(pathname)} />
     </AppShell>
   );
-}
-
-function getAIContext(pathname: string | null): AIAssistantContext {
-  if (!pathname) return 'dashboard';
-  if (pathname.includes('/whitelists')) return 'whitelist';
-  if (pathname.includes('/ai-models')) return 'ai-models';
-  if (pathname.includes('/external-api')) return 'external-api';
-  if (pathname.includes('/storage')) return 'storage';
-  if (pathname.includes('/users')) return 'users';
-  if (pathname.includes('/collection')) return 'collection';
-  if (pathname.includes('/settings')) return 'settings';
-  return 'dashboard';
 }
