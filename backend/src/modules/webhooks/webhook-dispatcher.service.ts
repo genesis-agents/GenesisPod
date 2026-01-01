@@ -33,18 +33,40 @@ interface DeliveryResult {
 export class WebhookDispatcherService implements OnModuleInit {
   private readonly logger = new Logger(WebhookDispatcherService.name);
   private processingQueue = false;
+  private tableAvailable = true; // Will be set to false if table doesn't exist
 
   constructor(private prisma: PrismaService) {}
 
-  onModuleInit() {
+  async onModuleInit() {
+    // 检查表是否存在
+    await this.checkTableExists();
     // 启动重试队列处理
     this.startRetryProcessor();
+  }
+
+  /**
+   * 检查 webhook 表是否存在
+   */
+  private async checkTableExists(): Promise<void> {
+    try {
+      await this.prisma.$queryRaw`SELECT 1 FROM webhook_deliveries LIMIT 1`;
+      this.tableAvailable = true;
+    } catch {
+      this.tableAvailable = false;
+      this.logger.warn(
+        "Webhook tables not found. Webhook features disabled until migration is run.",
+      );
+    }
   }
 
   /**
    * 分发 Webhook 事件
    */
   async dispatch(event: WebhookEvent): Promise<void> {
+    if (!this.tableAvailable) {
+      return; // Skip if tables don't exist
+    }
+
     const { type, topicId, data } = event;
 
     // 查找匹配的活跃订阅
@@ -360,6 +382,11 @@ export class WebhookDispatcherService implements OnModuleInit {
    * 处理重试队列
    */
   private async processRetryQueue(): Promise<void> {
+    // Skip if table doesn't exist
+    if (!this.tableAvailable) {
+      return;
+    }
+
     if (this.processingQueue) {
       return;
     }
