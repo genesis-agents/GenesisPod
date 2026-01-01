@@ -1,8 +1,12 @@
--- CreateEnum
-CREATE TYPE "SlidesTeamStatus" AS ENUM ('PENDING', 'ANALYZING', 'PLANNING', 'GENERATING', 'RENDERING', 'REVIEWING', 'COMPLETED', 'FAILED');
+-- CreateEnum (idempotent - only if not exists)
+DO $$ BEGIN
+    CREATE TYPE "SlidesTeamStatus" AS ENUM ('PENDING', 'ANALYZING', 'PLANNING', 'GENERATING', 'RENDERING', 'REVIEWING', 'COMPLETED', 'FAILED');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- CreateTable
-CREATE TABLE "slides_team_executions" (
+-- CreateTable (idempotent)
+CREATE TABLE IF NOT EXISTS "slides_team_executions" (
     "id" TEXT NOT NULL,
     "session_id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
@@ -26,8 +30,8 @@ CREATE TABLE "slides_team_executions" (
     CONSTRAINT "slides_team_executions_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "slides_team_logs" (
+-- CreateTable (idempotent)
+CREATE TABLE IF NOT EXISTS "slides_team_logs" (
     "id" TEXT NOT NULL,
     "execution_id" TEXT NOT NULL,
     "phase" VARCHAR(50) NOT NULL,
@@ -40,29 +44,41 @@ CREATE TABLE "slides_team_logs" (
     CONSTRAINT "slides_team_logs_pkey" PRIMARY KEY ("id")
 );
 
--- CreateIndex
-CREATE INDEX "slides_team_executions_session_id_idx" ON "slides_team_executions"("session_id");
+-- CreateIndex (idempotent)
+CREATE INDEX IF NOT EXISTS "slides_team_executions_session_id_idx" ON "slides_team_executions"("session_id");
 
--- CreateIndex
-CREATE INDEX "slides_team_executions_user_id_created_at_idx" ON "slides_team_executions"("user_id", "created_at" DESC);
+-- CreateIndex (idempotent)
+CREATE INDEX IF NOT EXISTS "slides_team_executions_user_id_created_at_idx" ON "slides_team_executions"("user_id", "created_at" DESC);
 
--- CreateIndex
-CREATE INDEX "slides_team_executions_status_idx" ON "slides_team_executions"("status");
+-- CreateIndex (idempotent)
+CREATE INDEX IF NOT EXISTS "slides_team_executions_status_idx" ON "slides_team_executions"("status");
 
--- CreateIndex
-CREATE INDEX "slides_team_logs_execution_id_created_at_idx" ON "slides_team_logs"("execution_id", "created_at" DESC);
+-- CreateIndex (idempotent)
+CREATE INDEX IF NOT EXISTS "slides_team_logs_execution_id_created_at_idx" ON "slides_team_logs"("execution_id", "created_at" DESC);
 
--- CreateIndex
-CREATE INDEX "slides_team_logs_phase_idx" ON "slides_team_logs"("phase");
+-- CreateIndex (idempotent)
+CREATE INDEX IF NOT EXISTS "slides_team_logs_phase_idx" ON "slides_team_logs"("phase");
 
--- CreateIndex
-CREATE INDEX "slides_team_logs_level_idx" ON "slides_team_logs"("level");
+-- CreateIndex (idempotent)
+CREATE INDEX IF NOT EXISTS "slides_team_logs_level_idx" ON "slides_team_logs"("level");
 
--- AddForeignKey
-ALTER TABLE "slides_team_executions" ADD CONSTRAINT "slides_team_executions_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "slides_sessions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- AddForeignKey (idempotent)
+DO $$ BEGIN
+    ALTER TABLE "slides_team_executions" ADD CONSTRAINT "slides_team_executions_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "slides_sessions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- AddForeignKey
-ALTER TABLE "slides_team_executions" ADD CONSTRAINT "slides_team_executions_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- AddForeignKey (idempotent)
+DO $$ BEGIN
+    ALTER TABLE "slides_team_executions" ADD CONSTRAINT "slides_team_executions_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- AddForeignKey
-ALTER TABLE "slides_team_logs" ADD CONSTRAINT "slides_team_logs_execution_id_fkey" FOREIGN KEY ("execution_id") REFERENCES "slides_team_executions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- AddForeignKey (idempotent)
+DO $$ BEGIN
+    ALTER TABLE "slides_team_logs" ADD CONSTRAINT "slides_team_logs_execution_id_fkey" FOREIGN KEY ("execution_id") REFERENCES "slides_team_executions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
