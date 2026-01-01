@@ -13,6 +13,8 @@ import { Neo4jModule } from "./common/neo4j/neo4j.module";
 import { AiOrchestrationModule } from "./common/ai-orchestration";
 import { StreamingModule } from "./common/streaming";
 import { ContentProcessingModule } from "./common/content-processing";
+import { ObservabilityModule } from "./common/observability";
+import { AuditModule } from "./common/audit";
 // Core modules
 import { AuthModule } from "./modules/core/auth/auth.module";
 import { AdminModule } from "./modules/core/admin/admin.module";
@@ -93,6 +95,8 @@ import { ExportModule } from "./modules/export";
     AiOrchestrationModule,
     StreamingModule,
     ContentProcessingModule,
+    ObservabilityModule,
+    AuditModule,
 
     // Core modules
     AuthModule,

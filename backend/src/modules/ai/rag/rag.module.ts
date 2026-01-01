@@ -17,6 +17,7 @@ import { GoogleDriveRAGService } from "./services/google-drive-rag.service";
 import { VectorService } from "./services/vector.service";
 import { UrlFetchService } from "./services/url-fetch.service";
 import { PlatformImportService } from "./services/platform-import.service";
+import { WechatImportService } from "./services/wechat-import.service";
 
 // Controller
 import { RAGController } from "./rag.controller";
@@ -33,6 +34,7 @@ import { RAGController } from "./rag.controller";
     GoogleDriveRAGService,
     UrlFetchService,
     PlatformImportService,
+    WechatImportService,
   ],
   exports: [
     VectorService,
@@ -43,6 +45,7 @@ import { RAGController } from "./rag.controller";
     GoogleDriveRAGService,
     UrlFetchService,
     PlatformImportService,
+    WechatImportService,
   ],
 })
 export class RAGModule {}

@@ -4,8 +4,10 @@ import {
   ForbiddenException,
   BadRequestException,
   Logger,
+  Optional,
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+import { AuditService } from "../../../common/audit";
 import {
   TopicType,
   TopicRole,
@@ -48,6 +50,7 @@ export class AiTeamsService {
     private membershipService: TopicMembershipService,
     private publicService: TopicPublicService,
     private forwardBookmarkService: TopicForwardBookmarkService,
+    @Optional() private auditService: AuditService,
   ) {}
 
   // ==================== Topic CRUD ====================
@@ -110,6 +113,11 @@ export class AiTeamsService {
       });
 
       this.logger.log(`Transaction committed, fetching topic ${topicId}`);
+
+      // 记录审计日志
+      if (this.auditService) {
+        await this.auditService.logTopicCreate(userId, topicId, dto.name);
+      }
 
       // 返回完整的Topic信息
       return this.getTopicById(topicId, userId);
@@ -423,7 +431,23 @@ export class AiTeamsService {
   // ==================== AI Member Management (Delegated) ====================
 
   async addAIMember(topicId: string, userId: string, dto: AddAIMemberDto) {
-    return this.membershipService.addAIMember(topicId, userId, dto);
+    const result = await this.membershipService.addAIMember(
+      topicId,
+      userId,
+      dto,
+    );
+
+    // 记录审计日志
+    if (this.auditService && result) {
+      await this.auditService.logMemberAdd(
+        userId,
+        topicId,
+        result.id,
+        dto.displayName,
+      );
+    }
+
+    return result;
   }
 
   async updateAIMember(
@@ -644,6 +668,16 @@ export class AiTeamsService {
 
       return msg;
     });
+
+    // 记录审计日志
+    if (this.auditService) {
+      await this.auditService.logMessageSend(
+        userId,
+        topicId,
+        message.id,
+        false,
+      );
+    }
 
     // 返回完整消息
     return this.prisma.topicMessage.findUnique({

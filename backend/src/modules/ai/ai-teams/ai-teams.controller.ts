@@ -11,7 +11,18 @@ import {
   Request,
   Logger,
 } from "@nestjs/common";
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiQuery,
+} from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import {
+  RateLimit,
+  RateLimitGuard,
+} from "../../../common/guards/rate-limit.guard";
 import { AiTeamsService } from "./ai-teams.service";
 import { AiTeamsGateway } from "./ai-teams.gateway";
 import {
@@ -37,6 +48,8 @@ import {
 } from "./dto";
 import { TopicType, MentionType } from "@prisma/client";
 
+@ApiTags("AI Teams - Topics")
+@ApiBearerAuth()
 @Controller("topics")
 @UseGuards(JwtAuthGuard)
 export class AiTeamsController {
@@ -53,11 +66,29 @@ export class AiTeamsController {
   // ==================== Topic CRUD ====================
 
   @Post()
+  @ApiOperation({
+    summary: "创建话题",
+    description: "创建新的 AI Teams 话题/团队",
+  })
+  @ApiResponse({ status: 201, description: "话题创建成功" })
+  @ApiResponse({ status: 400, description: "请求参数错误" })
   async createTopic(@Request() req: any, @Body() dto: CreateTopicDto) {
     return this.aiGroupService.createTopic(req.user.id, dto);
   }
 
   @Get()
+  @ApiOperation({
+    summary: "获取话题列表",
+    description: "获取当前用户的所有话题",
+  })
+  @ApiQuery({
+    name: "type",
+    required: false,
+    enum: TopicType,
+    description: "话题类型筛选",
+  })
+  @ApiQuery({ name: "search", required: false, description: "搜索关键词" })
+  @ApiResponse({ status: 200, description: "话题列表" })
   async getTopics(
     @Request() req: any,
     @Query("type") type?: TopicType,
@@ -327,6 +358,15 @@ export class AiTeamsController {
   }
 
   @Post(":topicId/messages")
+  @UseGuards(RateLimitGuard)
+  @RateLimit({
+    maxRequests: 60,
+    windowSeconds: 60,
+    message: "消息发送过于频繁，请稍后再试",
+  })
+  @ApiOperation({ summary: "发送消息", description: "向话题发送消息" })
+  @ApiResponse({ status: 201, description: "消息发送成功" })
+  @ApiResponse({ status: 429, description: "请求过于频繁" })
   async sendMessage(
     @Request() req: any,
     @Param("topicId") topicId: string,
@@ -912,6 +952,18 @@ export class AiTeamsController {
   // ==================== AI Response ====================
 
   @Post(":topicId/ai/generate")
+  @UseGuards(RateLimitGuard)
+  @RateLimit({
+    maxRequests: 10,
+    windowSeconds: 60,
+    message: "AI 请求过于频繁，请稍后再试",
+  })
+  @ApiOperation({
+    summary: "生成AI响应",
+    description: "触发指定AI成员生成响应",
+  })
+  @ApiResponse({ status: 201, description: "AI响应生成成功" })
+  @ApiResponse({ status: 429, description: "请求过于频繁" })
   async generateAIResponse(
     @Request() req: any,
     @Param("topicId") topicId: string,
@@ -1033,6 +1085,18 @@ export class AiTeamsController {
   // ==================== Team Mission API ====================
 
   @Post(":topicId/missions")
+  @UseGuards(RateLimitGuard)
+  @RateLimit({
+    maxRequests: 5,
+    windowSeconds: 60,
+    message: "任务创建过于频繁，请稍后再试",
+  })
+  @ApiOperation({
+    summary: "创建团队任务",
+    description: "创建新的AI团队协作任务",
+  })
+  @ApiResponse({ status: 201, description: "任务创建成功" })
+  @ApiResponse({ status: 429, description: "请求过于频繁" })
   async createMission(
     @Request() req: any,
     @Param("topicId") topicId: string,

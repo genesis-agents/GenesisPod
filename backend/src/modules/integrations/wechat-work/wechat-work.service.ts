@@ -4,6 +4,7 @@ import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { AiChatService, ChatMessage } from "../../ai/ai-core/ai-chat.service";
+import { WechatImportService } from "../../ai/rag/services/wechat-import.service";
 
 /**
  * 企业微信消息类型
@@ -57,6 +58,7 @@ export class WechatWorkService {
     private httpService: HttpService,
     private prisma: PrismaService,
     private aiChatService: AiChatService,
+    private wechatImportService: WechatImportService,
   ) {
     this.corpId = this.configService.get("WECHAT_WORK_CORP_ID", "");
     this.agentId = this.configService.get("WECHAT_WORK_AGENT_ID", "");
@@ -140,11 +142,13 @@ export class WechatWorkService {
 
   /**
    * 处理链接消息
+   * 自动同步到 RAG 知识库，并提供 AI 分析
    */
   private async handleLinkMessage(message: WechatWorkMessage): Promise<void> {
     const fromUser = message.FromUserName;
     const url = message.Url;
     const title = message.Title || "";
+    const description = message.Description || "";
 
     this.logger.log(`Link message from ${fromUser}: ${url}`);
 
@@ -153,24 +157,129 @@ export class WechatWorkService {
       return;
     }
 
+    // 发送处理中提示
     await this.sendTextMessage(
       fromUser,
-      `正在分析: ${title || url}\n请稍候...`,
+      `正在同步: ${title || url}\n请稍候...`,
     );
 
+    // 1. 同步到 RAG 知识库
     try {
-      const aiResponse = await this.callAiAnalysis(
-        `请分析这篇文章的内容，给出主要观点、关键信息和总结：${title}`,
-        url,
-      );
-      await this.sendMarkdownMessage(fromUser, aiResponse);
+      // 获取用户映射（企业微信 UserID -> 平台 UserID）
+      const platformUserId = await this.getUserIdFromWechatWork(fromUser);
+
+      if (platformUserId) {
+        const importResult = await this.wechatImportService.importWechatUrl({
+          url,
+          title,
+          description,
+          userId: platformUserId,
+        });
+
+        // 发送成功消息
+        const linkType = this.wechatImportService.identifyLinkType(url);
+        const typeLabel =
+          linkType === "article"
+            ? "公众号文章"
+            : linkType === "video"
+              ? "视频号视频"
+              : "链接";
+
+        await this.sendMarkdownMessage(
+          fromUser,
+          `**已同步到知识库**\n\n` +
+            `**${importResult.title}**\n` +
+            `类型: ${typeLabel}\n` +
+            `知识库: ${importResult.knowledgeBaseName}\n\n` +
+            `[查看详情](${this.getWebUrl()}${importResult.detailUrl})`,
+        );
+      } else {
+        // 用户未绑定，仅进行 AI 分析
+        this.logger.warn(
+          `User ${fromUser} not mapped to platform user, skipping RAG import`,
+        );
+        await this.sendTextMessage(
+          fromUser,
+          `提示: 您尚未绑定平台账号，内容暂未同步到知识库。\n正在进行 AI 分析...`,
+        );
+
+        // Fallback to AI analysis
+        const aiResponse = await this.callAiAnalysis(
+          `请分析这篇文章的内容，给出主要观点、关键信息和总结：${title}`,
+          url,
+        );
+        await this.sendMarkdownMessage(fromUser, aiResponse);
+      }
     } catch (error) {
-      this.logger.error(`Link analysis failed: ${error}`);
-      await this.sendTextMessage(
-        fromUser,
-        "抱歉，链接分析过程中出现错误，请稍后再试。",
-      );
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      this.logger.error(`Link import failed: ${errorMessage}`);
+
+      // 检查是否是重复内容
+      if (errorMessage.includes("已存在")) {
+        await this.sendTextMessage(fromUser, `提示: ${errorMessage}`);
+      } else {
+        // 导入失败，尝试 AI 分析
+        await this.sendTextMessage(
+          fromUser,
+          `同步失败，正在进行 AI 分析...\n(${errorMessage})`,
+        );
+
+        try {
+          const aiResponse = await this.callAiAnalysis(
+            `请分析这篇文章的内容，给出主要观点、关键信息和总结：${title}`,
+            url,
+          );
+          await this.sendMarkdownMessage(fromUser, aiResponse);
+        } catch (aiError) {
+          this.logger.error(`AI analysis also failed: ${aiError}`);
+          await this.sendTextMessage(
+            fromUser,
+            "抱歉，内容处理过程中出现错误，请稍后再试。",
+          );
+        }
+      }
     }
+  }
+
+  /**
+   * 获取平台用户 ID（从企业微信 UserID 映射）
+   */
+  private async getUserIdFromWechatWork(
+    wechatWorkUserId: string,
+  ): Promise<string | null> {
+    // 方式1: 查找用户表中的 preferences 字段
+    const user = await this.prisma.user.findFirst({
+      where: {
+        preferences: {
+          path: ["wechatWorkUserId"],
+          equals: wechatWorkUserId,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (user) {
+      return user.id;
+    }
+
+    // 方式2: 如果只有一个用户，直接使用（开发/个人使用场景）
+    const userCount = await this.prisma.user.count();
+    if (userCount === 1) {
+      const singleUser = await this.prisma.user.findFirst({
+        select: { id: true },
+      });
+      return singleUser?.id || null;
+    }
+
+    return null;
+  }
+
+  /**
+   * 获取 Web 应用 URL
+   */
+  private getWebUrl(): string {
+    return this.configService.get("FRONTEND_URL", "https://deepdive.app");
   }
 
   /**
@@ -406,18 +515,19 @@ export class WechatWorkService {
   private getHelpMessage(): string {
     return `DeepDive AI 助手使用指南
 
-使用方法：
+**内容同步功能**
+直接转发公众号文章、视频号视频或网页链接到本群，将自动同步到您的 RAG 知识库。
+
+**AI 分析功能**
 - @AI + 问题：AI 将回答你的问题
 - @AI + 链接：AI 将分析链接内容
 - /分析 + 内容：分析指定内容
 - /总结 + 内容：总结指定内容
 - /翻译 + 内容：翻译指定内容
 
-示例：
-@AI 什么是人工智能？
-@AI https://example.com/article
-/分析 这篇文章的主要观点是什么？
-
-直接发送链接也会自动触发分析。`;
+**使用示例**
+- 转发任意链接：自动同步到知识库
+- @AI 什么是人工智能？
+- /分析 这篇文章的主要观点是什么？`;
   }
 }

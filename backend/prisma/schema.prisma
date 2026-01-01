@@ -117,7 +117,7 @@ model User {
   googleDriveConnection GoogleDriveConnection?
 
   // RAG 知识库
-  knowledgeBases       KnowledgeBase[]
+  knowledgeBases           KnowledgeBase[]
   knowledgeBaseMemberships KnowledgeBaseMember[]
 
   // 用户数据源连接 (用于知识库)
@@ -127,7 +127,7 @@ model User {
   creditAccount CreditAccount?
 
   // Slides v3.0 会话
-  slidesSessions     SlidesSession[]
+  slidesSessions       SlidesSession[]
   slidesTeamExecutions SlidesTeamExecution[]
 
   @@map("users")
@@ -1514,6 +1514,7 @@ model Topic {
   missions       TeamMission[]
   joinRequests   TopicJoinRequest[]
   knowledgeBases TopicKnowledgeBase[] // 关联的知识库
+  voteProposals  VoteProposal[] // 投票提案
 
   @@index([createdById])
   @@index([type])
@@ -1582,6 +1583,10 @@ model TopicAIMember {
   mentions      TopicMessageMention[]
   ledMissions   TeamMission[]         @relation("MissionLeader")
   assignedTasks AgentTask[]           @relation("TaskAssignee")
+
+  // 投票系统关系
+  initiatedProposals VoteProposal[] @relation("ProposalInitiator")
+  voteRecords        VoteRecord[]   @relation("VoteRecordVoter")
 
   @@unique([topicId, aiModel, displayName])
   @@index([topicId])
@@ -1967,6 +1972,85 @@ model MissionLog {
   @@index([agentId])
   @@index([taskId])
   @@map("mission_logs")
+}
+
+// ============ AI Teams - 投票提案系统 ============
+
+enum VoteStrategy {
+  MAJORITY // 简单多数 (>50%)
+  SUPERMAJORITY // 超级多数 (>66%)
+  UNANIMOUS // 全票通过 (100%)
+}
+
+enum ProposalStatus {
+  OPEN // 开放投票中
+  CLOSED // 已关闭
+}
+
+enum VoteValue {
+  APPROVE // 赞成
+  REJECT // 反对
+  ABSTAIN // 弃权
+}
+
+// 投票提案
+model VoteProposal {
+  id String @id @default(cuid())
+
+  topicId String @map("topic_id")
+  topic   Topic  @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  title       String @db.VarChar(500)
+  description String @db.Text
+
+  // 发起者 (AI成员)
+  initiatorId String        @map("initiator_id")
+  initiator   TopicAIMember @relation("ProposalInitiator", fields: [initiatorId], references: [id])
+
+  // 投票配置
+  strategy VoteStrategy   @default(MAJORITY)
+  options  String[]       @default([]) // 自定义选项(可选)
+  status   ProposalStatus @default(OPEN)
+
+  // 时间
+  createdAt DateTime  @default(now()) @map("created_at")
+  closedAt  DateTime? @map("closed_at")
+
+  // 结果
+  decision String? @db.VarChar(100) // 最终决定 (APPROVE/REJECT/NO_CONSENSUS)
+  summary  String? @db.Text // 投票总结
+
+  // 关系
+  votes VoteRecord[]
+
+  @@index([topicId, status])
+  @@index([initiatorId])
+  @@index([createdAt(sort: Desc)])
+  @@map("vote_proposals")
+}
+
+// 投票记录
+model VoteRecord {
+  id String @id @default(cuid())
+
+  proposalId String       @map("proposal_id")
+  proposal   VoteProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  // 投票者 (AI成员)
+  voterId String        @map("voter_id")
+  voter   TopicAIMember @relation("VoteRecordVoter", fields: [voterId], references: [id])
+
+  // 投票内容
+  value      VoteValue
+  reason     String?   @db.Text // 投票理由
+  confidence Float? // 信心度 (0-1)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([proposalId, voterId])
+  @@index([proposalId])
+  @@index([voterId])
+  @@map("vote_records")
 }
 
 // ============ AI Studio - 研究项目 ============
@@ -4190,6 +4274,8 @@ enum KnowledgeBaseSourceType {
   BOOKMARK // 平台内书签
   NOTE // 平台内笔记
   IMAGE // 图片OCR
+  WECHAT_ARTICLE // 微信公众号文章
+  WECHAT_VIDEO // 微信视频号视频
 }
 
 // 知识库类型
@@ -4271,8 +4357,8 @@ model KnowledgeBase {
 
 // 知识库成员角色
 enum KnowledgeBaseMemberRole {
-  OWNER  // 所有者，完全控制权
-  ADMIN  // 管理员，可管理成员和内容
+  OWNER // 所有者，完全控制权
+  ADMIN // 管理员，可管理成员和内容
   EDITOR // 编辑者，可编辑内容
   VIEWER // 查看者，只读权限
 }
@@ -4535,23 +4621,23 @@ model OfficeDocumentKnowledgeBase {
 // 积分交易类型
 enum CreditTransactionType {
   // 获取类型
-  INITIAL           // 注册初始积分
-  DAILY_CHECKIN     // 每日签到
-  TASK_REWARD       // 任务奖励
-  REFERRAL_BONUS    // 推荐奖励
-  ADMIN_GRANT       // 管理员发放
-  COMPENSATION      // 异常补偿
+  INITIAL // 注册初始积分
+  DAILY_CHECKIN // 每日签到
+  TASK_REWARD // 任务奖励
+  REFERRAL_BONUS // 推荐奖励
+  ADMIN_GRANT // 管理员发放
+  COMPENSATION // 异常补偿
   // 消耗类型
-  AI_ASK            // AI 问答消耗
-  AI_STUDIO         // AI 研究室消耗
-  AI_TEAMS          // AI 团队消耗
-  AI_OFFICE         // AI 办公消耗
-  AI_CODING         // AI 编程消耗
-  AI_SIMULATION     // AI 模拟消耗
+  AI_ASK // AI 问答消耗
+  AI_STUDIO // AI 研究室消耗
+  AI_TEAMS // AI 团队消耗
+  AI_OFFICE // AI 办公消耗
+  AI_CODING // AI 编程消耗
+  AI_SIMULATION // AI 模拟消耗
   // 调整类型
-  EXPIRATION        // 过期扣除
-  REFUND            // 退款
-  ADJUSTMENT        // 手动调整
+  EXPIRATION // 过期扣除
+  REFUND // 退款
+  ADJUSTMENT // 手动调整
 }
 
 // 积分账户
@@ -4583,15 +4669,15 @@ model CreditTransaction {
   id             String                @id @default(uuid())
   accountId      String                @map("account_id")
   type           CreditTransactionType
-  amount         Int                   // 正数为收入，负数为支出
+  amount         Int // 正数为收入，负数为支出
   balanceAfter   Int                   @map("balance_after")
   description    String                @db.VarChar(500)
-  moduleType     String?               @map("module_type")     // ai-ask, ai-studio 等
-  operationType  String?               @map("operation_type")  // chat, research-deep 等
-  referenceId    String?               @map("reference_id")    // 关联的业务ID
-  tokenCount     Int?                  @map("token_count")     // AI调用消耗的token数
-  modelName      String?               @map("model_name")      // 使用的AI模型
-  idempotencyKey String?               @unique @map("idempotency_key")  // 幂等性key
+  moduleType     String?               @map("module_type") // ai-ask, ai-studio 等
+  operationType  String?               @map("operation_type") // chat, research-deep 等
+  referenceId    String?               @map("reference_id") // 关联的业务ID
+  tokenCount     Int?                  @map("token_count") // AI调用消耗的token数
+  modelName      String?               @map("model_name") // 使用的AI模型
+  idempotencyKey String?               @unique @map("idempotency_key") // 幂等性key
   createdAt      DateTime              @default(now()) @map("created_at")
 
   account CreditAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
@@ -4605,12 +4691,12 @@ model CreditTransaction {
 // 积分规则配置
 model CreditRule {
   id               String   @id @default(uuid())
-  moduleType       String   @map("module_type")      // ai-ask, ai-studio, ai-teams 等
-  operationType    String   @map("operation_type")   // chat, research-quick, ai-reply 等
-  baseCredits      Int      @map("base_credits")     // 基础积分消耗
-  tokenMultiplier  Float    @default(1.0) @map("token_multiplier")  // Token乘数
+  moduleType       String   @map("module_type") // ai-ask, ai-studio, ai-teams 等
+  operationType    String   @map("operation_type") // chat, research-quick, ai-reply 等
+  baseCredits      Int      @map("base_credits") // 基础积分消耗
+  tokenMultiplier  Float    @default(1.0) @map("token_multiplier") // Token乘数
   modelMultipliers Json     @default("{}") @map("model_multipliers") // 不同模型的倍率 {"gpt-4o": 2.0}
-  name             String   @db.VarChar(100)         // 规则名称
+  name             String   @db.VarChar(100) // 规则名称
   isActive         Boolean  @default(true) @map("is_active")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
@@ -4643,25 +4729,25 @@ model DailyCheckin {
 
 // Slides 会话状态枚举
 enum SlidesSessionStatus {
-  ACTIVE    // 进行中
+  ACTIVE // 进行中
   COMPLETED // 已完成
-  ARCHIVED  // 已归档
+  ARCHIVED // 已归档
 }
 
 // Slides 会话表
 model SlidesSession {
-  id              String              @id @default(uuid())
-  userId          String              @map("user_id")
-  title           String              @db.VarChar(200)
-  status          SlidesSessionStatus @default(ACTIVE)
-  currentStateId  String?             @map("current_state_id") // 当前检查点ID
+  id             String              @id @default(uuid())
+  userId         String              @map("user_id")
+  title          String              @db.VarChar(200)
+  status         SlidesSessionStatus @default(ACTIVE)
+  currentStateId String?             @map("current_state_id") // 当前检查点ID
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // 关联
-  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  checkpoints    SlidesCheckpoint[]
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkpoints SlidesCheckpoint[]
 
   @@index([userId, updatedAt(sort: Desc)])
   @@index([status])
@@ -4671,11 +4757,11 @@ model SlidesSession {
 // 检查点类型枚举
 enum SlidesCheckpointType {
   TASK_DECOMPOSITION // 任务分解完成
-  OUTLINE_CONFIRMED  // 大纲确认
-  PAGE_RENDERED      // 单页渲染完成
-  BATCH_RENDERED     // 批量渲染完成
-  USER_MODIFIED      // 用户手动修改
-  AUTO_SAVE          // 自动保存
+  OUTLINE_CONFIRMED // 大纲确认
+  PAGE_RENDERED // 单页渲染完成
+  BATCH_RENDERED // 批量渲染完成
+  USER_MODIFIED // 用户手动修改
+  AUTO_SAVE // 自动保存
 }
 
 // Slides 检查点表
@@ -4706,21 +4792,21 @@ model SlidesCheckpoint {
 
 // Slides Team 执行状态
 enum SlidesTeamStatus {
-  PENDING     // 等待开始
-  ANALYZING   // 内容分析中
-  PLANNING    // 结构规划中
-  GENERATING  // 内容生成中
-  RENDERING   // 渲染中
-  REVIEWING   // 质量审核中
-  COMPLETED   // 完成
-  FAILED      // 失败
+  PENDING // 等待开始
+  ANALYZING // 内容分析中
+  PLANNING // 结构规划中
+  GENERATING // 内容生成中
+  RENDERING // 渲染中
+  REVIEWING // 质量审核中
+  COMPLETED // 完成
+  FAILED // 失败
 }
 
 // Slides Team 执行记录
 model SlidesTeamExecution {
-  id        String           @id @default(uuid())
-  sessionId String           @map("session_id")
-  userId    String           @map("user_id")
+  id        String @id @default(uuid())
+  sessionId String @map("session_id")
+  userId    String @map("user_id")
 
   // 执行状态
   status          SlidesTeamStatus @default(PENDING)
@@ -4734,10 +4820,10 @@ model SlidesTeamExecution {
   audience      String? @db.VarChar(200)
 
   // Agent 执行结果（JSON）
-  analysisResult  Json? @map("analysis_result")  // ContentAnalyst 输出
-  planningResult  Json? @map("planning_result")  // VisualStrategist 输出
+  analysisResult   Json? @map("analysis_result") // ContentAnalyst 输出
+  planningResult   Json? @map("planning_result") // VisualStrategist 输出
   generationResult Json? @map("generation_result") // ContentWriter 输出
-  reviewResult    Json? @map("review_result")    // QualityReviewer 输出
+  reviewResult     Json? @map("review_result") // QualityReviewer 输出
 
   // 错误信息
   errorMessage String? @map("error_message") @db.Text
@@ -4749,8 +4835,8 @@ model SlidesTeamExecution {
   completedAt DateTime? @map("completed_at")
 
   // 关联 - sessionId 只是普通字符串，不关联 SlidesSession（因为 team 模式使用临时 session ID）
-  user    User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  logs    SlidesTeamLog[]
+  user User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs SlidesTeamLog[]
 
   @@index([sessionId])
   @@index([userId, createdAt(sort: Desc)])
@@ -4764,11 +4850,11 @@ model SlidesTeamLog {
   executionId String @map("execution_id")
 
   // 日志信息
-  phase     String  @db.VarChar(50) // analyzing, planning, generating, rendering, reviewing
-  agentName String  @map("agent_name") @db.VarChar(50) // ContentAnalyst, VisualStrategist, etc.
-  level     String  @db.VarChar(10) // INFO, WARN, ERROR
-  message   String  @db.Text
-  metadata  Json?   // 额外数据
+  phase     String @db.VarChar(50) // analyzing, planning, generating, rendering, reviewing
+  agentName String @map("agent_name") @db.VarChar(50) // ContentAnalyst, VisualStrategist, etc.
+  level     String @db.VarChar(10) // INFO, WARN, ERROR
+  message   String @db.Text
+  metadata  Json? // 额外数据
 
   createdAt DateTime @default(now()) @map("created_at")
 

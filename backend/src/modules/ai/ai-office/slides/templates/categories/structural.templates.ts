@@ -160,7 +160,7 @@ export const THREE_PILLAR_TEMPLATE: SlideTemplate = {
   <div style="position: relative; margin-bottom: 36px;">
     <div style="position: absolute; left: -20px; top: 8px; width: 5px; height: 36px; background: linear-gradient(180deg, ${COLORS.primary}, #B8962E); border-radius: 3px;"></div>
     <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
-    <p style="font-size: 16px; color: #94A3B8; margin: 0;">驱动业务增长的三大核心支柱</p>
+    <p style="font-size: 16px; color: #94A3B8; margin: 0;">{{SUBTITLE}}</p>
   </div>
 
   <div style="display: flex; gap: 24px; height: calc(100% - 180px);">
@@ -241,7 +241,7 @@ export const FOUR_PILLAR_TEMPLATE: SlideTemplate = {
 <div style="${COMMON_CONTAINER}">
   <div style="text-align: center; margin-bottom: 32px;">
     <h1 style="font-size: 36px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
-    <p style="font-size: 18px; color: #94A3B8; margin: 0;">驱动业务增长的四大核心支柱</p>
+    <p style="font-size: 18px; color: #94A3B8; margin: 0;">{{SUBTITLE}}</p>
   </div>
 
   <div style="display: flex; gap: 20px; height: calc(100% - 160px);">
@@ -312,7 +312,7 @@ export const FIVE_PILLAR_TEMPLATE: SlideTemplate = {
 <div style="${COMMON_CONTAINER}">
   <div style="text-align: center; margin-bottom: 28px;">
     <h1 style="font-size: 32px; font-weight: 900; margin: 0 0 8px 0;">{{TITLE}}</h1>
-    <p style="font-size: 16px; color: #94A3B8; margin: 0;">五大核心支柱</p>
+    <p style="font-size: 16px; color: #94A3B8; margin: 0;">{{SUBTITLE}}</p>
   </div>
 
   <div style="display: flex; gap: 16px; height: calc(100% - 140px);">

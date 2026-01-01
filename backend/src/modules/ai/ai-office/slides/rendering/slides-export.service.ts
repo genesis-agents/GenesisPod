@@ -363,7 +363,7 @@ export class SlidesExportService {
       padding: 0;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
-      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Hiragino Sans GB", sans-serif;
+      font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
     }
 
     .slide-page {
@@ -444,7 +444,7 @@ export class SlidesExportService {
       height: 720px;
       overflow: hidden;
       background: #0F172A;
-      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Hiragino Sans GB", sans-serif;
+      font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
     }
   </style>
 </head>

@@ -1,6 +1,8 @@
 /**
  * TeamCollaborationService Tests
  * 测试 AI Teams 协作服务（投票、任务委派等）
+ *
+ * 重构于 2026-01-01: 适配数据库持久化版本
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
@@ -8,6 +10,7 @@ import { NotFoundException } from "@nestjs/common";
 import { TeamCollaborationService } from "../team-collaboration.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { AiResponseService } from "../../ai/ai-response.service";
+import { VoteStrategy, VoteValue, ProposalStatus } from "@prisma/client";
 
 // ============================================================================
 // Mock Data
@@ -37,6 +40,42 @@ const mockToMember = {
   aiModel: { id: "model-1", modelId: "gemini-pro" },
 };
 
+/**
+ * 创建 Mock 提案对象
+ */
+function createMockProposal(
+  proposalId: string,
+  strategy: VoteStrategy,
+  votes: Array<{ voterId: string; voterName: string; value: VoteValue }> = [],
+  status: ProposalStatus = ProposalStatus.OPEN,
+) {
+  return {
+    id: proposalId,
+    topicId: mockTopicId,
+    title: "Test Proposal",
+    description: "Test Description",
+    initiatorId: mockInitiatorId,
+    initiator: { id: mockInitiatorId, displayName: "Initiator" },
+    strategy,
+    options: [],
+    status,
+    createdAt: new Date(),
+    closedAt: null,
+    decision: null,
+    summary: null,
+    votes: votes.map((v, i) => ({
+      id: `vote-${i}`,
+      proposalId,
+      voterId: v.voterId,
+      voter: { id: v.voterId, displayName: v.voterName },
+      value: v.value,
+      reason: null,
+      confidence: null,
+      createdAt: new Date(),
+    })),
+  };
+}
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -54,6 +93,16 @@ describe("TeamCollaborationService", () => {
       },
       topicMessage: {
         create: jest.fn(),
+      },
+      voteProposal: {
+        create: jest.fn(),
+        findUnique: jest.fn(),
+        findMany: jest.fn(),
+        update: jest.fn(),
+      },
+      voteRecord: {
+        create: jest.fn(),
+        findMany: jest.fn(),
       },
     };
 
@@ -187,7 +236,7 @@ describe("TeamCollaborationService", () => {
   });
 
   // ==========================================================================
-  // createVoteProposal - 创建投票提案
+  // createVoteProposal - 创建投票提案（数据库版本）
   // ==========================================================================
 
   describe("createVoteProposal", () => {
@@ -211,6 +260,14 @@ describe("TeamCollaborationService", () => {
         mockMembers.slice(1),
       );
 
+      // Mock 数据库创建提案
+      (prisma.voteProposal.create as jest.Mock).mockResolvedValue({
+        id: "proposal-123",
+        topicId: mockTopicId,
+        title: "Test Proposal",
+        status: ProposalStatus.OPEN,
+      });
+
       (prisma.topicMessage.create as jest.Mock).mockResolvedValue({
         id: "message-123",
       });
@@ -218,7 +275,8 @@ describe("TeamCollaborationService", () => {
       const result = await service.createVoteProposal(voteRequest);
 
       expect(result.proposalId).toBe("proposal-123");
-      expect(result.status).toBe("OPEN");
+      expect(result.status).toBe(ProposalStatus.OPEN);
+      expect(prisma.voteProposal.create).toHaveBeenCalled();
       expect(prisma.topicMessage.create).toHaveBeenCalled();
     });
 
@@ -247,39 +305,46 @@ describe("TeamCollaborationService", () => {
   });
 
   // ==========================================================================
-  // castMemberVote - 成员投票
+  // castMemberVote - 成员投票（数据库版本）
   // ==========================================================================
 
   describe("castMemberVote", () => {
     const proposalId = "proposal-123";
 
-    beforeEach(async () => {
-      // 先创建提案
-      (prisma.topicAIMember.findFirst as jest.Mock).mockResolvedValue(
-        mockMembers[0],
-      );
-      (prisma.topicAIMember.findMany as jest.Mock).mockResolvedValue(
-        mockMembers.slice(1),
-      );
-      (prisma.topicMessage.create as jest.Mock).mockResolvedValue({
-        id: "message-123",
-      });
-
-      await service.createVoteProposal({
-        topicId: mockTopicId,
-        proposalId,
-        title: "Test",
-        description: "Test",
-        initiatorId: mockInitiatorId,
-        voterIds: mockVoterIds,
-        strategy: "MAJORITY",
-      });
-    });
-
     it("应该成功记录投票", async () => {
+      // Mock 查询提案（无投票）
+      const mockProposal = createMockProposal(
+        proposalId,
+        VoteStrategy.MAJORITY,
+        [],
+      );
+      (prisma.voteProposal.findUnique as jest.Mock)
+        .mockResolvedValueOnce(mockProposal) // 第一次查询：投票前
+        .mockResolvedValueOnce({
+          ...mockProposal,
+          votes: [
+            {
+              id: "vote-1",
+              proposalId,
+              voterId: "member-1",
+              voter: { id: "member-1", displayName: "Member 1" },
+              value: VoteValue.APPROVE,
+              reason: "I agree",
+              confidence: null,
+              createdAt: new Date(),
+            },
+          ],
+        }); // 第二次查询：投票后统计
+
       (prisma.topicAIMember.findFirst as jest.Mock).mockResolvedValue(
         mockMembers[1],
       );
+      (prisma.voteRecord.create as jest.Mock).mockResolvedValue({
+        id: "vote-1",
+        proposalId,
+        voterId: "member-1",
+        value: VoteValue.APPROVE,
+      });
 
       const result = await service.castMemberVote(
         proposalId,
@@ -292,92 +357,97 @@ describe("TeamCollaborationService", () => {
       expect(result.statistics).toBeDefined();
       expect(result.statistics.votesReceived).toBe(1);
       expect(result.statistics.approves).toBe(1);
+      expect(prisma.voteRecord.create).toHaveBeenCalled();
     });
 
     it("提案不存在时应该抛出错误", async () => {
+      (prisma.voteProposal.findUnique as jest.Mock).mockResolvedValue(null);
+
       await expect(
         service.castMemberVote("invalid-proposal", "member-1", "APPROVE"),
       ).rejects.toThrow("Proposal not found");
     });
 
-    it("不在投票者列表中应该抛出错误", async () => {
+    it("成员不在话题中应该抛出错误", async () => {
+      const mockProposal = createMockProposal(
+        proposalId,
+        VoteStrategy.MAJORITY,
+        [],
+      );
+      (prisma.voteProposal.findUnique as jest.Mock).mockResolvedValue(
+        mockProposal,
+      );
+      (prisma.topicAIMember.findFirst as jest.Mock).mockResolvedValue(null);
+
       await expect(
         service.castMemberVote(proposalId, "invalid-member", "APPROVE"),
-      ).rejects.toThrow("Member is not in voter list");
+      ).rejects.toThrow("Member not found in topic");
     });
 
     it("重复投票应该抛出错误", async () => {
-      (prisma.topicAIMember.findFirst as jest.Mock).mockResolvedValue(
-        mockMembers[1],
+      // Mock 提案已有 member-1 的投票
+      const mockProposal = createMockProposal(
+        proposalId,
+        VoteStrategy.MAJORITY,
+        [
+          {
+            voterId: "member-1",
+            voterName: "Member 1",
+            value: VoteValue.APPROVE,
+          },
+        ],
+      );
+      (prisma.voteProposal.findUnique as jest.Mock).mockResolvedValue(
+        mockProposal,
       );
 
-      // 第一次投票
-      await service.castMemberVote(proposalId, "member-1", "APPROVE");
-
-      // 第二次投票应该失败
       await expect(
         service.castMemberVote(proposalId, "member-1", "REJECT"),
       ).rejects.toThrow("Member has already voted");
     });
 
-    it("应该正确统计各类投票", async () => {
-      (prisma.topicAIMember.findFirst as jest.Mock)
-        .mockResolvedValueOnce(mockMembers[1])
-        .mockResolvedValueOnce(mockMembers[2])
-        .mockResolvedValueOnce(mockMembers[3]);
-
-      await service.castMemberVote(proposalId, "member-1", "APPROVE");
-      await service.castMemberVote(proposalId, "member-2", "REJECT");
-      const result = await service.castMemberVote(
+    it("投票已关闭时应该抛出错误", async () => {
+      const mockProposal = createMockProposal(
         proposalId,
-        "member-3",
-        "ABSTAIN",
+        VoteStrategy.MAJORITY,
+        [],
+        ProposalStatus.CLOSED,
+      );
+      (prisma.voteProposal.findUnique as jest.Mock).mockResolvedValue(
+        mockProposal,
       );
 
-      expect(result.statistics.approves).toBe(1);
-      expect(result.statistics.rejects).toBe(1);
-      expect(result.statistics.abstains).toBe(1);
-      expect(result.statistics.votesReceived).toBe(3);
+      await expect(
+        service.castMemberVote(proposalId, "member-1", "APPROVE"),
+      ).rejects.toThrow("Voting is closed");
     });
   });
 
   // ==========================================================================
-  // getVoteResult - 获取投票结果
+  // getVoteResult - 获取投票结果（数据库版本）
   // ==========================================================================
 
   describe("getVoteResult", () => {
     const proposalId = "proposal-456";
 
-    beforeEach(async () => {
-      (prisma.topicAIMember.findFirst as jest.Mock).mockResolvedValue(
-        mockMembers[0],
-      );
-      (prisma.topicAIMember.findMany as jest.Mock).mockResolvedValue(
-        mockMembers.slice(1),
-      );
-      (prisma.topicMessage.create as jest.Mock).mockResolvedValue({
-        id: "message-123",
-      });
-
-      await service.createVoteProposal({
-        topicId: mockTopicId,
-        proposalId,
-        title: "Test",
-        description: "Test",
-        initiatorId: mockInitiatorId,
-        voterIds: mockVoterIds,
-        strategy: "MAJORITY",
-      });
-    });
-
     it("应该返回投票结果", async () => {
-      (prisma.topicAIMember.findFirst as jest.Mock).mockResolvedValue(
-        mockMembers[1],
+      // Mock 数据库返回带投票的提案
+      const mockProposal = createMockProposal(
+        proposalId,
+        VoteStrategy.MAJORITY,
+        [
+          {
+            voterId: "member-1",
+            voterName: "Member 1",
+            value: VoteValue.APPROVE,
+          },
+        ],
+      );
+      (prisma.voteProposal.findUnique as jest.Mock).mockResolvedValue(
+        mockProposal,
       );
 
-      await service.castMemberVote(proposalId, "member-1", "APPROVE");
-
-      const result = service.getVoteResult(proposalId);
+      const result = await service.getVoteResult(proposalId);
 
       expect(result).not.toBeNull();
       expect(result?.success).toBe(true);
@@ -385,8 +455,10 @@ describe("TeamCollaborationService", () => {
       expect(result?.votes).toHaveLength(1);
     });
 
-    it("提案不存在时应该返回 null", () => {
-      const result = service.getVoteResult("non-existent");
+    it("提案不存在时应该返回 null", async () => {
+      (prisma.voteProposal.findUnique as jest.Mock).mockResolvedValue(null);
+
+      const result = await service.getVoteResult("non-existent");
 
       expect(result).toBeNull();
     });
@@ -460,55 +532,59 @@ describe("TeamCollaborationService", () => {
   // calculateConsensus - 计算共识结果
   // ==========================================================================
 
-  describe("calculateConsensus", () => {
+  describe("calculateConsensus（数据库版本）", () => {
     describe("MAJORITY 策略", () => {
       const proposalId = "proposal-majority";
 
-      beforeEach(async () => {
-        (prisma.topicAIMember.findFirst as jest.Mock).mockResolvedValue(
-          mockMembers[0],
-        );
-        (prisma.topicAIMember.findMany as jest.Mock).mockResolvedValue(
-          mockMembers.slice(1),
-        );
-        (prisma.topicMessage.create as jest.Mock).mockResolvedValue({
-          id: "message-123",
-        });
-
-        await service.createVoteProposal({
-          topicId: mockTopicId,
-          proposalId,
-          title: "Test",
-          description: "Test",
-          initiatorId: mockInitiatorId,
-          voterIds: mockVoterIds,
-          strategy: "MAJORITY",
-        });
-      });
-
       it("超过50%赞成应该达成共识", async () => {
-        (prisma.topicAIMember.findFirst as jest.Mock)
-          .mockResolvedValueOnce(mockMembers[1])
-          .mockResolvedValueOnce(mockMembers[2]);
+        const mockProposal = createMockProposal(
+          proposalId,
+          VoteStrategy.MAJORITY,
+          [
+            {
+              voterId: "member-1",
+              voterName: "Member 1",
+              value: VoteValue.APPROVE,
+            },
+            {
+              voterId: "member-2",
+              voterName: "Member 2",
+              value: VoteValue.APPROVE,
+            },
+          ],
+        );
+        (prisma.voteProposal.findUnique as jest.Mock).mockResolvedValue(
+          mockProposal,
+        );
 
-        await service.castMemberVote(proposalId, "member-1", "APPROVE");
-        await service.castMemberVote(proposalId, "member-2", "APPROVE");
-
-        const result = service.getVoteResult(proposalId);
+        const result = await service.getVoteResult(proposalId, 2);
 
         expect(result?.consensusReached).toBe(true);
         expect(result?.decision).toBe("APPROVE");
       });
 
       it("50%或以下赞成应该未达成共识", async () => {
-        (prisma.topicAIMember.findFirst as jest.Mock)
-          .mockResolvedValueOnce(mockMembers[1])
-          .mockResolvedValueOnce(mockMembers[2]);
+        const mockProposal = createMockProposal(
+          proposalId,
+          VoteStrategy.MAJORITY,
+          [
+            {
+              voterId: "member-1",
+              voterName: "Member 1",
+              value: VoteValue.APPROVE,
+            },
+            {
+              voterId: "member-2",
+              voterName: "Member 2",
+              value: VoteValue.REJECT,
+            },
+          ],
+        );
+        (prisma.voteProposal.findUnique as jest.Mock).mockResolvedValue(
+          mockProposal,
+        );
 
-        await service.castMemberVote(proposalId, "member-1", "APPROVE");
-        await service.castMemberVote(proposalId, "member-2", "REJECT");
-
-        const result = service.getVoteResult(proposalId);
+        const result = await service.getVoteResult(proposalId, 2);
 
         expect(result?.consensusReached).toBe(false);
         expect(result?.decision).toBe("REJECT");
@@ -518,72 +594,93 @@ describe("TeamCollaborationService", () => {
     describe("SUPERMAJORITY 策略", () => {
       const proposalId = "proposal-super";
 
-      beforeEach(async () => {
-        (prisma.topicAIMember.findFirst as jest.Mock).mockResolvedValue(
-          mockMembers[0],
-        );
-        (prisma.topicAIMember.findMany as jest.Mock).mockResolvedValue(
-          mockMembers.slice(1),
-        );
-        (prisma.topicMessage.create as jest.Mock).mockResolvedValue({
-          id: "message-123",
-        });
-
-        await service.createVoteProposal({
-          topicId: mockTopicId,
+      it("接近67%赞成（2/3）边界情况", async () => {
+        const mockProposal = createMockProposal(
           proposalId,
-          title: "Test",
-          description: "Test",
-          initiatorId: mockInitiatorId,
-          voterIds: mockVoterIds,
-          strategy: "SUPERMAJORITY",
-        });
-      });
+          VoteStrategy.SUPERMAJORITY,
+          [
+            {
+              voterId: "member-1",
+              voterName: "Member 1",
+              value: VoteValue.APPROVE,
+            },
+            {
+              voterId: "member-2",
+              voterName: "Member 2",
+              value: VoteValue.APPROVE,
+            },
+            {
+              voterId: "member-3",
+              voterName: "Member 3",
+              value: VoteValue.REJECT,
+            },
+          ],
+        );
+        (prisma.voteProposal.findUnique as jest.Mock).mockResolvedValue(
+          mockProposal,
+        );
 
-      it("接近67%赞成应该达成共识", async () => {
-        (prisma.topicAIMember.findFirst as jest.Mock)
-          .mockResolvedValueOnce(mockMembers[1])
-          .mockResolvedValueOnce(mockMembers[2])
-          .mockResolvedValueOnce(mockMembers[3]);
+        const result = await service.getVoteResult(proposalId, 3);
 
-        await service.castMemberVote(proposalId, "member-1", "APPROVE");
-        await service.castMemberVote(proposalId, "member-2", "APPROVE");
-        await service.castMemberVote(proposalId, "member-3", "REJECT");
-
-        const result = service.getVoteResult(proposalId);
-
-        // 2/3 = 66.67% >= 66.7% 的阈值，在浮点数比较中可能不满足
-        // 这是一个边界情况，实际中 2/3 应该被视为超级多数
-        // 但由于代码使用 0.667 (66.7%)，实际需要更高的比例
+        // 2/3 = 66.67% - 边界情况
         expect(result?.consensusReached).toBe(false);
         expect(result?.decision).toBe("REJECT");
       });
 
       it("明确超过67%赞成（3/3=100%）应该达成共识", async () => {
-        (prisma.topicAIMember.findFirst as jest.Mock)
-          .mockResolvedValueOnce(mockMembers[1])
-          .mockResolvedValueOnce(mockMembers[2])
-          .mockResolvedValueOnce(mockMembers[3]);
+        const mockProposal = createMockProposal(
+          proposalId,
+          VoteStrategy.SUPERMAJORITY,
+          [
+            {
+              voterId: "member-1",
+              voterName: "Member 1",
+              value: VoteValue.APPROVE,
+            },
+            {
+              voterId: "member-2",
+              voterName: "Member 2",
+              value: VoteValue.APPROVE,
+            },
+            {
+              voterId: "member-3",
+              voterName: "Member 3",
+              value: VoteValue.APPROVE,
+            },
+          ],
+        );
+        (prisma.voteProposal.findUnique as jest.Mock).mockResolvedValue(
+          mockProposal,
+        );
 
-        await service.castMemberVote(proposalId, "member-1", "APPROVE");
-        await service.castMemberVote(proposalId, "member-2", "APPROVE");
-        await service.castMemberVote(proposalId, "member-3", "APPROVE");
-
-        const result = service.getVoteResult(proposalId);
+        const result = await service.getVoteResult(proposalId, 3);
 
         expect(result?.consensusReached).toBe(true);
         expect(result?.decision).toBe("APPROVE");
       });
 
       it("少于67%赞成应该未达成共识", async () => {
-        (prisma.topicAIMember.findFirst as jest.Mock)
-          .mockResolvedValueOnce(mockMembers[1])
-          .mockResolvedValueOnce(mockMembers[2]);
+        const mockProposal = createMockProposal(
+          proposalId,
+          VoteStrategy.SUPERMAJORITY,
+          [
+            {
+              voterId: "member-1",
+              voterName: "Member 1",
+              value: VoteValue.APPROVE,
+            },
+            {
+              voterId: "member-2",
+              voterName: "Member 2",
+              value: VoteValue.REJECT,
+            },
+          ],
+        );
+        (prisma.voteProposal.findUnique as jest.Mock).mockResolvedValue(
+          mockProposal,
+        );
 
-        await service.castMemberVote(proposalId, "member-1", "APPROVE");
-        await service.castMemberVote(proposalId, "member-2", "REJECT");
-
-        const result = service.getVoteResult(proposalId);
+        const result = await service.getVoteResult(proposalId, 2);
 
         expect(result?.consensusReached).toBe(false);
         expect(result?.decision).toBe("REJECT");
@@ -593,55 +690,65 @@ describe("TeamCollaborationService", () => {
     describe("UNANIMOUS 策略", () => {
       const proposalId = "proposal-unanimous";
 
-      beforeEach(async () => {
-        (prisma.topicAIMember.findFirst as jest.Mock).mockResolvedValue(
-          mockMembers[0],
-        );
-        (prisma.topicAIMember.findMany as jest.Mock).mockResolvedValue(
-          mockMembers.slice(1),
-        );
-        (prisma.topicMessage.create as jest.Mock).mockResolvedValue({
-          id: "message-123",
-        });
-
-        await service.createVoteProposal({
-          topicId: mockTopicId,
-          proposalId,
-          title: "Test",
-          description: "Test",
-          initiatorId: mockInitiatorId,
-          voterIds: mockVoterIds,
-          strategy: "UNANIMOUS",
-        });
-      });
-
       it("全票赞成应该达成共识", async () => {
-        (prisma.topicAIMember.findFirst as jest.Mock)
-          .mockResolvedValueOnce(mockMembers[1])
-          .mockResolvedValueOnce(mockMembers[2])
-          .mockResolvedValueOnce(mockMembers[3]);
+        const mockProposal = createMockProposal(
+          proposalId,
+          VoteStrategy.UNANIMOUS,
+          [
+            {
+              voterId: "member-1",
+              voterName: "Member 1",
+              value: VoteValue.APPROVE,
+            },
+            {
+              voterId: "member-2",
+              voterName: "Member 2",
+              value: VoteValue.APPROVE,
+            },
+            {
+              voterId: "member-3",
+              voterName: "Member 3",
+              value: VoteValue.APPROVE,
+            },
+          ],
+        );
+        (prisma.voteProposal.findUnique as jest.Mock).mockResolvedValue(
+          mockProposal,
+        );
 
-        await service.castMemberVote(proposalId, "member-1", "APPROVE");
-        await service.castMemberVote(proposalId, "member-2", "APPROVE");
-        await service.castMemberVote(proposalId, "member-3", "APPROVE");
-
-        const result = service.getVoteResult(proposalId);
+        const result = await service.getVoteResult(proposalId, 3);
 
         expect(result?.consensusReached).toBe(true);
         expect(result?.decision).toBe("APPROVE");
       });
 
       it("任何一票反对应该未达成共识", async () => {
-        (prisma.topicAIMember.findFirst as jest.Mock)
-          .mockResolvedValueOnce(mockMembers[1])
-          .mockResolvedValueOnce(mockMembers[2])
-          .mockResolvedValueOnce(mockMembers[3]);
+        const mockProposal = createMockProposal(
+          proposalId,
+          VoteStrategy.UNANIMOUS,
+          [
+            {
+              voterId: "member-1",
+              voterName: "Member 1",
+              value: VoteValue.APPROVE,
+            },
+            {
+              voterId: "member-2",
+              voterName: "Member 2",
+              value: VoteValue.APPROVE,
+            },
+            {
+              voterId: "member-3",
+              voterName: "Member 3",
+              value: VoteValue.REJECT,
+            },
+          ],
+        );
+        (prisma.voteProposal.findUnique as jest.Mock).mockResolvedValue(
+          mockProposal,
+        );
 
-        await service.castMemberVote(proposalId, "member-1", "APPROVE");
-        await service.castMemberVote(proposalId, "member-2", "APPROVE");
-        await service.castMemberVote(proposalId, "member-3", "REJECT");
-
-        const result = service.getVoteResult(proposalId);
+        const result = await service.getVoteResult(proposalId, 3);
 
         expect(result?.consensusReached).toBe(false);
         expect(result?.decision).toBe("REJECT");
@@ -650,42 +757,40 @@ describe("TeamCollaborationService", () => {
   });
 
   // ==========================================================================
-  // getProposalStatus - 获取提案状态
+  // getProposalStatus - 获取提案状态（数据库版本）
   // ==========================================================================
 
   describe("getProposalStatus", () => {
     it("应该返回提案存在状态", async () => {
       const proposalId = "proposal-status";
 
-      (prisma.topicAIMember.findFirst as jest.Mock).mockResolvedValue(
-        mockMembers[0],
-      );
-      (prisma.topicAIMember.findMany as jest.Mock).mockResolvedValue(
-        mockMembers.slice(1),
-      );
-      (prisma.topicMessage.create as jest.Mock).mockResolvedValue({
-        id: "message-123",
-      });
-
-      await service.createVoteProposal({
-        topicId: mockTopicId,
+      const mockProposal = createMockProposal(
         proposalId,
-        title: "Test",
-        description: "Test",
-        initiatorId: mockInitiatorId,
-        voterIds: mockVoterIds,
-        strategy: "MAJORITY",
-      });
+        VoteStrategy.MAJORITY,
+        [
+          {
+            voterId: "member-1",
+            voterName: "Member 1",
+            value: VoteValue.APPROVE,
+          },
+        ],
+        ProposalStatus.OPEN,
+      );
+      (prisma.voteProposal.findUnique as jest.Mock).mockResolvedValue(
+        mockProposal,
+      );
 
-      const status = service.getProposalStatus(proposalId);
+      const status = await service.getProposalStatus(proposalId);
 
       expect(status.exists).toBe(true);
-      expect(status.status).toBe("OPEN");
+      expect(status.status).toBe(ProposalStatus.OPEN);
       expect(status.statistics).toBeDefined();
     });
 
-    it("提案不存在时应该返回不存在状态", () => {
-      const status = service.getProposalStatus("non-existent");
+    it("提案不存在时应该返回不存在状态", async () => {
+      (prisma.voteProposal.findUnique as jest.Mock).mockResolvedValue(null);
+
+      const status = await service.getProposalStatus("non-existent");
 
       expect(status.exists).toBe(false);
       expect(status.status).toBeUndefined();

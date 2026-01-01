@@ -22,6 +22,11 @@ import {
   ThemeConfig,
 } from "../templates/base/themes";
 import { ChartRendererSkill } from "./chart-renderer.skill";
+import {
+  MISSING_PLACEHOLDER,
+  MISSING_NUMBER_PLACEHOLDER,
+  MISSING_ICON_PLACEHOLDER,
+} from "../templates/base/template-requirements";
 
 /**
  * 模板渲染输入
@@ -460,7 +465,7 @@ ${overflowProtectionStyles}
         return {
           ...baseVars,
           ...this.extractCoverVariables(pageContent),
-          TITLE: pageContent.title || "感谢聆听",
+          TITLE: pageContent.title || MISSING_PLACEHOLDER,
         };
       case "N-003": // Chapter Divider
         return {
@@ -478,7 +483,7 @@ ${overflowProtectionStyles}
         return {
           ...baseVars,
           ...this.extractCoverVariables(pageContent),
-          TITLE: pageContent.title || "感谢聆听",
+          TITLE: pageContent.title || MISSING_PLACEHOLDER,
         };
 
       // ========== Action Templates (A-001 ~ A-005) ==========
@@ -503,14 +508,15 @@ ${overflowProtectionStyles}
           ...this.extractNextStepsVariables(pageContent),
         };
       case "A-005": // Thank-You
+        // v3.6 重构: 移除硬编码，使用 MISSING_PLACEHOLDER
         return {
           ...baseVars,
           ...this.extractCoverVariables(pageContent),
-          TITLE: pageContent.title || "感谢聆听",
-          SUBTITLE: pageContent.subtitle || "期待与您进一步合作",
-          PRESENTER: "演示者",
-          EMAIL: "contact@example.com",
-          COMPANY: "公司名称",
+          TITLE: pageContent.title || MISSING_PLACEHOLDER,
+          SUBTITLE: pageContent.subtitle || MISSING_PLACEHOLDER,
+          PRESENTER: MISSING_PLACEHOLDER,
+          EMAIL: MISSING_PLACEHOLDER,
+          COMPANY: MISSING_PLACEHOLDER,
         };
 
       default:
@@ -571,11 +577,11 @@ ${overflowProtectionStyles}
       case "cover":
         return { ...baseVars, ...this.extractCoverVariables(pageContent) };
       case "closing":
-        // closing 模板使用与 cover 类似的变量，但 TITLE 默认为"感谢聆听"
+        // v3.6 重构: closing 模板使用与 cover 类似的变量，无硬编码默认值
         return {
           ...baseVars,
           ...this.extractCoverVariables(pageContent),
-          TITLE: pageContent.title || "感谢聆听",
+          TITLE: pageContent.title || MISSING_PLACEHOLDER,
         };
       case "toc":
         return {
@@ -623,110 +629,87 @@ ${overflowProtectionStyles}
   /**
    * 提取 Pillars 模板变量
    * 同时生成 PILLAR{N} 和 P{N} 两套变量名，兼容 S-003/S-004 和 S-005 模板
-   * 增强版：使用页面上下文生成更有意义的默认值
+   * v3.6 重构: 不再使用硬编码默认值，缺失内容显示明确占位符
    */
   private extractPillarsVariables(
     pageContent: PageContent,
-    usedValues?: Set<string>,
+    _usedValues?: Set<string>,
   ): Record<string, string> {
     const sections = pageContent.sections || [];
     const vars: Record<string, string> = {};
     const pageTitle = pageContent.title || "";
 
-    // 预定义的多样化数据
-    const diverseStats = [
-      "85%",
-      "520+",
-      "3.2x",
-      "92%",
-      "47%",
-      "180+",
-      "65%",
-      "2.8x",
-    ];
-    const diverseLabels = [
-      "核心指标",
-      "客户数量",
-      "增长倍数",
-      "满意度",
-      "市场份额",
-      "合作伙伴",
-      "效率提升",
-      "ROI",
-    ];
+    // v3.6: 副标题从 pageContent 提取，无默认值
+    vars["SUBTITLE"] = pageContent.subtitle || "";
+    if (!vars["SUBTITLE"]) {
+      this.logger.warn(
+        `[extractPillarsVariables] Missing SUBTITLE for page "${pageTitle}"`,
+      );
+    }
 
-    // 根据页面标题生成上下文相关的默认标题
-    const contextualTitles = this.generateContextualPillarTitles(pageTitle);
-    const contextualDescs = this.generateContextualPillarDescs(pageTitle);
+    // v3.6: 图标保留默认（视觉元素，可接受）
+    const defaultIcons = ["🎯", "⚡", "👥", "🌐", "💡"];
 
     // 支持最多5个支柱（三支柱、四支柱、五支柱模板）
     for (let i = 0; i < 5; i++) {
       const section = sections[i];
       const pillarNum = i + 1;
 
-      // 使用上下文相关的默认值，而非通用占位符
-      let title = contextualTitles[i] || `核心要素 ${pillarNum}`;
-      let desc =
-        pageContent.citations?.[i] ||
-        contextualDescs[i] ||
-        `${pageTitle}的关键组成部分`;
-      let stat = diverseStats[i] || `${85 + i * 3}%`;
-      let label = diverseLabels[i] || "关键数据";
+      // v3.6 重构: 从 section 提取数据，无硬编码默认值
+      let title = "";
+      let desc = "";
+      let stat = "";
+      let label = "";
 
       if (section) {
         if (section.type === "stat" && this.isStatContent(section.content)) {
           const statContent = section.content as StatContent;
-          title = statContent.label || title;
-          // v3.5: 传入pageTitle以生成有意义的描述
-          desc = this.getDescriptionFromSections(sections, i, pageTitle);
-          stat = this.ensureUniqueValue(
-            statContent.value,
-            usedValues,
-            diverseStats,
-          );
-          label = diverseLabels[i] || "关键数据";
+          title = statContent.label || "";
+          desc = this.getDescriptionFromSections(sections, i);
+          stat = statContent.value || "";
+          label = statContent.trend ? `${statContent.trend}` : "";
         } else if (section.type === "list" && Array.isArray(section.content)) {
-          title = section.content[0] || title;
-          desc =
-            section.content.slice(1, 3).join("；") ||
-            `${pageTitle || "核心能力"}的关键要素`;
-          stat = this.ensureUniqueValue(
-            diverseStats[i],
-            usedValues,
-            diverseStats,
-          );
+          title = section.content[0] || "";
+          desc = section.content.slice(1, 3).join("；");
+          // 尝试从 citations 获取数据
+          stat = pageContent.citations?.[i] || "";
         } else if (
           section.type === "text" &&
           typeof section.content === "string"
         ) {
-          title = section.content.slice(0, 20) || title;
-          // v3.5: 使用pageTitle生成有意义的描述
-          desc =
-            section.content.slice(0, 100) ||
-            `${pageTitle || "战略"}的核心支撑能力`;
-          stat = this.ensureUniqueValue(
-            diverseStats[i],
-            usedValues,
-            diverseStats,
-          );
+          title = section.content.slice(0, 25);
+          desc = section.content.slice(25, 120);
+          stat = pageContent.citations?.[i] || "";
         }
       }
 
-      // v3.5: 默认图标列表（基于内容主题匹配）
-      const defaultIcons = ["🎯", "⚡", "👥", "🌐", "💡"];
-      const icon = defaultIcons[i] || "📌";
+      // v3.6: 缺失必需内容时记录警告，使用占位符
+      if (!title && i < 3) {
+        this.logger.warn(
+          `[extractPillarsVariables] Missing PILLAR${pillarNum}_TITLE for "${pageTitle}"`,
+        );
+        title = MISSING_PLACEHOLDER;
+      }
+      if (!stat && i < 3) {
+        this.logger.warn(
+          `[extractPillarsVariables] Missing PILLAR${pillarNum}_STAT for "${pageTitle}"`,
+        );
+        stat = MISSING_NUMBER_PLACEHOLDER;
+      }
+
+      const icon = defaultIcons[i] || MISSING_ICON_PLACEHOLDER;
 
       // PILLAR{N} 格式 (用于 S-003, S-004)
       vars[`PILLAR${pillarNum}_TITLE`] = title;
       vars[`PILLAR${pillarNum}_DESC`] = desc;
       vars[`PILLAR${pillarNum}_STAT`] = stat;
       vars[`PILLAR${pillarNum}_LABEL`] = label;
-      vars[`PILLAR${pillarNum}_ICON`] = icon; // v3.5: 添加图标变量
+      vars[`PILLAR${pillarNum}_ICON`] = icon;
 
       // P{N} 格式 (用于 S-005 五支柱模板)
       vars[`P${pillarNum}_TITLE`] = title;
       vars[`P${pillarNum}_DESC`] = desc;
-      vars[`P${pillarNum}_ICON`] = icon; // v3.5: 添加图标变量
+      vars[`P${pillarNum}_ICON`] = icon;
     }
 
     return vars;
@@ -734,144 +717,148 @@ ${overflowProtectionStyles}
 
   /**
    * 提取 Dashboard 模板变量
-   * v3.5.1: 根据页面标题生成上下文相关的KPI
+   * v3.6 重构: 不再使用硬编码默认值
    */
   private extractDashboardVariables(
     pageContent: PageContent,
-    usedValues?: Set<string>,
+    _usedValues?: Set<string>,
   ): Record<string, string> {
     const sections = pageContent.sections || [];
     const vars: Record<string, string> = {};
     const pageTitle = pageContent.title || "";
 
-    // v3.5.1: 根据主题生成上下文相关的KPI
-    const contextKpis = this.generateContextualKpis(pageTitle);
-    const diverseValues = contextKpis.values;
-    const diverseLabels = contextKpis.labels;
-    const diverseChanges = contextKpis.changes;
+    // 从 sections 中提取 stat 类型的数据
+    const statSections = sections.filter(
+      (s) => s.type === "stat" && this.isStatContent(s.content),
+    );
 
     for (let i = 0; i < 4; i++) {
-      const section = sections.find((s, idx) => s.type === "stat" && idx >= i);
       const kpiNum = i + 1;
+      const statSection = statSections[i];
 
-      if (section && this.isStatContent(section.content)) {
-        const stat = section.content as StatContent;
-        vars[`KPI${kpiNum}_VALUE`] = this.ensureUniqueValue(
-          this.sanitizeValue(stat.value, diverseValues[i]),
-          usedValues,
-          diverseValues,
-        );
-        vars[`KPI${kpiNum}_LABEL`] = this.sanitizeValue(
-          stat.label,
-          diverseLabels[i],
-        );
-        vars[`KPI${kpiNum}_CHANGE`] = this.sanitizeValue(
-          stat.change,
-          diverseChanges[i],
-        );
+      if (statSection && this.isStatContent(statSection.content)) {
+        const stat = statSection.content as StatContent;
+        vars[`KPI${kpiNum}_VALUE`] = stat.value || "";
+        vars[`KPI${kpiNum}_LABEL`] = stat.label || "";
+        vars[`KPI${kpiNum}_CHANGE`] = stat.change || "";
       } else {
-        vars[`KPI${kpiNum}_VALUE`] = diverseValues[i];
-        vars[`KPI${kpiNum}_LABEL`] = diverseLabels[i];
-        vars[`KPI${kpiNum}_CHANGE`] = diverseChanges[i];
+        // v3.6: 缺失数据时使用占位符，不使用假数据
+        vars[`KPI${kpiNum}_VALUE`] = MISSING_NUMBER_PLACEHOLDER;
+        vars[`KPI${kpiNum}_LABEL`] = "";
+        vars[`KPI${kpiNum}_CHANGE`] = "";
+        this.logger.warn(
+          `[extractDashboardVariables] Missing KPI${kpiNum} for "${pageTitle}"`,
+        );
       }
     }
 
     // 趋势图表额外变量（D-003 模板）
-    const statSections = sections.filter(
-      (s) => s.type === "stat" && this.isStatContent(s.content),
-    );
     if (statSections.length > 0) {
       const firstStat = statSections[0].content as StatContent;
-      vars["CURRENT_VALUE"] = this.sanitizeValue(
-        firstStat.value,
-        diverseValues[0],
-      );
-      vars["MOM_CHANGE"] = this.sanitizeValue(firstStat.change, "+12%");
+      vars["CURRENT_VALUE"] = firstStat.value || MISSING_NUMBER_PLACEHOLDER;
+      vars["MOM_CHANGE"] = firstStat.change || "";
       vars["YOY_CHANGE"] = statSections[1]
-        ? this.sanitizeValue(
-            (statSections[1].content as StatContent).change,
-            "+25%",
-          )
-        : "+25%";
+        ? (statSections[1].content as StatContent).change || ""
+        : "";
     } else {
-      vars["CURRENT_VALUE"] = diverseValues[0];
-      vars["MOM_CHANGE"] = "+12%";
-      vars["YOY_CHANGE"] = "+25%";
+      vars["CURRENT_VALUE"] = MISSING_NUMBER_PLACEHOLDER;
+      vars["MOM_CHANGE"] = "";
+      vars["YOY_CHANGE"] = "";
+      this.logger.warn(
+        `[extractDashboardVariables] Missing trend data for "${pageTitle}"`,
+      );
     }
 
     // 洞察和周期
     const textSection = sections.find(
       (s) => s.type === "text" && typeof s.content === "string",
     );
-    vars["INSIGHT"] =
-      (textSection?.content as string)?.slice(0, 100) ||
-      "数据显示持续增长趋势，预计下季度将保持稳定发展";
-    vars["PERIOD"] = "2024年Q4";
+    vars["INSIGHT"] = (textSection?.content as string)?.slice(0, 100) || "";
+    vars["PERIOD"] = pageContent.footer || "";
 
     return vars;
   }
 
   /**
    * 提取 Timeline 模板变量
-   * v3.5.1: 使用上下文相关的时间线阶段
+   * v3.6 重构: 移除所有硬编码默认值，缺失数据使用占位符
    */
   private extractTimelineVariables(
     pageContent: PageContent,
   ): Record<string, string> {
     const sections = pageContent.sections || [];
     const vars: Record<string, string> = {};
-    const pageTitle = pageContent.title || "";
-
-    // v3.5.1: 根据主题生成上下文相关的时间线
-    const contextTimeline = this.generateContextualTimeline(pageTitle);
-    const defaultDates = contextTimeline.dates;
-    const defaultTitles = contextTimeline.titles;
-    const defaultDescs = contextTimeline.descs;
 
     for (let i = 0; i < 4; i++) {
       const section = sections[i];
       const mNum = i + 1;
 
+      let date = "";
+      let title = "";
+      let desc = "";
+
       if (section) {
         if (section.type === "stat" && this.isStatContent(section.content)) {
           const stat = section.content as StatContent;
-          vars[`M${mNum}_DATE`] = stat.value || defaultDates[i];
-          vars[`M${mNum}_TITLE`] = stat.label || defaultTitles[i];
-          vars[`M${mNum}_DESC`] = defaultDescs[i];
+          date = stat.value || "";
+          title = stat.label || "";
+          desc = stat.change || ""; // 使用 change 字段作为描述
         } else if (section.type === "list" && Array.isArray(section.content)) {
-          vars[`M${mNum}_DATE`] = defaultDates[i];
-          vars[`M${mNum}_TITLE`] = section.content[0] || defaultTitles[i];
-          vars[`M${mNum}_DESC`] = section.content[1] || defaultDescs[i];
+          date = section.content[0] || "";
+          title = section.content[1] || section.content[0] || "";
+          desc = section.content[2] || section.content[1] || "";
         } else if (
           section.type === "text" &&
           typeof section.content === "string"
         ) {
-          vars[`M${mNum}_DATE`] = defaultDates[i];
-          vars[`M${mNum}_TITLE`] =
-            section.content.slice(0, 20) || defaultTitles[i];
-          vars[`M${mNum}_DESC`] =
-            section.content.slice(0, 50) || defaultDescs[i];
+          // 尝试解析 "日期: 标题 - 描述" 格式
+          const parts = section.content.split(/[-:：]/);
+          date = parts[0]?.trim() || "";
+          title = parts[1]?.trim() || section.content.slice(0, 20);
+          desc = parts[2]?.trim() || section.content.slice(20, 70);
         }
-      } else {
-        vars[`M${mNum}_DATE`] = defaultDates[i];
-        vars[`M${mNum}_TITLE`] = defaultTitles[i];
-        vars[`M${mNum}_DESC`] = defaultDescs[i];
       }
+
+      // v3.6: 缺失数据使用占位符，不使用假数据
+      if (!date) {
+        this.logger.warn(
+          `[extractTimelineVariables] Missing M${mNum}_DATE for "${pageContent.title}"`,
+        );
+        date = `阶段${mNum}`;
+      }
+      if (!title) {
+        this.logger.warn(
+          `[extractTimelineVariables] Missing M${mNum}_TITLE for "${pageContent.title}"`,
+        );
+        title = MISSING_PLACEHOLDER;
+      }
+      if (!desc) {
+        desc = ""; // 描述可选，不警告
+      }
+
+      vars[`M${mNum}_DATE`] = date;
+      vars[`M${mNum}_TITLE`] = title;
+      vars[`M${mNum}_DESC`] = desc;
 
       // 也设置 STAGE 变量（用于 evolutionRoadmap 模板）
       vars[`STAGE${mNum}_TITLE`] = vars[`M${mNum}_TITLE`];
       vars[`STAGE${mNum}_DESC`] = vars[`M${mNum}_DESC`];
     }
 
-    // Vision 变量
-    vars["VISION_TITLE"] = pageContent.title || "愿景目标";
-    vars["VISION_DESC"] = pageContent.subtitle || "实现业务数字化转型";
+    // Vision 变量 - 从 pageContent 提取，无硬编码
+    vars["VISION_TITLE"] = pageContent.title || MISSING_PLACEHOLDER;
+    vars["VISION_DESC"] = pageContent.subtitle || "";
+
+    if (!pageContent.title) {
+      this.logger.warn(`[extractTimelineVariables] Missing VISION_TITLE`);
+    }
 
     return vars;
   }
 
   /**
    * 提取 Framework 模板变量
+   * v3.6 重构: 移除所有硬编码默认值
    */
   private extractFrameworkVariables(
     pageContent: PageContent,
@@ -879,34 +866,45 @@ ${overflowProtectionStyles}
     const sections = pageContent.sections || [];
     const vars: Record<string, string> = {};
 
-    // 章节编号
+    // 章节编号 - 尝试从内容中提取
     vars["CHAPTER_NUM"] = "1";
-
-    // 步骤变量
-    const defaultSteps = [
-      { title: "需求分析", desc: "明确业务目标和用户需求" },
-      { title: "方案设计", desc: "制定技术方案和实施计划" },
-      { title: "开发实施", desc: "按计划推进开发工作" },
-      { title: "上线运维", desc: "系统上线和持续优化" },
-    ];
 
     for (let i = 0; i < 4; i++) {
       const section = sections[i];
       const stepNum = i + 1;
 
-      if (
-        section &&
-        section.type === "text" &&
-        typeof section.content === "string"
-      ) {
-        vars[`STEP${stepNum}_TITLE`] =
-          section.content.slice(0, 15) || defaultSteps[i].title;
-        vars[`STEP${stepNum}_DESC`] =
-          section.content.slice(15, 60) || defaultSteps[i].desc;
-      } else {
-        vars[`STEP${stepNum}_TITLE`] = defaultSteps[i].title;
-        vars[`STEP${stepNum}_DESC`] = defaultSteps[i].desc;
+      let title = "";
+      let desc = "";
+
+      if (section) {
+        if (section.type === "text" && typeof section.content === "string") {
+          // 尝试解析 "标题: 描述" 或 "标题 - 描述" 格式
+          const parts = section.content.split(/[-:：]/);
+          title = parts[0]?.trim() || section.content.slice(0, 15);
+          desc = parts[1]?.trim() || section.content.slice(15, 60);
+        } else if (section.type === "list" && Array.isArray(section.content)) {
+          title = section.content[0] || "";
+          desc = section.content.slice(1).join("；") || "";
+        } else if (
+          section.type === "stat" &&
+          this.isStatContent(section.content)
+        ) {
+          const stat = section.content as StatContent;
+          title = stat.label || "";
+          desc = stat.value || "";
+        }
       }
+
+      // v3.6: 缺失数据使用占位符
+      if (!title) {
+        this.logger.warn(
+          `[extractFrameworkVariables] Missing STEP${stepNum}_TITLE for "${pageContent.title}"`,
+        );
+        title = MISSING_PLACEHOLDER;
+      }
+
+      vars[`STEP${stepNum}_TITLE`] = title;
+      vars[`STEP${stepNum}_DESC`] = desc;
 
       // 金字塔层级变量
       vars[`L${stepNum}_TITLE`] = vars[`STEP${stepNum}_TITLE`];
@@ -951,42 +949,72 @@ ${overflowProtectionStyles}
       }
     }
 
+    // v3.6: 生成有意义的章节描述，替代"章节分隔页 - XXX"模式
+    const cleanTitle =
+      pageContent.title?.replace(/CHAPTER\s*\d+\s*[:：]?\s*/gi, "").trim() ||
+      pageOutline.title?.replace(/CHAPTER\s*\d+\s*[:：]?\s*/gi, "").trim() ||
+      "章节标题";
+
+    // 清理 contentBrief 中的模板化前缀
+    let subtitle =
+      pageContent.subtitle?.replace(/CHAPTER\s*\d+\s*[:：]?\s*/gi, "").trim() ||
+      "";
+
+    if (!subtitle && pageOutline.contentBrief) {
+      // 移除 "章节分隔页 -" 等模板化前缀
+      subtitle = pageOutline.contentBrief
+        .replace(/^章节分隔页\s*[-–—:：]\s*/gi, "")
+        .trim();
+    }
+
+    // v3.6 重构: 如果副标题为空或与标题相同，保持为空
+    // 章节分隔页的副标题应由 Writer AI 提供，不再生成虚假描述
+    if (subtitle === cleanTitle) {
+      subtitle = ""; // 与标题相同时清空
+    }
+
+    if (!subtitle) {
+      this.logger.debug(
+        `[extractChapterDividerVariables] No subtitle for chapter "${cleanTitle}"`,
+      );
+    }
+
     return {
       CHAPTER_NUM: chapterNum,
-      // 确保标题不重复包含 CHAPTER 信息
-      TITLE:
-        pageContent.title?.replace(/CHAPTER\s*\d+\s*[:：]?\s*/gi, "").trim() ||
-        pageOutline.title?.replace(/CHAPTER\s*\d+\s*[:：]?\s*/gi, "").trim() ||
-        "章节标题",
-      SUBTITLE:
-        pageContent.subtitle
-          ?.replace(/CHAPTER\s*\d+\s*[:：]?\s*/gi, "")
-          .trim() ||
-        pageOutline.contentBrief ||
-        "",
+      TITLE: cleanTitle,
+      SUBTITLE: subtitle,
     };
   }
 
   /**
    * 提取 Cover 模板变量（也用于感谢聆听页面）
+   * v3.6 重构: 移除硬编码默认值，使用 MISSING_PLACEHOLDER
    */
   private extractCoverVariables(
     pageContent: PageContent,
   ): Record<string, string> {
+    // v3.6: 所有内容应从 pageContent 提取，缺失时使用占位符
+    const title = pageContent.title || MISSING_PLACEHOLDER;
+    const subtitle = pageContent.subtitle || "";
+
+    if (!pageContent.title) {
+      this.logger.warn(`[extractCoverVariables] Missing title for cover slide`);
+    }
+
     return {
-      MAIN_TITLE: pageContent.title || "演示文稿标题",
-      SUB_TITLE: pageContent.subtitle || "",
-      AUTHOR: "DeepDive Research",
-      DATE: new Date().toLocaleDateString("zh-CN"),
+      MAIN_TITLE: title,
+      SUB_TITLE: subtitle,
+      AUTHOR: MISSING_PLACEHOLDER, // 应由 Writer 提供
+      DATE: new Date().toLocaleDateString("zh-CN"), // 日期可以自动生成
       // 感谢聆听页面额外变量 (N-005 closing 模板)
-      PRESENTER: "演讲者",
-      EMAIL: "contact@deepdive.com",
-      COMPANY: "DeepDive Research",
+      PRESENTER: MISSING_PLACEHOLDER,
+      EMAIL: MISSING_PLACEHOLDER,
+      COMPANY: MISSING_PLACEHOLDER,
       // N-005 模板专用变量
-      MESSAGE: pageContent.subtitle || "期待与您进一步交流",
-      CONTACT_NAME: "DeepDive Research",
-      CONTACT_EMAIL: "contact@deepdive.com",
-      CONTACT_PHONE: "+86 400-xxx-xxxx",
+      MESSAGE: subtitle || MISSING_PLACEHOLDER,
+      CONTACT_NAME: MISSING_PLACEHOLDER,
+      CONTACT_EMAIL: MISSING_PLACEHOLDER,
+      CONTACT_PHONE: MISSING_PLACEHOLDER,
     };
   }
 
@@ -1058,6 +1086,7 @@ ${overflowProtectionStyles}
 
   /**
    * 提取 A-001 Recommendations 3Col 模板变量
+   * v3.6 重构: 移除所有硬编码默认值
    * 需要: URGENT1/2_TITLE/DESC, SHORT1/2/3_TITLE/DESC, LONG1/2/3_TITLE/DESC, OWNER
    */
   private extractRecommendations3ColVariables(
@@ -1066,81 +1095,62 @@ ${overflowProtectionStyles}
     const sections = pageContent.sections || [];
     const vars: Record<string, string> = {};
 
-    // 默认建议内容
-    const defaultRecommendations = {
-      urgent: [
-        { title: "立即启动试点项目", desc: "选择1-2个关键业务场景进行验证" },
-        { title: "组建专项团队", desc: "明确职责分工，确保资源到位" },
-      ],
-      short: [
-        { title: "完善基础设施", desc: "搭建必要的技术平台和数据管道" },
-        { title: "培训核心人员", desc: "提升团队专业能力" },
-        { title: "建立评估体系", desc: "制定量化指标和评估标准" },
-      ],
-      long: [
-        { title: "规模化推广", desc: "将成功经验复制到更多场景" },
-        { title: "持续优化迭代", desc: "根据反馈不断改进方案" },
-        { title: "构建生态体系", desc: "整合内外部资源形成合力" },
-      ],
-    };
-
     // 从 sections 提取内容
     const listSections = sections.filter(
       (s) => s.type === "list" && Array.isArray(s.content),
     );
 
+    // 辅助函数: 提取建议变量
+    const extractRecommendation = (
+      prefix: string,
+      index: number,
+      sectionIndex: number,
+    ) => {
+      const num = index + 1;
+      const section = listSections[sectionIndex];
+      let title = "";
+      let desc = "";
+
+      if (section && Array.isArray(section.content)) {
+        title = section.content[0] || "";
+        desc = section.content[1] || section.content.slice(1).join("；") || "";
+      }
+
+      if (!title) {
+        this.logger.warn(
+          `[extractRecommendations3ColVariables] Missing ${prefix}${num}_TITLE for "${pageContent.title}"`,
+        );
+        title = MISSING_PLACEHOLDER;
+      }
+
+      vars[`${prefix}${num}_TITLE`] = title;
+      vars[`${prefix}${num}_DESC`] = desc;
+    };
+
     // 紧急建议 (2个)
     for (let i = 0; i < 2; i++) {
-      const idx = i;
-      const section = listSections[idx];
-      if (section && Array.isArray(section.content)) {
-        vars[`URGENT${i + 1}_TITLE`] =
-          section.content[0] || defaultRecommendations.urgent[i].title;
-        vars[`URGENT${i + 1}_DESC`] =
-          section.content[1] || defaultRecommendations.urgent[i].desc;
-      } else {
-        vars[`URGENT${i + 1}_TITLE`] = defaultRecommendations.urgent[i].title;
-        vars[`URGENT${i + 1}_DESC`] = defaultRecommendations.urgent[i].desc;
-      }
+      extractRecommendation("URGENT", i, i);
     }
 
     // 短期建议 (3个)
     for (let i = 0; i < 3; i++) {
-      const idx = 2 + i;
-      const section = listSections[idx];
-      if (section && Array.isArray(section.content)) {
-        vars[`SHORT${i + 1}_TITLE`] =
-          section.content[0] || defaultRecommendations.short[i].title;
-        vars[`SHORT${i + 1}_DESC`] =
-          section.content[1] || defaultRecommendations.short[i].desc;
-      } else {
-        vars[`SHORT${i + 1}_TITLE`] = defaultRecommendations.short[i].title;
-        vars[`SHORT${i + 1}_DESC`] = defaultRecommendations.short[i].desc;
-      }
+      extractRecommendation("SHORT", i, 2 + i);
     }
 
     // 长期建议 (3个)
     for (let i = 0; i < 3; i++) {
-      const idx = 5 + i;
-      const section = listSections[idx];
-      if (section && Array.isArray(section.content)) {
-        vars[`LONG${i + 1}_TITLE`] =
-          section.content[0] || defaultRecommendations.long[i].title;
-        vars[`LONG${i + 1}_DESC`] =
-          section.content[1] || defaultRecommendations.long[i].desc;
-      } else {
-        vars[`LONG${i + 1}_TITLE`] = defaultRecommendations.long[i].title;
-        vars[`LONG${i + 1}_DESC`] = defaultRecommendations.long[i].desc;
-      }
+      extractRecommendation("LONG", i, 5 + i);
     }
 
-    vars["OWNER"] = "项目负责人";
+    // OWNER 从 pageContent 提取，无默认值
+    vars["OWNER"] = pageContent.subtitle || "";
 
     return vars;
   }
 
   /**
    * 提取 A-002 Risk-Opportunity 模板变量
+   * v3.6 重构: 移除所有硬编码默认值
    * 需要: RISK1/2/3_TITLE/DESC, OPP1/2/3_TITLE/DESC
    */
   private extractRiskOpportunityVariables(
@@ -1149,47 +1159,45 @@ ${overflowProtectionStyles}
     const sections = pageContent.sections || [];
     const vars: Record<string, string> = {};
 
-    const defaultRisks = [
-      { title: "市场竞争加剧", desc: "竞争对手加大投入，市场份额面临压力" },
-      { title: "技术迭代风险", desc: "技术更新换代快，需持续投入研发" },
-      { title: "人才流失风险", desc: "核心人才竞争激烈，需加强团队建设" },
-    ];
-
-    const defaultOpps = [
-      { title: "市场扩张机会", desc: "新兴市场需求旺盛，增长潜力大" },
-      { title: "技术突破机遇", desc: "新技术应用带来效率提升空间" },
-      { title: "合作共赢机会", desc: "产业链整合带来协同效应" },
-    ];
-
     const listSections = sections.filter(
       (s) => s.type === "list" && Array.isArray(s.content),
     );
 
+    // 辅助函数: 提取风险/机遇变量
+    const extractItem = (
+      prefix: string,
+      index: number,
+      sectionIndex: number,
+    ) => {
+      const num = index + 1;
+      const section = listSections[sectionIndex];
+      let title = "";
+      let desc = "";
+
+      if (section && Array.isArray(section.content)) {
+        title = section.content[0] || "";
+        desc = section.content.slice(1).join("；") || "";
+      }
+
+      if (!title) {
+        this.logger.warn(
+          `[extractRiskOpportunityVariables] Missing ${prefix}${num}_TITLE for "${pageContent.title}"`,
+        );
+        title = MISSING_PLACEHOLDER;
+      }
+
+      vars[`${prefix}${num}_TITLE`] = title;
+      vars[`${prefix}${num}_DESC`] = desc;
+    };
+
     // 风险 (3个)
     for (let i = 0; i < 3; i++) {
-      const section = listSections[i];
-      if (section && Array.isArray(section.content)) {
-        vars[`RISK${i + 1}_TITLE`] =
-          section.content[0] || defaultRisks[i].title;
-        vars[`RISK${i + 1}_DESC`] =
-          section.content.slice(1).join("；") || defaultRisks[i].desc;
-      } else {
-        vars[`RISK${i + 1}_TITLE`] = defaultRisks[i].title;
-        vars[`RISK${i + 1}_DESC`] = defaultRisks[i].desc;
-      }
+      extractItem("RISK", i, i);
     }
 
     // 机遇 (3个)
     for (let i = 0; i < 3; i++) {
-      const section = listSections[3 + i];
-      if (section && Array.isArray(section.content)) {
-        vars[`OPP${i + 1}_TITLE`] = section.content[0] || defaultOpps[i].title;
-        vars[`OPP${i + 1}_DESC`] =
-          section.content.slice(1).join("；") || defaultOpps[i].desc;
-      } else {
-        vars[`OPP${i + 1}_TITLE`] = defaultOpps[i].title;
-        vars[`OPP${i + 1}_DESC`] = defaultOpps[i].desc;
-      }
+      extractItem("OPP", i, 3 + i);
     }
 
     return vars;
@@ -1197,6 +1205,7 @@ ${overflowProtectionStyles}
 
   /**
    * 提取 A-003 Key Conclusions 模板变量
+   * v3.6 重构: 移除所有硬编码默认值
    * 需要: CONCLUSION1/2/3/4_TITLE/DESC
    */
   private extractKeyConclusionsVariables(
@@ -1204,19 +1213,6 @@ ${overflowProtectionStyles}
   ): Record<string, string> {
     const sections = pageContent.sections || [];
     const vars: Record<string, string> = {};
-
-    const defaultConclusions = [
-      {
-        title: "市场机会显著",
-        desc: "目标市场规模持续增长，渗透率有较大提升空间",
-      },
-      { title: "技术优势明显", desc: "核心技术能力领先，具备差异化竞争优势" },
-      { title: "团队执行力强", desc: "专业团队配置完整，项目交付能力获得验证" },
-      {
-        title: "投资回报可期",
-        desc: "财务模型健康，预期投资回报率超过行业平均",
-      },
-    ];
 
     const listSections = sections.filter(
       (s) => s.type === "list" && Array.isArray(s.content),
@@ -1226,26 +1222,31 @@ ${overflowProtectionStyles}
     );
 
     for (let i = 0; i < 4; i++) {
+      const num = i + 1;
       const listSection = listSections[i];
       const textSection = textSections[i];
 
+      let title = "";
+      let desc = "";
+
       if (listSection && Array.isArray(listSection.content)) {
-        vars[`CONCLUSION${i + 1}_TITLE`] =
-          listSection.content[0] || defaultConclusions[i].title;
-        vars[`CONCLUSION${i + 1}_DESC`] =
-          listSection.content.slice(1).join("；") || defaultConclusions[i].desc;
+        title = listSection.content[0] || "";
+        desc = listSection.content.slice(1).join("；") || "";
       } else if (textSection && typeof textSection.content === "string") {
         const parts = textSection.content.split(/[：:]/);
-        vars[`CONCLUSION${i + 1}_TITLE`] =
-          parts[0]?.slice(0, 20) || defaultConclusions[i].title;
-        vars[`CONCLUSION${i + 1}_DESC`] =
-          parts[1] ||
-          textSection.content.slice(0, 80) ||
-          defaultConclusions[i].desc;
-      } else {
-        vars[`CONCLUSION${i + 1}_TITLE`] = defaultConclusions[i].title;
-        vars[`CONCLUSION${i + 1}_DESC`] = defaultConclusions[i].desc;
+        title = parts[0]?.slice(0, 20) || "";
+        desc = parts[1] || textSection.content.slice(0, 80) || "";
       }
+
+      if (!title) {
+        this.logger.warn(
+          `[extractKeyConclusionsVariables] Missing CONCLUSION${num}_TITLE for "${pageContent.title}"`,
+        );
+        title = MISSING_PLACEHOLDER;
+      }
+
+      vars[`CONCLUSION${num}_TITLE`] = title;
+      vars[`CONCLUSION${num}_DESC`] = desc;
     }
 
     return vars;
@@ -1253,6 +1254,7 @@ ${overflowProtectionStyles}
 
   /**
    * 提取 A-004 Next Steps 模板变量
+   * v3.6 重构: 移除所有硬编码默认值
    * 需要: STEP1/2/3_TITLE/DESC/OWNER/DUE, MILESTONE1/2/3_DATE/TITLE
    */
   private extractNextStepsVariables(
@@ -1261,64 +1263,63 @@ ${overflowProtectionStyles}
     const sections = pageContent.sections || [];
     const vars: Record<string, string> = {};
 
-    const defaultSteps = [
-      {
-        title: "启动项目准备",
-        desc: "完成团队组建和资源调配",
-        owner: "项目经理",
-        due: "本周五",
-      },
-      {
-        title: "完成方案设计",
-        desc: "输出详细实施方案和技术文档",
-        owner: "技术负责人",
-        due: "两周内",
-      },
-      {
-        title: "开始试点实施",
-        desc: "在选定场景开展试点验证",
-        owner: "实施团队",
-        due: "一个月内",
-      },
-    ];
-
-    const defaultMilestones = [
-      { date: "第1周", title: "项目启动会" },
-      { date: "第4周", title: "方案评审通过" },
-      { date: "第8周", title: "试点验收完成" },
-    ];
-
     const listSections = sections.filter(
       (s) => s.type === "list" && Array.isArray(s.content),
     );
 
     // 步骤 (3个)
     for (let i = 0; i < 3; i++) {
+      const num = i + 1;
       const section = listSections[i];
+      let title = "";
+      let desc = "";
+      let owner = "";
+      let due = "";
+
       if (section && Array.isArray(section.content)) {
-        vars[`STEP${i + 1}_TITLE`] =
-          section.content[0] || defaultSteps[i].title;
-        vars[`STEP${i + 1}_DESC`] = section.content[1] || defaultSteps[i].desc;
-      } else {
-        vars[`STEP${i + 1}_TITLE`] = defaultSteps[i].title;
-        vars[`STEP${i + 1}_DESC`] = defaultSteps[i].desc;
+        title = section.content[0] || "";
+        desc = section.content[1] || "";
+        owner = section.content[2] || "";
+        due = section.content[3] || "";
       }
-      vars[`STEP${i + 1}_OWNER`] = defaultSteps[i].owner;
-      vars[`STEP${i + 1}_DUE`] = defaultSteps[i].due;
+
+      if (!title) {
+        this.logger.warn(
+          `[extractNextStepsVariables] Missing STEP${num}_TITLE for "${pageContent.title}"`,
+        );
+        title = MISSING_PLACEHOLDER;
+      }
+
+      vars[`STEP${num}_TITLE`] = title;
+      vars[`STEP${num}_DESC`] = desc;
+      vars[`STEP${num}_OWNER`] = owner;
+      vars[`STEP${num}_DUE`] = due;
     }
 
     // 里程碑 (3个)
     for (let i = 0; i < 3; i++) {
+      const num = i + 1;
       const section = listSections[3 + i];
+      let date = "";
+      let title = "";
+
       if (section && Array.isArray(section.content)) {
-        vars[`MILESTONE${i + 1}_DATE`] =
-          section.content[0] || defaultMilestones[i].date;
-        vars[`MILESTONE${i + 1}_TITLE`] =
-          section.content[1] || defaultMilestones[i].title;
-      } else {
-        vars[`MILESTONE${i + 1}_DATE`] = defaultMilestones[i].date;
-        vars[`MILESTONE${i + 1}_TITLE`] = defaultMilestones[i].title;
+        date = section.content[0] || "";
+        title = section.content[1] || "";
       }
+
+      if (!date) {
+        this.logger.warn(
+          `[extractNextStepsVariables] Missing MILESTONE${num}_DATE for "${pageContent.title}"`,
+        );
+        date = `M${num}`;
+      }
+      if (!title) {
+        title = MISSING_PLACEHOLDER;
+      }
+
+      vars[`MILESTONE${num}_DATE`] = date;
+      vars[`MILESTONE${num}_TITLE`] = title;
     }
 
     return vars;
@@ -1326,6 +1327,7 @@ ${overflowProtectionStyles}
 
   /**
    * 提取 Recommendations 模板变量 (旧版兼容)
+   * v3.6 重构: 移除硬编码默认值
    */
   private extractRecommendationsVariables(
     pageContent: PageContent,
@@ -1341,7 +1343,13 @@ ${overflowProtectionStyles}
     const items =
       listSection && Array.isArray(listSection.content)
         ? listSection.content
-        : ["建议一", "建议二", "建议三"];
+        : [MISSING_PLACEHOLDER];
+
+    if (!listSection) {
+      this.logger.warn(
+        `[extractRecommendationsVariables] Missing recommendations list for "${pageContent.title}"`,
+      );
+    }
 
     items.slice(0, 5).forEach((item, index) => {
       itemsHtml += `
@@ -1452,112 +1460,40 @@ ${overflowProtectionStyles}
   }
 
   /**
-   * 辅助：清理 N/A 值，返回默认值
-   * 当值为 N/A、空、null 等时返回默认值
-   */
-  private sanitizeValue(
-    value: string | undefined,
-    defaultValue: string,
-  ): string {
-    if (!value) return defaultValue;
-    const trimmed = value.trim();
-    // 检查常见的无效值模式
-    if (
-      trimmed === "" ||
-      trimmed.toLowerCase() === "n/a" ||
-      trimmed === "N/A" ||
-      trimmed === "-" ||
-      trimmed === "--" ||
-      trimmed === "null" ||
-      trimmed === "undefined" ||
-      trimmed === "暂无" ||
-      trimmed === "无" ||
-      trimmed === "待定"
-    ) {
-      return defaultValue;
-    }
-    return trimmed;
-  }
-
-  /**
    * 辅助：从 sections 获取描述文本
-   * v3.5: 改进默认值生成，避免通用占位符
+   * v3.6 重构: 移除所有硬编码默认值，缺失时返回 MISSING_PLACEHOLDER
    */
   private getDescriptionFromSections(
     sections: ContentSection[],
     index: number,
-    pageTitle?: string,
   ): string {
     const section = sections[index];
 
-    // 如果没有section，尝试使用页面标题生成有意义的描述
+    // v3.6: 没有 section 时返回占位符
     if (!section) {
-      return pageTitle
-        ? `${pageTitle}的核心组成部分与关键价值`
-        : "驱动业务发展的关键要素";
+      return MISSING_PLACEHOLDER;
     }
 
     if (section.type === "text" && typeof section.content === "string") {
-      return section.content.slice(0, 100);
+      return section.content.slice(0, 100) || MISSING_PLACEHOLDER;
     }
     if (section.type === "list" && Array.isArray(section.content)) {
-      return section.content.slice(0, 2).join("；");
+      const joined = section.content.slice(0, 2).join("；");
+      return joined || MISSING_PLACEHOLDER;
     }
 
-    // v3.5: 对于 stat 类型，尝试从 label 生成描述
+    // 对于 stat 类型，使用 label
     if (section.type === "stat" && this.isStatContent(section.content)) {
       const statContent = section.content as StatContent;
-      if (statContent.label) {
-        return `${statContent.label}相关的核心能力与战略价值`;
-      }
+      return statContent.label || MISSING_PLACEHOLDER;
     }
 
-    // 使用页面标题生成有意义的描述
-    return pageTitle
-      ? `${pageTitle}的关键能力与竞争优势`
-      : "持续创造价值的核心能力";
-  }
-
-  /**
-   * 辅助：确保数据值唯一（防止 75% 重复）
-   */
-  private ensureUniqueValue(
-    value: string,
-    usedValues?: Set<string>,
-    alternatives?: string[],
-  ): string {
-    if (!usedValues) return value;
-
-    if (!usedValues.has(value)) {
-      usedValues.add(value);
-      return value;
-    }
-
-    // 已被使用，找替代值
-    if (alternatives) {
-      for (const alt of alternatives) {
-        if (!usedValues.has(alt)) {
-          usedValues.add(alt);
-          return alt;
-        }
-      }
-    }
-
-    // 生成随机变体
-    const numMatch = value.match(/(\d+)/);
-    if (numMatch) {
-      const num = parseInt(numMatch[1]);
-      const newNum = num + Math.floor(Math.random() * 20) - 10;
-      const newValue = value.replace(/\d+/, String(Math.max(1, newNum)));
-      usedValues.add(newValue);
-      return newValue;
-    }
-
-    return value;
+    return MISSING_PLACEHOLDER;
   }
 
   /**
    * 提取 MultiColumn 模板变量
+   * v3.6 重构: 移除所有硬编码默认值
    * 同时生成 POINT{N} 和 CARD{N} 两套变量名，兼容多种模板
    */
   private extractMultiColumnVariables(
@@ -1566,63 +1502,48 @@ ${overflowProtectionStyles}
     const sections = pageContent.sections || [];
     const vars: Record<string, string> = {};
 
-    // 扩展到6个，支持各种多列布局
-    const defaultTitles = [
-      "核心优势",
-      "技术能力",
-      "服务保障",
-      "创新驱动",
-      "全球布局",
-      "生态合作",
-    ];
-    const defaultDescs = [
-      "提供行业领先的解决方案",
-      "拥有先进的技术储备",
-      "7x24小时专业支持",
-      "持续创新迭代升级",
-      "覆盖全球主要市场",
-      "构建完善合作生态",
-    ];
+    // 图标保留默认（视觉元素，可接受）
     const defaultIcons = ["🎯", "⚡", "🛡️", "💡", "🌐", "🤝"];
-    const defaultStats = ["95%", "120+", "24/7", "3.5x", "50+", "200+"];
-    const defaultLabels = [
-      "满意度",
-      "项目数",
-      "服务",
-      "增长",
-      "市场",
-      "合作伙伴",
-    ];
 
     // 支持最多6个要点（2列、3列、4列、6列布局）
     for (let i = 0; i < 6; i++) {
       const section = sections[i];
       const num = i + 1;
 
-      let title = defaultTitles[i] || `要点 ${num}`;
-      let desc = defaultDescs[i] || `详细描述 ${num}`;
-      let stat = defaultStats[i] || `${85 + i * 5}%`;
+      let title = "";
+      let desc = "";
+      let stat = "";
+      let label = "";
 
       if (section) {
         if (section.type === "list" && Array.isArray(section.content)) {
-          title = section.content[0] || title;
-          desc = section.content.slice(1).join("；") || desc;
+          title = section.content[0] || "";
+          desc = section.content.slice(1).join("；") || "";
         } else if (
           section.type === "text" &&
           typeof section.content === "string"
         ) {
           const parts = section.content.split(/[：:]/);
-          title = parts[0]?.slice(0, 20) || title;
-          desc = parts[1] || section.content.slice(0, 80) || desc;
+          title = parts[0]?.slice(0, 20) || "";
+          desc = parts[1] || section.content.slice(0, 80) || "";
         } else if (
           section.type === "stat" &&
           this.isStatContent(section.content)
         ) {
           const statContent = section.content as StatContent;
-          title = statContent.label || title;
-          desc = statContent.value || desc;
-          stat = statContent.value || stat;
+          title = statContent.label || "";
+          desc = statContent.change || "";
+          stat = statContent.value || "";
+          label = statContent.label || "";
         }
+      }
+
+      // v3.6: 缺失数据使用占位符
+      if (!title && i < 3) {
+        this.logger.warn(
+          `[extractMultiColumnVariables] Missing POINT${num}_TITLE for "${pageContent.title}"`,
+        );
+        title = MISSING_PLACEHOLDER;
       }
 
       // POINT{N} 格式 (用于 C-001, C-002, C-003)
@@ -1633,8 +1554,8 @@ ${overflowProtectionStyles}
       vars[`CARD${num}_TITLE`] = title;
       vars[`CARD${num}_DESC`] = desc;
       vars[`CARD${num}_ICON`] = defaultIcons[i] || "📌";
-      vars[`CARD${num}_STAT`] = stat;
-      vars[`CARD${num}_LABEL`] = defaultLabels[i] || "指标";
+      vars[`CARD${num}_STAT`] = stat || MISSING_NUMBER_PLACEHOLDER;
+      vars[`CARD${num}_LABEL`] = label;
     }
 
     // 图片占位符
@@ -1645,6 +1566,7 @@ ${overflowProtectionStyles}
 
   /**
    * 提取 Questions 模板变量
+   * v3.6 重构: 移除硬编码默认值
    */
   private extractQuestionsVariables(
     pageContent: PageContent,
@@ -1652,22 +1574,22 @@ ${overflowProtectionStyles}
     const sections = pageContent.sections || [];
     const vars: Record<string, string> = {};
 
-    const defaultQuestions = [
-      "如何实现业务目标？",
-      "关键成功因素是什么？",
-      "如何衡量进展？",
-      "下一步行动计划？",
-    ];
-
     // 从 sections 中提取问题列表
     let questionsHtml = "";
     const listSection = sections.find(
       (s) => s.type === "list" && Array.isArray(s.content),
     );
+
+    if (!listSection || !Array.isArray(listSection.content)) {
+      this.logger.warn(
+        `[extractQuestionsVariables] Missing questions list for "${pageContent.title}"`,
+      );
+    }
+
     const questions =
       listSection && Array.isArray(listSection.content)
         ? listSection.content
-        : defaultQuestions;
+        : [MISSING_PLACEHOLDER];
 
     questions.slice(0, 6).forEach((q, index) => {
       questionsHtml += `
@@ -1687,6 +1609,7 @@ ${overflowProtectionStyles}
 
   /**
    * 提取 MaturityModel 模板变量
+   * v3.6 重构: 移除硬编码默认值
    */
   private extractMaturityModelVariables(
     pageContent: PageContent,
@@ -1694,34 +1617,41 @@ ${overflowProtectionStyles}
     const sections = pageContent.sections || [];
     const vars: Record<string, string> = {};
 
-    const defaultLevels = [
-      { title: "初始级", desc: "流程不规范，结果不可预测" },
-      { title: "管理级", desc: "基本流程建立，可重复执行" },
-      { title: "定义级", desc: "标准流程定义，组织级实施" },
-      { title: "量化级", desc: "数据驱动，量化管理" },
-      { title: "优化级", desc: "持续改进，创新驱动" },
-    ];
-
     // 生成5个成熟度等级的变量
     for (let i = 0; i < 5; i++) {
       const section = sections[i];
       const levelNum = i + 1;
 
-      let title = defaultLevels[i]?.title || `等级 ${levelNum}`;
-      let desc = defaultLevels[i]?.desc || `成熟度等级 ${levelNum} 描述`;
+      let title = "";
+      let desc = "";
 
       if (section) {
         if (section.type === "list" && Array.isArray(section.content)) {
-          title = section.content[0] || title;
-          desc = section.content.slice(1).join("；") || desc;
+          title = section.content[0] || "";
+          desc = section.content.slice(1).join("；") || "";
         } else if (
           section.type === "text" &&
           typeof section.content === "string"
         ) {
           const parts = section.content.split(/[：:]/);
-          title = parts[0]?.slice(0, 15) || title;
-          desc = parts[1] || section.content.slice(0, 60) || desc;
+          title = parts[0]?.slice(0, 15) || "";
+          desc = parts[1] || section.content.slice(0, 60) || "";
+        } else if (
+          section.type === "stat" &&
+          this.isStatContent(section.content)
+        ) {
+          const stat = section.content as StatContent;
+          title = stat.label || "";
+          desc = stat.value || "";
         }
+      }
+
+      // v3.6: 缺失数据使用占位符
+      if (!title) {
+        this.logger.warn(
+          `[extractMaturityModelVariables] Missing LEVEL${levelNum}_TITLE for "${pageContent.title}"`,
+        );
+        title = `L${levelNum}`;
       }
 
       vars[`LEVEL${levelNum}_TITLE`] = title;
@@ -1730,15 +1660,25 @@ ${overflowProtectionStyles}
       vars[`L${levelNum}_DESC`] = desc;
     }
 
-    // 当前等级（默认为3）
-    vars["CURRENT_LEVEL"] = "3";
-    vars["TARGET_LEVEL"] = "5";
+    // 当前等级和目标等级从 sections 提取
+    const statSections = sections.filter(
+      (s) => s.type === "stat" && this.isStatContent(s.content),
+    );
+    vars["CURRENT_LEVEL"] =
+      statSections[0] && this.isStatContent(statSections[0].content)
+        ? (statSections[0].content as StatContent).value || "?"
+        : "?";
+    vars["TARGET_LEVEL"] =
+      statSections[1] && this.isStatContent(statSections[1].content)
+        ? (statSections[1].content as StatContent).value || "?"
+        : "?";
 
     return vars;
   }
 
   /**
    * 提取 CaseStudy 模板变量
+   * v3.6 重构: 移除硬编码默认值
    */
   private extractCaseStudyVariables(
     pageContent: PageContent,
@@ -1746,9 +1686,10 @@ ${overflowProtectionStyles}
     const sections = pageContent.sections || [];
     const vars: Record<string, string> = {};
 
-    // 基础信息
-    vars["INDUSTRY"] = "科技行业";
-    vars["CLIENT_NAME"] = pageContent.title?.split(/[：:]/)[0] || "客户案例";
+    // 基础信息 - 从 pageContent 提取
+    vars["INDUSTRY"] = pageContent.subtitle || "";
+    vars["CLIENT_NAME"] =
+      pageContent.title?.split(/[：:]/)[0] || MISSING_PLACEHOLDER;
 
     // 从 sections 提取挑战、解决方案、成果
     const textSections = sections.filter(
@@ -1758,54 +1699,53 @@ ${overflowProtectionStyles}
       (s) => s.type === "list" && Array.isArray(s.content),
     );
 
-    vars["CHALLENGE"] =
-      textSections[0]?.content?.toString().slice(0, 150) ||
-      "面临数字化转型的关键挑战，需要提升运营效率";
-    vars["SOLUTION"] =
-      textSections[1]?.content?.toString().slice(0, 150) ||
-      "采用创新解决方案，实现全流程数字化升级";
-    vars["RESULT"] =
-      textSections[2]?.content?.toString().slice(0, 150) ||
-      "显著提升业务效率，实现降本增效目标";
+    const challenge = textSections[0]?.content?.toString().slice(0, 150) || "";
+    const solution = textSections[1]?.content?.toString().slice(0, 150) || "";
+    const result = textSections[2]?.content?.toString().slice(0, 150) || "";
+
+    if (!challenge) {
+      this.logger.warn(
+        `[extractCaseStudyVariables] Missing CHALLENGE for "${pageContent.title}"`,
+      );
+    }
+
+    vars["CHALLENGE"] = challenge || MISSING_PLACEHOLDER;
+    vars["SOLUTION"] = solution || MISSING_PLACEHOLDER;
+    vars["RESULT"] = result || MISSING_PLACEHOLDER;
 
     // 统计数据
     const statSections = sections.filter(
       (s) => s.type === "stat" && this.isStatContent(s.content),
     );
-    const defaultStats = [
-      { value: "85%", label: "效率提升" },
-      { value: "50%", label: "成本降低" },
-      { value: "3x", label: "产出增长" },
-    ];
 
     for (let i = 0; i < 3; i++) {
       const stat = statSections[i];
       if (stat && this.isStatContent(stat.content)) {
         const s = stat.content as StatContent;
-        vars[`STAT${i + 1}_VALUE`] = s.value || defaultStats[i].value;
-        vars[`STAT${i + 1}_LABEL`] = s.label || defaultStats[i].label;
+        vars[`STAT${i + 1}_VALUE`] = s.value || MISSING_NUMBER_PLACEHOLDER;
+        vars[`STAT${i + 1}_LABEL`] = s.label || "";
       } else {
-        vars[`STAT${i + 1}_VALUE`] = defaultStats[i].value;
-        vars[`STAT${i + 1}_LABEL`] = defaultStats[i].label;
+        vars[`STAT${i + 1}_VALUE`] = MISSING_NUMBER_PLACEHOLDER;
+        vars[`STAT${i + 1}_LABEL`] = "";
       }
     }
 
     // 客户评价
     const firstListContent = listSections[0]?.content;
     const testimonial =
-      (Array.isArray(firstListContent) ? firstListContent[0] : null) ||
-      "这是一次非常成功的合作，帮助我们实现了业务目标";
+      (Array.isArray(firstListContent) ? firstListContent[0] : null) || "";
 
     vars["TESTIMONIAL"] = testimonial;
     // C-007 模板使用 QUOTE 和 AUTHOR
     vars["QUOTE"] = testimonial;
-    vars["AUTHOR"] = pageContent.subtitle || "客户代表";
+    vars["AUTHOR"] = pageContent.subtitle || "";
 
     return vars;
   }
 
   /**
    * 提取 D-001 Big Number 模板变量
+   * v3.6 重构: 移除硬编码默认值
    */
   private extractBigNumberVariables(
     pageContent: PageContent,
@@ -1820,14 +1760,16 @@ ${overflowProtectionStyles}
 
     if (statSection && this.isStatContent(statSection.content)) {
       const stat = statSection.content as StatContent;
-      vars["NUMBER"] = stat.value || "$2.5M";
-      vars["LABEL"] = stat.label || "年度营收";
-      vars["CHANGE"] = stat.change || "+15%";
+      vars["NUMBER"] = stat.value || MISSING_NUMBER_PLACEHOLDER;
+      vars["LABEL"] = stat.label || "";
+      vars["CHANGE"] = stat.change || "";
     } else {
-      // 默认值
-      vars["NUMBER"] = "$2.5M";
-      vars["LABEL"] = "年度营收";
-      vars["CHANGE"] = "+15%";
+      this.logger.warn(
+        `[extractBigNumberVariables] Missing stat section for "${pageContent.title}"`,
+      );
+      vars["NUMBER"] = MISSING_NUMBER_PLACEHOLDER;
+      vars["LABEL"] = "";
+      vars["CHANGE"] = "";
     }
 
     return vars;
@@ -1835,6 +1777,7 @@ ${overflowProtectionStyles}
 
   /**
    * 提取 D-003 Trend Chart 模板变量
+   * v3.6 重构: 移除硬编码默认值
    */
   private extractTrendChartVariables(
     pageContent: PageContent,
@@ -1849,59 +1792,43 @@ ${overflowProtectionStyles}
 
     if (statSections.length > 0) {
       const firstStat = statSections[0].content as StatContent;
-      vars["CURRENT_VALUE"] = this.sanitizeValue(firstStat.value, "$2.5M");
-      vars["MOM_CHANGE"] = this.sanitizeValue(firstStat.change, "+12%");
+      vars["CURRENT_VALUE"] = firstStat.value || MISSING_NUMBER_PLACEHOLDER;
+      vars["MOM_CHANGE"] = firstStat.change || "";
       vars["YOY_CHANGE"] = statSections[1]
-        ? this.sanitizeValue(
-            (statSections[1].content as StatContent).change,
-            "+25%",
-          )
-        : "+25%";
+        ? (statSections[1].content as StatContent).change || ""
+        : "";
     } else {
-      vars["CURRENT_VALUE"] = "$2.5M";
-      vars["MOM_CHANGE"] = "+12%";
-      vars["YOY_CHANGE"] = "+25%";
+      this.logger.warn(
+        `[extractTrendChartVariables] Missing stat sections for "${pageContent.title}"`,
+      );
+      vars["CURRENT_VALUE"] = MISSING_NUMBER_PLACEHOLDER;
+      vars["MOM_CHANGE"] = "";
+      vars["YOY_CHANGE"] = "";
     }
 
     // 洞察和周期
     const textSection = sections.find(
       (s) => s.type === "text" && typeof s.content === "string",
     );
-    vars["INSIGHT"] = this.sanitizeValue(
-      (textSection?.content as string)?.slice(0, 100),
-      "数据显示持续增长趋势，预计下季度将保持稳定发展",
-    );
-    vars["PERIOD"] = "2024年Q4";
+    vars["INSIGHT"] = (textSection?.content as string)?.slice(0, 100) || "";
+    vars["PERIOD"] = pageContent.subtitle || "";
 
-    // 图表数据 (默认值)
-    vars["X_DATA"] = '["1月", "2月", "3月", "4月", "5月", "6月"]';
-    vars["Y_DATA"] = "[120, 150, 180, 220, 280, 350]";
+    // 图表数据 - 从 sections 提取或留空
+    vars["X_DATA"] = "[]";
+    vars["Y_DATA"] = "[]";
 
     return vars;
   }
 
   /**
    * 提取 D-004 Comparison Dual 模板变量
+   * v3.6 重构: 移除所有硬编码默认值，完全从 sections 提取
    */
   private extractComparisonDualVariables(
     pageContent: PageContent,
   ): Record<string, string> {
     const sections = pageContent.sections || [];
     const vars: Record<string, string> = {};
-
-    // 默认值
-    const defaultOptionA = {
-      title: "方案 A",
-      pros: ["成本较低", "实施快速"],
-      cons: ["扩展性有限"],
-      cost: "¥50万",
-    };
-    const defaultOptionB = {
-      title: "方案 B",
-      pros: ["扩展性强", "长期收益高"],
-      cons: ["前期投入大"],
-      cost: "¥120万",
-    };
 
     // 从 sections 提取数据 - 只保留 list 类型的 sections
     const listSections = sections.filter(
@@ -1913,22 +1840,36 @@ ${overflowProtectionStyles}
       listSections[0] && Array.isArray(listSections[0].content)
         ? (listSections[0].content as string[])
         : [];
-    vars["OPTION_A_TITLE"] = optionAContent[0] || defaultOptionA.title;
-    vars["A_PRO1"] = optionAContent[1] || defaultOptionA.pros[0];
-    vars["A_PRO2"] = optionAContent[2] || defaultOptionA.pros[1];
-    vars["A_CON1"] = optionAContent[3] || defaultOptionA.cons[0];
-    vars["A_COST"] = defaultOptionA.cost;
+
+    const aTitle = optionAContent[0] || "";
+    if (!aTitle) {
+      this.logger.warn(
+        `[extractComparisonDualVariables] Missing OPTION_A_TITLE for "${pageContent.title}"`,
+      );
+    }
+    vars["OPTION_A_TITLE"] = aTitle || MISSING_PLACEHOLDER;
+    vars["A_PRO1"] = optionAContent[1] || "";
+    vars["A_PRO2"] = optionAContent[2] || "";
+    vars["A_CON1"] = optionAContent[3] || "";
+    vars["A_COST"] = optionAContent[4] || "";
 
     // 提取 Option B 的内容
     const optionBContent =
       listSections[1] && Array.isArray(listSections[1].content)
         ? (listSections[1].content as string[])
         : [];
-    vars["OPTION_B_TITLE"] = optionBContent[0] || defaultOptionB.title;
-    vars["B_PRO1"] = optionBContent[1] || defaultOptionB.pros[0];
-    vars["B_PRO2"] = optionBContent[2] || defaultOptionB.pros[1];
-    vars["B_CON1"] = optionBContent[3] || defaultOptionB.cons[0];
-    vars["B_COST"] = defaultOptionB.cost;
+
+    const bTitle = optionBContent[0] || "";
+    if (!bTitle) {
+      this.logger.warn(
+        `[extractComparisonDualVariables] Missing OPTION_B_TITLE for "${pageContent.title}"`,
+      );
+    }
+    vars["OPTION_B_TITLE"] = bTitle || MISSING_PLACEHOLDER;
+    vars["B_PRO1"] = optionBContent[1] || "";
+    vars["B_PRO2"] = optionBContent[2] || "";
+    vars["B_CON1"] = optionBContent[3] || "";
+    vars["B_COST"] = optionBContent[4] || "";
 
     // 也提供 LEFT_ITEMS 和 RIGHT_ITEMS 用于兼容性
     if (optionAContent.length > 0) {
@@ -1953,6 +1894,7 @@ ${overflowProtectionStyles}
 
   /**
    * 提取 D-005 Comparison Table 模板变量
+   * v3.6 重构: 移除所有硬编码默认值
    */
   private extractComparisonTableVariables(
     pageContent: PageContent,
@@ -1960,43 +1902,55 @@ ${overflowProtectionStyles}
     const sections = pageContent.sections || [];
     const vars: Record<string, string> = {};
 
-    // 默认表头
-    vars["COL1_HEADER"] = "产品 A";
-    vars["COL2_HEADER"] = "产品 B";
-    vars["COL3_HEADER"] = "产品 C";
-
-    // 默认行数据
-    const defaultRows = [
-      { label: "价格", col1: "¥1,000", col2: "¥2,000", col3: "¥3,000" },
-      { label: "性能", col1: "★★★", col2: "★★★★", col3: "★★★★★" },
-      { label: "易用性", col1: "★★★★", col2: "★★★", col3: "★★★★" },
-      { label: "扩展性", col1: "★★", col2: "★★★★", col3: "★★★★★" },
-      { label: "推荐指数", col1: "7.5", col2: "8.5", col3: "9.0" },
-    ];
-
     // 从 sections 提取数据
     const listSections = sections.filter(
       (s) => s.type === "list" && Array.isArray(s.content),
     );
 
+    // 表头从第一个 section 提取（如果有）
+    const headerSection = listSections[0];
+    if (headerSection && Array.isArray(headerSection.content)) {
+      vars["COL1_HEADER"] = headerSection.content[1] || MISSING_PLACEHOLDER;
+      vars["COL2_HEADER"] = headerSection.content[2] || MISSING_PLACEHOLDER;
+      vars["COL3_HEADER"] = headerSection.content[3] || MISSING_PLACEHOLDER;
+    } else {
+      this.logger.warn(
+        `[extractComparisonTableVariables] Missing column headers for "${pageContent.title}"`,
+      );
+      vars["COL1_HEADER"] = MISSING_PLACEHOLDER;
+      vars["COL2_HEADER"] = MISSING_PLACEHOLDER;
+      vars["COL3_HEADER"] = MISSING_PLACEHOLDER;
+    }
+
     // 如果有足够的 list sections，用来填充表格
     for (let i = 0; i < 5; i++) {
       const rowNum = i + 1;
-      const section = listSections[i];
-      const defaultRow = defaultRows[i];
+      const section = listSections[i + 1]; // 跳过第一个表头
+
+      let label = "";
+      let col1 = "";
+      let col2 = "";
+      let col3 = "";
 
       if (section && Array.isArray(section.content)) {
         const items = section.content as string[];
-        vars[`ROW${rowNum}_LABEL`] = items[0] || defaultRow.label;
-        vars[`ROW${rowNum}_COL1`] = items[1] || defaultRow.col1;
-        vars[`ROW${rowNum}_COL2`] = items[2] || defaultRow.col2;
-        vars[`ROW${rowNum}_COL3`] = items[3] || defaultRow.col3;
-      } else {
-        vars[`ROW${rowNum}_LABEL`] = defaultRow.label;
-        vars[`ROW${rowNum}_COL1`] = defaultRow.col1;
-        vars[`ROW${rowNum}_COL2`] = defaultRow.col2;
-        vars[`ROW${rowNum}_COL3`] = defaultRow.col3;
+        label = items[0] || "";
+        col1 = items[1] || "";
+        col2 = items[2] || "";
+        col3 = items[3] || "";
       }
+
+      if (!label) {
+        this.logger.warn(
+          `[extractComparisonTableVariables] Missing ROW${rowNum}_LABEL for "${pageContent.title}"`,
+        );
+        label = MISSING_PLACEHOLDER;
+      }
+
+      vars[`ROW${rowNum}_LABEL`] = label;
+      vars[`ROW${rowNum}_COL1`] = col1;
+      vars[`ROW${rowNum}_COL2`] = col2;
+      vars[`ROW${rowNum}_COL3`] = col3;
     }
 
     return vars;
@@ -2004,21 +1958,13 @@ ${overflowProtectionStyles}
 
   /**
    * 提取 D-006 Ranking List 模板变量
+   * v3.6 重构: 移除所有硬编码默认值
    */
   private extractRankingListVariables(
     pageContent: PageContent,
   ): Record<string, string> {
     const sections = pageContent.sections || [];
     const vars: Record<string, string> = {};
-
-    // 默认排名数据
-    const defaultRanks = [
-      { name: "项目 Alpha", desc: "核心业务线", value: "¥2.5M" },
-      { name: "项目 Beta", desc: "创新产品", value: "¥1.8M" },
-      { name: "项目 Gamma", desc: "战略合作", value: "¥1.2M" },
-      { name: "项目 Delta", desc: "新兴市场", value: "¥0.9M" },
-      { name: "项目 Epsilon", desc: "研发投入", value: "¥0.6M" },
-    ];
 
     // 从 sections 提取数据
     const listSections = sections.filter(
@@ -2032,282 +1978,46 @@ ${overflowProtectionStyles}
       const rankNum = i + 1;
       const listSection = listSections[i];
       const statSection = statSections[i];
-      const defaultRank = defaultRanks[i];
+
+      let name = "";
+      let desc = "";
+      let value = "";
 
       if (listSection && Array.isArray(listSection.content)) {
         const items = listSection.content as string[];
-        vars[`RANK${rankNum}_NAME`] = items[0] || defaultRank.name;
-        vars[`RANK${rankNum}_DESC`] = items[1] || defaultRank.desc;
-        vars[`RANK${rankNum}_VALUE`] = items[2] || defaultRank.value;
+        name = items[0] || "";
+        desc = items[1] || "";
+        value = items[2] || "";
       } else if (statSection && this.isStatContent(statSection.content)) {
         const stat = statSection.content as StatContent;
-        vars[`RANK${rankNum}_NAME`] = stat.label || defaultRank.name;
-        vars[`RANK${rankNum}_DESC`] = defaultRank.desc;
-        vars[`RANK${rankNum}_VALUE`] = stat.value || defaultRank.value;
-      } else {
-        vars[`RANK${rankNum}_NAME`] = defaultRank.name;
-        vars[`RANK${rankNum}_DESC`] = defaultRank.desc;
-        vars[`RANK${rankNum}_VALUE`] = defaultRank.value;
+        name = stat.label || "";
+        value = stat.value || "";
       }
+
+      if (!name) {
+        this.logger.warn(
+          `[extractRankingListVariables] Missing RANK${rankNum}_NAME for "${pageContent.title}"`,
+        );
+        name = MISSING_PLACEHOLDER;
+      }
+
+      vars[`RANK${rankNum}_NAME`] = name;
+      vars[`RANK${rankNum}_DESC`] = desc;
+      vars[`RANK${rankNum}_VALUE`] = value || MISSING_NUMBER_PLACEHOLDER;
     }
 
-    // 洞察
+    // 洞察 - v3.6: 无硬编码默认值
     const textSection = sections.find(
       (s) => s.type === "text" && typeof s.content === "string",
     );
-    vars["INSIGHT"] =
-      (textSection?.content as string)?.slice(0, 150) ||
-      "前三名占据总收入的70%，显示市场集中度较高";
+    const insight = (textSection?.content as string)?.slice(0, 150) || "";
+    if (!insight) {
+      this.logger.warn(
+        `[extractRankingListVariables] Missing INSIGHT for "${pageContent.title}"`,
+      );
+    }
+    vars["INSIGHT"] = insight || "";
 
     return vars;
-  }
-
-  /**
-   * 根据页面标题生成支柱标题（最小化降级）
-   * 注意：这只是安全网，真正的内容应该由 AI 生成
-   */
-  private generateContextualPillarTitles(_pageTitle: string): string[] {
-    // 返回空数组，让调用方使用 section 数据
-    // 如果 section 也没有数据，会使用默认的 "核心要素 N"
-    return [];
-  }
-
-  /**
-   * 根据页面标题生成支柱描述（最小化降级）
-   * 注意：这只是安全网，真正的内容应该由 AI 生成
-   */
-  private generateContextualPillarDescs(_pageTitle: string): string[] {
-    // 返回空数组，让调用方使用 section 数据或 citations
-    return [];
-  }
-
-  /**
-   * v3.5.1: 根据页面标题生成上下文相关的KPI
-   * 通过关键词匹配选择合适的KPI主题
-   */
-  private generateContextualKpis(pageTitle: string): {
-    values: string[];
-    labels: string[];
-    changes: string[];
-  } {
-    const title = pageTitle.toLowerCase();
-
-    // 天气/气候相关
-    if (
-      title.includes("天气") ||
-      title.includes("气候") ||
-      title.includes("weather") ||
-      title.includes("climate")
-    ) {
-      return {
-        values: ["-15°C", "45%", "120mm", "280天"],
-        labels: ["平均气温", "相对湿度", "年降水量", "晴天天数"],
-        changes: ["-2°C", "+5%", "+10mm", "+15天"],
-      };
-    }
-
-    // 旅游相关
-    if (
-      title.includes("旅游") ||
-      title.includes("景点") ||
-      title.includes("travel") ||
-      title.includes("tourism")
-    ) {
-      return {
-        values: ["850万", "4.8分", "120+", "92%"],
-        labels: ["年游客量", "游客评分", "景点数量", "满意度"],
-        changes: ["+15%", "+0.2", "+8个", "+3%"],
-      };
-    }
-
-    // 城市/地理相关
-    if (
-      title.includes("城市") ||
-      title.includes("地理") ||
-      title.includes("首都") ||
-      title.includes("city")
-    ) {
-      return {
-        values: ["98万", "2,778km²", "4季", "Top10"],
-        labels: ["城市人口", "城市面积", "气候类型", "宜居排名"],
-        changes: ["+2.5%", "-", "分明", "↑2位"],
-      };
-    }
-
-    // 购物/消费相关
-    if (
-      title.includes("购物") ||
-      title.includes("超市") ||
-      title.includes("消费") ||
-      title.includes("shopping")
-    ) {
-      return {
-        values: ["500+", "24h", "15km", "95%"],
-        labels: ["商店数量", "营业时长", "平均距离", "便利指数"],
-        changes: ["+50家", "部分", "-2km", "+3%"],
-      };
-    }
-
-    // 网络/通信相关
-    if (
-      title.includes("网络") ||
-      title.includes("通信") ||
-      title.includes("5G") ||
-      title.includes("network")
-    ) {
-      return {
-        values: ["99.5%", "500Mbps", "4G/5G", "85%"],
-        labels: ["网络覆盖", "平均速度", "网络类型", "用户满意度"],
-        changes: ["+0.5%", "+50Mbps", "升级中", "+5%"],
-      };
-    }
-
-    // 教育相关
-    if (
-      title.includes("教育") ||
-      title.includes("学校") ||
-      title.includes("大学") ||
-      title.includes("education")
-    ) {
-      return {
-        values: ["12所", "95%", "Top50", "8.5万"],
-        labels: ["高校数量", "入学率", "世界排名", "在校学生"],
-        changes: ["+2所", "+2%", "↑5位", "+1.2万"],
-      };
-    }
-
-    // 医疗健康相关
-    if (
-      title.includes("医疗") ||
-      title.includes("健康") ||
-      title.includes("医院") ||
-      title.includes("health")
-    ) {
-      return {
-        values: ["45所", "98%", "3.5:1000", "92%"],
-        labels: ["医院数量", "医保覆盖", "医生比例", "就医满意度"],
-        changes: ["+5所", "+1%", "+0.3", "+4%"],
-      };
-    }
-
-    // 科技/创新相关
-    if (
-      title.includes("科技") ||
-      title.includes("创新") ||
-      title.includes("AI") ||
-      title.includes("tech")
-    ) {
-      return {
-        values: ["2,500+", "45%", "$12B", "Top3"],
-        labels: ["科技企业", "研发投入占比", "行业规模", "创新指数"],
-        changes: ["+300家", "+5%", "+$2B", "稳定"],
-      };
-    }
-
-    // 默认：通用商业KPI
-    return {
-      values: ["$2.5M", "85%", "520+", "92%"],
-      labels: ["年度营收", "客户满意度", "活跃用户", "目标达成率"],
-      changes: ["+15%", "+8%", "+120", "+5%"],
-    };
-  }
-
-  /**
-   * v3.5.1: 根据页面标题生成上下文相关的时间线阶段
-   */
-  private generateContextualTimeline(pageTitle: string): {
-    dates: string[];
-    titles: string[];
-    descs: string[];
-  } {
-    const title = pageTitle.toLowerCase();
-
-    // 历史/发展相关
-    if (
-      title.includes("历史") ||
-      title.includes("发展") ||
-      title.includes("history") ||
-      title.includes("发展历程")
-    ) {
-      return {
-        dates: ["早期", "发展期", "成熟期", "现代"],
-        titles: ["起源阶段", "快速发展", "稳定增长", "创新突破"],
-        descs: [
-          "奠定基础与初步探索",
-          "规模扩张与体系建设",
-          "深度优化与品质提升",
-          "数字化转型与创新",
-        ],
-      };
-    }
-
-    // 季节/年度相关
-    if (
-      title.includes("季节") ||
-      title.includes("四季") ||
-      title.includes("年度") ||
-      title.includes("season")
-    ) {
-      return {
-        dates: ["春季", "夏季", "秋季", "冬季"],
-        titles: ["春暖花开", "盛夏时节", "金秋收获", "冬日静谧"],
-        descs: [
-          "万物复苏，气温回升",
-          "阳光充沛，活动丰富",
-          "景色宜人，硕果累累",
-          "银装素裹，别有风情",
-        ],
-      };
-    }
-
-    // 规划/战略相关
-    if (
-      title.includes("规划") ||
-      title.includes("战略") ||
-      title.includes("plan") ||
-      title.includes("strategy")
-    ) {
-      return {
-        dates: ["第一阶段", "第二阶段", "第三阶段", "第四阶段"],
-        titles: ["调研分析", "方案制定", "落地执行", "评估优化"],
-        descs: [
-          "深入调研现状与需求",
-          "制定切实可行的方案",
-          "有序推进各项措施",
-          "持续改进与完善",
-        ],
-      };
-    }
-
-    // 旅游行程相关
-    if (
-      title.includes("行程") ||
-      title.includes("游览") ||
-      title.includes("旅游") ||
-      title.includes("tour")
-    ) {
-      return {
-        dates: ["Day 1", "Day 2", "Day 3", "Day 4"],
-        titles: ["抵达与探索", "深度游览", "文化体验", "返程总结"],
-        descs: [
-          "到达目的地，初步探索",
-          "深入游览主要景点",
-          "体验当地文化特色",
-          "整理行囊，满载而归",
-        ],
-      };
-    }
-
-    // 默认：项目阶段
-    return {
-      dates: ["Q1 2024", "Q2 2024", "Q3 2024", "Q4 2024"],
-      titles: ["启动阶段", "推进阶段", "深化阶段", "收官阶段"],
-      descs: [
-        "项目启动与资源准备",
-        "核心工作稳步推进",
-        "深入实施与优化调整",
-        "成果总结与未来规划",
-      ],
-    };
   }
 }

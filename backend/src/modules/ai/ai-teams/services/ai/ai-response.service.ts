@@ -23,6 +23,8 @@ import { ToolContext } from "../../../ai-agents/core/tool/tool.interface";
 import { TopicEventEmitterService } from "../topic-event-emitter.service";
 import { CreditsService } from "../../../../credits/credits.service";
 import { InsufficientCreditsException } from "../../../../credits/exceptions/insufficient-credits.exception";
+import { MetricsService, Trace } from "../../../../../common/observability";
+import { AuditService } from "../../../../../common/audit";
 
 /**
  * Service responsible for generating AI responses in topics
@@ -42,6 +44,8 @@ export class AiResponseService {
     private functionCallingExecutor: FunctionCallingExecutor,
     private topicEventEmitter: TopicEventEmitterService,
     @Optional() private creditsService: CreditsService,
+    @Optional() private metricsService: MetricsService,
+    @Optional() private auditService: AuditService,
   ) {
     // 保留重试方法引用供未来集成
     void this.generateWithToolsWithRetry;
@@ -60,6 +64,7 @@ export class AiResponseService {
    * @param maxMessages 最大消息数（默认10，更激进的限制）
    * @param debateOpponentId 辩论对手ID（如果有）- 用于优先包含对手的最新发言
    */
+  @Trace({ operationName: "AiResponseService.buildSmartContext" })
   async buildSmartContext(
     topicId: string,
     aiMemberId: string,
@@ -324,6 +329,7 @@ export class AiResponseService {
     };
   }
 
+  @Trace({ operationName: "AiResponseService.generateAIResponse" })
   async generateAIResponse(
     topicId: string,
     userId: string,
@@ -1045,6 +1051,7 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
     );
     let aiResponse: string;
     let tokensUsed = 0;
+    const startTime = Date.now();
 
     try {
       let result;
@@ -1164,12 +1171,32 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
       }
       aiResponse = result.content;
       tokensUsed = result.tokensUsed;
+
+      // 记录AI响应指标
+      const duration = Date.now() - startTime;
+      if (this.metricsService) {
+        this.metricsService.recordAIResponseLatency(aiMember.aiModel, duration);
+        this.metricsService.recordAIResponseTokens(
+          aiMember.aiModel,
+          tokensUsed,
+        );
+      }
+
       this.logger.log(
-        `[AI Response Debug] Content received from AI, length: ${aiResponse?.length || 0}`,
+        `[AI Response Debug] Content received from AI, length: ${aiResponse?.length || 0}, duration: ${duration}ms`,
       );
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "未知错误";
       this.logger.error(`Failed to generate AI response: ${errorMsg}`);
+
+      // 记录AI响应错误指标
+      if (this.metricsService) {
+        this.metricsService.recordAIResponseError(
+          aiMember.aiModel,
+          "generation_failed",
+        );
+      }
+
       aiResponse = `**AI 响应生成失败**
 
 我是 ${aiMember.displayName}，生成回复时遇到错误：
@@ -1234,6 +1261,17 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
         );
         // 积分扣减失败不应阻止响应返回
       }
+    }
+
+    // 记录AI响应审计日志
+    if (this.auditService) {
+      await this.auditService.logAIResponseGenerate(
+        topicId,
+        aiMemberId,
+        message.id,
+        aiMember.aiModel,
+        tokensUsed,
+      );
     }
 
     return message;
@@ -1581,6 +1619,7 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
   /**
    * 使用工具生成 AI 响应
    */
+  @Trace({ operationName: "AiResponseService.generateWithTools" })
   private async generateWithTools(
     topicId: string,
     aiMember: {

@@ -1,12 +1,21 @@
 /**
  * Team Collaboration Service
  * 桥接 ai-agents 协作工具与 ai-teams 成员系统
+ *
+ * 重构于 2026-01-01: 使用数据库持久化替代内存存储
  */
 
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AiResponseService } from "../ai/ai-response.service";
 import { randomUUID } from "crypto";
+import {
+  VoteStrategy,
+  VoteValue,
+  ProposalStatus,
+  VoteProposal,
+  VoteRecord,
+} from "@prisma/client";
 
 // ============================================================================
 // Types
@@ -67,19 +76,14 @@ export interface VoteResult {
 }
 
 /**
- * 存储的提案数据
+ * 完整提案数据（包含投票记录和投票者信息）
  */
-interface StoredProposal extends VoteRequest {
-  votes: Array<{
-    voterId: string;
-    voterName: string;
-    value: "APPROVE" | "REJECT" | "ABSTAIN";
-    reason?: string;
-    timestamp: string;
-  }>;
-  status: "OPEN" | "CLOSED";
-  createdAt: string;
-}
+type ProposalWithVotes = VoteProposal & {
+  votes: (VoteRecord & {
+    voter: { id: string; displayName: string };
+  })[];
+  initiator: { id: string; displayName: string };
+};
 
 // ============================================================================
 // Service Implementation
@@ -88,9 +92,6 @@ interface StoredProposal extends VoteRequest {
 @Injectable()
 export class TeamCollaborationService {
   private readonly logger = new Logger(TeamCollaborationService.name);
-
-  // 存储活跃的提案
-  private proposals = new Map<string, StoredProposal>();
 
   constructor(
     private prisma: PrismaService,
@@ -225,7 +226,7 @@ export class TeamCollaborationService {
   }
 
   /**
-   * 发起共识投票
+   * 发起共识投票（持久化到数据库）
    */
   async createVoteProposal(
     request: VoteRequest,
@@ -275,15 +276,19 @@ export class TeamCollaborationService {
         );
       }
 
-      // 3. 创建并存储提案
-      const proposal: StoredProposal = {
-        ...request,
-        votes: [],
-        status: "OPEN",
-        createdAt: new Date().toISOString(),
-      };
-
-      this.proposals.set(proposalId, proposal);
+      // 3. 创建提案到数据库
+      const proposal = await this.prisma.voteProposal.create({
+        data: {
+          id: proposalId,
+          topicId,
+          title,
+          description,
+          initiatorId,
+          strategy: strategy as VoteStrategy,
+          options: options || [],
+          status: ProposalStatus.OPEN,
+        },
+      });
 
       // 4. 创建提案消息
       const optionsText =
@@ -303,12 +308,12 @@ export class TeamCollaborationService {
       });
 
       this.logger.log(
-        `[createVoteProposal] Proposal ${proposalId} created successfully`,
+        `[createVoteProposal] Proposal ${proposal.id} created successfully`,
       );
 
       return {
-        proposalId,
-        status: "OPEN",
+        proposalId: proposal.id,
+        status: proposal.status,
       };
     } catch (error) {
       this.logger.error(`[createVoteProposal] Failed:`, error);
@@ -317,61 +322,66 @@ export class TeamCollaborationService {
   }
 
   /**
-   * AI成员投票
+   * AI成员投票（持久化到数据库）
    */
   async castMemberVote(
     proposalId: string,
     memberId: string,
     value: "APPROVE" | "REJECT" | "ABSTAIN",
     reason?: string,
+    confidence?: number,
   ): Promise<{ success: boolean; statistics: any }> {
     this.logger.log(
       `[castMemberVote] Member ${memberId} voting ${value} on proposal ${proposalId}`,
     );
 
     try {
-      const proposal = this.proposals.get(proposalId);
+      // 1. 查询提案及其投票记录
+      const proposal = await this.prisma.voteProposal.findUnique({
+        where: { id: proposalId },
+        include: {
+          votes: true,
+        },
+      });
 
       if (!proposal) {
         throw new Error("Proposal not found");
       }
 
-      if (proposal.status === "CLOSED") {
+      if (proposal.status === ProposalStatus.CLOSED) {
         throw new Error("Voting is closed");
       }
 
-      // 验证投票者权限
-      if (!proposal.voterIds.includes(memberId)) {
-        throw new Error("Member is not in voter list");
-      }
-
-      // 检查是否已投票
+      // 2. 检查是否已投票
       const existingVote = proposal.votes.find((v) => v.voterId === memberId);
       if (existingVote) {
         throw new Error("Member has already voted");
       }
 
-      // 获取成员信息
+      // 3. 验证投票者是否属于该话题
       const member = await this.prisma.topicAIMember.findFirst({
         where: { id: memberId, topicId: proposal.topicId },
-        select: { displayName: true },
+        select: { id: true, displayName: true },
       });
 
       if (!member) {
-        throw new Error("Member not found");
+        throw new Error("Member not found in topic");
       }
 
-      // 记录投票
-      proposal.votes.push({
-        voterId: memberId,
-        voterName: member.displayName,
-        value,
-        reason,
-        timestamp: new Date().toISOString(),
+      // 4. 创建投票记录
+      await this.prisma.voteRecord.create({
+        data: {
+          proposalId,
+          voterId: memberId,
+          value: value as VoteValue,
+          reason,
+          confidence,
+        },
       });
 
-      // 计算统计
-      const statistics = this.calculateStatistics(proposal);
+      // 5. 重新查询获取最新统计
+      const updatedProposal = await this.getProposalWithVotes(proposalId);
+      const statistics = this.calculateStatisticsFromDb(updatedProposal!);
 
       this.logger.log(
         `[castMemberVote] Vote recorded: ${member.displayName} -> ${value}`,
@@ -388,30 +398,41 @@ export class TeamCollaborationService {
   }
 
   /**
-   * 自动收集所有AI成员的投票
+   * 自动收集所有AI成员的投票（使用数据库持久化）
    * 让每个AI成员基于上下文自主决定投票
    */
-  async collectAIVotes(proposalId: string): Promise<VoteResult> {
+  async collectAIVotes(
+    proposalId: string,
+    voterIds: string[],
+  ): Promise<VoteResult> {
     this.logger.log(
       `[collectAIVotes] Collecting votes for proposal ${proposalId}`,
     );
 
     try {
-      const proposal = this.proposals.get(proposalId);
+      // 1. 查询提案及已有投票
+      const proposal = await this.getProposalWithVotes(proposalId);
 
       if (!proposal) {
         throw new Error("Proposal not found");
       }
 
-      const { topicId, title, description, voterIds, options } = proposal;
+      if (proposal.status === ProposalStatus.CLOSED) {
+        throw new Error("Voting is already closed");
+      }
+
+      const { topicId, title, description, options } = proposal;
 
       // 构造投票提示词
       const votePrompt = this.buildVotePrompt(title, description, options);
 
-      // 为每个投票者生成投票
+      // 已投票的成员ID集合
+      const votedMemberIds = new Set(proposal.votes.map((v) => v.voterId));
+
+      // 为每个未投票的成员生成投票
       const votePromises = voterIds.map(async (memberId) => {
         // 跳过已投票的成员
-        if (proposal.votes.some((v) => v.voterId === memberId)) {
+        if (votedMemberIds.has(memberId)) {
           return null;
         }
 
@@ -448,13 +469,15 @@ export class TeamCollaborationService {
           // 解析 AI 响应提取投票意见
           const vote = this.parseVoteFromResponse(response.content);
 
-          // 记录投票
-          proposal.votes.push({
-            voterId: memberId,
-            voterName: member.displayName,
-            value: vote.value,
-            reason: vote.reason,
-            timestamp: new Date().toISOString(),
+          // 持久化投票到数据库
+          await this.prisma.voteRecord.create({
+            data: {
+              proposalId,
+              voterId: memberId,
+              value: vote.value as VoteValue,
+              reason: vote.reason,
+              confidence: vote.confidence,
+            },
           });
 
           this.logger.log(
@@ -480,11 +503,24 @@ export class TeamCollaborationService {
         (v) => v !== null,
       ) as VoteResult["votes"];
 
-      // 计算最终结果
-      const result = this.calculateConsensus(proposal);
+      // 重新查询获取最新提案状态
+      const updatedProposal = await this.getProposalWithVotes(proposalId);
 
-      // 关闭投票
-      proposal.status = "CLOSED";
+      // 计算最终结果
+      const result = this.calculateConsensusFromDb(
+        updatedProposal!,
+        voterIds.length,
+      );
+
+      // 关闭投票并记录结果
+      await this.prisma.voteProposal.update({
+        where: { id: proposalId },
+        data: {
+          status: ProposalStatus.CLOSED,
+          closedAt: new Date(),
+          decision: result.decision,
+        },
+      });
 
       return {
         success: true,
@@ -507,16 +543,22 @@ export class TeamCollaborationService {
   }
 
   /**
-   * 获取投票结果
+   * 获取投票结果（从数据库查询）
    */
-  getVoteResult(proposalId: string): VoteResult | null {
-    const proposal = this.proposals.get(proposalId);
+  async getVoteResult(
+    proposalId: string,
+    totalVoters?: number,
+  ): Promise<VoteResult | null> {
+    const proposal = await this.getProposalWithVotes(proposalId);
 
     if (!proposal) {
       return null;
     }
 
-    const result = this.calculateConsensus(proposal);
+    const result = this.calculateConsensusFromDb(
+      proposal,
+      totalVoters || proposal.votes.length,
+    );
 
     return {
       success: true,
@@ -525,22 +567,22 @@ export class TeamCollaborationService {
       decision: result.decision,
       votes: proposal.votes.map((v) => ({
         voterId: v.voterId,
-        voterName: v.voterName,
+        voterName: v.voter.displayName,
         value: v.value,
-        reason: v.reason,
+        reason: v.reason || undefined,
       })),
     };
   }
 
   /**
-   * 获取提案状态
+   * 获取提案状态（从数据库查询）
    */
-  getProposalStatus(proposalId: string): {
+  async getProposalStatus(proposalId: string): Promise<{
     exists: boolean;
     status?: string;
     statistics?: any;
-  } {
-    const proposal = this.proposals.get(proposalId);
+  }> {
+    const proposal = await this.getProposalWithVotes(proposalId);
 
     if (!proposal) {
       return { exists: false };
@@ -549,8 +591,63 @@ export class TeamCollaborationService {
     return {
       exists: true,
       status: proposal.status,
-      statistics: this.calculateStatistics(proposal),
+      statistics: this.calculateStatisticsFromDb(proposal),
     };
+  }
+
+  // ============================================================================
+  // Database Query Helpers
+  // ============================================================================
+
+  /**
+   * 查询提案及其投票记录
+   */
+  private async getProposalWithVotes(
+    proposalId: string,
+  ): Promise<ProposalWithVotes | null> {
+    return this.prisma.voteProposal.findUnique({
+      where: { id: proposalId },
+      include: {
+        votes: {
+          include: {
+            voter: {
+              select: { id: true, displayName: true },
+            },
+          },
+        },
+        initiator: {
+          select: { id: true, displayName: true },
+        },
+      },
+    });
+  }
+
+  /**
+   * 按话题查询所有提案
+   */
+  async getProposalsByTopic(
+    topicId: string,
+    status?: ProposalStatus,
+  ): Promise<ProposalWithVotes[]> {
+    return this.prisma.voteProposal.findMany({
+      where: {
+        topicId,
+        ...(status && { status }),
+      },
+      include: {
+        votes: {
+          include: {
+            voter: {
+              select: { id: true, displayName: true },
+            },
+          },
+        },
+        initiator: {
+          select: { id: true, displayName: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
   }
 
   // ============================================================================
@@ -759,10 +856,17 @@ export class TeamCollaborationService {
     return { value, reason };
   }
 
+  // ============================================================================
+  // Statistics & Consensus Calculation (Database Version)
+  // ============================================================================
+
   /**
-   * 计算投票统计
+   * 计算投票统计（数据库版本）
    */
-  private calculateStatistics(proposal: StoredProposal): {
+  private calculateStatisticsFromDb(
+    proposal: ProposalWithVotes,
+    totalVoters?: number,
+  ): {
     totalVoters: number;
     votesReceived: number;
     participationRate: number;
@@ -770,18 +874,23 @@ export class TeamCollaborationService {
     rejects: number;
     abstains: number;
   } {
-    const totalVoters = proposal.voterIds.length;
+    const voters = totalVoters || proposal.votes.length;
     const votesReceived = proposal.votes.length;
 
-    const approves = proposal.votes.filter((v) => v.value === "APPROVE").length;
-    const rejects = proposal.votes.filter((v) => v.value === "REJECT").length;
-    const abstains = proposal.votes.filter((v) => v.value === "ABSTAIN").length;
+    const approves = proposal.votes.filter(
+      (v) => v.value === VoteValue.APPROVE,
+    ).length;
+    const rejects = proposal.votes.filter(
+      (v) => v.value === VoteValue.REJECT,
+    ).length;
+    const abstains = proposal.votes.filter(
+      (v) => v.value === VoteValue.ABSTAIN,
+    ).length;
 
     return {
-      totalVoters,
+      totalVoters: voters,
       votesReceived,
-      participationRate:
-        totalVoters > 0 ? (votesReceived / totalVoters) * 100 : 0,
+      participationRate: voters > 0 ? (votesReceived / voters) * 100 : 0,
       approves,
       rejects,
       abstains,
@@ -789,13 +898,16 @@ export class TeamCollaborationService {
   }
 
   /**
-   * 计算共识结果
+   * 计算共识结果（数据库版本）
    */
-  private calculateConsensus(proposal: StoredProposal): {
+  private calculateConsensusFromDb(
+    proposal: ProposalWithVotes,
+    totalVoters: number,
+  ): {
     consensusReached: boolean;
     decision: string;
   } {
-    const stats = this.calculateStatistics(proposal);
+    const stats = this.calculateStatisticsFromDb(proposal, totalVoters);
     const { approves, rejects, votesReceived } = stats;
     const { strategy } = proposal;
 
@@ -803,21 +915,21 @@ export class TeamCollaborationService {
     let decision = "REJECT";
 
     switch (strategy) {
-      case "MAJORITY":
+      case VoteStrategy.MAJORITY:
         // 简单多数（>50%）
         consensusReached = approves > votesReceived / 2;
         decision = consensusReached ? "APPROVE" : "REJECT";
         break;
 
-      case "SUPERMAJORITY":
+      case VoteStrategy.SUPERMAJORITY:
         // 超级多数（>66%）
         consensusReached = approves >= votesReceived * 0.667;
         decision = consensusReached ? "APPROVE" : "REJECT";
         break;
 
-      case "UNANIMOUS":
+      case VoteStrategy.UNANIMOUS:
         // 全票通过
-        consensusReached = approves === proposal.voterIds.length;
+        consensusReached = approves === totalVoters;
         decision = consensusReached ? "APPROVE" : "REJECT";
         break;
 
@@ -827,5 +939,47 @@ export class TeamCollaborationService {
     }
 
     return { consensusReached, decision };
+  }
+
+  /**
+   * 生成投票结果摘要
+   */
+  async generateVoteSummary(proposalId: string): Promise<string | null> {
+    const proposal = await this.getProposalWithVotes(proposalId);
+
+    if (!proposal) {
+      return null;
+    }
+
+    const stats = this.calculateStatisticsFromDb(proposal);
+    const result = this.calculateConsensusFromDb(proposal, stats.totalVoters);
+
+    const summary = [
+      `## 投票结果`,
+      `**提案**: ${proposal.title}`,
+      `**状态**: ${proposal.status}`,
+      `**决议**: ${result.decision} (${result.consensusReached ? "达成共识" : "未达成共识"})`,
+      ``,
+      `### 统计`,
+      `- 总投票人数: ${stats.votesReceived}/${stats.totalVoters}`,
+      `- 参与率: ${stats.participationRate.toFixed(1)}%`,
+      `- 赞成: ${stats.approves}`,
+      `- 反对: ${stats.rejects}`,
+      `- 弃权: ${stats.abstains}`,
+      ``,
+      `### 投票详情`,
+      ...proposal.votes.map(
+        (v) =>
+          `- **${v.voter.displayName}**: ${v.value}${v.reason ? ` - ${v.reason}` : ""}`,
+      ),
+    ].join("\n");
+
+    // 更新提案摘要到数据库
+    await this.prisma.voteProposal.update({
+      where: { id: proposalId },
+      data: { summary },
+    });
+
+    return summary;
   }
 }

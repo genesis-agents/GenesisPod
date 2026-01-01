@@ -415,8 +415,10 @@ export class AiTeamsIntegrationService {
       };
 
       // 收集 AI 成员投票
-      const voteResult =
-        await this.collaborationService.collectAIVotes(proposalId);
+      const voteResult = await this.collaborationService.collectAIVotes(
+        proposalId,
+        options.voterIds,
+      );
 
       // 逐个发送投票事件
       for (const vote of voteResult.votes) {

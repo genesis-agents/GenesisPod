@@ -1,0 +1,35 @@
+/**
+ * Metrics Controller
+ *
+ * 暴露 /metrics 端点用于 Prometheus 抓取
+ */
+
+import { Controller, Get, Header } from "@nestjs/common";
+import { MetricsService } from "./metrics.service";
+
+@Controller("metrics")
+export class MetricsController {
+  constructor(private readonly metricsService: MetricsService) {}
+
+  /**
+   * GET /metrics
+   * 返回 Prometheus 格式的指标
+   */
+  @Get()
+  @Header("Content-Type", "text/plain; version=0.0.4")
+  getMetrics(): string {
+    return this.metricsService.exportPrometheus();
+  }
+
+  /**
+   * GET /metrics/json
+   * 返回 JSON 格式的指标快照
+   */
+  @Get("json")
+  getMetricsJson() {
+    return {
+      timestamp: new Date().toISOString(),
+      metrics: this.metricsService.getMetricsSnapshot(),
+    };
+  }
+}
