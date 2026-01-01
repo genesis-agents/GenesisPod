@@ -232,12 +232,12 @@ export type CardVariant = keyof typeof CARD_VARIANTS;
 
 export const STYLES = {
   container: `
-    width: ${CANVAS.width}px;
-    height: ${CANVAS.height}px;
+    width: 100%;
+    height: 100%;
     background: linear-gradient(135deg, ${COLORS.bgPrimary} 0%, ${COLORS.bgSecondary} 100%);
     font-family: ${TYPOGRAPHY.fontFamily};
     color: ${COLORS.textPrimary};
-    padding: ${SPACING.pageTop}px ${SPACING.pageRight}px ${SPACING.pageBottom}px ${SPACING.pageLeft}px;
+    padding: 0;
     box-sizing: border-box;
     position: relative;
     overflow: hidden;

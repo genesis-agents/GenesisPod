@@ -1452,11 +1452,8 @@ export class SlidesTeamOrchestratorService {
     }
 
     // 分栏布局页：右侧图片区域
-    if (
-      templateType === "splitLayout" ||
-      templateType === "caseStudy" ||
-      templateType === "comparison"
-    ) {
+    // 注意：comparison 模板是全宽双列设计，不应该添加图片覆盖
+    if (templateType === "splitLayout" || templateType === "caseStudy") {
       return this.injectSplitLayoutImage(html, image);
     }
 
