@@ -73,9 +73,9 @@ const MAX_REVISION_ATTEMPTS = 3;
  * 各阶段通过阈值
  */
 const PHASE_THRESHOLDS: Record<string, number> = {
-  analysis: 70,
-  planning: 75,
-  generation: 80,
+  analysis: 55, // 降低阈值：分析阶段对数据稀疏的文本应更宽容
+  planning: 70,
+  generation: 75,
 };
 
 /**
@@ -332,21 +332,37 @@ export class SlidesTeamOrchestratorService {
         });
 
         // 维度2：数据点识别（权重 25%）
-        const dataScore = Math.min(100, analysis.dataPoints.length * 15);
+        // 基础分 40 分（即使没有数据，但完成了分析就给基础分）+ 每个数据点 15 分
+        const dataBaseScore = analysis.topics.length > 0 ? 40 : 0;
+        const dataScore = Math.min(
+          100,
+          dataBaseScore + analysis.dataPoints.length * 15,
+        );
         dimensions.push({
           name: "数据识别",
           score: dataScore,
           weight: 0.25,
-          comment: `识别了 ${analysis.dataPoints.length} 个数据点`,
+          comment:
+            analysis.dataPoints.length > 0
+              ? `识别了 ${analysis.dataPoints.length} 个数据点`
+              : "源文本数据较少",
         });
 
         // 维度3：洞察深度（权重 25%）
-        const insightScore = Math.min(100, analysis.keyInsights.length * 25);
+        // 基础分 40 分 + 每个洞察 20 分
+        const insightBaseScore = analysis.topics.length > 0 ? 40 : 0;
+        const insightScore = Math.min(
+          100,
+          insightBaseScore + analysis.keyInsights.length * 20,
+        );
         dimensions.push({
           name: "洞察深度",
           score: insightScore,
           weight: 0.25,
-          comment: `发现 ${analysis.keyInsights.length} 个关键洞察`,
+          comment:
+            analysis.keyInsights.length > 0
+              ? `发现 ${analysis.keyInsights.length} 个关键洞察`
+              : "基于主题完成分析",
         });
 
         // 维度4：页数建议合理性（权重 20%）
