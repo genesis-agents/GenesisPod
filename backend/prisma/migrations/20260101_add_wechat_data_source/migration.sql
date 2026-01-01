@@ -43,7 +43,7 @@ END $$;
 -- Create wechat_items table
 CREATE TABLE IF NOT EXISTS "wechat_items" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "user_id" UUID NOT NULL,
+    "user_id" TEXT NOT NULL,
     "type" "WechatItemType" NOT NULL,
 
     -- 内容信息
