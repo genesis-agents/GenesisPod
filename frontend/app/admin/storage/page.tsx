@@ -110,6 +110,7 @@ const categoryIcons: Record<string, React.ReactNode> = {
   userActivities: <Activity className="h-5 w-5 text-teal-600" />,
   topicMessages: <MessageSquare className="h-5 w-5 text-violet-600" />,
   officeDocuments: <Presentation className="h-5 w-5 text-rose-600" />,
+  knowledgeBase: <Cpu className="h-5 w-5 text-emerald-600" />,
 };
 
 // Icon background colors
@@ -127,6 +128,7 @@ const categoryBgColors: Record<string, string> = {
   userActivities: 'bg-teal-100',
   topicMessages: 'bg-violet-100',
   officeDocuments: 'bg-rose-100',
+  knowledgeBase: 'bg-emerald-100',
 };
 
 interface AIDiagnosis {
@@ -211,6 +213,20 @@ const ACTION_MAPPING: Record<
     method: 'POST',
     confirmMessage: 'Clean up completed import tasks older than 7 days?',
     dangerous: false,
+  },
+  cleanup_knowledge_base: {
+    endpoint: '/api/v1/storage/cleanup/orphaned-rag',
+    method: 'POST',
+    confirmMessage:
+      'Clean up orphaned RAG data (embeddings, chunks without valid parents)?',
+    dangerous: false,
+  },
+  delete_all_knowledge_base: {
+    endpoint: '/api/v1/storage/knowledge-base/all',
+    method: 'DELETE',
+    confirmMessage:
+      'WARNING: This will DELETE ALL knowledge bases, documents, chunks, and embeddings! This cannot be undone!',
+    dangerous: true,
   },
   vacuum: {
     endpoint: '/api/v1/storage/vacuum',
@@ -1363,17 +1379,26 @@ Provide detailed analysis with executable actions for each issue.`,
 
                 {category.canCleanup && (
                   <button
-                    onClick={() =>
-                      void handleCleanup(
-                        `cleanup/${category.name === 'generatedImages' ? 'images' : category.name.replace(/([A-Z])/g, '-$1').toLowerCase()}`,
-                        category.name,
-                        `Clean up ${category.displayName}? This action cannot be undone.`
-                      )
-                    }
-                    disabled={cleaning !== null}
+                    onClick={() => {
+                      // Special handling for knowledge base - use orphaned RAG cleanup
+                      if (category.name === 'knowledgeBase') {
+                        void executeAction(
+                          'cleanup_knowledge_base',
+                          `cleanup_${category.name}`
+                        );
+                      } else {
+                        void handleCleanup(
+                          `cleanup/${category.name === 'generatedImages' ? 'images' : category.name.replace(/([A-Z])/g, '-$1').toLowerCase()}`,
+                          category.name,
+                          `Clean up ${category.displayName}? This action cannot be undone.`
+                        );
+                      }
+                    }}
+                    disabled={cleaning !== null || executingAction !== null}
                     className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs font-medium text-orange-700 transition-all hover:bg-orange-100 disabled:opacity-50"
                   >
-                    {cleaning === category.name ? (
+                    {cleaning === category.name ||
+                    executingAction === `cleanup_${category.name}` ? (
                       <Loader2 className="h-3 w-3 animate-spin" />
                     ) : (
                       <Trash2 className="h-3 w-3" />
@@ -1450,6 +1475,20 @@ Provide detailed analysis with executable actions for each issue.`,
                 <Presentation className="h-4 w-4" />
               )}
               Delete All PPT
+            </button>
+            <button
+              onClick={() =>
+                void executeAction('delete_all_knowledge_base', 'deleteAllKB')
+              }
+              disabled={cleaning !== null || executingAction !== null}
+              className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-red-700 disabled:opacity-50"
+            >
+              {executingAction === 'deleteAllKB' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Database className="h-4 w-4" />
+              )}
+              Delete All Knowledge Base
             </button>
           </div>
         </div>
