@@ -51,6 +51,11 @@ interface LeaderReviewResult {
   revisionRequired?: boolean;
 }
 
+/**
+ * 最大重试次数
+ */
+const MAX_REVISION_ATTEMPTS = 3;
+
 @Injectable()
 export class SlidesTeamOrchestratorService {
   private readonly logger = new Logger(SlidesTeamOrchestratorService.name);
@@ -122,38 +127,37 @@ export class SlidesTeamOrchestratorService {
         "审视任务需求，分配工作给团队成员...",
       );
 
-      // ========== Phase 1: 分析 (Analyst) → Leader 审核 ==========
-      state.analysisResult = await this.runAnalysisPhase(input, state, subject);
-      await this.leaderReviewPhase(
-        subject,
-        executionId,
-        "analyst",
-        "analysis",
-        state.analysisResult,
-      );
-
-      // ========== Phase 2: 规划 (Strategist) → Leader 审核 ==========
-      state.planningResult = await this.runPlanningPhase(input, state, subject);
-      await this.leaderReviewPhase(
-        subject,
-        executionId,
-        "strategist",
-        "planning",
-        state.planningResult,
-      );
-
-      // ========== Phase 3: 生成 (Writer) → Leader 审核 ==========
-      state.generationResult = await this.runGenerationPhase(
+      // ========== Phase 1: 分析 (Analyst) → Leader 审核（带重试） ==========
+      state.analysisResult = await this.runPhaseWithReview(
         input,
         state,
         subject,
+        executionId,
+        "analysis",
+        "analyst",
+        async () => this.runAnalysisPhase(input, state, subject),
       );
-      await this.leaderReviewPhase(
+
+      // ========== Phase 2: 规划 (Strategist) → Leader 审核（带重试） ==========
+      state.planningResult = await this.runPhaseWithReview(
+        input,
+        state,
         subject,
         executionId,
-        "writer",
+        "planning",
+        "strategist",
+        async () => this.runPlanningPhase(input, state, subject),
+      );
+
+      // ========== Phase 3: 生成 (Writer) → Leader 审核（带重试） ==========
+      state.generationResult = await this.runPhaseWithReview(
+        input,
+        state,
+        subject,
+        executionId,
         "generation",
-        state.generationResult,
+        "writer",
+        async () => this.runGenerationPhase(input, state, subject),
       );
 
       // ========== Phase 4: 审核 (Reviewer) → Leader 最终确认 ==========
@@ -354,6 +358,91 @@ export class SlidesTeamOrchestratorService {
         task: message,
       });
     }
+  }
+
+  /**
+   * 执行阶段并进行 Leader 审核（带重试机制）
+   * 如果审核不通过，会重试最多 MAX_REVISION_ATTEMPTS 次
+   */
+  private async runPhaseWithReview<T>(
+    _input: SlidesTeamInput,
+    _state: SlidesTeamState,
+    subject: Subject<SlidesTeamEvent>,
+    executionId: string,
+    phaseType: string,
+    agentRole: SlidesAgentRole,
+    phaseExecutor: () => Promise<T>,
+  ): Promise<T> {
+    let attempts = 0;
+    let result: T;
+    let reviewResult: LeaderReviewResult;
+
+    do {
+      attempts++;
+
+      // 如果是重试，发送重试事件
+      if (attempts > 1) {
+        this.emitEvent(subject, executionId, "phase:retry", {
+          phase: phaseType,
+          attempt: attempts,
+          maxAttempts: MAX_REVISION_ATTEMPTS,
+          reason: reviewResult!.feedback || "Leader 要求修订",
+        });
+
+        this.emitLeaderActivity(
+          subject,
+          executionId,
+          "thinking",
+          `第 ${attempts} 次尝试：根据反馈重新执行 ${phaseType} 阶段...`,
+        );
+      }
+
+      // 执行阶段
+      result = await phaseExecutor();
+
+      // Leader 审核
+      reviewResult = await this.leaderReviewPhase(
+        subject,
+        executionId,
+        agentRole,
+        phaseType,
+        result,
+      );
+
+      // 如果审核通过或已达到最大重试次数，退出循环
+      if (reviewResult.approved || attempts >= MAX_REVISION_ATTEMPTS) {
+        break;
+      }
+
+      // 发送打回事件
+      this.emitEvent(subject, executionId, "review:rejected", {
+        phase: phaseType,
+        attempt: attempts,
+        feedback: reviewResult.feedback,
+        suggestions: reviewResult.suggestions,
+        willRetry: attempts < MAX_REVISION_ATTEMPTS,
+      });
+
+      this.logger.warn(
+        `[runPhaseWithReview] ${phaseType} rejected (attempt ${attempts}/${MAX_REVISION_ATTEMPTS}): ${reviewResult.feedback}`,
+      );
+    } while (!reviewResult.approved && attempts < MAX_REVISION_ATTEMPTS);
+
+    // 如果达到最大重试次数仍未通过，记录警告但继续执行
+    if (!reviewResult.approved) {
+      this.emitEvent(subject, executionId, "review:max_retries_reached", {
+        phase: phaseType,
+        attempts,
+        lastFeedback: reviewResult.feedback,
+        action: "proceeding_with_best_effort",
+      });
+
+      this.logger.warn(
+        `[runPhaseWithReview] ${phaseType} phase failed after ${attempts} attempts, proceeding with best effort result`,
+      );
+    }
+
+    return result;
   }
 
   // ============================================================================

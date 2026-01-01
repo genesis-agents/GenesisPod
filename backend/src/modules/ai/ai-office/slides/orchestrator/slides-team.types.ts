@@ -91,6 +91,7 @@ export type SlidesTeamEventType =
   | "phase:started"
   | "phase:progress"
   | "phase:completed"
+  | "phase:retry" // 阶段重试
   // Agent 活动
   | "agent:thinking"
   | "agent:working"
@@ -102,6 +103,8 @@ export type SlidesTeamEventType =
   // 质量检查
   | "review:issue_found"
   | "review:auto_fixed"
+  | "review:rejected" // Leader 驳回
+  | "review:max_retries_reached" // 达到最大重试次数
   // 心跳
   | "heartbeat";
 
@@ -119,6 +122,7 @@ export type SlidesTeamEventData =
   | PhaseStartedData
   | PhaseProgressData
   | PhaseCompletedData
+  | PhaseRetryData
   | AgentThinkingData
   | AgentWorkingData
   | AgentCompletedData
@@ -127,6 +131,8 @@ export type SlidesTeamEventData =
   | SlideGeneratedData
   | ReviewIssueData
   | ReviewFixedData
+  | ReviewRejectedData
+  | ReviewMaxRetriesData
   | HeartbeatData;
 
 export interface ExecutionStartedData {
@@ -163,6 +169,13 @@ export interface PhaseCompletedData {
   phase: SlidesTeamPhase;
   duration: number; // ms
   result?: unknown; // 阶段结果摘要
+}
+
+export interface PhaseRetryData {
+  phase: string;
+  attempt: number;
+  maxAttempts: number;
+  reason: string;
 }
 
 export interface AgentThinkingData {
@@ -216,6 +229,21 @@ export interface ReviewFixedData {
   pageNumber: number;
   issueType: string;
   fixDescription: string;
+}
+
+export interface ReviewRejectedData {
+  phase: string;
+  attempt: number;
+  feedback?: string;
+  suggestions?: string[];
+  willRetry: boolean;
+}
+
+export interface ReviewMaxRetriesData {
+  phase: string;
+  attempts: number;
+  lastFeedback?: string;
+  action: string; // "proceeding_with_best_effort" | "escalating" | "failed"
 }
 
 export interface HeartbeatData {
