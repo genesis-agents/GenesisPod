@@ -36,6 +36,7 @@ import {
   TopicMembershipService,
   TopicPublicService,
   TopicForwardBookmarkService,
+  TopicEventEmitterService,
 } from "./services";
 
 @Injectable()
@@ -51,6 +52,7 @@ export class AiTeamsService {
     private publicService: TopicPublicService,
     private forwardBookmarkService: TopicForwardBookmarkService,
     @Optional() private auditService: AuditService,
+    @Optional() private topicEventEmitter: TopicEventEmitterService,
   ) {}
 
   // ==================== Topic CRUD ====================
@@ -117,6 +119,16 @@ export class AiTeamsService {
       // 记录审计日志
       if (this.auditService) {
         await this.auditService.logTopicCreate(userId, topicId, dto.name);
+      }
+
+      // 触发 Webhook 事件
+      if (this.topicEventEmitter) {
+        this.topicEventEmitter.emitTopicEvent("topic.created", {
+          topicId,
+          userId,
+          name: dto.name,
+          type: dto.type,
+        });
       }
 
       // 返回完整的Topic信息
@@ -294,7 +306,7 @@ export class AiTeamsService {
       TopicRole.ADMIN,
     ]);
 
-    return this.prisma.topic.update({
+    const result = await this.prisma.topic.update({
       where: { id: topicId },
       data: dto,
       include: {
@@ -303,24 +315,45 @@ export class AiTeamsService {
         },
       },
     });
+
+    // 触发 Webhook 事件
+    if (this.topicEventEmitter) {
+      this.topicEventEmitter.emitTopicEvent("topic.updated", {
+        topicId,
+        userId,
+        changes: dto,
+      });
+    }
+
+    return result;
   }
 
   async archiveTopic(topicId: string, userId: string) {
     await this.checkTopicPermission(topicId, userId, [TopicRole.OWNER]);
 
-    return this.prisma.topic.update({
+    const result = await this.prisma.topic.update({
       where: { id: topicId },
       data: {
         type: TopicType.ARCHIVED,
         archivedAt: new Date(),
       },
     });
+
+    // 触发 Webhook 事件
+    if (this.topicEventEmitter) {
+      this.topicEventEmitter.emitTopicEvent("topic.archived", {
+        topicId,
+        userId,
+      });
+    }
+
+    return result;
   }
 
   async deleteTopic(topicId: string, userId: string) {
     await this.checkTopicPermission(topicId, userId, [TopicRole.OWNER]);
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       await tx.missionLog.deleteMany({
         where: { mission: { topicId } },
       });
@@ -385,6 +418,16 @@ export class AiTeamsService {
         where: { id: topicId },
       });
     });
+
+    // 触发 Webhook 事件
+    if (this.topicEventEmitter) {
+      this.topicEventEmitter.emitTopicEvent("topic.deleted", {
+        topicId,
+        userId,
+      });
+    }
+
+    return result;
   }
 
   // ==================== Member Management (Delegated) ====================
@@ -677,6 +720,16 @@ export class AiTeamsService {
         message.id,
         false,
       );
+    }
+
+    // 触发 Webhook 事件
+    if (this.topicEventEmitter) {
+      this.topicEventEmitter.emitTopicEvent("message.created", {
+        topicId,
+        messageId: message.id,
+        senderId: userId,
+        content: dto.content.slice(0, 200), // 限制长度
+      });
     }
 
     // 返回完整消息

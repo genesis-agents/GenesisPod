@@ -58,6 +58,8 @@ import { GoogleDriveModule } from "./modules/integrations/google-drive/google-dr
 import { AiFileOrganizerModule } from "./modules/integrations/ai-file-organizer/ai-file-organizer.module";
 // Export module
 import { ExportModule } from "./modules/export";
+// Webhooks module
+import { WebhooksModule } from "./modules/webhooks";
 
 @Module({
   imports: [
@@ -146,6 +148,9 @@ import { ExportModule } from "./modules/export";
 
     // Export module
     ExportModule,
+
+    // Webhooks module
+    WebhooksModule,
   ],
   controllers: [AppController],
   providers: [

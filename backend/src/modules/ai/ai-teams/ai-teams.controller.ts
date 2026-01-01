@@ -10,7 +10,9 @@ import {
   UseGuards,
   Request,
   Logger,
+  Res,
 } from "@nestjs/common";
+import { Response } from "express";
 import {
   ApiTags,
   ApiOperation,
@@ -976,6 +978,108 @@ export class AiTeamsController {
       aiMemberId,
       contextMessageIds || [],
     );
+  }
+
+  /**
+   * SSE 流式生成 AI 响应
+   */
+  @Post(":topicId/ai/generate/stream")
+  @UseGuards(RateLimitGuard)
+  @RateLimit({
+    maxRequests: 10,
+    windowSeconds: 60,
+    message: "AI 请求过于频繁，请稍后再试",
+  })
+  @ApiOperation({
+    summary: "流式生成AI响应 (SSE)",
+    description: "通过 Server-Sent Events 实时推送 AI 生成内容",
+  })
+  @ApiResponse({ status: 200, description: "SSE 流连接成功" })
+  @ApiResponse({ status: 429, description: "请求过于频繁" })
+  async generateAIResponseStream(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Body("aiMemberId") aiMemberId: string,
+    @Body("contextMessageIds") contextMessageIds: string[] = [],
+    @Res() res: Response,
+  ) {
+    // 设置 SSE 响应头
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders();
+
+    const userId = req.user.id;
+
+    // 发送开始事件
+    this.sendSSEEvent(res, "start", {
+      topicId,
+      aiMemberId,
+      timestamp: new Date().toISOString(),
+    });
+
+    try {
+      // 调用生成服务
+      const result = await this.aiGroupService.generateAIResponse(
+        topicId,
+        userId,
+        aiMemberId,
+        contextMessageIds,
+      );
+
+      if (result) {
+        // 模拟流式输出（按字符分块发送）
+        const content = result.content || "";
+        const chunkSize = 30; // 每块约30个字符
+
+        for (let i = 0; i < content.length; i += chunkSize) {
+          const chunk = content.slice(i, i + chunkSize);
+          this.sendSSEEvent(res, "chunk", {
+            content: chunk,
+            index: Math.floor(i / chunkSize),
+          });
+
+          // 添加小延迟模拟打字效果
+          await this.delay(20);
+        }
+
+        // 发送完成事件
+        this.sendSSEEvent(res, "complete", {
+          messageId: result.id,
+          model: result.aiMember?.aiModel,
+          totalLength: content.length,
+        });
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      this.logger.error(`SSE AI generate error: ${errorMessage}`);
+
+      this.sendSSEEvent(res, "error", {
+        message: errorMessage,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // 发送结束标记
+    res.write("data: [DONE]\n\n");
+    res.end();
+  }
+
+  /**
+   * 发送 SSE 事件
+   */
+  private sendSSEEvent(res: Response, event: string, data: any): void {
+    res.write(`event: ${event}\n`);
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  }
+
+  /**
+   * 延迟工具函数
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   // ==================== Resources ====================

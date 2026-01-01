@@ -70,6 +70,7 @@ Authorization: Bearer <access_token>
       .addTag("explore", "资源发现")
       .addTag("library", "个人收藏")
       .addTag("notes", "笔记管理")
+      .addTag("webhooks", "Webhook 订阅管理")
       .addTag("admin", "系统管理")
       .build();
 
@@ -94,7 +95,14 @@ Authorization: Bearer <access_token>
       },
     });
 
+    // 添加 JSON 导出端点
+    const httpAdapter = app.getHttpAdapter();
+    httpAdapter.get("/api/openapi.json", (_req: any, res: any) => {
+      res.json(document);
+    });
+
     console.log("📚 Swagger API docs available at /api/docs");
+    console.log("📄 OpenAPI JSON available at /api/openapi.json");
   } catch {
     console.log(
       "⚠️  Swagger not available (install: npm install @nestjs/swagger swagger-ui-express)",
