@@ -109,6 +109,8 @@ export type SlidesTeamEventType =
   | "review:diagnostics" // 诊断信息 (v3.2)
   // Agent 管理
   | "agent:switched" // Agent 被替换
+  // Token 统计 (v3.4)
+  | "token:usage" // Token 使用更新
   // 心跳
   | "heartbeat";
 
@@ -140,6 +142,7 @@ export type SlidesTeamEventData =
   | ReviewScoringData
   | ReviewMaxRetriesData
   | ReviewDiagnosticsData
+  | TokenUsageData
   | HeartbeatData;
 
 /**
@@ -323,6 +326,17 @@ export interface HeartbeatData {
   activeAgent?: SlidesAgentRole;
 }
 
+/**
+ * Token 使用事件数据 (v3.4)
+ */
+export interface TokenUsageData {
+  phase: SlidesTeamPhase;
+  role?: string;
+  tokensUsed: number;
+  totalTokens: number; // 累计总量
+  estimatedCost?: number; // 累计成本 (美元)
+}
+
 // ============================================================================
 // 输入输出类型
 // ============================================================================
@@ -338,6 +352,16 @@ export interface SlidesTeamInput {
   themeId?: string;
 }
 
+/**
+ * Token 使用详情
+ */
+export interface TokenUsageDetails {
+  total: number;
+  byPhase: Record<SlidesTeamPhase, number>;
+  byRole: Record<string, number>;
+  estimatedCost?: number; // 美元
+}
+
 export interface SlidesTeamOutput {
   executionId: string;
   sessionId: string;
@@ -349,12 +373,22 @@ export interface SlidesTeamOutput {
     totalTime: number;
     phaseTimings: Record<SlidesTeamPhase, number>;
     tokenUsage: number;
+    tokenDetails?: TokenUsageDetails; // 详细 token 统计
   };
 }
 
 // ============================================================================
 // 内部状态类型
 // ============================================================================
+
+/**
+ * Token 跟踪器
+ */
+export interface TokenTracker {
+  total: number;
+  byPhase: Record<SlidesTeamPhase, number>;
+  byRole: Record<string, number>;
+}
 
 export interface SlidesTeamState {
   executionId: string;
@@ -369,6 +403,9 @@ export interface SlidesTeamState {
   planningResult?: PlanningResult;
   generationResult?: GenerationResult;
   reviewResult?: ReviewResult;
+
+  // Token 跟踪 (v3.4)
+  tokenTracker: TokenTracker;
 
   // 错误信息
   error?: {

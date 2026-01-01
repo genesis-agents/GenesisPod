@@ -16,6 +16,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Observable, Subject } from "rxjs";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { CreditsService } from "../../../../credits/credits.service";
 
 // 导入现有 Skills
 import { TaskDecompositionSkill } from "../skills/task-decomposition.skill";
@@ -108,6 +109,7 @@ export class SlidesTeamOrchestratorService {
     private readonly imageFetcher: ImageFetcherSkill,
     private readonly qualityAudit: QualityAuditSkill,
     private readonly checkpoint: CheckpointService,
+    private readonly creditsService: CreditsService,
   ) {}
 
   /**
@@ -149,6 +151,11 @@ export class SlidesTeamOrchestratorService {
       progress: 0,
       startTime: new Date(),
       phaseStartTime: new Date(),
+      tokenTracker: {
+        total: 0,
+        byPhase: {} as Record<SlidesTeamPhase, number>,
+        byRole: {},
+      },
     };
 
     try {
@@ -213,6 +220,44 @@ export class SlidesTeamOrchestratorService {
 
       await this.updateExecution(executionId, "COMPLETED", state);
 
+      // 发送最终 Token 统计事件 (v3.4)
+      const estimatedCost = this.estimateTokenCost(state.tokenTracker.total);
+      this.emitEvent(subject, executionId, "token:usage", {
+        phase: "completed" as SlidesTeamPhase,
+        tokensUsed: 0,
+        totalTokens: state.tokenTracker.total,
+        estimatedCost,
+      });
+
+      this.logger.log(
+        `[executeInternal] Token 统计: total=${state.tokenTracker.total}, ` +
+          `byPhase=${JSON.stringify(state.tokenTracker.byPhase)}, ` +
+          `estimatedCost=$${estimatedCost.toFixed(4)}`,
+      );
+
+      // 消耗积分 (v3.4)
+      try {
+        const creditsResult = await this.creditsService.consumeCredits({
+          userId: input.userId,
+          moduleType: "ai-office",
+          operationType: "slides-generation",
+          tokenCount: state.tokenTracker.total,
+          referenceId: executionId,
+          description: `PPT 生成 (${state.planningResult?.totalPages || 0} 页, ${state.tokenTracker.total} tokens)`,
+          idempotencyKey: `slides-${executionId}`,
+        });
+
+        this.logger.log(
+          `[executeInternal] 积分消耗: ${creditsResult.consumed} credits, ` +
+            `余额: ${creditsResult.balanceAfter}`,
+        );
+      } catch (creditError) {
+        // 积分扣除失败不影响 PPT 生成结果
+        this.logger.warn(
+          `[executeInternal] 积分消耗失败: ${creditError instanceof Error ? creditError.message : String(creditError)}`,
+        );
+      }
+
       this.emitEvent(subject, executionId, "execution:completed", {
         totalPages: state.planningResult?.totalPages || 0,
         totalTime,
@@ -228,7 +273,13 @@ export class SlidesTeamOrchestratorService {
         metrics: {
           totalTime,
           phaseTimings: {} as Record<SlidesTeamPhase, number>,
-          tokenUsage: 0,
+          tokenUsage: state.tokenTracker.total,
+          tokenDetails: {
+            total: state.tokenTracker.total,
+            byPhase: state.tokenTracker.byPhase,
+            byRole: state.tokenTracker.byRole,
+            estimatedCost,
+          },
         },
       };
     } catch (error) {
@@ -1625,5 +1676,19 @@ export class SlidesTeamOrchestratorService {
       /(<div class="slide-container"[^>]*style=")([^"]*)/,
       `$1$2 ${decorativeStyle}`,
     );
+  }
+
+  // ============================================================================
+  // Token 统计辅助方法 (v3.4)
+  // ============================================================================
+
+  /**
+   * 估算 Token 成本 (美元)
+   * 基于 GPT-4 Turbo 价格：$10/1M input, $30/1M output
+   * 简化计算：假设 input:output = 3:1，平均 $15/1M tokens
+   */
+  private estimateTokenCost(totalTokens: number): number {
+    const PRICE_PER_MILLION = 15; // $15 per million tokens (blended rate)
+    return (totalTokens / 1_000_000) * PRICE_PER_MILLION;
   }
 }

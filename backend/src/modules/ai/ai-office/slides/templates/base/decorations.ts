@@ -645,6 +645,20 @@ export function generateDecorationHtml(config: DecorationConfig): string {
     });
   }
 
+  // Transparent border decorations (章节页角落装饰框)
+  if (config.transparentBorder?.enabled) {
+    config.transparentBorder.positions.forEach((pos) => {
+      const style = getTransparentBorderInlineStyle(
+        pos,
+        config.transparentBorder!.color,
+        config.transparentBorder!.size,
+        config.transparentBorder!.borderWidth,
+        config.transparentBorder!.opacity,
+      );
+      elements.push(`<div style="${style.replace(/\n/g, " ").trim()}"></div>`);
+    });
+  }
+
   return elements.join("\n");
 }
 
