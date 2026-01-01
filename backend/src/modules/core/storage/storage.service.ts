@@ -1302,7 +1302,7 @@ export class StorageService {
         const logsResult = await this.prisma.slidesTeamLog.deleteMany({
           where: {
             execution: {
-              session: { updatedAt: { lt: cutoffDate } },
+              createdAt: { lt: cutoffDate },
             },
           },
         });
@@ -1310,7 +1310,7 @@ export class StorageService {
 
         const execResult = await this.prisma.slidesTeamExecution.deleteMany({
           where: {
-            session: { updatedAt: { lt: cutoffDate } },
+            createdAt: { lt: cutoffDate },
           },
         });
         teamExecutionsDeleted = execResult.count;
