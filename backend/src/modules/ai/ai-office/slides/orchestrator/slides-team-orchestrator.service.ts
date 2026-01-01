@@ -974,6 +974,8 @@ export class SlidesTeamOrchestratorService {
         title: po.title,
         keyElements: po.keyElements,
       })),
+      // 存储完整的 OutlinePlan，供 generation 阶段复用
+      fullOutline: outline,
     };
 
     const duration = Date.now() - state.phaseStartTime.getTime();
@@ -1038,21 +1040,33 @@ export class SlidesTeamOrchestratorService {
     // 获取主题配置
     const themeId = input.themeId || "genspark-dark";
 
-    // 重新获取完整的 OutlinePlan
-    const decomposition = await this.taskDecomposition.execute({
-      sourceText: input.sourceText,
-      userRequirement: input.userRequirement,
-      targetPages: input.targetPages,
-      stylePreference: input.stylePreference,
-      targetAudience: input.targetAudience,
-      sessionId: input.sessionId,
-    });
+    // 复用 planning 阶段存储的 OutlinePlan，避免重新规划导致页数不一致
+    let outline: OutlinePlan;
+    if (planningResult.fullOutline) {
+      outline = planningResult.fullOutline;
+      this.logger.log(
+        `[runGenerationPhase] Reusing stored outline with ${outline.pages.length} pages`,
+      );
+    } else {
+      // 兜底：如果没有存储完整 outline（老数据），重新生成
+      this.logger.warn(
+        `[runGenerationPhase] No stored outline found, regenerating (may cause page count mismatch)`,
+      );
+      const decomposition = await this.taskDecomposition.execute({
+        sourceText: input.sourceText,
+        userRequirement: input.userRequirement,
+        targetPages: input.targetPages,
+        stylePreference: input.stylePreference,
+        targetAudience: input.targetAudience,
+        sessionId: input.sessionId,
+      });
 
-    const outline: OutlinePlan = await this.outlinePlanning.execute({
-      taskDecomposition: decomposition,
-      sourceText: input.sourceText,
-      sessionId: input.sessionId,
-    });
+      outline = await this.outlinePlanning.execute({
+        taskDecomposition: decomposition,
+        sourceText: input.sourceText,
+        sessionId: input.sessionId,
+      });
+    }
 
     // 通知开始并发生成
     const thinkingMessage = isRetry

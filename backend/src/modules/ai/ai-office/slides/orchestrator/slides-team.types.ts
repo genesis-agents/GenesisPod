@@ -409,6 +409,8 @@ export interface PlanningResult {
     title: string;
     keyElements: string[];
   }>;
+  /** 完整的 OutlinePlan，用于 generation 阶段复用（避免重复规划导致页数不一致） */
+  fullOutline?: import("../checkpoint/checkpoint.types").OutlinePlan;
 }
 
 export interface GenerationResult {
