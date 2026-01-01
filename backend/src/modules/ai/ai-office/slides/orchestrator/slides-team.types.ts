@@ -221,6 +221,7 @@ export interface SlideGeneratedData {
   pageNumber: number;
   title: string;
   contentLength: number;
+  html: string; // 渲染后的 HTML 内容
 }
 
 export interface ReviewIssueData {

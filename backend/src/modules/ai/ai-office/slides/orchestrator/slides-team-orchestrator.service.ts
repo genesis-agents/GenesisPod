@@ -1064,6 +1064,7 @@ export class SlidesTeamOrchestratorService {
           pageNumber: result.pageNumber,
           title: result.title,
           contentLength: result.compressedLength,
+          html: result.html, // 发送渲染后的 HTML 给前端
         });
       }
 
