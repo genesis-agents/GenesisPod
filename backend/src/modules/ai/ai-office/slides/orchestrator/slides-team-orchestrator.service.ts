@@ -23,6 +23,10 @@ import { OutlinePlanningSkill } from "../skills/outline-planning.skill";
 import { ContentCompressionSkill } from "../skills/content-compression.skill";
 import { TemplateRenderingSkill } from "../skills/template-rendering.skill";
 import { ImageFetcherSkill, ImageResult } from "../skills/image-fetcher.skill";
+import {
+  QualityAuditSkill,
+  DiagnosticInfo,
+} from "../skills/quality-audit.skill";
 import { CheckpointService } from "../checkpoint/checkpoint.service";
 
 // 导入类型
@@ -102,6 +106,7 @@ export class SlidesTeamOrchestratorService {
     private readonly contentCompression: ContentCompressionSkill,
     private readonly templateRendering: TemplateRenderingSkill,
     private readonly imageFetcher: ImageFetcherSkill,
+    private readonly qualityAudit: QualityAuditSkill,
     private readonly checkpoint: CheckpointService,
   ) {}
 
@@ -1280,19 +1285,80 @@ export class SlidesTeamOrchestratorService {
       pageScores,
     };
 
+    // v3.2: 使用 QualityAuditSkill 进行深度审核并收集诊断信息
+    const diagnostics: DiagnosticInfo[] = [];
+    let totalFixed = 0;
+    let totalRemaining = 0;
+
+    for (const page of generationResult.pages) {
+      // 查找对应的 outline
+      const pageOutline = state.planningResult?.pageOutlines.find(
+        (o) => o.pageNumber === page.pageNumber,
+      );
+      if (pageOutline && page.content) {
+        const { fix, diagnostic } = this.qualityAudit.auditAndFix(
+          {
+            pageNumber: page.pageNumber,
+            title: page.title,
+            templateType: pageOutline.templateType as any,
+            keyElements: pageOutline.keyElements,
+          } as any,
+          page.content as any,
+          page.html,
+        );
+
+        diagnostics.push(diagnostic);
+        totalFixed += fix.fixedIssues.length;
+        totalRemaining += fix.remainingIssues.length;
+
+        // 如果有修复，更新 HTML
+        if (fix.fixed && fix.newHtml) {
+          page.html = fix.newHtml;
+
+          this.emitEvent(subject, state.executionId, "review:auto_fixed", {
+            pageNumber: page.pageNumber,
+            issueType: fix.fixedIssues[0]?.type || "unknown",
+            fixDescription: `自动修复了 ${fix.fixedIssues.length} 个问题`,
+            suggestion: fix.fixedIssues[0]?.suggestion,
+          });
+        }
+      }
+    }
+
+    // 发送诊断信息事件
+    const overallFixRate =
+      totalFixed + totalRemaining > 0
+        ? Math.round((totalFixed / (totalFixed + totalRemaining)) * 100)
+        : 100;
+
+    this.emitEvent(subject, state.executionId, "review:diagnostics", {
+      diagnostics: diagnostics.map((d) => ({
+        pageNumber: d.pageNumber,
+        templateType: d.templateType,
+        contentKeywords: d.contentKeywords,
+        issueTypes: d.issueTypes,
+        fixAttempted: d.fixAttempted,
+        fixSuccessRate: d.fixSuccessRate,
+        suggestedTemplate: d.suggestedTemplate,
+      })),
+      totalFixed,
+      totalRemaining,
+      overallFixRate,
+    });
+
     const duration = Date.now() - state.phaseStartTime.getTime();
 
     this.emitEvent(subject, state.executionId, "agent:completed", {
       agent: "reviewer",
       agentName: agent.name,
-      result: `审核完成，综合评分 ${overallScore}，发现 ${issuesFound} 个问题`,
+      result: `审核完成，综合评分 ${overallScore}，发现 ${issuesFound} 个问题，自动修复 ${totalFixed} 个`,
       duration,
     });
 
     this.emitEvent(subject, state.executionId, "phase:completed", {
       phase: "reviewing",
       duration,
-      result: { overallScore, issuesFound },
+      result: { overallScore, issuesFound, totalFixed, totalRemaining },
     });
 
     state.progress = 95;

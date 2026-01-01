@@ -99,6 +99,7 @@ export type SlidesTeamEventType =
   | 'review:scoring' // Leader 评分
   | 'review:rejected' // 审核驳回
   | 'review:max_retries_reached'
+  | 'review:diagnostics' // 诊断信息 (v3.2)
   // 心跳
   | 'heartbeat';
 
@@ -107,6 +108,27 @@ export interface SlidesTeamEvent {
   timestamp: string;
   executionId: string;
   data: SlidesTeamEventData;
+}
+
+// ============================================================================
+// 诊断数据类型 (v3.2)
+// ============================================================================
+
+export interface DiagnosticData {
+  pageNumber: number;
+  templateType: string;
+  contentKeywords: string[];
+  issueTypes: Record<string, number>;
+  fixAttempted: boolean;
+  fixSuccessRate: number;
+  suggestedTemplate?: string;
+}
+
+export interface ReviewDiagnosticsData {
+  diagnostics: DiagnosticData[];
+  totalFixed: number;
+  totalRemaining: number;
+  overallFixRate: number;
 }
 
 // ============================================================================
@@ -133,6 +155,7 @@ export type SlidesTeamEventData =
   | ReviewScoringData
   | ReviewRejectedData
   | ReviewMaxRetriesData
+  | ReviewDiagnosticsData
   | HeartbeatData;
 
 export interface ExecutionStartedData {
@@ -223,6 +246,7 @@ export interface ReviewFixedData {
   pageNumber: number;
   issueType: string;
   fixDescription: string;
+  suggestion?: string;
 }
 
 export interface ReviewDimension {
@@ -318,6 +342,8 @@ export interface TeamExecutionState {
   scoringHistory: ReviewScoringData[];
   rejections: ReviewRejectedData[];
   agentSwitches: AgentSwitchedData[];
+  // 诊断信息（v3.2）
+  diagnostics?: DiagnosticData[];
 }
 
 // ============================================================================

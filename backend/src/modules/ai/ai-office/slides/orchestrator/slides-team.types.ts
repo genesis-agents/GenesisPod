@@ -106,6 +106,7 @@ export type SlidesTeamEventType =
   | "review:rejected" // Leader 驳回
   | "review:scoring" // Leader 评分
   | "review:max_retries_reached" // 达到最大重试次数
+  | "review:diagnostics" // 诊断信息 (v3.2)
   // Agent 管理
   | "agent:switched" // Agent 被替换
   // 心跳
@@ -138,7 +139,18 @@ export type SlidesTeamEventData =
   | ReviewRejectedData
   | ReviewScoringData
   | ReviewMaxRetriesData
+  | ReviewDiagnosticsData
   | HeartbeatData;
+
+/**
+ * 诊断信息事件数据 (v3.2)
+ */
+export interface ReviewDiagnosticsData {
+  diagnostics: DiagnosticData[];
+  totalFixed: number;
+  totalRemaining: number;
+  overallFixRate: number;
+}
 
 export interface ExecutionStartedData {
   sessionId: string;
@@ -235,6 +247,20 @@ export interface ReviewFixedData {
   pageNumber: number;
   issueType: string;
   fixDescription: string;
+  suggestion?: string;
+}
+
+/**
+ * 诊断信息数据 (v3.2)
+ */
+export interface DiagnosticData {
+  pageNumber: number;
+  templateType: string;
+  contentKeywords: string[];
+  issueTypes: Record<string, number>;
+  fixAttempted: boolean;
+  fixSuccessRate: number;
+  suggestedTemplate?: string;
 }
 
 /**

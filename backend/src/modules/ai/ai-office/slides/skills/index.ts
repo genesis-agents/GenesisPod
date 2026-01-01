@@ -55,5 +55,8 @@ export * from "./transition-checker.skill";
 // Layer 6 - Quality Assurance
 export * from "./quality-audit.skill";
 
+// Layer 7 - Review & Deduction (v3.2 新增)
+export * from "./scenario-deduction.skill";
+
 // Templates
 export * from "../templates";

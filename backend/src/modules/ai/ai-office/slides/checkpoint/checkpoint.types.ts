@@ -538,6 +538,7 @@ export interface QualityIssue {
   pageNumber?: number;
   description: string;
   suggestion?: string;
+  autoFixed?: boolean; // v3.2: 是否已自动修复
 }
 
 // ============================================================================

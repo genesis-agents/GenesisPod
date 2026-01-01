@@ -13,8 +13,12 @@ import {
   QualityReport,
   QualityIssue,
   GENSPARK_DESIGN_SYSTEM,
+  PageTemplateType,
 } from "../checkpoint/checkpoint.types";
-import { QualityAuditSkill } from "../skills/quality-audit.skill";
+import {
+  QualityAuditSkill,
+  DiagnosticInfo,
+} from "../skills/quality-audit.skill";
 
 /**
  * 布局检查输入
@@ -72,6 +76,29 @@ export interface CompletenessCheckResult {
   issues: QualityIssue[];
 }
 
+/**
+ * 单页修复结果
+ */
+export interface PageFixResult {
+  pageNumber: number;
+  fixed: boolean;
+  originalTemplate?: PageTemplateType;
+  newTemplate?: PageTemplateType;
+  newHtml?: string;
+  fixedCount: number;
+  remainingCount: number;
+}
+
+/**
+ * 增强版质量报告（包含修复结果和诊断信息）
+ */
+export interface EnhancedQualityReport extends QualityReport {
+  fixes: PageFixResult[];
+  totalFixed: number;
+  totalRemaining: number;
+  diagnostics: DiagnosticInfo[];
+}
+
 @Injectable()
 export class ReviewerService {
   private readonly logger = new Logger(ReviewerService.name);
@@ -79,13 +106,15 @@ export class ReviewerService {
   constructor(private readonly qualityAudit: QualityAuditSkill) {}
 
   /**
-   * 执行完整的质量审核
+   * 执行完整的质量审核（v3.2 增强：自动修复）
+   *
+   * 返回增强版质量报告，包含修复结果
    */
   async reviewAll(
     pages: PageState[],
     outlinePlan: OutlinePlan,
     _sessionId?: string,
-  ): Promise<QualityReport> {
+  ): Promise<EnhancedQualityReport> {
     this.logger.log(`[reviewAll] Reviewing ${pages.length} pages`);
 
     const startTime = Date.now();
@@ -98,34 +127,75 @@ export class ReviewerService {
         this.checkCompleteness({ pages, outlinePlan }),
       ]);
 
-    // 执行语义级质量审核（模板-内容匹配、图表类型等）
-    const semanticAuditResult = this.qualityAudit.auditPresentation(
-      pages
-        .filter((p) => p.content && p.html)
-        .map((p) => ({
-          outline: p.outline,
-          content: p.content!,
-          html: p.html!,
-        })),
-    );
+    // v3.2: 执行语义级质量审核 + 自动修复
+    const fixes: PageFixResult[] = [];
+    const diagnostics: DiagnosticInfo[] = [];
+    const semanticIssues: QualityIssue[] = [];
+    let totalFixed = 0;
+    let totalRemaining = 0;
 
-    // 转换 QualityAuditSkill 的问题格式到 ReviewerService 格式
-    const semanticIssues: QualityIssue[] = semanticAuditResult.issues.map(
-      (issue) => ({
+    const pagesWithContent = pages.filter((p) => p.content && p.html);
+
+    for (const page of pagesWithContent) {
+      // 使用 auditAndFix 而不是单纯的 auditPage（返回诊断信息）
+      const { audit, fix, diagnostic } = this.qualityAudit.auditAndFix(
+        page.outline,
+        page.content!,
+        page.html!,
+      );
+
+      // 记录修复结果
+      const pageFixResult: PageFixResult = {
+        pageNumber: page.pageNumber,
+        fixed: fix.fixed,
+        originalTemplate: fix.originalTemplate,
+        newTemplate: fix.newTemplate,
+        newHtml: fix.newHtml,
+        fixedCount: fix.fixedIssues.length,
+        remainingCount: fix.remainingIssues.length,
+      };
+      fixes.push(pageFixResult);
+      diagnostics.push(diagnostic);
+
+      // 统计
+      totalFixed += fix.fixedIssues.length;
+      totalRemaining += fix.remainingIssues.length;
+
+      // 如果有修复，更新 page 的 HTML（直接修改引用）
+      if (fix.fixed && fix.newHtml) {
+        page.html = fix.newHtml;
+        this.logger.log(
+          `[reviewAll] Page ${page.pageNumber}: Auto-fixed ${fix.fixedIssues.length} issues`,
+        );
+      }
+
+      // 如果需要更换模板，标记 page（需要重新渲染）
+      if (fix.newTemplate && fix.newTemplate !== page.outline.templateType) {
+        page.outline.templateType = fix.newTemplate;
+        page.status = "pending"; // 标记需要重新渲染
+        this.logger.log(
+          `[reviewAll] Page ${page.pageNumber}: Template changed to ${fix.newTemplate}, needs re-render`,
+        );
+      }
+
+      // 收集剩余问题（已修复的不计入）
+      const remainingIssues = audit.issues.map((issue) => ({
         type: this.mapAuditIssueType(issue.type),
         severity: issue.severity,
         pageNumber: issue.pageNumber,
         description: issue.message,
         suggestion: issue.suggestion,
-      }),
-    );
+        autoFixed: issue.autoFixed,
+      }));
+      semanticIssues.push(...remainingIssues);
+    }
 
-    // 汇总所有问题
+    // 汇总所有问题（不包含已自动修复的）
     const allIssues: QualityIssue[] = [
       ...layoutResults.flatMap((r) => r.issues),
       ...consistencyResult.issues,
       ...completenessResult.issues,
-      ...semanticIssues,
+      ...semanticIssues.filter((i) => !i.autoFixed),
     ];
 
     // 计算总体评分
@@ -135,17 +205,32 @@ export class ReviewerService {
     // 生成建议
     const suggestions = this.generateSuggestions(allIssues, completenessResult);
 
-    const report: QualityReport = {
+    // v3.2: 添加修复相关建议
+    if (totalFixed > 0) {
+      suggestions.unshift(`✅ 已自动修复 ${totalFixed} 个问题`);
+    }
+    if (totalRemaining > 0) {
+      suggestions.push(`⚠️ 仍有 ${totalRemaining} 个问题需要人工处理`);
+    }
+
+    const report: EnhancedQualityReport = {
       overall,
       score,
       issues: allIssues,
       suggestions,
       checkedAt: new Date(),
+      fixes,
+      totalFixed,
+      totalRemaining,
+      diagnostics,
     };
+
+    // v3.2: 输出诊断汇总（用于持续改进）
+    this.logDiagnosticSummary(diagnostics, totalFixed, totalRemaining);
 
     const duration = Date.now() - startTime;
     this.logger.log(
-      `[reviewAll] Review completed in ${duration}ms, score: ${score}`,
+      `[reviewAll] Review completed in ${duration}ms, score: ${score}, fixed: ${totalFixed}, remaining: ${totalRemaining}`,
     );
 
     return report;
@@ -577,6 +662,74 @@ export class ReviewerService {
       default:
         return "content";
     }
+  }
+
+  /**
+   * 输出诊断汇总（用于持续改进分析）
+   */
+  private logDiagnosticSummary(
+    diagnostics: DiagnosticInfo[],
+    totalFixed: number,
+    totalRemaining: number,
+  ): void {
+    if (diagnostics.length === 0) return;
+
+    // 汇总问题类型分布
+    const issueTypeDistribution: Record<string, number> = {};
+    const templateMismatchPages: number[] = [];
+    const lowFixRatePages: number[] = [];
+
+    for (const diag of diagnostics) {
+      for (const [type, count] of Object.entries(diag.issueTypes)) {
+        if (count > 0) {
+          issueTypeDistribution[type] =
+            (issueTypeDistribution[type] || 0) + count;
+        }
+      }
+
+      // 记录模板不匹配的页面
+      if (diag.issueTypes.template_mismatch > 0) {
+        templateMismatchPages.push(diag.pageNumber);
+      }
+
+      // 记录修复成功率低的页面
+      if (diag.fixAttempted && diag.fixSuccessRate < 50) {
+        lowFixRatePages.push(diag.pageNumber);
+      }
+    }
+
+    // 输出汇总日志
+    this.logger.log(
+      `[REVIEW-SUMMARY] Pages: ${diagnostics.length}, Fixed: ${totalFixed}, Remaining: ${totalRemaining}`,
+    );
+
+    if (Object.keys(issueTypeDistribution).length > 0) {
+      this.logger.log(
+        `[ISSUE-DISTRIBUTION] ${JSON.stringify(issueTypeDistribution)}`,
+      );
+    }
+
+    if (templateMismatchPages.length > 0) {
+      this.logger.warn(
+        `[TEMPLATE-MISMATCH] Pages with template issues: ${templateMismatchPages.join(", ")}`,
+      );
+    }
+
+    if (lowFixRatePages.length > 0) {
+      this.logger.warn(
+        `[LOW-FIX-RATE] Pages needing attention: ${lowFixRatePages.join(", ")}`,
+      );
+    }
+
+    // 计算整体修复成功率
+    const overallFixRate =
+      totalFixed + totalRemaining > 0
+        ? Math.round((totalFixed / (totalFixed + totalRemaining)) * 100)
+        : 100;
+
+    this.logger.log(
+      `[FIX-RATE] Overall: ${overallFixRate}% (${totalFixed}/${totalFixed + totalRemaining})`,
+    );
   }
 
   /**

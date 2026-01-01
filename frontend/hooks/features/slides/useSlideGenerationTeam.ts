@@ -37,6 +37,7 @@ import type {
   ReviewScoringData,
   ReviewRejectedData,
   ReviewMaxRetriesData,
+  ReviewDiagnosticsData,
   SLIDES_TEAM_AGENTS,
 } from '@/types/slides-team';
 import type { PageState, GenerationProgress } from '@/types/slides';
@@ -436,6 +437,26 @@ export function useSlideGenerationTeam(
             'action:',
             data.action
           );
+          break;
+        }
+
+        case 'review:diagnostics': {
+          // v3.2: 接收诊断信息
+          const data = event.data as ReviewDiagnosticsData;
+          console.log(
+            '[Team SSE] Diagnostics received:',
+            data.diagnostics.length,
+            'pages, fix rate:',
+            data.overallFixRate + '%'
+          );
+
+          setTeamState((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              diagnostics: data.diagnostics,
+            };
+          });
           break;
         }
 

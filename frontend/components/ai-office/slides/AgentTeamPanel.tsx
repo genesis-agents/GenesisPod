@@ -30,6 +30,12 @@ import {
   RefreshCw,
   Gauge,
   TrendingUp,
+  FileWarning,
+  Wrench,
+  Info,
+  XCircle,
+  Lightbulb,
+  Tag,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import type {
@@ -38,6 +44,9 @@ import type {
   TeamExecutionState,
   AgentHandoffData,
   ReviewDimension,
+  ReviewIssueData,
+  ReviewFixedData,
+  DiagnosticData,
 } from '@/types/slides-team';
 
 // ============================================================================
@@ -178,6 +187,303 @@ function DimensionScoreList({ dimensions }: DimensionScoreListProps) {
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+// ============================================================================
+// Issue Detail List 组件 (v3.2 新增)
+// ============================================================================
+
+interface IssueDetailListProps {
+  issues: ReviewIssueData[];
+  fixes: ReviewFixedData[];
+}
+
+function IssueDetailList({ issues, fixes }: IssueDetailListProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  if (issues.length === 0 && fixes.length === 0) return null;
+
+  const severityConfig = {
+    error: { icon: XCircle, color: 'text-red-500', bg: 'bg-red-500/10' },
+    warning: {
+      icon: AlertTriangle,
+      color: 'text-amber-500',
+      bg: 'bg-amber-500/10',
+    },
+    info: { icon: Info, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+  };
+
+  const issueTypeLabels: Record<string, string> = {
+    template_mismatch: '模板不匹配',
+    chart_type_wrong: '图表类型错误',
+    content_logic: '内容逻辑问题',
+    layout_issue: '布局问题',
+    data_inconsistency: '数据不一致',
+    visual_issue: '视觉问题',
+  };
+
+  return (
+    <div className="space-y-2 rounded-lg bg-gray-50 p-2 dark:bg-gray-900">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex w-full items-center justify-between text-[10px] font-medium text-gray-500 hover:text-gray-700"
+      >
+        <div className="flex items-center gap-1">
+          <FileWarning className="h-3 w-3" />
+          质量审核详情
+          <span className="ml-1 rounded bg-amber-500/20 px-1 text-amber-600">
+            {issues.length} 问题
+          </span>
+          <span className="rounded bg-green-500/20 px-1 text-green-600">
+            {fixes.length} 已修复
+          </span>
+        </div>
+        {isExpanded ? (
+          <ChevronUp className="h-3 w-3" />
+        ) : (
+          <ChevronDown className="h-3 w-3" />
+        )}
+      </button>
+
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="space-y-1.5 overflow-hidden"
+          >
+            {/* 问题列表 */}
+            {issues.map((issue, index) => {
+              const config = severityConfig[issue.severity];
+              const SeverityIcon = config.icon;
+              return (
+                <div
+                  key={`issue-${index}`}
+                  className={cn(
+                    'rounded border-l-2 p-1.5 text-[10px]',
+                    config.bg,
+                    issue.severity === 'error'
+                      ? 'border-red-500'
+                      : issue.severity === 'warning'
+                        ? 'border-amber-500'
+                        : 'border-blue-500'
+                  )}
+                >
+                  <div className="flex items-start gap-1">
+                    <SeverityIcon
+                      className={cn(
+                        'mt-0.5 h-3 w-3 flex-shrink-0',
+                        config.color
+                      )}
+                    />
+                    <div className="flex-1 space-y-0.5">
+                      <div className="flex items-center gap-1">
+                        <span className="font-medium text-gray-700 dark:text-gray-300">
+                          P{issue.pageNumber}
+                        </span>
+                        <span className="rounded bg-gray-200 px-1 text-[9px] text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+                          {issueTypeLabels[issue.type] || issue.type}
+                        </span>
+                      </div>
+                      <div className="text-gray-600 dark:text-gray-400">
+                        {issue.message}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* 已修复列表 */}
+            {fixes.map((fix, index) => (
+              <div
+                key={`fix-${index}`}
+                className="rounded border-l-2 border-green-500 bg-green-500/10 p-1.5 text-[10px]"
+              >
+                <div className="flex items-start gap-1">
+                  <Wrench className="mt-0.5 h-3 w-3 flex-shrink-0 text-green-500" />
+                  <div className="flex-1 space-y-0.5">
+                    <div className="flex items-center gap-1">
+                      <span className="font-medium text-gray-700 dark:text-gray-300">
+                        P{fix.pageNumber}
+                      </span>
+                      <span className="rounded bg-green-200 px-1 text-[9px] text-green-700 dark:bg-green-900 dark:text-green-400">
+                        已修复
+                      </span>
+                    </div>
+                    <div className="text-gray-600 dark:text-gray-400">
+                      {fix.fixDescription}
+                    </div>
+                    {fix.suggestion && (
+                      <div className="flex items-center gap-1 text-[9px] text-blue-600">
+                        <Lightbulb className="h-2.5 w-2.5" />
+                        {fix.suggestion}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ============================================================================
+// Diagnostic Summary 组件 (v3.2 新增)
+// ============================================================================
+
+interface DiagnosticSummaryProps {
+  diagnostics?: DiagnosticData[];
+}
+
+function DiagnosticSummary({ diagnostics }: DiagnosticSummaryProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  if (!diagnostics || diagnostics.length === 0) return null;
+
+  // 计算汇总统计
+  const totalPages = diagnostics.length;
+  const pagesWithIssues = diagnostics.filter((d) => d.fixAttempted).length;
+  const avgFixRate =
+    diagnostics.length > 0
+      ? Math.round(
+          diagnostics.reduce((sum, d) => sum + d.fixSuccessRate, 0) /
+            diagnostics.length
+        )
+      : 100;
+
+  // 模板建议统计
+  const templateSuggestions = diagnostics.filter(
+    (d) => d.suggestedTemplate && d.suggestedTemplate !== d.templateType
+  );
+
+  return (
+    <div className="space-y-2 rounded-lg bg-blue-50 p-2 dark:bg-blue-950/30">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex w-full items-center justify-between text-[10px] font-medium text-blue-600 hover:text-blue-700"
+      >
+        <div className="flex items-center gap-1">
+          <Gauge className="h-3 w-3" />
+          诊断信息
+          <span className="ml-1 text-gray-500">
+            ({totalPages} 页, 修复率 {avgFixRate}%)
+          </span>
+        </div>
+        {isExpanded ? (
+          <ChevronUp className="h-3 w-3" />
+        ) : (
+          <ChevronDown className="h-3 w-3" />
+        )}
+      </button>
+
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="space-y-2 overflow-hidden"
+          >
+            {/* 汇总统计 */}
+            <div className="grid grid-cols-3 gap-2 text-[10px]">
+              <div className="rounded bg-white p-1.5 dark:bg-gray-800">
+                <div className="text-gray-500">审核页面</div>
+                <div className="font-medium">{totalPages}</div>
+              </div>
+              <div className="rounded bg-white p-1.5 dark:bg-gray-800">
+                <div className="text-gray-500">有问题</div>
+                <div className="font-medium text-amber-600">
+                  {pagesWithIssues}
+                </div>
+              </div>
+              <div className="rounded bg-white p-1.5 dark:bg-gray-800">
+                <div className="text-gray-500">修复率</div>
+                <div
+                  className={cn(
+                    'font-medium',
+                    avgFixRate >= 80
+                      ? 'text-green-600'
+                      : avgFixRate >= 50
+                        ? 'text-amber-600'
+                        : 'text-red-600'
+                  )}
+                >
+                  {avgFixRate}%
+                </div>
+              </div>
+            </div>
+
+            {/* 模板建议 */}
+            {templateSuggestions.length > 0 && (
+              <div className="space-y-1">
+                <div className="flex items-center gap-1 text-[9px] text-gray-500">
+                  <Tag className="h-2.5 w-2.5" />
+                  模板优化建议
+                </div>
+                {templateSuggestions.slice(0, 3).map((diag, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-1 rounded bg-white p-1 text-[9px] dark:bg-gray-800"
+                  >
+                    <span className="font-medium">P{diag.pageNumber}:</span>
+                    <span className="text-gray-500">{diag.templateType}</span>
+                    <ArrowRight className="h-2.5 w-2.5 text-blue-500" />
+                    <span className="text-blue-600">
+                      {diag.suggestedTemplate}
+                    </span>
+                    <span className="ml-auto text-gray-400">
+                      关键词: {diag.contentKeywords.slice(0, 2).join(', ')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 每页诊断详情 */}
+            <div className="max-h-32 space-y-1 overflow-y-auto">
+              {diagnostics.map((diag, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between rounded bg-white p-1 text-[9px] dark:bg-gray-800"
+                >
+                  <div className="flex items-center gap-1">
+                    <span className="font-medium">P{diag.pageNumber}</span>
+                    <span className="rounded bg-gray-100 px-1 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+                      {diag.templateType}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {diag.fixAttempted && (
+                      <span
+                        className={cn(
+                          'rounded px-1',
+                          diag.fixSuccessRate >= 100
+                            ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-400'
+                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-400'
+                        )}
+                      >
+                        修复 {diag.fixSuccessRate}%
+                      </span>
+                    )}
+                    {diag.contentKeywords.length > 0 && (
+                      <span className="text-gray-400">
+                        {diag.contentKeywords.slice(0, 2).join(', ')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -727,24 +1033,20 @@ export function AgentTeamPanel({
           </div>
         )}
 
-        {/* Issues & Fixes */}
+        {/* Issues & Fixes - 详细展示 (v3.2) */}
         {(teamState.issues.length > 0 || teamState.fixes.length > 0) && (
-          <div className="mt-4 space-y-2 border-t border-gray-200 pt-2 dark:border-gray-700">
-            <h4 className="text-xs font-medium text-gray-500">质量检查</h4>
-            <div className="flex items-center gap-4 text-xs">
-              {teamState.issues.length > 0 && (
-                <div className="flex items-center gap-1 text-amber-600">
-                  <AlertTriangle className="h-3 w-3" />
-                  <span>{teamState.issues.length} 个问题</span>
-                </div>
-              )}
-              {teamState.fixes.length > 0 && (
-                <div className="flex items-center gap-1 text-green-600">
-                  <CheckCircle2 className="h-3 w-3" />
-                  <span>{teamState.fixes.length} 已修复</span>
-                </div>
-              )}
-            </div>
+          <div className="mt-4 border-t border-gray-200 pt-2 dark:border-gray-700">
+            <IssueDetailList
+              issues={teamState.issues}
+              fixes={teamState.fixes}
+            />
+          </div>
+        )}
+
+        {/* Diagnostics - 诊断信息 (v3.2) */}
+        {teamState.diagnostics && teamState.diagnostics.length > 0 && (
+          <div className="mt-4 border-t border-gray-200 pt-2 dark:border-gray-700">
+            <DiagnosticSummary diagnostics={teamState.diagnostics} />
           </div>
         )}
 

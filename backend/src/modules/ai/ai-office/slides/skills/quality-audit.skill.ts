@@ -52,6 +52,20 @@ export interface SemanticAuditResult {
 }
 
 /**
+ * 诊断信息（用于持续改进）
+ */
+export interface DiagnosticInfo {
+  timestamp: string;
+  pageNumber: number;
+  templateType: string;
+  contentKeywords: string[];
+  issueTypes: Record<SemanticIssueType, number>;
+  fixAttempted: boolean;
+  fixSuccessRate: number;
+  suggestedTemplate?: string;
+}
+
+/**
  * 模板-内容语义规则
  */
 const TEMPLATE_CONTENT_RULES: Record<
@@ -160,9 +174,449 @@ const CHART_DATA_RULES = {
   proportionKeywords: ["占比", "比例", "份额", "构成", "组成", "分布"],
 };
 
+/**
+ * 自动修复结果
+ */
+export interface AutoFixResult {
+  fixed: boolean;
+  originalTemplate?: PageTemplateType;
+  newTemplate?: PageTemplateType;
+  originalHtml?: string;
+  newHtml?: string;
+  fixedIssues: SemanticIssue[];
+  remainingIssues: SemanticIssue[];
+}
+
 @Injectable()
 export class QualityAuditSkill {
   private readonly logger = new Logger(QualityAuditSkill.name);
+
+  /**
+   * 审核并自动修复单页幻灯片质量 (v3.2 新增)
+   *
+   * 这是主要的入口方法，检测问题后会尝试自动修复
+   */
+  auditAndFix(
+    pageOutline: PageOutline,
+    pageContent: PageContent,
+    html: string,
+  ): {
+    audit: SemanticAuditResult;
+    fix: AutoFixResult;
+    diagnostic: DiagnosticInfo;
+  } {
+    // 1. 先进行审核
+    const audit = this.auditPage(pageOutline, pageContent, html);
+
+    // 2. 如果有问题，尝试自动修复
+    const fix = this.autoFix(pageOutline, pageContent, html, audit.issues);
+
+    // 3. 更新审核结果
+    if (fix.fixed) {
+      // 重新计算得分（修复后）
+      const remainingScore = this.calculateScore(fix.remainingIssues);
+      audit.score = remainingScore;
+      audit.passed =
+        remainingScore >= 60 &&
+        !fix.remainingIssues.some((i) => i.severity === "error");
+      audit.issues = fix.remainingIssues;
+      audit.summary = this.generateSummary(fix.remainingIssues, remainingScore);
+    }
+
+    // 4. 生成诊断信息（用于持续改进）
+    const diagnostic = this.generateDiagnostic(
+      pageOutline,
+      pageContent,
+      audit,
+      fix,
+    );
+
+    // 5. 输出详细诊断日志
+    this.logDiagnostic(diagnostic, audit, fix);
+
+    return { audit, fix, diagnostic };
+  }
+
+  /**
+   * 生成诊断信息
+   */
+  private generateDiagnostic(
+    pageOutline: PageOutline,
+    pageContent: PageContent,
+    _audit: SemanticAuditResult,
+    fix: AutoFixResult,
+  ): DiagnosticInfo {
+    // 提取内容关键词
+    const contentText = [
+      pageOutline.title,
+      pageOutline.subtitle || "",
+      pageContent.title,
+      ...pageContent.sections.map((s) => this.getSectionText(s)),
+    ].join(" ");
+
+    const keywords = this.extractKeywords(contentText);
+
+    // 统计问题类型分布
+    const issueTypes: Record<SemanticIssueType, number> = {
+      template_mismatch: 0,
+      chart_type_wrong: 0,
+      content_logic: 0,
+      layout_issue: 0,
+      data_inconsistency: 0,
+      visual_issue: 0,
+    };
+
+    for (const issue of [...fix.fixedIssues, ...fix.remainingIssues]) {
+      issueTypes[issue.type]++;
+    }
+
+    // 计算修复成功率
+    const totalIssues = fix.fixedIssues.length + fix.remainingIssues.length;
+    const fixSuccessRate =
+      totalIssues > 0
+        ? Math.round((fix.fixedIssues.length / totalIssues) * 100)
+        : 100;
+
+    // 获取建议模板
+    const suggestedTemplate = this.getSuggestedTemplate(
+      pageOutline,
+      pageContent,
+    );
+
+    return {
+      timestamp: new Date().toISOString(),
+      pageNumber: pageOutline.pageNumber,
+      templateType: pageOutline.templateType,
+      contentKeywords: keywords,
+      issueTypes,
+      fixAttempted: totalIssues > 0,
+      fixSuccessRate,
+      suggestedTemplate: suggestedTemplate || undefined,
+    };
+  }
+
+  /**
+   * 提取内容关键词（用于诊断）
+   */
+  private extractKeywords(text: string): string[] {
+    const keywords: string[] = [];
+    const keywordPatterns = [
+      // 地理类
+      /位置|地理|区位|城市|国家|区域/g,
+      // 数据类
+      /人口|面积|规模|数量|统计|指标|KPI/g,
+      // 时间类
+      /历史|发展|演变|里程碑|阶段/g,
+      // 对比类
+      /对比|比较|差异|优劣|VS/g,
+      // 流程类
+      /流程|步骤|方法|策略|框架/g,
+      // 结构类
+      /支柱|核心|要素|维度|方面/g,
+    ];
+
+    for (const pattern of keywordPatterns) {
+      const matches = text.match(pattern);
+      if (matches) {
+        keywords.push(...matches);
+      }
+    }
+
+    // 去重
+    return [...new Set(keywords)].slice(0, 10);
+  }
+
+  /**
+   * 输出详细诊断日志
+   */
+  private logDiagnostic(
+    diagnostic: DiagnosticInfo,
+    audit: SemanticAuditResult,
+    fix: AutoFixResult,
+  ): void {
+    // 构建诊断摘要
+    const summary = {
+      page: diagnostic.pageNumber,
+      template: diagnostic.templateType,
+      keywords: diagnostic.contentKeywords.join(","),
+      score: audit.score,
+      issues:
+        Object.entries(diagnostic.issueTypes)
+          .filter(([_, count]) => count > 0)
+          .map(([type, count]) => `${type}:${count}`)
+          .join(", ") || "none",
+      fixed: fix.fixedIssues.length,
+      remaining: fix.remainingIssues.length,
+      fixRate: `${diagnostic.fixSuccessRate}%`,
+      suggestedTemplate: diagnostic.suggestedTemplate || "current-ok",
+    };
+
+    // 输出诊断日志（JSON 格式便于分析）
+    this.logger.log(`[DIAGNOSTIC] ${JSON.stringify(summary)}`);
+
+    // 如果有未修复的 error 级问题，输出警告
+    const unresolvedErrors = fix.remainingIssues.filter(
+      (i) => i.severity === "error",
+    );
+    if (unresolvedErrors.length > 0) {
+      this.logger.warn(
+        `[UNRESOLVED] Page ${diagnostic.pageNumber}: ${unresolvedErrors.length} errors need manual fix`,
+      );
+      for (const error of unresolvedErrors) {
+        this.logger.warn(`  - [${error.type}] ${error.message}`);
+        if (error.suggestion) {
+          this.logger.warn(`    Suggestion: ${error.suggestion}`);
+        }
+      }
+    }
+
+    // 如果模板建议与当前不同，输出建议
+    if (
+      diagnostic.suggestedTemplate &&
+      diagnostic.suggestedTemplate !== diagnostic.templateType
+    ) {
+      this.logger.log(
+        `[TEMPLATE-HINT] Page ${diagnostic.pageNumber}: Consider ${diagnostic.suggestedTemplate} instead of ${diagnostic.templateType}`,
+      );
+    }
+  }
+
+  /**
+   * 自动修复检测到的问题 (v3.2 新增)
+   */
+  autoFix(
+    pageOutline: PageOutline,
+    pageContent: PageContent,
+    html: string,
+    issues: SemanticIssue[],
+  ): AutoFixResult {
+    const fixedIssues: SemanticIssue[] = [];
+    const remainingIssues: SemanticIssue[] = [];
+    let newTemplate: PageTemplateType | undefined;
+    let newHtml = html;
+    let fixed = false;
+
+    for (const issue of issues) {
+      let issueFixed = false;
+
+      switch (issue.type) {
+        case "template_mismatch":
+          // 修复模板不匹配
+          const suggestedTemplate = this.getSuggestedTemplate(
+            pageOutline,
+            pageContent,
+          );
+          if (
+            suggestedTemplate &&
+            suggestedTemplate !== pageOutline.templateType
+          ) {
+            newTemplate = suggestedTemplate;
+            issueFixed = true;
+            this.logger.log(
+              `[autoFix] Template mismatch: ${pageOutline.templateType} -> ${suggestedTemplate}`,
+            );
+          }
+          break;
+
+        case "chart_type_wrong":
+          // 修复图表类型
+          const chartFix = this.fixChartType(newHtml, issue);
+          if (chartFix.fixed) {
+            newHtml = chartFix.html;
+            issueFixed = true;
+            this.logger.log(`[autoFix] Chart type fixed`);
+          }
+          break;
+
+        case "content_logic":
+          // 内容逻辑问题通常需要重新生成内容，这里只能标记
+          // 如果是填充内容问题，尝试移除
+          if (issue.message.includes("填充内容")) {
+            const cleanedHtml = this.removeFillerContent(newHtml);
+            if (cleanedHtml !== newHtml) {
+              newHtml = cleanedHtml;
+              issueFixed = true;
+              this.logger.log(`[autoFix] Filler content removed`);
+            }
+          }
+          break;
+
+        case "layout_issue":
+          // 布局问题尝试修复
+          const layoutFix = this.fixLayoutIssue(newHtml, issue);
+          if (layoutFix.fixed) {
+            newHtml = layoutFix.html;
+            issueFixed = true;
+            this.logger.log(`[autoFix] Layout issue fixed`);
+          }
+          break;
+      }
+
+      if (issueFixed) {
+        fixedIssues.push({ ...issue, autoFixed: true });
+        fixed = true;
+      } else {
+        remainingIssues.push(issue);
+      }
+    }
+
+    return {
+      fixed,
+      originalTemplate: pageOutline.templateType,
+      newTemplate,
+      originalHtml: html,
+      newHtml: fixed ? newHtml : undefined,
+      fixedIssues,
+      remainingIssues,
+    };
+  }
+
+  /**
+   * 获取建议的模板类型
+   */
+  private getSuggestedTemplate(
+    pageOutline: PageOutline,
+    pageContent: PageContent,
+  ): PageTemplateType | null {
+    const contentText = [
+      pageOutline.title,
+      pageOutline.subtitle || "",
+      pageOutline.contentBrief,
+      pageContent.title,
+      ...pageContent.sections.map((s) => this.getSectionText(s)),
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    // 地理/位置类内容
+    if (
+      contentText.includes("位置") ||
+      contentText.includes("地理") ||
+      contentText.includes("区位") ||
+      contentText.includes("城市")
+    ) {
+      if (contentText.includes("人口") || contentText.includes("面积")) {
+        return "dashboard";
+      }
+      return "splitLayout";
+    }
+
+    // 数据/统计类内容
+    if (
+      contentText.includes("人口") ||
+      contentText.includes("面积") ||
+      contentText.includes("统计") ||
+      contentText.includes("数据") ||
+      contentText.includes("kpi") ||
+      contentText.includes("指标")
+    ) {
+      return "dashboard";
+    }
+
+    // 历史/发展类内容
+    if (
+      contentText.includes("历史") ||
+      contentText.includes("发展") ||
+      contentText.includes("演变") ||
+      contentText.includes("里程碑")
+    ) {
+      return "timeline";
+    }
+
+    // 对比类内容
+    if (
+      contentText.includes("对比") ||
+      contentText.includes("比较") ||
+      contentText.includes("vs") ||
+      contentText.includes("差异")
+    ) {
+      return "comparison";
+    }
+
+    // 支柱/要素类内容
+    if (
+      contentText.includes("支柱") ||
+      contentText.includes("核心") ||
+      contentText.includes("要素") ||
+      contentText.includes("维度")
+    ) {
+      return "pillars";
+    }
+
+    return null;
+  }
+
+  /**
+   * 修复图表类型
+   */
+  private fixChartType(
+    html: string,
+    issue: SemanticIssue,
+  ): { fixed: boolean; html: string } {
+    let newHtml = html;
+    let fixed = false;
+
+    // 如果建议使用柱状图替代折线图
+    if (issue.suggestion?.includes("bar")) {
+      // 替换图表类型
+      newHtml = newHtml.replace(/type:\s*['"]?line['"]?/gi, "type: 'bar'");
+      // 移除平滑曲线设置
+      newHtml = newHtml.replace(/smooth:\s*true,?\s*/gi, "");
+      fixed = newHtml !== html;
+    }
+
+    // 如果建议使用折线图替代柱状图
+    if (issue.suggestion?.includes("line")) {
+      newHtml = newHtml.replace(/type:\s*['"]?bar['"]?/gi, "type: 'line'");
+      fixed = newHtml !== html;
+    }
+
+    return { fixed, html: newHtml };
+  }
+
+  /**
+   * 移除填充内容
+   */
+  private removeFillerContent(html: string): string {
+    let newHtml = html;
+
+    // 移除常见的无关填充词
+    const fillerPatterns = [
+      /创新驱动[：:]?\s*持续创新迭代升级/g,
+      /商务简约[^<]*/g,
+      /设计风格[^<]*/g,
+      /视觉设计[^<]*/g,
+    ];
+
+    for (const pattern of fillerPatterns) {
+      newHtml = newHtml.replace(pattern, "");
+    }
+
+    return newHtml;
+  }
+
+  /**
+   * 修复布局问题
+   */
+  private fixLayoutIssue(
+    html: string,
+    issue: SemanticIssue,
+  ): { fixed: boolean; html: string } {
+    let newHtml = html;
+    let fixed = false;
+
+    // 修复固定小高度容器
+    if (issue.message.includes("固定小高度")) {
+      // 将小的固定高度改为 auto 或 flex
+      newHtml = newHtml.replace(
+        /height:\s*(1[0-4]\d|1[5-9]\d)px/gi,
+        "min-height: $1px; height: auto",
+      );
+      fixed = newHtml !== html;
+    }
+
+    return { fixed, html: newHtml };
+  }
 
   /**
    * 审核单页幻灯片质量
