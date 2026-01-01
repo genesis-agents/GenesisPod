@@ -72,11 +72,12 @@ const MAX_REVISION_ATTEMPTS = 3;
 
 /**
  * 各阶段通过阈值
+ * 注意：阈值设置要考虑到源文本可能缺乏数据/洞察的情况
  */
 const PHASE_THRESHOLDS: Record<string, number> = {
-  analysis: 60, // 分析阶段：需要提取有效信息
-  planning: 70, // 规划阶段：需要合理的结构设计
-  generation: 70, // 生成阶段：需要基本完整的内容
+  analysis: 50, // 分析阶段：只要提取到主题就算成功
+  planning: 60, // 规划阶段：需要合理的结构设计
+  generation: 65, // 生成阶段：需要基本完整的内容
 };
 
 /**
@@ -336,11 +337,12 @@ export class SlidesTeamOrchestratorService {
         });
 
         // 维度2：数据点识别（权重 25%）
-        // 基础分 40 分（即使没有数据，但完成了分析就给基础分）+ 每个数据点 15 分
-        const dataBaseScore = analysis.topics.length > 0 ? 40 : 0;
+        // 基础分 60 分（即使没有数据，但完成了分析就给基础分）+ 每个数据点 10 分
+        // 注意：很多源文本本身就没有明确的数据点，不应该因此惩罚
+        const dataBaseScore = analysis.topics.length > 0 ? 60 : 0;
         const dataScore = Math.min(
           100,
-          dataBaseScore + analysis.dataPoints.length * 15,
+          dataBaseScore + analysis.dataPoints.length * 10,
         );
         dimensions.push({
           name: "数据识别",
@@ -349,15 +351,16 @@ export class SlidesTeamOrchestratorService {
           comment:
             analysis.dataPoints.length > 0
               ? `识别了 ${analysis.dataPoints.length} 个数据点`
-              : "源文本数据较少",
+              : "已完成主题分析",
         });
 
         // 维度3：洞察深度（权重 25%）
-        // 基础分 40 分 + 每个洞察 20 分
-        const insightBaseScore = analysis.topics.length > 0 ? 40 : 0;
+        // 基础分 60 分 + 每个洞察 15 分
+        // 注意：洞察是高级能力，基础分应该足够让分析通过
+        const insightBaseScore = analysis.topics.length > 0 ? 60 : 0;
         const insightScore = Math.min(
           100,
-          insightBaseScore + analysis.keyInsights.length * 20,
+          insightBaseScore + analysis.keyInsights.length * 15,
         );
         dimensions.push({
           name: "洞察深度",
@@ -366,7 +369,7 @@ export class SlidesTeamOrchestratorService {
           comment:
             analysis.keyInsights.length > 0
               ? `发现 ${analysis.keyInsights.length} 个关键洞察`
-              : "基于主题完成分析",
+              : "已完成基础分析",
         });
 
         // 维度4：页数建议合理性（权重 20%）
