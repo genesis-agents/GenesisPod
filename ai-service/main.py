@@ -1,6 +1,7 @@
 """
 DeepDive AI Service - FastAPI 应用入口
 """
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -32,13 +33,41 @@ logger.add(
     level="INFO"
 )
 
+# 初始化 AI 客户端（模块级别，供 lifespan 使用）
+grok_api_key = secret_manager.get_grok_api_key()
+openai_api_key = secret_manager.get_openai_api_key()
+
+grok_client = GrokClient(api_key=grok_api_key)
+openai_client = OpenAIClient(api_key=openai_api_key)
+
+# 初始化编排器（全局单例）
+orchestrator = AIOrchestrator(grok_client, openai_client)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期管理"""
+    # Startup
+    logger.info("🚀 DeepDive AI Service starting up...")
+    logger.info(f"📝 Grok available: {grok_client.available}")
+    logger.info(f"📝 OpenAI available: {openai_client.available}")
+    logger.info(f"🎯 Active model: {orchestrator.active_model}")
+    logger.info(f"🧩 Workspace AI v2 enabled: {is_workspace_ai_v2_enabled()}")
+
+    yield
+
+    # Shutdown
+    logger.info("👋 DeepDive AI Service shutting down...")
+
+
 # 创建 FastAPI 应用
 app = FastAPI(
     title="DeepDive AI Service",
     description="AI-driven insights and content processing service",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # 配置 CORS - 允许 localhost 和 Railway 域名
@@ -51,16 +80,6 @@ app.add_middleware(
     expose_headers=["*"],
     max_age=3600,  # OPTIONS预检缓存时间
 )
-
-# 初始化 AI 客户端
-grok_api_key = secret_manager.get_grok_api_key()
-openai_api_key = secret_manager.get_openai_api_key()
-
-grok_client = GrokClient(api_key=grok_api_key)
-openai_client = OpenAIClient(api_key=openai_api_key)
-
-# 初始化编排器（全局单例）
-orchestrator = AIOrchestrator(grok_client, openai_client)
 
 # 注册路由
 app.include_router(ai.router, prefix="/api/v1")
@@ -96,22 +115,6 @@ async def api_root():
             "health": "/api/v1/ai/health"
         }
     }
-
-
-@app.on_event("startup")
-async def startup_event():
-    """应用启动事件"""
-    logger.info("🚀 DeepDive AI Service starting up...")
-    logger.info(f"📝 Grok available: {grok_client.available}")
-    logger.info(f"📝 OpenAI available: {openai_client.available}")
-    logger.info(f"🎯 Active model: {orchestrator.active_model}")
-    logger.info(f"🧩 Workspace AI v2 enabled: {is_workspace_ai_v2_enabled()}")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """应用关闭事件"""
-    logger.info("👋 DeepDive AI Service shutting down...")
 
 
 if __name__ == "__main__":
