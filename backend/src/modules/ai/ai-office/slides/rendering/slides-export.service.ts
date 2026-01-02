@@ -114,18 +114,18 @@ export class SlidesExportService {
    * 导出 PPT 文档为 PPTX
    *
    * 支持两种模式：
-   * 1. 可编辑模式（默认）：使用 pptxgenjs 原生渲染，文本可编辑
-   * 2. 同源模式：使用 HTML 截图，确保与预览 100% 一致但不可编辑
+   * 1. 同源模式（默认）：使用 HTML 截图，确保与预览 100% 一致但不可编辑
+   * 2. 可编辑模式：使用 pptxgenjs 原生渲染，文本可编辑但样式可能有差异
    *
    * @param document PPT 文档
-   * @param options.editable 是否导出可编辑版本（默认 true）
+   * @param options.editable 是否导出可编辑版本（默认 false，同源优先）
    */
   async exportToPPTX(
     document: PPTDocument,
     options?: { editable?: boolean },
   ): Promise<PPTXExportResult> {
-    // v3.7: 默认改为可编辑模式，让用户可以编辑文字内容
-    const editable = options?.editable ?? true;
+    // v4.0: 默认改为同源模式，确保导出和预览 100% 一致
+    const editable = options?.editable ?? false;
 
     this.logger.log(
       `[exportToPPTX] Starting export for: ${document.title}, ${document.slides.length} slides, editable=${editable}`,
@@ -137,8 +137,15 @@ export class SlidesExportService {
     // 1. 设置文档属性
     this.setDocumentProperties(pptx, document);
 
-    // 检查是否有 HTML（同源导出的前提）
-    const hasHtml = document.slides.some((slide) => slide.html);
+    // 检查是否有 HTML（同源导出的前提）- 必须是非空字符串
+    const slidesWithHtml = document.slides.filter(
+      (slide) => slide.html && slide.html.trim().length > 0,
+    );
+    const hasHtml = slidesWithHtml.length > 0;
+
+    this.logger.log(
+      `[exportToPPTX] HTML check: ${slidesWithHtml.length}/${document.slides.length} slides have HTML, editable=${editable}`,
+    );
 
     if (!editable && hasHtml) {
       // 同源导出：使用 HTML 截图作为每页背景，确保与预览 100% 一致
@@ -147,7 +154,12 @@ export class SlidesExportService {
       );
       await this.renderSlidesFromHtml(pptx, document);
     } else {
-      // 可编辑导出：使用 pptxgenjs 原生渲染
+      // 可编辑导出或无 HTML：使用 pptxgenjs 原生渲染
+      if (!hasHtml) {
+        this.logger.warn(
+          `[exportToPPTX] No HTML found in slides, falling back to native rendering`,
+        );
+      }
       this.logger.log(
         `[exportToPPTX] Using native pptxgenjs rendering for editable text`,
       );
