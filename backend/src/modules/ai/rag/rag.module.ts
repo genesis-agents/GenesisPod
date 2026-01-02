@@ -22,13 +22,6 @@ import { UrlFetchService } from "./services/url-fetch.service";
 import { PlatformImportService } from "./services/platform-import.service";
 import { WechatImportService } from "./services/wechat-import.service";
 
-// Re-export from AI Engine (向后兼容)
-import {
-  EmbeddingService,
-  VectorService,
-  DocumentChunker,
-} from "../ai-engine/rag";
-
 // Controller
 import { RAGController } from "./rag.controller";
 
@@ -52,10 +45,8 @@ import { RAGController } from "./rag.controller";
     WechatImportService,
   ],
   exports: [
-    // 从 AI Engine 重新导出核心能力 (向后兼容)
-    EmbeddingService,
-    VectorService,
-    DocumentChunker,
+    // 重新导出 AiEngineModule (向后兼容，使导入 RAGModule 的模块可以访问 AI Engine 服务)
+    AiEngineModule,
     // 业务服务
     DocumentProcessorService,
     EmbeddingProcessorService,
