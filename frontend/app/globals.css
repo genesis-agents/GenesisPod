@@ -417,30 +417,36 @@ body {
   margin-bottom: 0.375em;
 }
 
-/* Code blocks - Enhanced styling */
+/* Code blocks - Professional styling */
 .prose code {
-  background-color: #f3f4f6;
-  padding: 0.125em 0.375em;
-  border-radius: 0.25em;
+  background-color: #f1f5f9;
+  padding: 0.2em 0.4em;
+  border-radius: 0.375em;
   font-size: 0.875em;
-  color: #be185d; /* pink-700 */
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  color: #0f172a;
   font-weight: 500;
+  border: 1px solid #e2e8f0;
 }
 
 .prose pre {
-  background-color: #f8fafc;
-  border-radius: 0.5em;
-  padding: 1em;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 0.75em;
+  padding: 1em 1.25em;
   overflow-x: auto;
   margin: 1em 0;
   border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .prose pre code {
   background: transparent;
   padding: 0;
-  color: #334155;
+  color: #1e293b;
   font-weight: 400;
+  font-size: 0.9em;
+  line-height: 1.6;
+  border: none;
 }
 
 /* Blockquotes - More prominent */
@@ -522,8 +528,18 @@ body {
 }
 
 .prose-invert code {
-  background-color: rgba(139, 92, 246, 0.2);
-  color: #f0abfc;
+  background-color: rgba(30, 41, 59, 0.8);
+  color: #e2e8f0;
+  border-color: rgba(71, 85, 105, 0.5);
+}
+
+.prose-invert pre {
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  border-color: rgba(71, 85, 105, 0.5);
+}
+
+.prose-invert pre code {
+  color: #e2e8f0;
 }
 
 .prose-invert blockquote {
@@ -644,13 +660,15 @@ body {
 .prose pre[data-filename]::before {
   content: attr(data-filename);
   display: block;
-  background-color: #f1f5f9;
-  padding: 0.375em 1em;
-  margin: -1em -1em 0.75em -1em;
-  border-radius: 0.5em 0.5em 0 0;
+  background-color: #e2e8f0;
+  padding: 0.5em 1.25em;
+  margin: -1em -1.25em 0.75em -1.25em;
+  border-radius: 0.75em 0.75em 0 0;
   font-size: 0.75em;
-  color: #64748b;
-  border-bottom: 1px solid #e2e8f0;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  color: #475569;
+  border-bottom: 1px solid #cbd5e1;
+  font-weight: 500;
 }
 
 /* Keyboard shortcuts style */
