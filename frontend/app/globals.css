@@ -428,18 +428,18 @@ body {
 }
 
 .prose pre {
-  background-color: #1f2937;
+  background-color: #f8fafc;
   border-radius: 0.5em;
   padding: 1em;
   overflow-x: auto;
   margin: 1em 0;
-  border: 1px solid #374151;
+  border: 1px solid #e2e8f0;
 }
 
 .prose pre code {
   background: transparent;
   padding: 0;
-  color: #e5e7eb;
+  color: #334155;
   font-weight: 400;
 }
 
@@ -644,13 +644,13 @@ body {
 .prose pre[data-filename]::before {
   content: attr(data-filename);
   display: block;
-  background-color: #374151;
+  background-color: #f1f5f9;
   padding: 0.375em 1em;
   margin: -1em -1em 0.75em -1em;
   border-radius: 0.5em 0.5em 0 0;
   font-size: 0.75em;
-  color: #9ca3af;
-  border-bottom: 1px solid #4b5563;
+  color: #64748b;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 /* Keyboard shortcuts style */
