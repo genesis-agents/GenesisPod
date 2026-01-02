@@ -71,6 +71,11 @@ import {
 // MCP
 import { MCPManager } from "./mcp/manager/mcp-manager";
 
+// RAG
+import { EmbeddingService } from "./rag/embedding";
+import { VectorService } from "./rag/vector";
+import { DocumentChunker } from "./rag/chunking";
+
 /**
  * 工具管道工厂
  */
@@ -255,6 +260,11 @@ const conversationMemoryFactory = {
 
     // === MCP ===
     MCPManager,
+
+    // === RAG ===
+    EmbeddingService,
+    VectorService,
+    DocumentChunker,
   ],
   exports: [
     // === Registries ===
@@ -297,6 +307,11 @@ const conversationMemoryFactory = {
 
     // === MCP ===
     MCPManager,
+
+    // === RAG ===
+    EmbeddingService,
+    VectorService,
+    DocumentChunker,
   ],
 })
 export class AiEngineModule implements OnModuleInit {
