@@ -69,16 +69,27 @@ export {
   ToolErrorCode,
   SkillErrorCode,
   AgentErrorCode,
-} from './core';
+} from "./core";
 
 // 子模块命名空间导出
-export * as Core from './core';
-export * as Tools from './tools';
-export * as Skills from './skills';
-export * as Agents from './agents';
-export * as Orchestration from './orchestration';
-export * as Collaboration from './collaboration';
-export * as Constraint from './constraint';
-export * as LLM from './llm';
-export * as Memory from './memory';
-export * as MCP from './mcp';
+export * as Core from "./core";
+export * as Tools from "./tools";
+export * as Skills from "./skills";
+export * as Agents from "./agents";
+export * as Orchestration from "./orchestration";
+export * as Collaboration from "./collaboration";
+export * as Constraint from "./constraint";
+export * as LLM from "./llm";
+export * as Memory from "./memory";
+export * as MCP from "./mcp";
+
+// NestJS 模块导出
+export {
+  AiEngineModule,
+  AiEngineToolsModule,
+  AiEngineSkillsModule,
+  AiEngineAgentsModule,
+  AiEngineOrchestrationModule,
+  AiEngineCollaborationModule,
+  AiEngineConstraintModule,
+} from "./ai-engine.module";

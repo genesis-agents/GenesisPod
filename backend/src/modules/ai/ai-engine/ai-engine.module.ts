@@ -1,0 +1,294 @@
+/**
+ * AI Engine Module
+ * AI 引擎 NestJS 模块
+ *
+ * 提供统一的 AI 引擎能力：
+ * - 工具系统 (Tools)
+ * - 技能系统 (Skills)
+ * - Agent 框架 (Agents)
+ * - 编排引擎 (Orchestration)
+ * - 协作框架 (Collaboration)
+ * - 约束引擎 (Constraint)
+ * - LLM 适配层 (LLM)
+ * - 记忆系统 (Memory)
+ * - MCP 协议 (MCP)
+ */
+
+import { Module, Global, OnModuleInit, Logger } from "@nestjs/common";
+
+// Registries
+import { ToolRegistry } from "./tools/registry/tool-registry";
+import { SkillRegistry } from "./skills/registry/skill-registry";
+import { AgentRegistry } from "./agents/registry/agent-registry";
+
+// Orchestration
+import { SequentialExecutor } from "./orchestration/executors/sequential-executor";
+import { DAGExecutor } from "./orchestration/executors/dag-executor";
+import { ParallelExecutor } from "./orchestration/executors/parallel-executor";
+import { CheckpointManager } from "./orchestration/checkpoints/checkpoint-manager";
+
+// Tool Middleware
+import { ToolPipeline, ToolExecutor } from "./tools/middleware/tool-pipeline";
+import { ValidationMiddleware } from "./tools/middleware/validation.middleware";
+import { TimeoutMiddleware } from "./tools/middleware/timeout.middleware";
+
+// Collaboration
+import { VotingManager } from "./collaboration/patterns/voting-pattern";
+import { HandoffCoordinator } from "./collaboration/patterns/handoff-pattern";
+
+// Constraint
+import { SchemaValidator } from "./constraint/validators/schema-validator";
+import { ContentFilter } from "./constraint/guardrails/content-filter";
+import { CostController } from "./constraint/guardrails/cost-controller";
+import { RateLimiter } from "./constraint/guardrails/rate-limiter";
+
+// LLM
+import { LLMFactory } from "./llm/factory/llm-factory";
+
+// Memory
+import {
+  InMemoryStore,
+  ConversationMemory,
+} from "./memory/stores/in-memory-store";
+
+// MCP
+import { MCPManager } from "./mcp/manager/mcp-manager";
+
+/**
+ * 工具管道工厂
+ */
+const toolPipelineFactory = {
+  provide: ToolPipeline,
+  useFactory: () => {
+    const pipeline = new ToolPipeline();
+    // 添加默认中间件
+    pipeline.use(new ValidationMiddleware());
+    pipeline.use(new TimeoutMiddleware());
+    return pipeline;
+  },
+};
+
+/**
+ * 工具执行器工厂
+ */
+const toolExecutorFactory = {
+  provide: ToolExecutor,
+  useFactory: (pipeline: ToolPipeline) => {
+    return new ToolExecutor(pipeline);
+  },
+  inject: [ToolPipeline],
+};
+
+/**
+ * 顺序执行器工厂
+ */
+const sequentialExecutorFactory = {
+  provide: SequentialExecutor,
+  useFactory: (
+    toolRegistry: ToolRegistry,
+    skillRegistry: SkillRegistry,
+    agentRegistry: AgentRegistry,
+  ) => {
+    const executor = new SequentialExecutor();
+    executor.setRegistries(toolRegistry, skillRegistry, agentRegistry);
+    return executor;
+  },
+  inject: [ToolRegistry, SkillRegistry, AgentRegistry],
+};
+
+/**
+ * DAG 执行器工厂
+ */
+const dagExecutorFactory = {
+  provide: DAGExecutor,
+  useFactory: (
+    toolRegistry: ToolRegistry,
+    skillRegistry: SkillRegistry,
+    agentRegistry: AgentRegistry,
+  ) => {
+    const executor = new DAGExecutor();
+    executor.setRegistries(toolRegistry, skillRegistry, agentRegistry);
+    return executor;
+  },
+  inject: [ToolRegistry, SkillRegistry, AgentRegistry],
+};
+
+/**
+ * 并行执行器工厂
+ */
+const parallelExecutorFactory = {
+  provide: ParallelExecutor,
+  useFactory: (
+    toolRegistry: ToolRegistry,
+    skillRegistry: SkillRegistry,
+    agentRegistry: AgentRegistry,
+  ) => {
+    const executor = new ParallelExecutor();
+    executor.setRegistries(toolRegistry, skillRegistry, agentRegistry);
+    return executor;
+  },
+  inject: [ToolRegistry, SkillRegistry, AgentRegistry],
+};
+
+/**
+ * AI Engine 核心模块
+ */
+@Global()
+@Module({
+  providers: [
+    // === Registries ===
+    ToolRegistry,
+    SkillRegistry,
+    AgentRegistry,
+
+    // === Tool System ===
+    toolPipelineFactory,
+    toolExecutorFactory,
+
+    // === Orchestration ===
+    sequentialExecutorFactory,
+    dagExecutorFactory,
+    parallelExecutorFactory,
+    CheckpointManager,
+
+    // === Collaboration ===
+    VotingManager,
+    HandoffCoordinator,
+
+    // === Constraint ===
+    SchemaValidator,
+    ContentFilter,
+    CostController,
+    RateLimiter,
+
+    // === LLM ===
+    LLMFactory,
+
+    // === Memory ===
+    InMemoryStore,
+    ConversationMemory,
+
+    // === MCP ===
+    MCPManager,
+  ],
+  exports: [
+    // === Registries ===
+    ToolRegistry,
+    SkillRegistry,
+    AgentRegistry,
+
+    // === Tool System ===
+    ToolPipeline,
+    ToolExecutor,
+
+    // === Orchestration ===
+    SequentialExecutor,
+    DAGExecutor,
+    ParallelExecutor,
+    CheckpointManager,
+
+    // === Collaboration ===
+    VotingManager,
+    HandoffCoordinator,
+
+    // === Constraint ===
+    SchemaValidator,
+    ContentFilter,
+    CostController,
+    RateLimiter,
+
+    // === LLM ===
+    LLMFactory,
+
+    // === Memory ===
+    InMemoryStore,
+    ConversationMemory,
+
+    // === MCP ===
+    MCPManager,
+  ],
+})
+export class AiEngineModule implements OnModuleInit {
+  private readonly logger = new Logger(AiEngineModule.name);
+
+  constructor(
+    private readonly toolRegistry: ToolRegistry,
+    private readonly skillRegistry: SkillRegistry,
+    private readonly agentRegistry: AgentRegistry,
+  ) {}
+
+  onModuleInit() {
+    this.logger.log("AI Engine Module initialized");
+    this.logger.log(`  Tools: ${this.toolRegistry.size()}`);
+    this.logger.log(`  Skills: ${this.skillRegistry.size()}`);
+    this.logger.log(`  Agents: ${this.agentRegistry.size()}`);
+  }
+}
+
+/**
+ * AI Engine 工具子模块
+ * 仅导出工具相关服务
+ */
+@Module({
+  providers: [ToolRegistry, toolPipelineFactory, toolExecutorFactory],
+  exports: [ToolRegistry, ToolPipeline, ToolExecutor],
+})
+export class AiEngineToolsModule {}
+
+/**
+ * AI Engine 技能子模块
+ * 仅导出技能相关服务
+ */
+@Module({
+  providers: [SkillRegistry],
+  exports: [SkillRegistry],
+})
+export class AiEngineSkillsModule {}
+
+/**
+ * AI Engine Agent 子模块
+ * 仅导出 Agent 相关服务
+ */
+@Module({
+  providers: [AgentRegistry],
+  exports: [AgentRegistry],
+})
+export class AiEngineAgentsModule {}
+
+/**
+ * AI Engine 编排子模块
+ */
+@Module({
+  imports: [AiEngineToolsModule, AiEngineSkillsModule, AiEngineAgentsModule],
+  providers: [
+    sequentialExecutorFactory,
+    dagExecutorFactory,
+    parallelExecutorFactory,
+    CheckpointManager,
+  ],
+  exports: [
+    SequentialExecutor,
+    DAGExecutor,
+    ParallelExecutor,
+    CheckpointManager,
+  ],
+})
+export class AiEngineOrchestrationModule {}
+
+/**
+ * AI Engine 协作子模块
+ */
+@Module({
+  providers: [VotingManager, HandoffCoordinator],
+  exports: [VotingManager, HandoffCoordinator],
+})
+export class AiEngineCollaborationModule {}
+
+/**
+ * AI Engine 约束子模块
+ */
+@Module({
+  providers: [SchemaValidator, ContentFilter, CostController, RateLimiter],
+  exports: [SchemaValidator, ContentFilter, CostController, RateLimiter],
+})
+export class AiEngineConstraintModule {}

@@ -3,6 +3,7 @@ import { HttpModule } from "@nestjs/axios";
 import { ConfigModule } from "@nestjs/config";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiCoreModule } from "../ai-core/ai-core.module";
+import { AiEngineModule } from "../ai-engine";
 import { AiImageModule } from "../ai-image/ai-image.module";
 import { StorageModule } from "../../core/storage/storage.module";
 import { CreditsModule } from "../../credits/credits.module";
@@ -84,6 +85,7 @@ import { AIOfficeCommonModule } from "./common";
     ConfigModule,
     PrismaModule,
     AiCoreModule,
+    AiEngineModule,
     AiImageModule,
     StorageModule,
     CreditsModule,
