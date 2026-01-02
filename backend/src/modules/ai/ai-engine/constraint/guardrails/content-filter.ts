@@ -3,8 +3,6 @@
  * 内容过滤器实现
  */
 
-import { Injectable } from "@nestjs/common";
-
 /**
  * 过滤结果
  */
@@ -131,8 +129,8 @@ export interface FilterRule {
 
 /**
  * 内容过滤器
+ * 注意：使用工厂模式注册，不需要 @Injectable() 装饰器
  */
-@Injectable()
 export class ContentFilter {
   private config: Required<FilterConfig>;
   private rules: FilterRule[] = [];

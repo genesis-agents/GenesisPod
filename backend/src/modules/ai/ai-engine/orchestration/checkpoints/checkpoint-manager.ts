@@ -4,7 +4,7 @@
  */
 
 import { v4 as uuid } from "uuid";
-import { Injectable, Logger } from "@nestjs/common";
+import { Logger } from "@nestjs/common";
 import {
   Checkpoint,
   ExecutionContext,
@@ -90,8 +90,8 @@ export interface CheckpointManagerConfig {
 
 /**
  * 检查点管理器
+ * 注意：使用工厂模式注册，不需要 @Injectable() 装饰器
  */
-@Injectable()
 export class CheckpointManager {
   private readonly logger = new Logger(CheckpointManager.name);
   private readonly config: Required<CheckpointManagerConfig>;

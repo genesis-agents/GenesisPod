@@ -3,8 +3,7 @@
  * 内存记忆存储实现
  */
 
-import { v4 as uuid } from 'uuid';
-import { Injectable } from '@nestjs/common';
+import { v4 as uuid } from "uuid";
 import {
   IMemoryStore,
   IConversationMemory,
@@ -14,12 +13,12 @@ import {
   MemorySearchOptions,
   MemorySearchResult,
   ConversationMessage,
-} from '../abstractions/memory.interface';
+} from "../abstractions/memory.interface";
 
 /**
  * 内存记忆存储
+ * 注意：使用工厂模式注册，不需要 @Injectable() 装饰器
  */
-@Injectable()
 export class InMemoryStore implements IMemoryStore {
   readonly id: string;
   private readonly entries = new Map<string, MemoryEntry>();
@@ -28,7 +27,9 @@ export class InMemoryStore implements IMemoryStore {
     this.id = id || uuid();
   }
 
-  async add(entry: Omit<MemoryEntry, 'id' | 'timestamp'>): Promise<MemoryEntry> {
+  async add(
+    entry: Omit<MemoryEntry, "id" | "timestamp">,
+  ): Promise<MemoryEntry> {
     const newEntry: MemoryEntry = {
       ...entry,
       id: uuid(),
@@ -39,7 +40,7 @@ export class InMemoryStore implements IMemoryStore {
   }
 
   async addBatch(
-    entries: Omit<MemoryEntry, 'id' | 'timestamp'>[],
+    entries: Omit<MemoryEntry, "id" | "timestamp">[],
   ): Promise<MemoryEntry[]> {
     return Promise.all(entries.map((entry) => this.add(entry)));
   }
@@ -75,7 +76,9 @@ export class InMemoryStore implements IMemoryStore {
     // 时间范围过滤
     if (options.timeRange) {
       if (options.timeRange.start) {
-        results = results.filter((e) => e.timestamp >= options.timeRange!.start!);
+        results = results.filter(
+          (e) => e.timestamp >= options.timeRange!.start!,
+        );
       }
       if (options.timeRange.end) {
         results = results.filter((e) => e.timestamp <= options.timeRange!.end!);
@@ -85,9 +88,7 @@ export class InMemoryStore implements IMemoryStore {
     // 关键词搜索
     if (options.query) {
       const query = options.query.toLowerCase();
-      results = results.filter((e) =>
-        e.content.toLowerCase().includes(query),
-      );
+      results = results.filter((e) => e.content.toLowerCase().includes(query));
     }
 
     // 向量搜索（简单余弦相似度）
@@ -183,8 +184,8 @@ export class InMemoryStore implements IMemoryStore {
 
 /**
  * 会话记忆实现
+ * 注意：使用工厂模式注册，不需要 @Injectable() 装饰器
  */
-@Injectable()
 export class ConversationMemory implements IConversationMemory {
   readonly sessionId: string;
   private messages: ConversationMessage[] = [];
@@ -231,8 +232,10 @@ export class ConversationMemory implements IConversationMemory {
   async summarize(): Promise<string> {
     // 简单实现：返回消息数量摘要
     // 实际应用中应该调用 LLM 生成摘要
-    const userMessages = this.messages.filter((m) => m.role === 'user').length;
-    const assistantMessages = this.messages.filter((m) => m.role === 'assistant').length;
+    const userMessages = this.messages.filter((m) => m.role === "user").length;
+    const assistantMessages = this.messages.filter(
+      (m) => m.role === "assistant",
+    ).length;
     return `Conversation with ${userMessages} user messages and ${assistantMessages} assistant responses.`;
   }
 
