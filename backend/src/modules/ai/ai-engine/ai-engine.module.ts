@@ -150,6 +150,36 @@ const checkpointManagerFactory = {
 };
 
 /**
+ * 内容过滤器工厂
+ */
+const contentFilterFactory = {
+  provide: ContentFilter,
+  useFactory: () => {
+    return new ContentFilter();
+  },
+};
+
+/**
+ * 投票管理器工厂
+ */
+const votingManagerFactory = {
+  provide: VotingManager,
+  useFactory: () => {
+    return new VotingManager();
+  },
+};
+
+/**
+ * 交接协调器工厂
+ */
+const handoffCoordinatorFactory = {
+  provide: HandoffCoordinator,
+  useFactory: () => {
+    return new HandoffCoordinator();
+  },
+};
+
+/**
  * AI Engine 核心模块
  */
 @Global()
@@ -176,12 +206,12 @@ const checkpointManagerFactory = {
     FunctionCallingExecutor,
 
     // === Collaboration ===
-    VotingManager,
-    HandoffCoordinator,
+    votingManagerFactory,
+    handoffCoordinatorFactory,
 
     // === Constraint ===
     SchemaValidator,
-    ContentFilter,
+    contentFilterFactory,
     CostController,
     RateLimiter,
 
@@ -310,7 +340,7 @@ export class AiEngineOrchestrationModule {}
  * AI Engine 协作子模块
  */
 @Module({
-  providers: [VotingManager, HandoffCoordinator],
+  providers: [votingManagerFactory, handoffCoordinatorFactory],
   exports: [VotingManager, HandoffCoordinator],
 })
 export class AiEngineCollaborationModule {}
@@ -319,7 +349,12 @@ export class AiEngineCollaborationModule {}
  * AI Engine 约束子模块
  */
 @Module({
-  providers: [SchemaValidator, ContentFilter, CostController, RateLimiter],
+  providers: [
+    SchemaValidator,
+    contentFilterFactory,
+    CostController,
+    RateLimiter,
+  ],
   exports: [SchemaValidator, ContentFilter, CostController, RateLimiter],
 })
 export class AiEngineConstraintModule {}
