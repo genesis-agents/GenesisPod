@@ -1271,6 +1271,9 @@ function ProfileContent() {
                 {/* Google Drive Integration */}
                 <GoogleDriveConnectionCard />
 
+                {/* WeChat Work Integration */}
+                <WechatWorkBindingCard />
+
                 {/* Other Integrations - Coming Soon */}
                 <div className="rounded-lg border border-gray-200 bg-white p-6">
                   <h2 className="mb-4 text-lg font-semibold text-gray-900">
